@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- MSAL para autenticación Microsoft -->
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<title>Contadoor — Sistema Tributario</title>
+<style>:root{--p:#904891;--pd:#6D2E6E;--pm:#B06EB1;--pp:#F5EAF5;--deep:#1A0A1B;--bg:#F4F1F4;--sur:#fff;--sur2:#FAF7FA;--bdr:#E8DDE8;--t1:#1A0A1B;--t2:#5C4A5D;--tm:#9A849B;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--mono:"SF Mono","Consolas",monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:250px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;}
+.main{margin-left:250px;flex:1;}
+.sb-logo{padding:20px 18px 14px;border-bottom:1px solid rgba(144,72,145,.3);}
+.sb-logo img{width:160px;display:block;}
+.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:6px;}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;}
+.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
+.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
+.sb-item svg{width:15px;height:15px;flex-shrink:0;}
+.badge{background:var(--p);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;}
+.sb-foot{padding:12px 16px;border-top:1px solid rgba(144,72,145,.25);font-size:9.5px;color:rgba(255,255,255,.3);}
+.topbar{background:var(--deep);padding:10px 24px;display:flex;align-items:center;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
+.tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
+.content{padding:20px 24px;max-width:1160px;}
+.view{display:none;}.view.on{display:block;}
+.tabs{display:flex;gap:3px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:3px;margin-bottom:18px;width:fit-content;}
+.tab{padding:6px 16px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;color:var(--t2);transition:.15s;display:flex;align-items:center;gap:5px;}
+.tab:hover{color:var(--p);}.tab.on{background:var(--p);color:#fff;font-weight:600;}
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;margin-bottom:14px;}
+.card-hd{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:13px;display:flex;align-items:center;gap:7px;}
+.card-hd svg{width:14px;height:14px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.fg4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;}
+.fgroup input,.fgroup select{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;transition:.15s;width:100%;}
+.fgroup input:focus,.fgroup select:focus{border-color:var(--p);}
+.fgroup .hint{font-size:10px;color:var(--tm);}
+.btn-p{background:var(--p);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
+.btn-p:hover{background:var(--pd);}.btn-p:disabled{opacity:.4;cursor:not-allowed;}
+.btn-s{background:transparent;color:var(--t1);border:1px solid var(--bdr);border-radius:8px;padding:8px 15px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
+.btn-s:hover{border-color:var(--p);color:var(--p);}
+.btn-danger{background:#FEE2E2;color:#B91C1C;border:1px solid #FECACA;border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;}
+.btn-danger:hover{background:#FCA5A5;}
+.row-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.upload-zone{border:2px dashed var(--bdr);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:var(--sur);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--p);background:var(--pp);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-zone svg{width:28px;height:28px;color:var(--p);margin:0 auto 8px;display:block;}
+.upload-zone h3{font-size:13.5px;font-weight:600;margin-bottom:3px;}
+.upload-zone p{font-size:12px;color:var(--t2);}
+.file-ok{display:none;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;margin-top:12px;}
+.file-ok.show{display:flex;}
+.file-ok svg{color:var(--green);width:18px;height:18px;flex-shrink:0;}
+.socios-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.socios-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--p);padding:7px 10px;background:var(--sur2);border-bottom:1px solid var(--bdr);text-align:left;}
+.socios-table td{padding:5px 8px;border-bottom:1px solid var(--bdr);}
+.socios-table input{border:1px solid var(--bdr);border-radius:5px;padding:5px 8px;font-size:12.5px;font-family:var(--sans);background:var(--sur2);outline:none;width:100%;}
+.socios-table input:focus{border-color:var(--p);}
+.pct-total{font-size:11px;font-weight:700;padding:6px 10px;}
+.pct-total.ok{color:var(--green);}.pct-total.err{color:var(--red);}
+.info-box{background:#EFF6FF;border:1px solid #BFDBFE;border-left:3px solid var(--blue);border-radius:8px;padding:10px 13px;font-size:12px;color:#1E40AF;line-height:1.5;}
+.warn-box{background:#FEF3C7;border:1px solid #FDE68A;border-left:3px solid var(--amber);border-radius:8px;padding:10px 13px;font-size:12px;color:#78350F;line-height:1.5;}
+.success-box{background:#ECFDF5;border:1px solid #A7F3D0;border-left:3px solid var(--green);border-radius:8px;padding:10px 13px;font-size:12px;color:#064E3B;line-height:1.5;}
+.loading{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:40px;text-align:center;display:none;}
+.loading.on{display:block;}
+.spinner{width:38px;height:38px;border:3px solid var(--bdr);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.report-wrap{display:none;}.report-wrap.on{display:block;}
+.rpt-hdr{background:linear-gradient(135deg,#904891 0%,#6D2E6E 100%);border-radius:12px;padding:28px 36px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 24px rgba(144,72,145,.22);}
+.rpt-hdr img{width:180px;display:block;}
+.client-box{background:var(--sur);border:1px solid var(--bdr);border-left:4px solid var(--p);border-radius:10px;padding:13px 17px;margin-bottom:14px;}
+.client-row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;}
+.cf .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--tm);margin-bottom:2px;}
+.cf .val{font-size:13px;font-weight:700;color:var(--t1);}
+.regime-tag{display:inline-flex;align-items:center;border-radius:5px;padding:3px 9px;font-size:10.5px;font-weight:700;}
+.regime-tag.pyme{background:#ECFDF5;color:#064E3B;border:1px solid #A7F3D0;}
+.regime-tag.transp{background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;}
+.regime-tag.presunta{background:#FEF3C7;color:#78350F;border:1px solid #FDE68A;}
+.level-tag{display:inline-flex;align-items:center;border-radius:5px;padding:3px 9px;font-size:10.5px;font-weight:700;}
+.level-tag.pro{background:var(--pp);color:var(--pd);border:1px solid rgba(144,72,145,.3);}
+.level-tag.medium{background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;}
+.level-tag.micro{background:var(--sur2);color:var(--t2);border:1px solid var(--bdr);}
+.kpi-grid{display:grid;gap:12px;margin-bottom:14px;}
+.kpi-grid.k4{grid-template-columns:repeat(4,1fr);}
+.kpi{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
+.kpi::after{content:"";position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 10px 10px;}
+.kpi.cp::after{background:var(--p);}.kpi.ca::after{background:var(--amber);}.kpi.cr::after{background:var(--red);}.kpi.cg::after{background:var(--green);}.kpi.cb::after{background:var(--blue);}
+.kpi-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--tm);margin-bottom:7px;}
+.kpi-val{font-family:var(--mono);font-size:19px;font-weight:500;line-height:1;color:var(--t1);margin-bottom:3px;}
+.kpi-sub{font-size:10.5px;color:var(--t2);}
+.gauge-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:18px 20px;margin-bottom:14px;display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;}
+.g-lbl{font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:1px;margin-top:5px;text-align:center;}
+.g-info h3{font-size:14px;font-weight:700;margin-bottom:7px;}
+.g-info p{font-size:12.5px;color:var(--t2);line-height:1.6;margin-bottom:9px;}
+.tasa-pill{display:inline-flex;align-items:center;gap:6px;background:var(--pp);border:1px solid rgba(144,72,145,.25);color:var(--pd);border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;}
+.sdiv{display:flex;align-items:center;gap:7px;margin:14px 0 10px;color:var(--tm);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.sdiv::before,.sdiv::after{content:"";flex:1;height:1px;background:var(--bdr);}
+.three-eq{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+.panel-full{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.ph{padding:11px 15px;border-bottom:1px solid var(--bdr);background:var(--sur2);display:flex;align-items:center;justify-content:space-between;}
+.ph h3{font-size:12.5px;font-weight:700;}
+.ph .cnt{background:var(--p);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;}
+.dtable{width:100%;border-collapse:collapse;}
+.dtable th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--p);padding:8px 14px;text-align:left;border-bottom:1px solid var(--bdr);background:var(--sur2);}
+.dtable td{padding:9px 14px;font-size:12px;border-bottom:1px solid var(--bdr);}
+.dtable tr:last-child td{border-bottom:none;}
+.dtable .num{font-family:var(--mono);text-align:right;font-size:11.5px;}
+.dtable .tr td{font-weight:700;background:var(--pp);color:var(--pd);font-size:12.5px;}
+.dtable .sub td{font-weight:600;background:var(--sur2);color:var(--t2);font-size:11px;}
+.dtable .grp td{font-weight:700;color:var(--p);background:#FBF5FB;font-size:11px;text-transform:uppercase;}
+.dtable .art td:first-child{padding-left:22px;color:var(--t2);}
+.dtable .cero td{font-weight:700;background:#ECFDF5;color:#064E3B;}
+.dtable .pay td{font-weight:700;background:#FEF2F2;color:#991B1B;}
+.rec{display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bdr);}
+.rec:last-child{border-bottom:none;}
+.rec-ico{width:27px;height:27px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;}
+.rec-ico.alta{background:#FDECEA;}.rec-ico.media{background:#FEF6E4;}.rec-ico.baja{background:#E8F5EE;}
+.rec h4{font-size:12px;font-weight:600;margin-bottom:2px;}
+.rec p{font-size:11px;color:var(--t2);line-height:1.5;}
+.pbadge{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;text-transform:uppercase;display:inline-block;margin-top:3px;}
+.pbadge.alta{background:#FDECEA;color:#B71C1C;}.pbadge.media{background:#FEF6E4;color:#7C4A00;}.pbadge.baja{background:#E8F5EE;color:#1B5E36;}
+.narr{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:17px 19px;margin-bottom:14px;}
+.narr h3{font-size:12.5px;font-weight:700;margin-bottom:10px;}
+.narr .txt{font-size:12.5px;line-height:1.75;color:var(--t2);white-space:pre-wrap;}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.chart-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:16px;}
+.chart-card h3{font-size:12px;font-weight:700;margin-bottom:10px;}
+.prow{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.prow-title{font-size:17px;font-weight:700;flex:1;}
+.repo-item{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;transition:.15s;}
+.repo-item:hover{border-color:var(--p);}
+.repo-icon{width:38px;height:38px;background:var(--pp);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.repo-icon svg{width:18px;height:18px;color:var(--p);}
+.repo-info{flex:1;}
+.repo-name{font-size:13.5px;font-weight:700;}
+.repo-meta{font-size:11.5px;color:var(--tm);margin-top:2px;}
+.repo-badges{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center;}
+.empty-state{text-align:center;padding:48px 24px;color:var(--tm);}
+.empty-state h3{font-size:14px;font-weight:600;margin-bottom:5px;}
+.search-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;}
+.search-input{flex:1;font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;outline:none;background:var(--sur);}
+.search-input:focus{border-color:var(--p);}
+.filter-sel{font-family:var(--sans);font-size:12.5px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;outline:none;background:var(--sur);color:var(--t1);}
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.client-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;transition:.15s;}
+.client-card:hover{border-color:var(--p);}
+.client-card .cn{font-size:13.5px;font-weight:700;margin-bottom:2px;}
+.client-card .cr{font-size:11.5px;color:var(--tm);margin-bottom:8px;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.stat-box{background:var(--sur);border:1px solid var(--bdr);border-radius:9px;padding:12px 14px;text-align:center;}
+.stat-box .sv{font-size:22px;font-weight:700;color:var(--p);font-family:var(--mono);}
+.stat-box .sl{font-size:10.5px;color:var(--tm);margin-top:2px;text-transform:uppercase;letter-spacing:.6px;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--sur);border-radius:14px;padding:24px;max-width:460px;width:90%;max-height:80vh;overflow-y:auto;}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;}
+/* IGC CARDS */
+.igc-card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;margin-bottom:16px;overflow:hidden;}
+.igc-card-hdr{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.igc-card-hdr:hover{background:rgba(144,72,145,.03);}
+.igc-resultado{text-align:right;}
+.igc-resultado .etiqueta{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--tm);}
+.igc-resultado .monto{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1.1;}
+.igc-resultado .monto.pago{color:var(--red);}
+.igc-resultado .monto.devol{color:var(--green);}
+.igc-badge-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.igc-badge{padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;}
+.igc-badge.tramo{background:var(--pp);color:var(--pd);border:1px solid rgba(144,72,145,.2);}
+.igc-badge.tef{background:var(--sur2);color:var(--t2);border:1px solid var(--bdr);}
+.igc-badge.pago{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;}
+.igc-badge.devol{background:#ECFDF5;color:#064E3B;border:1px solid #A7F3D0;}
+.igc-msg{padding:12px 20px;font-size:12.5px;line-height:1.65;}
+.igc-msg.pago{background:#FEF2F2;color:#991B1B;border-top:1px solid #FECACA;}
+.igc-msg.devol{background:#ECFDF5;color:#064E3B;border-top:1px solid #A7F3D0;}
+.igc-detalle{border-top:1px solid var(--bdr);overflow:hidden;max-height:0;transition:max-height .35s ease;}
+.igc-detalle.open{max-height:900px;}
+.igc-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;cursor:pointer;background:var(--sur2);font-size:11.5px;font-weight:600;color:var(--p);user-select:none;border-top:1px solid var(--bdr);}
+.igc-toggle:hover{background:var(--pp);}
+.igc-toggle.open .arrow{display:inline-block;}
+.igc-steps{padding:16px 20px;}
+.igc-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.igc-step:last-child{margin-bottom:0;}
+.igc-step-num{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;}
+.igc-step-num.normal{background:var(--sur2);border:1px solid var(--bdr);color:var(--t2);}
+.igc-step-num.total{background:var(--p);color:#fff;}
+.igc-step-num.plus{background:#FEF3C7;border:1px solid #FDE68A;color:#78350F;}
+.igc-step-num.minus{background:#ECFDF5;border:1px solid #A7F3D0;color:#064E3B;}
+.igc-step-num.result{background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);}
+.igc-step-body{flex:1;}
+.igc-step-label{font-size:12.5px;color:var(--t2);}
+.igc-step-label.bold{font-weight:700;color:var(--t1);}
+.igc-step-hint{font-size:10.5px;color:var(--tm);margin-top:2px;line-height:1.4;}
+.igc-step-val{font-family:var(--mono);font-size:13.5px;font-weight:500;white-space:nowrap;}
+.igc-step-val.bold{font-weight:700;font-size:15px;}
+.igc-step-val.red{color:var(--red);}
+.igc-step-val.green{color:var(--green);}
+.igc-step-val.amber{color:var(--amber);}
+.igc-divider{height:1px;background:var(--bdr);margin:6px 0;}
+.disclaimer{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:11px;color:var(--tm);line-height:1.6;}
+.rpt-foot{background:var(--deep);border-radius:9px;padding:15px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.rpt-foot .lft{font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;}
+@media print{
+  .sidebar,.topbar,.tabs,.view:not(.on),.prow .btn-s,.prow .btn-p{display:none!important;}
+  .main{margin-left:0;}.content{padding:0;}
+  .report-wrap,.view.on{display:block!important;}
+  body{background:#fff;}
+  .rpt-hdr,.rpt-foot{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="sb-logo">
+    <img id="logoSBw" alt="Contadoor"/>
+    <div class="sb-tagline">Sistema Tributario Interno</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Análisis</div>
+    <div class="sb-item on" data-view="nuevo">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Nuevo Análisis
+    </div>
+    <div class="sb-item" data-view="repo">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      Repositorio <span class="badge" id="repoBadge">0</span>
+    </div>
+    <div class="sb-sec">Clientes</div>
+    <div class="sb-item" data-view="clientes">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Base de Clientes
+    </div>
+    <div class="sb-sec">Referencia</div>
+    <div class="sb-item" data-view="tablas">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-5.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0011.586 3H4a2 2 0 00-2 2v13a2 2 0 002 2z"/></svg>
+      Tablas SII
+    </div>
+  </nav>
+  <div class="sb-foot">Contadoor v3.1 — Solo uso interno</div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="tb-title" id="topTitle">Nuevo Análisis</div>
+    <div id="syncStatus" style="display:flex;align-items:center;font-size:11px;font-weight:600;gap:4px;margin-right:12px;color:#C07A1A"><span style="width:8px;height:8px;border-radius:50%;background:#C07A1A;display:inline-block;margin-right:4px"></span>Sin conexión — datos locales</div>
+    <button class="btn-s" style="font-size:11px;padding:5px 12px;color:#fff;border-color:rgba(255,255,255,.3)" id="msLoginBtn" onclick="graphLogin()" title="Iniciar sesión con Microsoft 365">⬖ Conectar OneDrive</button>
+  </div>
+  <div class="content">
+
+    <!-- NUEVO ANÁLISIS -->
+    <div class="view on" id="view-nuevo">
+      <div class="tabs">
+        <div class="tab on" id="tab-0" onclick="showTab('entrada')">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Datos y Archivo
+        </div>
+        <div class="tab" id="tab-1" onclick="showTab('reporte')">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Reporte
+        </div>
+      </div>
+
+      <div id="pane-entrada">
+        <div class="card">
+          <div class="card-hd">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            Datos del Cliente
+            <button class="btn-s" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="abrirModal()">Cargar perfil</button>
+          </div>
+          <div class="fg3" style="margin-bottom:12px">
+            <div class="fgroup" style="grid-column:1/3"><label>Razón Social</label><input type="text" id="c_razon" placeholder="Ej: Transportes del Sur SpA"/></div>
+            <div class="fgroup"><label>RUT</label><input type="text" id="c_rut" placeholder="77.189.242-6" oninput="onRutChange()"/></div>
+          </div>
+          <div class="fg4">
+            <div class="fgroup" style="grid-column:1/3"><label>Giro</label><input type="text" id="c_giro" placeholder="Ej: Transporte de carga terrestre"/></div>
+            <div class="fgroup"><label>Nivel</label>
+              <select id="c_nivel">
+                <option value="PRO">PRO — Completo + gráficos</option>
+                <option value="MEDIUM">MEDIUM — Cálculo + gráficos</option>
+                <option value="MICRO">MICRO — Solo cálculo</option>
+              </select>
+            </div>
+            <div class="fgroup"><label>Analista</label><input type="text" id="c_analista" placeholder="Nombre del analista"/></div>
+            <div class="fgroup"><label>Régimen Tributario</label>
+              <select id="c_reg" onchange="onRegChange()">
+                <option value="14D3">PYME General (Art. 14D N°3)</option>
+                <option value="14D8">Transparente (Art. 14D N°8)</option>
+                <option value="presunta">Renta Presunta (Art. 34)</option>
+              </select>
+            </div>
+            <div class="fgroup"><label>Año Tributario</label>
+              <select id="c_at" onchange="onATChange()">
+                <option value="2025">AT 2025 (año com. 2024)</option>
+                <option value="2026" selected>AT 2026 (año com. 2025)</option>
+                <option value="2027">AT 2027 (año com. 2026)</option>
+                <option value="2028">AT 2028 (año com. 2027)</option>
+              </select>
+            </div>
+            <div class="fgroup" id="tasaGrp"><label>Tasa IDPC (%)</label><input type="number" id="c_tasa" value="12.5" step="0.5" min="0" max="40"/><span class="hint">14D3: 12.5% AT25–27, 15% AT28</span></div>
+            <div class="fgroup"><label>Observaciones</label><input type="text" id="c_obs" placeholder="Pérdidas arrastre, fusión..."/></div>
+          </div>
+          <div id="regBox" style="margin-top:10px"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Socios / Propietarios
+            <button class="btn-s" id="btnAddSocio" style="margin-left:auto;font-size:11px;padding:5px 12px">+ Agregar socio</button>
+          </div>
+          <table class="socios-table">
+            <thead><tr><th width="4%">#</th><th>Nombre</th><th width="13%">% Participación</th><th width="18%">Retiros 14D3 (0=auto desde libro)</th><th width="18%">Otros ingresos anuales (IGC)</th><th width="5%"></th></tr></thead>
+            <tbody id="sociosBody"></tbody>
+          </table>
+          <div class="pct-total err" id="pctTotal">Total: 0%</div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Libro Diario Mascontable (.xls)
+          </div>
+          <div class="fg2">
+            <div>
+              <div class="upload-zone" id="uzDiario">
+                <input type="file" id="fileDiario" accept=".xls,.xlsx,.html,.htm,.csv"/>
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <h3>Arrastra el Libro Diario aquí</h3>
+                <p>LibroLibDiarioVouche_*.xls de Mascontable</p>
+              </div>
+              <div class="file-ok" id="diarioOk">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div><div style="font-size:13px;font-weight:600" id="diarioName"></div><div style="font-size:11px;color:var(--tm)" id="diarioMeta"></div></div>
+              </div>
+              <div style="font-size:11px;color:var(--tm);margin-top:6px" id="retiros_hint"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center">
+              <div class="success-box">
+                <b>Plan de cuentas integrado</b><br>196 cuentas Mascontable embebidas. No es necesario subirlo.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="ajCard" style="display:none">
+          <div class="card-hd">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            Ajustes Tributarios
+          </div>
+          <div class="fg3" style="margin-bottom:10px">
+            <div class="fgroup"><label>(+) Gastos Rechazados Art.33</label><input type="number" id="aj_rec" placeholder="0"/></div>
+            <div class="fgroup"><label>(+/-) Corrección Monetaria</label><input type="number" id="aj_cm" placeholder="0"/></div>
+            <div class="fgroup"><label>(-) Pérdidas de arrastre</label><input type="number" id="aj_per" placeholder="0"/></div>
+          </div>
+          <div class="fg3">
+            <div class="fgroup" id="g14e"><label>Incentivo Ahorro Art.14E</label>
+              <select id="aj_14e"><option value="no">No</option><option value="si">Sí — rebajar 50% RLI (tope 5.000 UF)</option></select>
+              <span class="hint">Solo Art.14D N°3. No aplica a 14D N°8.</span>
+            </div>
+            <div class="fgroup"><label>Valor UF (tope 14E)</label><input type="number" id="aj_uf" value="39700"/></div>
+            <div class="fgroup"><label>Otros créditos (SENCE etc.)</label><input type="number" id="aj_cred" placeholder="0"/></div>
+          </div>
+        </div>
+
+        <div class="row-btns">
+          <button class="btn-p" id="genBtn" disabled onclick="generarReporte()">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Generar Reporte
+          </button>
+          <button class="btn-s" onclick="resetForm()">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <div id="pane-reporte" style="display:none">
+        <div class="loading" id="loadingDiv">
+          <div class="spinner"></div>
+          <strong style="font-size:14px">Calculando proyección...</strong>
+          <p style="color:var(--t2);font-size:13px;margin-top:6px">Leyendo libro diario y determinando RLI</p>
+        </div>
+        <div class="report-wrap" id="reportWrap"></div>
+      </div>
+    </div>
+
+    <!-- REPOSITORIO -->
+    <div class="view" id="view-repo">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-size:18px;font-weight:700">Repositorio de Reportes</h2>
+        <button class="btn-p" onclick="goView('nuevo')">+ Nuevo</button>
+      </div>
+      <div id="repoList"></div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="view" id="view-clientes">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-size:18px;font-weight:700">Base de Clientes</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn-s" onclick="exportCSV()">Exportar CSV</button>
+          <button class="btn-s" onclick="document.getElementById('importFile').click()">Importar CSV</button>
+          <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importarCSV(this)"/>
+          <button class="btn-p" onclick="plantilla()">Descargar plantilla</button>
+        </div>
+      </div>
+      <div class="info-box" style="margin-bottom:14px">
+        Formato CSV: <code>rut,razon_social,giro,nivel,regimen,analista,socios</code>
+        &nbsp;&mdash;&nbsp; socios: <code>Nombre:porcentaje|Nombre2:porcentaje2</code>
+      </div>
+      <div class="stats-row" id="statsRow"></div>
+      <div class="search-bar">
+        <input class="search-input" type="text" id="searchQ" placeholder="Buscar por nombre, RUT o giro..." oninput="filtrarCli()"/>
+        <select class="filter-sel" id="filterNivel" onchange="filtrarCli()">
+          <option value="">Todos los planes</option>
+          <option value="PRO">PRO</option><option value="MEDIUM">MEDIUM</option><option value="MICRO">MICRO</option>
+        </select>
+        <select class="filter-sel" id="filterReg" onchange="filtrarCli()">
+          <option value="">Todos los regímenes</option>
+          <option value="14D3">14D N°3</option><option value="14D8">14D N°8</option><option value="presunta">Presunta</option>
+        </select>
+      </div>
+      <div class="client-grid" id="clientGrid"></div>
+    </div>
+
+    <!-- TABLAS SII -->
+    <div class="view" id="view-tablas">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Tablas de Referencia SII</h2>
+      <div class="card">
+        <div class="card-hd">Tasas IDPC por Régimen y Año Tributario</div>
+        <table class="dtable"><thead><tr><th>Régimen</th><th>AT2025</th><th>AT2026</th><th>AT2027</th><th>AT2028+</th></tr></thead>
+        <tbody>
+          <tr><td>Art. 14D N°3 (PYME General)</td><td class="num">12.5%</td><td class="num">12.5%</td><td class="num">12.5%</td><td class="num">15%</td></tr>
+          <tr><td>Art. 14D N°8 (Transparente)</td><td class="num">0%</td><td class="num">0%</td><td class="num">0%</td><td class="num">0%</td></tr>
+          <tr><td>Renta Presunta (Art. 34)</td><td class="num">0%</td><td class="num">0%</td><td class="num">0%</td><td class="num">0%</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card">
+        <div class="card-hd">Tabla IGC AT2026 (fuente: sii.cl)</div>
+        <table class="dtable"><thead><tr><th>Desde</th><th>Hasta</th><th>Factor</th><th>Cantidad a rebajar</th></tr></thead>
+        <tbody>
+          <tr><td>$0</td><td>$11.265.804</td><td class="num">Exento</td><td class="num">$0</td></tr>
+          <tr><td>$11.265.804,01</td><td>$25.035.120</td><td class="num">4%</td><td class="num">$450.632</td></tr>
+          <tr><td>$25.035.120,01</td><td>$41.725.200</td><td class="num">8%</td><td class="num">$1.452.037</td></tr>
+          <tr><td>$41.725.200,01</td><td>$58.415.280</td><td class="num">13.5%</td><td class="num">$3.746.923</td></tr>
+          <tr><td>$58.415.280,01</td><td>$75.105.360</td><td class="num">23%</td><td class="num">$9.296.375</td></tr>
+          <tr><td>$75.105.360,01</td><td>$100.140.480</td><td class="num">30.4%</td><td class="num">$14.854.171</td></tr>
+          <tr><td>$100.140.480,01</td><td>$258.696.240</td><td class="num">35%</td><td class="num">$19.460.633</td></tr>
+          <tr><td>$258.696.240,01</td><td>y más</td><td class="num">40%</td><td class="num">$32.395.445</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-hd">☁️ Sincronización Microsoft OneDrive</div>
+        <p style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.6">Los datos de clientes y el repositorio de reportes se sincronizan automáticamente con OneDrive cuando estás conectado. Todos los analistas del equipo comparten la misma base de datos.</p>
+        <div class="fg2" style="margin-bottom:14px">
+          <div class="success-box" id="cloudStatusBox">Inicia sesión con el botón "Conectar OneDrive" en la barra superior para activar la sincronización.</div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Tablas IGC</div>
+            <p style="font-size:12px;color:var(--t2);margin-bottom:10px">Actualiza los valores de la tabla IGC y las tasas IDPC para futuros análisis. Se guardarán en OneDrive y todos los analistas usarán los nuevos valores automáticamente.</p>
+            <button class="btn-p" onclick="actualizarTablas()" style="font-size:12px">Guardar tablas actuales en OneDrive</button>
+          </div>
+        </div>
+        <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px">Client ID de tu app Azure</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="clientIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="3460b91a-e038-4c71-b3f3-206ec87fc268" style="flex:1;font-family:var(--mono);font-size:12px;border:1px solid var(--bdr);border-radius:6px;padding:7px 10px;outline:none"/>
+            <button class="btn-p" onclick="saveClientId()" style="font-size:12px">Guardar</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--tm);margin-top:6px">Una vez guardado, recarga la página y conectáte con tu cuenta Microsoft.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>Seleccionar perfil de cliente</h2>
+    <div id="modalList"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button class="btn-s" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+
+
+
+var LOGO="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";
+var LOGO_W="iVBORw0KGgoAAAANSUhEUgAABQAAAAEfCAYAAAAeK2uqAAAACXBIWXMAAAsTAAALEwEAmpwYAAAF0WlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNy4yLWMwMDAgNzkuNTY2ZWJjNWI0LCAyMDIyLzA1LzA5LTA4OjI1OjU1ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgMjMuNCAoTWFjaW50b3NoKSIgeG1wOkNyZWF0ZURhdGU9IjIwMjQtMDMtMjFUMTU6MTA6MTEtMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjQtMDMtMjFUMTU6MTA6MTEtMDM6MDAiIHhtcDpNb2RpZnlEYXRlPSIyMDI0LTAzLTIxVDE1OjEwOjExLTAzOjAwIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjI2MTc2OTdmLTNiODgtNGI3MS05MDY0LTE1NWE3NDE0ODhkMiIgeG1wTU06RG9jdW1lbnRJRD0iYWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjkyZjQ5YWEzLWM5NzctYmY0My05ZDVkLTA5MTcwNThjZDJjMCIgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOmMzMWQwNTA3LWU1N2UtNDhjZS1hMmEyLTcwZjM3NDY0NzNjNiIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmMzMWQwNTA3LWU1N2UtNDhjZS1hMmEyLTcwZjM3NDY0NzNjNiIgc3RFdnQ6d2hlbj0iMjAyNC0wMy0yMVQxNToxMDoxMS0wMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkiLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjI2MTc2OTdmLTNiODgtNGI3MS05MDY0LTE1NWE3NDE0ODhkMiIgc3RFdnQ6d2hlbj0iMjAyNC0wMy0yMVQxNToxMDoxMS0wMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPC9yZGY6U2VxPiA8L3htcE1NOkhpc3Rvcnk+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+gm5rIgAAas1JREFUeJzt3XfUHVXVx/FvEhISCCX0JoSA9CIE6U2kifSqoAiCNFEBUQLqS7EQRLogRGz0Kgii9KKAiCK9CCQ0Q0sgEAiBtPv+sZ9Zz82TW2bOnJkz5fdZ665Acmdm37llZvacs3e/RqOBiIiIiIiIiIiIVFP/0AGIiIiIiIiIiIhIdpQAFBERERERERERqTAlAEVERERERERERCpMCUAREREREREREZEKUwJQRERERERERESkwpQAFBERERERERERqTAlAEVERERERERERCpMCUAREREREREREZEKUwJQRERERERERESkwpQAFBERERERERERqTAlAEVERERERERERCpMCUAREREREREREZEKUwJQRERERERERESkwpQAFBERERERERERqTAlAEVERERERERERCpMCUAREREREREREZEKUwJQRERERERERESkwpQAFBERERERERERqTAlAEVERERERERERCpMCUAREREREREREZEKUwJQRERERERERESkwuYKHYCIR0sCywPL9fz3Ij2PRYHFgIWBwcAQYO6ePwe1WM+HwEzgI+Bj4J2mx0RgQs9/vwK8DIzreZ6IiIiIiIiISOH0azQaoWMQSWIwsCqwds/j08AILPE3OGBcbwIv9TyeBp4AHgdeCxiTiIiIiIiIiIgSgFJocwHrApsA62MJv5WAASGDSug9LBH4OPAQ8ADwasiARERERERERKRelACUIhkMbA5sAWwMbIBN062a14D7gb/3/PkUoC+iiIiIiIiIiGRCCUAJbSVge+ALwJaEncYbynjgVuAvwJ3A5LDhiIiIiIiIiEiVKAEoeeuHjezbC9gNq90nvaZjowL/DFwD/C9sOCIiIiIiIiJSdkoASh6ak357AZ8KG05pNLCagVcC1wFvhw1HRERERERERMpICUDJ0lLA14CDgBUCx1J2s4C7gEuAa4FPwoYjIiIiIiIiImWhBKD4NhfwReBgrK5fmTr2lsU7wB+AMcB/A8ciIiIiIiIiIgWnBKD4shBwKHAkNvJP8nEfcCE2RXhG4FhEREREREREpICUAJS0Vga+DRwAzBM2lFp7FTgD+C3wYeBYRERERERERKRAlAAUVxsCPwR2wJp8SDFMAi4AzkVNQ0REREREREQEJQAluXWAk4GdQgciHX2MTQ3+KTAxcCwiIiIiIiIiEpASgBLXOsCJwC6hA5FEpgBnYdOD3wsbioiIiIiIiIiEoASgdLMscCqwb+hAJJX3gdHY1OCPAsciIiIiIiIiIjlSAlDamQ84HjgaGBw4FvHnNeB7wNWhAxERERERERGRfCgBKH31Aw7CasctFjgWyc7fgG8BT4QORERERERERESypQSgNFsdGANsHDoQycVM7P0+AdUHFBEREREREams/qEDkEIYAvwMeAwl/+pkAHA48BywW+BYRERERERERCQjGgEon8dGgY0IHYgEdx1wJPBW6EBERERERERExB+NAKyvIVhH2DtR8k/MnsAzwFdDByIiIiIiIiIi/mgEYD19FrgUWDl0IFJY1wGHAJNCByIiIiIiIiIi6WgEYL0MAE4E/oGSf9LZnsDjwGahAxERERERERGRdDQCsD6WAK4CtggdiJTKLOAnwClY12ARERERERERKRklAOthSyz5t3jgOKS87gf2At4MHYiIiIiIiIiIJKMpwNXWDzgBuAsl/ySdTYFHgI1CByIiIiIiIiIiyWgEYHUNBa4AdgodiFTKdOBIYEzoQEREREREREQkHiUAq2k54CZgrdCBSGX9GksETgsdiIiIiIiIiIh0pgRg9WwI/AlYLHQgUnn3AbsA74cORERERERERETaUw3AatkPuBcl/yQfWwAPAp8KHYiIiIiIiIiItKcEYHUcDVwGzB06EKmV1YCHgM8EjkNERERERERE2lACsPz6AT8FzgwdiNTWUth04G1DByIiIiIiIiIic1INwHIbAFwIHBw6EBGsQ/A+wA2hAxERERERERGRXkoAltcg4Epg99CBiDSZBewPXB46EBERERERERExc4UOQJwMAq4DdgodiEgf/YFLsNGplwSORURERERERERQDcAyGgBci5J/Ulz9gT8Ah4cORERERERERESUACybaFTVzqEDEYnhl8B+oYMQERERERERqTvVACyPKPm3b+hARBKYhTUGuS50ICIiIiIiIiJ1pRGA5XE2Sv5J+fQHrgC2DR2IiIiIiIiISF0pAVgOPwKODB2EiKOBwA3ABqEDEREREREREakjTQEuvoOAi0MHIeLBRCwJOC50ICIiIiIiIiJ1ogRgse0E3IhGakp1/BfYEHgvcBwiIiIiIiIitaEEYHGtBTwIzBs6EBHP7ga+AEwLHYiIiIiIiIhIHWhkWTEtCtyEkn9STVsB54cOQkRERERERKQulAAsnkHA9cByoQMRydDBwLGhgxARERERERGpA00BLp4xwDdCByGSg5nA1sC9geMQERERERERqTQlAIvlYODXoYMQydFbwDrAG6EDEREREREREakqJQCLY03gYWBw6EAqZjrWefZtoB+wOLAyMCBkUDKb+4HPATNCByIiIiIiIiJSRUoAFsNQ4N9YYkrSawB/wkZT3g183OffhwLbAIcA2+cbmrRxFnBM6CBEREREREREqkgJwGK4DNgvdBAV8STwdSyhGsemwO+AFTOLSOLaCfhz6CBEREREREREqkYJwPC+DvwmdBAVcT3wFeYc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";
+var PLAN={"110101": {"cod": "110101", "nombre": "CAJA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "SI", "aux": "EFECTIVO"}, "110102": {"cod": "110102", "nombre": "BANCO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "SI", "aux": "BANCO"}, "110103": {"cod": "110103", "nombre": "MERCADERIA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110104": {"cod": "110104", "nombre": "CLIENTES", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": "AUXILIAR"}, "110105": {"cod": "110105", "nombre": "P.P.M.", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110106": {"cod": "110106", "nombre": "GASTOS ANTICIPADOS", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110107": {"cod": "110107", "nombre": "IMPUESTOS POR RECUPERAR", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110108": {"cod": "110108", "nombre": "IVA CR\u00c9DITO FISCAL", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110109": {"cod": "110109", "nombre": "ARRIENDO EN GARANTIA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110110": {"cod": "110110", "nombre": "OTROS ACTIVOS CIRCULANTES", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110111": {"cod": "110111", "nombre": "CR\u00c9DITO ACTIVO FIJO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110112": {"cod": "110112", "nombre": "MATERIALES", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110113": {"cod": "110113", "nombre": "LETRAS POR COBRAR", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110114": {"cod": "110114", "nombre": "P.P.M. VOLUNTARIO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110115": {"cod": "110115", "nombre": "ANTICIPO SUELDO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110116": {"cod": "110116", "nombre": "REMANENTE", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110117": {"cod": "110117", "nombre": "RETIROS CUENTA PARTICULAR", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "SI", "aux": "BANCO"}, "110118": {"cod": "110118", "nombre": "CAJA MONEDA EXTRANJERA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "SI", "aux": "EFECTIVO"}, "110119": {"cod": "110119", "nombre": "CUENTAS POR COBRAR EMPRESAS RELACIONADAS", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110120": {"cod": "110120", "nombre": "CLIENTES EXTRANJEROS", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": "AUXILIAR"}, "110121": {"cod": "110121", "nombre": "FONDOS POR RENDIR", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110122": {"cod": "110122", "nombre": "ANTICIPO PROVEEDORES", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": "AUXILIAR"}, "110123": {"cod": "110123", "nombre": "ARRIENDO ANTICIPADO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110124": {"cod": "110124", "nombre": "ANTICIPO DE IVA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110125": {"cod": "110125", "nombre": "FONDOS MUTUOS", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110126": {"cod": "110126", "nombre": "IVA COBRADO", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110127": {"cod": "110127", "nombre": "PR\u00c9STAMOS AL PERSONAL", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110128": {"cod": "110128", "nombre": "CUENTAS POR COBRAR", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110129": {"cod": "110129", "nombre": "RETIRO S. KAZLO FLORES", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110130": {"cod": "110130", "nombre": "RETIRO S. S. CORREA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "110131": {"cod": "110131", "nombre": "BOLETA DE GARANTIA", "tipo": "ACTIVO", "categoria": "ACTIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "120101": {"cod": "120101", "nombre": "MAQUINARIAS", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120102": {"cod": "120102", "nombre": "HERRAMIENTAS Y ENSERES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120103": {"cod": "120103", "nombre": "MUEBLES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120104": {"cod": "120104", "nombre": "EQUIPOS (COMPUTACIONALES)", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120105": {"cod": "120105", "nombre": "OTROS ACTIVOS FIJOS", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120106": {"cod": "120106", "nombre": "VEHICULO", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120107": {"cod": "120107", "nombre": "DEPRECIACI\u00d3N ACUMULADA MAQUINARIAS", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120108": {"cod": "120108", "nombre": "DEPRECIACI\u00d3N ACUMULADA HERRAMIENTAS Y ENSERES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120109": {"cod": "120109", "nombre": "DEPRECIACI\u00d3N ACUMULADA MUEBLES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120110": {"cod": "120110", "nombre": "DEPRECIACI\u00d3N ACUMULADA EQUIPOS (COMPUTACIONALES)", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120111": {"cod": "120111", "nombre": "DEPRECIACI\u00d3N ACUMULADA OTROS ACTIVOS FIJOS", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120112": {"cod": "120112", "nombre": "DEPRECIACI\u00d3N ACUMULADA VEHICULO", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120113": {"cod": "120113", "nombre": "MAQUINARAS Y EQUIPOS", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120114": {"cod": "120114", "nombre": "ACTIVOS EN LEASING", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120115": {"cod": "120115", "nombre": "MUEBLES Y UTILES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120116": {"cod": "120116", "nombre": "ANTICIPO SOBRE PROPIEDAD", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120117": {"cod": "120117", "nombre": "PROVISI\u00d3N CLIENTES INCOBRABLES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "120118": {"cod": "120118", "nombre": "PROPIEDADES", "tipo": "ACTIVO", "categoria": "ACTIVOS FIJOS", "ingEgr": "", "aux": ""}, "130101": {"cod": "130101", "nombre": "DEUDORES A LARGO PLAZO", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "130102": {"cod": "130102", "nombre": "INTANGIBLES", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "130103": {"cod": "130103", "nombre": "AMORTIZACION ACUMULADA INTANGIBLES", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "130104": {"cod": "130104", "nombre": "CARGA FAMILIAR POR RECUPERAR", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "130105": {"cod": "130105", "nombre": "INTERESES DIFERIDOS", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "130106": {"cod": "130106", "nombre": "ANTICIPO HONORARIOS", "tipo": "ACTIVO", "categoria": "OTROS ACTIVOS", "ingEgr": "", "aux": ""}, "210101": {"cod": "210101", "nombre": "PROVEEDORES", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "SI", "aux": "AUXILIAR"}, "210102": {"cod": "210102", "nombre": "P.P.M. POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210103": {"cod": "210103", "nombre": "RETENCIONES DE 2\u00b0 CATEGORIA", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210104": {"cod": "210104", "nombre": "PROVISION IMPUESTO A LA RENTA", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210105": {"cod": "210105", "nombre": "HONORARIOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "SI", "aux": "AUXILIAR"}, "210106": {"cod": "210106", "nombre": "LETRAS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210107": {"cod": "210107", "nombre": "OTROS DOCUMENTOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210108": {"cod": "210108", "nombre": "INGRESOS PERCIBIDOS POR ADELANTADO", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210109": {"cod": "210109", "nombre": "OTROS PASIVOS CIRCULANTES", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210110": {"cod": "210110", "nombre": "ARRIENDOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210111": {"cod": "210111", "nombre": "IVA D\u00c9BITO FISCAL", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210112": {"cod": "210112", "nombre": "SUELDOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210113": {"cod": "210113", "nombre": "PROVISIONES", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210114": {"cod": "210114", "nombre": "OBLIGACIONES CORTO PLAZO", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210115": {"cod": "210115", "nombre": "CESANTIA EMPLEADOR POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210116": {"cod": "210116", "nombre": "LEYES SOCIALES POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210117": {"cod": "210117", "nombre": "IMPUESTO UNICO", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210118": {"cod": "210118", "nombre": "MUTUAL POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210119": {"cod": "210119", "nombre": "SIS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210120": {"cod": "210120", "nombre": "LEYES SOCIALES APORTE PATRONAL", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210121": {"cod": "210121", "nombre": "IMPUESTOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210122": {"cod": "210122", "nombre": "AFP", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210123": {"cod": "210123", "nombre": "FONASA", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210124": {"cod": "210124", "nombre": "ISAPRES", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210125": {"cod": "210125", "nombre": "PRESTAMO 3%", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": "EFECTIVO"}, "210126": {"cod": "210126", "nombre": "PRESTAMO BANCARIO", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210127": {"cod": "210127", "nombre": "CUENTAS POR PAGAR EMPRESAS RELACIONADAS", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210128": {"cod": "210128", "nombre": "SEGUROS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210129": {"cod": "210129", "nombre": "PROVEEDORES EXTRANJEROS", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": "AUXILIAR"}, "210130": {"cod": "210130", "nombre": "ANTICIPO CLIENTES", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": "AUXILIAR"}, "210131": {"cod": "210131", "nombre": "LEASING POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210132": {"cod": "210132", "nombre": "IMPUESTO ADICIONAL", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210133": {"cod": "210133", "nombre": "RETENCI\u00d3N JUDICIAL", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "SI", "aux": ""}, "210134": {"cod": "210134", "nombre": "OTROS DESCUENTOS", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "SI", "aux": ""}, "210135": {"cod": "210135", "nombre": "CONVENIO 230661", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "210136": {"cod": "210136", "nombre": "FINIQUITOS POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "220101": {"cod": "220101", "nombre": "OBLIGACIONES CON BANCOS E INSTITUCIONES FINANCIERAS", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "220102": {"cod": "220102", "nombre": "ACREEDORES A LARGO PLAZO", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "220103": {"cod": "220103", "nombre": "OTROS PASIVOS A LARGO PLAZO", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "220104": {"cod": "220104", "nombre": "CONVENIO TESORERIA 18968", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220105": {"cod": "220105", "nombre": "CR\u00c9DITO BANCO ESTADO 08112021", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220106": {"cod": "220106", "nombre": "CR\u00c9DITO BANCO ESTADO 04032021", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220107": {"cod": "220107", "nombre": "CR\u00c9DITO BANCO SANTANDER 28182021", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220108": {"cod": "220108", "nombre": "CR\u00c9DITO BANCO SANTANDER 20022023", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220109": {"cod": "220109", "nombre": "CR\u00c9DITO EUROCAPITAL 14072022", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": "BANCO"}, "220110": {"cod": "220110", "nombre": "ACREEDORES LEASING A LARGO PLAZO", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "220111": {"cod": "220111", "nombre": "CUENTAS POR PAGAR SOCIO", "tipo": "PASIVO", "categoria": "PASIVOS CIRCULANTES", "ingEgr": "", "aux": ""}, "220112": {"cod": "220112", "nombre": "CONVENIO TGR", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "SI", "aux": ""}, "220113": {"cod": "220113", "nombre": "CUENTAS POR PAGAR A SOCIOS", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "220114": {"cod": "220114", "nombre": "IMPUESTO A LA RENTA POR PAGAR", "tipo": "PASIVO", "categoria": "PASIVOS A LARGO PLAZO", "ingEgr": "", "aux": ""}, "310101": {"cod": "310101", "nombre": "CAPITAL", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310102": {"cod": "310102", "nombre": "REVALORIZACI\u00d3N DEL CAPITAL PROPIO", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310103": {"cod": "310103", "nombre": "PERDIDA ACUMULADA", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310104": {"cod": "310104", "nombre": "PERDIDAS EJERCICIOS ANTERIORES", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310105": {"cod": "310105", "nombre": "UTILIDADES POR DISTRIBUIR", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310106": {"cod": "310106", "nombre": "AUMENTOS DE CAPITAL (APORTES)", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "310107": {"cod": "310107", "nombre": "ACCIONES SUSCRITAS", "tipo": "PASIVO", "categoria": "PATRIMONIO", "ingEgr": "", "aux": ""}, "410101": {"cod": "410101", "nombre": "COSTO DE VENTAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410102": {"cod": "410102", "nombre": "HONORARIOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410103": {"cod": "410103", "nombre": "ARRIENDOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410104": {"cod": "410104", "nombre": "GASTOS GENERALES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410105": {"cod": "410105", "nombre": "GASTOS TELEFONICOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410106": {"cod": "410106", "nombre": "GASTOS FINANCIEROS BANCO SANTANDER", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410107": {"cod": "410107", "nombre": "GASTOS FINANCIEROS BANCO DE CHILE", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410108": {"cod": "410108", "nombre": "DESCUENTO SOBRE VENTA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410109": {"cod": "410109", "nombre": "INTERESES PAGADOS SOBRE VENTA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410110": {"cod": "410110", "nombre": "DEPRECIACION", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410111": {"cod": "410111", "nombre": "GASTOS DE VENTA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410112": {"cod": "410112", "nombre": "IMPUESTO A LA RENTA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410113": {"cod": "410113", "nombre": "INTERESES Y MULTAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410114": {"cod": "410114", "nombre": "PERDIDA POR VENTA DE ACTIVOS FIJOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410115": {"cod": "410115", "nombre": "OTROS GASTOS DE PRODUCCI\u00d3N", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410116": {"cod": "410116", "nombre": "PATENTE COMERCIAL", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410117": {"cod": "410117", "nombre": "OTROS EGRESOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410118": {"cod": "410118", "nombre": "OTROS GASTOS RECHAZADOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410119": {"cod": "410119", "nombre": "OTROS ARRIENDOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410120": {"cod": "410120", "nombre": "COMBUSTIBLE", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410121": {"cod": "410121", "nombre": "PEAJES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410122": {"cod": "410122", "nombre": "ARRIENDO MAQUINARIA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410123": {"cod": "410123", "nombre": "GASTOS ADMINISTRATIVOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410124": {"cod": "410124", "nombre": "REMUNERACIONES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410125": {"cod": "410125", "nombre": "IMPUESTO 2 CATEGORIA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410126": {"cod": "410126", "nombre": "VIATICOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410127": {"cod": "410127", "nombre": "INTERESES FINANCIEROS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410128": {"cod": "410128", "nombre": "PERDiDAS ACUMULADAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410129": {"cod": "410129", "nombre": "GRATIFICACI\u00d3N LEGAL", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410130": {"cod": "410130", "nombre": "APORTE PATRONAL", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410131": {"cod": "410131", "nombre": "IMPUESTO NO RECUPERABLE", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410132": {"cod": "410132", "nombre": "SEGUROS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410133": {"cod": "410133", "nombre": "LEYES SOCIALES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410134": {"cod": "410134", "nombre": "GASTOS VARIOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410135": {"cod": "410135", "nombre": "HORAS EXTRAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": ""}, "410136": {"cod": "410136", "nombre": "GASTOS BANCARIOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410137": {"cod": "410137", "nombre": "GASTOS DE ASESOR\u00cdAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410138": {"cod": "410138", "nombre": "COSTOS LOG\u00cdSTICOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "BANCO"}, "410139": {"cod": "410139", "nombre": "INSUMOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410140": {"cod": "410140", "nombre": "MOVILIZACI\u00d3N", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410141": {"cod": "410141", "nombre": "COLACI\u00d3N", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410142": {"cod": "410142", "nombre": "COSTOS OPERACIONALES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410143": {"cod": "410143", "nombre": "GASTOS DE PUBLICIDAD", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "EFECTIVO"}, "410144": {"cod": "410144", "nombre": "ERP CONTABLE", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "EFECTIVO"}, "410145": {"cod": "410145", "nombre": "CAPACITACIONES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": "EFECTIVO"}, "410146": {"cod": "410146", "nombre": "COMISIONES TRABAJADORES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410147": {"cod": "410147", "nombre": "FINIQUITOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410148": {"cod": "410148", "nombre": "GASTOS DE REPRESENTACION", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410149": {"cod": "410149", "nombre": "MANTENCION Y REPARACION", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410150": {"cod": "410150", "nombre": "GASTOS DE OFICINA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410151": {"cod": "410151", "nombre": "IMPUESTO UNICO TALLERES ARTESANALES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410152": {"cod": "410152", "nombre": "REAJUSTE ART. 72 LIR", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410153": {"cod": "410153", "nombre": "GASTOS DE VEHICULO", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410154": {"cod": "410154", "nombre": "COMISION FACTORING", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": ""}, "410155": {"cod": "410155", "nombre": "PERDIDAS POR CUENTAS INCOBRABLES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410156": {"cod": "410156", "nombre": "SUMINISTROS ALIMENTOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "SI", "aux": ""}, "410157": {"cod": "410157", "nombre": "FLETES MARITIMOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410158": {"cod": "410158", "nombre": "GASTOS TRANSPORTE LOCAL", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410159": {"cod": "410159", "nombre": "FLETES AEREOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410160": {"cod": "410160", "nombre": "AGENCIAMIENTO", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410161": {"cod": "410161", "nombre": "GASTOS EN SISTEMAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410162": {"cod": "410162", "nombre": "EGRESOS CARGOS CM", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410163": {"cod": "410163", "nombre": "GASTOS COMUNES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410164": {"cod": "410164", "nombre": "INSUMOS TECNOLOGICOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410165": {"cod": "410165", "nombre": "COMISION POR VENTA", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410166": {"cod": "410166", "nombre": "GASTOS DE ALOJAMIENTO", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410167": {"cod": "410167", "nombre": "OTROS COSTOS DE VENTAS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410168": {"cod": "410168", "nombre": "OTROS GASTOS SOCIALES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410169": {"cod": "410169", "nombre": "FLETES TERRESTRES", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410170": {"cod": "410170", "nombre": "GASTOS OPERATIVOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410171": {"cod": "410171", "nombre": "OTROS GASTOS DE REPRESENTACI\u00d3N", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "410172": {"cod": "410172", "nombre": "EGRESOS CARGOS OPERATIVOS MARITIMOS", "tipo": "RESULTADO", "categoria": "RESULTADO P\u00c9RDIDA", "ingEgr": "", "aux": ""}, "420101": {"cod": "420101", "nombre": "VENTAS Y SERVICIOS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420102": {"cod": "420102", "nombre": "INTERESES GANADOS SOBRE VENTA", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420103": {"cod": "420103", "nombre": "DESCUENTOS SOBRE COMPRA", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420104": {"cod": "420104", "nombre": "UTILIDAD POR VENTA DE ACTIVOS FIJOS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420105": {"cod": "420105", "nombre": "INGRESOS CONCURSOS P\u00c3?BLICOS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420106": {"cod": "420106", "nombre": "OTROS INGRESOS FINANCIEROS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420107": {"cod": "420107", "nombre": "OTROS INGRESOS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420108": {"cod": "420108", "nombre": "CORRECCI\u00d3N MONETARIA", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "420109": {"cod": "420109", "nombre": "VENTAS EXENTAS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "SI", "aux": "BANCO"}, "420110": {"cod": "420110", "nombre": "VENTAS Y SERVICIOS EXTRANJEROS", "tipo": "RESULTADO", "categoria": "RESULTADO GANANCIA", "ingEgr": "", "aux": ""}, "430101": {"cod": "430101", "nombre": "REAJUSTES", "tipo": "RESULTADO", "categoria": "RESULTADO MIXTO", "ingEgr": "", "aux": ""}, "430102": {"cod": "430102", "nombre": "DIFERENCIA REDONDEO", "tipo": "RESULTADO", "categoria": "RESULTADO MIXTO", "ingEgr": "", "aux": ""}};
+var IGC={"2025": [[0, 10901628, 0, 0], [10901628.01, 24225840, 0.04, 436065.12], [24225840.01, 40376400, 0.08, 1405098.72], [40376400.01, 56526960, 0.135, 3625800.72], [56526960.01, 72677520, 0.23, 8995861.92], [72677520.01, 96903360, 0.304, 14373998.4], [96903360.01, 250333680, 0.35, 18831552.96], [250333680.01, 9000000000000.0, 0.4, 31348236.96]], "2026": [[0, 11265804, 0, 0], [11265804.01, 25035120, 0.04, 450632.16], [25035120.01, 41725200, 0.08, 1452036.96], [41725200.01, 58415280, 0.135, 3746922.96], [58415280.01, 75105360, 0.23, 9296374.56], [75105360.01, 100140480, 0.304, 14854171.2], [100140480.01, 258696240, 0.35, 19460633.28], [258696240.01, 9000000000000.0, 0.4, 32395445.28]], "2027": [[0, 11265804, 0, 0], [11265804.01, 25035120, 0.04, 450632.16], [25035120.01, 41725200, 0.08, 1452036.96], [41725200.01, 58415280, 0.135, 3746922.96], [58415280.01, 75105360, 0.23, 9296374.56], [75105360.01, 100140480, 0.304, 14854171.2], [100140480.01, 258696240, 0.35, 19460633.28], [258696240.01, 9000000000000.0, 0.4, 32395445.28]], "2028": [[0, 11265804, 0, 0], [11265804.01, 25035120, 0.04, 450632.16], [25035120.01, 41725200, 0.08, 1452036.96], [41725200.01, 58415280, 0.135, 3746922.96], [58415280.01, 75105360, 0.23, 9296374.56], [75105360.01, 100140480, 0.304, 14854171.2], [100140480.01, 258696240, 0.35, 19460633.28], [258696240.01, 9000000000000.0, 0.4, 32395445.28]]};
+var TASA14D3={2025:12.5,2026:12.5,2027:12.5,2028:15};
+var FACTOR_IDPC={2025:12.5/87.5,2026:12.5/87.5,2027:12.5/87.5,2028:15/85};
+
+// ── MICROSOFT GRAPH INTEGRATION ──────────────────────────────────────────
+// Configuración: reemplaza CLIENT_ID con el ID de tu app Azure AD
+var GRAPH_CONFIG = {
+  clientId: '3460b91a-e038-4c71-b3f3-206ec87fc268',
+  authority: 'https://login.microsoftonline.com/10faeb61-246b-4931-be8d-d552181fe733',
+  redirectUri: window.location.href.split('?')[0],
+  scopes: ['Files.ReadWrite', 'User.Read']
+};
+
+// OneDrive paths (carpeta compartida del equipo)
+var OD_BASE = '/me/drive/root:/Contadoor/datos';
+var OD_CLIENTES = OD_BASE + '/contadoor_clientes.json:/content';
+var OD_REPO     = OD_BASE + '/contadoor_repositorio.json:/content';
+var OD_TABLAS   = OD_BASE + '/contadoor_tablas.json:/content';
+
+var _msalInstance = null;
+var _graphToken = null;
+var _graphReady = false;
+
+// ── INICIALIZAR MSAL ──────────────────────────────────────────────────────
+function initMSAL() {
+  // MSAL cargado via CDN en <head>
+  if (typeof msal === 'undefined') {
+    console.warn('MSAL no disponible - usando localStorage');
+    _graphReady = false;
+    return;
+  }
+  try {
+    _msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: GRAPH_CONFIG.clientId,
+        authority: GRAPH_CONFIG.authority,
+        redirectUri: GRAPH_CONFIG.redirectUri
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+    });
+    _msalInstance.handleRedirectPromise().then(function(resp) {
+      if (resp) _graphToken = resp.accessToken;
+      var accounts = _msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        _graphReady = true;
+        updateSyncStatus('online');
+        syncFromCloud();
+      } else {
+        updateSyncStatus('offline');
+      }
+    }).catch(function(e) {
+      console.warn('MSAL redirect error:', e);
+      updateSyncStatus('offline');
+    });
+  } catch(e) {
+    console.warn('MSAL init error:', e);
+    _graphReady = false;
+  }
+}
+
+// ── LOGIN / LOGOUT ────────────────────────────────────────────────────────
+function graphLogin() {
+  if (!_msalInstance) return;
+  _msalInstance.loginRedirect({ scopes: GRAPH_CONFIG.scopes });
+}
+function graphLogout() {
+  if (!_msalInstance) return;
+  _msalInstance.logoutRedirect();
+}
+
+// ── OBTENER TOKEN ─────────────────────────────────────────────────────────
+function getToken(cb) {
+  if (!_msalInstance) { cb(null); return; }
+  var accounts = _msalInstance.getAllAccounts();
+  if (!accounts.length) { cb(null); return; }
+  _msalInstance.acquireTokenSilent({
+    scopes: GRAPH_CONFIG.scopes,
+    account: accounts[0]
+  }).then(function(r) {
+    cb(r.accessToken);
+  }).catch(function() {
+    _msalInstance.acquireTokenRedirect({ scopes: GRAPH_CONFIG.scopes });
+  });
+}
+
+// ── LEER ARCHIVO ONEDRIVE ─────────────────────────────────────────────────
+function odRead(path, cb) {
+  getToken(function(token) {
+    if (!token) { cb(null); return; }
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'https://graph.microsoft.com/v1.0' + path, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.timeout = 10000;
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        try { cb(JSON.parse(xhr.responseText)); }
+        catch(e) { cb(null); }
+      } else { cb(null); }
+    };
+    xhr.onerror = xhr.ontimeout = function() { cb(null); };
+    xhr.send();
+  });
+}
+
+// ── ESCRIBIR ARCHIVO ONEDRIVE ─────────────────────────────────────────────
+function odWrite(path, data, cb) {
+  getToken(function(token) {
+    if (!token) { if(cb) cb(false); return; }
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', 'https://graph.microsoft.com/v1.0' + path, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.timeout = 15000;
+    xhr.onload = function() { if(cb) cb(xhr.status === 200 || xhr.status === 201); };
+    xhr.onerror = xhr.ontimeout = function() { if(cb) cb(false); };
+    xhr.send(JSON.stringify(data));
+  });
+}
+
+// ── SYNC STATUS UI ────────────────────────────────────────────────────────
+function updateSyncStatus(status) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  var map = {
+    online:  { text: 'Sincronizado con OneDrive', color: '#2D9B6F', dot: '#2D9B6F' },
+    offline: { text: 'Sin conexi\u00f3n \u2014 datos locales', color: '#C07A1A', dot: '#C07A1A' },
+    syncing: { text: 'Sincronizando...', color: '#904891', dot: '#904891' },
+    error:   { text: 'Error de sincronizaci\u00f3n', color: '#C0392B', dot: '#C0392B' }
+  };
+  var s = map[status] || map.offline;
+  el.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:' + s.dot +
+    ';display:inline-block;margin-right:6px;flex-shrink:0"></span>' + s.text;
+  el.style.color = s.color;
+}
+
+// ── SYNC DESDE NUBE AL CARGAR ─────────────────────────────────────────────
+function syncFromCloud() {
+  updateSyncStatus('syncing');
+  // Cargar clientes
+  odRead(OD_CLIENTES, function(data) {
+    if (data) {
+      localStorage.setItem('c', JSON.stringify(data));
+    }
+    // Cargar repositorio
+    odRead(OD_REPO, function(data2) {
+      if (data2) {
+        localStorage.setItem('r', JSON.stringify(data2));
+      }
+      // Cargar tablas IGC si hay versión actualizada
+      odRead(OD_TABLAS, function(data3) {
+        if (data3 && data3.IGC) {
+          IGC = data3.IGC;
+          console.log('Tablas IGC actualizadas desde OneDrive');
+        }
+        updateSyncStatus('online');
+        badge();
+      });
+    });
+  });
+}
+
+// ── GUARDAR EN NUBE ────────────────────────────────────────────────────────
+function saveToCloud(key) {
+  if (!_graphReady) return;
+  updateSyncStatus('syncing');
+  var path = key === 'c' ? OD_CLIENTES : OD_REPO;
+  var data;
+  try { data = JSON.parse(localStorage.getItem(key) || (key==='c'?'{}':'[]')); }
+  catch(e) { data = key==='c'?{}:[]; }
+  odWrite(path, data, function(ok) {
+    updateSyncStatus(ok ? 'online' : 'error');
+  });
+}
+
+// ── OVERRIDE setRepo/setCli PARA SINCRONIZAR ──────────────────────────────
+var _origSetRepo = null; // se asigna después de definir setRepo
+var _origSetCli  = null;
+
+
+
+
+// ── STORAGE
+function getRepo(){try{return JSON.parse(localStorage.getItem('r')||'[]');}catch(e){return[];}}
+function setRepo(r){
+  localStorage.setItem('r',JSON.stringify(r));badge();
+  if(_graphReady)saveToCloud('r');
+}
+function getCli(){try{return JSON.parse(localStorage.getItem('c')||'{}');}catch(e){return {};}}
+function setCli(c){
+  localStorage.setItem('c',JSON.stringify(c));
+  if(_graphReady)saveToCloud('c');
+}
+function badge(){var el=document.getElementById('repoBadge');if(el)el.textContent=getRepo().length;}
+
+// ── HELPERS
+function pn(s){var v=parseFloat(String(s||0).replace(/\./g,'').replace(',','.'));return isNaN(v)?0:v;}
+function ff(n){var a=Math.abs(n||0),s=n<0?'-$':'$';return s+Math.round(a).toLocaleString('es-CL');}
+function fk(n){var a=Math.abs(n||0),s=(n||0)<0?'-':'';if(a>=1e9)return s+'$'+(a/1e9).toFixed(2)+'B';if(a>=1e6)return s+'$'+(a/1e6).toFixed(1)+'M';return s+'$'+Math.round(a).toLocaleString('es-CL');}
+function sv(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';}
+function gv(id){return parseFloat(sv(id))||0;}
+function hesc(s){var t=String(s||'');t=t.split('&').join('&amp;');t=t.split('<').join('&lt;');t=t.split('>').join('&gt;');t=t.split('"').join('&quot;');return t;}
+
+// ── IGC
+function calcIGC(renta,at){
+  var t=IGC[String(at)]||IGC['2026'];
+  if(!renta||renta<=0)return{imp:0,tramo:'Exento',tasa:0};
+  for(var i=0;i<t.length;i++){
+    if(renta>=t[i][0]&&renta<=t[i][1]){
+      if(t[i][2]===0)return{imp:0,tramo:'Exento',tasa:0};
+      return{imp:Math.max(0,renta*t[i][2]-t[i][3]),tramo:(t[i][2]*100).toFixed(1)+'%',tasa:t[i][2]};
+    }
+  }
+  var l=t[t.length-1];return{imp:Math.max(0,renta*l[2]-l[3]),tramo:'40%',tasa:l[2]};
+}
+
+function calcIGCSocio(base,otros,reg,at,idpcEmp,ppmEmp,pct){
+  var factor=FACTOR_IDPC[parseInt(at)]||(12.5/87.5);
+  var r={};
+  if(reg==='14D3'){
+    r.retiro=base;
+    r.creditoIDPC=base*factor;
+    r.incremento=r.creditoIDPC;
+    r.rentaBruta=base+r.incremento+(otros||0);
+    var igc=calcIGC(r.rentaBruta,at);
+    r.igcBruto=igc.imp;r.tramo=igc.tramo;r.tasa=igc.tasa;
+    r.igcNeto=r.igcBruto-r.creditoIDPC;
+    r.devolucion=r.igcNeto<0?Math.abs(r.igcNeto):0;
+    r.apagar=r.igcNeto>0?r.igcNeto:0;
+    r.tasaEfectiva=base>0?(r.igcNeto/base*100):0;
+    r.creditoPPM=0;r.baseAtribuida=base;
+  }else if(reg==='14D8'){
+    r.baseAtribuida=base;r.creditoPPM=(ppmEmp||0)*(pct/100);
+    r.incremento=0;r.creditoIDPC=0;r.retiro=0;
+    r.rentaBruta=base+(otros||0);
+    var igc2=calcIGC(r.rentaBruta,at);
+    r.igcBruto=igc2.imp;r.tramo=igc2.tramo;r.tasa=igc2.tasa;
+    r.igcNeto=r.igcBruto-r.creditoPPM;
+    r.devolucion=r.igcNeto<0?Math.abs(r.igcNeto):0;
+    r.apagar=r.igcNeto>0?r.igcNeto:0;
+    r.tasaEfectiva=base>0?(r.igcNeto/base*100):0;
+  }else{
+    r.baseAtribuida=base;r.creditoPPM=0;r.creditoIDPC=0;r.retiro=0;r.incremento=0;
+    r.rentaBruta=base+(otros||0);
+    var igc3=calcIGC(r.rentaBruta,at);
+    r.igcBruto=igc3.imp;r.tramo=igc3.tramo;r.tasa=igc3.tasa;
+    r.igcNeto=r.igcBruto;r.devolucion=0;r.apagar=r.igcBruto;
+    r.tasaEfectiva=base>0?(r.igcBruto/base*100):0;
+  }
+  return r;
+}
+
+// ── REGIME
+function onRegChange(){
+  var reg=sv('c_reg'),at=sv('c_at'),tg=document.getElementById('tasaGrp'),box=document.getElementById('regBox'),g14=document.getElementById('g14e');
+  if(!tg||!box)return;
+  if(reg==='14D8'){
+    document.getElementById('c_tasa').value='0';tg.style.opacity='.35';
+    if(g14)g14.style.display='none';
+    box.innerHTML='<div class="info-box"><b>Art. 14D N\u00b08 Transparente:</b> Impuesto empresa $0. Base y PPM se distribuyen a socios seg\u00fan % para Global Complementario.</div>';
+  }else if(reg==='presunta'){
+    document.getElementById('c_tasa').value='0';tg.style.opacity='.35';
+    if(g14)g14.style.display='none';
+    box.innerHTML='<div class="warn-box"><b>Renta Presunta Art. 34:</b> Impuesto empresa $0. Base distribuida a socios seg\u00fan % para Global Complementario.</div>';
+  }else{
+    var t=TASA14D3[parseInt(at)]||12.5;
+    document.getElementById('c_tasa').value=t;tg.style.opacity='1';
+    if(g14)g14.style.display='block';
+    box.innerHTML='<div class="success-box"><b>Art. 14D N\u00b03 PYME:</b> Tasa IDPC '+t+'%. Incentivo ahorro Art. 14E disponible.</div>';
+  }
+}
+function onATChange(){
+  var at=sv('c_at');
+  if(sv('c_reg')==='14D3')document.getElementById('c_tasa').value=TASA14D3[parseInt(at)]||12.5;
+  onRegChange();
+}
+
+// ── SOCIOS
+var SC=0;
+function addSocio(nombre,pct,retiros,otros){
+  nombre=nombre||'';pct=(pct===undefined||pct===null)?'':pct;retiros=retiros||'';otros=otros||'';
+  SC++;var id=SC;
+  var tr=document.createElement('tr');tr.id='sr-'+id;
+  function mkI(type,val,ph,w){
+    var i=document.createElement('input');i.type=type;i.value=String(val);i.placeholder=ph;
+    if(w)i.style.width=w;
+    i.addEventListener('input',function(){updatePct();chkReady();});
+    return i;
+  }
+  function mkTd(el){var td=document.createElement('td');if(typeof el==='string'){td.textContent=el;}else{td.appendChild(el);}return td;}
+  var btn=document.createElement('button');btn.className='btn-danger';btn.textContent='x';
+  (function(sid){btn.addEventListener('click',function(){var r=document.getElementById('sr-'+sid);if(r)r.remove();updatePct();chkReady();});})(id);
+  var tdBtn=document.createElement('td');tdBtn.appendChild(btn);
+  [mkTd(String(id)),mkTd(mkI('text',nombre,'Nombre','')),mkTd(mkI('number',pct,'0','80px')),
+   mkTd(mkI('number',retiros,'0 (auto)','')),mkTd(mkI('number',otros,'0','')),tdBtn
+  ].forEach(function(td){tr.appendChild(td);});
+  document.getElementById('sociosBody').appendChild(tr);
+  updatePct();
+}
+function getSocios(){
+  return Array.from(document.querySelectorAll('#sociosBody tr')).map(function(tr){
+    var i=tr.querySelectorAll('input');
+    return{nombre:i[0]?i[0].value.trim():'',pct:i[1]?parseFloat(i[1].value)||0:0,
+           retiros:i[2]?parseFloat(i[2].value)||0:0,otros:i[3]?parseFloat(i[3].value)||0:0};
+  }).filter(function(s){return s.pct>0;});
+}
+function updatePct(){
+  var tot=getSocios().reduce(function(s,x){return s+x.pct;},0);
+  var el=document.getElementById('pctTotal');if(!el)return;
+  el.textContent='Total: '+tot.toFixed(1)+'%';
+  el.className='pct-total '+(Math.abs(tot-100)<0.1?'ok':'err');
+}
+
+// ── NAV
+var TITLES={nuevo:'Nuevo An\u00e1lisis',repo:'Repositorio',clientes:'Base de Clientes',tablas:'Tablas SII'};
+function goView(name){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  document.querySelectorAll('.sb-item[data-view]').forEach(function(i){i.classList.remove('on');});
+  var v=document.getElementById('view-'+name);if(v)v.classList.add('on');
+  document.querySelectorAll('.sb-item[data-view]').forEach(function(i){if(i.getAttribute('data-view')===name)i.classList.add('on');});
+  var tt=document.getElementById('topTitle');if(tt)tt.textContent=TITLES[name]||name;
+  if(name==='repo')renderRepo();
+  if(name==='clientes')renderClientes();
+}
+function showTab(name){
+  ['pane-entrada','pane-reporte'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.display=id.indexOf(name)>=0?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('on',i===(name==='reporte'?1:0));});
+}
+
+// ── FILE UPLOAD
+var parsedDiario=null;
+function setupUpload(){
+  var inp=document.getElementById('fileDiario'),zone=document.getElementById('uzDiario');
+  if(!inp||!zone)return;
+  function handle(file){
+    if(!file)return;
+    var r=new FileReader();
+    r.onload=function(e){
+      try{
+        parsedDiario=parseDiario(e.target.result);
+        document.getElementById('diarioName').textContent=file.name;
+        document.getElementById('diarioMeta').textContent=parsedDiario.length+' movimientos';
+        document.getElementById('diarioOk').classList.add('show');
+        document.getElementById('ajCard').style.display='block';
+        var m=file.name.match(/(\d{7,8}-[\dkK])/);
+        if(m&&!sv('c_rut'))document.getElementById('c_rut').value=m[1];
+        var tmp=buildBalance(parsedDiario);
+        var rh=document.getElementById('retiros_hint');
+        if(rh)rh.textContent='Retiros detectados: '+ff(tmp.retiros);
+        chkReady();
+      }catch(err){alert('Error procesando archivo: '+err.message);}
+    };
+    r.onerror=function(){alert('Error leyendo archivo.');};
+    r.readAsText(file,'latin1');
+  }
+  inp.addEventListener('change',function(e){if(e.target.files&&e.target.files[0])handle(e.target.files[0]);});
+  zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag');});
+  zone.addEventListener('dragleave',function(){zone.classList.remove('drag');});
+  zone.addEventListener('drop',function(e){
+    e.preventDefault();zone.classList.remove('drag');
+    if(e.dataTransfer.files&&e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);
+  });
+}
+function chkReady(){
+  var ok=parsedDiario&&parsedDiario.length>0&&getSocios().length>0;
+  var btn=document.getElementById('genBtn');if(btn)btn.disabled=!ok;
+}
+
+// ── PARSE
+function parseDiario(content){
+  var doc=new DOMParser().parseFromString(content,'text/html'),mov=[];
+  doc.querySelectorAll('tr').forEach(function(tr){
+    var cells=Array.from(tr.querySelectorAll('td')).map(function(td){return td.textContent.replace(/\s+/g,' ').trim();});
+    if(cells.length<8)return;
+    var cod=cells[4].trim();
+    if(!cod||!/^\d{6}/.test(cod))return;
+    var debe=pn(cells[6]),haber=pn(cells[7]);
+    if(debe===0&&haber===0)return;
+    if(cells[0].trim()==='Fecha')return;
+    mov.push({fecha:cells[0],cod:cod,cuenta:cells[5],debe:debe,haber:haber});
+  });
+  return mov;
+}
+
+// ── ACCOUNTING
+function buildBalance(movs){
+  var saldos={};
+  movs.forEach(function(m){
+    if(!saldos[m.cod])saldos[m.cod]={cod:m.cod,cuenta:m.cuenta,debe:0,haber:0};
+    saldos[m.cod].debe+=m.debe;saldos[m.cod].haber+=m.haber;
+  });
+  var gan={},per={},mx={},ppmD=0,ppmH=0,retiros=0,retirosDetalle=[];
+  var comprasMerc=0,comprasAF=0,comprasMercDet=[],comprasAFDet=[];
+  // Cuentas especiales a excluir de compras mercaderias
+  var EXCL_MERC={'110101':1,'110102':1,'110104':1,'110105':1,'110106':1,
+                 '110107':1,'110108':1,'110109':1,'110110':1,'110111':1};
+  Object.keys(saldos).forEach(function(k){
+    var s=saldos[k],p=PLAN[s.cod]||{},cat=(p.categoria||'').toUpperCase();
+    var nom=(s.cuenta||'').toUpperCase();
+    var pre2=s.cod.slice(0,2);
+    // PPM: acumular solo movimientos del periodo (excluir apertura 01-01)
+    if(s.cod==='110105'){
+      movs.forEach(function(mv){
+        if(mv.cod!=='110105')return;
+        var f=mv.fecha||'';
+        var esApertura=f.slice(0,6)==='01-01-'||f.slice(0,6)==='01/01/';
+        if(!esApertura&&mv.debe>0)ppmD+=mv.debe;
+        // Habers (imputaciones al fisco) no se restan del PPM del periodo
+      });
+    }
+    // Retiros
+    if(nom.indexOf('RETIRO')>=0&&nom.indexOf('RETENCION')<0){
+      var mr=Math.max(0,s.debe-s.haber);
+      if(mr>0){retiros+=mr;retirosDetalle.push({cod:s.cod,cuenta:s.cuenta,monto:mr});}
+    }
+    // Compras mercaderias: activo circulante 11xxxx, cuentas de mercaderia/materiales
+    var esMerc=s.cod==='110103'||s.cod==='110112'||
+               nom.indexOf('MERCAD')>=0||nom.indexOf('MATER')>=0||
+               nom.indexOf('EXISTEN')>=0||nom.indexOf('STOCK')>=0;
+    if(pre2==='11'&&esMerc&&!EXCL_MERC[s.cod]&&nom.indexOf('RETIRO')<0){
+      var mm=Math.max(0,s.debe-s.haber);
+      if(mm>0){comprasMerc+=mm;comprasMercDet.push({cod:s.cod,cuenta:s.cuenta,monto:mm});}
+    }
+    // Compras activos fijos: cuentas 12xxxx, excluir depreciacion acumulada
+    var esDeprec=nom.indexOf('DEPREC')>=0||nom.indexOf('AMORT')>=0;
+    if(pre2==='12'&&!esDeprec){
+      var maf=Math.max(0,s.debe-s.haber);
+      if(maf>0){comprasAF+=maf;comprasAFDet.push({cod:s.cod,cuenta:s.cuenta,monto:maf});}
+    }
+    // Resultados
+    var esGastoRech=false;
+    if(cat.indexOf('RDIDA')>=0||cat.indexOf('GANANCIA')>=0||cat.indexOf('MIXTO')>=0){
+      // Detectar gastos rechazados por nombre: IRA, reajuste Art.72, multas SII
+      // Detectar por código exacto
+      var CODS_RECH={'410112':1};
+      esGastoRech=CODS_RECH[s.cod]===1||
+                  nom.indexOf('IMPUESTO')>=0||
+                  nom.indexOf('IRA PAGADO')>=0||
+                  nom.indexOf('REAJUSTE ART')>=0||
+                  nom.indexOf('ART. 72')>=0||
+                  nom.indexOf('ART.72')>=0||
+                  nom.indexOf('MULTA SII')>=0||
+                  nom.indexOf('MULTA TRIBUTARIA')>=0||
+                  nom.indexOf('GASTO RECHAZADO')>=0||
+                  nom.indexOf('GASTO NO ACEPTADO')>=0||
+                  nom.indexOf('NO ACEPTADO')>=0;
+    }
+    if(cat.indexOf('GANANCIA')>=0)gan[k]={cod:s.cod,cuenta:s.cuenta,saldo:s.haber-s.debe,rechazado:esGastoRech};
+    else if(cat.indexOf('RDIDA')>=0)per[k]={cod:s.cod,cuenta:s.cuenta,saldo:Math.max(0,s.debe-s.haber),rechazado:esGastoRech};
+    else if(cat.indexOf('MIXTO')>=0)mx[k]={cod:s.cod,cuenta:s.cuenta,saldo:s.debe-s.haber,rechazado:esGastoRech};
+  });
+  var tG=0,tP=0;
+  Object.keys(gan).forEach(function(k){tG+=gan[k].saldo;});
+  Object.keys(per).forEach(function(k){tP+=per[k].saldo;});
+  Object.keys(mx).forEach(function(k){var sd=mx[k].saldo;if(sd>0)tG+=sd;else tP+=Math.abs(sd);});
+  tP+=comprasMerc+comprasAF;
+  // Gastos no deducibles: detectar solo para mostrar informativo
+  // NO afectan tP ni resultado
+  var gastosRechazados=0,gastosRechDet=[];
+  Object.keys(per).forEach(function(k){
+    if(per[k].rechazado&&per[k].saldo>0){
+      gastosRechazados+=per[k].saldo;
+      gastosRechDet.push({cod:per[k].cod,cuenta:per[k].cuenta,monto:per[k].saldo});
+      // NO se resta de tP — ya está incluido en los egresos del período
+      // Se muestra solo como informativo en el reporte
+    }
+  });
+  return{gan:gan,per:per,mx:mx,totalGan:tG,totalPer:tP,resultado:tG-tP,
+    ppm:ppmD,retiros:retiros,retirosDetalle:retirosDetalle,
+    comprasMerc:comprasMerc,comprasMercDet:comprasMercDet,
+    comprasAF:comprasAF,comprasAFDet:comprasAFDet,
+    gastosRech:gastosRechazados,gastosRechDet:gastosRechDet};
+}
+function buildMonthly(movs){
+  var by={};
+  movs.forEach(function(m){
+    var p=PLAN[m.cod]||{},cat=(p.categoria||'').toUpperCase();
+    var pts=m.fecha.split('-');if(pts.length<3)return;
+    var key=pts[1]+'/'+pts[2].slice(-2);
+    if(!by[key])by[key]={key:key,mes:parseInt(pts[1]),anio:parseInt(pts[2]),v:0,c:0};
+    if(cat.indexOf('GANANCIA')>=0)by[key].v+=m.haber-m.debe;
+    else if(cat.indexOf('RDIDA')>=0)by[key].c+=m.debe-m.haber;
+  });
+  return Object.keys(by).map(function(k){return by[k];})
+    .sort(function(a,b){return(a.anio*12+a.mes)-(b.anio*12+b.mes);})
+    .map(function(m){m.res=m.v-m.c;return m;});
+}
+function buildPPM(movs){
+  var by={};
+  movs.forEach(function(m){
+    if(m.cod!=='110105')return;
+    if(m.debe<=0)return; // solo débitos (pagos reales)
+    var f=m.fecha||'';
+    var esAp=f.slice(0,6)==='01-01-'||f.slice(0,6)==='01/01/'||f.slice(0,4)==='1/1/';
+    if(esAp)return; // excluir asiento apertura
+    var pts=f.split('-');if(pts.length<3)pts=f.split('/');
+    if(pts.length<3)return;
+    var mes=parseInt(pts[1]),anio=parseInt(pts[2]);
+    if(anio<100)anio+=2000;
+    var key=String(mes).padStart(2,'0')+'/'+String(anio).slice(-2);
+    if(!by[key])by[key]={key:key,mes:mes,anio:anio,pagado:0};
+    by[key].pagado+=m.debe;
+  });
+  return Object.keys(by).map(function(k){return by[k];})
+    .sort(function(a,b){return(a.anio*12+a.mes)-(b.anio*12+b.mes);});
+}
+
+// ── CHARTS SVG
+var MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function mkBar(d1,d2,lb){
+  var W=520,H=160,pL=42,pB=20,n=lb.length,gW=Math.max(1,(W-pL-8)/n),mx=1;
+  d1.concat(d2).forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:158px">';
+  for(var g=0;g<=3;g++){var gy=10+g/3*(H-pB-10);
+    s+='<line x1="'+pL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="#EDE0ED" stroke-width="0.5"/>';
+    s+='<text x="'+(pL-2)+'" y="'+(gy+3)+'" font-size="8" text-anchor="end" fill="#9A849B">'+fk(mx*(1-g/3))+'</text>';
+  }
+  for(var i=0;i<n;i++){
+    var x=pL+i*gW,bw=Math.max(2,(gW-4)/2);
+    var h1=Math.max(1,Math.abs(d1[i]/mx*(H-pB-10))),h2=Math.max(1,Math.abs(d2[i]/mx*(H-pB-10)));
+    s+='<rect x="'+(x+1)+'" y="'+(H-pB-h1)+'" width="'+bw+'" height="'+h1+'" fill="#904891" opacity=".75" rx="2"/>';
+    s+='<rect x="'+(x+bw+3)+'" y="'+(H-pB-h2)+'" width="'+bw+'" height="'+h2+'" fill="#C0392B" opacity=".55" rx="2"/>';
+    if(d1[i]>0)s+='<text x="'+(x+bw/2+1)+'" y="'+(H-pB-h1-3)+'" font-size="7" text-anchor="middle" fill="#904891" font-weight="700">'+fk(d1[i])+'</text>';
+    if(d2[i]>0)s+='<text x="'+(x+bw+3+bw/2)+'" y="'+(H-pB-h2-3)+'" font-size="7" text-anchor="middle" fill="#C0392B" font-weight="700">'+fk(d2[i])+'</text>';
+    s+='<text x="'+(x+gW/2)+'" y="'+(H-4)+'" font-size="7" text-anchor="middle" fill="#9A849B">'+lb[i]+'</text>';
+  }
+  s+='<rect x="'+pL+'" y="2" width="8" height="7" fill="#904891" opacity=".75"/>';
+  s+='<text x="'+(pL+11)+'" y="9" font-size="8" fill="#5C4A5D">Ingresos</text>';
+  s+='<rect x="'+(pL+68)+'" y="2" width="8" height="7" fill="#C0392B" opacity=".55"/>';
+  s+='<text x="'+(pL+79)+'" y="9" font-size="8" fill="#5C4A5D">Costos</text>';
+  return s+'</svg>';
+}
+function mkLine(vals,lb,col,fc){
+  var W=520,H=148,pL=42,pB=20,n=vals.length,mx=0,mn=0;
+  vals.forEach(function(v){if(v>mx)mx=v;if(v<mn)mn=v;});
+  var range=Math.max(1,mx-mn);
+  var toX=function(i){return pL+(W-pL-8)*i/Math.max(1,n-1);};
+  var toY=function(v){return H-pB-(v-mn)/range*(H-pB-14);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:146px">';
+  for(var g=0;g<=3;g++){var gy=14+g/3*(H-pB-14);
+    s+='<line x1="'+pL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="#EDE0ED" stroke-width="0.5"/>';
+    s+='<text x="'+(pL-2)+'" y="'+(gy+3)+'" font-size="8" text-anchor="end" fill="#9A849B">'+fk(mn+(mx-mn)*(1-g/3))+'</text>';
+  }
+  if(mn<0)s+='<line x1="'+pL+'" y1="'+toY(0)+'" x2="'+(W-4)+'" y2="'+toY(0)+'" stroke="#EDE0ED" stroke-dasharray="3,2"/>';
+  if(n>1){
+    var pts=vals.map(function(v,i){return toX(i)+','+toY(v);}).join(' ');
+    s+='<polygon points="'+toX(0)+','+toY(mn)+' '+pts+' '+toX(n-1)+','+toY(mn)+'" fill="'+fc+'"/>';
+    s+='<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/>';
+    vals.forEach(function(v,i){s+='<circle cx="'+toX(i)+'" cy="'+toY(v)+'" r="3" fill="'+col+'"/>';});
+  }
+  vals.forEach(function(v,i){
+    if(i===0||i===n-1||i%Math.max(1,Math.floor(n/4))===0)
+      s+='<text x="'+toX(i)+'" y="'+(H-4)+'" font-size="7" text-anchor="middle" fill="#9A849B">'+lb[i]+'</text>';
+  });
+  return s+'</svg>';
+}
+function mkLineMargen(vals,lb){
+  var W=520,H=148,pL=48,pB=20,n=vals.length,mx=0,mn=0;
+  vals.forEach(function(v){if(v>mx)mx=v;if(v<mn)mn=v;});
+  mx=Math.max(mx,0.1);var range=Math.max(1,mx-mn);
+  var toX=function(i){return pL+(W-pL-8)*i/Math.max(1,n-1);};
+  var toY=function(v){return H-pB-(v-mn)/range*(H-pB-18);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:146px">';
+  for(var g=0;g<=3;g++){var gy=14+g/3*(H-pB-14),gv2=mn+(mx-mn)*(1-g/3);
+    s+='<line x1="'+pL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="#EDE0ED" stroke-width="0.5"/>';
+    s+='<text x="'+(pL-2)+'" y="'+(gy+3)+'" font-size="8" text-anchor="end" fill="#9A849B">'+gv2.toFixed(1)+'%</text>';
+  }
+  if(mn<0)s+='<line x1="'+pL+'" y1="'+toY(0)+'" x2="'+(W-4)+'" y2="'+toY(0)+'" stroke="#EDE0ED" stroke-dasharray="3,2"/>';
+  if(n>1){var pts=vals.map(function(v,i){return toX(i)+','+toY(v);}).join(' ');
+    s+='<polygon points="'+toX(0)+','+toY(mn)+' '+pts+' '+toX(n-1)+','+toY(mn)+'" fill="rgba(45,155,111,.12)"/>';
+    s+='<polyline points="'+pts+'" fill="none" stroke="#2D9B6F" stroke-width="2" stroke-linejoin="round"/>';
+    vals.forEach(function(v,i){
+      s+='<circle cx="'+toX(i)+'" cy="'+toY(v)+'" r="3" fill="#2D9B6F"/>';
+      s+='<text x="'+toX(i)+'" y="'+(toY(v)-6)+'" font-size="7.5" text-anchor="middle" fill="#2D9B6F" font-weight="700">'+v.toFixed(1)+'%</text>';
+    });
+  }
+  vals.forEach(function(v,i){s+='<text x="'+toX(i)+'" y="'+(H-4)+'" font-size="7" text-anchor="middle" fill="#9A849B">'+lb[i]+'</text>';});
+  s+='<text x="'+(W-4)+'" y="9" font-size="7.5" text-anchor="end" fill="#9A849B">Margen = (Ing\u2212Cos)/Ing\u00d7100</text>';
+  return s+'</svg>';
+}
+function mkLineLabels(vals,lb,col,fc){
+  var W=520,H=160,pL=42,pB=24,n=vals.length,mx=0,mn=0;
+  vals.forEach(function(v){if(v>mx)mx=v;if(v<mn)mn=v;});
+  var range=Math.max(1,mx-mn);
+  var toX=function(i){return pL+(W-pL-8)*i/Math.max(1,n-1);};
+  var toY=function(v){return H-pB-(v-mn)/range*(H-pB-18);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:158px">';
+  for(var g=0;g<=3;g++){var gy=14+g/3*(H-pB-14);
+    s+='<line x1="'+pL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="#EDE0ED" stroke-width="0.5"/>';
+    s+='<text x="'+(pL-2)+'" y="'+(gy+3)+'" font-size="8" text-anchor="end" fill="#9A849B">'+fk(mn+(mx-mn)*(1-g/3))+'</text>';
+  }
+  if(mn<0)s+='<line x1="'+pL+'" y1="'+toY(0)+'" x2="'+(W-4)+'" y2="'+toY(0)+'" stroke="#EDE0ED" stroke-dasharray="3,2"/>';
+  if(n>1){var pts=vals.map(function(v,i){return toX(i)+','+toY(v);}).join(' ');
+    s+='<polygon points="'+toX(0)+','+toY(mn)+' '+pts+' '+toX(n-1)+','+toY(mn)+'" fill="'+fc+'"/>';
+    s+='<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/>';
+    vals.forEach(function(v,i){
+      s+='<circle cx="'+toX(i)+'" cy="'+toY(v)+'" r="3" fill="'+col+'"/>';
+      s+='<text x="'+toX(i)+'" y="'+(toY(v)-6)+'" font-size="7.5" text-anchor="middle" fill="'+col+'" font-weight="700">'+fk(v)+'</text>';
+    });
+  }
+  vals.forEach(function(v,i){s+='<text x="'+toX(i)+'" y="'+(H-4)+'" font-size="7" text-anchor="middle" fill="#9A849B">'+lb[i]+'</text>';});
+  return s+'</svg>';
+}
+function mkLinePct(vals,lb){
+  var mx=Math.max.apply(null,vals)||1;
+  var W=520,H=148,pL=42,pB=20,n=vals.length;
+  var toX=function(i){return pL+(W-pL-8)*i/Math.max(1,n-1);};
+  var toY=function(v){return H-pB-v/mx*(H-pB-14);};
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:146px">';
+  for(var g=0;g<=3;g++){var gy=14+g/3*(H-pB-14);
+    s+='<line x1="'+pL+'" y1="'+gy+'" x2="'+(W-4)+'" y2="'+gy+'" stroke="#EDE0ED" stroke-width="0.5"/>';
+    s+='<text x="'+(pL-2)+'" y="'+(gy+3)+'" font-size="8" text-anchor="end" fill="#9A849B">'+(mx*(1-g/3)).toFixed(1)+'%</text>';
+  }
+  if(n>1){
+    var pts=vals.map(function(v,i){return toX(i)+','+toY(v);}).join(' ');
+    s+='<polygon points="'+toX(0)+','+toY(0)+' '+pts+' '+toX(n-1)+','+toY(0)+'" fill="rgba(192,57,43,.1)"/>';
+    s+='<polyline points="'+pts+'" fill="none" stroke="#C0392B" stroke-width="2" stroke-linejoin="round"/>';
+    vals.forEach(function(v,i){
+      s+='<circle cx="'+toX(i)+'" cy="'+toY(v)+'" r="3" fill="#C0392B"/>';
+      s+='<text x="'+toX(i)+'" y="'+(toY(v)-5)+'" font-size="7" text-anchor="middle" fill="#C0392B">'+v.toFixed(1)+'%</text>';
+    });
+  }
+  vals.forEach(function(v,i){
+    if(i===0||i===n-1||i%Math.max(1,Math.floor(n/4))===0)
+      s+='<text x="'+toX(i)+'" y="'+(H-4)+'" font-size="7" text-anchor="middle" fill="#9A849B">'+lb[i]+'</text>';
+  });
+  return s+'</svg>';
+}
+
+// ── IGC STEP HELPER
+function mkStep(sym,numCls,val,valMod,label,hint){
+  var vCls='igc-step-val'+(valMod?' '+valMod:'');
+  var lCls='igc-step-label'+(valMod&&valMod.indexOf('bold')>=0?' bold':'');
+  return '<div class="igc-step">'
+    +'<div class="igc-step-num '+numCls+'">'+sym+'</div>'
+    +'<div class="igc-step-body"><div class="'+lCls+'">'+label+'</div>'
+    +(hint&&(!valMod||valMod.indexOf('bold')<0)?'<div class="igc-step-hint">'+hint+'</div>':'')
+    +'</div><div class="'+vCls+'">'+val+'</div></div>';
+}
+function igcToggle(el){
+  var did=el.getAttribute('data-did'),tid=el.getAttribute('data-tid');
+  var d=document.getElementById(did),t=document.getElementById(tid);
+  if(!d||!t)return;
+  var open=d.classList.contains('open');
+  d.classList.toggle('open',!open);t.classList.toggle('open',!open);
+  var arr=t.querySelector('.arrow');if(arr)arr.textContent=open?'\u25bc':'\u25b2';
+  var txt=t.querySelector('span:first-child');
+  if(txt)txt.textContent=open?'Ver c\u00f3mo se calcul\u00f3 paso a paso':'Ocultar detalle';
+}
+
+// ── FALLBACK IA
+function fbIA(acc,n){
+  var rl={'14D3':'PYME Art.14D N\u00b03','14D8':'Transparente 14D N\u00b08','presunta':'Renta Presunta'}[n.reg]||n.reg;
+  return{
+    resumen:sv('c_razon')+' presenta RLI de '+ff(n.rli)+'. Impuesto '+(n.reg==='14D3'?ff(n.impBruto):'$0 (empresa exenta)')+', diferencia '+(n.reg==='14D3'?ff(n.difEmp):'seg\u00fan socios')+'.',
+    analisis:'Proyecci\u00f3n tributaria '+sv('c_razon')+' para '+sv('c_at')+'.\n\nIngresos: '+ff(acc.totalGan)+'. Costos: '+ff(acc.totalPer)+'. Resultado: '+ff(acc.resultado)+'.\n\nRLI determinada seg\u00fan Arts. 29-33 LIR: '+ff(n.rli)+'.\n\n'+(n.reg==='14D3'?'Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'%): '+ff(n.impBruto)+'. PPM: '+ff(n.ppmEmp)+'. Diferencia: '+ff(n.difEmp)+'.':'R\u00e9gimen exime impuesto empresa. Base distribuida a socios para Global Complementario.'),
+    recomendaciones:[
+      {titulo:'Revisar ajustes tributarios',descripcion:'Verificar gastos rechazados Art.33 y correcci\u00f3n monetaria antes del cierre.',prioridad:'alta',icono:'!'},
+      {titulo:'Optimizar PPM',descripcion:'Ajustar tasa PPM seg\u00fan impuesto proyectado para evitar diferencia en abril.',prioridad:'media',icono:'$'},
+      {titulo:'Coordinaci\u00f3n socios',descripcion:'Informar renta atribuida y cr\u00e9ditos para planificaci\u00f3n del Global Complementario.',prioridad:'media',icono:'*'}
+    ]
+  };
+}
+function buildPrompt(acc,n){
+  var rl={'14D3':'PYME Art.14D N3','14D8':'Transparente 14D N8','presunta':'Renta Presunta'}[n.reg]||n.reg;
+  var sl=n.sc.map(function(s){return s.nombre+'('+s.pct+'%): IGC '+(s.calc.apagar>0?ff(s.calc.apagar)+' a pagar':'devolucion '+ff(s.calc.devolucion));}).join(', ');
+  return 'Analista tributario Contadoor. '+sv('c_razon')+' RUT '+sv('c_rut')+' '+sv('c_at')+' '+rl+'. Ingresos:'+ff(acc.totalGan)+' RLI:'+ff(n.rli)+' IDPC:'+ff(n.impBruto)+' PPM:'+ff(n.ppmEmp)+' Dif:'+ff(n.difEmp)+' TasaEf:'+n.tasaEf.toFixed(2)+'% Socios:'+sl+'. Responde SOLO JSON: {"resumen":"2 oraciones","analisis":"4 parrafos LIR","recomendaciones":[{"titulo":"","descripcion":"","prioridad":"alta","icono":"emoji"}]}';
+}
+
+// ── CLIENT PROFILE
+function onRutChange(){
+  var rut=sv('c_rut');var c=getCli();if(c[rut])autoFill(c[rut]);
+}
+function guardarPerfil(){
+  var rut=sv('c_rut');if(!rut)return;
+  var c=getCli();
+  c[rut]={rut:rut,razon:sv('c_razon'),giro:sv('c_giro'),nivel:sv('c_nivel'),
+    reg:sv('c_reg'),analista:sv('c_analista'),socios:getSocios(),ts:Date.now()};
+  setCli(c);
+}
+function autoFill(c){
+  ['c_razon','c_giro','c_nivel','c_analista'].forEach(function(id){
+    if(c[id.replace('c_','')])document.getElementById(id).value=c[id.replace('c_','')];
+  });
+  if(c.razon){document.getElementById('c_razon').value=c.razon;}
+  if(c.giro){document.getElementById('c_giro').value=c.giro;}
+  if(c.nivel){document.getElementById('c_nivel').value=c.nivel;}
+  if(c.analista){document.getElementById('c_analista').value=c.analista;}
+  if(c.reg){document.getElementById('c_reg').value=c.reg;onRegChange();}
+  if(c.socios&&c.socios.length){
+    document.getElementById('sociosBody').innerHTML='';SC=0;
+    c.socios.forEach(function(s){addSocio(s.nombre,s.pct,s.retiros||0,s.otros||0);});
+  }
+}
+function abrirModal(){
+  var c=getCli(),keys=Object.keys(c);
+  var list=document.getElementById('modalList');
+  while(list.firstChild)list.removeChild(list.firstChild);
+  if(!keys.length){
+    var p=document.createElement('p');p.style.color='var(--tm)';p.textContent='Sin perfiles guardados.';list.appendChild(p);
+  }else{
+    keys.forEach(function(k){
+      var div=document.createElement('div');
+      div.style.cssText='padding:9px 0;border-bottom:1px solid var(--bdr);cursor:pointer;display:flex;justify-content:space-between;align-items:center';
+      var left=document.createElement('div');
+      var b=document.createElement('b');b.textContent=c[k].razon||k;left.appendChild(b);
+      var sm=document.createElement('div');sm.style.cssText='font-size:11px;color:var(--tm)';sm.textContent=k;left.appendChild(sm);
+      var arr=document.createElement('span');arr.style.color='var(--p)';arr.textContent='>';
+      div.appendChild(left);div.appendChild(arr);
+      (function(rut){div.addEventListener('click',function(){loadCli(rut);});})(k);
+      list.appendChild(div);
+    });
+  }
+  document.getElementById('modal').classList.add('on');
+}
+function loadCli(rut){
+  var c=getCli();if(c[rut]){autoFill(c[rut]);document.getElementById('modal').classList.remove('on');}
+}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+
+// ── GENERATE REPORT
+function generarReporte(){
+  if(!parsedDiario||!parsedDiario.length){alert('Primero sube el libro diario.');return;}
+  var socios=getSocios();
+  if(!socios.length){alert('Agrega al menos un socio con % de participaci\u00f3n.');return;}
+
+  var btn=document.getElementById('genBtn');btn.disabled=true;
+  showTab('reporte');
+  var ld=document.getElementById('loadingDiv'),rw=document.getElementById('reportWrap');
+  ld.classList.add('on');rw.classList.remove('on');rw.innerHTML='';
+
+  try{
+    var acc=buildBalance(parsedDiario),monthly=buildMonthly(parsedDiario);
+    var reg=sv('c_reg'),at=sv('c_at'),tasa=gv('c_tasa');
+    var rec=gv('aj_rec'),cm=gv('aj_cm'),per=gv('aj_per'),uf=gv('aj_uf')||39700,cred=gv('aj_cred');
+    var use14E=(sv('aj_14e')==='si'&&reg==='14D3');
+    var gastosRechAuto=acc.gastosRech||0; // solo informativo
+    var rli=acc.resultado+rec+cm-per; // GR no afectan RLI
+    var rliPos=Math.max(0,rli),reb14E=0;
+    // Retiros para 14E: suma de retiros de todos los socios
+    // Cada socio usa su valor manual si lo ingresó, o el del libro proporcional
+    var retirosPara14E=socios.reduce(function(sum,s){
+      return sum+(s.retiros>0?s.retiros:acc.retiros*(s.pct/100));
+    },0);
+    // Si no hay socios, usar total del libro
+    if(!socios.length)retirosPara14E=acc.retiros;
+    if(use14E){
+      var baseInc=Math.max(0,rli-retirosPara14E);
+      reb14E=Math.min(baseInc*0.5,5000*uf);
+    }
+    var rliNet=Math.max(0,rliPos-reb14E),impBruto=0,ppmEmp=0,difEmp=0;
+    if(reg==='14D3'){impBruto=rliNet*(tasa/100);ppmEmp=acc.ppm;difEmp=impBruto-ppmEmp-cred;}
+    var tasaEf=acc.totalGan>0?(impBruto/acc.totalGan*100):0;
+    var nivel=sv('c_nivel');
+
+    var sc=socios.map(function(s){
+      var rs=s.retiros>0?s.retiros:acc.retiros*(s.pct/100);
+      var bs=reg==='14D3'?rs:rliPos*(s.pct/100);
+      return{nombre:s.nombre,pct:s.pct,retiro:rs,otros:s.otros||0,
+             calc:calcIGCSocio(bs,s.otros||0,reg,at,impBruto,acc.ppm,s.pct)};
+    });
+
+    var params={reg:reg,at:at,tasa:tasa,rli:rli,rliPos:rliPos,rliNet:rliNet,
+      impBruto:impBruto,ppmEmp:ppmEmp,difEmp:difEmp,reb14E:reb14E,tasaEf:tasaEf,
+      sc:sc,rec:rec,cm:cm,per:per,use14E:use14E,cred:cred,ppmTotal:acc.ppm,nivel:nivel,
+      retirosPara14E:retirosPara14E};
+
+    // Save
+    guardarPerfil();
+    var repo=getRepo();
+    repo.unshift({id:Date.now(),ts:new Date().toISOString(),razon:sv('c_razon'),rut:sv('c_rut'),
+      at:at,reg:reg,nivel:nivel,tasa:tasa,rli:rli,impBruto:impBruto,difEmp:difEmp,
+      tasaEf:tasaEf,analista:sv('c_analista')||'Contadoor'});
+    if(repo.length>100)repo.splice(100);
+    setRepo(repo);
+
+    // Render immediately with fallback
+    var ia0=fbIA(acc,params);
+    ld.classList.remove('on');
+    render(acc,monthly,params,ia0);
+    btn.disabled=false;
+
+    // AI in background (PRO only)
+    if(nivel==='PRO'){
+      try{
+        var xhr=new XMLHttpRequest();
+        xhr.open('POST','https://api.anthropic.com/v1/messages',true);
+        xhr.setRequestHeader('Content-Type','application/json');
+        xhr.timeout=20000;
+        xhr.onload=function(){
+          try{
+            if(xhr.status===200){
+              var d=JSON.parse(xhr.responseText);
+              var raw=(d.content||[]).map(function(b){return b.text||'';}).join('');
+              var iaR=JSON.parse(raw.replace(/```json|```/g,'').trim());
+              var gp=document.querySelector('.g-info p');if(gp&&iaR.resumen)gp.textContent=iaR.resumen;
+              var nt=document.querySelector('.narr .txt');if(nt&&iaR.analisis)nt.textContent=iaR.analisis;
+            }
+          }catch(e){}
+        };
+        xhr.onerror=xhr.ontimeout=function(){};
+        xhr.send(JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,
+          messages:[{role:'user',content:buildPrompt(acc,params)}]}));
+      }catch(e){}
+    }
+  }catch(err){
+    ld.classList.remove('on');
+    btn.disabled=false;
+    rw.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:20px;color:#991B1B;margin:20px 0"><b>Error al generar reporte:</b><br>'+String(err.message)+'</div>';
+    rw.classList.add('on');
+    console.error('generarReporte error:',err);
+  }
+}
+
+// ── RENDER
+function render(acc,monthly,n,ia){
+  var rw=document.getElementById('reportWrap');
+  var razon=sv('c_razon')||'--',rut=sv('c_rut')||'--',giro=sv('c_giro')||'--';
+  var at=n.at,reg=n.reg,nivel=n.nivel||sv('c_nivel'),analista=sv('c_analista')||'Contadoor';
+  var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+  var RLmap={'14D3':'PYME General (Art. 14D N\u00b03)','14D8':'Transparente (Art. 14D N\u00b08)','presunta':'Renta Presunta (Art. 34)'};
+  var RCmap={'14D3':'pyme','14D8':'transp','presunta':'presunta'};
+  var h='';
+
+  // PRINT ROW
+  h+='<div class="prow"><div class="prow-title">Reporte Tributario</div>';
+  h+='<button class="btn-s" onclick="showTab(\'entrada\')">Editar</button>';
+  h+='<button class="btn-p" onclick="window.print()">Imprimir PDF</button></div>';
+
+  // HEADER
+  h+='<div class="rpt-hdr">';
+  h+='<div style="display:flex;flex-direction:column;gap:8px"><img id="logoRPT" alt="Contadoor"/>';
+  h+='<div style="font-size:10px;color:rgba(255,255,255,.6)">Asesor\u00eda Contable y Tributaria</div></div>';
+  h+='<div style="text-align:right">';
+  h+='<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Proyecci\u00f3n Tributaria</div>';
+  h+='<div style="font-size:28px;font-weight:800;color:#fff;line-height:1.1">Impuesto<br>a la Renta</div>';
+  h+='<div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;align-items:flex-end">';
+  h+='<div style="font-size:11px;background:rgba(255,255,255,.18);color:#fff;border-radius:20px;padding:4px 14px;font-weight:600">'+at+'</div>';
+  h+='<div style="font-size:10px;color:rgba(255,255,255,.5)">Emitido '+hoy+'</div>';
+  h+='</div></div></div>';
+
+  // CLIENT
+  h+='<div class="client-box"><div class="client-row">';
+  h+='<div class="cf" style="flex:1.5"><div class="lbl">Cliente</div><div class="val">'+hesc(razon)+'</div><div style="font-size:11px;color:var(--t2)">'+hesc(giro)+'</div></div>';
+  h+='<div class="cf"><div class="lbl">RUT</div><div class="val">'+hesc(rut)+'</div></div>';
+  h+='<div class="cf"><div class="lbl">Per\u00edodo</div><div class="val">'+at+'</div></div>';
+  h+='<div class="cf"><div class="lbl">R\u00e9gimen</div><div class="val"><span class="regime-tag '+(RCmap[reg]||'pyme')+'">'+(RLmap[reg]||reg)+'</span></div></div>';
+  h+='<div class="cf"><div class="lbl">Nivel</div><div class="val"><span class="level-tag '+nivel.toLowerCase()+'">'+nivel+'</span></div></div>';
+  h+='<div class="cf"><div class="lbl">Analista</div><div class="val" style="font-size:12px">'+hesc(analista)+'</div></div>';
+  h+='</div></div>';
+
+  // KPIS
+  h+='<div class="kpi-grid k4">';
+  h+='<div class="kpi cp"><div class="kpi-lbl">Ingresos Totales</div><div class="kpi-val">'+fk(acc.totalGan)+'</div><div class="kpi-sub">Base del ejercicio</div></div>';
+  h+='<div class="kpi ca"><div class="kpi-lbl">Renta L\u00edquida Imponible</div><div class="kpi-val">'+fk(n.rli)+'</div><div class="kpi-sub">Margen '+(acc.totalGan>0?((n.rli/acc.totalGan)*100).toFixed(1):0)+'%</div></div>';
+  h+='<div class="kpi '+(reg==='14D3'?'cr':'cg')+'"><div class="kpi-lbl">Impuesto 1\u00aa Cat. ('+n.tasa+'%)</div><div class="kpi-val">'+(reg==='14D3'?fk(n.impBruto):'$0')+'</div><div class="kpi-sub">'+(reg==='14D3'?'Antes de cr\u00e9ditos':'Empresa exenta')+'</div></div>';
+  h+='<div class="kpi '+(reg==='14D3'?(n.difEmp>0?'cr':'cg'):'cb')+'"><div class="kpi-lbl">'+(reg==='14D3'?(n.difEmp>=0?'Diferencia a Pagar':'Remanente'):'PPM Acumulados')+'</div><div class="kpi-val">'+(reg==='14D3'?fk(Math.abs(n.difEmp)):fk(n.ppmTotal))+'</div><div class="kpi-sub">'+(reg==='14D3'?'PPM: '+fk(n.ppmEmp):'Distribuir a socios')+'</div></div>';
+  h+='</div>';
+
+  // GAUGE
+  var te=n.tasaEf,pct=Math.min(te/40,1),ga=-90+pct*180;
+  h+='<div class="gauge-card"><div><svg viewBox="0 0 170 100" style="width:170px;height:100px;overflow:visible">';
+  h+='<defs><linearGradient id="gg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2D9B6F"/><stop offset="50%" stop-color="#C07A1A"/><stop offset="100%" stop-color="#C0392B"/></linearGradient></defs>';
+  h+='<path d="M 15 88 A 70 70 0 0 1 155 88" fill="none" stroke="#EDE0ED" stroke-width="12" stroke-linecap="round"/>';
+  h+='<path d="M 15 88 A 70 70 0 0 1 155 88" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(pct*220)+' 220"/>';
+  h+='<line x1="85" y1="88" x2="85" y2="24" stroke="#904891" stroke-width="2.5" stroke-linecap="round" transform="rotate('+ga+' 85 88)"/>';
+  h+='<circle cx="85" cy="88" r="5" fill="#904891"/></svg>';
+  h+='<div class="g-lbl">'+(reg==='14D3'?'Tasa efectiva: '+te.toFixed(2)+'%':'Empresa exenta IDPC')+'</div></div>';
+  h+='<div class="g-info"><h3>Carga Tributaria del Ejercicio</h3><p class="g-info-resumen">'+hesc(ia.resumen||'')+'</p>';
+  h+='<div class="tasa-pill">'+te.toFixed(2)+'% '+(reg==='14D3'?(te<10?'Carga Baja':te<20?'Carga Moderada':te<27?'Carga Normal':'Carga Alta'):'Empresa $0')+'</div></div></div>';
+
+  // RLI TABLE
+  h+='<div class="sdiv">Determinaci\u00f3n de la Base Imponible</div>';
+  h+='<div class="panel-full"><div class="ph"><h3>Recuadro F22 \u2014 Determinaci\u00f3n RLI</h3>';
+  h+='<span style="font-size:10px;color:var(--tm)">'+(reg==='14D3'?'Recuadro N\u00b017 Art. 14D N\u00b03':'Recuadro N\u00b012 Arts. 29-33')+'</span></div>';
+  h+='<table class="dtable"><thead><tr><th style="width:70px">Cod. F22</th><th>Concepto</th><th style="text-align:right">Monto CLP</th></tr></thead><tbody>';
+
+  // Ingresos
+  h+='<tr class="grp"><td></td><td colspan="2">INGRESOS PERCIBIDOS</td></tr>';
+  var ventas=0,otrosIng=0;
+  Object.keys(acc.gan).forEach(function(k){
+    var x=acc.gan[k];if(x.saldo<=0)return;
+    if(x.cod&&x.cod.slice(0,2)==='42')ventas+=x.saldo;else otrosIng+=x.saldo;
+  });
+  Object.keys(acc.mx).forEach(function(k){var x=acc.mx[k];if(x.saldo>0)otrosIng+=x.saldo;});
+  if(ventas>0)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[1400]</td><td>Ingresos percibidos del giro</td><td class="num">'+ff(ventas)+'</td></tr>';
+  if(otrosIng>0)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[1402]</td><td>Otros ingresos percibidos</td><td class="num">'+ff(otrosIng)+'</td></tr>';
+  h+='<tr class="sub"><td class="num" style="color:var(--p);font-weight:700">[1410]</td><td><b>Total Ingresos Percibidos</b></td><td class="num"><b>'+ff(acc.totalGan)+'</b></td></tr>';
+
+  // Egresos
+  h+='<tr class="grp"><td></td><td colspan="2">EGRESOS Y GASTOS PAGADOS \u2014 Art. 31 LIR</td></tr>';
+  var gCV=0,gRem=0,gHon=0,gArr=0,gOp=0,gAdm=0,gOtros=0;
+  Object.keys(acc.per).forEach(function(k){
+    var x=acc.per[k];if(x.saldo<=0)return;
+    var nom=(x.cuenta||'').toUpperCase();
+    if(nom.indexOf('COSTO')>=0&&(nom.indexOf('VENTA')>=0||nom.indexOf('MERCAD')>=0))gCV+=x.saldo;
+    else if(nom.indexOf('REMUNERA')>=0||nom.indexOf('GRATIF')>=0||nom.indexOf('APORTE')>=0||nom.indexOf('FINIQ')>=0)gRem+=x.saldo;
+    else if(nom.indexOf('HONORARIO')>=0)gHon+=x.saldo;
+    else if(nom.indexOf('ARRIENDO')>=0)gArr+=x.saldo;
+    else if(nom.indexOf('COMBUSTIBLE')>=0||nom.indexOf('PEAJE')>=0||nom.indexOf('LOGIS')>=0)gOp+=x.saldo;
+    else if(nom.indexOf('BANCARIO')>=0||nom.indexOf('SEGURO')>=0)gAdm+=x.saldo;
+    else gOtros+=x.saldo;
+  });
+  Object.keys(acc.mx).forEach(function(k){var x=acc.mx[k];if(x.saldo<0)gOtros+=Math.abs(x.saldo);});
+  var gCVtotal=gCV+(acc.comprasMerc||0)+(acc.comprasAF||0);
+  var egr=[[gCVtotal,'[1420]','Costo directo, mercanc\u00edas y activos fijos'],[gRem,'[1421]','Remuneraciones y leyes sociales (Art. 31 N\u00b02)'],[gHon,'[1422]','Honorarios pagados (Art. 31 N\u00b01)'],[gArr,'[1423]','Arriendos pagados (Art. 31 N\u00b01)'],[gOp,'[1424]','Gastos operacionales y de venta'],[gAdm,'[1425]','Gastos de administraci\u00f3n y financieros'],[gOtros,'[1426]','Otros egresos y gastos']];
+  egr.forEach(function(e){
+    if(e[0]<=0)return;
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">'+e[1]+'</td><td>'+e[2]+'</td><td class="num" style="color:var(--red)">'+ff(-e[0])+'</td></tr>';
+    if(e[1]==='[1420]'){
+      if(gCV>0)h+='<tr style="background:#fdfafd"><td></td><td style="font-size:10.5px;color:var(--tm);padding:3px 14px 3px 28px">\u2514 Costo ventas (cuentas resultado): '+ff(-gCV)+'</td><td></td></tr>';
+      if((acc.comprasMerc||0)>0){
+        h+='<tr style="background:#fdfafd"><td></td><td style="font-size:10.5px;color:var(--tm);padding:3px 14px 3px 28px">\u2514 Compras mercanc\u00edas/materiales: '+ff(-(acc.comprasMerc||0))+'</td><td></td></tr>';
+        (acc.comprasMercDet||[]).forEach(function(d){h+='<tr style="background:#fdfafd"><td></td><td style="font-size:10px;color:var(--tm);padding:2px 14px 2px 42px">\u2022 '+hesc(d.cuenta)+': '+ff(-d.monto)+'</td><td></td></tr>';});
+      }
+      if((acc.comprasAF||0)>0){
+        h+='<tr style="background:#fdfafd"><td></td><td style="font-size:10.5px;color:var(--tm);padding:3px 14px 3px 28px">\u2514 Compras activos fijos (Art. 31 N\u00b05): '+ff(-(acc.comprasAF||0))+'</td><td></td></tr>';
+        (acc.comprasAFDet||[]).forEach(function(d){h+='<tr style="background:#fdfafd"><td></td><td style="font-size:10px;color:var(--tm);padding:2px 14px 2px 42px">\u2022 '+hesc(d.cuenta)+': '+ff(-d.monto)+'</td><td></td></tr>';});
+      }
+    }
+  });
+  h+='<tr class="sub"><td></td><td><b>Total Egresos y Gastos</b></td><td class="num" style="color:var(--red)"><b>'+ff(-acc.totalPer)+'</b></td></tr>';
+
+  // Ajustes
+  // Ajustes tributarios (solo los que SÍ afectan RLI)
+  if(n.rec||n.cm||n.per){
+    h+='<tr class="grp"><td></td><td colspan="2">AJUSTES TRIBUTARIOS \u2014 Art. 32-33 LIR</td></tr>';
+    if(n.rec)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[15]</td><td>(+) Gastos rechazados adicionales (ingreso manual)</td><td class="num">'+ff(n.rec)+'</td></tr>';
+    if(n.cm)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[32]</td><td>(+/-) Correcci\u00f3n Monetaria Neta (Art. 32)</td><td class="num" style="color:'+(n.cm>=0?'inherit':'var(--red)')+'">'+ff(n.cm)+'</td></tr>';
+    if(n.per)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[1430]</td><td>(-) P\u00e9rdidas tributarias de arrastre (Art. 31 N\u00b03)</td><td class="num" style="color:var(--red)">'+ff(-n.per)+'</td></tr>';
+  }
+  // Gastos no deducibles — solo informativo, NO afectan RLI
+  if(acc.gastosRech&&acc.gastosRech>0){
+    h+='<tr class="grp" style="background:#FEF9EC"><td></td><td colspan="2" style="color:#78350F">GASTOS NO DEDUCIBLES \u2014 solo informativo (no afectan RLI)</td></tr>';
+    (acc.gastosRechDet||[]).forEach(function(d){
+      h+='<tr style="background:#FFFBEB"><td class="num" style="color:#92400E;font-size:10px">info</td><td style="font-size:11.5px;color:#78350F">'+hesc(d.cuenta)+'</td><td class="num" style="color:#92400E">'+ff(d.monto)+'</td></tr>';
+    });
+    h+='<tr style="background:#FFFBEB"><td></td><td style="font-size:10.5px;color:#92400E;padding:4px 14px 8px">Estos gastos no son deducibles tributariamente (Art. 33 N\u00b01 LIR). No se incluyen en el c\u00e1lculo de la RLI de este reporte.</td><td></td></tr>';
+  }
+    h+='<tr class="tr"><td class="num" style="color:var(--pd);font-weight:700">'+(reg==='14D3'?'[1440]':'[1728]')+'</td><td><b>RENTA L\u00cdQUIDA IMPONIBLE AFECTA A IDPC</b></td><td class="num"><b>'+ff(n.rli)+'</b></td></tr>';
+
+  // Impuesto empresa
+  h+='<tr><td colspan="3" style="height:3px;background:linear-gradient(90deg,var(--p),var(--pm));padding:0"></td></tr>';
+  h+='<tr style="background:var(--pp)"><td colspan="3" style="padding:8px 14px;font-size:10.5px;font-weight:700;color:var(--pd);text-transform:uppercase;letter-spacing:.8px">CALCULO IMPUESTO EMPRESA</td></tr>';
+  if(reg==='14D3'){
+    if(n.use14E&&n.reb14E>0){
+      h+='<tr><td class="num" style="color:var(--p);font-weight:700">[1432]</td><td>(-) Incentivo Art. 14E \u2014 50% de (RLI \u2212 retiros)</td><td class="num" style="color:var(--green)">'+ff(-n.reb14E)+'</td></tr>';
+      // Base 14E = RLI (ya incluye gastos rechazados) - retiros
+      var bReinv=Math.max(0,n.rliPos-acc.retiros);
+      var ret14eLbl=n.retirosPara14E>0?ff(n.retirosPara14E):'$0';
+      var ret14eSrc=(acc.retiros>0&&n.retirosPara14E===acc.retiros)?' (libro)':' (simulado)';
+      h+='<tr style="background:#f0faf5"><td></td><td style="font-size:10.5px;color:var(--tm);padding:4px 14px 2px">Base 14E: RLI ('+ff(n.rliPos)+') \u2212 Retiros'+ret14eSrc+' ('+ret14eLbl+') = '+ff(bReinv)+' \u00d7 50% = '+ff(n.reb14E)+'</td><td></td></tr>';
+      if(acc.retirosDetalle&&acc.retirosDetalle.length){
+        var rd=acc.retirosDetalle.map(function(d){return hesc(d.cuenta)+': '+ff(d.monto);}).join(' | ');
+        h+='<tr style="background:#f0faf5"><td></td><td style="font-size:10px;color:var(--tm);padding:2px 14px 6px 28px">Retiros en libro: '+rd+'</td><td></td></tr>';
+      }
+      h+='<tr class="sub"><td class="num" style="color:var(--p);font-weight:700">[1440]</td><td><b>Base Imponible post-14E</b></td><td class="num"><b>'+ff(n.rliNet)+'</b></td></tr>';
+    }
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">[21]</td><td>Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'% \u00d7 '+ff(n.rliNet)+')</td><td class="num" style="color:var(--red);font-weight:600">'+ff(-n.impBruto)+'</td></tr>';
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">[67]</td><td>(+) PPM Imputables acumulados (cta. 110105)</td><td class="num" style="color:var(--green);font-weight:600">'+ff(n.ppmEmp)+'</td></tr>';
+    if(n.cred)h+='<tr><td class="num" style="color:var(--p);font-weight:700">[68]</td><td>(+) Otros Cr\u00e9ditos</td><td class="num" style="color:var(--green)">'+ff(n.cred)+'</td></tr>';
+    var cov=n.impBruto>0?Math.min(100,n.ppmEmp/n.impBruto*100):100;
+    var covMsg=cov>=95?'Adecuado':(cov>=70?'Revisar al alza':'Bajo - riesgo de deuda');
+    h+='<tr style="background:#FBF5FB"><td></td><td style="font-size:10.5px;color:var(--t2);padding:6px 14px">Cobertura PPM/IDPC: <b>'+cov.toFixed(1)+'%</b> \u2014 '+covMsg+'</td><td></td></tr>';
+    h+='<tr class="'+(n.difEmp<=0?'cero':'pay')+'">';
+    h+='<td class="num" style="font-weight:700">'+(n.difEmp<=0?'[84]':'[89]')+'</td>';
+    h+='<td><b>'+(n.difEmp>=0?'DIFERENCIA A PAGAR AL FISCO':'REMANENTE PPM A FAVOR')+'</b></td>';
+    h+='<td class="num"><b>'+ff(Math.abs(n.difEmp))+'</b></td></tr>';
+  }else if(reg==='14D8'){
+    h+='<tr class="cero"><td class="num" style="color:var(--p);font-weight:700">[21]</td><td><b>Impuesto Empresa \u2014 R\u00e9gimen Transparente 14D N\u00b08</b></td><td class="num"><b>$0</b></td></tr>';
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">[930]</td><td>Base imponible atribuida a socios (100% RLI)</td><td class="num">'+ff(n.rliPos)+'</td></tr>';
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">[67]</td><td>PPM disponibles para socios (cta. 110105)</td><td class="num" style="color:var(--green)">'+ff(n.ppmTotal)+'</td></tr>';
+  }else{
+    h+='<tr class="cero"><td class="num" style="color:var(--p);font-weight:700">[21]</td><td><b>Impuesto Empresa \u2014 Renta Presunta (Art. 34)</b></td><td class="num"><b>$0</b></td></tr>';
+    h+='<tr><td class="num" style="color:var(--p);font-weight:700">[930]</td><td>Base imponible atribuida a socios</td><td class="num">'+ff(n.rliPos)+'</td></tr>';
+  }
+  h+='</tbody></table></div>';
+
+  // SOCIOS RESUMEN TABLE
+  if(n.sc.length>0){
+    h+='<div class="sdiv">Tributaci\u00f3n Socios</div>';
+    h+='<div class="panel-full"><div class="ph"><h3>Resumen IGC por Socio</h3></div>';
+    h+='<table class="dtable"><thead><tr><th>Socio</th><th style="text-align:right">%</th>';
+    if(reg==='14D3')h+='<th style="text-align:right">Retiros</th><th style="text-align:right">Renta Bruta</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Cr\u00e9d. IDPC</th>';
+    else if(reg==='14D8')h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Cr\u00e9d. PPM</th>';
+    else h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th>';
+    h+='<th style="text-align:right">Resultado</th></tr></thead><tbody>';
+    n.sc.forEach(function(s){
+      var c=s.calc,cl=c.igcNeto<=0?'var(--green)':'var(--red)';
+      var rl=c.igcNeto<=0?'Devol. '+ff(c.devolucion):'Paga '+ff(c.apagar);
+      h+='<tr><td><b>'+hesc(s.nombre)+'</b></td><td class="num">'+s.pct.toFixed(1)+'%</td>';
+      if(reg==='14D3'){h+='<td class="num">'+ff(c.retiro)+'</td><td class="num">'+ff(c.rentaBruta)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:var(--green)">'+ff(c.creditoIDPC)+'</td>';}
+      else if(reg==='14D8'){h+='<td class="num">'+ff(c.baseAtribuida)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:var(--green)">'+ff(c.creditoPPM)+'</td>';}
+      else{h+='<td class="num">'+ff(c.baseAtribuida)+'</td><td class="num">'+ff(c.igcBruto)+'</td>';}
+      h+='<td class="num" style="font-weight:700;color:'+cl+'">'+rl+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  // CHARTS
+  if(nivel!=='MICRO'&&monthly.length>0){
+    var ppmData=parsedDiario?buildPPM(parsedDiario):[];
+    var mlb=monthly.map(function(m){return MN[m.mes];});
+    h+='<div class="sdiv">Tendencias del Ejercicio</div><div class="chart-grid">';
+    h+='<div class="chart-card"><h3>Ingresos vs Costos mensuales</h3>'+mkBar(monthly.map(function(m){return m.v;}),monthly.map(function(m){return m.c;}),mlb)+'</div>';
+    h+='<div class="chart-card"><h3>Resultado mensual</h3>'+mkLine(monthly.map(function(m){return m.res;}),mlb,'#904891','rgba(144,72,145,.12)')+'</div>';
+    h+='</div>';
+
+    if(ppmData.length>0){
+      var ppmLb=ppmData.map(function(p){return MN[p.mes];});
+      var ppmVals=ppmData.map(function(p){return Math.max(0,p.pagado);});
+      // ppmTotal desde acc.ppm (buildBalance ya excluye apertura y habers)
+      var ppmTotal=acc.ppm||ppmVals.reduce(function(s,v){return s+v;},0);
+      var tasaReal=acc.totalGan>0?(ppmTotal/acc.totalGan*100):0;
+      var cobEmp=n.impBruto>0?(ppmTotal/n.impBruto*100):100;
+      var tasaSug=acc.totalGan>0?(n.impBruto/acc.totalGan*100*1.05):0;
+      // Cruzar PPM con ventas por MES (no por índice - pueden no coincidir)
+      var ventasPorMes={};
+      monthly.forEach(function(mo){ventasPorMes[mo.mes]=mo.v;});
+      var ppmVsV=ppmData.map(function(p){
+        var v=ventasPorMes[p.mes]||0;
+        return v>0?(p.pagado/v*100):0;
+      });
+
+      h+='<div class="sdiv">Pagos Provisionales Mensuales (PPM)</div>';
+      h+='<div class="chart-grid">';
+      h+='<div class="chart-card"><h3>PPM pagados por mes (cta. 110105)</h3>'+mkLineLabels(ppmVals,ppmLb,'#2D9B6F','rgba(45,155,111,.15)')+'</div>';
+      h+='<div class="chart-card"><h3>Tasa PPM efectiva mensual (%)</h3>'+mkLinePct(ppmVsV,ppmLb)+'</div>';
+      h+='</div>';
+
+      var cobColor=cobEmp>=90?'var(--green)':(cobEmp>=70?'var(--amber)':'var(--red)');
+      var cobBg=cobEmp>=90?'#ECFDF5':(cobEmp>=70?'#FEF3C7':'#FEF2F2');
+      var cobBorder=cobEmp>=90?'#A7F3D0':(cobEmp>=70?'#FDE68A':'#FECACA');
+      var cobTxt=cobEmp>=90?'#064E3B':(cobEmp>=70?'#78350F':'#991B1B');
+      var cobIcon=cobEmp>=90?'\u2713':'!';
+      var accion=cobEmp>=90
+        ?'La cobertura de PPM es adecuada. Los pagos provisionales est\u00e1n bien calibrados para el impuesto proyectado.'
+        :(cobEmp>=70
+          ?'Se recomienda revisar la tasa de PPM al alza. Con cobertura del '+cobEmp.toFixed(1)+'%, habr\u00e1 diferencia a pagar en abril que puede impactar el flujo de caja.'
+          :'La cobertura de PPM es baja ('+cobEmp.toFixed(1)+'%). Se recomienda aumentar la tasa de PPM. La diferencia proyectada es '+ff(Math.abs(n.difEmp))+' a pagar al Fisco.');
+
+      h+='<div class="panel-full" style="margin-bottom:14px">';
+      h+='<div class="ph"><h3>An\u00e1lisis PPM y Recomendaci\u00f3n</h3></div>';
+      h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--bdr)">';
+      h+='<div style="padding:14px 16px;border-right:1px solid var(--bdr)"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--tm);margin-bottom:6px">PPM Total Acumulado</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)">'+ff(ppmTotal)+'</div><div style="font-size:11px;color:var(--tm);margin-top:3px">Tasa promedio: '+tasaReal.toFixed(2)+'% sobre ingresos</div></div>';
+      h+='<div style="padding:14px 16px;border-right:1px solid var(--bdr)"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--tm);margin-bottom:6px">IDPC Proyectado</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--red)">'+ff(n.impBruto)+'</div><div style="font-size:11px;color:var(--tm);margin-top:3px">Cobertura actual: <b style="color:'+cobColor+'">'+cobEmp.toFixed(1)+'%</b></div></div>';
+      h+='<div style="padding:14px 16px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--tm);margin-bottom:6px">Tasa PPM Sugerida</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--p)">'+tasaSug.toFixed(2)+'%</div><div style="font-size:11px;color:var(--tm);margin-top:3px">Sobre ventas pr\u00f3ximo ejercicio</div></div>';
+      h+='</div>';
+      h+='<div style="background:'+cobBg+';border:1px solid '+cobBorder+';border-radius:0 0 10px 10px;padding:12px 16px;display:flex;gap:10px;align-items:flex-start">';
+      h+='<div style="width:22px;height:22px;border-radius:50%;background:'+cobColor+';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:12px;font-weight:700">'+cobIcon+'</div>';
+      h+='<div style="font-size:12.5px;color:'+cobTxt+';line-height:1.65">'+accion+'</div></div>';
+      h+='</div>';
+    }
+
+    if(nivel==='PRO'){
+      h+='<div class="chart-grid">';
+      h+='<div class="chart-card"><h3>Margen Operacional mensual</h3>'+mkLineMargen(monthly.map(function(m){return m.v>0?(m.res/m.v*100):0;}),mlb)+'</div>';
+      var topC=Object.keys(acc.gan).map(function(k){return acc.gan[k];}).sort(function(a,b){return b.saldo-a.saldo;}).slice(0,5);
+      h+='<div class="chart-card"><h3>Top ingresos</h3><table class="dtable" style="margin-top:4px"><thead><tr><th>Cuenta</th><th style="text-align:right">Monto</th><th style="text-align:right">%</th></tr></thead><tbody>';
+      topC.forEach(function(x){h+='<tr><td style="font-size:11px">'+hesc(x.cuenta)+'</td><td class="num">'+fk(x.saldo)+'</td><td class="num">'+(acc.totalGan>0?(x.saldo/acc.totalGan*100).toFixed(1):0)+'%</td></tr>';});
+      h+='</tbody></table></div></div>';
+    }
+  }
+
+  // IGC CARDS
+  if(nivel!=='MICRO'&&n.sc.length>0){
+    h+='<div class="sdiv">C\u00e1lculo Detallado IGC por Socio</div>';
+    n.sc.forEach(function(s,sidx){
+      var c=s.calc,esPago=c.apagar>0,cls=esPago?'pago':'devol';
+      var did='igcd-'+sidx,tid='igct-'+sidx;
+      var resMsg=esPago
+        ?'<b>'+hesc(s.nombre)+'</b> debe pagar <b>'+ff(c.apagar)+'</b> de Impuesto Global Complementario en su declaraci\u00f3n de renta personal (F22, abril siguiente).'
+        :'Buenas noticias: <b>'+hesc(s.nombre)+'</b> tiene derecho a devoluci\u00f3n de <b>'+ff(c.devolucion)+'</b> del SII. El cr\u00e9dito IDPC supera el IGC personal y el exceso se devuelve en abril.';
+      h+='<div class="igc-card">';
+      h+='<div class="igc-card-hdr" onclick="igcToggle(this)" data-did="'+did+'" data-tid="'+tid+'">';
+      h+='<div><div style="font-size:15px;font-weight:700;margin-bottom:5px">'+hesc(s.nombre)+'</div>';
+      h+='<div class="igc-badge-row">';
+      h+='<span class="igc-badge tramo">Tramo '+hesc(c.tramo)+'</span>';
+      h+='<span class="igc-badge tef">Tasa efectiva '+c.tasaEfectiva.toFixed(2)+'%</span>';
+      h+='<span class="igc-badge '+cls+'">'+(esPago?'Paga impuesto':'Devoluci\u00f3n a favor')+'</span>';
+      h+='</div></div>';
+      h+='<div class="igc-resultado"><div class="etiqueta">'+(esPago?'A PAGAR':'A DEVOLVER')+'</div>';
+      h+='<div class="monto '+cls+'">'+ff(esPago?c.apagar:c.devolucion)+'</div></div></div>';
+      h+='<div class="igc-msg '+cls+'">'+resMsg+'</div>';
+      h+='<div class="igc-toggle" id="'+tid+'" onclick="igcToggle(this)" data-did="'+did+'" data-tid="'+tid+'">';
+      h+='<span>Ver c\u00f3mo se calcul\u00f3 paso a paso</span><span class="arrow">\u25bc</span></div>';
+      h+='<div class="igc-detalle" id="'+did+'"><div class="igc-steps">';
+      if(reg==='14D3'){
+        h+=mkStep('1','normal',ff(c.retiro),'','Retiro del ejercicio','Lo que retiraste de la empresa durante el a\u00f1o');
+        if(s.otros>0)h+=mkStep('+','plus',ff(s.otros),'','Otros ingresos personales','Sueldos, honorarios, arriendos u otros');
+        h+=mkStep('+','plus',ff(c.incremento),'amber','Incremento por IDPC (factor 0.142857)','La ley obliga a agregar el equivalente al impuesto empresa. Factor = 12.5 / 87.5');
+        h+='<div class="igc-divider"></div>';
+        h+=mkStep('=','total',ff(c.rentaBruta),'bold','Renta Bruta Global','Base que se ingresa a la tabla progresiva del IGC');
+        h+='<div class="igc-divider"></div>';
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','Renta Bruta \u00d7 '+hesc(c.tramo)+' \u2212 cantidad a rebajar del tramo');
+        h+=mkStep('-','minus',ff(c.creditoIDPC),'green','Cr\u00e9dito IDPC (impuesto pagado por la empresa)','La empresa pag\u00f3 el 12.5% de IDPC. Se descuenta completo. En 14D3 es 100% imputable con posible devoluci\u00f3n');
+        h+='<div class="igc-divider"></div>';
+        if(esPago){
+          h+=mkStep('=','total',ff(c.apagar),'bold red','IMPUESTO GLOBAL COMPLEMENTARIO A PAGAR','Declarar en F22 personal de '+hesc(s.nombre)+' en abril');
+        }else{
+          h+=mkStep('=','total',ff(c.devolucion),'bold green','DEVOLUCI\u00d3N A FAVOR DEL SOCIO','El SII devolver\u00e1 este monto en el F22 personal de abril');
+          h+='<div style="margin-top:10px;background:var(--sur2);border-radius:8px;padding:10px 12px;font-size:11.5px;color:var(--t2)">';
+          h+='IGC bruto: <b>'+ff(c.igcBruto)+'</b>&nbsp;|&nbsp;Cr\u00e9dito: <b style="color:var(--green)">'+ff(c.creditoIDPC)+'</b>&nbsp;|&nbsp;Exceso (devoluci\u00f3n): <b style="color:var(--green)">'+ff(c.devolucion)+'</b></div>';
+        }
+      }else if(reg==='14D8'){
+        h+=mkStep('1','normal',ff(c.baseAtribuida),'','Base atribuida ('+s.pct.toFixed(0)+'% de RLI)','R\u00e9gimen 14D8 no paga impuesto empresa. Distribuye utilidad directamente al socio');
+        if(s.otros>0)h+=mkStep('+','plus',ff(s.otros),'','Otros ingresos personales','');
+        h+='<div class="igc-divider"></div>';
+        h+=mkStep('=','total',ff(c.rentaBruta),'bold','Renta Bruta Global','Base para la tabla IGC');
+        h+='<div class="igc-divider"></div>';
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','');
+        h+=mkStep('-','minus',ff(c.creditoPPM),'green','Cr\u00e9dito PPM de la empresa','Los PPM pagados por la empresa te pertenecen como cr\u00e9dito personal');
+        h+='<div class="igc-divider"></div>';
+        h+=mkStep('=','total',ff(esPago?c.apagar:c.devolucion),(esPago?'bold red':'bold green'),(esPago?'IGC A PAGAR':'DEVOLUCI\u00d3N A FAVOR'),'');
+      }else{
+        h+=mkStep('1','normal',ff(c.baseAtribuida),'','Base atribuida ('+s.pct.toFixed(0)+'% base presunta)','');
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','');
+        h+=mkStep('=','total',ff(c.apagar),'bold red','IGC A PAGAR','');
+      }
+      h+='</div></div></div>';
+    });
+  }
+
+  // RECS (PRO)
+  if(nivel==='PRO'&&ia.recomendaciones&&ia.recomendaciones.length){
+    h+='<div class="sdiv">Recomendaciones</div><div class="panel-full"><div class="ph"><h3>Recomendaciones Tributarias</h3><span class="cnt">'+ia.recomendaciones.length+'</span></div>';
+    ia.recomendaciones.forEach(function(r){
+      h+='<div class="rec"><div class="rec-ico '+(r.prioridad||'media')+'">'+hesc(r.icono||'!')+'</div>';
+      h+='<div><h4>'+hesc(r.titulo||'')+'</h4><p>'+hesc(r.descripcion||'')+'</p>';
+      h+='<span class="pbadge '+(r.prioridad||'media')+'">'+(r.prioridad||'media')+'</span></div></div>';
+    });
+    h+='</div>';
+  }
+
+  // NARRATIVE (PRO)
+  if(nivel==='PRO'&&ia.analisis){
+    h+='<div class="sdiv">An\u00e1lisis del Ejercicio</div>';
+    h+='<div class="narr"><h3>Comentarios del Analista</h3><div class="txt">'+hesc(ia.analisis||'')+'</div></div>';
+  }
+
+  // DISCLAIMER + FOOTER
+  h+='<div class="disclaimer"><p>Proyecci\u00f3n estimativa con fines de planificaci\u00f3n tributaria. No sustituye la declaraci\u00f3n F22. Preparado por Contadoor el '+hoy+'.</p></div>';
+  h+='<div class="rpt-foot"><div class="lft">Contadoor \u2014 Asesor\u00eda Contable y Tributaria<br><small>Analista: '+hesc(analista)+'</small></div><img id="logoFoot" alt="Contadoor" style="width:120px;opacity:.85"/></div>';
+
+  rw.innerHTML=h;
+  rw.classList.add('on');
+  if(LOGO_W.length>50){['logoRPT','logoFoot'].forEach(function(id){var el=document.getElementById(id);if(el)el.src='data:image/png;base64,'+LOGO_W;});}
+  else if(LOGO.length>50){['logoRPT','logoFoot'].forEach(function(id){var el=document.getElementById(id);if(el)el.src='data:image/jpeg;base64,'+LOGO;});}
+  rw.scrollIntoView({behavior:'smooth'});
+}
+
+// ── REPO
+function renderRepo(){
+  var repo=getRepo(),el=document.getElementById('repoList');
+  if(!el)return;
+  if(!repo.length){el.innerHTML='<div class="empty-state"><h3>Sin reportes</h3><p>Los reportes generados aparecer\u00e1n aqu\u00ed.</p></div>';return;}
+  var RL={'14D3':'14D N\u00b03','14D8':'14D N\u00b08','presunta':'Presunta'};
+  el.innerHTML=repo.map(function(r){
+    var f=new Date(r.ts).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
+    var rg=r.reg==='14D8'?'transp':(r.reg==='presunta'?'presunta':'pyme');
+    return '<div class="repo-item">'
+      +'<div class="repo-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>'
+      +'<div class="repo-info"><div class="repo-name">'+hesc(r.razon||'--')+'</div>'
+      +'<div class="repo-meta">'+hesc(r.rut||'--')+' \u2014 '+r.at+' \u2014 '+hesc(r.analista||'Contadoor')+' \u2014 '+f+'</div>'
+      +'<div class="repo-badges"><span class="regime-tag '+rg+'">'+(RL[r.reg]||r.reg)+'</span>'
+      +'<span class="level-tag '+(r.nivel||'PRO').toLowerCase()+'">'+(r.nivel||'PRO')+'</span>'
+      +'<span style="font-size:11px;color:var(--tm)">RLI: '+ff(r.rli||0)+' \u2014 Imp: '+ff(r.impBruto||0)+'</span></div></div>'
+      +'<button class="btn-danger" onclick="delRepo('+r.id+')">Eliminar</button></div>';
+  }).join('');
+}
+function delRepo(id){if(!confirm('Eliminar este reporte?'))return;setRepo(getRepo().filter(function(r){return r.id!==id;}));renderRepo();}
+
+// ── CLIENTES
+function renderClientes(){
+  var c=getCli(),keys=Object.keys(c);
+  var pro=0,med=0,mic=0;
+  keys.forEach(function(k){var nv=(c[k].nivel||'PRO').toUpperCase();if(nv==='PRO')pro++;else if(nv==='MEDIUM')med++;else mic++;});
+  var sr=document.getElementById('statsRow');
+  if(sr)sr.innerHTML='<div class="stat-box"><div class="sv">'+keys.length+'</div><div class="sl">Total</div></div>'
+    +'<div class="stat-box"><div class="sv" style="color:var(--p)">'+pro+'</div><div class="sl">PRO</div></div>'
+    +'<div class="stat-box"><div class="sv" style="color:var(--blue)">'+med+'</div><div class="sl">MEDIUM</div></div>'
+    +'<div class="stat-box"><div class="sv" style="color:var(--tm)">'+mic+'</div><div class="sl">MICRO</div></div>';
+  filtrarCli();
+}
+function filtrarCli(){
+  var c=getCli();
+  var qel=document.getElementById('searchQ'),nfel=document.getElementById('filterNivel'),rfel=document.getElementById('filterReg');
+  var q=(qel?qel.value||'':'').toLowerCase(),nf=(nfel?nfel.value||'':''),rf=(rfel?rfel.value||'':'');
+  var keys=Object.keys(c).filter(function(k){
+    var x=c[k];
+    return(!q||(x.razon||'').toLowerCase().indexOf(q)>=0||k.indexOf(q)>=0)
+      &&(!nf||(x.nivel||'PRO')===nf)&&(!rf||(x.reg||'14D3')===rf);
+  });
+  var RL={'14D3':'14D N\u00b03','14D8':'14D N\u00b08','presunta':'Presunta'};
+  var grid=document.getElementById('clientGrid');if(!grid)return;
+  if(!keys.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><h3>Sin clientes</h3><p>Importa un CSV o genera un reporte.</p></div>';return;}
+  grid.innerHTML='';
+  keys.forEach(function(k){
+    var x=c[k],lc=(x.nivel||'PRO').toLowerCase(),rg=x.reg||'14D3',ns=x.socios?x.socios.length:0;
+    var f=x.ts?new Date(x.ts).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}):'--';
+    var card=document.createElement('div');card.className='client-card';
+    card.innerHTML='<div class="cn">'+hesc(x.razon||k)+'</div><div class="cr">'+hesc(k)+' \u2014 '+hesc(x.giro||'Sin giro')+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
+      +'<span class="level-tag '+lc+'">'+(x.nivel||'PRO')+'</span>'
+      +'<span class="regime-tag '+(rg==='14D8'?'transp':(rg==='presunta'?'presunta':'pyme'))+'">'+(RL[rg]||rg)+'</span>'
+      +'<span style="font-size:10.5px;color:var(--tm)">'+ns+' socio'+(ns!==1?'s':'')+'</span></div>'
+      +'<div style="font-size:10.5px;color:var(--tm);margin-bottom:10px">'+f+'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button class="btn-p" style="font-size:11px;padding:5px 10px;flex:1" data-usar="'+hesc(k)+'">Usar</button>'
+      +'<button class="btn-danger" data-del="'+hesc(k)+'">x</button></div>';
+    var bu=card.querySelector('[data-usar]');var bd=card.querySelector('[data-del]');
+    if(bu)(function(rut){bu.addEventListener('click',function(){usarCli(rut);});})(k);
+    if(bd)(function(rut){bd.addEventListener('click',function(){delCli(rut);});})(k);
+    grid.appendChild(card);
+  });
+}
+function usarCli(rut){var c=getCli();if(c[rut]){autoFill(c[rut]);goView('nuevo');showTab('entrada');}}
+function delCli(rut){if(!confirm('\u00bfEliminar perfil?'))return;var c=getCli();delete c[rut];setCli(c);renderClientes();}
+
+// ── CSV
+function importarCSV(input){
+  var file=input.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(e){
+    var text=e.target.result;
+    var lines=[];
+    text.split('\n').forEach(function(l){var ll=l.replace(/\r/g,'');if(ll.trim())lines.push(ll);});
+    if(lines.length<2){alert('CSV vac\u00edo.');return;}
+    var hdrs=lines[0].split(',').map(function(x){return x.trim().toLowerCase().replace(/[^a-z_]/g,'');});
+    var c=getCli(),ok=0;
+    for(var i=1;i<lines.length;i++){
+      var cols=csvLine(lines[i]),row={};
+      hdrs.forEach(function(hh,j){row[hh]=(cols[j]||'').trim();});
+      var rut=row.rut||'';if(!rut)continue;
+      var socios=[];
+      if(row.socios)row.socios.split('|').forEach(function(s){
+        var p=s.split(':');var sx={nombre:p[0]||'Socio',pct:parseFloat(p[1])||0,retiros:parseFloat(p[2])||0,otros:parseFloat(p[3])||0};
+        if(sx.pct>0)socios.push(sx);
+      });
+      c[rut]={rut:rut,razon:row.razon_social||row.razon||rut,giro:row.giro||'',
+        nivel:(row.nivel||'PRO').toUpperCase(),reg:row.regimen||row.reg||'14D3',
+        analista:row.analista||'',socios:socios,ts:Date.now()};ok++;
+    }
+    setCli(c);input.value='';renderClientes();goView('clientes');alert('Importados: '+ok);
+  };
+  r.readAsText(file,'utf-8');
+}
+function csvLine(line){
+  var res=[],cur='',inQ=false;
+  for(var i=0;i<line.length;i++){
+    if(line[i]==='"')inQ=!inQ;
+    else if(line[i]===','&&!inQ){res.push(cur);cur='';}
+    else cur+=line[i];
+  }
+  res.push(cur);return res;
+}
+function exportCSV(){
+  var c=getCli(),keys=Object.keys(c);if(!keys.length){alert('Sin clientes.');return;}
+  var rows=['rut,razon_social,giro,nivel,regimen,analista,socios'];
+  keys.forEach(function(k){
+    var x=c[k];
+    var s=(x.socios||[]).map(function(sx){return sx.nombre+':'+sx.pct+(sx.retiros?':'+sx.retiros:'')+(sx.otros?':'+sx.otros:'');}).join('|');
+    rows.push([k,x.razon||'',x.giro||'',x.nivel||'PRO',x.reg||'14D3',x.analista||'',s]
+      .map(function(v){return '"'+String(v||'').split('"').join('""')+'"';}).join(','));
+  });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='clientes_contadoor.csv';a.click();URL.revokeObjectURL(url);
+}
+function plantilla(){
+  var rows=['rut,razon_social,giro,nivel,regimen,analista,socios','"77.000.000-0","Ejemplo SpA","Comercio","PRO","14D3","Analista","Socio A:60|Socio B:40"'];
+  var blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='plantilla_contadoor.csv';a.click();URL.revokeObjectURL(url);
+}
+
+// ── RESET
+// ── ACTUALIZAR TABLAS IGC EN ONEDRIVE ───────────────────────────────────
+function actualizarTablas(){
+  if(!_graphReady){alert('Debes iniciar sesi\u00f3n con Microsoft para actualizar las tablas.');return;}
+  var data={IGC:IGC,TASA14D3:TASA14D3,FACTOR_IDPC:FACTOR_IDPC,updated:new Date().toISOString()};
+  odWrite(OD_TABLAS,data,function(ok){
+    if(ok)alert('Tablas IGC guardadas en OneDrive. Todos los analistas usar\u00e1n los nuevos valores al abrir el sistema.');
+    else alert('Error al guardar. Verifica tu conexi\u00f3n.');
+  });
+}
+
+function resetForm(){
+  parsedDiario=null;
+  ['c_razon','c_rut','c_giro','c_analista','c_obs','aj_rec','aj_cm','aj_per','aj_cred'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value='';
+  });
+  var uf=document.getElementById('aj_uf');if(uf)uf.value='39700';
+  document.getElementById('sociosBody').innerHTML='';SC=0;updatePct();
+  document.getElementById('diarioOk').classList.remove('show');
+  var fd=document.getElementById('fileDiario');if(fd)fd.value='';
+  document.getElementById('ajCard').style.display='none';
+  document.getElementById('genBtn').disabled=true;
+  document.getElementById('reportWrap').innerHTML='';
+  document.getElementById('reportWrap').classList.remove('on');
+  onRegChange();
+}
+
+// ── BOOT
+(function(){
+  // Inicializar Microsoft Graph / MSAL
+  initMSAL();
+  var btn=document.getElementById('btnAddSocio');
+  if(btn)btn.addEventListener('click',function(){addSocio();});
+  document.querySelectorAll('.sb-item[data-view]').forEach(function(el){
+    el.addEventListener('click',function(){goView(el.getAttribute('data-view'));});
+  });
+  if(LOGO_W.length>50){var lw=document.getElementById('logoSBw');if(lw)lw.src='data:image/png;base64,'+LOGO_W;}
+  else if(LOGO.length>50){var lc2=document.getElementById('logoSB');if(lc2)lc2.src='data:image/jpeg;base64,'+LOGO;}
+  setupUpload();
+  onRegChange();
+  onATChange();
+  addSocio();
+  badge();
+})();
+
+
+
+
+
+</script>
+<script>
+function saveClientId(){
+  var id=document.getElementById("clientIdInput").value.trim();
+  if(!id||id.length<10){alert("Ingresa un Client ID v\u00e1lido.");return;}
+  localStorage.setItem("msClientId",id);
+  GRAPH_CONFIG.clientId=id;
+  alert("Client ID guardado. Recarga la p\u00e1gina y conecta tu cuenta Microsoft.");
+}
+// Cargar clientId guardado
+(function(){
+  var saved=localStorage.getItem("msClientId");
+  if(saved){GRAPH_CONFIG.clientId=saved;}
+  var inp=document.getElementById("clientIdInput");
+  if(inp)inp.value=saved||GRAPH_CONFIG.clientId;
+})();
+
+</script>
+<script>
+function saveClientId(){
+  var id=document.getElementById("clientIdInput").value.trim();
+  if(!id||id.length<10){alert("Ingresa un Client ID v\u00e1lido.");return;}
+  localStorage.setItem("msClientId",id);
+  GRAPH_CONFIG.clientId=id;
+  alert("Client ID guardado. Recarga la p\u00e1gina y conecta tu cuenta Microsoft.");
+}
+// Cargar clientId guardado
+(function(){
+  var saved=localStorage.getItem("msClientId");
+  if(saved){GRAPH_CONFIG.clientId=saved;}
+  var inp=document.getElementById("clientIdInput");
+  if(inp)inp.value=saved||GRAPH_CONFIG.clientId;
+})();
+</script>
+</body>
+</html>
