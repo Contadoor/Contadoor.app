@@ -1,1 +1,744 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contadoor.app — Conciliación Bancaria</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;}
+.main{margin-left:220px;flex:1;}
+.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);}
+.sb-logo img{width:140px;display:block;}
+.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:5px;}
+.sb-nav{padding:12px 8px;flex:1;}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;}
+.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
+.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);}
+.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
+.tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
+.content{padding:20px;}
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px;margin-bottom:14px;}
+.card-hd{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;}
+.fgroup input,.fgroup select{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;transition:.15s;width:100%;}
+.fgroup input:focus,.fgroup select:focus{border-color:var(--p);}
+.fgroup .hint{font-size:10px;color:var(--tm);}
+.btn-p{background:var(--p);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
+.btn-p:hover{background:var(--pd);}
+.btn-s{background:transparent;color:var(--t1);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
+.btn-s:hover{border-color:var(--p);color:var(--p);}
+.btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px;}
+.tab-bar{display:flex;gap:3px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:3px;margin-bottom:16px;width:fit-content;}
+.tab{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;color:var(--t2);transition:.15s;}
+.tab:hover{color:var(--p);}
+.tab.on{background:var(--p);color:#fff;font-weight:600;}
+.view{display:none;}.view.on{display:block;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--sur);border-radius:14px;padding:24px;max-width:700px;width:96%;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:4px;color:var(--p);}
+.modal-sub{font-size:12px;color:var(--tm);margin-bottom:18px;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--bdr);}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.stat-box{background:var(--sur);border:1px solid var(--bdr);border-radius:9px;padding:12px 14px;text-align:center;}
+.stat-box .sv{font-size:17px;font-weight:700;color:var(--p);font-family:monospace;}
+.stat-box .sl{font-size:10px;color:var(--tm);margin-top:2px;text-transform:uppercase;letter-spacing:.6px;}
+.badge{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap;}
+.b-conciliado{background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;}
+.b-parcial{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+.b-pendiente{background:#fef3c7;color:#78350f;border:1px solid #fde68a;}
+.b-ignorado{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-left:3px solid var(--blue);border-radius:8px;padding:10px 13px;font-size:12px;color:#1e40af;line-height:1.5;margin-bottom:14px;}
+.warn-box{background:#fef3c7;border:1px solid #fde68a;border-left:3px solid var(--amber);border-radius:8px;padding:10px 13px;font-size:12px;color:#78350f;line-height:1.5;margin-bottom:14px;}
+.success-box{background:#ecfdf5;border:1px solid #a7f3d0;border-left:3px solid var(--green);border-radius:8px;padding:10px 13px;font-size:12px;color:#064e3b;line-height:1.5;margin-bottom:14px;}
+.upload-zone{border:2px dashed var(--bdr);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:var(--sur);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--p);background:var(--pp);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.mov-row{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:.15s;}
+.mov-row.conciliado{border-left:3px solid var(--green);background:#f0fdf4;}
+.mov-row.parcial{border-left:3px solid var(--blue);background:#eff6ff;}
+.mov-row.ignorado{opacity:.55;}
+.mov-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;}
+.mov-info{flex:1;}
+.mov-nombre{font-size:14px;font-weight:700;}
+.mov-meta{font-size:11.5px;color:var(--tm);margin-top:2px;}
+.mov-monto{font-size:20px;font-weight:700;color:var(--green);text-align:right;flex-shrink:0;}
+.mov-monto-lbl{font-size:10px;color:var(--tm);text-align:right;}
+.sugerencia{border-radius:6px;padding:6px 10px;font-size:11px;margin-top:6px;display:flex;align-items:center;gap:6px;}
+.sug-auto{background:#ecfdf5;border:1px solid #a7f3d0;color:#064e3b;}
+.sug-pago{background:#faf5ff;border:1px solid rgba(144,72,145,.25);color:var(--pd);}
+.sug-conv{background:#fffbeb;border:1px solid #fde68a;color:#78350f;}
+.sug-cliente{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
+.conceptos-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.concepto-item{background:var(--sur2);border:1px solid var(--bdr);border-radius:7px;padding:8px 12px;display:flex;align-items:center;gap:10px;font-size:12px;}
+.concepto-tipo{font-weight:600;color:var(--p);min-width:140px;}
+.concepto-desc{flex:1;color:var(--t2);}
+.concepto-monto{font-weight:700;font-family:monospace;color:var(--green);}
+.saldo-bar{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;}
+.saldo-track{flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden;}
+.saldo-fill{height:100%;background:var(--green);border-radius:3px;transition:.3s;}
+.ajuste-box{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12px;}
+.hist-row{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 18px;margin-bottom:10px;}
+.cliente-row{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 18px;margin-bottom:10px;cursor:pointer;transition:.15s;}
+.cliente-row:hover{border-color:var(--p);}
+.mov-tabla{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+.mov-tabla th{padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bdr);color:var(--p);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left;}
+.mov-tabla td{padding:7px 12px;border-bottom:1px solid var(--bdr);}
+.empty-state{text-align:center;padding:48px 24px;color:var(--tm);}
+.empty-state h3{font-size:15px;font-weight:600;margin-bottom:5px;color:var(--t2);}
+.match-card{border:1px solid var(--bdr);border-radius:8px;padding:11px 14px;margin-bottom:7px;cursor:pointer;transition:.15s;}
+.match-card:hover{border-color:var(--p);background:var(--pp);}
+.match-card.exacto{border-color:var(--green);background:#f0fdf4;}
+.match-card.pago{border-color:rgba(144,72,145,.3);background:var(--pp);}
+.match-card.convenio{border-color:#fde68a;background:#fffbeb;}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="sb-logo">
+    <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
+    <div class="sb-tagline">Sistema de Gestión</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Sistema</div>
+    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
+    <div class="sb-sec">Módulos</div>
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <a class="sb-item" href="../pagos/index.html">💰 Pagos</a>
+    <div class="sb-item on">🏦 Conciliación</div>
+    <a class="sb-item" href="../cobranza/index.html">🧾 CxC</a>
+    <a class="sb-item" href="../reportes/index.html">📋 Reportes</a>
+    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+  </nav>
+  <div class="sb-foot">Contadoor.app v1.0</div>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="tb-title">🏦 Conciliación — Transferencias Recibidas</div>
+    <button class="btn-p btn-sm" onclick="setView('carga')">📤 Cargar cartola</button>
+  </div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab on" onclick="setView('conciliar')">🔄 Conciliar</div>
+      <div class="tab" onclick="setView('clientes')">👤 Por cliente</div>
+      <div class="tab" onclick="setView('historial')">📁 Historial cargas</div>
+      <div class="tab" onclick="setView('carga')">📤 Nueva carga</div>
+    </div>
+    <div id="mainContent"></div>
+  </div>
+</main>
+</div>
+
+<!-- MODAL ASIGNAR CONCEPTOS -->
+<div class="modal-bg" id="modalConcepto">
+  <div class="modal" style="max-width:720px">
+    <h2>Conciliar ingreso</h2>
+    <div class="modal-sub" id="conceptoSub"></div>
+    <input type="hidden" id="mc-idx"/>
+    <div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:14px 18px;color:#fff;margin-bottom:16px">
+      <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Monto total del ingreso</div>
+      <div style="font-size:26px;font-weight:700" id="mc-total-display"></div>
+      <div style="font-size:12px;opacity:.65;margin-top:4px" id="mc-rut-display"></div>
+    </div>
+
+    <!-- SUGERENCIAS AUTOMÁTICAS -->
+    <div id="mc-sugerencias" style="margin-bottom:14px"></div>
+
+    <div class="info-box">Asigna uno o más conceptos. La suma debe igualar el monto total. Si hay diferencia registra un ajuste con observación.</div>
+
+    <div id="conceptosAsignados"></div>
+    <button class="btn-s btn-sm" onclick="addConcepto()" style="margin-bottom:14px">+ Agregar concepto</button>
+
+    <div id="saldoResumen"></div>
+
+    <div id="ajusteManualBox" style="display:none">
+      <div class="ajuste-box">
+        <div style="font-weight:700;margin-bottom:6px;color:var(--amber)">⚠️ Diferencia — registra un ajuste manual</div>
+        <div class="fg2">
+          <div class="fgroup"><label>Monto diferencia</label><input type="number" id="aj-monto" readonly style="font-weight:700;color:var(--amber)"/></div>
+          <div class="fgroup"><label>Observación del ajuste *</label><input type="text" id="aj-obs" placeholder="Ej: Descuento aplicado, redondeo..."/></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fgroup" style="margin-top:14px">
+      <label>Conciliado por *</label>
+      <input type="text" id="mc-quien" placeholder="Tu nombre"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-s" onclick="closeConcepto()">Cancelar</button>
+      <button class="btn-s" onclick="marcarIgnorado()">🚫 Ignorar</button>
+      <button class="btn-p" onclick="confirmarConcepto()">✅ Guardar conciliación</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _view='conciliar', _mcIdx=null, _concCnt=0;
+
+var TIPOS_CONCEPTO=[
+  {id:'factura_servicios', label:'Factura honorarios Contadoor', icon:'🧾'},
+  {id:'impuesto_tercero',  label:'Impuesto de tercero (IVA/PPM)', icon:'📋'},
+  {id:'cotizacion_tercero',label:'Cotizaciones de tercero', icon:'👥'},
+  {id:'convenio_cuota',    label:'Cuota convenio', icon:'🤝'},
+  {id:'otro_pago',         label:'Otro pago', icon:'📄'},
+];
+
+function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ff(n){return '$'+Math.round(Math.abs(n)||0).toLocaleString('es-CL');}
+function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function nv(id){return parseFloat(sv(id))||0;}
+function hoy(){return new Date().toISOString().slice(0,10);}
+function limpiarRut(r){return String(r||'').replace(/[.\-\s]/g,'').toUpperCase();}
+function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+
+function parseMonto(v){
+  if(typeof v==='number') return Math.abs(v);
+  var s=String(v||'').trim().replace(/\$/g,'').replace(/\s/g,'');
+  if(s.indexOf(',')>-1){s=s.replace(/\./g,'').replace(',','.');}
+  else{s=s.replace(/\./g,'');}
+  s=s.replace(/[^0-9.\-]/g,'');
+  return Math.abs(parseFloat(s)||0);
+}
+function parseFecha(v){
+  if(typeof v==='number'){var d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().slice(0,10);}
+  if(v instanceof Date)return v.toISOString().slice(0,10);
+  return String(v||'').trim();
+}
+
+// ── STORAGE ───────────────────────────────────────────────────────────────
+function getMovimientos(){try{return JSON.parse(localStorage.getItem('concil_movimientos')||'[]');}catch(e){return[];}}
+function setMovimientos(a){localStorage.setItem('concil_movimientos',JSON.stringify(a));}
+function getMetaCartola(){try{return JSON.parse(localStorage.getItem('concil_meta')||'null');}catch(e){return null;}}
+function setMetaCartola(m){localStorage.setItem('concil_meta',JSON.stringify(m));}
+function getHistorial(){try{return JSON.parse(localStorage.getItem('concil_historial')||'[]');}catch(e){return[];}}
+function setHistorial(a){localStorage.setItem('concil_historial',JSON.stringify(a));}
+function getFacturas(){try{return JSON.parse(localStorage.getItem('facturas_cxc')||'[]');}catch(e){return[];}}
+function getObligaciones(){try{return JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){return[];}}
+function getConvenios(){try{return JSON.parse(localStorage.getItem('convenios_bd')||'[]');}catch(e){return[];}}
+function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
+
+// ── BUSCAR SUGERENCIAS ────────────────────────────────────────────────────
+function buscarSugerencias(rut, monto){
+  var sugs=[];
+  // 1. Facturas de honorarios — match RUT + monto exacto
+  var facts=getFacturas().filter(function(f){return f.estado==='pendiente';});
+  facts.forEach(function(f){
+    if(limpiarRut(f.rutCliente)===rut){
+      var exacto=Math.abs(f.montoTotal-monto)<=(monto*0.01);
+      sugs.push({tipo:'factura_servicios',tipoLabel:'Factura honorarios Contadoor',icon:'🧾',descripcion:'Fact. N°'+f.numero+(f.periodo?' · '+f.periodo:'')+' · '+f.clienteNombre,monto:exacto?monto:f.montoTotal,refId:f.id,exacto:exacto,origen:'factura',label:exacto?'⚡ Match exacto':'📄 Factura pendiente'});
+    }
+  });
+  // 2. Obligaciones de pagos — match RUT + monto
+  var obligs=getObligaciones().filter(function(o){return o.estado==='transferido';});
+  obligs.forEach(function(o){
+    if(limpiarRut(o.rut)===rut){
+      var exacto=Math.abs(o.monto-monto)<=(monto*0.01);
+      sugs.push({tipo:'impuesto_tercero',tipoLabel:o.tipo||'Pago de tercero',icon:'💰',descripcion:o.concepto+' · '+o.clienteNombre,monto:exacto?monto:o.monto,refId:o.id,exacto:exacto,origen:'pago',label:exacto?'⚡ Match exacto':'💰 Obligación transferida'});
+    }
+  });
+  // 3. Convenios — cuotas pendientes por RUT
+  getConvenios().forEach(function(cv){
+    if(limpiarRut(cv.rut)===rut){
+      cv.cuotas.forEach(function(c,ci){
+        if(c.estado==='pendiente'){
+          var exacto=Math.abs(c.monto-monto)<=(monto*0.01);
+          sugs.push({tipo:'convenio_cuota',tipoLabel:'Cuota convenio '+cv.institucion,icon:'🤝',descripcion:'Cuota '+c.numero+'/'+cv.nCuotas+' · '+cv.institucion+' · Vence: '+c.vencimiento,monto:exacto?monto:c.monto,refId:cv.id,cuotaIdx:ci,exacto:exacto,origen:'convenio',label:exacto?'⚡ Match exacto':'🤝 Cuota convenio'});
+        }
+      });
+    }
+  });
+  // Ordenar: exactos primero
+  sugs.sort(function(a,b){return(b.exacto?1:0)-(a.exacto?1:0);});
+  return sugs;
+}
+
+// ── VISTAS ────────────────────────────────────────────────────────────────
+function setView(v){
+  _view=v;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+  var tab=document.querySelector('[onclick="setView(\''+v+'\')"]');
+  if(tab)tab.classList.add('on');
+  if(v==='carga')renderCarga();
+  else if(v==='conciliar')renderConciliar();
+  else if(v==='historial')renderHistorial();
+  else if(v==='clientes')renderPorCliente();
+}
+
+// ── CARGA ─────────────────────────────────────────────────────────────────
+function renderCarga(){
+  var meta=getMetaCartola();
+  document.getElementById('mainContent').innerHTML=
+    '<div class="card"><div class="card-hd">📤 Cargar cartola de transferencias recibidas</div>'
+    +(meta?'<div class="warn-box">⚠️ Cartola activa: <strong>'+hesc(meta.archivo)+'</strong> — '+hesc(meta.tsLoad)+' · <strong>'+meta.total+' movimientos</strong><br>Una nueva carga del mismo período reemplazará los movimientos no conciliados y preservará los ya conciliados.</div>':'')
+    +'<div class="fg2" style="margin-bottom:14px">'
+    +'<div class="fgroup"><label>Período</label><input type="month" id="sel-periodo" value="'+new Date().toISOString().slice(0,7)+'"/></div>'
+    +'<div class="fgroup"><label>Banco</label><select id="sel-banco"><option>Itaú</option><option>Banco Estado</option><option>Santander</option><option>BCI</option><option>Otro</option></select></div>'
+    +'</div>'
+    +'<div class="info-box">Columnas esperadas: <strong>Fecha · Rut · Nombre · Banco origen · Cuenta destino · Monto · Estado · Código transferencia</strong></div>'
+    +'<div class="upload-zone" id="uz"><input type="file" id="fi" accept=".xlsx,.xls,.csv" onchange="procesarArchivo(this)"/>'
+    +'<div style="font-size:36px;margin-bottom:8px">📊</div>'
+    +'<h3 style="font-size:15px;font-weight:600;margin-bottom:4px">Arrastra la cartola aquí</h3>'
+    +'<p style="font-size:12px;color:var(--tm)">Excel (.xlsx) o CSV · Transferencias recibidas Itaú</p>'
+    +'</div></div>';
+  var z=document.getElementById('uz');
+  z.addEventListener('dragover',function(e){e.preventDefault();z.classList.add('drag');});
+  z.addEventListener('dragleave',function(){z.classList.remove('drag');});
+  z.addEventListener('drop',function(e){e.preventDefault();z.classList.remove('drag');var f=e.dataTransfer.files[0];if(f)procesarFile(f);});
+}
+
+function procesarArchivo(inp){if(inp.files&&inp.files[0])procesarFile(inp.files[0]);}
+
+function procesarFile(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var data=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,dateNF:'DD/MM/YYYY'});
+      var hRow=0;
+      for(var i=0;i<Math.min(10,data.length);i++){if(data[i]&&data[i].filter(Boolean).length>=4){hRow=i;break;}}
+      var headers=data[hRow].map(function(h){return String(h||'').trim().toLowerCase();});
+      var filas=data.slice(hRow+1).filter(function(r){return r&&r.filter(Boolean).length>2;});
+
+      function fc(kws){for(var k=0;k<kws.length;k++){var i=headers.findIndex(function(h){return h.includes(kws[k]);});if(i>=0)return i;}return -1;}
+      var cF=fc(['fecha']),cR=fc(['rut']),cN=fc(['nombre']),cB=fc(['banco']),cC=fc(['cuenta']),cM=fc(['monto']),cE=fc(['estado']),cCod=fc(['código','codigo','cod','folio','ref']);
+
+      // Preservar conciliaciones previas
+      var prev={};
+      getMovimientos().forEach(function(m){if(m.estado!=='pendiente'&&m.codigo)prev[m.codigo]=m;});
+
+      var nuevos=filas.map(function(row,i){
+        var monto=parseMonto(row[cM]);
+        if(!monto)return null;
+        var codigo=cCod>=0?String(row[cCod]||'').trim():'';
+        if(codigo&&prev[codigo])return prev[codigo];
+        var rut=cR>=0?limpiarRut(row[cR]):'';
+        var cliente=getClientes().find(function(c){return limpiarRut(c.rut)===rut;});
+        // Match automático
+        var sugs=buscarSugerencias(rut,monto);
+        var autoMatch=sugs.find(function(s){return s.exacto;});
+        return{
+          idx:i,
+          fecha:parseFecha(cF>=0?row[cF]:''),
+          rut:rut,
+          nombre:cN>=0?String(row[cN]||'').trim():'',
+          bancoOrigen:cB>=0?String(row[cB]||'').trim():'',
+          cuentaDestino:cC>=0?String(row[cC]||'').trim():'',
+          monto:monto,
+          estadoOrigen:cE>=0?String(row[cE]||'').trim():'',
+          codigo:codigo,
+          clienteNombre:cliente?cliente.razon:'',
+          clienteWa:cliente?cliente.wa:'',
+          sugerencias:sugs,
+          autoMatch:autoMatch||null,
+          estado:'pendiente',conceptos:[],ajuste:null,quien:'',tsConciliado:''
+        };
+      }).filter(Boolean);
+
+      setMovimientos(nuevos);
+      var periodo=sv('sel-periodo')||new Date().toISOString().slice(0,7);
+      var banco=sv('sel-banco')||'Itaú';
+      setMetaCartola({archivo:file.name,periodo,banco,total:nuevos.length,tsLoad:ts()});
+      var hist=getHistorial();hist.unshift({archivo:file.name,periodo,banco,total:nuevos.length,tsLoad:ts()});setHistorial(hist.slice(0,20));
+      var autoConc=nuevos.filter(function(m){return m.autoMatch;}).length;
+      setView('conciliar');
+      alert('✅ Cartola cargada · '+nuevos.length+' movimientos'+(autoConc?' · '+autoConc+' con match automático sugerido':''));
+    }catch(err){alert('Error al leer archivo: '+err.message+'\n'+err.stack);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── CONCILIAR ─────────────────────────────────────────────────────────────
+function renderConciliar(){
+  var movs=getMovimientos();
+  var meta=getMetaCartola();
+  if(!movs.length){
+    document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Sin cartola cargada</h3><p>Carga la cartola de transferencias para comenzar.</p></div><div style="text-align:center;margin-top:14px"><button class="btn-p" onclick="setView(\'carga\')">📤 Cargar cartola</button></div>';
+    return;
+  }
+  var conc=movs.filter(function(m){return m.estado==='conciliado';}).length;
+  var parc=movs.filter(function(m){return m.estado==='parcial';}).length;
+  var pend=movs.filter(function(m){return m.estado==='pendiente';}).length;
+  var total=movs.reduce(function(s,m){return s+m.monto;},0);
+  var conMark=movs.filter(function(m){return m.autoMatch&&m.estado==='pendiente';}).length;
+
+  var html='<div class="stats-row">'
+    +[{v:movs.length,l:'Movimientos'},{v:pend,l:'Pendientes',c:pend?'#C07A1A':null},{v:conc+parc,l:'Conciliados',c:'#2D9B6F'},{v:ff(total),l:'Total ingresos'}]
+    .map(function(s){return'<div class="stat-box"><div class="sv"'+(s.c?' style="color:'+s.c+'"':'')+'>'+s.v+'</div><div class="sl">'+s.l+'</div></div>';}).join('')
+    +'</div>';
+
+  if(meta){
+    html+='<div class="info-box" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+      +'<div>📊 <strong>'+hesc(meta.archivo)+'</strong> · '+hesc(meta.periodo)+' · '+hesc(meta.banco)+'</div>'
+      +'<div style="font-size:11px;opacity:.8">Última carga: '+hesc(meta.tsLoad)+'</div>'
+      +'<button class="btn-s btn-sm" onclick="setView(\'carga\')">🔄 Nueva carga</button>'
+      +'</div>';
+  }
+  if(conMark>0){
+    html+='<div class="success-box">⚡ <strong>'+conMark+' movimiento'+(conMark!==1?'s':'')+' con match automático</strong> — revisa las sugerencias y confirma.</div>';
+  }
+
+  html+=movs.map(function(m){
+    var isConc=m.estado==='conciliado',isPar=m.estado==='parcial',isIgn=m.estado==='ignorado';
+    var sumaConc=(m.conceptos||[]).reduce(function(s,c){return s+c.monto;},0)+(m.ajuste?m.ajuste.monto:0);
+    var pct=m.monto>0?Math.min(100,Math.round(sumaConc/m.monto*100)):0;
+    var badge=isConc?'<span class="badge b-conciliado">✅ Conciliado</span>':isPar?'<span class="badge b-parcial">🔵 Parcial</span>':isIgn?'<span class="badge b-ignorado">🚫 Ignorado</span>':'<span class="badge b-pendiente">⏳ Pendiente</span>';
+
+    // Sugerencias en lista
+    var sugsHTML='';
+    if(m.estado==='pendiente'&&(m.sugerencias||[]).length){
+      sugsHTML=(m.sugerencias||[]).slice(0,3).map(function(s){
+        var cls=s.exacto?'sug-auto':s.origen==='pago'?'sug-pago':s.origen==='convenio'?'sug-conv':'sug-cliente';
+        return'<div class="sugerencia '+cls+'"><span>'+s.icon+' <strong>'+s.label+'</strong> — '+hesc(s.descripcion)+'</span><span style="font-weight:700;margin-left:auto">'+ff(s.monto)+'</span></div>';
+      }).join('');
+    } else if(m.estado==='pendiente'&&m.clienteNombre){
+      sugsHTML='<div class="sugerencia sug-cliente">🆔 Cliente: <strong>'+hesc(m.clienteNombre)+'</strong> — sin match automático de monto</div>';
+    }
+
+    // Conceptos ya asignados
+    var concHTML='';
+    if((m.conceptos||[]).length){
+      concHTML='<div class="conceptos-list">'
+        +(m.conceptos||[]).map(function(c){return'<div class="concepto-item"><span class="concepto-tipo">'+hesc(c.tipoLabel)+'</span><span class="concepto-desc">'+hesc(c.descripcion)+'</span><span class="concepto-monto">'+ff(c.monto)+'</span></div>';}).join('')
+        +(m.ajuste?'<div class="concepto-item" style="border-color:#fde68a;background:#fef3c7"><span class="concepto-tipo" style="color:var(--amber)">⚠️ Ajuste</span><span class="concepto-desc">'+hesc(m.ajuste.obs)+'</span><span class="concepto-monto" style="color:var(--amber)">'+ff(m.ajuste.monto)+'</span></div>':'')
+        +'</div>'
+        +'<div class="saldo-bar"><div class="saldo-track"><div class="saldo-fill" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:var(--tm)">'+pct+'% · '+ff(sumaConc)+'/'+ff(m.monto)+'</span></div>';
+      if(m.tsConciliado)concHTML+='<div style="font-size:10px;color:var(--tm);margin-top:4px">Por: <strong>'+hesc(m.quien)+'</strong> · '+hesc(m.tsConciliado)+'</div>';
+    }
+
+    var accion=!isIgn?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">'+( isConc||isPar?'✏️ Editar':'🔗 Conciliar')+'</button>':'';
+    var ignBtn=!isIgn?'<button class="btn-s btn-sm" onclick="ignorar('+m.idx+')">🚫 Ignorar</button>':'<button class="btn-s btn-sm" onclick="restaurar('+m.idx+')">↩ Restaurar</button>';
+
+    return'<div class="mov-row'+(isConc?' conciliado':isPar?' parcial':isIgn?' ignorado':'')+'">'
+      +'<div class="mov-header"><div class="mov-info">'
+      +'<div class="mov-nombre">'+hesc(m.nombre||'Sin nombre')+(m.rut?' <span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:3px;padding:1px 6px;font-family:monospace">'+m.rut+'</span>':'')+'</div>'
+      +'<div class="mov-meta">'+hesc(m.fecha)+(m.bancoOrigen?' · '+hesc(m.bancoOrigen):'')+(m.codigo?' · Ref: '+hesc(m.codigo):'')+'</div>'
+      +'<div style="margin-top:5px">'+badge+'</div>'
+      +sugsHTML+'</div>'
+      +'<div><div class="mov-monto-lbl">Ingreso</div><div class="mov-monto">'+ff(m.monto)+'</div></div>'
+      +'</div>'
+      +concHTML
+      +'<div style="display:flex;gap:6px;margin-top:10px">'+accion+ignBtn+'</div>'
+      +'</div>';
+  }).join('');
+
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+// ── MODAL CONCEPTOS ───────────────────────────────────────────────────────
+function abrirConcepto(idx){
+  var movs=getMovimientos();
+  var m=movs.find(function(x){return x.idx===idx;});if(!m)return;
+  _mcIdx=idx;_concCnt=0;
+  document.getElementById('conceptoSub').textContent=(m.nombre||'')+(m.fecha?' · '+m.fecha:'');
+  document.getElementById('mc-total-display').textContent=ff(m.monto);
+  document.getElementById('mc-rut-display').textContent=m.rut?(m.rut+(m.clienteNombre?' · '+m.clienteNombre:'')):'';
+  document.getElementById('mc-quien').value=m.quien||'';
+  document.getElementById('aj-obs').value='';
+  document.getElementById('conceptosAsignados').innerHTML='';
+
+  // Sugerencias en modal
+  var sugs=m.sugerencias||[];
+  var sugHTML=sugs.length?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px">⚡ Sugerencias automáticas — haz clic para agregar</div>'
+    +sugs.slice(0,4).map(function(s){
+      var cls=s.exacto?'exacto':s.origen==='pago'?'pago':s.origen==='convenio'?'convenio':'';
+      return'<div class="match-card '+cls+'" onclick="agregarSugerencia('+JSON.stringify(s).replace(/"/g,'&quot;')+')">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<div><div style="font-size:12px;font-weight:700">'+s.icon+' '+hesc(s.tipoLabel)+(s.exacto?' <span style="font-size:9px;background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;border-radius:3px;padding:1px 5px">Match exacto</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--tm)">'+hesc(s.descripcion)+'</div></div>'
+        +'<div style="font-size:15px;font-weight:700;color:var(--green);flex-shrink:0">'+ff(s.monto)+'</div>'
+        +'</div></div>';
+    }).join('')+'</div>':'';
+  document.getElementById('mc-sugerencias').innerHTML=sugHTML;
+
+  // Cargar conceptos existentes
+  (m.conceptos||[]).forEach(function(c){addConcepto(c);});
+  actualizarSaldo();
+  document.getElementById('modalConcepto').classList.add('on');
+}
+
+function agregarSugerencia(s){
+  addConcepto({tipo:s.tipo,tipoLabel:s.tipoLabel,descripcion:s.descripcion,monto:s.monto,refId:s.refId,cuotaIdx:s.cuotaIdx});
+}
+
+function addConcepto(datos){
+  _concCnt++;var id=_concCnt;
+  var wrap=document.getElementById('conceptosAsignados');
+  var div=document.createElement('div');div.id='cc-'+id;
+  div.style.cssText='background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin-bottom:8px;';
+  var tipoOpts=TIPOS_CONCEPTO.map(function(t){return'<option value="'+t.id+'"'+(datos&&datos.tipo===t.id?' selected':'')+'>'+t.icon+' '+t.label+'</option>';}).join('');
+  div.innerHTML='<div style="display:grid;grid-template-columns:180px 1fr 120px 32px;gap:8px;align-items:end">'
+    +'<div><label style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:3px">Tipo</label>'
+    +'<select id="ct-'+id+'" style="font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:5px 7px;width:100%;background:var(--sur);outline:none">'+tipoOpts+'</select></div>'
+    +'<div><label style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:3px">Descripción</label>'
+    +'<input type="text" id="cd-'+id+'" value="'+(datos?hesc(datos.descripcion||''):'')+'" placeholder="Detalle del concepto" style="font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:5px 8px;width:100%;background:var(--sur);outline:none"/></div>'
+    +'<div><label style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:3px">Monto</label>'
+    +'<input type="number" id="cm-'+id+'" value="'+(datos?datos.monto||'':'')+'" placeholder="0" oninput="actualizarSaldo()" style="font-family:var(--sans);font-size:13px;font-weight:700;border:1px solid var(--bdr);border-radius:7px;padding:5px 8px;width:100%;background:var(--sur);outline:none;color:var(--green)"/></div>'
+    +'<button onclick="remCC(\''+id+'\')" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:7px;padding:5px 8px;cursor:pointer;font-size:13px;height:30px">✕</button>'
+    +'</div>'
+    +(datos&&datos.refId?'<input type="hidden" id="cr-'+id+'" value="'+datos.refId+'"/><input type="hidden" id="cri-'+id+'" value="'+(datos.cuotaIdx!==undefined?datos.cuotaIdx:'')+'"/>':'');
+  wrap.appendChild(div);actualizarSaldo();
+}
+function remCC(id){var e=document.getElementById('cc-'+id);if(e)e.remove();actualizarSaldo();}
+function closeConcepto(){document.getElementById('modalConcepto').classList.remove('on');_mcIdx=null;}
+function marcarIgnorado(){if(_mcIdx===null)return;ignorar(_mcIdx);closeConcepto();}
+
+function getConceptosForm(){
+  return Array.from(document.querySelectorAll('#conceptosAsignados > div')).map(function(div){
+    var id=div.id.replace('cc-','');
+    var tipo=document.getElementById('ct-'+id),desc=document.getElementById('cd-'+id),mon=document.getElementById('cm-'+id),ref=document.getElementById('cr-'+id),rci=document.getElementById('cri-'+id);
+    var tObj=TIPOS_CONCEPTO.find(function(t){return t.id===(tipo?tipo.value:'');});
+    return{tipo:tipo?tipo.value:'',tipoLabel:tObj?tObj.label:'',descripcion:desc?desc.value.trim():'',monto:parseFloat(mon?mon.value:0)||0,refId:ref?ref.value:null,cuotaIdx:rci&&rci.value!==''?parseInt(rci.value):undefined};
+  }).filter(function(c){return c.monto>0;});
+}
+
+function actualizarSaldo(){
+  var movs=getMovimientos();
+  var m=movs.find(function(x){return x.idx===_mcIdx;});if(!m)return;
+  var conceptos=getConceptosForm();
+  var suma=conceptos.reduce(function(s,c){return s+c.monto;},0);
+  var dif=m.monto-suma;
+  var pct=m.monto>0?Math.min(100,Math.round(suma/m.monto*100)):0;
+  document.getElementById('saldoResumen').innerHTML=
+    '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin-bottom:12px">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px"><span style="color:var(--t2)">Total ingreso</span><strong>'+ff(m.monto)+'</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px"><span style="color:var(--t2)">Suma conceptos</span><strong style="color:var(--green)">'+ff(suma)+'</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px"><span style="color:var(--t2)">Diferencia</span><strong style="color:'+(Math.abs(dif)<1?'var(--green)':dif<0?'var(--red)':'var(--amber)')+'">'+ff(Math.abs(dif))+(dif<0?' (exceso)':dif>0?' (pendiente)':' ✓')+'</strong></div>'
+    +'<div style="height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+(pct>100?'var(--red)':'var(--green)')+'";border-radius:3px;transition:.3s"></div></div>'
+    +'</div>';
+  var ajBox=document.getElementById('ajusteManualBox');
+  if(Math.abs(dif)>=1){ajBox.style.display='block';document.getElementById('aj-monto').value=Math.abs(dif);}
+  else ajBox.style.display='none';
+}
+
+function confirmarConcepto(){
+  var conceptos=getConceptosForm();
+  var quien=sv('mc-quien');try{if(!quien){var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');if(s&&s.nombre)quien=s.nombre;}}catch(e){}
+  if(!conceptos.length){alert('Agrega al menos un concepto.');return;}
+
+  var movs=getMovimientos();
+  var idx=movs.findIndex(function(x){return x.idx===_mcIdx;});if(idx<0)return;
+  var m=movs[idx];
+  var suma=conceptos.reduce(function(s,c){return s+c.monto;},0);
+  var dif=m.monto-suma;
+  var ajObs=sv('aj-obs');
+  if(Math.abs(dif)>=1&&!ajObs){alert('Hay diferencia de '+ff(Math.abs(dif))+'. Ingresa observación del ajuste.');return;}
+  movs[idx].conceptos=conceptos;
+  movs[idx].ajuste=Math.abs(dif)>=1?{monto:dif,obs:ajObs,ts:ts()}:null;
+  movs[idx].quien=quien;movs[idx].tsConciliado=ts();
+  movs[idx].estado=Math.abs(dif)<1?'conciliado':'parcial';
+  // Actualizar CxC
+  var facts=getFacturas();var changed=false;
+  conceptos.forEach(function(c){
+    if(c.tipo==='factura_servicios'&&c.refId){
+      var fi=facts.findIndex(function(f){return f.id==c.refId;});
+      if(fi>=0){facts[fi].estado='cobrada';facts[fi].pagoConciliacion={fecha:m.fecha,monto:c.monto,rut:m.rut,desc:m.nombre,ts:ts(),quien};changed=true;}
+    }
+  });
+  if(changed)localStorage.setItem('facturas_cxc',JSON.stringify(facts));
+  // Actualizar convenios
+  var convs=getConvenios();var cChanged=false;
+  conceptos.forEach(function(c){
+    if(c.tipo==='convenio_cuota'&&c.refId&&c.cuotaIdx!==undefined){
+      var ci=convs.findIndex(function(cv){return cv.id==c.refId;});
+      if(ci>=0){convs[ci].cuotas[c.cuotaIdx].estado='pagada';convs[ci].cuotas[c.cuotaIdx].pago={fecha:m.fecha,monto:c.monto,forma:'Transferencia bancaria',comprobante:m.codigo||'',quien,ts:ts()};cChanged=true;
+        if(convs[ci].cuotas.every(function(q){return q.estado==='pagada';}))convs[ci].estado='completado';
+      }
+    }
+  });
+  if(cChanged)localStorage.setItem('convenios_bd',JSON.stringify(convs));
+  setMovimientos(movs);closeConcepto();renderConciliar();
+}
+
+function ignorar(idx){var movs=getMovimientos();var i=movs.findIndex(function(x){return x.idx===idx;});if(i>=0){movs[i].estado='ignorado';setMovimientos(movs);renderConciliar();}}
+function restaurar(idx){var movs=getMovimientos();var i=movs.findIndex(function(x){return x.idx===idx;});if(i>=0){movs[i].estado='pendiente';setMovimientos(movs);renderConciliar();}}
+
+// ── POR CLIENTE ───────────────────────────────────────────────────────────
+function renderPorCliente(){
+  var movs=getMovimientos();
+  var clientes=getClientes();
+  // Agrupar por RUT
+  var porRut={};
+  movs.forEach(function(m){
+    if(!m.rut)return;
+    if(!porRut[m.rut]){
+      var cl=clientes.find(function(c){return limpiarRut(c.rut)===m.rut;});
+      porRut[m.rut]={rut:m.rut,nombre:m.clienteNombre||m.nombre||m.rut,movs:[],waHref:cl&&cl.wa?'https://wa.me/56'+cl.wa.replace(/\D/g,''):''};
+    }
+    porRut[m.rut].movs.push(m);
+  });
+
+  var items=Object.values(porRut).sort(function(a,b){
+    return b.movs.reduce(function(s,m){return s+m.monto;},0)-a.movs.reduce(function(s,m){return s+m.monto;},0);
+  });
+
+  if(!items.length){
+    document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Sin movimientos</h3><p>Carga la cartola primero.</p></div>';return;
+  }
+
+  document.getElementById('mainContent').innerHTML=items.map(function(cl){
+    var total=cl.movs.reduce(function(s,m){return s+m.monto;},0);
+    var conc=cl.movs.filter(function(m){return m.estado==='conciliado';}).length;
+    var pend=cl.movs.filter(function(m){return m.estado==='pendiente';}).length;
+    var filas=cl.movs.map(function(m){
+      var badge=m.estado==='conciliado'?'<span class="badge b-conciliado">✅</span>':m.estado==='parcial'?'<span class="badge b-parcial">🔵</span>':m.estado==='ignorado'?'<span class="badge b-ignorado">🚫</span>':'<span class="badge b-pendiente">⏳</span>';
+      var concDesc=(m.conceptos||[]).map(function(c){return c.tipoLabel;}).join(' + ')||'—';
+      return'<tr>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr);font-size:12px">'+hesc(m.fecha)+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr);font-size:12px">'+hesc(m.nombre)+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr);font-size:12px;font-weight:700;color:var(--green);font-family:monospace">'+ff(m.monto)+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr)">'+badge+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr);font-size:11px;color:var(--tm)">'+hesc(concDesc)+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid var(--bdr)">'+(m.estado==='pendiente'?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">🔗 Conciliar</button>':'')+'</td>'
+        +'</tr>';
+    }).join('');
+    return'<div class="cliente-row">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      +'<div><div style="font-size:14px;font-weight:700">'+hesc(cl.nombre)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--tm)">RUT: '+hesc(cl.rut)+' · '+cl.movs.length+' movimientos · '+conc+' conciliados · '+pend+' pendientes</div></div>'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +(cl.waHref?'<a class="btn-wa btn-sm" href="'+cl.waHref+'" target="_blank" style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;text-decoration:none">💬</a>':'')
+      +'<div style="font-size:18px;font-weight:700;color:var(--green)">'+ff(total)+'</div>'
+      +'</div></div>'
+      +'<table class="mov-tabla"><thead><tr><th>Fecha</th><th>Nombre</th><th>Monto</th><th>Estado</th><th>Concepto</th><th></th></tr></thead><tbody>'+filas+'</tbody></table>'
+      +'</div>';
+  }).join('');
+}
+
+// ── HISTORIAL ─────────────────────────────────────────────────────────────
+function renderHistorial(){
+  var arr=getHistorial();
+  document.getElementById('mainContent').innerHTML=arr.length?arr.map(function(h){
+    return'<div class="hist-row"><div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<div><div style="font-size:14px;font-weight:700">📊 '+hesc(h.archivo)+'</div>'
+      +'<div style="font-size:11.5px;color:var(--tm)">'+hesc(h.banco)+' · '+hesc(h.periodo)+' · '+h.total+' movimientos</div></div>'
+      +'<div style="font-size:11px;color:var(--tm)">'+hesc(h.tsLoad)+'</div>'
+      +'</div></div>';
+  }).join(''):'<div class="empty-state"><h3>Sin historial</h3><p>Las cartolas cargadas aparecerán aquí.</p></div>';
+}
+
+setView('conciliar');
+</script>
+</body>
+</html>
+<script>
+// PATCH — Memoria de RUT transferentes
+// Agrega estas funciones al módulo de conciliación
+
+// Storage memoria RUT
+function getMemoriaRut(){try{return JSON.parse(localStorage.getItem('concil_rut_memoria')||'{}');}catch(e){return{};}}
+function setMemoriaRut(obj){localStorage.setItem('concil_rut_memoria',JSON.stringify(obj));}
+
+// Guardar asociación RUT → cliente al confirmar
+var _origConfirmar=confirmarConcepto;
+confirmarConcepto=function(){
+  var movs=getMovimientos();
+  var m=movs.find(function(x){return x.idx===_mcIdx;});
+  if(m&&m.rut){
+    // Determinar cliente asociado — primero buscar en conceptos, luego en selector manual
+    var clienteAsoc=sv('mc-cliente-manual')||'';
+    if(!clienteAsoc){
+      // Buscar por conceptos asignados
+      var conceptos=getConceptosForm();
+      if(conceptos.length){
+        var fact=getFacturas().find(function(f){return conceptos.some(function(c){return c.refId==f.id;});});
+        if(fact)clienteAsoc=limpiarRut(fact.rutCliente);
+        if(!clienteAsoc){
+          var oblig=getObligaciones().find(function(o){return conceptos.some(function(c){return c.refId==o.id;});});
+          if(oblig)clienteAsoc=limpiarRut(oblig.rut);
+        }
+      }
+    }
+    if(clienteAsoc&&clienteAsoc!==m.rut){
+      var mem=getMemoriaRut();
+      var cl=getClientes().find(function(c){return limpiarRut(c.rut)===clienteAsoc;});
+      mem[m.rut]={rutCliente:clienteAsoc,clienteNombre:cl?cl.razon:clienteAsoc,ts:ts(),nombre:m.nombre};
+      setMemoriaRut(mem);
+    }
+  }
+  _origConfirmar();
+};
+
+// Enriquecer buscarSugerencias con memoria RUT
+var _origBuscar=buscarSugerencias;
+buscarSugerencias=function(rut,monto){
+  var sugs=_origBuscar(rut,monto);
+  // Agregar sugerencia de memoria si RUT no tiene match directo en base de clientes
+  var cl=getClientes().find(function(c){return limpiarRut(c.rut)===rut;});
+  if(!cl){
+    var mem=getMemoriaRut();
+    if(mem[rut]){
+      var m=mem[rut];
+      // Buscar facturas y obligaciones del cliente memorizado
+      var rutCl=m.rutCliente;
+      var facts=getFacturas().filter(function(f){return f.estado==='pendiente'&&limpiarRut(f.rutCliente)===rutCl;});
+      var obligs=getObligaciones().filter(function(o){return o.estado==='transferido'&&limpiarRut(o.rut)===rutCl;});
+      // Agregar sugerencia especial de memoria al tope
+      sugs.unshift({tipo:'memoria',tipoLabel:'Última vez: '+m.clienteNombre,icon:'⭐',descripcion:'RUT '+rut+' ('+m.nombre+') → '+m.clienteNombre+' · Registrado: '+m.ts,monto:monto,refId:null,exacto:false,origen:'memoria',label:'⭐ Última conciliación',rutClienteMemoria:rutCl,clienteNombreMemoria:m.clienteNombre});
+      // Agregar sus facturas y obligaciones
+      facts.forEach(function(f){
+        var exacto=Math.abs(f.montoTotal-monto)<=(monto*0.01);
+        sugs.push({tipo:'factura_servicios',tipoLabel:'Factura honorarios — '+m.clienteNombre,icon:'🧾',descripcion:'Fact. N°'+f.numero+(f.periodo?' · '+f.periodo:''),monto:exacto?monto:f.montoTotal,refId:f.id,exacto:exacto,origen:'factura_memoria',label:exacto?'⚡ Match exacto (cliente memorizado)':'📄 Factura pendiente (cliente memorizado)'});
+      });
+      obligs.forEach(function(o){
+        var exacto=Math.abs(o.monto-monto)<=(monto*0.01);
+        sugs.push({tipo:'impuesto_tercero',tipoLabel:o.tipo+' — '+m.clienteNombre,icon:'💰',descripcion:o.concepto,monto:exacto?monto:o.monto,refId:o.id,exacto:exacto,origen:'pago_memoria',label:exacto?'⚡ Match exacto (cliente memorizado)':'💰 Pago pendiente (cliente memorizado)'});
+      });
+    }
+  }
+  // Re-ordenar: exactos primero, memoria al tope si no hay exactos
+  sugs.sort(function(a,b){
+    if(a.exacto&&!b.exacto)return -1;
+    if(!a.exacto&&b.exacto)return 1;
+    if(a.origen==='memoria'&&b.origen!=='memoria')return -1;
+    return 0;
+  });
+  return sugs;
+};
+
+// Agregar selector de cliente manual al modal de conceptos
+var _origAbrirConcepto=abrirConcepto;
+abrirConcepto=function(idx){
+  _origAbrirConcepto(idx);
+  // Agregar selector de cliente después del modal-sub si no existe
+  if(!document.getElementById('mc-cliente-manual-wrap')){
+    var quien=document.getElementById('mc-quien').parentNode;
+    var wrap=document.createElement('div');
+    wrap.id='mc-cliente-manual-wrap';
+    wrap.style.cssText='margin-top:10px;';
+    var clientes=getClientes();
+    var opts='<option value="">— Asociar a cliente específico (si RUT transferente es diferente) —</option>'
+      +clientes.map(function(c){return'<option value="'+limpiarRut(c.rut)+'">'+hesc(c.razon)+' · '+hesc(c.rut)+'</option>';}).join('');
+    wrap.innerHTML='<div class="fgroup"><label>Asociar pago a cliente (opcional — para RUTs de terceros)</label>'
+      +'<select id="mc-cliente-manual" style="font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;background:var(--sur2);outline:none;width:100%">'+opts+'</select>'
+      +'<span style="font-size:10px;color:var(--tm)">Si quien transfiere es un tercero (ej: socio, empleado), asigna aquí el cliente real. El sistema lo recordará la próxima vez.</span>'
+      +'</div>';
+    quien.parentNode.insertBefore(wrap,quien);
+  }
+  // Pre-seleccionar si hay memoria para este RUT
+  var movs=getMovimientos();
+  var m=movs.find(function(x){return x.idx===idx;});
+  if(m&&m.rut){
+    var mem=getMemoriaRut();
+    if(mem[m.rut]){
+      var sel=document.getElementById('mc-cliente-manual');
+      if(sel)sel.value=mem[m.rut].rutCliente||'';
+    }
+  }
+};
+</script>
+
