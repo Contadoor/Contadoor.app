@@ -182,6 +182,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
+var PROXY_URL='https://contafunnel-v2.vercel.app/api/cobranza-email';
+var BANCO_DATOS={banco:'Itaú',tipo:'Cuenta Corriente',numero:'XXXX',rut:'76.543.210-9',nombre:'Contadoor Chile SpA'};
 var DIA_VENCIMIENTO = 21; // Día del mes en que vence la factura
 var DIAS_COBRANZA_ACTIVA = [21, 23, 26, 28, 30]; // Días de recordatorio
 var EMAIL_CONTADOOR = 'info@contadoor.cl';
@@ -290,9 +292,42 @@ function enviarWA(f, tipo){
 }
 
 function enviarEmail(f, tipo){
-  var m=msgEmail(f,tipo);
-  window.location.href='mailto:'+encodeURIComponent(m.to||'')+'?subject='+encodeURIComponent(m.subject)+'&body='+encodeURIComponent(m.body);
-  registrarAccionCobranza(f.id, tipo, 'email');
+  var cl=getClientes().find(function(c){return limpiarRut(c.rut)===limpiarRut(f.rutCliente);});
+  var emailDest=f.clienteEmail||(cl?cl.email:'');
+  if(!emailDest){alert('Este cliente no tiene email registrado en la base de clientes.');return;}
+  var deudaTotal=getFacturas().filter(function(x){return limpiarRut(x.rutCliente)===limpiarRut(f.rutCliente)&&x.estado!=='cobrada';}).reduce(function(s,x){return s+x.montoTotal;},0);
+  var btn=event&&event.target;if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  fetch(PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      tipo:tipo,
+      destinatario:emailDest,
+      datos:{
+        clienteNombre:f.clienteNombre,
+        folio:f.folio,
+        montoTotal:f.montoTotal,
+        montoNeto:f.montoNeto,
+        periodo:f.periodo,
+        fechaVenc:f.fechaVenc,
+        deudaTotal:deudaTotal-(tipo==='confirmacion_pago'?f.montoTotal:0),
+        diasVenc:getEstadoCobranza(f).diasVenc,
+        banco:BANCO_DATOS
+      }
+    })
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.ok){
+      registrarAccionCobranza(f.id,tipo,'email');
+      renderAll();
+      alert('✅ Email enviado a '+emailDest);
+    } else {
+      alert('Error al enviar: '+(data.error||'Error desconocido'));
+    }
+  }).catch(function(err){
+    alert('Error de conexión: '+err.message);
+  }).finally(function(){
+    if(btn){btn.disabled=false;btn.textContent='✉️ Email';}
+  });
 }
 
 function registrarAccionCobranza(factId, tipo, canal){
