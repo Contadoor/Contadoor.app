@@ -1,0 +1,958 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contadoor.app — RRHH Reportes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;}
+.main{margin-left:220px;flex:1;}
+.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);}
+.sb-logo img{width:140px;display:block;}
+.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:5px;}
+.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;cursor:pointer;}
+.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
+.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);}
+.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--green);position:sticky;top:0;z-index:10;}
+.tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
+.tb-analista{font-size:11px;color:rgba(255,255,255,.5);background:rgba(45,155,111,.2);padding:3px 10px;border-radius:20px;}
+.content{padding:20px 24px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;text-align:center;}
+.stat .sv{font-size:22px;font-weight:700;font-family:monospace;}
+.stat .sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
+
+/* FILTROS */
+.filtros{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.fl{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;}
+.fb{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);transition:.15s;}
+.fb:hover{border-color:var(--p);color:var(--p);}
+.fb.on{background:var(--green);color:#fff;border-color:var(--green);}
+
+/* CALENDARIO */
+.cal-bar{background:linear-gradient(135deg,rgba(45,155,111,.1),rgba(45,155,111,.05));border:1px solid rgba(45,155,111,.2);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.cal-item{display:flex;align-items:center;gap:6px;font-size:11px;}
+.cal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cal-lbl{color:var(--t2);}
+.cal-fecha{font-weight:700;color:var(--t1);}
+.cal-hoy{background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--red);}
+
+/* TABLA */
+.tabla-wrap{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
+.tabla-hdr{background:linear-gradient(135deg,#1a5c3a,var(--green));padding:12px 18px;display:flex;align-items:center;justify-content:space-between;}
+.tabla-titulo{font-size:13px;font-weight:700;color:#fff;}
+.tabla-meta{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;}
+
+table{width:100%;border-collapse:collapse;}
+th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tm);padding:9px 14px;background:var(--sur2);border-bottom:1px solid var(--bdr);text-align:left;white-space:nowrap;}
+td{padding:10px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f9fefb;}
+
+.cli-nombre{font-size:12.5px;font-weight:700;}
+.cli-sub{font-size:10px;color:var(--tm);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+
+.plan{padding:1px 7px;border-radius:20px;font-size:9.5px;font-weight:700;}
+.plan-e{background:var(--pp);color:var(--pd);}
+.plan-a{background:#eff6ff;color:#1e40af;}
+.plan-c{background:#f3f4f6;color:#374151;}
+
+.prio{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.prio-alta{background:#fee2e2;color:#b91c1c;}
+.prio-media{background:#fef3c7;color:#78350f;}
+.prio-baja{background:#ecfdf5;color:#064e3b;}
+
+/* LIBRO STATUS */
+.libro-status{display:flex;flex-direction:column;gap:4px;}
+.libro-ok{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-weight:600;}
+.libro-no{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--tm);}
+
+/* DATOS RRHH */
+.datos-rrhh{display:flex;flex-direction:column;gap:3px;}
+.dato-item{font-size:10.5px;color:var(--t2);}
+.dato-val{font-weight:700;color:var(--t1);font-family:monospace;}
+.dato-pending{font-size:10.5px;color:var(--tm);font-style:italic;}
+
+/* CUMPLIMIENTO */
+.cumpl{min-width:80px;}
+.cumpl-pct{font-size:12px;font-weight:700;margin-bottom:3px;}
+.cumpl-bar{height:5px;border-radius:3px;background:#e8dde8;overflow:hidden;}
+.cumpl-fill{height:100%;border-radius:3px;}
+.cumpl-lbl{font-size:9px;color:var(--tm);margin-top:2px;}
+
+/* ESTADO CHIP */
+.ec{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap;}
+.ec-pendiente{background:#fef3c7;color:#78350f;}
+.ec-libro-ok{background:#e0f2fe;color:#0369a1;}
+.ec-completado{background:#ecfdf5;color:#064e3b;}
+.ec-enviado{background:#eff6ff;color:#1e40af;}
+.ec-atrasado{background:#fee2e2;color:#b91c1c;}
+
+/* BOTONES */
+.btn-p{background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn-p:hover{background:#1a8a55;}
+.btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer;white-space:nowrap;}
+.btn-s:hover{border-color:var(--green);color:var(--green);}
+.btn-wa{background:#25d366;color:#fff;border:none;border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer;}
+.btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer;}
+.acciones{display:flex;gap:4px;justify-content:flex-end;align-items:center;}
+
+/* MODAL LIBRO */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--sur);border-radius:14px;padding:24px;max-width:680px;width:96%;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:15px;font-weight:700;color:var(--green);margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--tm);margin-bottom:16px;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--bdr);}
+
+.upload-zone{border:2px dashed var(--bdr);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:var(--sur2);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:rgba(45,155,111,.05);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.file-ok{display:none;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;margin-top:10px;}
+.file-ok.show{display:flex;}
+
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;}
+.fgroup input,.fgroup select,.fgroup textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;width:100%;}
+.fgroup input:focus,.fgroup select:focus{border-color:var(--green);}
+.fgroup .hint{font-size:10px;color:var(--tm);}
+.readonly-field{background:#f0f0f0!important;font-weight:700;}
+
+.sec-box{background:var(--sur2);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:12px;}
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:10px;}
+.info-box{background:rgba(45,155,111,.06);border:1px solid rgba(45,155,111,.2);border-radius:8px;padding:10px 13px;font-size:12px;color:#064e3b;margin-bottom:10px;}
+.warn-box{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;font-size:12px;color:#78350f;margin-bottom:10px;}
+
+/* REPORTE PARCIAL PREVIEW */
+.rpt-preview{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-top:14px;}
+.rpt-preview-hdr{background:linear-gradient(135deg,var(--pd),var(--p));padding:14px 18px;color:#fff;}
+.rpt-preview-titulo{font-size:14px;font-weight:700;}
+.rpt-preview-sub{font-size:11px;opacity:.6;margin-top:2px;}
+.rpt-tabla{width:100%;border-collapse:collapse;font-size:12px;}
+.rpt-tabla th{background:var(--sur2);padding:7px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--tm);text-align:left;border-bottom:1px solid var(--bdr);}
+.rpt-tabla td{padding:8px 12px;border-bottom:1px solid var(--bdr);}
+.rpt-tabla tr:last-child td{border-bottom:none;}
+.rpt-tabla .num{text-align:right;font-family:monospace;font-weight:600;}
+.rpt-tabla .total td{font-weight:700;background:rgba(45,155,111,.06);color:var(--green);}
+.rpt-tabla .subtotal td{font-weight:600;background:var(--sur2);}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="sb-logo">
+    <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
+    <div class="sb-tagline">Módulo RRHH</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Principal</div>
+    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
+    <div class="sb-sec">Mis módulos</div>
+    <div class="sb-item on">👥 RRHH — Reportes</div>
+    <div class="sb-sec">Sistema</div>
+    <a class="sb-item" href="../admin/index.html">👤 Mi perfil</a>
+  </nav>
+  <div class="sb-foot" id="sb-usuario">Cargando...</div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="tb-title">👥 Módulo RRHH — Reportes Mensuales</div>
+    <span class="tb-analista" id="tb-analista-nombre">Analista RRHH</span>
+    <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;">
+      <span style="font-size:18px">🔔</span>
+      <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="stats" id="statsRow">
+      <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Mis clientes</div></div>
+      <div class="stat"><div class="sv" id="st-pendiente" style="color:var(--amber)">0</div><div class="sl">Pendientes</div></div>
+      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">Completados</div></div>
+      <div class="stat"><div class="sv" id="st-enviado" style="color:var(--blue)">0</div><div class="sl">Enviados</div></div>
+      <div class="stat"><div class="sv" id="st-atrasado" style="color:var(--red)">0</div><div class="sl">Atrasados</div></div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="cal-bar" id="calBar">
+      <span style="font-size:9.5px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.7px">Calendario:</span>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--green)"></div><span class="cal-lbl">Envío RRHH:</span><span class="cal-fecha" id="cal-envio">—</span></div>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--amber)"></div><span class="cal-lbl">Decisión postergación:</span><span class="cal-fecha" id="cal-decision">—</span></div>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--red)"></div><span class="cal-lbl">Vence cotizaciones:</span><span class="cal-fecha" id="cal-venc">—</span></div>
+      <span class="cal-hoy" id="cal-hoy-label"></span>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filtros">
+      <span class="fl">Prioridad:</span>
+      <button class="fb on" onclick="setFiltro('prioridad','')">Todas</button>
+      <button class="fb" onclick="setFiltro('prioridad','alta')">🔴 Alta</button>
+      <button class="fb" onclick="setFiltro('prioridad','media')">🟡 Media</button>
+      <button class="fb" onclick="setFiltro('prioridad','baja')">🟢 Baja</button>
+      <span class="fl" style="margin-left:12px">Estado:</span>
+      <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
+      <button class="fb" onclick="setFiltro('estado','pendiente')">⏳ Pendientes</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">✅ Completados</button>
+      <button class="fb" onclick="setFiltro('estado','enviado')">📤 Enviados</button>
+      <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
+    </div>
+
+    <!-- TABLA -->
+    <div class="tabla-wrap">
+      <div class="tabla-hdr">
+        <div>
+          <div class="tabla-titulo">👥 Mis clientes RRHH — <span id="periodo-label">Sin período abierto</span></div>
+          <div class="tabla-meta" id="tabla-meta">Selecciona un período abierto para ver tu nómina</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="selectPeriodo" onchange="cargarPeriodo()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer">
+            <option value="">Seleccionar período...</option>
+          </select>
+        </div>
+      </div>
+      <div id="tablaBody"></div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- MODAL COMPLETAR RRHH -->
+<div class="modal-bg" id="modalRrhh">
+  <div class="modal">
+    <h2>👥 Completar sección RRHH</h2>
+    <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
+    <input type="hidden" id="m-reporte-id"/>
+    <input type="hidden" id="m-cliente-rut"/>
+
+    <!-- CARGA LIBRO -->
+    <div class="sec-box">
+      <div class="sec-title">📊 Libro de Remuneraciones — Mas Remuneraciones (.xls)</div>
+      <div class="upload-zone" id="uzLibro">
+        <input type="file" id="fileLibro" accept=".xls,.xlsx"/>
+        <div style="font-size:28px;margin-bottom:6px">📊</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">Cargar libro .xls</div>
+        <div style="font-size:11px;color:var(--tm)">Arrastra o haz clic · Mas Remuneraciones · Mastecno</div>
+      </div>
+      <div class="file-ok" id="libroOk">
+        <span style="font-size:20px">✅</span>
+        <div>
+          <div style="font-size:13px;font-weight:600" id="libroFileName"></div>
+          <div style="font-size:11px;color:var(--tm)" id="libroMeta"></div>
+        </div>
+        <button onclick="limpiarLibro()" style="margin-left:auto;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">✕ Quitar</button>
+      </div>
+      <div id="selectPeriodoLibroWrap" style="display:none;margin-top:10px">
+        <div class="fgroup">
+          <label>Período a procesar</label>
+          <select id="selectPeriodoLibro" onchange="procesarPeriodo()"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATOS CARGADOS -->
+    <div id="datosLibroWrap" style="display:none">
+      <div class="info-box">✅ Datos cargados automáticamente desde el libro. Revisa y ajusta si es necesario.</div>
+      <div class="sec-box">
+        <div class="sec-title">Resumen general</div>
+        <div class="fg3" style="margin-bottom:10px">
+          <div class="fgroup"><label>N° trabajadores</label><input type="number" id="m-ntrab" class="readonly-field" readonly/></div>
+          <div class="fgroup"><label>Total imponible</label><input type="number" id="m-timponible" class="readonly-field" readonly/></div>
+          <div class="fgroup"><label>Líquido a pagar</label><input type="number" id="m-liquido" class="readonly-field" readonly/></div>
+        </div>
+        <div class="sec-title" style="margin-top:8px">Descuentos trabajadores</div>
+        <div class="fg3" style="margin-bottom:10px">
+          <div class="fgroup"><label>AFP</label><input type="number" id="m-afp" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Salud</label><input type="number" id="m-salud" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>APV</label><input type="number" id="m-apv" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Seg. Cesantía trabajador</label><input type="number" id="m-ces-trab" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Imp. Único 2ª Cat. →SII</label><input type="number" id="m-iu" oninput="calcTotalesModal()" style="border-color:var(--amber)"/><span class="hint" style="color:var(--amber)">Cae automático al F29</span></div>
+          <div class="fgroup"><label>Total descuentos</label><input type="number" id="m-total-desc" class="readonly-field" readonly/></div>
+        </div>
+        <div class="sec-title">Aportes patronales</div>
+        <div class="fg3">
+          <div class="fgroup"><label>SIS</label><input type="number" id="m-sis" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Mutual / Accidentes</label><input type="number" id="m-mutual" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Seg. Cesantía empleador</label><input type="number" id="m-ces-emp" oninput="calcTotalesModal()"/></div>
+          <div class="fgroup"><label>Total aportes patronales</label><input type="number" id="m-total-aportes" class="readonly-field" readonly/></div>
+          <div class="fgroup"><label>TOTAL COTIZACIONES</label><input type="number" id="m-total-cot" class="readonly-field" readonly style="color:var(--green);font-weight:700;font-size:14px"/></div>
+        </div>
+      </div>
+      <div class="fgroup" style="margin-bottom:12px">
+        <label>Observaciones RRHH</label>
+        <input type="text" id="m-obs" placeholder="Ej: Incluye finiquito de trabajador X, licencia médica en período, etc."/>
+      </div>
+    </div>
+
+    <!-- MODO MANUAL -->
+    <div id="modoManualWrap">
+      <div class="warn-box">Sin archivo cargado. Puedes ingresar los datos manualmente o cargar el libro arriba.</div>
+      <div class="fg3" style="margin-bottom:10px">
+        <div class="fgroup"><label>N° trabajadores</label><input type="number" id="m-ntrab-m" placeholder="0"/></div>
+        <div class="fgroup"><label>Total cotizaciones</label><input type="number" id="m-cot-m" placeholder="0"/></div>
+        <div class="fgroup"><label>Imp. Único 2ª Cat.</label><input type="number" id="m-iu-m" placeholder="0" style="border-color:var(--amber)"/><span class="hint" style="color:var(--amber)">Cae automático al F29</span></div>
+      </div>
+      <div class="fgroup" style="margin-bottom:12px">
+        <label>Observaciones RRHH</label>
+        <input type="text" id="m-obs-m" placeholder="Ej: Datos ingresados manualmente..."/>
+      </div>
+    </div>
+
+    <!-- OPCIONES POSTERGACIÓN COTIZACIONES -->
+    <div class="sec-box" style="border-left-color:var(--amber)">
+      <div class="sec-title" style="color:var(--amber)">⏳ Postergación de cotizaciones</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px">El cliente puede postergar el pago de cotizaciones hasta fin de mes. Debe avisar antes del día 10.</div>
+      <div class="fg3">
+        <div class="fgroup">
+          <label>Decisión del cliente</label>
+          <select id="m-decision-cotiz" onchange="onDecisionCotiz()">
+            <option value="">Sin respuesta aún</option>
+            <option value="paga_hoy">Paga hoy (día 10)</option>
+            <option value="paga_normal">Paga en plazo normal (día 13)</option>
+            <option value="posterga">Posterga hasta fin de mes</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label>Fecha decisión</label>
+          <input type="date" id="m-fecha-decision"/>
+        </div>
+        <div class="fgroup" id="m-fecha-postergacion-wrap" style="display:none">
+          <label>Vence postergación</label>
+          <input type="text" id="m-fecha-postergacion" readonly class="readonly-field" placeholder="Automático"/>
+        </div>
+      </div>
+      <div id="decisionInfo" style="margin-top:8px"></div>
+    </div>
+
+    <!-- PREVIEW REPORTE PARCIAL -->
+    <div id="previewRptParcial" style="display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.7px;margin:14px 0 8px">Vista previa — Reporte RRHH al cliente</div>
+      <div class="rpt-preview">
+        <div class="rpt-preview-hdr">
+          <div class="rpt-preview-titulo" id="rpt-titulo">—</div>
+          <div class="rpt-preview-sub" id="rpt-subtitulo">—</div>
+        </div>
+        <div style="padding:14px">
+          <table class="rpt-tabla">
+            <thead><tr><th>Concepto</th><th style="text-align:right">Monto</th></tr></thead>
+            <tbody id="rpt-tabla-body"></tbody>
+          </table>
+          <div style="margin-top:10px;font-size:11px;color:var(--amber);background:#faeeda;border-radius:6px;padding:6px 10px" id="rpt-cal-info">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-s" onclick="closeModalRrhh()">Cancelar</button>
+      <button class="btn-s" onclick="guardarRrhh('borrador')" style="color:var(--green);border-color:var(--green)">💾 Guardar borrador</button>
+      <button class="btn-p" onclick="guardarRrhh('ok')" style="background:var(--green)">✅ Marcar RRHH OK</button>
+      <button class="btn-p" id="btnEnviarParcial" onclick="enviarReporteParcial()" style="display:none;background:var(--p)">📤 Enviar reporte RRHH al cliente</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+var _remuData=null,_reporteActual=null,_filtros={prioridad:'',estado:''};
+var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
+function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function gv(id){return parseFloat(sv(id))||0;}
+function setV(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function formatPeriodo(p){if(!p)return'—';var pts=p.split('-');return MESES[parseInt(pts[1])-1]+' '+pts[0];}
+function getUsuario(){try{return JSON.parse(localStorage.getItem('usuario_sesion')||'{}');}catch(e){return{};}}
+
+// ═══════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════
+function getReportes(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
+function setReportes(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
+function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
+function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
+function getHistoricoRemu(){try{return JSON.parse(localStorage.getItem('remu_historico')||'{}');}catch(e){return{};}}
+function setHistoricoRemu(o){localStorage.setItem('remu_historico',JSON.stringify(o));}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+function init(){
+  var u=getUsuario();
+  document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista RRHH';
+  document.getElementById('sb-usuario').textContent=(u.nombre||'RRHH')+' · '+( u.rol||'rrhh');
+  popularSelectPeriodos();
+  // Auto-cargar el período más reciente
+  var sel=document.getElementById('selectPeriodo');
+  if(sel.options.length>1){sel.selectedIndex=1;cargarPeriodo();}
+  // Fecha hoy en calendario
+  var hoy=new Date();
+  document.getElementById('cal-hoy-label').textContent='Hoy: '+hoy.getDate()+'/'+( hoy.getMonth()+1);
+}
+
+function popularSelectPeriodos(){
+  var periodos=getPeriodos().sort(function(a,b){return a.periodo>b.periodo?-1:1;});
+  var sel=document.getElementById('selectPeriodo');
+  sel.innerHTML='<option value="">Seleccionar período...</option>';
+  periodos.forEach(function(p){
+    var opt=document.createElement('option');
+    opt.value=p.periodo;
+    opt.textContent=formatPeriodo(p.periodo);
+    sel.appendChild(opt);
+  });
+}
+
+function cargarPeriodo(){
+  var periodo=sv('selectPeriodo');
+  if(!periodo){document.getElementById('tablaBody').innerHTML='';return;}
+  var periodos=getPeriodos();
+  var pd=periodos.find(function(p){return p.periodo===periodo;});
+  document.getElementById('periodo-label').textContent=formatPeriodo(periodo);
+  // Calendario
+  if(pd&&pd.calendario){
+    setV('cal-envio',pd.calendario.envioRrhh||'—');
+    setV('cal-decision','Día 10');
+    setV('cal-venc',pd.calendario.vencCot||'—');
+    document.getElementById('cal-envio').textContent=pd.calendario.envioRrhh||'—';
+    document.getElementById('cal-decision').textContent='Día 10 de cada mes';
+    document.getElementById('cal-venc').textContent=pd.calendario.vencCot||'—';
+  }
+  renderTabla(periodo);
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER TABLA
+// ═══════════════════════════════════════════════════
+function renderTabla(periodo){
+  var u=getUsuario();
+  var analista=u.nombre||'';
+  var reportes=getReportes().filter(function(r){
+    if(r.periodo!==periodo) return false;
+    if(r.tieneRrhh===false) return false; // cliente sin RRHH no aparece aquí
+    // Solo mis clientes asignados
+    if(analista&&r.preparado&&r.preparado!==analista) return false;
+    return true;
+  });
+
+  // Aplicar filtros
+  var filtrados=reportes.filter(function(r){
+    var prio=r.prioridadRrhh||'media';
+    var estado=getEstadoRrhh(r);
+    if(_filtros.prioridad&&prio!==_filtros.prioridad) return false;
+    if(_filtros.estado&&estado!==_filtros.estado) return false;
+    return true;
+  });
+
+  // Ordenar por prioridad
+  var ordenPrio={alta:0,media:1,baja:2};
+  filtrados.sort(function(a,b){
+    return(ordenPrio[a.prioridadRrhh||'media']||1)-(ordenPrio[b.prioridadRrhh||'media']||1);
+  });
+
+  // Stats
+  var todos=reportes;
+  var pend=todos.filter(function(r){return getEstadoRrhh(r)==='pendiente';}).length;
+  var comp=todos.filter(function(r){return getEstadoRrhh(r)==='completado';}).length;
+  var env=todos.filter(function(r){return getEstadoRrhh(r)==='enviado';}).length;
+  var atr=todos.filter(function(r){return getEstadoRrhh(r)==='atrasado';}).length;
+  setV('st-total',todos.length);
+  setV('st-pendiente',pend);
+  setV('st-completado',comp);
+  setV('st-enviado',env);
+  setV('st-atrasado',atr);
+  document.getElementById('st-total').textContent=todos.length;
+  document.getElementById('st-pendiente').textContent=pend;
+  document.getElementById('st-completado').textContent=comp;
+  document.getElementById('st-enviado').textContent=env;
+  document.getElementById('st-atrasado').textContent=atr;
+  document.getElementById('tabla-meta').textContent=filtrados.length+' clientes RRHH · '+comp+' completados · '+pend+' pendientes';
+
+  if(!filtrados.length){
+    document.getElementById('tablaBody').innerHTML='<div style="text-align:center;padding:40px;color:var(--tm)"><div style="font-size:32px;margin-bottom:8px">👥</div><div style="font-size:14px;font-weight:600;color:var(--t2)">Sin clientes RRHH asignados</div><div style="font-size:12px;margin-top:4px">Verifica que el período esté abierto y tengas clientes asignados</div></div>';
+    return;
+  }
+
+  var html='<table><thead><tr>'
+    +'<th>Cliente / Plan</th>'
+    +'<th>Prioridad RRHH</th>'
+    +'<th>Libro cargado</th>'
+    +'<th>Datos RRHH</th>'
+    +'<th>Estado</th>'
+    +'<th>Cumplimiento</th>'
+    +'<th style="text-align:right">Acciones</th>'
+    +'</tr></thead><tbody>';
+
+  filtrados.forEach(function(r){
+    var est=getEstadoRrhh(r);
+    var pct=getCumplimiento(r);
+    var pctColor=pct>=100?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
+    var c=getClientes().find(function(x){return x.rut===r.rut;});
+    var planCls=c&&c.plan?{estrategico:'plan-e',asesoria:'plan-a',cumplimiento:'plan-c'}[c.plan.toLowerCase()]||'plan-c':'plan-c';
+    var planLabel=c&&c.plan?c.plan:'—';
+
+    html+='<tr>';
+    // Cliente
+    html+='<td><div class="cli-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>'
+      +'<div class="cli-sub"><span class="cli-rut">'+hesc(r.rut)+'</span>'
+      +'<span class="plan '+planCls+'">'+hesc(planLabel)+'</span>'
+      +(r.clienteWa?'<a href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank" style="font-size:10px;color:var(--green)">💬</a>':'')
+      +'</div></td>';
+    // Prioridad
+    html+='<td><span class="prio prio-'+(r.prioridadRrhh||'media')+'">'
+      +{alta:'🔴 Alta',media:'🟡 Media',baja:'🟢 Baja'}[r.prioridadRrhh||'media']
+      +'</span></td>';
+    // Libro
+    var tieneLibro=r.usaArchivo||r.afp>0||r.nTrab>0;
+    html+='<td><div class="libro-status">'
+      +(tieneLibro
+        ?'<span class="libro-ok">✅ Cargado</span><span style="font-size:10px;color:var(--tm)">'+(r.nTrab||0)+' trabajadores</span>'
+        :'<span class="libro-no">📂 Sin cargar</span>'
+      )+'</div></td>';
+    // Datos
+    html+='<td><div class="datos-rrhh">';
+    if(tieneLibro){
+      html+='<div class="dato-item">Liq: <span class="dato-val">'+ff(r.liquidoPagar||0)+'</span></div>';
+      html+='<div class="dato-item">Cotiz: <span class="dato-val">'+ff(r.totalCot||0)+'</span></div>';
+      if(r.iu>0) html+='<div class="dato-item">I.U.: <span class="dato-val" style="color:var(--amber)">'+ff(r.iu)+'</span> →SII</div>';
+    }else{
+      html+='<div class="dato-pending">Sin datos aún</div>';
+    }
+    html+='</div></td>';
+    // Estado
+    var ecMap={
+      pendiente:{cls:'ec-pendiente',label:'⏳ Pendiente'},
+      libro_ok:{cls:'ec-libro-ok',label:'📊 Libro cargado'},
+      completado:{cls:'ec-completado',label:'✅ RRHH OK'},
+      enviado:{cls:'ec-enviado',label:'📤 Enviado al cliente'},
+      atrasado:{cls:'ec-atrasado',label:'⚠️ Atrasado'}
+    };
+    var ecInfo=ecMap[est]||ecMap.pendiente;
+    html+='<td><span class="ec '+ecInfo.cls+'">'+ecInfo.label+'</span></td>';
+    // Cumplimiento
+    html+='<td><div class="cumpl"><div class="cumpl-pct" style="color:'+pctColor+'">'+pct+'%</div>'
+      +'<div class="cumpl-bar"><div class="cumpl-fill" style="width:'+pct+'%;background:'+pctColor+'"></div></div>'
+      +'<div class="cumpl-lbl">'+getCumplimientoLabel(est)+'</div></div></td>';
+    // Acciones
+    html+='<td><div class="acciones">';
+    if(est==='completado'||est==='enviado'){
+      html+='<button class="btn-s" onclick="abrirModal(\''+r.id+'\')">✏️ Editar</button>';
+      if(est==='completado') html+='<button class="btn-p" onclick="abrirModal(\''+r.id+'\',true)" style="background:var(--p)">📤 Enviar</button>';
+    }else{
+      html+='<button class="btn-p" onclick="abrirModal(\''+r.id+'\')">✏️ Completar</button>';
+    }
+    html+='</div></td>';
+    html+='</tr>';
+  });
+
+  html+='</tbody></table>';
+  document.getElementById('tablaBody').innerHTML=html;
+}
+
+function getEstadoRrhh(r){
+  var sec=r.secciones&&r.secciones.rrhh;
+  if(!sec) return 'pendiente';
+  if(r.estado==='enviado_rrhh'||r.estado==='enviado') return 'enviado';
+  if(sec.ok) return 'completado';
+  if(r.usaArchivo||r.afp>0) return 'libro_ok';
+  // Detectar atraso — simplificado: si el período ya venció
+  return 'pendiente';
+}
+
+function getCumplimiento(r){
+  var est=getEstadoRrhh(r);
+  var map={pendiente:10,libro_ok:40,completado:80,enviado:100,atrasado:10};
+  return map[est]||10;
+}
+
+function getCumplimientoLabel(est){
+  var map={pendiente:'⏳ Por iniciar',libro_ok:'📊 Libro listo',completado:'✅ Listo para enviar',enviado:'📤 Enviado',atrasado:'⚠️ Requiere atención'};
+  return map[est]||'—';
+}
+
+// ═══════════════════════════════════════════════════
+// FILTROS
+// ═══════════════════════════════════════════════════
+function setFiltro(tipo,valor){
+  _filtros[tipo]=valor;
+  // Actualizar botones activos
+  document.querySelectorAll('.fb').forEach(function(b){
+    if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf('setFiltro(\''+tipo+'\'')>=0){
+      b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+valor+"'")>=0);
+    }
+  });
+  var periodo=sv('selectPeriodo');
+  if(periodo) renderTabla(periodo);
+}
+
+// ═══════════════════════════════════════════════════
+// PARSER XLS
+// ═══════════════════════════════════════════════════
+function parsearLibro(buffer){
+  var wb=XLSX.read(buffer,{type:'array',raw:true});
+  var ws=wb.Sheets[wb.SheetNames[0]];
+  var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  var COL={PERIODO:0,RUT:1,SUELDO_MENSUAL:15,TOTAL_IMPONIBLE:19,TOTAL_NO_IMPONIBLE:25,
+    AFP:26,APV1:27,APV2:28,SALUD:29,CES_TRAB:30,IU:31,TOTAL_DESC:32,OTROS_DESC:33,
+    LIQUIDO:34,SIS:35,MUTUAL:36,CES_EMP:37,TRIBUTABLE:41};
+  var periodos={};
+  function toNum(v){
+    if(typeof v==='number') return v;
+    var s=String(v||'').trim().replace(/\./g,'').replace(',','.');
+    return parseFloat(s)||0;
+  }
+  var dataStart=0;
+  for(var i=0;i<Math.min(rows.length,10);i++){
+    if(String(rows[i][0]||'').toUpperCase().indexOf('PERIODO')>=0){dataStart=i+1;break;}
+  }
+  for(var ri=dataStart;ri<rows.length;ri++){
+    var row=rows[ri];
+    if(!row||row.length<35) continue;
+    var periodo=String(row[COL.PERIODO]||'').trim();
+    if(!periodo) continue;
+    var rut=String(row[COL.RUT]||'').trim();
+    if(!rut||!/\d/.test(rut)) continue;
+    if(!periodos[periodo]){
+      periodos[periodo]={periodo,ruts:new Set(),sueldoMensual:0,totalImponible:0,totalNoImponible:0,
+        afp:0,apv:0,salud:0,cesTrab:0,iu:0,otrosDesc:0,totalDesc:0,
+        sis:0,mutual:0,cesEmp:0,liquidoPagar:0,tributable:0};
+    }
+    var p=periodos[periodo];
+    p.ruts.add(rut);
+    p.sueldoMensual+=toNum(row[COL.SUELDO_MENSUAL]);
+    p.totalImponible+=toNum(row[COL.TOTAL_IMPONIBLE]);
+    p.totalNoImponible+=toNum(row[COL.TOTAL_NO_IMPONIBLE]);
+    p.afp+=toNum(row[COL.AFP]);
+    p.apv+=toNum(row[COL.APV1])+toNum(row[COL.APV2]);
+    p.salud+=toNum(row[COL.SALUD]);
+    p.cesTrab+=toNum(row[COL.CES_TRAB]);
+    p.iu+=toNum(row[COL.IU]);
+    p.totalDesc+=toNum(row[COL.TOTAL_DESC]);
+    p.otrosDesc+=toNum(row[COL.OTROS_DESC]);
+    p.liquidoPagar+=toNum(row[COL.LIQUIDO]);
+    p.sis+=toNum(row[COL.SIS]);
+    p.mutual+=toNum(row[COL.MUTUAL]);
+    p.cesEmp+=toNum(row[COL.CES_EMP]);
+    p.tributable+=toNum(row[COL.TRIBUTABLE]);
+  }
+  Object.keys(periodos).forEach(function(k){
+    periodos[k].nTrab=periodos[k].ruts.size;
+    delete periodos[k].ruts;
+  });
+  return periodos;
+}
+
+function setupUpload(){
+  var inp=document.getElementById('fileLibro');
+  var zone=document.getElementById('uzLibro');
+  if(!inp||!zone) return;
+  function handle(file){
+    if(!file) return;
+    var r=new FileReader();
+    r.onload=function(e){
+      try{
+        if(typeof XLSX==='undefined'){alert('Error: librería Excel no disponible.');return;}
+        _remuData=parsearLibro(new Uint8Array(e.target.result));
+        var periodos=Object.keys(_remuData).sort();
+        if(!periodos.length){alert('No se encontraron datos en el archivo.');return;}
+        document.getElementById('libroFileName').textContent=file.name;
+        document.getElementById('libroMeta').textContent=periodos.length+' período(s): '+periodos.join(', ');
+        document.getElementById('libroOk').classList.add('show');
+        document.getElementById('uzLibro').style.display='none';
+        document.getElementById('modoManualWrap').style.display='none';
+        var sel=document.getElementById('selectPeriodoLibro');
+        sel.innerHTML='<option value="">Selecciona el período...</option>';
+        periodos.forEach(function(p){
+          var opt=document.createElement('option');
+          opt.value=p;
+          var pts=p.split('-');
+          opt.textContent=MESES[parseInt(pts[0])-1]+' '+pts[1];
+          sel.appendChild(opt);
+        });
+        document.getElementById('selectPeriodoLibroWrap').style.display='block';
+        // Auto-match con período del reporte
+        if(_reporteActual){
+          var pf=_reporteActual.periodo.split('-');
+          var periodoLibro=pf[1]+'-'+pf[0];
+          if(_remuData[periodoLibro]){sel.value=periodoLibro;procesarPeriodo();}
+        }
+      }catch(err){alert('Error: '+err.message);console.error(err);}
+    };
+    r.readAsArrayBuffer(file);
+  }
+  inp.addEventListener('change',function(e){if(e.target.files[0])handle(e.target.files[0]);});
+  zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag');});
+  zone.addEventListener('dragleave',function(){zone.classList.remove('drag');});
+  zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);});
+}
+
+function procesarPeriodo(){
+  var p=sv('selectPeriodoLibro');
+  if(!p||!_remuData||!_remuData[p]) return;
+  var d=_remuData[p];
+  setV('m-ntrab',d.nTrab);
+  setV('m-timponible',Math.round(d.totalImponible));
+  setV('m-liquido',Math.round(d.liquidoPagar));
+  setV('m-afp',Math.round(d.afp));
+  setV('m-salud',Math.round(d.salud));
+  setV('m-apv',Math.round(d.apv));
+  setV('m-ces-trab',Math.round(d.cesTrab));
+  setV('m-iu',Math.round(d.iu));
+  setV('m-total-desc',Math.round(d.totalDesc));
+  setV('m-sis',Math.round(d.sis));
+  setV('m-mutual',Math.round(d.mutual));
+  setV('m-ces-emp',Math.round(d.cesEmp));
+  calcTotalesModal();
+  document.getElementById('datosLibroWrap').style.display='block';
+  actualizarPreviewRpt();
+  // Guardar en histórico
+  if(_reporteActual){
+    var hist=getHistoricoRemu();
+    var rut=_reporteActual.rut;
+    if(!hist[rut]) hist[rut]={};
+    hist[rut][p]=d;
+    setHistoricoRemu(hist);
+  }
+}
+
+function limpiarLibro(){
+  _remuData=null;
+  document.getElementById('libroOk').classList.remove('show');
+  document.getElementById('uzLibro').style.display='block';
+  document.getElementById('selectPeriodoLibroWrap').style.display='none';
+  document.getElementById('datosLibroWrap').style.display='none';
+  document.getElementById('modoManualWrap').style.display='block';
+  if(document.getElementById('fileLibro')) document.getElementById('fileLibro').value='';
+  document.getElementById('previewRptParcial').style.display='none';
+}
+
+function calcTotalesModal(){
+  var afp=gv('m-afp'),salud=gv('m-salud'),apv=gv('m-apv'),
+      cesTrab=gv('m-ces-trab'),iu=gv('m-iu');
+  setV('m-total-desc',Math.round(afp+salud+apv+cesTrab+iu));
+  var sis=gv('m-sis'),mutual=gv('m-mutual'),cesEmp=gv('m-ces-emp');
+  setV('m-total-aportes',Math.round(sis+mutual+cesEmp));
+  setV('m-total-cot',Math.round(afp+salud+apv+cesTrab+iu+sis+mutual+cesEmp));
+  actualizarPreviewRpt();
+}
+
+// ═══════════════════════════════════════════════════
+// DECISIÓN COTIZACIONES
+// ═══════════════════════════════════════════════════
+function onDecisionCotiz(){
+  var dec=sv('m-decision-cotiz');
+  var info=document.getElementById('decisionInfo');
+  var postWrap=document.getElementById('m-fecha-postergacion-wrap');
+  var msgs={
+    paga_hoy:'<div class="info-box">✅ El cliente pagará hoy. Registrar en sistema cuando se confirme la transferencia.</div>',
+    paga_normal:'<div class="info-box">📅 El cliente pagará en el plazo normal (día 13). Monitorear transferencia.</div>',
+    posterga:'<div class="warn-box">⏳ El cliente posterga hasta fin de mes. Ejecutar postergación en Previred/banco antes del día 10. Notificar al analista de pagos.</div>'
+  };
+  info.innerHTML=msgs[dec]||'';
+  postWrap.style.display=dec==='posterga'?'block':'none';
+  if(dec==='posterga'&&_reporteActual){
+    var pts=_reporteActual.periodo.split('-');
+    var ultimoDia=new Date(parseInt(pts[0]),parseInt(pts[1]),0).getDate();
+    document.getElementById('m-fecha-postergacion').value='31 de '+MESES[parseInt(pts[1])-1]+' '+pts[0];
+  }
+  // Notificación si posterga
+  if(dec==='posterga'&&window.crearNotificacion&&_reporteActual){
+    crearNotificacion({
+      modulo:'rrhh',tipo:'accion_requerida',prioridad:'alta',
+      clienteNombre:_reporteActual.clienteNombre,
+      clienteRut:_reporteActual.rut,
+      periodo:_reporteActual.periodo,
+      mensaje:_reporteActual.clienteNombre+' solicitó postergar cotizaciones de '+formatPeriodo(_reporteActual.periodo)+'. Ejecutar postergación en Previred/banco antes del día 10.',
+      accion:'ejecutar',accionLabel:'Marcar postergación ejecutada'
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PREVIEW REPORTE PARCIAL
+// ═══════════════════════════════════════════════════
+function actualizarPreviewRpt(){
+  var afp=gv('m-afp'),salud=gv('m-salud'),apv=gv('m-apv'),cesTrab=gv('m-ces-trab'),iu=gv('m-iu');
+  var sis=gv('m-sis'),mutual=gv('m-mutual'),cesEmp=gv('m-ces-emp');
+  var totalDesc=afp+salud+apv+cesTrab+iu;
+  var totalAport=sis+mutual+cesEmp;
+  var totalCot=totalDesc+totalAport;
+  if(totalCot===0){document.getElementById('previewRptParcial').style.display='none';return;}
+  document.getElementById('previewRptParcial').style.display='block';
+  var nombre=_reporteActual?_reporteActual.clienteNombre:'Cliente';
+  var periodo=_reporteActual?formatPeriodo(_reporteActual.periodo):'—';
+  document.getElementById('rpt-titulo').textContent='Informe de Remuneraciones — '+periodo;
+  document.getElementById('rpt-subtitulo').textContent=nombre+' · '+(gv('m-ntrab')||gv('m-ntrab-m')||0)+' trabajadores';
+  var rows='';
+  rows+='<tr><td colspan="2" style="font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;padding:8px 12px 4px">Descuentos trabajadores</td></tr>';
+  if(afp) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">AFP</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(afp)+'</td></tr>';
+  if(salud) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Salud (ISAPRE/Fonasa)</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(salud)+'</td></tr>';
+  if(apv) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">APV</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(apv)+'</td></tr>';
+  if(cesTrab) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Seg. Cesantía trabajador</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(cesTrab)+'</td></tr>';
+  if(iu) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--amber);font-style:italic">Imp. Único 2ª Cat.</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);font-style:italic">'+ff(iu)+'</td></tr>';
+  rows+='<tr class="subtotal"><td style="padding:6px 12px;font-weight:600;color:var(--green)">Subtotal descuentos trabajadores</td><td class="num" style="padding:6px 12px;font-weight:600;color:var(--green)">'+ff(totalDesc)+'</td></tr>';
+  rows+='<tr><td colspan="2" style="font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;padding:8px 12px 4px">Aportes empresa</td></tr>';
+  if(sis) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">SIS</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(sis)+'</td></tr>';
+  if(mutual) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Mutual / Accidentes</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(mutual)+'</td></tr>';
+  if(cesEmp) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Seg. Cesantía empleador</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid var(--bdr)">'+ff(cesEmp)+'</td></tr>';
+  rows+='<tr class="subtotal"><td style="padding:6px 12px;font-weight:600;color:var(--green)">Subtotal aportes empresa</td><td class="num" style="padding:6px 12px;font-weight:600;color:var(--green)">'+ff(totalAport)+'</td></tr>';
+  rows+='<tr class="total"><td style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--green)">TOTAL COTIZACIONES A PAGAR</td><td class="num" style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--green)">'+ff(totalCot)+'</td></tr>';
+  document.getElementById('rpt-tabla-body').innerHTML=rows;
+  var periodos=getPeriodos();
+  var pd=periodos.find(function(p){return p.periodo===(_reporteActual&&_reporteActual.periodo);});
+  var cal=pd&&pd.calendario?pd.calendario:{};
+  document.getElementById('rpt-cal-info').textContent='📅 Vencimiento cotizaciones: '+(cal.vencCot||'Día 13')+(cal.prorrogaCot?' · Prórroga: '+cal.prorrogaCot:'');
+  document.getElementById('btnEnviarParcial').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════
+// MODAL RRHH
+// ═══════════════════════════════════════════════════
+function abrirModal(id,enviar){
+  var r=getReportes().find(function(x){return x.id===id;});
+  if(!r) return;
+  _reporteActual=r;
+  document.getElementById('modal-cliente-nombre').textContent=hesc(r.clienteNombre||r.rut)+' — '+formatPeriodo(r.periodo);
+  setV('m-reporte-id',r.id);
+  setV('m-cliente-rut',r.rut);
+  // Pre-llenar si hay datos
+  if(r.nTrab) setV('m-ntrab',r.nTrab);
+  if(r.totalImponible) setV('m-timponible',r.totalImponible);
+  if(r.liquidoPagar) setV('m-liquido',r.liquidoPagar);
+  if(r.afp){
+    setV('m-afp',r.afp);setV('m-salud',r.salud||0);setV('m-apv',r.apv||0);
+    setV('m-ces-trab',r.cesTrab||0);setV('m-iu',r.iu||0);
+    setV('m-total-desc',r.totalDesc||0);
+    setV('m-sis',r.sis||0);setV('m-mutual',r.mutual||0);setV('m-ces-emp',r.cesEmp||0);
+    calcTotalesModal();
+    document.getElementById('datosLibroWrap').style.display='block';
+    document.getElementById('modoManualWrap').style.display='none';
+  }
+  if(r.obsRrhh) setV('m-obs',r.obsRrhh);
+  if(r.decisionCotiz) setV('m-decision-cotiz',r.decisionCotiz);
+  document.getElementById('modalRrhh').classList.add('on');
+  if(enviar) actualizarPreviewRpt();
+}
+
+function closeModalRrhh(){
+  document.getElementById('modalRrhh').classList.remove('on');
+  _reporteActual=null;
+  limpiarLibro();
+}
+
+function guardarRrhh(accion){
+  if(!_reporteActual) return;
+  var arr=getReportes();
+  var idx=arr.findIndex(function(x){return x.id===_reporteActual.id;});
+  if(idx<0) return;
+  var usaArchivo=document.getElementById('datosLibroWrap').style.display!=='none';
+  var iu=usaArchivo?gv('m-iu'):gv('m-iu-m');
+  var totalCot=usaArchivo
+    ?(gv('m-afp')+gv('m-salud')+gv('m-apv')+gv('m-ces-trab')+iu+gv('m-sis')+gv('m-mutual')+gv('m-ces-emp'))
+    :gv('m-cot-m');
+  // Actualizar reporte
+  Object.assign(arr[idx],{
+    nTrab:usaArchivo?gv('m-ntrab'):gv('m-ntrab-m'),
+    totalImponible:gv('m-timponible'),liquidoPagar:gv('m-liquido'),
+    afp:usaArchivo?gv('m-afp'):0,salud:usaArchivo?gv('m-salud'):0,
+    apv:usaArchivo?gv('m-apv'):0,cesTrab:usaArchivo?gv('m-ces-trab'):0,
+    iu:iu,otrosDesc:usaArchivo?gv('m-otros-desc'):0,totalDesc:usaArchivo?gv('m-total-desc'):0,
+    sis:usaArchivo?gv('m-sis'):0,mutual:usaArchivo?gv('m-mutual'):0,cesEmp:usaArchivo?gv('m-ces-emp'):0,
+    cotM:usaArchivo?0:gv('m-cot-m'),iuM:usaArchivo?0:gv('m-iu-m'),
+    totalCot,usaArchivo,
+    obsRrhh:usaArchivo?sv('m-obs'):sv('m-obs-m'),
+    decisionCotiz:sv('m-decision-cotiz'),
+    preparado:getUsuario().nombre||''
+  });
+  if(accion==='ok'){
+    if(!arr[idx].secciones) arr[idx].secciones={};
+    arr[idx].secciones.rrhh={ok:true,ts:new Date().toISOString(),por:getUsuario().nombre||'Analista RRHH'};
+    // Notificar al analista contable
+    if(window.crearNotificacion) crearNotificacion({
+      modulo:'impuestos',tipo:'info',prioridad:'media',
+      clienteNombre:arr[idx].clienteNombre,clienteRut:arr[idx].rut,periodo:arr[idx].periodo,
+      mensaje:'RRHH OK — '+arr[idx].clienteNombre+' · '+formatPeriodo(arr[idx].periodo)+'. El analista contable puede completar impuestos y honorarios.',
+      accion:null,accionUrl:'../reportes-contable/index.html'
+    });
+    alert('✅ Sección RRHH marcada como completada.');
+  }
+  setReportes(arr);
+  closeModalRrhh();
+  renderTabla(sv('selectPeriodo'));
+}
+
+function enviarReporteParcial(){
+  if(!_reporteActual) return;
+  var r=_reporteActual;
+  var to=r.clienteEmail||'';
+  var iu=gv('m-iu')||gv('m-iu-m');
+  var totalCot=gv('m-total-cot')||gv('m-cot-m');
+  var analista=getUsuario();
+  var subject='Informe de Remuneraciones — '+formatPeriodo(r.periodo)+' — '+r.clienteNombre;
+  var body='Estimado/a,\n\n'
+    +'Le informamos las cotizaciones previsionales correspondientes a '+formatPeriodo(r.periodo)+'.\n\n'
+    +'DETALLE COTIZACIONES:\n'
+    +'• AFP: '+ff(gv('m-afp'))+'\n'
+    +'• Salud: '+ff(gv('m-salud'))+'\n'
+    +'• Seg. Cesantía trabajador: '+ff(gv('m-ces-trab'))+'\n'
+    +(iu>0?'• Imp. Único 2ª Cat. (→SII): '+ff(iu)+'\n':'')
+    +'• SIS + Mutual + Cesantía empleador: '+ff(gv('m-sis')+gv('m-mutual')+gv('m-ces-emp'))+'\n'
+    +'──────────────────────────────\n'
+    +'TOTAL COTIZACIONES: '+ff(totalCot)+'\n\n'
+    +'Fecha de vencimiento: día 13 del mes.\n'
+    +'Prórroga disponible hasta fin de mes sin multa.\n\n'
+    +'Transferir a:\n'
+    +'Asesorías Contadoor Ltda. · RUT 77.166.269-2 · Itaú CC 0220729517\n\n'
+    +'El reporte consolidado (impuestos + honorarios) llegará en los próximos días.\n\n'
+    +'Ante cualquier duda, responda este correo.\n\n'
+    +(analista.nombre?'Analista RRHH: '+analista.nombre+'\n':'')
+    +'Contadoor Chile · reportes@contadoor.cl · +56 9 7988 1891';
+  window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'&reply-to='+encodeURIComponent(analista.email||'reportes@contadoor.cl');
+  // Actualizar estado
+  var arr=getReportes();
+  var idx=arr.findIndex(function(x){return x.id===r.id;});
+  if(idx>=0){arr[idx].estado='enviado_rrhh';setReportes(arr);}
+  if(window.crearNotificacion) crearNotificacion({
+    modulo:'sistema',tipo:'info',prioridad:'baja',
+    clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,
+    mensaje:'Reporte RRHH enviado a '+r.clienteNombre+' · '+formatPeriodo(r.periodo)+'.',
+    accion:null
+  });
+  closeModalRrhh();
+  renderTabla(sv('selectPeriodo'));
+}
+
+// ═══════════════════════════════════════════════════
+// NOTIFICACIONES (stub si no está cargado)
+// ═══════════════════════════════════════════════════
+if(!window.crearNotificacion) window.crearNotificacion=function(){};
+if(!window.toggleNotPanel) window.toggleNotPanel=function(){};
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+setupUpload();
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',init);
+}else{init();}
+</script>
+<script src="../notifications.js"></script>
+<script src="../auth.js"></script>
+</body>
+</html>
