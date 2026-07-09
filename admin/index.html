@@ -84,25 +84,31 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <div class="layout">
 <aside class="sidebar">
   <div class="sb-logo">
-    <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
+    <img src="../assets/logo.png" onerror="this.src='https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png'" alt="Contadoor"/>
     <div class="sb-tagline">Sistema de Gestión</div>
   </div>
   <nav class="sb-nav">
+    <div class="sb-sec">Principal</div>
+    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
+    <div class="sb-sec">Base de Datos</div>
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <div class="sb-sec">Reportes</div>
+    <a class="sb-item" href="../reportes/index.html">📋 Nómina General</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Vista RRHH</a>
+    <a class="sb-item" href="../reportes-contable/index.html" style="opacity:.45">📊 Vista Contable</a>
+    <a class="sb-item" href="../reportes-pagos/index.html" style="opacity:.45">💰 Vista Pagos</a>
+    <div class="sb-sec">Financiero</div>
+    <a class="sb-item" href="../pagos/index.html">💰 Pagos</a>
+    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
+    <a class="sb-item" href="../cobranza/index.html">🧾 CxC</a>
+    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
+    <div class="sb-sec">Tributario</div>
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
     <div class="sb-sec">Sistema</div>
-    <a class="sb-item" href="../index.html">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard
-    </a>
-    <div class="sb-sec">Administración</div>
-    <div class="sb-item on">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>Usuarios
-    </div>
-    <div class="sb-sec">Módulos</div>
-    <a class="sb-item" href="../clientes/index.html">Clientes</a>
-    <a class="sb-item" href="../reportes/index.html">Reportes</a>
-    <a class="sb-item" href="../pagos/index.html">Pagos</a>
-    <a class="sb-item" href="../pir/index.html">PIR</a>
+    <a class="sb-item" href="../performance/index.html" style="opacity:.45">📈 Performance</a>
+    <a class="sb-item on" href="../admin/index.html">👤 Admin</a>
   </nav>
-  <div class="sb-foot">Solo acceso Master</div>
+  <div class="sb-foot">Contadoor.app v1.0</div>
 </aside>
 
 <main class="main">
@@ -370,4 +376,3 @@ renderUsuarios();
 <script src="../auth.js"></script>
 </body>
 </html>
-
