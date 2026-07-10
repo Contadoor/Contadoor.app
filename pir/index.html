@@ -982,13 +982,7 @@ function igcToggle(el){
 function fbIA(acc,n){
   return{
     resumen:sv('c_razon')+' presenta RLI de '+ff(n.rli)+'. Impuesto '+(n.reg==='14D3'?ff(n.impBruto):'$0 (empresa exenta)')+', diferencia '+(n.reg==='14D3'?ff(n.difEmp):'seg\u00fan socios')+'.',
-    analisis:'Proyecci\u00f3n tributaria '+sv('c_razon')+' para '+sv('c_at')+'.
-
-Ingresos: '+ff(acc.totalGan)+'. Costos: '+ff(acc.totalPer)+'. Resultado: '+ff(acc.resultado)+'.
-
-RLI determinada seg\u00fan Arts. 29-33 LIR: '+ff(n.rli)+'.
-
-'+(n.reg==='14D3'?'Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'%): '+ff(n.impBruto)+'. PPM: '+ff(n.ppmEmp)+'. Diferencia: '+ff(n.difEmp)+'.':'R\u00e9gimen exime impuesto empresa. Base distribuida a socios para Global Complementario.'),
+    analisis:'Proyecci\u00f3n tributaria '+sv('c_razon')+' para '+sv('c_at')+'.\n\nIngresos: '+ff(acc.totalGan)+'. Costos: '+ff(acc.totalPer)+'. Resultado: '+ff(acc.resultado)+'.\n\nRLI determinada seg\u00fan Arts. 29-33 LIR: '+ff(n.rli)+'.\n\n'+(n.reg==='14D3'?'Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'%): '+ff(n.impBruto)+'. PPM: '+ff(n.ppmEmp)+'. Diferencia: '+ff(n.difEmp)+'.':'R\u00e9gimen exime impuesto empresa. Base distribuida a socios para Global Complementario.'),
     recomendaciones:[
       {titulo:'Revisar ajustes tributarios',descripcion:'Verificar gastos rechazados Art.33 y correcci\u00f3n monetaria antes del cierre.',prioridad:'alta',icono:'\u26a0\ufe0f'},
       {titulo:'Optimizar PPM',descripcion:'Ajustar tasa PPM seg\u00fan impuesto proyectado para evitar diferencia en abril.',prioridad:'media',icono:'\u1f4b0'},
@@ -1028,15 +1022,15 @@ function abrirModal(){
   var list=document.getElementById('modalList');
   while(list.firstChild)list.removeChild(list.firstChild);
   if(!keys.length){
-    var p=document.createElement('p');p.style.color=''#9a849b'';p.textContent='Sin perfiles guardados.';list.appendChild(p);
+    var p=document.createElement('p');p.style.color='#9a849b';p.textContent='Sin perfiles guardados.';list.appendChild(p);
   }else{
     keys.forEach(function(k){
       var div=document.createElement('div');
-      div.style.cssText='padding:9px 0;border-bottom:1px solid '#e8dde8';cursor:pointer;display:flex;justify-content:space-between;align-items:center';
+      div.style.cssText='padding:9px 0;border-bottom:1px solid #e8dde8;cursor:pointer;display:flex;justify-content:space-between;align-items:center';
       var left=document.createElement('div');
       var b=document.createElement('b');b.textContent=c[k].razon||k;left.appendChild(b);
-      var sm=document.createElement('div');sm.style.cssText='font-size:11px;color:'#9a849b'';sm.textContent=k;left.appendChild(sm);
-      var arr=document.createElement('span');arr.style.color=''#904891'';arr.textContent='\u2192';
+      var sm=document.createElement('div');sm.style.cssText='font-size:11px;color:#9a849b';sm.textContent=k;left.appendChild(sm);
+      var arr=document.createElement('span');arr.style.color='#904891';arr.textContent='\u2192';
       div.appendChild(left);div.appendChild(arr);
       (function(rut){div.addEventListener('click',function(){loadCli(rut);});})(k);
       list.appendChild(div);
@@ -1155,7 +1149,7 @@ function render(acc,monthly,n,ia){
   var RCmap={'14D3':'pyme','14D8':'transp','presunta':'presunta'};
   var h='';
   h+='<div class="prow"><div class="prow-title">Reporte Tributario AT'+at+'</div>';
-  h+='<button class="btn-s" onclick="showTab('entrada')">\u270f\ufe0f Editar datos</button>';
+  h+='<button class="btn-s" onclick="showTab(\x27entrada\x27)">\u270f\ufe0f Editar datos</button>';
   h+='<button class="btn-s" onclick="resetForm()">\u1f504 Nuevo an\u00e1lisis</button>';
   h+='<button class="btn-p" onclick="window.print()">\u1f5a8\ufe0f Imprimir PDF</button></div>';
   h+='<div class="rpt-hdr">';
@@ -1167,7 +1161,7 @@ function render(acc,monthly,n,ia){
   h+='<div style="margin-top:12px"><div style="display:inline-block;background:rgba(255,255,255,.18);color:#fff;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600">'+at+'</div>';
   h+='<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:4px">Emitido '+hoy+'</div></div></div></div>';
   h+='<div class="client-box"><div class="client-row">';
-  h+='<div class="cf" style="flex:1.5"><div class="lbl">Cliente</div><div class="val">'+hesc(razon)+'</div><div style="font-size:11px;color:'#5c4a5d'">'+hesc(giro)+'</div></div>';
+  h+='<div class="cf" style="flex:1.5"><div class="lbl">Cliente</div><div class="val">'+hesc(razon)+'</div><div style="font-size:11px;color:#5c4a5d">'+hesc(giro)+'</div></div>';
   h+='<div class="cf"><div class="lbl">RUT</div><div class="val">'+hesc(rut)+'</div></div>';
   h+='<div class="cf"><div class="lbl">Per\u00edodo</div><div class="val">'+at+'</div></div>';
   h+='<div class="cf"><div class="lbl">R\u00e9gimen</div><div class="val"><span class="regime-tag '+(RCmap[reg]||'pyme')+'">'+(RLmap[reg]||reg)+'</span></div></div>';
@@ -1193,27 +1187,27 @@ function render(acc,monthly,n,ia){
 
   // RLI TABLE (simplificada)
   h+='<div class="sdiv">Determinaci\u00f3n de la Base Imponible</div>';
-  h+='<div class="panel-full"><div class="ph"><h3>Determinaci\u00f3n RLI</h3><span style="font-size:10px;color:'#9a849b'">'+(reg==='14D3'?'Arts. 29-33 LIR + 14D N\u00b03':'Arts. 29-33 LIR')+'</span></div>';
+  h+='<div class="panel-full"><div class="ph"><h3>Determinaci\u00f3n RLI</h3><span style="font-size:10px;color:#9a849b">'+(reg==='14D3'?'Arts. 29-33 LIR + 14D N\u00b03':'Arts. 29-33 LIR')+'</span></div>';
   h+='<table class="dtable"><thead><tr><th>C\u00f3d. F22</th><th>Concepto</th><th style="text-align:right">Monto CLP</th></tr></thead><tbody>';
   h+='<tr class="grp"><td></td><td colspan="2">INGRESOS PERCIBIDOS</td></tr>';
-  h+='<tr class="sub"><td class="num" style="color:'#904891';font-weight:700">[1410]</td><td><b>Total Ingresos Percibidos</b></td><td class="num"><b>'+ff(acc.totalGan)+'</b></td></tr>';
+  h+='<tr class="sub"><td class="num" style="color:#904891;font-weight:700">[1410]</td><td><b>Total Ingresos Percibidos</b></td><td class="num"><b>'+ff(acc.totalGan)+'</b></td></tr>';
   h+='<tr class="grp"><td></td><td colspan="2">EGRESOS Y GASTOS PAGADOS</td></tr>';
-  h+='<tr class="sub"><td></td><td><b>Total Egresos y Gastos</b></td><td class="num" style="color:'#C0392B'"><b>'+ff(-acc.totalPer)+'</b></td></tr>';
+  h+='<tr class="sub"><td></td><td><b>Total Egresos y Gastos</b></td><td class="num" style="color:#C0392B"><b>'+ff(-acc.totalPer)+'</b></td></tr>';
   if(n.rec||n.cm||n.per){
     h+='<tr class="grp"><td></td><td colspan="2">AJUSTES TRIBUTARIOS</td></tr>';
-    if(n.rec)h+='<tr><td class="num" style="color:'#904891';font-weight:700">[15]</td><td>(+) Gastos rechazados adicionales</td><td class="num">'+ff(n.rec)+'</td></tr>';
-    if(n.cm)h+='<tr><td class="num" style="color:'#904891';font-weight:700">[32]</td><td>(+/-) Correcci\u00f3n Monetaria Neta</td><td class="num">'+ff(n.cm)+'</td></tr>';
-    if(n.per)h+='<tr><td class="num" style="color:'#904891';font-weight:700">[1430]</td><td>(-) P\u00e9rdidas tributarias de arrastre</td><td class="num" style="color:'#C0392B'">'+ff(-n.per)+'</td></tr>';
+    if(n.rec)h+='<tr><td class="num" style="color:#904891;font-weight:700">[15]</td><td>(+) Gastos rechazados adicionales</td><td class="num">'+ff(n.rec)+'</td></tr>';
+    if(n.cm)h+='<tr><td class="num" style="color:#904891;font-weight:700">[32]</td><td>(+/-) Correcci\u00f3n Monetaria Neta</td><td class="num">'+ff(n.cm)+'</td></tr>';
+    if(n.per)h+='<tr><td class="num" style="color:#904891;font-weight:700">[1430]</td><td>(-) P\u00e9rdidas tributarias de arrastre</td><td class="num" style="color:#C0392B">'+ff(-n.per)+'</td></tr>';
   }
-  h+='<tr class="tr"><td class="num" style="color:'#6D2E6E';font-weight:700">[1440]</td><td><b>RENTA L\u00cdQUIDA IMPONIBLE AFECTA A IDPC</b></td><td class="num"><b>'+ff(n.rli)+'</b></td></tr>';
+  h+='<tr class="tr"><td class="num" style="color:#6D2E6E;font-weight:700">[1440]</td><td><b>RENTA L\u00cdQUIDA IMPONIBLE AFECTA A IDPC</b></td><td class="num"><b>'+ff(n.rli)+'</b></td></tr>';
   if(reg==='14D3'){
     if(n.use14E&&n.reb14E>0){
-      h+='<tr><td class="num" style="color:'#904891';font-weight:700">[1432]</td><td>(-) Incentivo Art. 14E  -  50% de (RLI \u2212 retiros)</td><td class="num" style="color:'#2D9B6F'">'+ff(-n.reb14E)+'</td></tr>';
+      h+='<tr><td class="num" style="color:#904891;font-weight:700">[1432]</td><td>(-) Incentivo Art. 14E  -  50% de (RLI \u2212 retiros)</td><td class="num" style="color:#2D9B6F">'+ff(-n.reb14E)+'</td></tr>';
       h+='<tr class="sub"><td></td><td><b>Base Imponible post-14E</b></td><td class="num"><b>'+ff(n.rliNet)+'</b></td></tr>';
     }
-    h+='<tr><td class="num" style="color:'#904891';font-weight:700">[21]</td><td>Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'% x '+ff(n.rliNet)+')</td><td class="num" style="color:'#C0392B';font-weight:600">'+ff(-n.impBruto)+'</td></tr>';
-    h+='<tr><td class="num" style="color:'#904891';font-weight:700">[67]</td><td>(+) PPM Imputables acumulados</td><td class="num" style="color:'#2D9B6F';font-weight:600">'+ff(n.ppmEmp)+'</td></tr>';
-    if(n.cred)h+='<tr><td class="num" style="color:'#904891';font-weight:700">[68]</td><td>(+) Otros Cr\u00e9ditos</td><td class="num" style="color:'#2D9B6F'">'+ff(n.cred)+'</td></tr>';
+    h+='<tr><td class="num" style="color:#904891;font-weight:700">[21]</td><td>Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'% x '+ff(n.rliNet)+')</td><td class="num" style="color:#C0392B;font-weight:600">'+ff(-n.impBruto)+'</td></tr>';
+    h+='<tr><td class="num" style="color:#904891;font-weight:700">[67]</td><td>(+) PPM Imputables acumulados</td><td class="num" style="color:#2D9B6F;font-weight:600">'+ff(n.ppmEmp)+'</td></tr>';
+    if(n.cred)h+='<tr><td class="num" style="color:#904891;font-weight:700">[68]</td><td>(+) Otros Cr\u00e9ditos</td><td class="num" style="color:#2D9B6F">'+ff(n.cred)+'</td></tr>';
     h+='<tr class="'+(n.difEmp<=0?'cero':'pay')+'">';
     h+='<td class="num" style="font-weight:700">'+(n.difEmp<=0?'[84]':'[89]')+'</td>';
     h+='<td><b>'+(n.difEmp>=0?'DIFERENCIA A PAGAR AL FISCO':'REMANENTE PPM A FAVOR')+'</b></td>';
@@ -1237,11 +1231,11 @@ function render(acc,monthly,n,ia){
     else h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th>';
     h+='<th style="text-align:right">Resultado</th></tr></thead><tbody>';
     n.sc.forEach(function(s){
-      var c=s.calc,cl=c.igcNeto<=0?''#2D9B6F'':''#C0392B'';
+      var c=s.calc,cl=c.igcNeto<=0?'#2D9B6F':'#C0392B';
       var rl=c.igcNeto<=0?'Devol. '+ff(c.devolucion):'Paga '+ff(c.apagar);
       h+='<tr><td><b>'+hesc(s.nombre)+'</b></td><td class="num">'+s.pct.toFixed(1)+'%</td>';
-      if(reg==='14D3'){h+='<td class="num">'+ff(c.retiro)+'</td><td class="num">'+ff(c.rentaBruta)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:'#2D9B6F'">'+ff(c.creditoIDPC)+'</td>';}
-      else if(reg==='14D8'){h+='<td class="num">'+ff(c.baseAtribuida)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:'#2D9B6F'">'+ff(c.creditoPPM)+'</td>';}
+      if(reg==='14D3'){h+='<td class="num">'+ff(c.retiro)+'</td><td class="num">'+ff(c.rentaBruta)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:#2D9B6F">'+ff(c.creditoIDPC)+'</td>';}
+      else if(reg==='14D8'){h+='<td class="num">'+ff(c.baseAtribuida)+'</td><td class="num">'+ff(c.igcBruto)+'</td><td class="num" style="color:#2D9B6F">'+ff(c.creditoPPM)+'</td>';}
       else{h+='<td class="num">'+ff(c.baseAtribuida)+'</td><td class="num">'+ff(c.igcBruto)+'</td>';}
       h+='<td class="num" style="font-weight:700;color:'+cl+'">'+rl+'</td></tr>';
     });
@@ -1254,7 +1248,7 @@ function render(acc,monthly,n,ia){
     var mlb=monthly.map(function(m){return MN[m.mes];});
     h+='<div class="sdiv">Tendencias del Ejercicio</div><div class="chart-grid">';
     h+='<div class="chart-card"><h3>Ingresos vs Costos mensuales</h3>'+mkBar(monthly.map(function(m){return m.v;}),monthly.map(function(m){return m.c;}),mlb)+'</div>';
-    h+='<div class="chart-card"><h3>Resultado mensual</h3>'+mkLine(monthly.map(function(m){return m.res;}),mlb,'#904891','rgba(144,72,145,.12)')+'</div>';
+    h+='<div class="chart-card"><h3>Resultado mensual</h3>'+mkLine(monthly.map(function(m){return m.res;}),mlb,'##904891','rgba(144,72,145,.12)')+'</div>';
     h+='</div>';
     if(nivel==='PRO'){
       h+='<div class="chart-grid">';
@@ -1380,12 +1374,12 @@ function renderRepo(){
       +'<div class="repo-badges">'
       +'<span class="regime-tag '+rg+'">'+(RL[r.reg]||r.reg)+'</span>'
       +'<span class="level-tag '+(r.nivel||'PRO').toLowerCase()+'">'+(r.nivel||'PRO')+'</span>'
-      +'<span style="font-size:11px;color:'#9a849b'">RLI: '+ff(r.rli||0)+'  -  Imp: '+ff(r.impBruto||0)+'</span>'
+      +'<span style="font-size:11px;color:#9a849b">RLI: '+ff(r.rli||0)+'  -  Imp: '+ff(r.impBruto||0)+'</span>'
       +'</div></div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0">'
-      +(r.rptHtml?'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:'#1e40af';border-color:'#1e40af'" data-ver="'+r.id+'">\u1f441 Ver</button>':'')
+      +(r.rptHtml?'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#1e40af;border-color:#1e40af" data-ver="'+r.id+'">\u1f441 Ver</button>':'')
       +'<button class="btn-s" style="font-size:11px;padding:5px 12px" data-edit="'+r.id+'">\u270f\ufe0f Editar</button>'
-      +'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:'#2D9B6F';border-color:'#2D9B6F'" data-dl="'+r.id+'">\u2b07 Descargar</button>'
+      +'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#2D9B6F;border-color:#2D9B6F" data-dl="'+r.id+'">\u2b07 Descargar</button>'
       +'<button class="btn-danger" data-del="'+r.id+'">\u1f5d1</button>'
       +'</div>';
     var btnVer=div.querySelector('[data-ver]');
@@ -1405,14 +1399,14 @@ function verReporte(id){
   if(!r||!r.rptHtml){alert('Sin reporte guardado. Genera el reporte primero.');return;}
   var ex=document.getElementById('verReporteModal');if(ex)ex.remove();
   var modal=document.createElement('div');modal.id='verReporteModal';
-  modal.style.cssText='position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:'#f0ebff';';
+  modal.style.cssText='position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:#f0ebff;';
   var hdr=document.createElement('div');
-  hdr.style.cssText='background:'#08040f';color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
+  hdr.style.cssText='background:#08040f;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
   hdr.innerHTML='<span style="font-weight:700;font-size:14px">\u1f4ca '+hesc(r.razon||'--')+'  -  AT'+r.at+'</span>'
     +'<div style="display:flex;gap:8px">'
     +'<button onclick="window.print()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">\u1f5a8\ufe0f Imprimir</button>'
-    +'<button onclick="editRepo('+r.id+');document.getElementById('verReporteModal').remove()" style="background:'#904891';color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">\u270f\ufe0f Editar</button>'
-    +'<button onclick="document.getElementById('verReporteModal').remove()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">\u2715 Cerrar</button>'
+    +'<button onclick="editRepo('+r.id+');document.getElementById(\"verReporteModal\").remove()" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">\u270f\ufe0f Editar</button>'
+    +'<button onclick="document.getElementById(\"verReporteModal\").remove()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">\u2715 Cerrar</button>'
     +'</div>';
   var body=document.createElement('div');body.id='reportWrap';
   body.style.cssText='flex:1;overflow-y:auto;padding:20px;';
@@ -1472,9 +1466,9 @@ function renderClientes(){
   keys.forEach(function(k){var nv=(c[k].nivel||'PRO').toUpperCase();if(nv==='PRO')pro++;else if(nv==='MEDIUM')med++;else mic++;});
   var sr=document.getElementById('statsRow');
   if(sr)sr.innerHTML='<div class="stat-box"><div class="sv">'+keys.length+'</div><div class="sl">Total</div></div>'
-    +'<div class="stat-box"><div class="sv" style="color:'#904891'">'+pro+'</div><div class="sl">PRO</div></div>'
-    +'<div class="stat-box"><div class="sv" style="color:'#1e40af'">'+med+'</div><div class="sl">MEDIUM</div></div>'
-    +'<div class="stat-box"><div class="sv" style="color:'#9a849b'">'+mic+'</div><div class="sl">MICRO</div></div>';
+    +'<div class="stat-box"><div class="sv" style="color:#904891">'+pro+'</div><div class="sl">PRO</div></div>'
+    +'<div class="stat-box"><div class="sv" style="color:#1e40af">'+med+'</div><div class="sl">MEDIUM</div></div>'
+    +'<div class="stat-box"><div class="sv" style="color:#9a849b">'+mic+'</div><div class="sl">MICRO</div></div>';
   filtrarCli();
 }
 function filtrarCli(){
@@ -1498,8 +1492,8 @@ function filtrarCli(){
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
       +'<span class="level-tag '+lc+'">'+(x.nivel||'PRO')+'</span>'
       +'<span class="regime-tag '+(rg==='14D8'?'transp':(rg==='presunta'?'presunta':'pyme'))+'">'+(RL[rg]||rg)+'</span>'
-      +'<span style="font-size:10.5px;color:'#9a849b'">'+ns+' socio'+(ns!==1?'s':'')+'</span></div>'
-      +'<div style="font-size:10.5px;color:'#9a849b';margin-bottom:10px">Actualizado: '+f+'</div>'
+      +'<span style="font-size:10.5px;color:#9a849b">'+ns+' socio'+(ns!==1?'s':'')+'</span></div>'
+      +'<div style="font-size:10.5px;color:#9a849b;margin-bottom:10px">Actualizado: '+f+'</div>'
       +'<div style="display:flex;gap:6px">'
       +'<button class="btn-p" style="font-size:11px;padding:5px 10px;flex:1" data-usar="'+hesc(k)+'">Usar para an\u00e1lisis</button>'
       +'<button class="btn-danger" data-del="'+hesc(k)+'">\u1f5d1</button></div>';
