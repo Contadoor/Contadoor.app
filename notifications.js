@@ -119,7 +119,7 @@ var TIPO_CONFIG={
   info:            {label:'Info',             color:'#5c4a5d', bg:'#f0ebff'}
 };
 
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hesc(s){if(!s)return '';return String(s).replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
 
 // ── EJECUTAR NOTIFICACIÓN ────────────────────────────────────
 window.ejecutarNotificacion=function(id){
