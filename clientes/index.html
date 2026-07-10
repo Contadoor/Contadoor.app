@@ -255,45 +255,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="fgroup"><label>Ciudad</label><input type="text" id="f-ciudad" placeholder="Santiago"/></div>
     </div>
 
-    <div class="card-hd">💰 Plan y facturación</div>
-    <div class="fg4" style="margin-bottom:8px">
+    <div class="card-hd">💰 Plan y estado</div>
+    <div class="fg4" style="margin-bottom:12px">
       <div class="fgroup"><label>Plan</label>
         <select id="f-plan">
           <option value="">Seleccionar...</option>
-          <option value="Cumplimiento">Cumplimiento</option>
-          <option value="Asesoría">Asesoría</option>
-          <option value="Estratégico">Estratégico</option>
+          <option value="cumplimiento">📋 Cumplimiento</option>
+          <option value="asesoria">📊 Asesoría</option>
+          <option value="estrategico">⭐ Estratégico</option>
         </select>
       </div>
-      <div class="fgroup"><label>Moneda</label>
-        <select id="f-moneda" onchange="actualizarPreviewValor()">
-          <option value="CLP">CLP (pesos)</option>
-          <option value="UF">UF</option>
-        </select>
-      </div>
-      <div class="fgroup"><label>Valor base</label>
-        <input type="number" id="f-valor-base" placeholder="0" oninput="actualizarPreviewValor()"/>
-        <span class="hint">Monto fijo mensual</span>
-      </div>
-      <div class="fgroup"><label>Valor por trabajador</label>
-        <input type="number" id="f-valor-trab" placeholder="0" oninput="actualizarPreviewValor()"/>
-        <span class="hint">Monto adicional por c/trabajador</span>
-      </div>
-      <div class="fgroup"><label>N° trabajadores actuales</label>
-        <input type="number" id="f-trabajadores" placeholder="0" oninput="actualizarPreviewValor()"/>
-      </div>
-      <div class="fgroup" style="grid-column:2/5">
-        <label>Vista previa valor mensual</label>
-        <div class="valor-total-preview" id="valorPreview">Ingresa los valores para calcular</div>
-      </div>
-    </div>
-    <div class="fg2" style="margin-bottom:12px">
       <div class="fgroup"><label>Estado</label>
         <select id="f-estado">
-          <option value="activo">Activo</option>
-          <option value="onboarding">En proceso de onboarding</option>
-          <option value="suspendido">Suspendido</option>
-          <option value="inactivo">Inactivo</option>
+          <option value="activo">✅ Activo</option>
+          <option value="onboarding">🔄 En onboarding</option>
+          <option value="suspendido">⏸ Suspendido</option>
+          <option value="inactivo">❌ Inactivo</option>
         </select>
       </div>
       <div class="fgroup"><label>Fecha inicio</label><input type="date" id="f-inicio"/></div>
@@ -323,8 +300,59 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
     <div class="card-hd">👥 Equipo asignado</div>
     <div class="fg2" style="margin-bottom:12px">
-      <div class="fgroup"><label>Contador asignado</label><input type="text" id="f-contador" placeholder="Nombre del contador"/></div>
-      <div class="fgroup"><label>RRHH asignado</label><input type="text" id="f-rrhh" placeholder="Nombre del analista RRHH"/></div>
+      <div class="fgroup"><label>Analista RRHH</label>
+        <select id="f-rrhh"><option value="">Sin asignar</option></select>
+        <span class="hint">Gestiona liquidaciones y cotizaciones</span>
+      </div>
+      <div class="fgroup"><label>Analista Contable</label>
+        <select id="f-contador"><option value="">Sin asignar</option></select>
+        <span class="hint">Gestiona F29, IVA y reportes</span>
+      </div>
+      <div class="fgroup"><label>Analista Pagos</label>
+        <select id="f-analista-pagos"><option value="">Sin asignar</option></select>
+        <span class="hint">Concilia transferencias</span>
+      </div>
+      <div class="fgroup"><label>Prioridad contable</label>
+        <select id="f-prioridad-contable">
+          <option value="alta">🔴 Alta — días 1-5</option>
+          <option value="media" selected>🟡 Media — días 5-10</option>
+          <option value="baja">🟢 Baja — días 10-15</option>
+        </select>
+        <span class="hint">Define cuándo se prepara el F29</span>
+      </div>
+    </div>
+
+    <div class="card-hd">💼 Nuestros Servicios</div>
+    <div class="fg4" style="margin-bottom:12px">
+      <div class="fgroup"><label>UF base (mensual)</label>
+        <input type="number" id="f-hon-uf" placeholder="3.5" step="0.1" oninput="actualizarPreviewValor()"/>
+        <span class="hint">Ej: 3,5 UF</span>
+      </div>
+      <div class="fgroup"><label>Variable por trabajador ($)</label>
+        <input type="number" id="f-hon-variable" placeholder="7000" oninput="actualizarPreviewValor()"/>
+        <span class="hint">Monto adicional por c/trabajador</span>
+      </div>
+      <div class="fgroup"><label>N° trabajadores actuales</label>
+        <input type="number" id="f-trabajadores" placeholder="0" oninput="actualizarPreviewValor()"/>
+      </div>
+      <div class="fgroup">
+        <label>Vista previa valor mensual</label>
+        <div class="valor-total-preview" id="valorPreview">Ingresa los valores para calcular</div>
+      </div>
+    </div>
+
+    <div class="card-hd">🖼️ Logo del cliente</div>
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div id="logo-preview" style="width:80px;height:80px;border-radius:10px;background:var(--sur2);border:2px dashed var(--bdr);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">🖼️</div>
+        <div>
+          <input type="file" id="f-logo" accept="image/png,image/jpeg,image/jpg" onchange="cargarLogo(this)" style="display:none"/>
+          <button class="btn-s" onclick="document.getElementById('f-logo').click()">📁 Subir logo</button>
+          <button class="btn-s" style="margin-left:6px" onclick="quitarLogo()">✕ Quitar</button>
+          <div style="font-size:10.5px;color:var(--tm);margin-top:6px;">PNG o JPG · máx 200KB · Se mostrará en reportes plan Asesoría y Estratégico</div>
+        </div>
+      </div>
+      <input type="hidden" id="f-logo-base64"/>
     </div>
 
     <div class="card-hd">🔐 Credenciales del cliente
@@ -411,7 +439,15 @@ function calcValorCLP(c){
 }
 
 function actualizarPreviewValor(){
-  var base=nv('f-valor-base'), trab=nv('f-trabajadores'), pvt=nv('f-valor-trab');
+  var uf=parseFloat(document.getElementById('f-hon-uf')&&document.getElementById('f-hon-uf').value)||0;
+  var varUnit=parseFloat(document.getElementById('f-hon-variable')&&document.getElementById('f-hon-variable').value)||0;
+  var trab=parseInt(document.getElementById('f-trabajadores')&&document.getElementById('f-trabajadores').value)||0;
+  var el=document.getElementById('valorPreview');if(!el)return;
+  if(!uf&&!varUnit){el.textContent='Ingresa los valores para calcular';return;}
+  var base=uf>0?'Base: '+uf+' UF':'';
+  var variable=varUnit>0&&trab>0?'Variable: '+trab+' × $'+varUnit.toLocaleString('es-CL'):'';
+  el.textContent=(base+(base&&variable?' · ':'')+variable)||'—';
+  return; // old code below ignored
   var mon=sv('f-moneda')||'CLP';
   var total=base+(trab*pvt);
   var el=document.getElementById('valorPreview');
@@ -475,16 +511,26 @@ function updatePct(){
 
 // ── MODAL FORM ────────────────────────────────────────────────────────────
 function resetForm(){
-  ['f-razon','f-rut','f-giro','f-email','f-tel','f-wa','f-ciudad','f-valor-base','f-valor-trab','f-trabajadores','f-inicio','f-contador','f-rrhh','f-obs-trib','f-obs'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  ['f-razon','f-rut','f-giro','f-email','f-tel','f-wa','f-ciudad',
+   'f-hon-uf','f-hon-variable','f-trabajadores','f-inicio',
+   'f-obs-trib','f-obs','f-analista-pagos','f-logo-base64'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value='';
+  });
   document.getElementById('f-plan').value='';
-  document.getElementById('f-moneda').value='CLP';
-  document.getElementById('f-reg').value='';
   document.getElementById('f-estado').value='activo';
+  document.getElementById('f-reg').value='';
   document.getElementById('f-at').value='2026';
-  document.getElementById('credBody').innerHTML='';CC=0;
-  document.getElementById('credEmpty').style.display='';
-  document.getElementById('sociosBody').innerHTML='';SC=0;
-  updatePct();actualizarPreviewValor();
+  document.getElementById('f-prioridad-contable').value='media';
+  document.getElementById('f-contador').value='';
+  document.getElementById('f-rrhh').value='';
+  document.getElementById('f-analista-pagos').value='';
+  var prev=document.getElementById('logo-preview');
+  if(prev)prev.innerHTML='🖼️';
+  var fi=document.getElementById('f-logo');if(fi)fi.value='';
+  credBody=[];renderCreds();
+  sociosBody=[];renderSocios();
+  actualizarPreviewValor();
+  poblarSelectsAnalistas();
 }
 function abrirModalNuevo(){_editId=null;resetForm();document.getElementById('modalTitle').textContent='Nuevo cliente';document.getElementById('modal').classList.add('on');}
 function abrirModalEditar(id){
@@ -499,8 +545,42 @@ function abrirModalEditar(id){
   document.getElementById('f-wa').value=c.wa||'';
   document.getElementById('f-ciudad').value=c.ciudad||'';
   document.getElementById('f-plan').value=c.plan||'';
+  document.getElementById('f-hon-uf').value=c.honUF||'';
+  document.getElementById('f-hon-variable').value=c.honVariable||'';
+  document.getElementById('f-trabajadores').value=c.trabajadores||'';
+  document.getElementById('f-estado').value=c.estado||'activo';
+  document.getElementById('f-inicio').value=c.inicio||'';
+  document.getElementById('f-reg').value=c.reg||'';
+  document.getElementById('f-at').value=c.at||'2026';
+  document.getElementById('f-obs-trib').value=c.obsTrib||'';
+  document.getElementById('f-prioridad-contable').value=c.prioridadContable||'media';
+  // Analistas — después de poblar selects
+  poblarSelectsAnalistas(function(){
+    document.getElementById('f-contador').value=c.analistaContable||c.contador||'';
+    document.getElementById('f-rrhh').value=c.analistaRrhh||c.rrhh||'';
+    document.getElementById('f-analista-pagos').value=c.analistaPagos||'';
+  });
+  // Logo
+  if(c.logoBase64){
+    var prev=document.getElementById('logo-preview');
+    if(prev)prev.innerHTML='<img src="'+c.logoBase64+'" style="width:76px;height:76px;border-radius:8px;object-fit:contain;"/>';
+    document.getElementById('f-logo-base64').value=c.logoBase64;
+  }
+  document.getElementById('f-obs').value=c.obs||'';
+  credBody=c.credenciales||[];renderCreds();
+  sociosBody=c.socios||[];renderSocios();
+  actualizarPreviewValor();
+  document.getElementById('modal').classList.add('on');
+}
+  document.getElementById('f-giro').value=c.giro||'';
+  document.getElementById('f-email').value=c.email||'';
+  document.getElementById('f-tel').value=c.tel||'';
+  document.getElementById('f-wa').value=c.wa||'';
+  document.getElementById('f-ciudad').value=c.ciudad||'';
+  document.getElementById('f-plan').value=c.plan||'';
   document.getElementById('f-moneda').value=c.moneda||'CLP';
-  document.getElementById('f-valor-base').value=c.valorBase||'';
+  document.getElementById('f-hon-uf').value=c.honUF||'';
+  document.getElementById('f-hon-variable').value=c.honVariable||'';
   document.getElementById('f-valor-trab').value=c.valorTrab||'';
   document.getElementById('f-trabajadores').value=c.trabajadores||'';
   document.getElementById('f-estado').value=c.estado||'activo';
@@ -508,8 +588,15 @@ function abrirModalEditar(id){
   document.getElementById('f-reg').value=c.reg||'';
   document.getElementById('f-at').value=c.at||'2026';
   document.getElementById('f-obs-trib').value=c.obsTrib||'';
-  document.getElementById('f-contador').value=c.contador||'';
-  document.getElementById('f-rrhh').value=c.rrhh||'';
+  poblarSelectsAnalistas(function(){
+    document.getElementById('f-contador').value=c.analistaContable||c.contador||'';
+    document.getElementById('f-rrhh').value=c.analistaRrhh||c.rrhh||'';
+    document.getElementById('f-analista-pagos').value=c.analistaPagos||'';
+  });
+  if(c.logoBase64){
+    document.getElementById('logo-preview').innerHTML='<img src="'+c.logoBase64+'" style="width:76px;height:76px;border-radius:8px;object-fit:contain;"/>';
+    document.getElementById('f-logo-base64').value=c.logoBase64;
+  }
   document.getElementById('f-obs').value=c.obs||'';
   (c.credenciales||[]).forEach(function(cr){addCred(cr.concepto,cr.usuario,cr.clave);});
   (c.socios||[]).forEach(function(s){addSocio(s.nombre,s.rut,s.pct,s.otros);});
@@ -519,23 +606,66 @@ function abrirModalEditar(id){
 }
 function closeModal(){document.getElementById('modal').classList.remove('on');}
 
+// ── LOGO ──────────────────────────────────────────────────────────────────
+function cargarLogo(input){
+  var file=input.files[0];if(!file)return;
+  if(file.size>200*1024){alert('El logo debe pesar menos de 200KB.');input.value='';return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var b64=e.target.result;
+    document.getElementById('f-logo-base64').value=b64;
+    document.getElementById('logo-preview').innerHTML='<img src="'+b64+'" style="width:76px;height:76px;border-radius:8px;object-fit:contain;"/>';
+  };
+  reader.readAsDataURL(file);
+}
+function quitarLogo(){
+  document.getElementById('f-logo-base64').value='';
+  document.getElementById('logo-preview').innerHTML='🖼️';
+  var fi=document.getElementById('f-logo');if(fi)fi.value='';
+}
+
+// ── ANALISTAS ─────────────────────────────────────────────────────────────
+function poblarSelectsAnalistas(cb){
+  var usuarios=[];
+  try{usuarios=JSON.parse(localStorage.getItem('usuarios_sistema')||'[]');}catch(e){}
+  var roles={'f-rrhh':['rrhh','admin','master'],'f-contador':['contable','admin','master'],'f-analista-pagos':['pagos','admin','master']};
+  Object.keys(roles).forEach(function(selId){
+    var sel=document.getElementById(selId);if(!sel)return;
+    var cur=sel.value;
+    sel.innerHTML='<option value="">Sin asignar</option>';
+    usuarios.filter(function(u){return roles[selId].includes(u.rol)&&u.activo!==false;}).forEach(function(u){
+      var o=document.createElement('option');o.value=u.nombre;o.textContent=u.nombre+' · '+(u.rolLabel||u.rol);sel.appendChild(o);
+    });
+    if(cur)sel.value=cur;
+  });
+  if(cb)cb();
+}
+
 function guardarCliente(){
   var razon=sv('f-razon'),rut=sv('f-rut');
   if(!razon||!rut){alert('Razón social y RUT son obligatorios.');return;}
   var arr=getClientes();
+  if(!_editId&&arr.find(function(c){return c.rut===rut;})){alert('Ya existe un cliente con ese RUT.');return;}
   var c={
     id:_editId||Date.now(),razon,rut,
     giro:sv('f-giro'),email:sv('f-email'),tel:sv('f-tel'),wa:sv('f-wa'),ciudad:sv('f-ciudad'),
-    plan:sv('f-plan'),moneda:sv('f-moneda')||'CLP',
-    valorBase:nv('f-valor-base'),valorTrab:nv('f-valor-trab'),trabajadores:nv('f-trabajadores'),
-    estado:sv('f-estado'),inicio:sv('f-inicio'),
+    plan:sv('f-plan'),
+    honUF:parseFloat(sv('f-hon-uf'))||0,
+    honVariable:parseFloat(sv('f-hon-variable'))||0,
+    trabajadores:parseInt(sv('f-trabajadores'))||0,
+    estado:sv('f-estado')||'activo',inicio:sv('f-inicio'),
     reg:sv('f-reg'),at:sv('f-at'),obsTrib:sv('f-obs-trib'),
-    contador:sv('f-contador'),rrhh:sv('f-rrhh'),obs:sv('f-obs'),
+    analistaContable:sv('f-contador'),
+    analistaRrhh:sv('f-rrhh'),
+    analistaPagos:sv('f-analista-pagos'),
+    prioridadContable:sv('f-prioridad-contable')||'media',
+    logoBase64:sv('f-logo-base64')||'',
+    obs:sv('f-obs'),
     credenciales:getCreds(),socios:getSocios(),ts:Date.now()
   };
   if(_editId){var idx=arr.findIndex(function(x){return x.id===_editId;});if(idx>=0)arr[idx]=c;else arr.unshift(c);}
   else arr.unshift(c);
-  setClientes(arr);closeModal();
+  setClientes(arr);closeModal();renderClientes();
 }
 
 // ── DETALLE ───────────────────────────────────────────────────────────────
