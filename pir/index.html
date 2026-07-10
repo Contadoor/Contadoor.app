@@ -1149,9 +1149,9 @@ function render(acc,monthly,n,ia){
   var RCmap={'14D3':'pyme','14D8':'transp','presunta':'presunta'};
   var h='';
   h+='<div class="prow"><div class="prow-title">Reporte Tributario AT'+at+'</div>';
-  h+='<button class="btn-s" onclick="showTab(\x27entrada\x27)">\u270f\ufe0f Editar datos</button>';
-  h+='<button class="btn-s" onclick="resetForm()">\u1f504 Nuevo an\u00e1lisis</button>';
-  h+='<button class="btn-p" onclick="window.print()">\u1f5a8\ufe0f Imprimir PDF</button></div>';
+  h+='<button class="btn-s" onclick="showTab(&apos;entrada&apos;)">Editar datos</button>';
+  h+='<button class="btn-s" onclick="resetForm()">Nuevo análisis</button>';
+  h+='<button class="btn-p" onclick="window.print()">Imprimir PDF</button></div>';
   h+='<div class="rpt-hdr">';
   h+='<div><img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor" style="width:160px;filter:brightness(0) invert(1)"/>';
   h+='<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:6px">Asesor\u00eda Contable y Tributaria</div></div>';
@@ -1366,21 +1366,28 @@ function renderRepo(){
   filtered.forEach(function(r){
     var f=new Date(r.ts).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
     var rg=r.reg==='14D8'?'transp':(r.reg==='presunta'?'presunta':'pyme');
+    // Iniciales del cliente
+    var words=(r.razon||'--').split(' ').filter(function(w){return w.length>2;});
+    var iniciales=(words.length>=2?words[0][0]+words[1][0]:( r.razon||'--').substring(0,2)).toUpperCase();
     var div=document.createElement('div');div.className='repo-item';
-    div.innerHTML='<div class="repo-icon">\u1f4ca</div>'
+    div.innerHTML='<div class="repo-icon" style="background:linear-gradient(135deg,#6D2E6E,#904891);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;flex-shrink:0;">'+iniciales+'</div>'
       +'<div class="repo-info">'
       +'<div class="repo-name">'+hesc(r.razon||'--')+'</div>'
-      +'<div class="repo-meta">'+hesc(r.rut||'--')+'  -  '+r.at+'  -  '+hesc(r.analista||'Contadoor')+'  -  '+f+'</div>'
+      +'<div class="repo-meta">'+hesc(r.rut||'--')+'  -  AT'+r.at+'  -  '+hesc(r.analista||'Contadoor')+'  -  '+f+'</div>'
       +'<div class="repo-badges">'
       +'<span class="regime-tag '+rg+'">'+(RL[r.reg]||r.reg)+'</span>'
       +'<span class="level-tag '+(r.nivel||'PRO').toLowerCase()+'">'+(r.nivel||'PRO')+'</span>'
       +'<span style="font-size:11px;color:#9a849b">RLI: '+ff(r.rli||0)+'  -  Imp: '+ff(r.impBruto||0)+'</span>'
+      +(r.rptHtml?'':'<span style="font-size:10px;background:#fef3c7;color:#78350f;padding:2px 7px;border-radius:10px;margin-left:4px;">Sin reporte generado</span>')
       +'</div></div>'
-      +'<div style="display:flex;gap:6px;flex-shrink:0">'
-      +(r.rptHtml?'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#1e40af;border-color:#1e40af" data-ver="'+r.id+'">\u1f441 Ver</button>':'')
-      +'<button class="btn-s" style="font-size:11px;padding:5px 12px" data-edit="'+r.id+'">\u270f\ufe0f Editar</button>'
-      +'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#2D9B6F;border-color:#2D9B6F" data-dl="'+r.id+'">\u2b07 Descargar</button>'
-      +'<button class="btn-danger" data-del="'+r.id+'">\u1f5d1</button>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">'
+      +(r.rptHtml
+        ?'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#1e40af;border-color:#1e40af" data-ver="'+r.id+'">Ver</button>'
+        :'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#9a849b;" data-ver="'+r.id+'">Ver</button>'
+      )
+      +'<button class="btn-s" style="font-size:11px;padding:5px 12px" data-edit="'+r.id+'">Editar</button>'
+      +'<button class="btn-s" style="font-size:11px;padding:5px 12px;color:#2D9B6F;border-color:#2D9B6F" data-dl="'+r.id+'">Descargar</button>'
+      +'<button class="btn-danger" style="font-size:11px;padding:5px 10px;" data-del="'+r.id+'">Eliminar</button>'
       +'</div>';
     var btnVer=div.querySelector('[data-ver]');
     var btnEdit=div.querySelector('[data-edit]');
@@ -1396,7 +1403,13 @@ function renderRepo(){
 
 function verReporte(id){
   var repo=getRepo();var r=repo.filter(function(x){return x.id===id;})[0];
-  if(!r||!r.rptHtml){alert('Sin reporte guardado. Genera el reporte primero.');return;}
+  if(!r){alert('Reporte no encontrado.');return;}
+  if(!r.rptHtml){
+    if(confirm('Este an\u00e1lisis no tiene reporte generado a\u00fan.\n\n\u00bfDeseas cargarlo en el formulario para generarlo?')){
+      editRepo(id);
+    }
+    return;
+  }
   var ex=document.getElementById('verReporteModal');if(ex)ex.remove();
   var modal=document.createElement('div');modal.id='verReporteModal';
   modal.style.cssText='position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:#f0ebff;';
@@ -1417,7 +1430,11 @@ function verReporte(id){
 
 function descargarReporte(id){
   var repo=getRepo();var r=repo.filter(function(x){return x.id===id;})[0];
-  if(!r||!r.rptHtml){alert('Sin reporte guardado.');return;}
+  if(!r){alert('Reporte no encontrado.');return;}
+  if(!r.rptHtml){
+    alert('Este an\u00e1lisis a\u00fan no tiene reporte generado. Carga el an\u00e1lisis y genera el reporte primero.');
+    return;
+  }
   var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>PIR '+hesc(r.razon||r.rut)+' AT'+r.at+'</title>'
     +'<style>body{font-family:-apple-system,sans-serif;background:#f0ebff;padding:20px;}'
     +'.report-wrap{max-width:1100px;margin:0 auto;}</style></head>'
@@ -1584,25 +1601,36 @@ function resetForm(){
 // El auth.js del ecosistema maneja la sesi\u00f3n
 // \u2500\u2500 BOOT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 (function(){
-  // Registrar tabs PRIMERO  -  antes de cualquier otra cosa
-  document.querySelectorAll('.pir-tab[data-view]').forEach(function(el){
-    el.addEventListener('click',function(){pirGoView(el.getAttribute('data-view'));});
-  });
-  // Sub-tabs internos
-  var tab0=document.getElementById('tab-0');
-  var tab1=document.getElementById('tab-1');
-  if(tab0)tab0.addEventListener('click',function(){showTab('entrada');});
-  if(tab1)tab1.addEventListener('click',function(){showTab('reporte');});
-  // Resto del boot con protecci\u00f3n
-  try{
+  function boot(){
+    // Tabs principales
+    document.querySelectorAll('.pir-tab[data-view]').forEach(function(el){
+      el.addEventListener('click',function(){
+        pirGoView(el.getAttribute('data-view'));
+      });
+    });
+    // Sub-tabs con onclick en HTML ya funcionan, pero agregamos listeners igual
+    var tab0=document.getElementById('tab-0');
+    var tab1=document.getElementById('tab-1');
+    if(tab0)tab0.onclick=function(){showTab('entrada');};
+    if(tab1)tab1.onclick=function(){showTab('reporte');};
+    // Boton agregar socio
     var btn=document.getElementById('btnAddSocio');
     if(btn)btn.addEventListener('click',function(){addSocio();});
-    setupUpload();
-    onRegChange();onATChange();
-    addSocio();badge();
-  }catch(e){console.warn('PIR boot error:',e);}
-  // Sync al final  -  no bloquea nada
-  try{initSync();}catch(e){console.warn('Sync error:',e);}
+    // Setup upload zona
+    try{setupUpload();}catch(e){console.warn('setupUpload:',e);}
+    // Formulario inicial
+    try{onRegChange();onATChange();}catch(e){console.warn('form init:',e);}
+    // Agregar primer socio vacio
+    try{addSocio();badge();}catch(e){console.warn('addSocio:',e);}
+    // Sync con Cloudflare
+    try{initSync();}catch(e){console.warn('sync:',e);}
+    console.log('PIR boot OK - tabs registrados:', document.querySelectorAll('.pir-tab[data-view]').length);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
 </script>
 <script src="../notifications.js"></script>
