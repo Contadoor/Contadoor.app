@@ -226,7 +226,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .panel-empty-icon{font-size:36px;opacity:.4}
 .panel-empty-text{font-size:13px}
 .panel-simulacion{display:none}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .kpi-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px}
 .kpi-label{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:600}
 .kpi-value{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--t1)}
@@ -348,6 +348,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
           <div class="kpi-sub">Comparativa F29</div>
         </div>
         <div class="kpi-card">
+          <div class="kpi-label">PPM del período</div>
+          <div class="kpi-value" id="kpi-ppm" style="color:var(--p)">$0</div>
+          <div class="kpi-sub">Incluido en F29</div>
+        </div>
+        <div class="kpi-card">
           <div class="kpi-label">Días para actuar</div>
           <div class="kpi-value" id="kpi-dias" style="color:var(--p)">—</div>
           <div class="kpi-sub">Hasta cierre del período</div>
@@ -404,6 +409,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
               <input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31" oninput="calcular()">
             </div>
             <div class="inp-row">
+              <span class="inp-label">Tasa PPM (%)</span>
+              <input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10" oninput="calcularPPM();calcular()">
+            </div>
+            <div class="inp-row">
               <span class="inp-label">F29 mes anterior</span>
               <input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa" oninput="calcular()">
             </div>
@@ -426,6 +435,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             <div class="res-row remanente">
               <span class="res-label">Remanente período anterior</span>
               <span class="res-valor" id="res-remanente">$0</span>
+            </div>
+            <div class="res-row">
+              <span class="res-label">PPM del período</span>
+              <span class="res-valor" id="res-ppm" style="color:var(--p)">$0</span>
             </div>
             <div class="res-row total">
               <span class="res-label">F29 estimado a pagar</span>
@@ -567,6 +580,13 @@ function cargarDatos(){
   document.getElementById('lbl-remanente').textContent=ff(remanente);
   document.getElementById('lbl-periodo-ant').textContent=formatPeriodo(perAnt);
 
+  // Cargar última tasa PPM usada para este cliente
+  var tasaKey='preiva_tasa_ppm_'+rut;
+  var ultimaTasa=localStorage.getItem(tasaKey)||'';
+  var inpTasa=document.getElementById('inp-tasa-ppm');
+  if(inpTasa) inpTasa.value=ultimaTasa||'';
+  calcularPPM();
+
   mostrarPanel(true);
   calcular();
 }
@@ -576,6 +596,22 @@ function mostrarPanel(show){
   if(p) p.style.display=show?'block':'none';
   var e=document.getElementById('panel-empty');
   if(e) e.style.display=show?'none':'flex';
+}
+
+// ── PPM ───────────────────────────────────────────────────────────────────
+function calcularPPM(){
+  var ventasNetas=nv('inp-debito')/1.19; // neto sin IVA
+  var tasa=parseFloat(document.getElementById('inp-tasa-ppm').value)||0;
+  var ppm=Math.round(ventasNetas*(tasa/100));
+  var elPpm=document.getElementById('res-ppm');
+  if(elPpm) elPpm.textContent=ff(ppm);
+  _datos.ppm=ppm;
+  _datos.tasaPPM=tasa;
+  // Guardar tasa para este cliente
+  if(_clienteActual&&tasa>0){
+    localStorage.setItem('preiva_tasa_ppm_'+_clienteActual.rut, tasa);
+  }
+  return ppm;
 }
 
 // ── CÁLCULO ───────────────────────────────────────────────────────────────
@@ -592,8 +628,9 @@ function calcular(){
 
   var debProy=Math.round(debReg+(tasaDiaria*diasRest));
   var credProy=Math.round(credReg+(tasaDiariaC*diasRest));
-  var f29=Math.max(debProy-credProy-remanente,0);
-  var nuevoRemanente=Math.max(credProy+remanente-debProy,0);
+  var ppm=calcularPPM();
+  var f29=Math.max(debProy-credProy-remanente-ppm,0);
+  var nuevoRemanente=Math.max(credProy+remanente+ppm-debProy,0);
 
   var f29Anterior=parseInt(document.getElementById('inp-f29-ant').value)||0;
   var variacion=f29Anterior>0?Math.round((f29-f29Anterior)/f29Anterior*100):0;
@@ -607,6 +644,7 @@ function calcular(){
 
   // KPIs
   document.getElementById('kpi-f29').textContent=ff(f29);
+  document.getElementById('kpi-ppm').textContent=ff(ppm);
   document.getElementById('kpi-var').textContent=(variacion>=0?'+':'')+variacion+'%';
   document.getElementById('kpi-var').style.color=variacion>15?'#f87171':variacion<0?'#4ade80':'#facc15';
   document.getElementById('kpi-dias').textContent=diasRest+' días';
