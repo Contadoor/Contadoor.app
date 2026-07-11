@@ -368,16 +368,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
           <div class="panel-card-body">
             <div class="inp-row">
               <span class="inp-label">Libro de ventas</span>
-              <input type="file" accept=".xlsx,.xls" class="inp-field" style="padding:4px"
+              <input type="file" accept=".xls,.xlsx,.html,.htm" class="inp-field" style="padding:4px"
                 onchange="onLibroChange(this,'ventas')">
             </div>
-            <div style="font-size:11px;margin:2px 0 10px 145px" id="lbl-libro-ventas" style="color:var(--tm)">Sin archivo cargado</div>
+            <div style="font-size:11px;margin:2px 0 2px 145px;color:var(--tm)" id="lbl-libro-ventas">Sin archivo cargado</div>
+            <div style="font-size:10px;margin:0 0 10px 145px;color:var(--tm);display:none" id="desg-ventas"></div>
             <div class="inp-row">
               <span class="inp-label">Libro de compras</span>
-              <input type="file" accept=".xlsx,.xls" class="inp-field" style="padding:4px"
+              <input type="file" accept=".xls,.xlsx,.html,.htm" class="inp-field" style="padding:4px"
                 onchange="onLibroChange(this,'compras')">
             </div>
-            <div style="font-size:11px;margin:2px 0 0 145px" id="lbl-libro-compras" style="color:var(--tm)">Sin archivo cargado</div>
+            <div style="font-size:11px;margin:2px 0 2px 145px;color:var(--tm)" id="lbl-libro-compras">Sin archivo cargado</div>
+            <div style="font-size:10px;margin:0 0 0 145px;color:var(--tm);display:none" id="desg-compras"></div>
           </div>
         </div>
         <div class="remanente-info">
@@ -940,125 +942,146 @@ function generarReporte(){
 }
 
 
-// ── CARGA LIBROS COMPRAS/VENTAS ───────────────────────────────────────────
-function leerLibro(file, tipo){
-  // tipo: 'compras' o 'ventas'
-  var reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      var data = new Uint8Array(e.target.result);
-      var wb = XLSX.read(data, {type:'array'});
-      var ws = wb.Sheets[wb.SheetNames[0]];
-      // Buscar fila de encabezados dinámicamente
-      var ref = ws['!ref'];
-      var range = XLSX.utils.decode_range(ref);
-      var headerRow = 1; // default fila 2 (index 1)
-      // Buscar fila que tenga 'Periodo' o 'Rut' como primera celda con texto
-      for(var ri=0; ri<=Math.min(5, range.e.r); ri++){
-        var cell = ws[XLSX.utils.encode_cell({r:ri, c:0})];
-        if(cell && cell.v && String(cell.v).trim().toLowerCase()==='periodo'){
-          headerRow = ri;
-          break;
-        }
-      }
-      var rows = XLSX.utils.sheet_to_json(ws, {defval:'', range:headerRow});
 
-      // Filtrar por período seleccionado
-      var per = _periodoActual; // ej: '202507'
-      var y = parseInt(per.substring(0,4));
-      var m = parseInt(per.substring(4,6));
+// ── PARSER LIBRO MASCONTABLE ──────────────────────────────────────────────
 
-      var totalIva = 0;
-      var totalNeto = 0;
-      var rowCount = 0;
-
-      // Debug: ver keys de primera fila
-      if(rows.length>0){
-        console.log('Columnas detectadas:', Object.keys(rows[0]));
-        console.log('Primera fila:', rows[0]);
-      }
-
-      rows.forEach(function(row){
-        // Filtrar por período
-        var fecha = row['Fecha'] || row['Periodo'] || '';
-        var inPeriod = false;
-
-        if(fecha){
-          var d = null;
-          if(typeof fecha === 'number'){
-            d = new Date(Math.round((fecha - 25569)*86400*1000));
-          } else {
-            var s = String(fecha).trim();
-            var parts = s.split(/[\/\-]/);
-            if(parts.length === 3){
-              if(parts[0].length === 4){
-                d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-              } else {
-                d = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
-              }
-            }
-          }
-          if(d && !isNaN(d.getTime())){
-            inPeriod = (d.getFullYear()===y && d.getMonth()+1===m);
-          }
-        }
-
-        if(!fecha || inPeriod){
-          // Buscar columna IVA con cualquier variante
-          var ivaRaw = null;
-          var keys = Object.keys(row);
-          for(var ki=0;ki<keys.length;ki++){
-            if(keys[ki].trim().toLowerCase()==='iva'){
-              ivaRaw = row[keys[ki]];
-              break;
-            }
-          }
-          var iva = 0;
-          if(ivaRaw !== null && ivaRaw !== undefined && ivaRaw !== ''){
-            if(typeof ivaRaw === 'number'){
-              iva = ivaRaw;
-            } else {
-              iva = parseFloat(String(ivaRaw).replace(/[^0-9.\-]/g,''))||0;
-            }
-          }
-          var netoRaw = row['Neto'] || row['neto'] || 0;
-          var neto = typeof netoRaw === 'number' ? netoRaw : parseFloat(String(netoRaw).replace(/[^0-9.\-]/g,''))||0;
-          totalIva += iva;
-          totalNeto += neto;
-          rowCount++;
-        }
-      });
-
-      // Actualizar campo correspondiente
-      if(tipo === 'compras'){
-        document.getElementById('inp-credito').value = totalIva;
-        document.getElementById('lbl-libro-compras').textContent =
-          rowCount + ' documentos · Crédito IVA: ' + ff(totalIva);
-        document.getElementById('lbl-libro-compras').style.color = 'var(--green)';
-      } else {
-        document.getElementById('inp-debito').value = totalIva;
-        document.getElementById('lbl-libro-ventas').textContent =
-          rowCount + ' documentos · Débito IVA: ' + ff(totalIva);
-        document.getElementById('lbl-libro-ventas').style.color = 'var(--p)';
-      }
-
-      calcular();
-    } catch(err){
-      alert('Error leyendo el archivo: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
+function montoCLP(txt){
+  var t=String(txt||'').trim();
+  if(!t||t==='-') return 0;
+  var n=parseFloat(t.replace(/\./g,'').replace(',','.').replace(/[^\d.\-]/g,''));
+  return isNaN(n)?0:n;
 }
 
-function onLibroChange(input, tipo){
-  var file = input.files[0];
-  if(!file) return;
-  if(!_clienteActual){
-    alert('Selecciona un cliente primero.');
-    input.value='';
-    return;
+async function parsearLibroMasContable(file){
+  var buf=await file.arrayBuffer();
+  var texto=new TextDecoder('iso-8859-1').decode(buf);
+
+  if(!texto.includes('<table')){
+    throw new Error('Formato no reconocido: se esperaba export HTML de MasContable (.xls)');
   }
-  leerLibro(file, tipo);
+
+  var doc2=new DOMParser().parseFromString(texto,'text/html');
+
+  // Tipo y período desde el título
+  var m=doc2.body.textContent.match(/LIBRO DE (VENTAS|COMPRAS)\s+(\d{2})-(\d{4})/i);
+  var tipo=m?m[1].toUpperCase():null;
+  var periodo=m?m[2]+'-'+m[3]:null;
+
+  if(!tipo) throw new Error('No se pudo identificar si es Libro de Ventas o Compras');
+
+  // Ubicar tabla de datos: primera celda del encabezado = 'Periodo'
+  var tablaDatos=null;
+  var tablas=doc2.querySelectorAll('table');
+  for(var ti=0;ti<tablas.length;ti++){
+    var primera=tablas[ti].querySelector('tr td');
+    if(primera&&primera.textContent.trim()==='Periodo'){tablaDatos=tablas[ti];break;}
+  }
+  if(!tablaDatos) throw new Error('No se encontró la tabla de datos (encabezado Periodo)');
+
+  var filas=Array.from(tablaDatos.querySelectorAll('tr'));
+  var headers=Array.from(filas[0].querySelectorAll('td')).map(function(td){return td.textContent.trim();});
+
+  function col(nombre){return headers.findIndex(function(h){return h.toLowerCase().startsWith(nombre);});}
+
+  var iIva=col('iva'),iNeto=col('neto'),iEx=col('exento');
+  var iTot=col('total'),iDoc=col('documento'),iPer=col('periodo'),iFecha=col('fecha');
+
+  var res={tipo:tipo,periodo:periodo,docs:0,exento:0,neto:0,iva:0,total:0,
+           porTipoDoc:{},totalesArchivo:null,alertas:[]};
+
+  for(var i=1;i<filas.length;i++){
+    var c=Array.from(filas[i].querySelectorAll('td')).map(function(td){return td.textContent.trim();});
+    if(c.length<headers.length) continue;
+    // Fila de totales — detener y guardar para validación
+    if(c[iFecha]==='Totales'||c[iFecha]==='TOTALES'){
+      res.totalesArchivo={
+        exento:montoCLP(c[iEx]),neto:montoCLP(c[iNeto]),
+        iva:montoCLP(c[iIva]),total:montoCLP(c[iTot])
+      };
+      break;
+    }
+    // Validar que es fila de datos (columna Periodo = MM-YYYY)
+    if(!/^\d{2}-\d{4}$/.test(c[iPer])) continue;
+
+    res.docs++;
+    res.exento+=montoCLP(c[iEx]);
+    res.neto+=montoCLP(c[iNeto]);
+    res.iva+=montoCLP(c[iIva]);
+    res.total+=montoCLP(c[iTot]);
+
+    var td=c[iDoc]||'OTRO';
+    res.porTipoDoc[td]=(res.porTipoDoc[td]||0)+1;
+  }
+
+  // Validación contra totales del archivo
+  if(res.totalesArchivo&&res.totalesArchivo.iva!==res.iva){
+    res.alertas.push('Suma IVA calculada ('+ff(res.iva)+') difiere del total del archivo ('+ff(res.totalesArchivo.iva)+') — revisar');
+  }
+
+  return res;
+}
+
+function onLibroChange(input,tipo){
+  var file=input.files[0];
+  if(!file) return;
+  if(!_clienteActual){alert('Selecciona un cliente primero.');input.value='';return;}
+
+  var lblId=tipo==='ventas'?'lbl-libro-ventas':'lbl-libro-compras';
+  var lbl=document.getElementById(lblId);
+  if(lbl){lbl.textContent='Leyendo...';lbl.style.color='var(--tm)';}
+
+  parsearLibroMasContable(file).then(function(res){
+    // Validar período contra selección
+    var perSel=_periodoActual; // 202507
+    var perArch=res.periodo;   // 07-2025
+    if(perArch){
+      var partes=perArch.split('-');
+      var perArchNorm=partes[1]+('0'+partes[0]).slice(-2); // 202507
+      if(perArchNorm!==perSel){
+        if(!confirm('El archivo es del período '+perArch+' pero tienes seleccionado '+
+          formatPeriodo(perSel)+'\n\n¿Continuar de todas formas?')){
+          input.value='';return;
+        }
+      }
+    }
+
+    // Asignar según tipo de libro
+    if(tipo==='ventas'){
+      document.getElementById('inp-debito').value=res.iva;
+    } else {
+      document.getElementById('inp-credito').value=res.iva;
+    }
+
+    // Construir mensaje UI
+    var isExento=res.iva===0&&res.exento>0;
+    var tipoLabel=res.tipo==='VENTAS'?'Débito IVA':'Crédito IVA';
+    var msg=res.docs+' docs · '+tipoLabel+': '+ff(res.iva);
+    if(isExento) msg+=' · ⚠️ 100% exento';
+    if(res.alertas.length) msg+=' · ⚠️ '+res.alertas[0];
+
+    // Mostrar desglose por tipo de documento
+    var tipos=Object.entries(res.porTipoDoc).map(function(e){return e[1]+' '+e[0];}).join(', ');
+    console.log('Libro '+res.tipo+' '+res.periodo+': '+tipos);
+
+    if(lbl){
+      lbl.textContent=msg;
+      lbl.style.color=res.alertas.length?'var(--amber)':res.iva===0?'var(--tm)':'var(--'+(tipo==='ventas'?'p':'green')+')';
+    }
+
+    // Mostrar desglose en UI si hay tipos de documento
+    var desgId=tipo==='ventas'?'desg-ventas':'desg-compras';
+    var desg=document.getElementById(desgId);
+    if(desg&&tipos){
+      desg.textContent=tipos;
+      desg.style.display='block';
+    }
+
+    calcular();
+
+  }).catch(function(err){
+    if(lbl){lbl.textContent='Error: '+err.message;lbl.style.color='var(--red)';}
+    console.error('Error parser:',err);
+  });
 }
 
 // ── ARRANQUE ──────────────────────────────────────────────────────────────
