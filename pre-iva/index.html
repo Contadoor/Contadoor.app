@@ -268,6 +268,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .remanente-val{font-weight:700;color:var(--green);font-size:13px}
 .historial-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:11px}
 .historial-row:last-child{border-bottom:none}
+.cli-option{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px}
+.cli-option:last-child{border-bottom:none}
+.cli-option:hover{background:var(--pp)}
+.cli-option-nombre{font-weight:600;color:var(--t1)}
+.cli-option-rut{font-size:11px;color:var(--tm)}
+.cli-option-plan{font-size:10px;color:var(--p);margin-left:auto}
 .sdiv{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--tm);text-transform:uppercase;padding:14px 0 6px;border-bottom:1px solid var(--bdr);margin-bottom:12px}
 @media(max-width:680px){.grid2{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
 </style>
@@ -317,9 +323,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 
   <div class="toolbar">
-    <select class="sel-box" id="sel-cliente" onchange="onClienteChange()">
-      <option value="">Seleccionar cliente...</option>
-    </select>
+    <div style="position:relative">
+      <input type="text" class="sel-box" id="inp-buscar-cliente" 
+        placeholder="🔍 Buscar cliente por nombre o RUT..."
+        style="min-width:280px;padding-right:28px"
+        oninput="filtrarClientes(this.value)"
+        onblur="setTimeout(function(){ocultarDropdown()},200)"
+        autocomplete="off">
+      <div id="cliente-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bdr);border-radius:0 0 8px 8px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+    </div>
+    <div id="cliente-seleccionado" style="display:none;background:var(--pp);border:1px solid var(--bdr);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--p);font-weight:600;display:flex;align-items:center;gap:8px">
+      <span id="cliente-sel-nombre"></span>
+      <span id="cliente-sel-rut" style="font-weight:400;color:var(--tm)"></span>
+      <button onclick="limpiarCliente()" style="margin-left:auto;background:none;border:none;color:var(--tm);cursor:pointer;font-size:14px;line-height:1">×</button>
+    </div>
     <input type="month" class="sel-box" id="sel-periodo" style="min-width:140px" onchange="onPeriodoChange()">
     <span class="lbl-corte" id="lbl-corte"></span>
     <button class="btn-calcular" onclick="calcular()">Recalcular</button>
@@ -468,6 +485,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
     </div>
   </div>
+
+  <!-- NÓMINA PRE-IVA -->
+  <div style="padding:0 24px 32px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--p);text-transform:uppercase;margin-bottom:3px">Nómina Pre-IVA</div>
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">Planes Asesoría y Estratégico</div>
+      </div>
+      <button class="btn-calcular" onclick="renderNomina()">Actualizar</button>
+    </div>
+    <div id="nomina-preiva">
+      <div style="padding:32px;text-align:center;color:var(--tm);font-size:13px">Selecciona un período para ver la nómina.</div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -519,8 +551,9 @@ function init(){
   _periodoActual=periodo;
   document.getElementById('sel-periodo').value=periodo;
 
-  // Poblar select clientes
-  cargarSelectClientes();
+  // Cargar clientes para el buscador
+  _todosClientes=getClientes().filter(function(c){return c.estado==='activo';});
+  _todosClientes.sort(function(a,b){return (a.razonSocial||'').localeCompare(b.razonSocial||'');});
   actualizarFechaCorte();
 }
 
@@ -540,6 +573,61 @@ function actualizarFechaCorte(){
     ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()];
 }
 
+// ── BUSCADOR DE CLIENTES ──────────────────────────────────────────────────
+var _todosClientes=[];
+
+function filtrarClientes(q){
+  var dd=document.getElementById('cliente-dropdown');
+  if(!q||q.length<2){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var matches=_todosClientes.filter(function(c){
+    return (c.razonSocial||c.nombre||'').toLowerCase().includes(ql)||(c.rut||'').toLowerCase().includes(ql);
+  }).slice(0,10);
+  var PLANES={cumplimiento:'Cumplimiento',asesoria:'Asesoria',estrategico:'Estrategico'};
+  dd.innerHTML=matches.length?matches.map(function(c){
+    return '<div class="cli-option" data-rut="'+c.rut+'">'
+      +'<div><div class="cli-option-nombre">'+hesc(c.razonSocial||c.nombre||c.rut)+'</div>'
+      +'<div class="cli-option-rut">'+hesc(c.rut)+'</div></div>'
+      +'<span class="cli-option-plan">'+(PLANES[c.plan]||c.plan||'')+'</span></div>';
+  }).join(''):'<div class="cli-option" style="color:var(--tm);cursor:default">Sin resultados</div>';
+  dd.style.display='block';
+  // Event delegation — evita problemas de comillas con RUTs
+  dd.onclick=function(e){
+    var item=e.target.closest('.cli-option');
+    if(item&&item.dataset.rut) seleccionarCliente(item.dataset.rut);
+  };
+}
+
+function seleccionarCliente(rut){
+  var c=_todosClientes.find(function(x){return x.rut===rut;});
+  if(!c) return;
+  _clienteActual=c;
+  document.getElementById('inp-buscar-cliente').value='';
+  document.getElementById('cliente-dropdown').style.display='none';
+  var badge=document.getElementById('cliente-seleccionado');
+  if(badge){badge.style.display='flex';}
+  var sn=document.getElementById('cliente-sel-nombre');
+  var sr=document.getElementById('cliente-sel-rut');
+  if(sn) sn.textContent=c.razonSocial||c.nombre||c.rut;
+  if(sr) sr.textContent=c.rut;
+  cargarDatos();
+  renderHistorial();
+}
+
+function limpiarCliente(){
+  _clienteActual=null;
+  var inp=document.getElementById('inp-buscar-cliente');
+  if(inp) inp.value='';
+  var badge=document.getElementById('cliente-seleccionado');
+  if(badge) badge.style.display='none';
+  mostrarPanel(false);
+}
+
+function ocultarDropdown(){
+  var dd=document.getElementById('cliente-dropdown');
+  if(dd) dd.style.display='none';
+}
+
 function onClienteChange(){
   var rut=sv('sel-cliente');
   if(!rut){_clienteActual=null;mostrarPanel(false);return;}
@@ -551,6 +639,7 @@ function onClienteChange(){
 function onPeriodoChange(){
   _periodoActual=sv('sel-periodo');
   if(_clienteActual) cargarDatos();
+  renderNomina();
 }
 
 function cargarDatos(){
@@ -1120,6 +1209,133 @@ function onLibroChange(input,tipo){
     if(lbl){lbl.textContent='Error: '+err.message;lbl.style.color='var(--red)';}
     console.error('Error parser:',err);
   });
+}
+
+
+// ── NÓMINA PRE-IVA ────────────────────────────────────────────────────────
+function renderNomina(){
+  var u=getUsuario();
+  var per=_periodoActual;
+  var clientes=getClientes().filter(function(c){
+    return c.estado==='activo' && (c.plan==='asesoria'||c.plan==='estrategico');
+  });
+
+  // Filtrar por analista (salvo master ve todos)
+  if(!u.esMaster && u.rol==='contable'){
+    clientes=clientes.filter(function(c){return c.analistaContable===u.nombre;});
+  }
+
+  clientes.sort(function(a,b){
+    var na=a.analistaContable||'';
+    var nb=b.analistaContable||'';
+    if(na!==nb) return na.localeCompare(nb);
+    return (a.razonSocial||'').localeCompare(b.razonSocial||'');
+  });
+
+  var PLANES={asesoria:'Asesoría',estrategico:'Estratégico'};
+  var totalPend=0,totalEnv=0;
+
+  // Agrupar por analista
+  var grupos={};
+  clientes.forEach(function(c){
+    var an=c.analistaContable||'Sin asignar';
+    if(!grupos[an]) grupos[an]=[];
+    grupos[an].push(c);
+  });
+
+  var html='';
+  Object.keys(grupos).forEach(function(analista){
+    var lista=grupos[analista];
+    var envAn=0,pendAn=0;
+
+    var filas=lista.map(function(c){
+      var key='preiva_enviados_'+c.rut;
+      var enviados=[];
+      try{enviados=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
+      // Buscar envío del período actual
+      var envPer=enviados.find(function(e){return e.periodo===per;});
+      var estado=envPer?'enviado':'pendiente';
+      if(estado==='enviado') envAn++; else pendAn++;
+
+      return '<tr>'
+        +'<td><div style="font-weight:600;font-size:12px;color:var(--t1)">'+hesc(c.razonSocial||c.nombre||c.rut)+'</div>'
+        +'<div style="font-size:10px;color:var(--tm)">'+hesc(c.rut)+'</div></td>'
+        +'<td><span style="font-size:10px;font-weight:600;color:var(--p)">'+hesc(PLANES[c.plan]||c.plan)+'</span></td>'
+        +'<td style="text-align:center">'
+        +(estado==='enviado'
+          ?'<span style="background:#e8f5f0;color:var(--green);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">✓ Enviado</span>'
+          :'<span style="background:#fef9ec;color:var(--amber);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">⏳ Pendiente</span>')
+        +'</td>'
+        +'<td style="font-size:11px;color:var(--tm);text-align:center">'
+        +(envPer?envPer.fecha:'—')
+        +'</td>'
+        +'<td style="text-align:center">'
+        +'<button class="btn-sm" data-rut-nom="'+c.rut+'">'
+        +(estado==='enviado'?'Re-enviar':'Preparar')
+        +'</button>'
+        +'</td>'
+        +'</tr>';
+    }).join('');
+
+    totalPend+=pendAn;
+    totalEnv+=envAn;
+
+    html+='<div style="margin-bottom:16px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--sur2);border:1px solid var(--bdr);border-radius:8px 8px 0 0;border-bottom:none">'
+      +'<span style="font-size:12px;font-weight:700;color:var(--t1)">👤 '+hesc(analista)+'</span>'
+      +'<div style="display:flex;gap:8px">'
+      +'<span style="font-size:10px;font-weight:600;background:#e8f5f0;color:var(--green);padding:2px 8px;border-radius:10px">'+envAn+' enviados</span>'
+      +'<span style="font-size:10px;font-weight:600;background:#fef9ec;color:var(--amber);padding:2px 8px;border-radius:10px">'+pendAn+' pendientes</span>'
+      +'</div></div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid var(--bdr);border-radius:0 0 8px 8px;overflow:hidden">'
+      +'<thead><tr style="background:var(--sur2)">'
+      +'<th style="text-align:left;padding:7px 14px;font-size:10px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bdr)">Cliente</th>'
+      +'<th style="text-align:left;padding:7px 14px;font-size:10px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bdr)">Plan</th>'
+      +'<th style="text-align:center;padding:7px 14px;font-size:10px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bdr)">Estado</th>'
+      +'<th style="text-align:center;padding:7px 14px;font-size:10px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bdr)">Fecha envío</th>'
+      +'<th style="text-align:center;padding:7px 14px;font-size:10px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bdr)">Acción</th>'
+      +'</tr></thead>'
+      +'<tbody>'+filas+'</tbody>'
+      +'</table></div>';
+  });
+
+  // Stats globales
+  var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'
+    +'<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--t1)">'+(totalPend+totalEnv)+'</div>'
+    +'<div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Total clientes</div></div>'
+    +'<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--green)">'+totalEnv+'</div>'
+    +'<div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Enviados</div></div>'
+    +'<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--amber)">'+totalPend+'</div>'
+    +'<div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Pendientes</div></div>'
+    +'</div>';
+
+  var el=document.getElementById('nomina-preiva');
+  if(el){
+    el.innerHTML=statsHtml+html;
+    el.onclick=function(e){
+      var btn=e.target.closest('[data-rut-nom]');
+      if(btn) seleccionarClienteNomina(btn.dataset.rutNom);
+    };
+  }
+}
+
+function seleccionarClienteNomina(rut){
+  var c=_todosClientes.find(function(x){return x.rut===rut;});
+  if(!c) return;
+  _clienteActual=c;
+  var badge=document.getElementById('cliente-seleccionado');
+  if(badge) badge.style.display='flex';
+  var sn=document.getElementById('cliente-sel-nombre');
+  var sr=document.getElementById('cliente-sel-rut');
+  if(sn) sn.textContent=c.razonSocial||c.nombre||c.rut;
+  if(sr) sr.textContent=c.rut;
+  cargarDatos();
+  // Scroll al panel de simulación
+  var panel=document.getElementById('panel-simulacion');
+  if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 // ── ARRANQUE ──────────────────────────────────────────────────────────────
