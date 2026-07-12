@@ -897,6 +897,14 @@ function buildReporteHTML(){
   +'<div style="font-size:10px;color:#c9c0cc;margin-top:4px">Proyección basada en promedio diario al día '+now.getDate()+' · puede variar al cierre</div>'
   +'</div>'
 
+  // Desglose por tipo de documento
+  var desgloseVentas=buildDesgloseHTML(_datos.porTipoDocVentas||{}, '📄 Ventas por tipo de documento', '#904891');
+  var desgloseCompras=buildDesgloseHTML(_datos.porTipoDocCompras||{}, '📋 Compras por tipo de documento', '#2D9B6F');
+
+  // Desglose documentos
+  +desgloseVentas
+  +desgloseCompras
+
   // Zona de acción
   +'<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0">'
   +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">⚡ Zona de acción — quedan '+diasRestNum+' días</div>'
@@ -963,14 +971,26 @@ function enviarPreIVA(){
 
   var htmlReporte=buildReporteHTML();
 
-  fetch('https://contafunnel-proxy.vercel.app/api/enviar-preiva',{
+  // Comparativo vs mes anterior
+  var f29Ant=nv('inp-f29-ant');
+  var f29Num=parseInt(String(document.getElementById('kpi-f29').textContent).replace(/[^0-9]/g,''))||0;
+  var varComp='';
+  if(f29Ant>0){
+    var varPct=Math.round((f29Num-f29Ant)/f29Ant*100);
+    var varIcon=varPct>0?'↗':varPct<0?'↘':'=';
+    varComp='F29 proyectado: '+ff(f29Num)+' · '+varIcon+' '+(varPct>0?'+':'')+varPct+'% respecto al mes anterior ('+ff(f29Ant)+')';
+  }
+
+  fetch('https://contafunnel-v2.vercel.app/api/enviar-preiva',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      fromEmail:analista.email,
-      fromNombre:analista.nombre,
+      analistaNombre:analista.nombre,
+      analistaWa:analista.wa||'',
       toEmail:c.email,
-      toNombre:c.razonSocial||c.nombre,
+      toNombre:c.contacto||c.razonSocial||c.nombre,
+      toEmpresa:c.razonSocial||c.nombre,
+      varComparativo:varComp,
       periodo:periodo,
       htmlReporte:htmlReporte
     })
@@ -1235,8 +1255,14 @@ function onLibroChange(input,tipo){
     // Asignar según tipo de libro
     if(tipo==='ventas'){
       document.getElementById('inp-debito').value=res.iva;
+      _datos.porTipoDocVentas=res.porTipoDoc||{};
+      _datos.netoVentas=res.neto||0;
+      _datos.exentoVentas=res.exento||0;
     } else {
       document.getElementById('inp-credito').value=res.iva;
+      _datos.porTipoDocCompras=res.porTipoDoc||{};
+      _datos.netoCompras=res.neto||0;
+      _datos.exentoCompras=res.exento||0;
     }
 
     // Construir mensaje UI
@@ -1461,6 +1487,40 @@ function limpiarSimulacion(){
   _datos.debitoRegistrado=0;
   _datos.creditoRegistrado=0;
   _datos.ppm=0;
+}
+
+
+// ── DESGLOSE POR TIPO DE DOCUMENTO ───────────────────────────────────────
+function buildDesgloseHTML(porTipoDoc, titulo, colorAccento){
+  if(!porTipoDoc || !Object.keys(porTipoDoc).length) return '';
+  var total=Object.values(porTipoDoc).reduce(function(s,n){return s+n;},0);
+  var rows=Object.entries(porTipoDoc)
+    .sort(function(a,b){return b[1]-a[1];})
+    .map(function(e){
+      var pct=total>0?Math.round(e[1]/total*100):0;
+      return '<tr>'
+        +'<td style="padding:5px 0;color:#5c4a5d;font-size:11px;border-bottom:1px solid #f5f0f5">'+e[0]+'</td>'
+        +'<td style="text-align:right;padding:5px 0;font-weight:600;color:#1a0a1b;border-bottom:1px solid #f5f0f5">'+e[1]+'</td>'
+        +'<td style="text-align:right;padding:5px 0;color:#9a849b;border-bottom:1px solid #f5f0f5">'+pct+'%</td>'
+        +'</tr>';
+    }).join('');
+
+  return '<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">'
+    +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:8px">'+titulo+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr>'
+    +'<th style="text-align:left;padding:4px 0;font-size:10px;font-weight:600;color:#9a849b;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e8dde8">Tipo documento</th>'
+    +'<th style="text-align:right;padding:4px 0;font-size:10px;font-weight:600;color:#9a849b;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e8dde8">Cantidad</th>'
+    +'<th style="text-align:right;padding:4px 0;font-size:10px;font-weight:600;color:#9a849b;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e8dde8">% del total</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr>'
+    +'<td style="padding:6px 0;font-weight:700;color:#1a0a1b;font-size:12px">Total documentos</td>'
+    +'<td style="text-align:right;font-weight:700;color:'+colorAccento+';font-size:13px">'+total+'</td>'
+    +'<td></td>'
+    +'</tr></tfoot>'
+    +'</table>'
+    +'</div>';
 }
 
 // ── ARRANQUE ──────────────────────────────────────────────────────────────
