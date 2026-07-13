@@ -15,7 +15,7 @@
     _hostname === '127.0.0.1' ||
     _hostname.endsWith('.anthropic.com') ||
     _hostname.endsWith('.claude.ai') ||
-    _hostname === 'contadoor.github.io' ||  // producción — dev mode hasta tener login real
+    _hostname === 'contadoor.github.io' ||
     _hostname === ''
   );
   if(_isDevMode && !localStorage.getItem('usuario_activo')){
@@ -76,16 +76,11 @@
 
   var sesion = getSession();
 
-  // DEBUG — remover después de resolver el bug
-  console.log('[AUTH] sesion encontrada:', sesion ? 'SÍ' : 'NO');
-  if(sesion) console.log('[AUTH] esMaster:', sesion.esMaster, '| rol:', sesion.rol, '| tsLogin:', new Date(sesion.tsLogin).toLocaleTimeString());
-
   // Sin sesión → login
-  if(!sesion){ console.log('[AUTH] → redirigiendo a login (sin sesión)'); redirigirLogin(); return; }
+  if(!sesion){ redirigirLogin(); return; }
 
   // Sesión expirada (8 horas)
   if(Date.now() - sesion.tsLogin > 8 * 60 * 60 * 1000){
-    console.log('[AUTH] → sesión expirada, redirigiendo a login');
     localStorage.removeItem('usuario_activo');
     redirigirLogin();
     return;
