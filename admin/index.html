@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contadoor.app — Administración de Usuarios</title>
+<title>Admin · Gestoor</title>
 <style>
 :root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--red:#C0392B;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -105,9 +105,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="sb-sec">Base de Datos</div>
     <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
     <div class="sb-sec">Reportes</div>
-    <a class="sb-item" href="../reportes/index.html">📋 Nómina General</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Vista RRHH</a>
-    <a class="sb-item" href="../reportes-contable/index.html" style="opacity:.4">📊 Vista Contable</a>
+    <a class="sb-item" href="../reportes/index.html">📋 Panel de Control</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Remuneraciones</a>
+    <a class="sb-item" href="../reportes-contable/index.html" style="opacity:.4">📊 Tributario/Contable</a>
     <a class="sb-item" href="../reportes-pagos/index.html" style="opacity:.4">💰 Vista Pagos</a>
     <div class="sb-sec">Gestión Trabajadores</div>
     <a class="sb-item" href="../trabajadores/index.html" style="opacity:.4">👷 Trabajadores</a>
@@ -120,11 +120,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
     <div class="sb-sec">Tributario</div>
     <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
     <div class="sb-sec">Sistema</div>
     <a class="sb-item" href="../performance/index.html" style="opacity:.4">📈 Performance</a>
     <a class="sb-item on" href="../admin/index.html">👤 Admin</a>
   </nav>
-  <div class="sb-foot">Contadoor.app v1.0</div>
+  <div class="sb-foot">Gestoor v1.0</div>
 </aside>
 
 <main class="main">
@@ -218,26 +219,26 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 // ── MÓDULOS DEL SISTEMA ───────────────────────────────────────────────────
 var MODULOS_DISPONIBLES = [
   // Base de datos
-  {id:'clientes',          nombre:'Clientes',          icon:'👥', grupo:'Base de Datos'},
+  {id:'clientes',          nombre:'Clientes',          icon:'\u1f465', grupo:'Base de Datos'},
   // Reportes
-  {id:'reportes',          nombre:'Nómina General',    icon:'📋', grupo:'Reportes'},
-  {id:'reportes-rrhh',     nombre:'Vista RRHH',        icon:'👥', grupo:'Reportes'},
-  {id:'reportes-contable', nombre:'Vista Contable',    icon:'📊', grupo:'Reportes'},
-  {id:'reportes-pagos',    nombre:'Vista Pagos',       icon:'💰', grupo:'Reportes'},
+  {id:'reportes',          nombre:'N\u00f3mina General',    icon:'\u1f4cb', grupo:'Reportes'},
+  {id:'reportes-rrhh',     nombre:'Remuneraciones',        icon:'\u1f465', grupo:'Reportes'},
+  {id:'reportes-contable', nombre:'Vista Contable',    icon:'\u1f4ca', grupo:'Reportes'},
+  {id:'reportes-pagos',    nombre:'Vista Pagos',       icon:'\u1f4b0', grupo:'Reportes'},
   // Gestión de Trabajadores
-  {id:'trabajadores',      nombre:'Trabajadores',      icon:'👷', grupo:'Gestión Trabajadores'},
-  {id:'calendario-rrhh',   nombre:'Calendario RRHH',  icon:'📅', grupo:'Gestión Trabajadores'},
+  {id:'trabajadores',      nombre:'Trabajadores',      icon:'\u1f477', grupo:'Gesti\u00f3n Trabajadores'},
+  {id:'calendario-rrhh',   nombre:'Calendario RRHH',  icon:'\u1f4c5', grupo:'Gesti\u00f3n Trabajadores'},
   // Financiero
-  {id:'facturacion',       nombre:'Facturación',       icon:'🧾', grupo:'Financiero'},
-  {id:'pagos',             nombre:'Pagos',             icon:'💰', grupo:'Financiero'},
-  {id:'conciliacion',      nombre:'Conciliación',      icon:'🏦', grupo:'Financiero'},
-  {id:'cobranza',          nombre:'CxC / Cobranza',    icon:'🧾', grupo:'Financiero'},
-  {id:'convenios',         nombre:'Convenios',         icon:'🤝', grupo:'Financiero'},
+  {id:'facturacion',       nombre:'Facturaci\u00f3n',       icon:'\u1f9fe', grupo:'Financiero'},
+  {id:'pagos',             nombre:'Pagos',             icon:'\u1f4b0', grupo:'Financiero'},
+  {id:'conciliacion',      nombre:'Conciliaci\u00f3n',      icon:'\u1f3e6', grupo:'Financiero'},
+  {id:'cobranza',          nombre:'CxC / Cobranza',    icon:'\u1f9fe', grupo:'Financiero'},
+  {id:'convenios',         nombre:'Convenios',         icon:'\u1f91d', grupo:'Financiero'},
   // Tributario
-  {id:'pir',               nombre:'PIR',               icon:'📊', grupo:'Tributario'},
+  {id:'pir',               nombre:'PIR',               icon:'\u1f4ca', grupo:'Tributario'},
   // Sistema
-  {id:'performance',       nombre:'Performance',       icon:'📈', grupo:'Sistema'},
-  {id:'admin',             nombre:'Administración',    icon:'🔐', grupo:'Sistema'},
+  {id:'performance',       nombre:'Performance',       icon:'\u1f4c8', grupo:'Sistema'},
+  {id:'admin',             nombre:'Administraci\u00f3n',    icon:'\u1f510', grupo:'Sistema'},
 ];
 
 // ── PLANTILLAS DE ROL ─────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ var ROL_TEMPLATES = {
 };
 
 var USUARIOS_DEFAULT = [
-  {id:1,nombre:'Luciano Duarte',iniciales:'LD',rol:'master',rolLabel:'Master · Acceso total',
+  {id:1,nombre:'Luciano Duarte',iniciales:'LD',rol:'master',rolLabel:'Master \u00b7 Acceso total',
    pin:'1234',esMaster:true,activo:true,
    modulos:['clientes','reportes','reportes-rrhh','reportes-contable','reportes-pagos',
             'trabajadores','calendario-rrhh','facturacion','pagos','conciliacion',
@@ -282,7 +283,7 @@ function getUsuarios(){
   catch(e){return USUARIOS_DEFAULT;}
 }
 function setUsuarios(arr){localStorage.setItem('usuarios_sistema',JSON.stringify(arr));renderUsuarios();}
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 
 // ── RENDER USUARIOS ───────────────────────────────────────────────────────
@@ -298,24 +299,24 @@ function renderUsuarios(){
       return m?'<span class="u-mod-tag">'+m.icon+' '+m.nombre+'</span>':'';
     }).join('');
     var rolColor=ROL_COLORS[u.rol]||'#5c4a5d';
-    var rolLabel=u.rolLabel||u.rol||'—';
+    var rolLabel=u.rolLabel||u.rol||' - ';
     return'<div class="usuario-card">'
       +'<div class="u-avatar'+(u.esMaster?' master':'')+'">'+hesc(u.iniciales||u.nombre.slice(0,2).toUpperCase())+'</div>'
       +'<div class="u-info" style="flex:1">'
       +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'
       +'<div class="u-nombre">'+hesc(u.nombre)+'</div>'
-      +(u.esMaster?'<span class="master-badge">👑 Master</span>':'')
+      +(u.esMaster?'<span class="master-badge">\u1f451 Master</span>':'')
       +'<span style="background:'+rolColor+'22;color:'+rolColor+';border:1px solid '+rolColor+'44;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700">'+hesc(rolLabel)+'</span>'
       +(!u.activo?'<span class="inactivo-badge">Inactivo</span>':'')
       +'</div>'
-      +(u.email?'<div style="font-size:10px;color:var(--tm);margin-bottom:2px">✉️ '+hesc(u.email)+(u.wa?' · 💬 +56 '+hesc(u.wa):'')+'</div>':'')
+      +(u.email?'<div style="font-size:10px;color:#9a849b;margin-bottom:2px">\u2709\ufe0f '+hesc(u.email)+(u.wa?' \u00b7 \u1f4ac +56 '+hesc(u.wa):'')+'</div>':'')
       +'<div class="u-modulos" style="margin-bottom:6px">'+modsHTML+'</div>'
       +'<div class="u-actions">'
-      +'<span class="u-pin-badge">PIN: '+u.pin.replace(/./g,'●')+'</span>'
-      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="abrirModalEditar('+u.id+')">✏️ Editar</button>':'')
-      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPin('+u.id+')">🔑 PIN</button>':'')
-      +(u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPinMaster()">🔑 Cambiar mi PIN</button>':'')
-      +(!u.esMaster?'<button class="btn-danger btn-sm" onclick="eliminarUsuario('+u.id+')">🗑</button>':'')
+      +'<span class="u-pin-badge">PIN: '+u.pin.replace(/./g,'\u25cf')+'</span>'
+      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="abrirModalEditar('+u.id+')">\u270f\ufe0f Editar</button>':'')
+      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPin('+u.id+')">\u1f511 PIN</button>':'')
+      +(u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPinMaster()">\u1f511 Cambiar mi PIN</button>':'')
+      +(!u.esMaster?'<button class="btn-danger btn-sm" onclick="eliminarUsuario('+u.id+')">\u1f5d1</button>':'')
       +'</div>'
       +'</div>'
       +'</div>';
@@ -324,7 +325,7 @@ function renderUsuarios(){
   // Session info
   try{
     var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(s) document.getElementById('sessionInfo').textContent='Sesión: '+s.nombre;
+    if(s) document.getElementById('sessionInfo').textContent='Sesi\u00f3n: '+s.nombre;
   }catch(e){}
 }
 
@@ -336,7 +337,7 @@ function onRolChange(){
   if(!tmpl) return;
   renderModulosGrid(tmpl.modulos);
   var info=document.getElementById('rolPresetInfo');
-  if(info) info.textContent=' — '+tmpl.modulos.length+' módulos cargados desde plantilla '+tmpl.label;
+  if(info) info.textContent='  -  '+tmpl.modulos.length+' m\u00f3dulos cargados desde plantilla '+tmpl.label;
 }
 
 // ── MÓDULOS GRID AGRUPADO ─────────────────────────────────────────────────
@@ -351,7 +352,7 @@ function renderModulosGrid(seleccionados){
   var html='';
   Object.keys(grupos).forEach(function(g){
     html+='<div style="margin-bottom:12px">';
-    html+='<div style="font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--bdr)">'+g+'</div>';
+    html+='<div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8dde8">'+g+'</div>';
     html+='<div class="modulos-grid">';
     grupos[g].forEach(function(m){
       var checked=(seleccionados||[]).includes(m.id);
@@ -410,7 +411,7 @@ function abrirModalNuevo(){
 function abrirModalEditar(id){
   var u=getUsuarios().find(function(x){return x.id===id;});if(!u)return;
   _editId=id;
-  document.getElementById('modalTitle').textContent='Editar — '+u.nombre;
+  document.getElementById('modalTitle').textContent='Editar  -  '+u.nombre;
   document.getElementById('f-nombre').value=u.nombre||'';
   document.getElementById('f-iniciales').value=u.iniciales||'';
   document.getElementById('f-rol').value=u.rol||'';
@@ -420,7 +421,7 @@ function abrirModalEditar(id){
   var info=document.getElementById('rolPresetInfo');
   if(info&&u.rol){
     var tmpl=ROL_TEMPLATES[u.rol];
-    if(tmpl) info.textContent=' — Rol: '+tmpl.label;
+    if(tmpl) info.textContent='  -  Rol: '+tmpl.label;
   }
   setPin(u.pin||'');
   renderModulosGrid(u.modulos||[]);
@@ -435,9 +436,9 @@ function guardarUsuario(){
   var rol=sv('f-rol');
   if(!rol){alert('Selecciona un rol.');return;}
   var pin=getPin();
-  if(pin.length!==4){alert('El PIN debe ser de exactamente 4 dígitos.');return;}
+  if(pin.length!==4){alert('El PIN debe ser de exactamente 4 d\u00edgitos.');return;}
   var modulos=getModulosSeleccionados();
-  if(!modulos.length){alert('Selecciona al menos un módulo.');return;}
+  if(!modulos.length){alert('Selecciona al menos un m\u00f3dulo.');return;}
   var arr=getUsuarios();
   var tmpl=ROL_TEMPLATES[rol];
   var u={
@@ -460,15 +461,15 @@ function guardarUsuario(){
 function eliminarUsuario(id){
   var u=getUsuarios().find(function(x){return x.id===id;});
   if(!u||u.esMaster){alert('No puedes eliminar al usuario Master.');return;}
-  if(!confirm('¿Eliminar a '+u.nombre+'? No podrá acceder al sistema.'))return;
+  if(!confirm('\u00bfEliminar a '+u.nombre+'? No podr\u00e1 acceder al sistema.'))return;
   setUsuarios(getUsuarios().filter(function(x){return x.id!==id;}));
 }
 
 function cambiarPin(id){
   var u=getUsuarios().find(function(x){return x.id===id;});if(!u)return;
-  var nuevo=prompt('Nuevo PIN de 4 dígitos para '+u.nombre+':');
+  var nuevo=prompt('Nuevo PIN de 4 d\u00edgitos para '+u.nombre+':');
   if(!nuevo)return;
-  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 dígitos numéricos.');return;}
+  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 d\u00edgitos num\u00e9ricos.');return;}
   var arr=getUsuarios();
   var idx=arr.findIndex(function(x){return x.id===id;});
   if(idx>=0)arr[idx].pin=nuevo;
@@ -477,14 +478,14 @@ function cambiarPin(id){
 }
 
 function cambiarPinMaster(){
-  var nuevo=prompt('Nuevo PIN de 4 dígitos para tu usuario Master:');
+  var nuevo=prompt('Nuevo PIN de 4 d\u00edgitos para tu usuario Master:');
   if(!nuevo)return;
-  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 dígitos numéricos.');return;}
+  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 d\u00edgitos num\u00e9ricos.');return;}
   var arr=getUsuarios();
   var idx=arr.findIndex(function(x){return x.esMaster;});
   if(idx>=0)arr[idx].pin=nuevo;
   setUsuarios(arr);
-  alert('PIN master actualizado. Lo necesitarás la próxima vez que entres.');
+  alert('PIN master actualizado. Lo necesitar\u00e1s la pr\u00f3xima vez que entres.');
 }
 
 // Verificar que sea master
@@ -492,7 +493,7 @@ function verificarAcceso(){
   try{
     var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
     if(!s||!s.esMaster){
-      document.querySelector('.content').innerHTML='<div style="text-align:center;padding:60px;color:#C0392B"><h2>⛔ Acceso denegado</h2><p style="margin-top:8px;color:#5c4a5d">Esta sección es solo para el usuario Master (Luciano).</p><a href="../index.html" style="display:inline-block;margin-top:16px;color:#904891">← Volver al dashboard</a></div>';
+      document.querySelector('.content').innerHTML='<div style="text-align:center;padding:60px;color:#C0392B"><h2>\u26d4 Acceso denegado</h2><p style="margin-top:8px;color:#5c4a5d">Esta secci\u00f3n es solo para el usuario Master (Luciano).</p><a href="../index.html" style="display:inline-block;margin-top:16px;color:#904891">\u2190 Volver al dashboard</a></div>';
     }
   }catch(e){}
 }
