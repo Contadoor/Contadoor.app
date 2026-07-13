@@ -1,0 +1,469 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reportes Pagos · Gestoor</title>
+<style>
+:root{
+  --p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;
+  --sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;
+  --green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;
+  --pagos:#0e7490;--pagos-bg:#ecfeff;--pagos-bdr:#a5f3fc;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  --mono:'SF Mono','Fira Mono','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
+.sb-logo{padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06);}
+.sb-logo img{height:24px;opacity:.9;}
+.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
+.sb-sec{font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 5px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:rgba(255,255,255,.55);font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;margin-bottom:1px;}
+.sb-item:hover{background:rgba(255,255,255,.07);color:#fff;}
+.sb-item.on{background:rgba(14,116,144,.3);color:#fff;font-weight:600;}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.35);}
+
+/* LAYOUT */
+.wrap{margin-left:220px;flex:1;display:flex;flex-direction:column;}
+.main{flex:1;}
+
+/* TOPBAR */
+.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--pagos);position:sticky;top:0;z-index:10;}
+.tb-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
+.tb-analista{background:rgba(14,116,144,.3);color:#a5f3fc;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;}
+
+/* CONTENT */
+.content{padding:18px 20px;max-width:1200px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;}
+.stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
+.sv{font-size:20px;font-weight:700;font-family:monospace;}
+.sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
+
+/* CALENDARIO */
+.cal-bar{background:var(--sur);border:1px solid var(--pagos-bdr);border-left:3px solid var(--pagos);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+.cal-item{display:flex;align-items:center;gap:6px;font-size:11px;}
+.cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cal-lbl{color:var(--tm);}
+.cal-fecha{font-weight:700;color:var(--t1);}
+
+/* FILTROS */
+.filtros{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
+.fl{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;}
+.fb{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);}
+.fb.on{background:var(--pagos);color:#fff;border-color:var(--pagos);}
+.fb .cnt{background:rgba(255,255,255,.25);border-radius:10px;padding:0 5px;font-size:9px;font-weight:700;margin-left:3px;}
+
+/* BANNER TRANSFERIDOS */
+.banner-transferidos{background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.btn-conciliar{background:var(--pagos);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;}
+
+/* TABLA */
+.tabla-wrap{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
+.tabla-hdr{background:linear-gradient(135deg,#164e63,var(--pagos));padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.tabla-titulo{font-size:13px;font-weight:700;color:#fff;}
+.tabla-meta{font-size:10px;color:rgba(255,255,255,.55);margin-top:2px;}
+
+table{width:100%;border-collapse:collapse;}
+th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tm);padding:9px 14px;background:var(--sur2);border-bottom:1px solid var(--bdr);text-align:left;white-space:nowrap;}
+td{padding:11px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle;font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f0fdff;}
+
+/* CLIENTE */
+.cli-nombre{font-size:13px;font-weight:700;}
+.cli-rut{font-size:10px;color:var(--tm);margin-top:2px;}
+.plan-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;margin-top:3px;}
+.plan-e{background:var(--pp);color:var(--pd);}
+.plan-a{background:#eff6ff;color:#1e40af;}
+
+/* MONTOS DESGLOSE */
+.montos{display:flex;flex-direction:column;gap:3px;}
+.monto-item{display:flex;align-items:center;gap:6px;font-size:11px;}
+.monto-lbl{color:var(--tm);min-width:80px;}
+.monto-val{font-weight:600;font-family:monospace;color:var(--t1);}
+.monto-val.postergado{color:var(--amber);font-style:italic;}
+.monto-val.convenio{color:var(--p);}
+.monto-total{font-size:13px;font-weight:700;font-family:monospace;color:var(--pagos);border-top:1px solid var(--bdr);padding-top:4px;margin-top:4px;}
+
+/* TIMELINE MINI MORADO */
+.tl-mini{display:flex;align-items:center;gap:1px;margin-bottom:3px;}
+.tls{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+.tls.done{background:var(--p);color:#fff;}
+.tls.active{background:#fff;color:var(--p);border:2px solid var(--p);box-shadow:0 0 0 2px var(--pp);}
+.tls.next{background:var(--sur2);color:var(--tm);border:1.5px solid var(--bdr);}
+.tll{width:8px;height:1.5px;flex-shrink:0;}
+.tll.done{background:var(--p);}
+.tll.next{background:var(--bdr);}
+
+/* ESTADO BADGE */
+.eb{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.eb-enviado{background:#eff6ff;color:#1e40af;}
+.eb-transferido{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+.eb-conciliado{background:#ecfdf5;color:#064e3b;}
+.eb-ejecutando{background:#f5f3ff;color:#6b21a8;}
+.eb-firma{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.eb-pagado{background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;}
+.eb-sin-transf{background:#f3f4f6;color:#6b7280;}
+
+/* PROGRESO CONCILIACIÓN */
+.prog-bar{height:5px;background:var(--bdr);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;background:var(--pagos);border-radius:3px;transition:.3s;}
+
+/* BOTONES */
+.btn-p{background:var(--pagos);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:6px 10px;font-size:10.5px;cursor:pointer;white-space:nowrap;}
+.btn-amber{background:var(--amber);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
+.btn-purple{background:var(--p);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
+
+/* DETALLE EXPANDIDO */
+.cr-detalle{display:none;padding:14px 16px;background:var(--sur2);border-top:1px solid var(--bdr);}
+.cr-detalle.open{display:block;}
+.det-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.det-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;}
+.det-titulo{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.det-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--bdr);}
+.det-row:last-child{border-bottom:none;font-weight:700;}
+
+/* MODAL DISTRIBUCIÓN */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--sur);border-radius:14px;padding:22px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--tm);margin-bottom:16px;}
+.card-hd{font-size:10px;font-weight:700;color:var(--pagos);text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--pagos-bdr);}
+.dist-item{background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.dist-check{width:18px;height:18px;cursor:pointer;accent-color:var(--p);flex-shrink:0;}
+.dist-info{flex:1;}
+.dist-concepto{font-size:12.5px;font-weight:600;color:var(--t1);}
+.dist-sub{font-size:10.5px;color:var(--tm);margin-top:2px;}
+.dist-monto{font-size:14px;font-weight:700;font-family:monospace;color:var(--pagos);}
+.dist-total-box{background:var(--pagos-bg);border:1px solid var(--pagos-bdr);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--bdr);}
+.info-box{background:var(--pagos-bg);border:1px solid var(--pagos-bdr);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--pagos);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sb-logo">
+    <img src="../assets/logo_blanco_new.png" alt="Contadoor" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+    <span style="display:none;color:#fff;font-size:14px;font-weight:700;">CONTADOOR</span>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Principal</div>
+    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
+    <div class="sb-sec">Base de Datos</div>
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <div class="sb-sec">Reportes</div>
+    <a class="sb-item" href="../reportes/index.html">📋 Panel de Control</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Remuneraciones</a>
+    <a class="sb-item" href="../reportes-contable/index.html">📊 Tributario/Contable</a>
+    <a class="sb-item on" href="../reportes-pagos/index.html">💰 Vista Pagos</a>
+    <div class="sb-sec">Gestión Trabajadores</div>
+    <a class="sb-item" href="../trabajadores/index.html" style="opacity:.4">👷 Trabajadores</a>
+    <a class="sb-item" href="../calendario-rrhh/index.html" style="opacity:.4">📅 Calendario RRHH</a>
+    <div class="sb-sec">Financiero</div>
+    <a class="sb-item" href="../facturacion/index.html" style="opacity:.4">🧾 Facturación</a>
+    <a class="sb-item" href="../pagos/index.html">💰 Pagos</a>
+    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
+    <a class="sb-item" href="../cobranza/index.html">📋 CxC / Cobranza</a>
+    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
+    <div class="sb-sec">Tributario</div>
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
+    <div class="sb-sec">Sistema</div>
+    <a class="sb-item" href="../performance/index.html" style="opacity:.4">📈 Performance</a>
+    <a class="sb-item" href="../admin/index.html">👤 Admin</a>
+  </nav>
+  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
+</aside>
+
+<div class="wrap">
+<main class="main">
+  <div class="topbar">
+    <div class="tb-title">💰 Vista Pagos — Conciliación de Reportes</div>
+    <span class="tb-analista" id="tb-analista-nombre">Analista Pagos</span>
+    <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
+      <span style="font-size:18px">🔔</span>
+      <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Clientes</div></div>
+      <div class="stat"><div class="sv" id="st-enviado" style="color:var(--blue)">0</div><div class="sl">Enviados</div></div>
+      <div class="stat"><div class="sv" id="st-transferido" style="color:var(--amber)">0</div><div class="sl">Transfirieron</div></div>
+      <div class="stat"><div class="sv" id="st-conciliado" style="color:var(--pagos)">0</div><div class="sl">Conciliados</div></div>
+      <div class="stat"><div class="sv" id="st-firma" style="color:var(--amber)">0</div><div class="sl">Pend. firma</div></div>
+      <div class="stat"><div class="sv" id="st-pagado" style="color:var(--green)">0</div><div class="sl">Pagados</div></div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="cal-bar">
+      <span style="font-size:9.5px;font-weight:700;color:var(--pagos);text-transform:uppercase;letter-spacing:.7px">Calendario pagos:</span>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--red)"></div><span class="cal-lbl">F29 vence:</span><span class="cal-fecha" id="cal-f29">día 20</span></div>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--amber)"></div><span class="cal-lbl">Cotizaciones:</span><span class="cal-fecha" id="cal-cot">día 13 (prórroga 31)</span></div>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--p)"></div><span class="cal-lbl">Convenios:</span><span class="cal-fecha" id="cal-conv">día 31</span></div>
+      <div class="cal-item"><div class="cal-dot" style="background:var(--pagos)"></div><span class="cal-lbl">Hoy:</span><span class="cal-fecha" id="cal-hoy-label"></span></div>
+    </div>
+
+    <!-- BANNER TRANSFERIDOS -->
+    <div id="bannerTransferidos" style="display:none;" class="banner-transferidos">
+      <div>
+        <strong style="font-size:14px;color:#92400e;display:block;margin-bottom:2px;" id="bannerTransfTitulo">💸 Clientes que han transferido</strong>
+        <span style="font-size:11.5px;color:#78350f;" id="bannerTransfSub">Entra a Conciliación para asignar los montos por concepto</span>
+      </div>
+      <button class="btn-conciliar" onclick="window.location.href='../conciliacion/index.html'">🏦 Ir a Conciliación</button>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filtros">
+      <span class="fl">Estado:</span>
+      <button class="fb on" onclick="setFiltro('')">Todos</button>
+      <button class="fb" onclick="setFiltro('enviado')">📤 Enviados <span class="cnt" id="cnt-enviado">0</span></button>
+      <button class="fb" onclick="setFiltro('sin_transf')">⏳ Sin transferencia <span class="cnt" id="cnt-sin">0</span></button>
+      <button class="fb" onclick="setFiltro('transferido')">💸 Transfirieron <span class="cnt" id="cnt-transf">0</span></button>
+      <button class="fb" onclick="setFiltro('conciliado')">🏦 Conciliados <span class="cnt" id="cnt-conc">0</span></button>
+      <button class="fb" onclick="setFiltro('firma')">✍️ Pend. firma <span class="cnt" id="cnt-firma">0</span></button>
+      <button class="fb" onclick="setFiltro('pagado')">✅ Pagados <span class="cnt" id="cnt-pag">0</span></button>
+      <span class="fl" style="margin-left:12px">Período:</span>
+      <select id="selectPeriodo" onchange="cargarPeriodo()" style="padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);">
+        <option value="">Seleccionar...</option>
+      </select>
+    </div>
+
+    <!-- TABLA -->
+    <div class="tabla-wrap">
+      <div class="tabla-hdr">
+        <div>
+          <div class="tabla-titulo">💰 Cola de conciliación — <span id="periodo-label">Sin período</span></div>
+          <div class="tabla-meta" id="tabla-meta">Selecciona un período</div>
+        </div>
+        <input type="text" id="searchQ" placeholder="Buscar cliente..." oninput="renderTabla()"
+          style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 10px;font-size:11px;width:180px;"/>
+      </div>
+      <div id="tablaBody"></div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<script>
+var _filtroEstado='';
+var _periodoActual=null;
+
+function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
+function ff(n){return '$'+Math.round(Math.abs(n)||0).toLocaleString('es-CL');}
+function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
+function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
+function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
+function getReportes(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
+function setReportes(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
+
+function setFiltro(v){
+  _filtroEstado=v;
+  document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.remove('on');});
+  event.target.classList.add('on');
+  renderTabla();
+}
+
+function init(){
+  var u=getUsuario();
+  document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Pagos';
+  document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' \u00b7 '+(u.rolLabel||'Pagos');
+  var d=new Date();
+  document.getElementById('cal-hoy-label').textContent=d.getDate()+' '+d.toLocaleString('es-CL',{month:'short'});
+  var periodos=getPeriodos().filter(function(p){return p.estado==='abierto';});
+  var sel=document.getElementById('selectPeriodo');
+  periodos.forEach(function(p){
+    var o=document.createElement('option');o.value=p.periodo;o.textContent=p.periodo;sel.appendChild(o);
+  });
+  if(periodos.length){sel.value=periodos[0].periodo;cargarPeriodo();}
+}
+
+function cargarPeriodo(){
+  _periodoActual=sv('selectPeriodo');
+  document.getElementById('periodo-label').textContent=_periodoActual||'Sin per\u00edodo';
+  renderTabla();
+}
+
+function renderTabla(){
+  if(!_periodoActual){return;}
+  var q=(sv('searchQ')||'').toLowerCase();
+  var clientes=getClientes();
+  var reportes=getReportes();
+
+  // Solo clientes con reporte enviado o más avanzado
+  var items=clientes.filter(function(c){
+    var rep=reportes.find(function(r){return r.rut===c.rut&&r.periodo===_periodoActual;});
+    if(!rep)return false;
+    var est=rep.estadoContable||'';
+    if(!['enviado','transferido','conciliado','firma','pagado'].includes(est)) return false;
+    if(q&&!(c.razon||'').toLowerCase().includes(q)&&!(c.rut||'').includes(q)) return false;
+    if(_filtroEstado==='sin_transf') return est==='enviado'&&!rep.transferencia;
+    if(_filtroEstado==='transferido') return est==='transferido'||rep.transferencia;
+    if(_filtroEstado&&est!==_filtroEstado) return false;
+    return true;
+  });
+
+  // Contadores
+  var cntEnv=0,cntSin=0,cntTransf=0,cntConc=0,cntFirma=0,cntPag=0;
+  clientes.forEach(function(c){
+    var rep=reportes.find(function(r){return r.rut===c.rut&&r.periodo===_periodoActual;})||{};
+    var est=rep.estadoContable||'';
+    if(est==='enviado')cntEnv++;
+    if(est==='enviado'&&!rep.transferencia)cntSin++;
+    if(est==='transferido'||rep.transferencia)cntTransf++;
+    if(est==='conciliado')cntConc++;
+    if(est==='firma')cntFirma++;
+    if(est==='pagado')cntPag++;
+  });
+  ['enviado','sin','transf','conc','firma','pag'].forEach(function(k,i){
+    var el=document.getElementById('cnt-'+k);
+    if(el)el.textContent=[cntEnv,cntSin,cntTransf,cntConc,cntFirma,cntPag][i];
+  });
+  document.getElementById('st-total').textContent=clientes.length;
+  document.getElementById('st-enviado').textContent=cntEnv;
+  document.getElementById('st-transferido').textContent=cntTransf;
+  document.getElementById('st-conciliado').textContent=cntConc;
+  document.getElementById('st-firma').textContent=cntFirma;
+  document.getElementById('st-pagado').textContent=cntPag;
+  document.getElementById('tabla-meta').textContent=items.length+' clientes \u00b7 '+cntTransf+' transfirieron \u00b7 '+cntConc+' conciliados';
+
+  // Banner transferidos
+  var bt=document.getElementById('bannerTransferidos');
+  if(cntTransf>0){
+    bt.style.display='flex';
+    document.getElementById('bannerTransfTitulo').textContent='\u1f4b8 '+cntTransf+' cliente'+(cntTransf>1?'s han':'  ha')+' transferido';
+    document.getElementById('bannerTransfSub').textContent='Entra a Conciliaci\u00f3n para asignar los montos por concepto y notificar a los analistas';
+  }else bt.style.display='none';
+
+  var html='';
+  items.forEach(function(c){
+    var rep=reportes.find(function(r){return r.rut===c.rut&&r.periodo===_periodoActual;})||{};
+    var est=rep.estadoContable||'enviado';
+    var f29=rep.f29||{};
+    var planCls=c.plan==='estrategico'?'plan-e':'plan-a';
+    var planLbl=c.plan==='estrategico'?'\u2b50 Estrat\u00e9gico':'\u1f535 Asesor\u00eda';
+    var transf=rep.transferencia||null;
+
+    // TIMELINE 7 pasos morados
+    var steps=[
+      {e:'done',i:'\u2713'},{e:'done',i:'\u2713'},{e:'done',i:'\u2713'},
+      {e:'done',i:'\u2713'},
+      {e:est==='enviado'?'active':est==='transferido'?'active':(est==='conciliado'||est==='firma'||est==='pagado'?'done':'next'),i:est==='transferido'?'\u1f4b8':'5'},
+      {e:est==='conciliado'?'active':(est==='firma'||est==='pagado'?'done':'next'),i:est==='conciliado'?'\u1f3e6':'6'},
+      {e:est==='firma'?'active':(est==='pagado'?'done':'next'),i:est==='pagado'?'\u2713':'\u270d'}
+    ];
+    var tl='<div class="tl-mini">';
+    steps.forEach(function(s,i){
+      var bg=s.e==='done'?'#904891':s.e==='active'?'#fff':'#faf7fa';
+      var color=s.e==='done'?'#fff':s.e==='active'?'#904891':'#9a849b';
+      var bdr=s.e==='active'?'2px solid #904891':'1.5px solid '+(s.e==='done'?'#904891':'#e8dde8');
+      var shd=s.e==='active'?'box-shadow:0 0 0 2px #F5EAF5;':'';
+      tl+='<div class="tls" style="background:'+bg+';color:'+color+';border:'+bdr+';'+shd+'">'+s.i+'</div>';
+      if(i<steps.length-1)tl+='<div class="tll '+(s.e==='done'?'done':'next')+'"></div>';
+    });
+    tl+='</div>';
+
+    // Badge estado
+    var badge='';
+    if(est==='enviado'&&!transf) badge='<span class="eb eb-sin-transf">\u23f3 Sin transferencia</span>';
+    else if(est==='transferido'||transf) badge='<span class="eb eb-transferido">\u1f4b8 Transferido \u00b7 conciliar</span>';
+    else if(est==='conciliado') badge='<span class="eb eb-conciliado">\u1f3e6 Conciliado</span>';
+    else if(est==='firma') badge='<span class="eb eb-firma">\u270d\ufe0f Pend. firma</span>';
+    else if(est==='pagado') badge='<span class="eb eb-pagado">\u2705 Pagado</span>';
+
+    // Montos F29
+    var totalF29=(f29.ivaApagar||0)+(f29.ppm||0)+(f29.retenciones||0)+(f29.honorarios||0);
+    var transfMonto=transf?transf.monto:0;
+    var diff=transfMonto-totalF29;
+
+    html+='<tr style="'+(est==='pagado'?'background:#f9fefb;':transf?'background:#fffbeb;':'')+'" onclick="toggleDet(\''+c.rut+'\')">';
+    html+='<td><div class="cli-nombre">'+hesc(c.razon)+'</div><div class="cli-rut">'+hesc(c.rut)+'</div><span class="plan-badge '+planCls+'">'+planLbl+'</span></td>';
+    html+='<td><div class="montos">';
+    if(f29.ivaApagar) html+='<div class="monto-item"><span class="monto-lbl">SII F29</span><span class="monto-val">'+ff(f29.ivaApagar)+'</span></div>';
+    if(f29.ppm) html+='<div class="monto-item"><span class="monto-lbl">PPM</span><span class="monto-val">'+ff(f29.ppm)+'</span></div>';
+    if(f29.honorarios) html+='<div class="monto-item"><span class="monto-lbl">Nuestros Serv.</span><span class="monto-val">'+ff(f29.honorarios)+'</span></div>';
+    if(rep.rrhh&&rep.rrhh.totalCotizaciones) html+='<div class="monto-item"><span class="monto-lbl">Cotizaciones</span><span class="monto-val">'+ff(rep.rrhh.totalCotizaciones)+'</span></div>';
+    if(f29.ivaPostergado) html+='<div class="monto-item"><span class="monto-lbl">IVA posterg.</span><span class="monto-val postergado">'+ff(f29.ivaPostergado)+' (sep.)</span></div>';
+    html+='<div class="monto-total">'+ff(totalF29)+'</div></div></td>';
+    html+='<td>';
+    if(transf){
+      html+='<div style="font-size:13px;font-weight:700;font-family:monospace;color:#2D9B6F;">'+ff(transfMonto)+'</div>';
+      html+='<div style="font-size:10px;color:#9a849b;margin-top:2px;">'+hesc(transf.fecha||'')+'</div>';
+      if(diff!==0) html+='<div style="font-size:10px;margin-top:2px;color:'+(diff>0?'#2D9B6F':'#C0392B')+';">'+(diff>0?'Excedente +':'Faltante ')+ff(Math.abs(diff))+'</div>';
+      // Barra de progreso conciliación
+      var concPct=rep.conciliacion?Math.min(100,Math.round((rep.conciliacion.asignado/transfMonto)*100)):0;
+      html+='<div class="prog-bar"><div class="prog-fill" style="width:'+concPct+'%"></div></div>';
+      html+='<div style="font-size:9.5px;color:#0e7490;margin-top:2px;">'+concPct+'% conciliado</div>';
+    } else {
+      html+='<div style="font-size:11px;color:#9a849b;">Sin transferencia a\u00fan</div>';
+    }
+    html+='</td>';
+    html+='<td>'+tl+badge+'</td>';
+    html+='<td style="text-align:right;">';
+    if(transf&&est!=='pagado') html+='<button class="btn-p" onclick="event.stopPropagation();irAConciliacion(\''+c.rut+'\')">\u1f3e6 Conciliar</button> ';
+    html+='<button class="btn-s" onclick="event.stopPropagation();toggleDet(\''+c.rut+'\')">\u1f441</button>';
+    html+='</td></tr>';
+
+    // Detalle expandido
+    html+='<tr><td colspan="5" style="padding:0;border-bottom:1px solid #e8dde8;"><div class="cr-detalle" id="det-'+c.rut+'">';
+    if(rep.conciliacion&&rep.conciliacion.items){
+      html+='<div style="font-size:10px;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Distribuci\u00f3n de la transferencia</div>';
+      html+='<div class="det-grid">';
+      rep.conciliacion.items.forEach(function(it){
+        html+='<div class="det-card"><div class="det-titulo">'+hesc(it.concepto)+'</div>';
+        html+='<div class="det-row"><span>Monto asignado</span><span>'+ff(it.monto)+'</span></div>';
+        html+='<div class="det-row"><span>Estado</span><span style="color:#2D9B6F">'+hesc(it.estado||'Asignado')+'</span></div>';
+        html+='</div>';
+      });
+      html+='</div>';
+    } else {
+      html+='<div style="text-align:center;color:#9a849b;font-size:12px;padding:8px 0;">'+
+        (transf?'\u1f4b8 Transferencia recibida  -  pendiente de distribuir por concepto':'\u23f3 Esperando transferencia del cliente')+'</div>';
+    }
+    html+='</div></td></tr>';
+  });
+
+  document.getElementById('tablaBody').innerHTML=
+    '<table><thead><tr><th>Cliente</th><th>Obligaciones del per\u00edodo</th><th>Transferencia</th><th>Estado \u00b7 Flujo</th><th style="text-align:right">Acci\u00f3n</th></tr></thead><tbody>'
+    +(html||'<tr><td colspan="5" style="padding:24px;text-align:center;color:#9a849b">Sin clientes para este per\u00edodo</td></tr>')
+    +'</tbody></table>';
+}
+
+function toggleDet(rut){
+  var el=document.getElementById('det-'+rut);
+  if(el)el.classList.toggle('open');
+}
+
+// ── MODAL DISTRIBUCIÓN ────────────────────────────────────────────────────
+function irAConciliacion(rut){
+  // Guarda el cliente preseleccionado y va al módulo de conciliación
+  sessionStorage.setItem('conciliacion_cliente_rut', rut);
+  sessionStorage.setItem('conciliacion_periodo', _periodoActual);
+  window.location.href='../conciliacion/index.html';
+}
+
+function closeDist(){document.getElementById('modalDist').classList.remove('on');}
+
+init();
+</script>
+<script src="../notifications.js"></script>
+<script src="../auth.js"></script>
+</body>
+</html>
