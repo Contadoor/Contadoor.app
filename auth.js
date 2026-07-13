@@ -71,7 +71,7 @@
   }
 
   function redirigirLogin(){
-    window.location.href = loginUrl + '?redirect=' + encodeURIComponent(window.location.href);
+    window.location.href = loginUrl;
   }
 
   var sesion = getSession();
