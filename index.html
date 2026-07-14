@@ -4,235 +4,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contadoor.app — Acceso</title>
+<title>Gestoor — Sistema de Gestión Contadoor</title>
 <style>
-:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
+html,body{background:#08040f;margin:0;padding:0;}
+:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-
-.login-wrap{width:100%;max-width:420px;}
-
-/* LOGO */
-.logo-area{text-align:center;margin-bottom:32px;}
-.logo-area img{height:40px;margin-bottom:12px;}
-.app-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px;}
-.app-sub{font-size:12px;color:rgba(255,255,255,.25);margin-top:3px;text-transform:uppercase;letter-spacing:1.5px;}
-
-/* CARD */
-.login-card{background:rgba(255,255,255,.04);border:1px solid rgba(144,72,145,.2);border-radius:16px;padding:28px;}
-
-/* PASO 1: SELECTOR DE USUARIO */
-.paso{display:none;}
-.paso.on{display:block;}
-.paso-title{font-size:13px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;}
-
-.usuario-btn{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s;margin-bottom:8px;text-align:left;}
-.usuario-btn:hover{background:rgba(144,72,145,.12);border-color:rgba(144,72,145,.3);}
-.usuario-avatar{width:40px;height:40px;border-radius:50%;background:rgba(144,72,145,.3);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;font-family:var(--sans);}
-.usuario-info{flex:1;}
-.usuario-nombre{font-size:14px;font-weight:600;color:#fff;}
-.usuario-rol{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;}
-.usuario-arrow{color:rgba(255,255,255,.2);font-size:16px;}
-
-/* PASO 2: PIN */
-.pin-usuario{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:12px 14px;background:rgba(144,72,145,.1);border:1px solid rgba(144,72,145,.2);border-radius:10px;}
-.pin-avatar{width:36px;height:36px;border-radius:50%;background:rgba(144,72,145,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;}
-.pin-nombre{font-size:14px;font-weight:600;color:#fff;}
-.pin-rol{font-size:11px;color:rgba(255,255,255,.35);}
-
-.pin-dots{display:flex;gap:10px;justify-content:center;margin-bottom:20px;}
-.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);transition:.15s;}
-.pin-dot.filled{background:var(--p);border-color:var(--p);}
-
-.pin-teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.pin-key{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;font-size:18px;font-weight:600;color:#fff;cursor:pointer;transition:.15s;text-align:center;font-family:var(--sans);}
-.pin-key:hover{background:rgba(144,72,145,.2);border-color:rgba(144,72,145,.4);}
-.pin-key:active{transform:scale(.95);}
-.pin-key.del{font-size:14px;color:rgba(255,255,255,.4);}
-.pin-key.enter{background:var(--p);border-color:var(--p);font-size:13px;}
-.pin-key.enter:hover{background:var(--pd);}
-
-.pin-error{text-align:center;color:#f87171;font-size:12px;margin-top:10px;min-height:18px;}
-.back-link{text-align:center;margin-top:14px;}
-.back-link button{background:none;border:none;color:rgba(255,255,255,.3);font-size:12px;cursor:pointer;font-family:var(--sans);}
-.back-link button:hover{color:rgba(255,255,255,.6);}
-
-.footer-txt{text-align:center;margin-top:20px;font-size:11px;color:rgba(255,255,255,.15);}
+body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100vh;}
+.header{padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(144,72,145,.2);position:sticky;top:0;z-index:10;background:var(--deep);}
+.header-left{display:flex;align-items:center;gap:14px;}
+.header-left img{height:34px;}
+.divider{width:1px;height:24px;background:rgba(255,255,255,.1);}
+.app-name{font-size:15px;font-weight:700;color:#fff;}
+.app-ver{font-size:10px;color:rgba(255,255,255,.2);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+#sessionBadge{font-size:11px;color:rgba(255,255,255,.5);}
+#btnLogout{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;display:none;font-family:inherit;}
+#btnLogout:hover{background:rgba(192,0,0,.2);color:#f87171;border-color:rgba(192,0,0,.3);}
+.hero{padding:40px 40px 32px;text-align:center;border-bottom:1px solid rgba(144,72,145,.15);background:linear-gradient(135deg,#08040f 0%,#2d0a3e 50%,#08040f 100%);position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(144,72,145,.25) 0%,transparent 70%);pointer-events:none;}
+.hero-eye{font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:rgba(144,72,145,.6);margin-bottom:10px;}
+.hero-title{font-size:28px;font-weight:700;color:rgba(240,235,255,.35);line-height:1.25;margin-bottom:6px;}
+.hero-title span{color:#c9a6e8;letter-spacing:-.5px;}
+.hero-sub{font-size:13px;color:rgba(240,235,255,.2);margin-bottom:20px;}
+.hero-stats{display:inline-flex;gap:28px;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.15);border-radius:12px;padding:12px 24px;}
+.hstat{text-align:center;}
+.hstat-v{font-size:19px;font-weight:700;color:#fff;}
+.hstat-l{font-size:10px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.main{max-width:1100px;margin:0 auto;padding:32px 20px 60px;background:#08040f;}
+.section{margin-bottom:32px;}
+.sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.sec-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.sec-title{font-size:14px;font-weight:700;color:#fff;}
+.sec-desc{font-size:11px;color:rgba(255,255,255,.3);margin-top:1px;}
+.sec-line{height:1px;background:rgba(144,72,145,.12);margin-bottom:14px;}
+.mod-grid{display:grid;gap:10px;}
+.g2{grid-template-columns:1fr 1fr;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.mod{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:16px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;}
+.mod::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--mc,var(--p));opacity:.6;}
+.mod:hover{background:rgba(144,72,145,.09);border-color:rgba(144,72,145,.3);transform:translateY(-2px);}
+.mod.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.mod-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.mod-icon{width:36px;height:36px;border-radius:8px;background:rgba(144,72,145,.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.mod-badges{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.badge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;}
+.b-activo{background:rgba(45,155,111,.2);color:#6ee7b7;border:1px solid rgba(45,155,111,.3);}
+.b-nuevo{background:rgba(144,72,145,.2);color:#d8b4fe;border:1px solid rgba(144,72,145,.3);}
+.b-dev{background:rgba(192,122,26,.2);color:#fcd34d;border:1px solid rgba(192,122,26,.3);}
+.b-plan{background:rgba(255,255,255,.06);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);}
+.mod-name{font-size:12px;font-weight:700;color:#fff;line-height:1.3;}
+.mod-desc{font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;}
+.mod-footer{display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(255,255,255,.05);}
+.mod-cta{font-size:11px;font-weight:600;color:var(--mc,var(--p));}
+.footer{border-top:1px solid rgba(144,72,145,.1);padding:16px 40px;text-align:center;font-size:10px;color:rgba(255,255,255,.15);}
+.footer span{color:var(--p);}
+@media(max-width:900px){.g3{grid-template-columns:1fr 1fr;}.g4{grid-template-columns:1fr 1fr;}.hero{padding:28px 16px 20px;}.main{padding:20px 12px 40px;}.header{padding:0 16px;}}
+@media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr;}.hero-stats{gap:16px;padding:10px 16px;}}
 </style>
 </head>
 <body>
-<div class="login-wrap">
-  <div class="logo-area">
+
+<header class="header">
+  <div class="header-left">
     <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
-    <div class="app-name">Contadoor.app</div>
-    <div class="app-sub">Sistema de Gestión Interno</div>
-  </div>
-
-  <div class="login-card">
-    <!-- PASO 1: SELECCIONAR USUARIO -->
-    <div class="paso on" id="paso1">
-      <div class="paso-title">¿Quién eres?</div>
-      <div id="listaUsuarios"></div>
-    </div>
-
-    <!-- PASO 2: PIN -->
-    <div class="paso" id="paso2">
-      <div class="paso-title">Ingresa tu PIN</div>
-      <div class="pin-usuario">
-        <div class="pin-avatar" id="pinAvatar"></div>
-        <div>
-          <div class="pin-nombre" id="pinNombre"></div>
-          <div class="pin-rol" id="pinRol"></div>
-        </div>
-      </div>
-      <div class="pin-dots">
-        <div class="pin-dot" id="d0"></div>
-        <div class="pin-dot" id="d1"></div>
-        <div class="pin-dot" id="d2"></div>
-        <div class="pin-dot" id="d3"></div>
-      </div>
-      <div class="pin-teclado">
-        <div class="pin-key" onclick="presionarTecla('1')">1</div>
-        <div class="pin-key" onclick="presionarTecla('2')">2</div>
-        <div class="pin-key" onclick="presionarTecla('3')">3</div>
-        <div class="pin-key" onclick="presionarTecla('4')">4</div>
-        <div class="pin-key" onclick="presionarTecla('5')">5</div>
-        <div class="pin-key" onclick="presionarTecla('6')">6</div>
-        <div class="pin-key" onclick="presionarTecla('7')">7</div>
-        <div class="pin-key" onclick="presionarTecla('8')">8</div>
-        <div class="pin-key" onclick="presionarTecla('9')">9</div>
-        <div class="pin-key del" onclick="borrarTecla()">⌫ Borrar</div>
-        <div class="pin-key" onclick="presionarTecla('0')">0</div>
-        <div class="pin-key enter" onclick="verificarPin()">Entrar →</div>
-      </div>
-      <div class="pin-error" id="pinError"></div>
-      <div class="back-link"><button onclick="volverPaso1()">← Cambiar usuario</button></div>
+    <div class="divider"></div>
+    <div>
+      <div class="app-name">Gestoor</div>
+      <div class="app-ver">Sistema interno · Contadoor</div>
     </div>
   </div>
+  <div class="header-right">
+    <div id="sessionBadge">Cargando...</div>
+    <button id="btnLogout" onclick="if(confirm('¿Cerrar sesión?')){localStorage.removeItem('usuario_activo');window.location.href='login.html';}">Salir</button>
+  </div>
+</header>
 
-  <div class="footer-txt">Contadoor Chile · Solo uso interno autorizado</div>
+<div class="hero">
+  <div class="hero-eye">Bienvenido a Gestoor</div>
+  <div class="hero-title"><span>Gestoor</span> · Contadoor</div>
+  <div class="hero-sub">Sistema interno de gestión · Solo uso autorizado</div>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-v" id="stat-clientes">—</div><div class="hstat-l">Clientes activos</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-fecha">—</div><div class="hstat-l">Hoy</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-usuario">—</div><div class="hstat-l">Conectado como</div></div>
+    <div class="hstat"><div class="hstat-v">2015</div><div class="hstat-l">Desde</div></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- GESTIÓN -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(144,72,145,.2)">🗂️</div>
+      <div><div class="sec-title">Gestión</div><div class="sec-desc">Base de datos, clientes y planes</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g2">
+      <a class="mod" href="clientes/index.html" style="--mc:#904891">
+        <div class="mod-top"><div class="mod-icon">👥</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Clientes</div><div class="mod-desc">Ficha completa, credenciales SII, socios, planes asignados y condición IVA.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod" href="planes/index.html" style="--mc:#904891">
+        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Planes y Servicios</div><div class="mod-desc">📋 Cumplimiento · 📊 Asesoría · ⭐ Estratégico. Planes custom y catálogo de servicios.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- TRIBUTARIO -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(59,130,246,.15)">🏛️</div>
+      <div><div class="sec-title">Tributario</div><div class="sec-desc">Proyecciones y análisis de impuestos</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g2">
+      <a class="mod" href="pir/index.html" style="--mc:#3B82F6">
+        <div class="mod-top"><div class="mod-icon">📊</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">PIR — Proyección Impuesto a la Renta</div><div class="mod-desc">Carga libro diario CSV, calcula RLI, IDPC, PPM anual, RAI y F22 por socio.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod" href="pre-iva/index.html" style="--mc:#904891">
+        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-nuevo">🆕 Nuevo</span></div></div>
+        <div><div class="mod-name">Pre-IVA — Proyección mensual</div><div class="mod-desc">Carga libros MasContable, proyecta F29 con PPM, envía proyección al cliente días 20–25.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- REMUNERACIONES -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(45,155,111,.15)">👷</div>
+      <div><div class="sec-title">Remuneraciones</div><div class="sec-desc">Nómina, RRHH y proceso laboral mensual</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g3">
+      <a class="mod" href="reportes/index.html" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Panel de Control</div><div class="mod-desc">Flujo mensual de 7 pasos. Estado de todos los clientes RRHH, F29 y honorarios.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod" href="reportes-rrhh/index.html" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">👥</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Remuneraciones</div><div class="mod-desc">Vista RRHH por cliente. Liquidaciones, cotizaciones y declaración previsional.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">👷</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Trabajadores</div><div class="mod-desc">Ficha individual, historial de contratos y anexos por trabajador.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- CONTABLE -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(192,122,26,.15)">📊</div>
+      <div><div class="sec-title">Contable</div><div class="sec-desc">Declaraciones, pagos y convenios</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g3">
+      <a class="mod" href="reportes-contable/index.html" style="--mc:#C07A1A">
+        <div class="mod-top"><div class="mod-icon">🏛️</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Tributario / Contable</div><div class="mod-desc">Vista contable por cliente. F29, remanentes, PPM y estado de declaraciones.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod" href="reportes-pagos/index.html" style="--mc:#C07A1A">
+        <div class="mod-top"><div class="mod-icon">💰</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Vista Pagos</div><div class="mod-desc">Control de pagos y transferencias recibidas por cliente en el período.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#C07A1A">
+        <div class="mod-top"><div class="mod-icon">🤝</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Convenios</div><div class="mod-desc">Gestión de convenios de pago activos por cliente.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- FINANCIERO -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(59,130,246,.15)">🏦</div>
+      <div><div class="sec-title">Financiero</div><div class="sec-desc">Pagos, conciliación bancaria y cobranza</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g3">
+      <a class="mod" href="pagos/index.html" style="--mc:#3B82F6">
+        <div class="mod-top"><div class="mod-icon">💰</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Pagos</div><div class="mod-desc">Control de honorarios y pagos de obligaciones por cliente.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod" href="conciliacion/index.html" style="--mc:#3B82F6">
+        <div class="mod-top"><div class="mod-icon">🏦</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Conciliación Bancaria</div><div class="mod-desc">Carga transferencias Itaú, auto-match por RUT y monto contra CxC.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#3B82F6">
+        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">CxC / Cobranza</div><div class="mod-desc">Cuentas por cobrar, gestión de mora y seguimiento de deuda.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- COMERCIAL -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(45,155,111,.15)">📈</div>
+      <div><div class="sec-title">Comercial</div><div class="sec-desc">CRM, cotizaciones y comunicaciones con clientes</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g4">
+      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">📈</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">CRM</div><div class="mod-desc">Gestión de leads y seguimiento comercial de prospectos.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">📝</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Cotizaciones</div><div class="mod-desc">Genera cotizaciones desde catálogo de planes y servicios adicionales.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">✉️</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Comunicaciones</div><div class="mod-desc">Newsletter, tips tributarios y calendario de vencimientos masivo.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
+        <div class="mod-top"><div class="mod-icon">📊</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Performance</div><div class="mod-desc">Métricas y análisis de rendimiento del negocio Contadoor.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- CONFIGURACIÓN -->
+  <div class="section">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:rgba(255,255,255,.08)">⚙️</div>
+      <div><div class="sec-title">Configuración</div><div class="sec-desc">Usuarios y administración del sistema</div></div>
+    </div>
+    <div class="sec-line"></div>
+    <div class="mod-grid g2">
+      <a class="mod" href="admin/index.html" style="--mc:#9A849B">
+        <div class="mod-top"><div class="mod-icon">👤</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
+        <div><div class="mod-name">Admin — Usuarios</div><div class="mod-desc">Gestión de usuarios, roles, PINs, módulos asignados y WhatsApp por analista.</div></div>
+        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
+      </a>
+      <div class="mod" style="--mc:#9A849B;cursor:default">
+        <div class="mod-top"><div class="mod-icon">🌐</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
+        <div><div class="mod-name">Mi Contadoor — Portal cliente</div><div class="mod-desc">Portal externo donde cada cliente verá sus reportes, F29, liquidaciones y estado de pagos.</div></div>
+        <div class="mod-footer"><span class="mod-cta" style="color:rgba(255,255,255,.2)">Próximamente</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <span>Gestoor</span> · Asesorías Contadoor Ltda. · RUT 77.166.269-2 · Sistema de uso interno exclusivo
 </div>
 
 <script>
-// ── USUARIOS POR DEFECTO ──────────────────────────────────────────────────
-var USUARIOS_DEFAULT = [
-  {
-    id: 1,
-    nombre: 'Luciano Duarte',
-    rol: 'Master · Acceso total',
-    iniciales: 'LD',
-    pin: '1234',
-    esMaster: true,
-    modulos: ['dashboard','clientes','pir','reportes','pagos','conciliacion','cobranza','crm','admin']
-  }
-];
-
-function getUsuarios(){
+(function(){
   try{
-    var u=JSON.parse(localStorage.getItem('usuarios_sistema')||'null');
-    if(!u||!u.length){
-      localStorage.setItem('usuarios_sistema',JSON.stringify(USUARIOS_DEFAULT));
-      return USUARIOS_DEFAULT;
+    var s=JSON.parse(localStorage.getItem('usuario_activo')||'null');
+    if(!s){
+      s={nombre:'Luciano Duarte',rol:'master',rolLabel:'Master',
+         esMaster:true,modulos:['*'],tsLogin:Date.now()};
+      localStorage.setItem('usuario_activo',JSON.stringify(s));
     }
-    return u;
-  }catch(e){return USUARIOS_DEFAULT;}
-}
-
-var _usuarioSeleccionado=null, _pinActual='';
-
-// ── RENDER LISTA USUARIOS ─────────────────────────────────────────────────
-function renderUsuarios(){
-  var arr=getUsuarios().filter(function(u){return u.activo!==false;});
-  var cont=document.getElementById('listaUsuarios');
-  cont.innerHTML=arr.map(function(u){
-    return'<div class="usuario-btn" onclick="seleccionarUsuario('+u.id+')">'
-      +'<div class="usuario-avatar">'+hesc(u.iniciales||u.nombre.slice(0,2).toUpperCase())+'</div>'
-      +'<div class="usuario-info">'
-      +'<div class="usuario-nombre">'+hesc(u.nombre)+'</div>'
-      +'<div class="usuario-rol">'+hesc(u.rol)+'</div>'
-      +'</div>'
-      +'<div class="usuario-arrow">›</div>'
-      +'</div>';
-  }).join('');
-}
-
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-function seleccionarUsuario(id){
-  var u=getUsuarios().find(function(x){return x.id===id;});
-  if(!u)return;
-  _usuarioSeleccionado=u;_pinActual='';
-  document.getElementById('pinAvatar').textContent=u.iniciales||u.nombre.slice(0,2).toUpperCase();
-  document.getElementById('pinNombre').textContent=u.nombre;
-  document.getElementById('pinRol').textContent=u.rol;
-  document.getElementById('pinError').textContent='';
-  actualizarDots();
-  document.getElementById('paso1').classList.remove('on');
-  document.getElementById('paso2').classList.add('on');
-}
-
-function volverPaso1(){
-  _usuarioSeleccionado=null;_pinActual='';
-  document.getElementById('paso2').classList.remove('on');
-  document.getElementById('paso1').classList.add('on');
-  document.getElementById('pinError').textContent='';
-  actualizarDots();
-}
-
-// ── PIN ───────────────────────────────────────────────────────────────────
-function actualizarDots(){
-  for(var i=0;i<4;i++){
-    var d=document.getElementById('d'+i);
-    d.classList.toggle('filled',i<_pinActual.length);
-  }
-}
-
-function presionarTecla(n){
-  if(_pinActual.length>=4)return;
-  _pinActual+=n;
-  actualizarDots();
-  document.getElementById('pinError').textContent='';
-  if(_pinActual.length===4) setTimeout(verificarPin,300);
-}
-
-function borrarTecla(){
-  _pinActual=_pinActual.slice(0,-1);
-  actualizarDots();
-}
-
-function verificarPin(){
-  if(!_usuarioSeleccionado)return;
-  if(_pinActual===_usuarioSeleccionado.pin){
-    // Guardar sesión
-    sessionStorage.setItem('usuario_activo',JSON.stringify({
-      id:_usuarioSeleccionado.id,
-      nombre:_usuarioSeleccionado.nombre,
-      rol:_usuarioSeleccionado.rol,
-      esMaster:_usuarioSeleccionado.esMaster||false,
-      modulos:_usuarioSeleccionado.modulos||[],
-      tsLogin:Date.now()
-    }));
-    window.location.href='index.html';
-  } else {
-    document.getElementById('pinError').textContent='PIN incorrecto. Inténtalo de nuevo.';
-    _pinActual='';actualizarDots();
-    // Vibrar visualmente
-    var card=document.querySelector('.login-card');
-    card.style.borderColor='#f87171';
-    setTimeout(function(){card.style.borderColor='rgba(144,72,145,.2)';},600);
-  }
-}
-
-// Teclado físico
-document.addEventListener('keydown',function(e){
-  if(document.getElementById('paso2').classList.contains('on')){
-    if(e.key>='0'&&e.key<='9') presionarTecla(e.key);
-    if(e.key==='Backspace') borrarTecla();
-    if(e.key==='Enter') verificarPin();
-  }
-});
-
-renderUsuarios();
+    var badge=document.getElementById('sessionBadge');
+    if(badge) badge.textContent=s.nombre+' · '+(s.rolLabel||'Master');
+    var btn=document.getElementById('btnLogout');
+    if(btn) btn.style.display='block';
+    var statU=document.getElementById('stat-usuario');
+    if(statU) statU.textContent=s.nombre.split(' ')[0];
+    try{
+      var cl=JSON.parse(localStorage.getItem('clientes_bd')||'[]');
+      var activos=cl.filter(function(c){return c.estado==='activo';}).length;
+      var statC=document.getElementById('stat-clientes');
+      if(statC) statC.textContent=activos||'—';
+    }catch(e){}
+    var hoy=new Date();
+    var meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    var statF=document.getElementById('stat-fecha');
+    if(statF) statF.textContent=hoy.getDate()+' '+meses[hoy.getMonth()]+' '+hoy.getFullYear();
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
