@@ -150,7 +150,7 @@ function getUsuarios(){
 }
 
 // Si ya hay sesión activa, ir al dashboard
-if(localStorage.getItem('usuario_activo')){
+if(sessionStorage.getItem('usuario_activo')){
   window.location.href='index.html';
 }
 
@@ -220,7 +220,7 @@ function verificarPin(){
   if(!_usuarioSeleccionado)return;
   if(_pinActual===_usuarioSeleccionado.pin){
     // Guardar sesión
-    localStorage.setItem('usuario_activo',JSON.stringify({
+    sessionStorage.setItem('usuario_activo',JSON.stringify({
       id:_usuarioSeleccionado.id,
       nombre:_usuarioSeleccionado.nombre,
       rol:_usuarioSeleccionado.rol,
