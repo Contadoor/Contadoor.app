@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contadoor.app — Reportes Mensuales</title>
+<title>Reportes · Gestoor</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
@@ -43,6 +43,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .tab{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;color:var(--t2);transition:.15s;}
 .tab:hover{color:var(--p);}
 .tab.on{background:var(--p);color:#fff;font-weight:600;}
+.banner-periodo{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:2px solid;}
+.banner-periodo.abierto{background:linear-gradient(135deg,#08040f,#0d1a0d);border-color:var(--green);}
+.banner-periodo.sin-abrir{background:linear-gradient(135deg,#1a0a00,#3d1f00);border-color:var(--amber);}
+.bp-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.bp-dot.verde{background:var(--green);}
+.bp-mes{font-size:12px;font-weight:700;color:#6ee7b7;}
+.bp-sep{width:1px;height:14px;background:rgba(255,255,255,.1);}
+.bp-val{font-size:11px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:5px;}
+.bp-val strong{color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums;}
+.bp-right{margin-left:auto;font-size:10px;color:rgba(255,255,255,.2);}
+.bp-warn-titulo{font-size:13px;font-weight:700;color:#fcd34d;}
+.bp-warn-sub{font-size:11px;color:rgba(252,211,77,.55);}
+.btn-abrir-per{background:var(--amber);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:auto;}
 .view{display:none;}.view.on{display:block;}
 
 /* CARDS */
@@ -214,9 +227,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="sb-sec">Base de Datos</div>
     <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
     <div class="sb-sec">Reportes</div>
-    <a class="sb-item on" href="../reportes/index.html">📋 Nómina General</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Vista RRHH</a>
-    <a class="sb-item" href="../reportes-contable/index.html" style="opacity:.4">📊 Vista Contable</a>
+    <a class="sb-item on" href="../reportes/index.html">📋 Panel de Control</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Remuneraciones</a>
+    <a class="sb-item" href="../reportes-contable/index.html" style="opacity:.4">📊 Tributario/Contable</a>
     <a class="sb-item" href="../reportes-pagos/index.html" style="opacity:.4">💰 Vista Pagos</a>
     <div class="sb-sec">Gestión Trabajadores</div>
     <a class="sb-item" href="../trabajadores/index.html" style="opacity:.4">👷 Trabajadores</a>
@@ -229,11 +242,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
     <div class="sb-sec">Tributario</div>
     <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
     <div class="sb-sec">Sistema</div>
     <a class="sb-item" href="../performance/index.html" style="opacity:.4">📈 Performance</a>
     <a class="sb-item" href="../admin/index.html">👤 Admin</a>
   </nav>
-  <div class="sb-foot">Contadoor.app v1.0</div>
+  <div class="sb-foot">Gestoor v1.0</div>
 </aside>
 
 <main class="main">
@@ -244,7 +258,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <button class="btn-p btn-sm no-print" onclick="abrirApertura()">📅 Abrir Período</button>
     <button class="btn-s btn-sm no-print" onclick="abrirModalNuevo()">+ Nuevo reporte</button>
   </div>
-  <div class="content">
+  <div id="banner-periodo"></div>
+<div class="content">
 
     <div class="tab-bar no-print">
       <div class="tab on" onclick="setView('nomina')">📋 Nómina del período</div>
@@ -544,7 +559,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
     <!-- HONORARIOS -->
     <div class="sec-hon" id="seccionHon">
-      <div class="sec-title">💼 Honorarios Contadoor
+      <div class="sec-title">💼 Nuestros Servicios
         <span id="honStatus" style="margin-left:auto"></span>
       </div>
       <div class="fg4" style="margin-bottom:10px">
@@ -718,14 +733,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 var _editId=null, _vistaId=null, _atCnt=0, _remuData=null, _periodosDisponibles=[];
 var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;').replace(/"/g,'\x26quot;');}
 function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 function nv(id){return parseFloat(sv(id))||0;}
 function gv(id){var e=document.getElementById(id);return e?parseFloat(e.value)||0:0;}
 function setV(id,val){var e=document.getElementById(id);if(e)e.value=val||'';}
 function formatPeriodo(p){
-  if(!p)return '—';
+  if(!p)return ' - ';
   var parts=p.split('-');
   return MESES[parseInt(parts[1])-1]+' '+parts[0];
 }
@@ -736,9 +751,9 @@ function setPeriodoActual(){
   if(ap&&!ap.value)ap.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // STORAGE
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function getReportes(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
 function setReportes(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));renderAll();}
 function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
@@ -747,11 +762,11 @@ function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')
 function getHistoricoRemu(){try{return JSON.parse(localStorage.getItem('remu_historico')||'{}');}catch(e){return{};}}
 function setHistoricoRemu(obj){localStorage.setItem('remu_historico',JSON.stringify(obj));}
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // PARSER LIBRO MAS REMUNERACIONES
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function parsearLibroRemu(buffer){
-  // SheetJS — leer .xls con raw:true para obtener valores numéricos reales
+  // SheetJS  -  leer .xls con raw:true para obtener valores num\u00e9ricos reales
   var wb=XLSX.read(buffer,{type:'array',raw:true});
   var ws=wb.Sheets[wb.SheetNames[0]];
   var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
@@ -790,7 +805,7 @@ function parsearLibroRemu(buffer){
     return parseFloat(s)||0;
   }
 
-  // Detectar fila de encabezado — buscar la que tenga "PERIODO" en col 0
+  // Detectar fila de encabezado  -  buscar la que tenga "PERIODO" en col 0
   var dataStart=0;
   for(var i=0;i<Math.min(rows.length,10);i++){
     var cell=String(rows[i][0]||'').toUpperCase().trim();
@@ -804,16 +819,16 @@ function parsearLibroRemu(buffer){
     var periodo=String(row[COL.PERIODO]||'').trim();
     if(!periodo) continue;
 
-    // Saltar fila de totales — la que no tiene RUT válido con dígito verificador
+    // Saltar fila de totales  -  la que no tiene RUT v\u00e1lido con d\u00edgito verificador
     var rut=String(row[COL.RUT]||'').trim();
     var esFilaTotales=!rut||rut===''||!/\d/.test(rut);
     if(esFilaTotales) continue;
 
-    // Normalizar período: SheetJS puede leerlo como número (ej: 12026 para "01-2026")
-    // Mas Remuneraciones exporta "MM-AAAA" como texto — verificar
+    // Normalizar per\u00edodo: SheetJS puede leerlo como n\u00famero (ej: 12026 para "01-2026")
+    // Mas Remuneraciones exporta "MM-AAAA" como texto  -  verificar
     if(typeof row[COL.PERIODO]==='number'){
-      // Podría ser fecha serial de Excel — intentar convertir
-      // O podría ser que el período viene en otra columna
+      // Podr\u00eda ser fecha serial de Excel  -  intentar convertir
+      // O podr\u00eda ser que el per\u00edodo viene en otra columna
       // Por ahora lo dejamos como string
     }
 
@@ -847,7 +862,7 @@ function parsearLibroRemu(buffer){
     p.tributable     += toNum(row[COL.TRIBUTABLE]);
   }
 
-  // Contar trabajadores únicos y limpiar Set
+  // Contar trabajadores \u00fanicos y limpiar Set
   Object.keys(periodos).forEach(function(k){
     periodos[k].nTrab=periodos[k].ruts.size;
     delete periodos[k].ruts;
@@ -866,9 +881,9 @@ function setupUploadRemu(){
     var r=new FileReader();
     r.onload=function(e){
       try{
-        // Verificar que SheetJS esté disponible
+        // Verificar que SheetJS est\u00e9 disponible
         if(typeof XLSX==='undefined'){
-          alert('Error: librería de lectura Excel no cargada. Recarga la página e intenta de nuevo.');
+          alert('Error: librer\u00eda de lectura Excel no cargada. Recarga la p\u00e1gina e intenta de nuevo.');
           return;
         }
         _remuData=parsearLibroRemu(new Uint8Array(e.target.result));
@@ -881,14 +896,14 @@ function setupUploadRemu(){
         }
 
         document.getElementById('remuFileName').textContent=file.name;
-        document.getElementById('remuMeta').textContent=periodos.length+' período(s) encontrado(s): '+periodos.join(', ');
+        document.getElementById('remuMeta').textContent=periodos.length+' per\u00edodo(s) encontrado(s): '+periodos.join(', ');
         document.getElementById('remuOk').classList.add('show');
         document.getElementById('uzRemu').style.display='none';
         document.getElementById('remuManualWrap').style.display='none';
 
-        // Poblar selector de períodos
+        // Poblar selector de per\u00edodos
         var sel=document.getElementById('selectPeriodoRemu');
-        sel.innerHTML='<option value="">Selecciona el período...</option>';
+        sel.innerHTML='<option value="">Selecciona el per\u00edodo...</option>';
         periodos.forEach(function(p){
           var opt=document.createElement('option');
           opt.value=p;
@@ -898,7 +913,7 @@ function setupUploadRemu(){
           sel.appendChild(opt);
         });
 
-        // Si hay período seleccionado en el form, pre-seleccionar
+        // Si hay per\u00edodo seleccionado en el form, pre-seleccionar
         var periodoForm=sv('f-periodo');
         if(periodoForm){
           // f-periodo es "2026-06", libro es "06-2026"
@@ -909,7 +924,7 @@ function setupUploadRemu(){
 
         document.getElementById('selectPeriodoWrap').style.display='block';
 
-        // Procesar automáticamente si hay match
+        // Procesar autom\u00e1ticamente si hay match
         if(sel.value) procesarPeriodoSeleccionado();
 
       }catch(err){
@@ -934,7 +949,7 @@ function procesarPeriodoSeleccionado(){
   if(!periodo||!_remuData||!_remuData[periodo]) return;
   var d=_remuData[periodo];
 
-  // Llenar campos automáticamente
+  // Llenar campos autom\u00e1ticamente
   setV('f-trab',d.nTrab);
   setV('f-total-imponible',Math.round(d.totalImponible));
   setV('f-total-noimponible',Math.round(d.totalNoImponible));
@@ -951,12 +966,12 @@ function procesarPeriodoSeleccionado(){
   setV('f-ces-emp',Math.round(d.cesEmp));
   setV('f-total-aportes',Math.round(d.sis+d.mutual+d.cesEmp));
 
-  // IU cae automáticamente al cuadro SII
+  // IU cae autom\u00e1ticamente al cuadro SII
   setV('f-iu-sii',Math.round(d.iu));
 
   document.getElementById('remuDatosWrap').style.display='block';
 
-  // Guardar en histórico para estadísticas
+  // Guardar en hist\u00f3rico para estad\u00edsticas
   var hist=getHistoricoRemu();
   var rut=sv('f-cliente');
   if(rut){
@@ -983,9 +998,9 @@ function limpiarRemu(){
   calcTotal();
 }
 
-// ═══════════════════════════════════════════════════════════
-// CÁLCULOS IVA
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// C\u00c1LCULOS IVA
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function calcIva(){
   var debito=gv('f-iva-debito');
   var credito=gv('f-iva-credito');
@@ -1004,11 +1019,11 @@ function calcIva(){
       +(remAnt>0?'<div style="font-size:11px;margin-top:3px">Remanente ant. aplicado: '+ff(remAnt)+'</div>':'')
       +'</div>'
       +'<div style="font-size:18px;font-weight:700;color:#78350f">'+ff(neto)+'</div></div>';
-    // Guardar el remanente del mes anterior como 0 (se usó todo)
+    // Guardar el remanente del mes anterior como 0 (se us\u00f3 todo)
     setV('f-iva-remanente-sig','0');
-    // Activar postergación si el checkbox está marcado
+    // Activar postergaci\u00f3n si el checkbox est\u00e1 marcado
     setV('f-iva-postergado',Math.round(neto));
-    // Fecha vencimiento +60 días desde el 20 del mes
+    // Fecha vencimiento +60 d\u00edas desde el 20 del mes
     var periodo=sv('f-periodo');
     if(periodo){
       var d=new Date(periodo+'-20');
@@ -1021,10 +1036,10 @@ function calcIva(){
     var rem=Math.abs(neto);
     box.innerHTML='<div class="success-box" style="display:flex;justify-content:space-between;align-items:center">'
       +'<div><strong>Remanente IVA a favor:</strong> '+ff(rem)
-      +'<div style="font-size:11px;margin-top:3px">Se arrastra al período siguiente automáticamente</div>'
+      +'<div style="font-size:11px;margin-top:3px">Se arrastra al per\u00edodo siguiente autom\u00e1ticamente</div>'
       +'</div>'
       +'<div style="font-size:18px;font-weight:700;color:#064e3b">'+ff(rem)+'</div></div>';
-    // Guardar remanente para el próximo período
+    // Guardar remanente para el pr\u00f3ximo per\u00edodo
     setV('f-iva-remanente-sig',Math.round(rem));
     neto=0;
   }
@@ -1034,9 +1049,9 @@ function calcIva(){
   actualizarF29Resumen();
 }
 
-// ═══════════════════════════════════════════════════════════
-// POSTERGACIÓN IVA
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// POSTERGACI\u00d3N IVA
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function onPostergacion(){
   var cb=document.getElementById('f-postergar-iva');
   var box=document.getElementById('postergacionBox');
@@ -1046,9 +1061,9 @@ function onPostergacion(){
   actualizarF29Resumen();
 }
 
-// ═══════════════════════════════════════════════════════════
-// CÁLCULO PPM
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// C\u00c1LCULO PPM
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function calcPpm(){
   var tasa=gv('f-ppm-tasa');
   var base=gv('f-ppm-base');
@@ -1057,9 +1072,9 @@ function calcPpm(){
 
   // Hint tasa
   var hint=document.getElementById('ppm-tasa-hint');
-  if(hint&&tasa>0) hint.textContent='Tasa: '+tasa+'% · Guardada para próximo período';
+  if(hint&&tasa>0) hint.textContent='Tasa: '+tasa+'% \u00b7 Guardada para pr\u00f3ximo per\u00edodo';
 
-  // Actualizar acumulado desde histórico
+  // Actualizar acumulado desde hist\u00f3rico
   var rut=sv('f-cliente');
   if(rut){
     var hist=getHistoricoDiario();
@@ -1067,7 +1082,7 @@ function calcPpm(){
     var acum=0;
     if(hist[rut]){
       Object.keys(hist[rut]).forEach(function(p){
-        // Sumar PPM de todos los meses del mismo año hasta el período actual
+        // Sumar PPM de todos los meses del mismo a\u00f1o hasta el per\u00edodo actual
         var pAnio=p.split('-')[1];
         var cAnio=periodoActual?periodoActual.split('-')[0]:'';
         if(pAnio===cAnio){
@@ -1084,9 +1099,9 @@ function calcPpm(){
   actualizarF29Resumen();
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // RESUMEN F29
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function actualizarF29Resumen(){
   var box=document.getElementById('f29ResumenBox');
   var content=document.getElementById('f29ResumenContent');
@@ -1111,26 +1126,26 @@ function actualizarF29Resumen(){
   box.style.display='block';
 
   var h='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  if(!postergar&&ivaNeto>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">IVA determinado</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(ivaNeto)+'</td></tr>';
-  if(postergar&&ivaNeto>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--amber)">IVA postergado (+60 días)</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--amber)">'+ff(ivaNeto)+'</td></tr>';
-  if(ppm>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">PPM ('+gv('f-ppm-tasa')+'%)</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(ppm)+'</td></tr>';
-  if(retHon>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Retenc. boletas honorarios</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(retHon)+'</td></tr>';
-  if(ret2>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Retenciones 2ª Cat.</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(ret2)+'</td></tr>';
-  if(iuSii>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Imp. Único 2ª Cat. <span style="font-size:10px;color:var(--green)">(desde RRHH)</span></td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(iuSii)+'</td></tr>';
-  if(otros>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid var(--bdr);color:var(--t2)">Otros impuestos</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid var(--bdr)">'+ff(otros)+'</td></tr>';
+  if(!postergar&&ivaNeto>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">IVA determinado</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(ivaNeto)+'</td></tr>';
+  if(postergar&&ivaNeto>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#C07A1A">IVA postergado (+60 d\u00edas)</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#C07A1A">'+ff(ivaNeto)+'</td></tr>';
+  if(ppm>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">PPM ('+gv('f-ppm-tasa')+'%)</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(ppm)+'</td></tr>';
+  if(retHon>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Retenc. boletas honorarios</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(retHon)+'</td></tr>';
+  if(ret2>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Retenciones 2\u00aa Cat.</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(ret2)+'</td></tr>';
+  if(iuSii>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Imp. \u00danico 2\u00aa Cat. <span style="font-size:10px;color:#2D9B6F">(desde RRHH)</span></td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(iuSii)+'</td></tr>';
+  if(otros>0) h+='<tr><td style="padding:5px 0;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Otros impuestos</td><td style="text-align:right;padding:5px 0;border-bottom:0.5px solid #e8dde8">'+ff(otros)+'</td></tr>';
   if(postergar&&ivaNeto>0){
-    h+='<tr style="background:rgba(45,155,111,.06)"><td style="padding:6px 0;font-weight:700;color:var(--green)">Pago inmediato SII</td><td style="text-align:right;padding:6px 0;font-weight:700;color:var(--green)">'+ff(pagaAhora)+'</td></tr>';
-    h+='<tr style="background:#fef9e7"><td style="padding:6px 0;font-weight:700;color:var(--amber)">IVA postergado — vence '+sv('f-iva-fecha-venc')+'</td><td style="text-align:right;padding:6px 0;font-weight:700;color:var(--amber)">'+ff(postergado)+'</td></tr>';
+    h+='<tr style="background:rgba(45,155,111,.06)"><td style="padding:6px 0;font-weight:700;color:#2D9B6F">Pago inmediato SII</td><td style="text-align:right;padding:6px 0;font-weight:700;color:#2D9B6F">'+ff(pagaAhora)+'</td></tr>';
+    h+='<tr style="background:#fef9e7"><td style="padding:6px 0;font-weight:700;color:#C07A1A">IVA postergado  -  vence '+sv('f-iva-fecha-venc')+'</td><td style="text-align:right;padding:6px 0;font-weight:700;color:#C07A1A">'+ff(postergado)+'</td></tr>';
   }else{
-    h+='<tr style="background:rgba(144,72,145,.06)"><td style="padding:6px 0;font-weight:700;color:var(--p)">Total SII a pagar</td><td style="text-align:right;padding:6px 0;font-weight:700;color:var(--p)">'+ff(total)+'</td></tr>';
+    h+='<tr style="background:rgba(144,72,145,.06)"><td style="padding:6px 0;font-weight:700;color:#904891">Total SII a pagar</td><td style="text-align:right;padding:6px 0;font-weight:700;color:#904891">'+ff(total)+'</td></tr>';
   }
   h+='</table>';
   content.innerHTML=h;
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // HONORARIOS CON UF
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function calcHonTotal(){
   var baseUf=gv('f-hon-base-uf');
   var uf=gv('f-uf-periodo')||gv('f-uf-global')||0;
@@ -1147,24 +1162,24 @@ function calcHonTotal(){
   setV('f-hon-total',total||'');
 
   var hint=document.getElementById('hon-uf-hint');
-  if(hint&&baseUf>0&&uf>0) hint.textContent=baseUf+' UF × $'+Math.round(uf).toLocaleString('es-CL')+' = '+ff(baseClp);
+  if(hint&&baseUf>0&&uf>0) hint.textContent=baseUf+' UF x $'+Math.round(uf).toLocaleString('es-CL')+' = '+ff(baseClp);
   calcTotal();
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // ESTADO DE PAGO
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function onEstadoPagoChange(){
   var estado=sv('f-estado-pago');
   var infoEl=document.getElementById('estadoPagoInfo');
   if(!infoEl) return;
   var msgs={
-    'transferido':'💸 El cliente transfirió. El analista de pagos debe conciliar la transferencia y proceder con el pago.',
-    'en_proceso':'🔄 El analista está ingresando el pago en la institución (AFP/SII/banco).',
-    'pendiente_firma':'✍️ Esperando autorización de Luciano. Aparecerá en la vista de aprobación masiva.',
-    'pagado':'✅ Ciclo de pago cerrado para este período.',
-    'pago_directo':'✅ El cliente pagó directamente a la institución. No requiere gestión de Contadoor.',
-    'vencido':'🔴 Atención: esta obligación está vencida sin pago registrado.'
+    'transferido':'\u1f4b8 El cliente transfiri\u00f3. El analista de pagos debe conciliar la transferencia y proceder con el pago.',
+    'en_proceso':'\u1f504 El analista est\u00e1 ingresando el pago en la instituci\u00f3n (AFP/SII/banco).',
+    'pendiente_firma':'\u270d\ufe0f Esperando autorizaci\u00f3n de Luciano. Aparecer\u00e1 en la vista de aprobaci\u00f3n masiva.',
+    'pagado':'\u2705 Ciclo de pago cerrado para este per\u00edodo.',
+    'pago_directo':'\u2705 El cliente pag\u00f3 directamente a la instituci\u00f3n. No requiere gesti\u00f3n de Contadoor.',
+    'vencido':'\u1f534 Atenci\u00f3n: esta obligaci\u00f3n est\u00e1 vencida sin pago registrado.'
   };
   if(msgs[estado]){
     infoEl.style.display='block';
@@ -1180,7 +1195,7 @@ function onEstadoPagoChange(){
     if(h2) h2.textContent='Fecha registrada hoy';
   }
 
-  // Crear notificaciones según estado
+  // Crear notificaciones seg\u00fan estado
   var rut2=sv('f-cliente'),periodo2=sv('f-periodo');
   var c2=getClientes().find(function(x){return x.rut===rut2;});
   var nc=c2?c2.razon:rut2;
@@ -1188,30 +1203,30 @@ function onEstadoPagoChange(){
     if(estado==='transferido') crearNotificacion({
       modulo:'pagos',tipo:'accion_requerida',prioridad:'alta',
       clienteNombre:nc,clienteRut:rut2,periodo:periodo2,
-      mensaje:'Cliente '+nc+' transfirió para pago de obligaciones '+formatPeriodo(periodo2)+'. Conciliar transferencia y proceder con el pago.',
+      mensaje:'Cliente '+nc+' transfiri\u00f3 para pago de obligaciones '+formatPeriodo(periodo2)+'. Conciliar transferencia y proceder con el pago.',
       accion:'conciliar',accionLabel:'Marcar como ejecutado',
       accionUrl:'../conciliacion/index.html'
     });
     if(estado==='pendiente_firma') crearNotificacion({
       modulo:'pagos',tipo:'accion_requerida',prioridad:'alta',
       clienteNombre:nc,clienteRut:rut2,periodo:periodo2,
-      mensaje:'Pago de '+nc+' · '+formatPeriodo(periodo2)+' pendiente de aprobación. Revisar y autorizar en el banco.',
+      mensaje:'Pago de '+nc+' \u00b7 '+formatPeriodo(periodo2)+' pendiente de aprobaci\u00f3n. Revisar y autorizar en el banco.',
       accion:'aprobar',accionLabel:'Marcar aprobado'
     });
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// HISTÓRICO LIBRO DIARIO
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// HIST\u00d3RICO LIBRO DIARIO
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function getHistoricoDiario(){try{return JSON.parse(localStorage.getItem('diario_historico')||'{}');}catch(e){return{};}}
 function setHistoricoDiario(obj){localStorage.setItem('diario_historico',JSON.stringify(obj));}
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // CALC TOTAL PRINCIPAL
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function calcTotal(){
-  // RRHH — cotizaciones
+  // RRHH  -  cotizaciones
   var sis=gv('f-sis'),mutual=gv('f-mutual'),cesEmp=gv('f-ces-emp');
   setV('f-total-aportes',Math.round(sis+mutual+cesEmp));
   var afp=gv('f-afp'),salud=gv('f-salud'),apv=gv('f-apv'),cesTrab=gv('f-ces-trab'),iu=gv('f-iu'),otrosDesc=gv('f-otros-desc');
@@ -1255,19 +1270,19 @@ function calcTotal(){
   if(ivaPostergado>0) partes.push('IVA postergado: '+ff(ivaPostergado));
   if(hon>0) partes.push('Honorarios: '+ff(hon));
   if(atrasos>0) partes.push('Atrasos: '+ff(atrasos));
-  document.getElementById('totalDetalle').textContent=partes.join('  ·  ');
+  document.getElementById('totalDetalle').textContent=partes.join('  \u00b7  ');
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // ATRASOS
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function addAtraso(concepto,periodo,monto){
   _atCnt++;
   document.getElementById('atrasosEmpty').style.display='none';
   var wrap=document.getElementById('atrasosWrap');
   var div=document.createElement('div');div.className='atraso-row';div.id='at-'+_atCnt;
   var mkI=function(type,val,ph){var i=document.createElement('input');i.type=type;i.value=val||'';i.placeholder=ph;i.addEventListener('input',calcTotal);return i;};
-  var btn=document.createElement('button');btn.className='btn-danger btn-sm';btn.textContent='✕';
+  var btn=document.createElement('button');btn.className='btn-danger btn-sm';btn.textContent='\u2715';
   var id=_atCnt;
   btn.onclick=function(){
     var el=document.getElementById('at-'+id);if(el)el.remove();
@@ -1275,7 +1290,7 @@ function addAtraso(concepto,periodo,monto){
       document.getElementById('atrasosEmpty').style.display='';
     calcTotal();
   };
-  [mkI('text',concepto,'Concepto (ej: IVA jun-2025)'),mkI('text',periodo,'Período'),mkI('number',monto,'Monto $'),btn]
+  [mkI('text',concepto,'Concepto (ej: IVA jun-2025)'),mkI('text',periodo,'Per\u00edodo'),mkI('number',monto,'Monto $'),btn]
     .forEach(function(el){div.appendChild(el);});
   wrap.appendChild(div);calcTotal();
 }
@@ -1286,9 +1301,9 @@ function getAtrasos(){
   }).filter(function(a){return a.concepto||a.monto>0;});
 }
 
-// ═══════════════════════════════════════════════════════════
-// ESTADOS POR SECCIÓN
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// ESTADOS POR SECCI\u00d3N
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function marcarSeccion(sec){
   var r=getReportes();
   var id=sv('f-id');
@@ -1306,16 +1321,16 @@ function marcarSeccion(sec){
   }
   // Feedback visual
   var statusEl=document.getElementById(sec+'Status');
-  if(statusEl) statusEl.innerHTML='<span class="badge badge-ok">✅ OK</span>';
+  if(statusEl) statusEl.innerHTML='<span class="badge badge-ok">\u2705 OK</span>';
 
   // Notificaciones entre analistas
   var rut=sv('f-cliente'),periodo=sv('f-periodo');
   var c=getClientes().find(function(x){return x.rut===rut;});
   var nombreCliente=c?c.razon:rut;
   var mensajes={
-    rrhh:'Sección RRHH completada para '+nombreCliente+' · '+formatPeriodo(periodo)+'. El analista contable puede continuar con impuestos y honorarios.',
-    imp:'Sección Impuestos completada para '+nombreCliente+' · '+formatPeriodo(periodo)+'. El analista de pagos puede verificar.',
-    hon:'Sección Honorarios completada para '+nombreCliente+' · '+formatPeriodo(periodo)+'. Listo para verificación final.'
+    rrhh:'Secci\u00f3n RRHH completada para '+nombreCliente+' \u00b7 '+formatPeriodo(periodo)+'. El analista contable puede continuar con impuestos y honorarios.',
+    imp:'Secci\u00f3n Impuestos completada para '+nombreCliente+' \u00b7 '+formatPeriodo(periodo)+'. El analista de pagos puede verificar.',
+    hon:'Secci\u00f3n Honorarios completada para '+nombreCliente+' \u00b7 '+formatPeriodo(periodo)+'. Listo para verificaci\u00f3n final.'
   };
   var modDestino={rrhh:'impuestos',imp:'pagos',hon:'pagos'};
   if(window.crearNotificacion) crearNotificacion({
@@ -1325,15 +1340,15 @@ function marcarSeccion(sec){
     clienteNombre:nombreCliente,
     clienteRut:rut,
     periodo:periodo,
-    mensaje:mensajes[sec]||'Sección '+sec+' completada.',
+    mensaje:mensajes[sec]||'Secci\u00f3n '+sec+' completada.',
     accion:null
   });
-  alert('Sección '+sec.toUpperCase()+' marcada como completada.');
+  alert('Secci\u00f3n '+sec.toUpperCase()+' marcada como completada.');
 }
 
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // CLIENTE CHANGE
-// ═══════════════════════════════════════════════════════════
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function onClienteChange(){
   var rut=sv('f-cliente');
   var box=document.getElementById('cliente-info-box');
@@ -1353,10 +1368,10 @@ function onClienteChange(){
   setV('f-revisado',c.contador||'');
   setV('f-email-analista',c.emailAnalista||'');
 
-  // Quién paga
+  // Qui\u00e9n paga
   if(c.quienPaga) setV('f-quien-paga',c.quienPaga);
 
-  // UF del período abierto
+  // UF del per\u00edodo abierto
   var periodo=sv('f-periodo');
   var periodos=getPeriodos();
   var periodoData=periodos.find(function(p){return p.periodo===periodo;});
@@ -1365,12 +1380,12 @@ function onClienteChange(){
     if(periodoData.ppmTasa) setV('f-ppm-tasa',periodoData.ppmTasa);
   }
 
-  // Remanente IVA del período anterior
+  // Remanente IVA del per\u00edodo anterior
   var rems=JSON.parse(localStorage.getItem('rpt_remanentes')||'{}');
   if(rems[rut]&&periodo&&rems[rut][periodo]){
     setV('f-iva-remanente-ant',rems[rut][periodo]);
     var hint=document.getElementById('f-iva-remanente-ant');
-    if(hint) hint.style.borderColor='var(--green)';
+    if(hint) hint.style.borderColor='#2D9B6F';
   }
 
   // Calcular honorarios con UF
@@ -1379,14 +1394,14 @@ function onClienteChange(){
   box.style.display='block';
   box.innerHTML='<div class="info-box" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
     +'<div><strong>'+hesc(c.razon)+'</strong>'
-    +(c.plan?' · <span style="font-size:11px;color:var(--blue)">Plan '+hesc(c.plan)+'</span>':'')
-    +(c.tieneRrhh===false?' · <span class="badge badge-na">Sin RRHH</span>':'')
-    +(c.tieneContabilidad===false?' · <span class="badge badge-na">Sin contabilidad</span>':'')
-    +(c.prioridadRrhh?' · <span class="badge badge-'+(c.prioridadRrhh)+'">Prioridad '+hesc(c.prioridadRrhh)+'</span>':'')
+    +(c.plan?' \u00b7 <span style="font-size:11px;color:#1e40af">Plan '+hesc(c.plan)+'</span>':'')
+    +(c.tieneRrhh===false?' \u00b7 <span class="badge badge-na">Sin RRHH</span>':'')
+    +(c.tieneContabilidad===false?' \u00b7 <span class="badge badge-na">Sin contabilidad</span>':'')
+    +(c.prioridadRrhh?' \u00b7 <span class="badge badge-'+(c.prioridadRrhh)+'">Prioridad '+hesc(c.prioridadRrhh)+'</span>':'')
     +'</div>'
     +'<div style="display:flex;gap:6px">'
     +(c.wa?'<a class="btn-wa btn-sm" href="https://wa.me/56'+c.wa.replace(/\D/g,'')+'" target="_blank">💬 WA</a>':'')
-    +(c.email?'<a class="btn-s btn-sm" href="mailto:'+hesc(c.email)+'" style="font-size:11px;padding:4px 10px">✉️ Email</a>':'')
+    +(c.email?'<a class="btn-s btn-sm" href="mailto:'+hesc(c.email)+'" style="font-size:11px;padding:4px 10px">\u2709\ufe0f Email</a>':'')
     +'</div></div>';
   calcTotal();
 }
@@ -1434,7 +1449,7 @@ function resetForm(){
 function abrirModalNuevo(rut,periodo){
   _editId=null;resetForm();popularSelectClientes();
   document.getElementById('modalTitle').textContent='Nuevo Reporte Mensual';
-  document.getElementById('modalSub').textContent='Completa cada sección con la información del período';
+  document.getElementById('modalSub').textContent='Completa cada secci\u00f3n con la informaci\u00f3n del per\u00edodo';
   if(rut){setV('f-cliente',rut);onClienteChange();}
   if(periodo) setV('f-periodo',periodo);
   document.getElementById('modal').classList.add('on');
@@ -1443,7 +1458,7 @@ function abrirModalNuevo(rut,periodo){
 function abrirModalEditar(id){
   var r=getReportes().find(function(x){return x.id===id;});if(!r) return;
   _editId=id;resetForm();popularSelectClientes();
-  document.getElementById('modalTitle').textContent='Editar Reporte — '+formatPeriodo(r.periodo);
+  document.getElementById('modalTitle').textContent='Editar Reporte  -  '+formatPeriodo(r.periodo);
   setV('f-id',r.id);
   setV('f-cliente',r.rut||'');
   setV('f-periodo',r.periodo||'');
@@ -1477,7 +1492,7 @@ function abrirModalEditar(id){
     ['rrhh','imp','hon'].forEach(function(sec){
       if(r.secciones[sec]&&r.secciones[sec].ok){
         var el=document.getElementById(sec+'Status');
-        if(el) el.innerHTML='<span class="badge badge-ok">✅ OK</span>';
+        if(el) el.innerHTML='<span class="badge badge-ok">\u2705 OK</span>';
       }
     });
   }
@@ -1495,7 +1510,7 @@ function closeModal(){document.getElementById('modal').classList.remove('on');}
 
 function guardarReporte(estado){
   var rut=sv('f-cliente'),periodo=sv('f-periodo');
-  if(!rut||!periodo){alert('Selecciona un cliente y un período.');return;}
+  if(!rut||!periodo){alert('Selecciona un cliente y un per\u00edodo.');return;}
   var c=getClientes().find(function(x){return x.rut===rut;});
   var arr=getReportes();
 
@@ -1605,7 +1620,7 @@ function guardarReporte(estado){
   }else{
     var existIdx=arr.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
     if(existIdx>=0){
-      if(confirm('Ya existe un reporte para '+(c?c.razon:rut)+' en '+formatPeriodo(periodo)+'. ¿Reemplazar?'))
+      if(confirm('Ya existe un reporte para '+(c?c.razon:rut)+' en '+formatPeriodo(periodo)+'. \u00bfReemplazar?'))
         arr[existIdx]=r;
       else{r.id=Date.now();arr.unshift(r);}
     }else{arr.unshift(r);}
@@ -1649,21 +1664,21 @@ function actualizarPreviewApertura(){
   var conRrhh=clientes.filter(function(c){return c.tieneRrhh!==false;}).length;
   var sinRrhh=clientes.length-conRrhh;
   var prev=document.getElementById('ap-preview');
-  if(prev) prev.innerHTML='Se generarán <strong>'+clientes.length+' reportes</strong> para '+formatPeriodo(periodo)
+  if(prev) prev.innerHTML='Se generar\u00e1n <strong>'+clientes.length+' reportes</strong> para '+formatPeriodo(periodo)
     +': <strong>'+conRrhh+' con RRHH</strong> y <strong>'+sinRrhh+' sin RRHH</strong>.'
-    +(clientes.length===0?' <br>⚠️ No hay clientes activos. Agrega clientes en el módulo Clientes primero.':'');
+    +(clientes.length===0?' <br>\u26a0\ufe0f No hay clientes activos. Agrega clientes en el m\u00f3dulo Clientes primero.':'');
 }
 
 function confirmarApertura(){
   var periodo=sv('ap-periodo');
-  if(!periodo){alert('Selecciona un período.');return;}
+  if(!periodo){alert('Selecciona un per\u00edodo.');return;}
   var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||!c.estado;});
   if(!clientes.length){alert('No hay clientes activos.');return;}
 
   var periodos=getPeriodos();
   var existente=periodos.find(function(p){return p.periodo===periodo;});
   if(existente){
-    if(!confirm('Ya existe el período '+formatPeriodo(periodo)+'. ¿Deseas regenerar la nómina?')) return;
+    if(!confirm('Ya existe el per\u00edodo '+formatPeriodo(periodo)+'. \u00bfDeseas regenerar la n\u00f3mina?')) return;
     periodos=periodos.filter(function(p){return p.periodo!==periodo;});
   }
 
@@ -1705,7 +1720,7 @@ function confirmarApertura(){
   renderAll();
   closeApertura();
   setView('nomina');
-  alert('✅ Período '+formatPeriodo(periodo)+' abierto. Se generaron '+nuevos+' reportes en la nómina.');
+  alert('\u2705 Per\u00edodo '+formatPeriodo(periodo)+' abierto. Se generaron '+nuevos+' reportes en la n\u00f3mina.');
 }
 
 function closeApertura(){document.getElementById('modalApertura').classList.remove('on');}
@@ -1719,7 +1734,7 @@ function renderNomina(){
   var periodos=getPeriodos();
 
   if(!arr.length&&!periodos.length){
-    cont.innerHTML='<div class="empty-state"><h3>Sin período abierto</h3><p>Haz clic en "Abrir Período" para generar la nómina de reportes del mes.</p></div>';
+    cont.innerHTML='<div class="empty-state"><h3>Sin per\u00edodo abierto</h3><p>Haz clic en "Abrir Per\u00edodo" para generar la n\u00f3mina de reportes del mes.</p></div>';
     return;
   }
 
@@ -1744,13 +1759,13 @@ function renderNomina(){
 
     html+='<div class="card" style="margin-bottom:20px">';
     html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
-    html+='<div><div style="font-size:16px;font-weight:700;color:var(--p)">📅 '+formatPeriodo(periodo)+'</div>';
-    html+='<div style="font-size:11px;color:var(--tm);margin-top:2px">'+lista.length+' clientes · '+completos+' secciones completas · '+enviados+' enviados · Total: '+ff(total)+'</div></div>';
+    html+='<div><div style="font-size:16px;font-weight:700;color:#904891">\u1f4c5 '+formatPeriodo(periodo)+'</div>';
+    html+='<div style="font-size:11px;color:#9a849b;margin-top:2px">'+lista.length+' clientes \u00b7 '+completos+' secciones completas \u00b7 '+enviados+' enviados \u00b7 Total: '+ff(total)+'</div></div>';
     html+='<div style="display:flex;gap:6px">';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(''+periodo+'','alta')">🔴 Alta</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(''+periodo+'','media')">🟡 Media</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(''+periodo+'','baja')">🟢 Baja</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(''+periodo+'','')">Todos</button>';
+    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="alta">\u1f534 Alta</button>';
+    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="media">\u1f7e1 Media</button>';
+    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="baja">\u1f7e2 Baja</button>';
+    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="">Todos</button>';
     html+='</div></div>';
 
     // Ordenar por prioridad
@@ -1763,28 +1778,35 @@ function renderNomina(){
     lista.forEach(function(r){
       var sec=r.secciones||{};
       function chip(key,label){
-        if(!sec[key]) return '<span class="estado-chip pend">'+label+' ⏳</span>';
+        if(!sec[key]) return '<span class="estado-chip pend">'+label+' \u23f3</span>';
         if(sec[key].na) return '<span class="estado-chip na">'+label+' N/A</span>';
-        if(sec[key].ok) return '<span class="estado-chip ok">'+label+' ✅</span>';
-        return '<span class="estado-chip pend">'+label+' ⏳</span>';
+        if(sec[key].ok) return '<span class="estado-chip ok">'+label+' \u2705</span>';
+        return '<span class="estado-chip pend">'+label+' \u23f3</span>';
       }
       var priorBadge={alta:'badge-alta',media:'badge-media',baja:'badge-baja'}[r.prioridadRrhh||'media']||'badge-media';
       html+='<div class="nomina-row" id="nr-'+r.id+'">';
       html+='<div class="nomina-info">';
       html+='<div class="nomina-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>';
-      html+='<div class="nomina-rut">'+hesc(r.rut)+' <span class="badge '+priorBadge+'" style="margin-left:6px">'+( r.prioridadRrhh||'media')+'</span>'+(r.totalGeneral?'<span style="margin-left:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:var(--p)">'+ff(r.totalGeneral)+'</span>':'')+'</div>';
-      html+='<div class="nomina-estados">'+chip('rrhh','RRHH')+chip('imp','Imp.')+chip('hon','Hon.')+'<span class="estado-chip '+(r.estado==='enviado_total'||r.estado==='enviado_rrhh'?'ok':'pend')+'">'+(r.estado==='enviado_total'?'📤 Enviado':r.estado==='enviado_rrhh'?'📤 RRHH env.':'📤 Pendiente env.')+'</span></div>';
+      // Badge modalidad de pago
+      var cliBd=getClientes().find(function(c){return c.rut===r.rut;})||{};
+      var modalidad=cliBd.modalidadPago||'contadoor';
+      var modalBadge=modalidad==='directo'
+        ?'<span style="font-size:9px;font-weight:700;background:#e8f0fe;color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">🏦 Pago directo</span>'
+        :'<span style="font-size:9px;font-weight:700;background:var(--pp);color:var(--p);padding:1px 6px;border-radius:8px;margin-left:6px">💳 Transfiere</span>';
+      html+='<div class="nomina-rut">'+hesc(r.rut)+' <span class="badge '+priorBadge+'" style="margin-left:6px">'+( r.prioridadRrhh||'media')+'</span>'+modalBadge+(r.totalGeneral?'<span style="margin-left:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:#904891">'+ff(r.totalGeneral)+'</span>':'')+'</div>';
+      html+='<div class="nomina-estados">'+chip('rrhh','RRHH')+chip('imp','Imp.')+chip('hon','Hon.')+'<span class="estado-chip '+(r.estado==='enviado_total'||r.estado==='enviado_rrhh'?'ok':'pend')+'">'+(r.estado==='enviado_total'?'\u1f4e4 Enviado':r.estado==='enviado_rrhh'?'\u1f4e4 RRHH env.':'\u1f4e4 Pendiente env.')+'</span></div>';
       html+='</div>';
       html+='<div style="display:flex;gap:5px;flex-shrink:0">';
-      if(r.clienteWa) html+='<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">💬</a>';
-      html+='<button class="btn-p btn-sm" onclick="abrirModalEditar('+r.id+')">✏️ Completar</button>';
-      if(r.totalGeneral>0) html+='<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">👁 Ver</button>';
+      if(r.clienteWa) html+='<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">\u1f4ac</a>';
+      var btnLabel=modalidad==='directo'?'\u2713 Validar':'\u270f\ufe0f Completar';
+      html+='<button class="btn-p btn-sm" onclick="abrirModalEditar('+r.id+')">'+btnLabel+'</button>';
+      if(r.totalGeneral>0) html+='<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">\u1f441 Ver</button>';
       html+='</div></div>';
     });
     html+='</div></div>';
   });
 
-  cont.innerHTML=html||'<div class="empty-state"><h3>Sin reportes</h3><p>Abre un período para generar la nómina.</p></div>';
+  cont.innerHTML=html||'<div class="empty-state"><h3>Sin reportes</h3><p>Abre un per\u00edodo para generar la n\u00f3mina.</p></div>';
 }
 
 function filtrarNominaPrioridad(periodo,prioridad){
@@ -1825,8 +1847,8 @@ function verReporte(id){
   function varIcon(actual,anterior){
     if(!anterior) return '';
     var diff=actual-anterior,pct=anterior>0?((diff/anterior)*100).toFixed(1):0;
-    if(Math.abs(diff)<1) return '<span class="var-eq">→ Sin cambio</span>';
-    return diff>0?'<span class="var-up">↑ +'+pct+'%</span>':'<span class="var-dn">↓ '+pct+'%</span>';
+    if(Math.abs(diff)<1) return '<span class="var-eq">\u2192 Sin cambio</span>';
+    return diff>0?'<span class="var-up">\u2191 +'+pct+'%</span>':'<span class="var-dn">\u2193 '+pct+'%</span>';
   }
 
   var h='';
@@ -1834,9 +1856,9 @@ function verReporte(id){
   h+='<div class="rpt-header">';
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
   h+='<div><img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="width:150px;filter:brightness(0) invert(1);margin-bottom:10px"/>';
-  h+='<div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1.5px">Reporte Mensual de Gestión</div>';
+  h+='<div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1.5px">Reporte Mensual de Gesti\u00f3n</div>';
   h+='<div style="font-size:20px;font-weight:700;margin-top:4px">'+hesc(r.clienteNombre)+'</div>';
-  h+='<div style="font-size:12px;opacity:.65;margin-top:3px">'+hesc(r.rut)+' · '+formatPeriodo(r.periodo)+'</div></div>';
+  h+='<div style="font-size:12px;opacity:.65;margin-top:3px">'+hesc(r.rut)+' \u00b7 '+formatPeriodo(r.periodo)+'</div></div>';
   h+='<div style="text-align:right">';
   h+='<div style="font-size:11px;opacity:.5">Total a pagar</div>';
   h+='<div style="font-size:30px;font-weight:700">'+ff(totalGeneral)+'</div>';
@@ -1847,105 +1869,105 @@ function verReporte(id){
   h+='<div class="rpt-kpi-grid" style="margin-top:14px">';
   var nTrab=r.nTrab||r.trabM||0;
   var liquido=r.liquidoPagar||r.liquidoM||0;
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">👥 Trabajadores</div><div class="rpt-kpi-val" style="color:var(--green)">'+nTrab+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(nTrab,rAnterior.nTrab||rAnterior.trabM||0)+'</div>':'')+'</div>';
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">💰 Sueldos líquidos pagados</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(liquido)+'</div></div>';
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">📊 Total cotizaciones</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(totalCot)+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(totalCot,rAnterior.totalCot)+'</div>':'')+'</div>';
+  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">\u1f465 Trabajadores</div><div class="rpt-kpi-val" style="color:#2D9B6F">'+nTrab+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(nTrab,rAnterior.nTrab||rAnterior.trabM||0)+'</div>':'')+'</div>';
+  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">\u1f4b0 Sueldos l\u00edquidos pagados</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(liquido)+'</div></div>';
+  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">\u1f4ca Total cotizaciones</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(totalCot)+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(totalCot,rAnterior.totalCot)+'</div>':'')+'</div>';
   h+='</div>';
 
-  // COTIZACIONES — si usa archivo, mostrar desglose
+  // COTIZACIONES  -  si usa archivo, mostrar desglose
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
 
   // Descuentos trabajadores
-  h+='<div><div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">👥 Descuentos trabajadores</div>';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden">';
+  h+='<div><div style="font-size:11px;font-weight:700;color:#2D9B6F;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">\u1f465 Descuentos trabajadores</div>';
+  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden">';
   h+='<table class="rpt-tabla">';
   if(usaArchivo){
     if(r.afp) h+='<tr><td>AFP</td><td class="num">'+ff(r.afp)+'</td></tr>';
     if(r.salud) h+='<tr><td>Salud (ISAPRE/Fonasa)</td><td class="num">'+ff(r.salud)+'</td></tr>';
     if(r.apv) h+='<tr><td>APV</td><td class="num">'+ff(r.apv)+'</td></tr>';
-    if(r.cesTrab) h+='<tr><td>Seg. Cesantía trabajador</td><td class="num">'+ff(r.cesTrab)+'</td></tr>';
-    if(r.iu) h+='<tr><td>Imp. Único 2ª Cat.</td><td class="num">'+ff(r.iu)+'</td></tr>';
+    if(r.cesTrab) h+='<tr><td>Seg. Cesant\u00eda trabajador</td><td class="num">'+ff(r.cesTrab)+'</td></tr>';
+    if(r.iu) h+='<tr><td>Imp. \u00danico 2\u00aa Cat.</td><td class="num">'+ff(r.iu)+'</td></tr>';
     if(r.otrosDesc) h+='<tr><td>Otros descuentos</td><td class="num">'+ff(r.otrosDesc)+'</td></tr>';
     h+='<tr class="subtotal"><td>Subtotal descuentos</td><td class="num">'+ff(totalDescTrab)+'</td></tr>';
   }else{
     h+='<tr><td>Total cotizaciones</td><td class="num">'+ff(r.cotM||0)+'</td></tr>';
   }
-  h+='</table></div>'+(r.obsRrhh?'<div style="font-size:11px;color:var(--tm);font-style:italic;margin-top:6px">'+hesc(r.obsRrhh)+'</div>':'')+'</div>';
+  h+='</table></div>'+(r.obsRrhh?'<div style="font-size:11px;color:#9a849b;font-style:italic;margin-top:6px">'+hesc(r.obsRrhh)+'</div>':'')+'</div>';
 
   // Aportes patronales
-  h+='<div><div style="font-size:11px;font-weight:700;color:#5c4a5d;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🏢 Aportes empresa</div>';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden">';
+  h+='<div><div style="font-size:11px;font-weight:700;color:#5c4a5d;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">\u1f3e2 Aportes empresa</div>';
+  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden">';
   h+='<table class="rpt-tabla">';
   if(usaArchivo){
     if(r.sis) h+='<tr><td>SIS</td><td class="num">'+ff(r.sis)+'</td></tr>';
     if(r.mutual) h+='<tr><td>Mutual / Accidentes</td><td class="num">'+ff(r.mutual)+'</td></tr>';
-    if(r.cesEmp) h+='<tr><td>Seg. Cesantía empleador</td><td class="num">'+ff(r.cesEmp)+'</td></tr>';
+    if(r.cesEmp) h+='<tr><td>Seg. Cesant\u00eda empleador</td><td class="num">'+ff(r.cesEmp)+'</td></tr>';
     h+='<tr class="subtotal"><td>Subtotal aportes</td><td class="num">'+ff(totalAportesEmp)+'</td></tr>';
   }else{
-    h+='<tr><td>Aportes patronales</td><td class="num">—</td></tr>';
+    h+='<tr><td>Aportes patronales</td><td class="num"> - </td></tr>';
   }
   h+='</table></div>';
   h+='<div style="background:rgba(45,155,111,.08);border:1px solid rgba(45,155,111,.2);border-radius:8px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between">';
-  h+='<span style="font-weight:700;font-size:12px;color:var(--green)">Total cotizaciones a pagar</span>';
-  h+='<span style="font-weight:700;font-family:monospace;color:var(--green)">'+ff(totalCot)+'</span></div>';
-  if(cal.vencCot) h+='<div style="font-size:11px;color:var(--amber);margin-top:5px">⚠️ Vence: '+hesc(cal.vencCot)+(cal.prorrogaCot?' (prórroga hasta '+hesc(cal.prorrogaCot)+')':'')+'</div>';
+  h+='<span style="font-weight:700;font-size:12px;color:#2D9B6F">Total cotizaciones a pagar</span>';
+  h+='<span style="font-weight:700;font-family:monospace;color:#2D9B6F">'+ff(totalCot)+'</span></div>';
+  if(cal.vencCot) h+='<div style="font-size:11px;color:#C07A1A;margin-top:5px">\u26a0\ufe0f Vence: '+hesc(cal.vencCot)+(cal.prorrogaCot?' (pr\u00f3rroga hasta '+hesc(cal.prorrogaCot)+')':'')+'</div>';
   h+='</div></div>';
 
   // IMPUESTOS SII
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px">';
-  h+='<div style="background:var(--sur2);padding:10px 14px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.8px">📊 Impuestos SII</div>';
+  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden;margin-bottom:14px">';
+  h+='<div style="background:#faf7fa;padding:10px 14px;border-bottom:1px solid #e8dde8;font-size:11px;font-weight:700;color:#C07A1A;text-transform:uppercase;letter-spacing:.8px">\u1f4ca Impuestos SII</div>';
   h+='<table class="rpt-tabla">';
   if(r.iva) h+='<tr><td>IVA a pagar</td><td class="num">'+ff(r.iva)+'</td></tr>';
   if(r.ppm) h+='<tr><td>PPM (Pago Provisional Mensual)</td><td class="num">'+ff(r.ppm)+'</td></tr>';
-  if(r.ret) h+='<tr><td>Retenciones 2ª Categoría</td><td class="num">'+ff(r.ret)+'</td></tr>';
-  if(r.iuSii||r.iu) h+='<tr><td>Imp. Único 2ª Cat. <span style="font-size:10px;color:var(--amber)">(desde RRHH)</span></td><td class="num">'+ff(r.iuSii||r.iu)+'</td></tr>';
+  if(r.ret) h+='<tr><td>Retenciones 2\u00aa Categor\u00eda</td><td class="num">'+ff(r.ret)+'</td></tr>';
+  if(r.iuSii||r.iu) h+='<tr><td>Imp. \u00danico 2\u00aa Cat. <span style="font-size:10px;color:#C07A1A">(desde RRHH)</span></td><td class="num">'+ff(r.iuSii||r.iu)+'</td></tr>';
   if(r.otrosImp) h+='<tr><td>Otros impuestos</td><td class="num">'+ff(r.otrosImp)+'</td></tr>';
   h+='<tr class="total"><td>Total Impuestos SII</td><td class="num">'+ff(totalImp)+'</td></tr>';
   h+='</table>';
-  if(cal.vencSii) h+='<div style="padding:8px 14px;font-size:11px;color:var(--red)">🔴 Vence el '+hesc(cal.vencSii)+' — Sin prórroga</div>';
+  if(cal.vencSii) h+='<div style="padding:8px 14px;font-size:11px;color:#C0392B">\u1f534 Vence el '+hesc(cal.vencSii)+'  -  Sin pr\u00f3rroga</div>';
   h+='</div>';
 
   // HONORARIOS
-  h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💼 Honorarios Contadoor</div>';
+  h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">\u1f4bc Nuestros Servicios</div>';
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
   if(r.honBase) h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Base</div><div style="font-weight:700">'+ff(r.honBase)+'</div></div>';
   if(r.honVar) h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Variable</div><div style="font-weight:700">'+ff(r.honVar)+'</div></div>';
-  h+='<div style="background:#eff6ff;border:2px solid var(--blue);border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total</div><div style="font-weight:700;color:var(--blue);font-size:16px">'+ff(r.honTotal)+'</div></div>';
-  h+='<div style="background:'+(r.honEstado==='pagado'?'#ecfdf5':'#fef3c7')+';border:1px solid '+(r.honEstado==='pagado'?'#a7f3d0':'#fde68a')+';border-radius:8px;padding:10px 14px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">Estado</div><div style="font-weight:700;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">'+(r.honEstado==='pagado'?'✅ Pagado':'⏳ Pendiente')+'</div></div>';
-  if(r.factura) h+='<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Factura</div><div style="font-weight:600">'+hesc(r.factura)+'</div></div>';
+  h+='<div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total</div><div style="font-weight:700;color:#1e40af;font-size:16px">'+ff(r.honTotal)+'</div></div>';
+  h+='<div style="background:'+(r.honEstado==='pagado'?'#ecfdf5':'#fef3c7')+';border:1px solid '+(r.honEstado==='pagado'?'#a7f3d0':'#fde68a')+';border-radius:8px;padding:10px 14px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">Estado</div><div style="font-weight:700;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">'+(r.honEstado==='pagado'?'\u2705 Pagado':'\u23f3 Pendiente')+'</div></div>';
+  if(r.factura) h+='<div style="background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Factura</div><div style="font-weight:600">'+hesc(r.factura)+'</div></div>';
   h+='</div></div>';
 
   // ATRASOS
   if((r.atrasos||[]).length){
-    h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px">';
-    h+='<div style="background:#fff0f0;padding:10px 14px;border-bottom:1px solid #fecaca;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase">⚠️ Pagos períodos anteriores</div>';
-    h+='<table class="rpt-tabla"><thead><tr><th>Concepto</th><th>Período</th><th style="text-align:right">Monto</th></tr></thead><tbody>';
+    h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden;margin-bottom:14px">';
+    h+='<div style="background:#fff0f0;padding:10px 14px;border-bottom:1px solid #fecaca;font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase">\u26a0\ufe0f Pagos per\u00edodos anteriores</div>';
+    h+='<table class="rpt-tabla"><thead><tr><th>Concepto</th><th>Per\u00edodo</th><th style="text-align:right">Monto</th></tr></thead><tbody>';
     (r.atrasos||[]).forEach(function(a){
-      h+='<tr><td>'+hesc(a.concepto)+'</td><td style="color:var(--tm)">'+hesc(a.periodo)+'</td><td class="num" style="color:var(--red);font-weight:600">'+ff(a.monto)+'</td></tr>';
+      h+='<tr><td>'+hesc(a.concepto)+'</td><td style="color:#9a849b">'+hesc(a.periodo)+'</td><td class="num" style="color:#C0392B;font-weight:600">'+ff(a.monto)+'</td></tr>';
     });
     h+='</tbody><tfoot><tr class="total"><td colspan="2">Total atrasos</td><td class="num">'+ff(totalAtrasos)+'</td></tr></tfoot></table></div>';
   }
 
   // CALENDARIO DE PAGOS
   if(cal.vencCot||cal.vencSii){
-    h+='<div class="rpt-cal"><div class="rpt-cal-titulo">📅 Calendario de pagos — '+formatPeriodo(r.periodo)+'</div>';
-    if(cal.vencCot) h+='<div class="rpt-cal-item"><div class="cal-fecha">'+hesc(cal.vencCot)+'</div><div class="cal-concepto">Cotizaciones previsionales'+(cal.prorrogaCot?' (prórroga: '+hesc(cal.prorrogaCot)+')':'')+'</div><div class="rpt-cal-monto" style="color:var(--amber)">'+ff(totalCot)+'</div></div>';
-    if(cal.vencSii) h+='<div class="rpt-cal-item"><div class="cal-fecha" style="color:var(--red)">'+hesc(cal.vencSii)+'</div><div class="cal-concepto">Impuesto mensual SII (F29) <span style="color:var(--red);font-size:10px">Sin prórroga</span></div><div class="rpt-cal-monto" style="color:var(--red)">'+ff(totalImp)+'</div></div>';
-    h+='<div class="rpt-cal-item" style="border-top:1px solid var(--bdr)"><div class="cal-fecha" style="color:var(--p)">Total</div><div class="cal-concepto" style="font-weight:700">Total a pagar este período</div><div class="rpt-cal-monto" style="color:var(--p);font-size:16px">'+ff(totalGeneral)+'</div></div>';
+    h+='<div class="rpt-cal"><div class="rpt-cal-titulo">\u1f4c5 Calendario de pagos  -  '+formatPeriodo(r.periodo)+'</div>';
+    if(cal.vencCot) h+='<div class="rpt-cal-item"><div class="cal-fecha">'+hesc(cal.vencCot)+'</div><div class="cal-concepto">Cotizaciones previsionales'+(cal.prorrogaCot?' (pr\u00f3rroga: '+hesc(cal.prorrogaCot)+')':'')+'</div><div class="rpt-cal-monto" style="color:#C07A1A">'+ff(totalCot)+'</div></div>';
+    if(cal.vencSii) h+='<div class="rpt-cal-item"><div class="cal-fecha" style="color:#C0392B">'+hesc(cal.vencSii)+'</div><div class="cal-concepto">Impuesto mensual SII (F29) <span style="color:#C0392B;font-size:10px">Sin pr\u00f3rroga</span></div><div class="rpt-cal-monto" style="color:#C0392B">'+ff(totalImp)+'</div></div>';
+    h+='<div class="rpt-cal-item" style="border-top:1px solid #e8dde8"><div class="cal-fecha" style="color:#904891">Total</div><div class="cal-concepto" style="font-weight:700">Total a pagar este per\u00edodo</div><div class="rpt-cal-monto" style="color:#904891;font-size:16px">'+ff(totalGeneral)+'</div></div>';
     h+='</div>';
   }
 
   // RECOMENDACIONES
   if(r.recomendaciones){
-    h+='<div style="background:linear-gradient(135deg,var(--pp),#fff);border:1px solid rgba(144,72,145,.2);border-radius:10px;padding:16px 18px;margin-bottom:14px">';
-    h+='<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💡 Recomendaciones del mes</div>';
-    h+='<div style="font-size:13px;color:var(--t2);line-height:1.7;white-space:pre-wrap">'+hesc(r.recomendaciones)+'</div></div>';
+    h+='<div style="background:linear-gradient(135deg,#F5EAF5,#fff);border:1px solid rgba(144,72,145,.2);border-radius:10px;padding:16px 18px;margin-bottom:14px">';
+    h+='<div style="font-size:11px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">\u1f4a1 Recomendaciones del mes</div>';
+    h+='<div style="font-size:13px;color:#5c4a5d;line-height:1.7;white-space:pre-wrap">'+hesc(r.recomendaciones)+'</div></div>';
   }
 
   // FOOTER
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--tm)">';
-  h+='<div>'+(r.preparado?'RRHH: <strong>'+hesc(r.preparado)+'</strong>':'')+(r.revisado?' · Contable: <strong>'+hesc(r.revisado)+'</strong>':'')+'</div>';
-  h+='<div>Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a849b">';
+  h+='<div>'+(r.preparado?'RRHH: <strong>'+hesc(r.preparado)+'</strong>':'')+(r.revisado?' \u00b7 Contable: <strong>'+hesc(r.revisado)+'</strong>':'')+'</div>';
+  h+='<div>Contadoor Chile \u00b7 contadoor.cl \u00b7 +56 9 7988 1891</div></div>';
 
   document.getElementById('vistaContent').innerHTML=h;
   document.getElementById('modalVista').classList.add('on');
@@ -1961,49 +1983,49 @@ function enviarEmail(){
   var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r) return;
   var to=r.clienteEmail||'';
   var replyTo=r.emailAnalista||'reportes@contadoor.cl';
-  var subject='Reporte Mensual de Gestión — '+formatPeriodo(r.periodo)+' — '+r.clienteNombre;
-  var body='Estimado/a,\n\nAdjunto el Reporte Mensual de Gestión correspondiente a '+formatPeriodo(r.periodo)+'.\n\n'
+  var subject='Reporte Mensual de Gesti\u00f3n  -  '+formatPeriodo(r.periodo)+'  -  '+r.clienteNombre;
+  var body='Estimado/a,\n\nAdjunto el Reporte Mensual de Gesti\u00f3n correspondiente a '+formatPeriodo(r.periodo)+'.\n\n'
     +'RESUMEN:\n'
-    +'• Cotizaciones previsionales: '+ff(r.totalCot)+'\n'
-    +'• Impuestos SII (F29): '+ff(r.totalImpInmediato||r.totalImp)+'\n'
-    +(r.ivaPostergado?'• IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
-    +'• Honorarios Contadoor: '+ff(r.honTotal)+'\n'
-    +(r.totalAtrasos?'• Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
-    +'• TOTAL A PAGAR: '+ff(r.totalGeneral)+'\n\n'
+    +'\u2022 Cotizaciones previsionales: '+ff(r.totalCot)+'\n'
+    +'\u2022 Impuestos SII (F29): '+ff(r.totalImpInmediato||r.totalImp)+'\n'
+    +(r.ivaPostergado?'\u2022 IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
+    +'\u2022 Nuestros Servicios: '+ff(r.honTotal)+'\n'
+    +(r.totalAtrasos?'\u2022 Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
+    +'\u2022 TOTAL A PAGAR: '+ff(r.totalGeneral)+'\n\n'
     +(r.recomendaciones?'RECOMENDACIONES:\n'+r.recomendaciones+'\n\n':'')
-    +'Transferencias a:\nAsesorías Contadoor Ltda. · RUT 77.166.269-2 · Itaú CC 0220729517\n\n'
+    +'Transferencias a:\nAsesor\u00edas Contadoor Ltda. \u00b7 RUT 77.166.269-2 \u00b7 Ita\u00fa CC 0220729517\n\n'
     +'Cualquier consulta, responda este correo directamente al analista.\n\n'
     +(r.preparado?'Analista RRHH: '+r.preparado+'\n':'')
     +(r.revisado?'Analista contable: '+r.revisado+'\n':'')
-    +'\nContadoor Chile\nreportes@contadoor.cl · +56 9 7988 1891';
+    +'\nContadoor Chile\nreportes@contadoor.cl \u00b7 +56 9 7988 1891';
   window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'&reply-to='+encodeURIComponent(replyTo);
   if(window.crearNotificacion) crearNotificacion({
     modulo:'sistema',tipo:'info',prioridad:'baja',
     clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,
-    mensaje:'Reporte de '+r.clienteNombre+' · '+formatPeriodo(r.periodo)+' enviado por email a '+(to||'cliente')+'.',
+    mensaje:'Reporte de '+r.clienteNombre+' \u00b7 '+formatPeriodo(r.periodo)+' enviado por email a '+(to||'cliente')+'.',
     accion:null
   });
 }
 
 function enviarWhatsApp(){
   var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r) return;
-  if(!r.clienteWa){alert('Este cliente no tiene número de WhatsApp registrado.');return;}
-  var msg='Hola! Le enviamos el Reporte de Gestión de *'+r.clienteNombre+'* — *'+formatPeriodo(r.periodo)+'*\n\n'
-    +'📊 *RESUMEN:*\n'
-    +'👥 Cotizaciones: '+ff(r.totalCot)+'\n'
-    +'📋 Impuestos SII: '+ff(r.totalImpInmediato||r.totalImp)+'\n'
-    +(r.ivaPostergado?'⏳ IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
-    +'💼 Honorarios: '+ff(r.honTotal)+'\n'
-    +(r.totalAtrasos?'⚠️ Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
-    +'✅ *TOTAL: '+ff(r.totalGeneral)+'*\n\n'
-    +(r.recomendaciones?'💡 '+r.recomendaciones+'\n\n':'')
-    +'Transferencias a Itaú CC 0220729517 · RUT 77.166.269-2\n'
-    +'Cualquier consulta, escríbanos. Saludos, Contadoor.';
+  if(!r.clienteWa){alert('Este cliente no tiene n\u00famero de WhatsApp registrado.');return;}
+  var msg='Hola! Le enviamos el Reporte de Gesti\u00f3n de *'+r.clienteNombre+'*  -  *'+formatPeriodo(r.periodo)+'*\n\n'
+    +'\u1f4ca *RESUMEN:*\n'
+    +'\u1f465 Cotizaciones: '+ff(r.totalCot)+'\n'
+    +'\u1f4cb Impuestos SII: '+ff(r.totalImpInmediato||r.totalImp)+'\n'
+    +(r.ivaPostergado?'\u23f3 IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
+    +'\u1f4bc Honorarios: '+ff(r.honTotal)+'\n'
+    +(r.totalAtrasos?'\u26a0\ufe0f Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
+    +'\u2705 *TOTAL: '+ff(r.totalGeneral)+'*\n\n'
+    +(r.recomendaciones?'\u1f4a1 '+r.recomendaciones+'\n\n':'')
+    +'Transferencias a Ita\u00fa CC 0220729517 \u00b7 RUT 77.166.269-2\n'
+    +'Cualquier consulta, escr\u00edbanos. Saludos, Contadoor.';
   window.open('https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
   if(window.crearNotificacion) crearNotificacion({
     modulo:'sistema',tipo:'info',prioridad:'baja',
     clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,
-    mensaje:'Reporte de '+r.clienteNombre+' · '+formatPeriodo(r.periodo)+' enviado por WhatsApp.',
+    mensaje:'Reporte de '+r.clienteNombre+' \u00b7 '+formatPeriodo(r.periodo)+' enviado por WhatsApp.',
     accion:null
   });
 }
@@ -2023,24 +2045,24 @@ function renderLista(){
   cont.innerHTML=arr.map(function(r){
     var waHref=r.clienteWa?'https://wa.me/56'+r.clienteWa.replace(/\D/g,''):'';
     var estBadge=r.estado==='enviado_total'?'badge-ok':r.estado==='enviado_rrhh'?'badge-env':'badge-pend';
-    var estLabel=r.estado==='enviado_total'?'✅ Enviado':r.estado==='enviado_rrhh'?'📤 RRHH env.':'📝 Borrador';
+    var estLabel=r.estado==='enviado_total'?'\u2705 Enviado':r.estado==='enviado_rrhh'?'\u1f4e4 RRHH env.':'\u1f4dd Borrador';
     return'<div class="reporte-row">'
-      +'<div style="font-size:24px;flex-shrink:0">📋</div>'
+      +'<div style="font-size:24px;flex-shrink:0">\u1f4cb</div>'
       +'<div class="reporte-row-info">'
       +'<div class="reporte-row-cliente">'+hesc(r.clienteNombre||r.rut)+'</div>'
-      +'<div class="reporte-row-meta">'+formatPeriodo(r.periodo)+' · <span class="badge '+estBadge+'">'+estLabel+'</span></div></div>'
-      +'<div style="font-size:15px;font-weight:700;color:var(--p);font-family:monospace">'+ff(r.totalGeneral)+'</div>'
+      +'<div class="reporte-row-meta">'+formatPeriodo(r.periodo)+' \u00b7 <span class="badge '+estBadge+'">'+estLabel+'</span></div></div>'
+      +'<div style="font-size:15px;font-weight:700;color:#904891;font-family:monospace">'+ff(r.totalGeneral)+'</div>'
       +'<div style="display:flex;gap:5px">'
-      +(waHref?'<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">💬</a>':'')
-      +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">👁</button>'
-      +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">✏️</button>'
-      +'<button class="btn-danger btn-sm" onclick="eliminarReporte('+r.id+')">🗑</button>'
+      +(waHref?'<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">\u1f4ac</a>':'')
+      +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">\u1f441</button>'
+      +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">\u270f\ufe0f</button>'
+      +'<button class="btn-danger btn-sm" onclick="eliminarReporte('+r.id+')">\u1f5d1</button>'
       +'</div></div>';
   }).join('');
 }
 
 function eliminarReporte(id){
-  if(!confirm('¿Eliminar este reporte?'))return;
+  if(!confirm('\u00bfEliminar este reporte?'))return;
   setReportes(getReportes().filter(function(x){return x.id!==id;}));
 }
 
@@ -2058,7 +2080,7 @@ function renderHistorialCliente(){
   var maxT=Math.max.apply(null,arr.map(function(r){return r.totalGeneral||0;}));
   var bars=arr.slice().reverse().map(function(r){
     var pct=maxT>0?((r.totalGeneral||0)/maxT*80):0;
-    var col=r.totalGeneral>0?'var(--p)':'var(--bdr)';
+    var col=r.totalGeneral>0?'#904891':'#e8dde8';
     return'<div class="bar-col">'
       +'<div class="bar-val">'+Math.round((r.totalGeneral||0)/1000)+'K</div>'
       +'<div class="bar-fill" style="height:'+Math.max(2,pct)+'px;background:'+col+'"></div>'
@@ -2066,24 +2088,24 @@ function renderHistorialCliente(){
   }).join('');
 
   cont.innerHTML=(c?'<div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
-    +'<strong>'+hesc(c.razon)+'</strong> · '+hesc(c.rut)
-    +(c.wa?'&nbsp;&nbsp;<a class="btn-wa btn-sm" href="https://wa.me/56'+c.wa.replace(/\D/g,'')+'" target="_blank">💬 WA</a>':'')
+    +'<strong>'+hesc(c.razon)+'</strong> \u00b7 '+hesc(c.rut)
+    +(c.wa?'&nbsp;&nbsp;<a class="btn-wa btn-sm" href="https://wa.me/56'+c.wa.replace(/\D/g,'')+'" target="_blank">\u1f4ac WA</a>':'')
     +'</div>':'')
-    +'<div class="chart-wrap"><h3>Tendencia — últimos '+arr.length+' períodos</h3><div class="bar-chart">'+bars+'</div></div>'
+    +'<div class="chart-wrap"><h3>Tendencia  -  \u00faltimos '+arr.length+' per\u00edodos</h3><div class="bar-chart">'+bars+'</div></div>'
     +arr.map(function(r){
       return'<div class="reporte-row">'
         +'<div class="reporte-row-info">'
         +'<div class="reporte-row-cliente">'+formatPeriodo(r.periodo)+'</div>'
         +'<div class="reporte-row-meta">'+(r.nTrab||r.trabM||0)+' trabajadores</div></div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,80px);gap:8px;text-align:right;font-size:11.5px">'
-        +'<div><div style="color:var(--tm);font-size:10px">Cot.</div><div style="font-weight:600">'+ff(r.totalCot)+'</div></div>'
-        +'<div><div style="color:var(--tm);font-size:10px">Imp.</div><div style="font-weight:600">'+ff(r.totalImp)+'</div></div>'
-        +'<div><div style="color:var(--tm);font-size:10px">Hon.</div><div style="font-weight:600">'+ff(r.honTotal)+'</div></div>'
+        +'<div><div style="color:#9a849b;font-size:10px">Cot.</div><div style="font-weight:600">'+ff(r.totalCot)+'</div></div>'
+        +'<div><div style="color:#9a849b;font-size:10px">Imp.</div><div style="font-weight:600">'+ff(r.totalImp)+'</div></div>'
+        +'<div><div style="color:#9a849b;font-size:10px">Hon.</div><div style="font-weight:600">'+ff(r.honTotal)+'</div></div>'
         +'</div>'
-        +'<div style="font-size:14px;font-weight:700;color:var(--p);font-family:monospace;min-width:100px;text-align:right">'+ff(r.totalGeneral)+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:#904891;font-family:monospace;min-width:100px;text-align:right">'+ff(r.totalGeneral)+'</div>'
         +'<div style="display:flex;gap:5px">'
-        +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">👁</button>'
-        +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">✏️</button>'
+        +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">\u1f441</button>'
+        +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">\u270f\ufe0f</button>'
         +'</div></div>';
     }).join('');
 }
@@ -2096,23 +2118,23 @@ function renderHistorialMes(){
   var cont=document.getElementById('historialMesContent');
   if(!mes){cont.innerHTML='';return;}
   var arr=getReportes().filter(function(r){return r.periodo===mes;});
-  if(!arr.length){cont.innerHTML='<div class="empty-state"><h3>Sin reportes para este período</h3></div>';return;}
+  if(!arr.length){cont.innerHTML='<div class="empty-state"><h3>Sin reportes para este per\u00edodo</h3></div>';return;}
   var total=arr.reduce(function(s,r){return s+(r.totalGeneral||0);},0);
   var enviados=arr.filter(function(r){return r.estado==='enviado_total';}).length;
   cont.innerHTML='<div class="stats-row" style="grid-template-columns:repeat(3,1fr)">'
     +'<div class="stat-box"><div class="sv">'+arr.length+'</div><div class="sl">Reportes</div></div>'
     +'<div class="stat-box"><div class="sv">'+enviados+'</div><div class="sl">Enviados</div></div>'
-    +'<div class="stat-box"><div class="sv" style="font-size:14px">'+ff(total)+'</div><div class="sl">Total período</div></div>'
+    +'<div class="stat-box"><div class="sv" style="font-size:14px">'+ff(total)+'</div><div class="sl">Total per\u00edodo</div></div>'
     +'</div>'
     +arr.map(function(r){
       return'<div class="reporte-row">'
         +'<div class="reporte-row-info"><div class="reporte-row-cliente">'+hesc(r.clienteNombre||r.rut)+'</div>'
         +'<div class="reporte-row-meta">'+(r.nTrab||r.trabM||0)+' trabajadores</div></div>'
-        +'<div style="font-size:14px;font-weight:700;color:var(--p);font-family:monospace">'+ff(r.totalGeneral)+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:#904891;font-family:monospace">'+ff(r.totalGeneral)+'</div>'
         +'<div style="display:flex;gap:5px">'
-        +(r.clienteWa?'<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">💬</a>':'')
-        +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">👁</button>'
-        +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">✏️</button>'
+        +(r.clienteWa?'<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">\u1f4ac</a>':'')
+        +'<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">\u1f441</button>'
+        +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+r.id+')">\u270f\ufe0f</button>'
         +'</div></div>';
     }).join('');
 }
@@ -2162,6 +2184,8 @@ function setView(v){
 function renderAll(){
   popularSelectMeses();popularSelectClientes();popularSelectClientes2();
   renderLista();renderNomina();
+  renderBannerPeriodo();
+  renderBannerPeriodo();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2170,8 +2194,129 @@ function renderAll(){
 setupUploadRemu();
 renderAll();
 setPeriodoActual();
+
+// ── APERTURA DE PERÍODO ────────────────────────────────────────────────────
+function getPeriodos(){
+  try{return JSON.parse(localStorage.getItem('apertura_periodos')||'{}');}
+  catch(e){return {};}
+}
+function getPeriodoActivo(){
+  var ps=getPeriodos(),activo=null;
+  Object.values(ps).forEach(function(p){if(p.estado==='activo')activo=p;});
+  return activo;
+}
+function ffPer(n){return Math.round(n||0).toLocaleString('es-CL');}
+function formatPer(per){
+  if(!per)return '';
+  var y=per.slice(0,4),m=parseInt(per.slice(4,6));
+  var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return meses[m-1]+' '+y;
+}
+function renderBannerPeriodo(){
+  var sesion=window._contadoorSesion||{};
+  var esMaster=sesion.esMaster||false;
+  var per=getPeriodoActivo();
+  var el=document.getElementById('banner-periodo');
+  if(!el)return;
+  if(per){
+    el.innerHTML='<div class="banner-periodo abierto">'
+      +'<div class="bp-dot verde"></div>'
+      +'<span class="bp-mes">'+formatPer(per.periodo)+' — Abierto</span>'
+      +'<div class="bp-sep"></div>'
+      +'<div class="bp-val">UF <strong>$'+ffPer(per.uf)+'</strong></div>'
+      +'<div class="bp-sep"></div>'
+      +'<div class="bp-val">UTM <strong>$'+ffPer(per.utm)+'</strong></div>'
+      +'<div class="bp-sep"></div>'
+      +'<div class="bp-val">Abierto el <strong>'+per.fechaCorta+'</strong></div>'
+      +(esMaster?'<div class="bp-sep"></div><button onclick="abrirModalPeriodo()" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit">+ Siguiente</button>':'')
+      +'<div class="bp-right">Solo Luciano puede abrir o cerrar períodos</div>'
+      +'</div>';
+  }else{
+    el.innerHTML='<div class="banner-periodo sin-abrir">'
+      +'<span style="font-size:20px">⚠️</span>'
+      +'<div><div class="bp-warn-titulo">Período no abierto</div>'
+      +'<div class="bp-warn-sub">Luciano debe ingresar UF y UTM del mes para comenzar</div></div>'
+      +(esMaster?'<button class="btn-abrir-per" onclick="abrirModalPeriodo()">📅 Abrir período</button>':'')
+      +'</div>';
+  }
+}
+function abrirModalPeriodo(){
+  var sesion=window._contadoorSesion||{};
+  if(!sesion.esMaster){alert('Solo Luciano puede abrir períodos.');return;}
+  var per=getPeriodoActivo();
+  var hoy=new Date(),y=hoy.getFullYear(),m=hoy.getMonth()+1;
+  if(per){y=parseInt(per.periodo.slice(0,4));m=parseInt(per.periodo.slice(4,6))+1;if(m>12){m=1;y++;}}
+  var sel=document.getElementById('mp-periodo');
+  if(sel){
+    sel.innerHTML='';
+    var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    for(var i=0;i<3;i++){
+      var mm=m+i,yy=y;if(mm>12){mm-=12;yy++;}
+      var val=yy+('0'+mm).slice(-2);
+      sel.innerHTML+='<option value="'+val+'">'+meses[mm-1]+' '+yy+'</option>';
+    }
+  }
+  document.getElementById('mp-uf').value='';
+  document.getElementById('mp-utm').value='';
+  document.getElementById('mp-error').style.display='none';
+  document.getElementById('modal-periodo').style.display='flex';
+}
+function cerrarModalPeriodo(){document.getElementById('modal-periodo').style.display='none';}
+function abrirPeriodo(){
+  var uf=parseFloat(document.getElementById('mp-uf').value);
+  var utm=parseFloat(document.getElementById('mp-utm').value);
+  var per=document.getElementById('mp-periodo').value;
+  var err=document.getElementById('mp-error');
+  if(!uf||uf<1000){err.textContent='Ingresa un valor UF válido (ej: 38250)';err.style.display='block';return;}
+  if(!utm||utm<1000){err.textContent='Ingresa un valor UTM válido (ej: 67294)';err.style.display='block';return;}
+  var hoy=new Date();
+  var ps=getPeriodos();
+  Object.keys(ps).forEach(function(k){if(ps[k].estado==='activo')ps[k].estado='cerrado';});
+  ps[per]={periodo:per,estado:'activo',uf:uf,utm:utm,
+    fechaApertura:hoy.toISOString(),
+    fechaCorta:hoy.getDate()+'/'+(hoy.getMonth()+1)+'/'+hoy.getFullYear(),
+    abiertoPor:(window._contadoorSesion||{}).nombre||'Luciano'};
+  localStorage.setItem('apertura_periodos',JSON.stringify(ps));
+  cerrarModalPeriodo();
+  renderBannerPeriodo();
+  alert('✅ Período '+formatPer(per)+' abierto. UF: $'+ffPer(uf)+' · UTM: $'+ffPer(utm));
+}
 </script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
+
+<!-- MODAL APERTURA PERÍODO -->
+<div id="modal-periodo" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:28px;width:440px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="font-size:24px;margin-bottom:10px">📅</div>
+    <div style="font-size:16px;font-weight:700;color:var(--t1);margin-bottom:4px">Abrir nuevo período</div>
+    <div style="font-size:12px;color:var(--tm);margin-bottom:20px;line-height:1.5">Ingresa la UF y UTM del mes. Estos valores quedan fijos para todos los cálculos — Facturación, Remuneraciones y PIR.</div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Período</label>
+      <select id="mp-periodo" style="width:100%;background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit"></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">UF del día</label>
+        <input type="number" id="mp-uf" placeholder="38.250" step="0.01" style="width:100%;background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:8px;padding:10px;font-size:16px;font-weight:700;font-family:inherit;text-align:center">
+        <span style="font-size:10px;color:var(--tm);margin-top:4px;display:block">Conversión planes UF → CLP</span>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">UTM del mes</label>
+        <input type="number" id="mp-utm" placeholder="67.294" step="1" style="width:100%;background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:8px;padding:10px;font-size:16px;font-weight:700;font-family:inherit;text-align:center">
+        <span style="font-size:10px;color:var(--tm);margin-top:4px;display:block">Impuesto Único en Remuneraciones</span>
+      </div>
+    </div>
+    <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:11px;color:#1d4ed8;margin-bottom:18px;line-height:1.6">
+      📌 Consulta los valores en <strong>sii.cl</strong> → Valores UF · Valores UTM
+    </div>
+    <div id="mp-error" style="color:var(--red);font-size:11px;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="cerrarModalPeriodo()" style="background:var(--sur2);border:1px solid var(--bdr);color:var(--t2);border-radius:7px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>
+      <button onclick="abrirPeriodo()" style="background:var(--p);color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✅ Abrir período</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
