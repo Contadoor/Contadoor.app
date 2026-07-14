@@ -21,6 +21,7 @@
   if(_isDevMode && !sessionStorage.getItem('usuario_activo')){
     sessionStorage.setItem('usuario_activo', JSON.stringify({
       nombre:'Luciano Duarte', rol:'master', rolLabel:'Master',
+      email:'luciano@contadoor.cl', wa:'979881891',
       esMaster:true, modulos:['*'], tsLogin:Date.now()
     }));
   }
