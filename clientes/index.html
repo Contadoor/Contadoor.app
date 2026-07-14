@@ -269,6 +269,23 @@ tr:hover td{background:#faf5ff;}
         </select>
       </div>
       <div class="fgroup"><label>Obs. tributarias</label><input type="text" id="f-obs-trib" placeholder="Pérdidas, fusiones, etc."/></div>
+      <div class="fgroup">
+        <label>Condición IVA</label>
+        <select id="f-iva-condicion">
+          <option value="">Seleccionar...</option>
+          <option value="afecto">🟢 Afecto — paga IVA (19%)</option>
+          <option value="exento">🔵 Exento — sin débito IVA</option>
+          <option value="mixto">🟡 Mixto — operaciones afectas y exentas</option>
+        </select>
+      </div>
+      <div class="fgroup">
+        <label>Modalidad de pago</label>
+        <select id="f-modalidad-pago">
+          <option value="">Seleccionar...</option>
+          <option value="contadoor">💳 Transfiere a Contadoor</option>
+          <option value="directo">🏦 Pago directo en instituciones</option>
+        </select>
+      </div>
     </div>
 
     <div class="card-hd">💼 Nuestros Servicios</div>
@@ -560,6 +577,8 @@ function abrirModalEditar(id){
     var el=document.getElementById('f-'+k);if(el)el.value=c[k.replace('-','')]||c[k]||'';
   });
   document.getElementById('f-obs-trib').value=c.obsTrib||'';
+  document.getElementById('f-iva-condicion').value=c.ivaCondicion||'';
+  document.getElementById('f-modalidad-pago').value=c.modalidadPago||'';
   document.getElementById('f-moneda-plan').value=c.monedaPlan||'UF';
   document.getElementById('f-hon-uf').value=c.honUF||'';
   document.getElementById('f-hon-variable').value=c.honVariable||'';
@@ -605,6 +624,7 @@ function guardarCliente(){
     email:sv('f-email'),tel:sv('f-tel'),wa:sv('f-wa'),ciudad:sv('f-ciudad'),
     plan:sv('f-plan'),estado:sv('f-estado')||'activo',inicio:sv('f-inicio'),
     reg:sv('f-reg'),at:sv('f-at'),obsTrib:sv('f-obs-trib'),
+    ivaCondicion:sv('f-iva-condicion'),modalidadPago:sv('f-modalidad-pago'),
     monedaPlan:sv('f-moneda-plan')||'UF',
     honUF:nv('f-hon-uf'),honVariable:nv('f-hon-variable'),
     trabIncluidos:nv('f-trab-incluidos'),
@@ -657,7 +677,10 @@ function renderClientes(){
     html+='<td>';
     if(c.logoBase64)html+='<img src="'+c.logoBase64+'" style="width:28px;height:28px;border-radius:5px;object-fit:contain;vertical-align:middle;margin-right:8px;border:1px solid #e8dde8"/>';
     html+='<strong>'+h(c.razon)+'</strong><br/><span style="font-size:10px;color:#9a849b">'+h(c.rut)+(c.ciudad?' \u00b7 '+h(c.ciudad):'')+'</span></td>';
-    html+='<td><span class="badge '+planBadge+'">'+(PLANES[c.plan]||h(c.plan)||' - ')+'</span><br/><span style="font-size:10px;color:#9a849b">'+prioDot+(prio.charAt(0).toUpperCase()+prio.slice(1))+' prioridad</span></td>';
+    html+='<td><span class="badge '+planBadge+'">'+(PLANES[c.plan]||h(c.plan)||' - ')+'</span>'
+      +(c.ivaCondicion?'<span style="font-size:10px;background:'+(c.ivaCondicion==='afecto'?'#e8f5f0;color:#2D9B6F':c.ivaCondicion==='exento'?'#e8f0fe;color:#3B82F6':'#fef9ec;color:#C07A1A')+';padding:1px 6px;border-radius:8px;margin-left:4px">'+(c.ivaCondicion==='afecto'?'🟢 Afecto':c.ivaCondicion==='exento'?'🔵 Exento':'🟡 Mixto')+'</span>':'')
+      +(c.modalidadPago?'<span style="font-size:10px;background:#f5f0ff;color:#904891;padding:1px 6px;border-radius:8px;margin-left:4px">'+(c.modalidadPago==='contadoor'?'💳 Transfiere':'🏦 Directo')+'</span>':'')
+      +'<br/><span style="font-size:10px;color:#9a849b">'+prioDot+(prio.charAt(0).toUpperCase()+prio.slice(1))+' prioridad</span></td>';
     html+='<td style="font-size:11px;color:#5c4a5d;line-height:1.8;">';
     if(c.analistaRrhh)html+='\u1f465 '+h(c.analistaRrhh)+'<br/>';
     if(c.analistaContable)html+='\u1f4ca '+h(c.analistaContable)+'<br/>';
