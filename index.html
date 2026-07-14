@@ -76,7 +76,7 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
   </div>
   <div class="header-right">
     <div id="sessionBadge">Cargando...</div>
-    <button id="btnLogout" onclick="if(confirm('¿Cerrar sesión?')){localStorage.removeItem('usuario_activo');window.location.href='login.html';}">Salir</button>
+    <button id="btnLogout" onclick="if(confirm('¿Cerrar sesión?')){sessionStorage.removeItem('usuario_activo');window.location.href='login.html';}">Salir</button>
   </div>
 </header>
 
@@ -275,11 +275,11 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 <script>
 (function(){
   try{
-    var s=JSON.parse(localStorage.getItem('usuario_activo')||'null');
+    var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
     if(!s){
       s={nombre:'Luciano Duarte',rol:'master',rolLabel:'Master',
          esMaster:true,modulos:['*'],tsLogin:Date.now()};
-      localStorage.setItem('usuario_activo',JSON.stringify(s));
+      sessionStorage.setItem('usuario_activo',JSON.stringify(s));
     }
     var badge=document.getElementById('sessionBadge');
     if(badge) badge.textContent=s.nombre+' · '+(s.rolLabel||'Master');
