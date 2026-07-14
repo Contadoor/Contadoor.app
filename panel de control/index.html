@@ -1787,12 +1787,19 @@ function renderNomina(){
       html+='<div class="nomina-row" id="nr-'+r.id+'">';
       html+='<div class="nomina-info">';
       html+='<div class="nomina-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>';
-      html+='<div class="nomina-rut">'+hesc(r.rut)+' <span class="badge '+priorBadge+'" style="margin-left:6px">'+( r.prioridadRrhh||'media')+'</span>'+(r.totalGeneral?'<span style="margin-left:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:#904891">'+ff(r.totalGeneral)+'</span>':'')+'</div>';
+      // Badge modalidad de pago
+      var cliBd=getClientes().find(function(c){return c.rut===r.rut;})||{};
+      var modalidad=cliBd.modalidadPago||'contadoor';
+      var modalBadge=modalidad==='directo'
+        ?'<span style="font-size:9px;font-weight:700;background:#e8f0fe;color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">🏦 Pago directo</span>'
+        :'<span style="font-size:9px;font-weight:700;background:var(--pp);color:var(--p);padding:1px 6px;border-radius:8px;margin-left:6px">💳 Transfiere</span>';
+      html+='<div class="nomina-rut">'+hesc(r.rut)+' <span class="badge '+priorBadge+'" style="margin-left:6px">'+( r.prioridadRrhh||'media')+'</span>'+modalBadge+(r.totalGeneral?'<span style="margin-left:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:#904891">'+ff(r.totalGeneral)+'</span>':'')+'</div>';
       html+='<div class="nomina-estados">'+chip('rrhh','RRHH')+chip('imp','Imp.')+chip('hon','Hon.')+'<span class="estado-chip '+(r.estado==='enviado_total'||r.estado==='enviado_rrhh'?'ok':'pend')+'">'+(r.estado==='enviado_total'?'\u1f4e4 Enviado':r.estado==='enviado_rrhh'?'\u1f4e4 RRHH env.':'\u1f4e4 Pendiente env.')+'</span></div>';
       html+='</div>';
       html+='<div style="display:flex;gap:5px;flex-shrink:0">';
       if(r.clienteWa) html+='<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">\u1f4ac</a>';
-      html+='<button class="btn-p btn-sm" onclick="abrirModalEditar('+r.id+')">\u270f\ufe0f Completar</button>';
+      var btnLabel=modalidad==='directo'?'\u2713 Validar':'\u270f\ufe0f Completar';
+      html+='<button class="btn-p btn-sm" onclick="abrirModalEditar('+r.id+')">'+btnLabel+'</button>';
       if(r.totalGeneral>0) html+='<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">\u1f441 Ver</button>';
       html+='</div></div>';
     });
