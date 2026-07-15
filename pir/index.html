@@ -543,7 +543,7 @@ function syncFromCloud(){
         _cfReady=true;
         updateSyncStatus('online');
         var csb=document.getElementById('cloudStatusBox');
-        if(csb)csb.innerHTML='<b>\u2705 Conectado a Cloudflare KV</b><br>Datos sincronizados correctamente. Todos los analistas comparten la misma base de datos.';
+        if(csb)csb.innerHTML='<b>✅ Conectado a Cloudflare KV</b><br>Datos sincronizados correctamente. Todos los analistas comparten la misma base de datos.';
         badge();
       });
     });
@@ -561,9 +561,9 @@ function updateSyncStatus(status){
   var el=document.getElementById('syncStatus');if(!el)return;
   var map={
     online:{text:'Sincronizado  -  Cloudflare KV',color:'#2D9B6F'},
-    offline:{text:'Sin conexi\u00f3n  -  datos locales',color:'#C07A1A'},
+    offline:{text:'Sin conexión  -  datos locales',color:'#C07A1A'},
     syncing:{text:'Sincronizando...',color:'#904891'},
-    error:{text:'Error de sincronizaci\u00f3n',color:'#C0392B'}
+    error:{text:'Error de sincronización',color:'#C0392B'}
   };
   var s=map[status]||map.offline;
   el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:'+s.color+';display:inline-block;margin-right:6px"></span>'+s.text;
@@ -648,16 +648,16 @@ function onRegChange(){
   if(reg==='14D8'){
     document.getElementById('c_tasa').value='0';tg.style.opacity='.35';
     if(g14)g14.style.display='none';
-    box.innerHTML='<div class="info-box"><b>Art. 14D N\u00b08 Transparente:</b> Impuesto empresa $0. Base y PPM se distribuyen a socios seg\u00fan % para Global Complementario.</div>';
+    box.innerHTML='<div class="info-box"><b>Art. 14D N°8 Transparente:</b> Impuesto empresa $0. Base y PPM se distribuyen a socios según % para Global Complementario.</div>';
   }else if(reg==='presunta'){
     document.getElementById('c_tasa').value='0';tg.style.opacity='.35';
     if(g14)g14.style.display='none';
-    box.innerHTML='<div class="warn-box"><b>Renta Presunta Art. 34:</b> Impuesto empresa $0. Base distribuida a socios seg\u00fan % para Global Complementario.</div>';
+    box.innerHTML='<div class="warn-box"><b>Renta Presunta Art. 34:</b> Impuesto empresa $0. Base distribuida a socios según % para Global Complementario.</div>';
   }else{
     var t=TASA14D3[parseInt(at)]||12.5;
     document.getElementById('c_tasa').value=t;tg.style.opacity='1';
     if(g14)g14.style.display='block';
-    box.innerHTML='<div class="success-box"><b>Art. 14D N\u00b03 PYME:</b> Tasa IDPC '+t+'%. Incentivo ahorro Art. 14E disponible.</div>';
+    box.innerHTML='<div class="success-box"><b>Art. 14D N°3 PYME:</b> Tasa IDPC '+t+'%. Incentivo ahorro Art. 14E disponible.</div>';
   }
 }
 function onATChange(){
@@ -1039,18 +1039,18 @@ function igcToggle(el){
   d.classList.toggle('open',!open);t.classList.toggle('open',!open);
   var arr=t.querySelector('.arrow');if(arr)arr.textContent=open?'\u25bc':'\u25b2';
   var txt=t.querySelector('span:first-child');
-  if(txt)txt.textContent=open?'Ver c\u00f3mo se calcul\u00f3 paso a paso':'Ocultar detalle';
+  if(txt)txt.textContent=open?'Ver cómo se calculó paso a paso':'Ocultar detalle';
 }
 
 // \u2500\u2500 IA FALLBACK \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function fbIA(acc,n){
   return{
-    resumen:sv('c_razon')+' presenta RLI de '+ff(n.rli)+'. Impuesto '+(n.reg==='14D3'?ff(n.impBruto):'$0 (empresa exenta)')+', diferencia '+(n.reg==='14D3'?ff(n.difEmp):'seg\u00fan socios')+'.',
-    analisis:'Proyecci\u00f3n tributaria '+sv('c_razon')+' para '+sv('c_at')+'.\n\nIngresos: '+ff(acc.totalGan)+'. Costos: '+ff(acc.totalPer)+'. Resultado: '+ff(acc.resultado)+'.\n\nRLI determinada seg\u00fan Arts. 29-33 LIR: '+ff(n.rli)+'.\n\n'+(n.reg==='14D3'?'Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'%): '+ff(n.impBruto)+'. PPM: '+ff(n.ppmEmp)+'. Diferencia: '+ff(n.difEmp)+'.':'R\u00e9gimen exime impuesto empresa. Base distribuida a socios para Global Complementario.'),
+    resumen:sv('c_razon')+' presenta RLI de '+ff(n.rli)+'. Impuesto '+(n.reg==='14D3'?ff(n.impBruto):'$0 (empresa exenta)')+', diferencia '+(n.reg==='14D3'?ff(n.difEmp):'según socios')+'.',
+    analisis:'Proyección tributaria '+sv('c_razon')+' para '+sv('c_at')+'.\n\nIngresos: '+ff(acc.totalGan)+'. Costos: '+ff(acc.totalPer)+'. Resultado: '+ff(acc.resultado)+'.\n\nRLI determinada según Arts. 29-33 LIR: '+ff(n.rli)+'.\n\n'+(n.reg==='14D3'?'Impuesto 1\u00aa Categoría ('+n.tasa+'%): '+ff(n.impBruto)+'. PPM: '+ff(n.ppmEmp)+'. Diferencia: '+ff(n.difEmp)+'.':'Régimen exime impuesto empresa. Base distribuida a socios para Global Complementario.'),
     recomendaciones:[
-      {titulo:'Revisar ajustes tributarios',descripcion:'Verificar gastos rechazados Art.33 y correcci\u00f3n monetaria antes del cierre.',prioridad:'alta',icono:'\u26a0\ufe0f'},
-      {titulo:'Optimizar PPM',descripcion:'Ajustar tasa PPM seg\u00fan impuesto proyectado para evitar diferencia en abril.',prioridad:'media',icono:'\u1f4b0'},
-      {titulo:'Coordinaci\u00f3n socios',descripcion:'Informar renta atribuida y cr\u00e9ditos para planificaci\u00f3n del Global Complementario.',prioridad:'media',icono:'\u1f465'}
+      {titulo:'Revisar ajustes tributarios',descripcion:'Verificar gastos rechazados Art.33 y corrección monetaria antes del cierre.',prioridad:'alta',icono:'⚠️'},
+      {titulo:'Optimizar PPM',descripcion:'Ajustar tasa PPM según impuesto proyectado para evitar diferencia en abril.',prioridad:'media',icono:'💰'},
+      {titulo:'Coordinación socios',descripcion:'Informar renta atribuida y créditos para planificación del Global Complementario.',prioridad:'media',icono:'👥'}
     ]
   };
 }
@@ -1140,7 +1140,7 @@ function abrirModal(){
       var left=document.createElement('div');
       var b=document.createElement('b');b.textContent=c[k].razon||k;left.appendChild(b);
       var sm=document.createElement('div');sm.style.cssText='font-size:11px;color:#9a849b';sm.textContent=k;left.appendChild(sm);
-      var arr=document.createElement('span');arr.style.color='#904891';arr.textContent='\u2192';
+      var arr=document.createElement('span');arr.style.color='#904891';arr.textContent='→';
       div.appendChild(left);div.appendChild(arr);
       (function(rut){div.addEventListener('click',function(){loadCli(rut);});})(k);
       list.appendChild(div);
@@ -1155,7 +1155,7 @@ function closeModal(){document.getElementById('modal').classList.remove('on');}
 function generarReporte(){
   if(!parsedDiario||!parsedDiario.length){alert('Primero sube el libro diario.');return;}
   var socios=getSocios();
-  if(!socios.length){alert('Agrega al menos un socio con % de participaci\u00f3n.');return;}
+  if(!socios.length){alert('Agrega al menos un socio con % de participación.');return;}
   var btn=document.getElementById('genBtn');btn.disabled=true;
   showTab('reporte');
   var ld=document.getElementById('loadingDiv'),rw=document.getElementById('reportWrap');
@@ -1205,7 +1205,7 @@ function generarReporte(){
     }else{
       var existIdx=repo.findIndex(function(x){return x.rut===rut&&String(x.at)===String(at);});
       if(existIdx>=0){
-        if(confirm('Ya existe un an\u00e1lisis de '+(sv('c_razon')||rut)+' para '+at+'. \u00bfReemplazar?'))repo[existIdx]=nuevoReporte;
+        if(confirm('Ya existe un análisis de '+(sv('c_razon')||rut)+' para '+at+'. ¿Reemplazar?'))repo[existIdx]=nuevoReporte;
         else{nuevoReporte.id=Date.now();repo.unshift(nuevoReporte);}
       }else{repo.unshift(nuevoReporte);}
     }
@@ -1267,7 +1267,7 @@ function render(acc,monthly,n,ia){
   var razon=sv('c_razon')||'--',rut=sv('c_rut')||'--',giro=sv('c_giro')||'--';
   var at=n.at,reg=n.reg,nivel=n.nivel||sv('c_nivel'),analista=sv('c_analista')||'Contadoor';
   var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
-  var RLmap={'14D3':'PYME General (Art. 14D N\u00b03)','14D8':'Transparente (Art. 14D N\u00b08)','presunta':'Renta Presunta (Art. 34)'};
+  var RLmap={'14D3':'PYME General (Art. 14D N°3)','14D8':'Transparente (Art. 14D N°8)','presunta':'Renta Presunta (Art. 34)'};
   var RCmap={'14D3':'pyme','14D8':'transp','presunta':'presunta'};
   var h='';
   h+='<div class="prow"><div class="prow-title">Reporte Tributario AT'+at+'</div>';
@@ -1276,24 +1276,24 @@ function render(acc,monthly,n,ia){
   h+='<button class="btn-p" onclick="window.print()">Imprimir PDF</button></div>';
   h+='<div class="rpt-hdr">';
   h+='<div><img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor" style="width:160px;filter:brightness(0) invert(1)"/>';
-  h+='<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:6px">Asesor\u00eda Contable y Tributaria</div></div>';
+  h+='<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:6px">Asesoría Contable y Tributaria</div></div>';
   h+='<div style="text-align:right">';
-  h+='<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Proyecci\u00f3n Tributaria</div>';
+  h+='<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Proyección Tributaria</div>';
   h+='<div style="font-size:28px;font-weight:800;color:#fff;line-height:1.1">Impuesto<br>a la Renta</div>';
   h+='<div style="margin-top:12px"><div style="display:inline-block;background:rgba(255,255,255,.18);color:#fff;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600">'+at+'</div>';
   h+='<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:4px">Emitido '+hoy+'</div></div></div></div>';
   h+='<div class="client-box"><div class="client-row">';
   h+='<div class="cf" style="flex:1.5"><div class="lbl">Cliente</div><div class="val">'+hesc(razon)+'</div><div style="font-size:11px;color:#5c4a5d">'+hesc(giro)+'</div></div>';
   h+='<div class="cf"><div class="lbl">RUT</div><div class="val">'+hesc(rut)+'</div></div>';
-  h+='<div class="cf"><div class="lbl">Per\u00edodo</div><div class="val">'+at+'</div></div>';
-  h+='<div class="cf"><div class="lbl">R\u00e9gimen</div><div class="val"><span class="regime-tag '+(RCmap[reg]||'pyme')+'">'+(RLmap[reg]||reg)+'</span></div></div>';
+  h+='<div class="cf"><div class="lbl">Período</div><div class="val">'+at+'</div></div>';
+  h+='<div class="cf"><div class="lbl">Régimen</div><div class="val"><span class="regime-tag '+(RCmap[reg]||'pyme')+'">'+(RLmap[reg]||reg)+'</span></div></div>';
   h+='<div class="cf"><div class="lbl">Nivel</div><div class="val"><span class="level-tag '+nivel.toLowerCase()+'">'+nivel+'</span></div></div>';
   h+='<div class="cf"><div class="lbl">Analista</div><div class="val" style="font-size:12px">'+hesc(analista)+'</div></div>';
   h+='</div></div>';
   h+='<div class="kpi-grid k4">';
   h+='<div class="kpi cp"><div class="kpi-lbl">Ingresos Totales</div><div class="kpi-val">'+fk(acc.totalGan)+'</div><div class="kpi-sub">Base del ejercicio</div></div>';
-  h+='<div class="kpi ca"><div class="kpi-lbl">Renta L\u00edquida Imponible</div><div class="kpi-val">'+fk(n.rli)+'</div><div class="kpi-sub">Margen '+(acc.totalGan>0?((n.rli/acc.totalGan)*100).toFixed(1):0)+'%</div></div>';
-  h+='<div class="kpi '+(reg==='14D3'?'cr':'cg')+'"><div class="kpi-lbl">Impuesto 1\u00aa Cat. ('+n.tasa+'%)</div><div class="kpi-val">'+(reg==='14D3'?fk(n.impBruto):'$0')+'</div><div class="kpi-sub">'+(reg==='14D3'?'Antes de cr\u00e9ditos':'Empresa exenta')+'</div></div>';
+  h+='<div class="kpi ca"><div class="kpi-lbl">Renta Líquida Imponible</div><div class="kpi-val">'+fk(n.rli)+'</div><div class="kpi-sub">Margen '+(acc.totalGan>0?((n.rli/acc.totalGan)*100).toFixed(1):0)+'%</div></div>';
+  h+='<div class="kpi '+(reg==='14D3'?'cr':'cg')+'"><div class="kpi-lbl">Impuesto 1\u00aa Cat. ('+n.tasa+'%)</div><div class="kpi-val">'+(reg==='14D3'?fk(n.impBruto):'$0')+'</div><div class="kpi-sub">'+(reg==='14D3'?'Antes de créditos':'Empresa exenta')+'</div></div>';
   h+='<div class="kpi '+(reg==='14D3'?(n.difEmp>0?'cr':'cg'):'cb')+'"><div class="kpi-lbl">'+(reg==='14D3'?(n.difEmp>=0?'Diferencia a Pagar':'Remanente'):'PPM Acumulados')+'</div><div class="kpi-val">'+(reg==='14D3'?fk(Math.abs(n.difEmp)):fk(n.ppmTotal))+'</div><div class="kpi-sub">'+(reg==='14D3'?'PPM: '+fk(n.ppmEmp):'Distribuir a socios')+'</div></div>';
   h+='</div>';
   var te=n.tasaEf,pct=Math.min(te/40,1),ga=-90+pct*180;
@@ -1308,9 +1308,9 @@ function render(acc,monthly,n,ia){
   h+='<div class="tasa-pill">'+te.toFixed(2)+'% '+(reg==='14D3'?(te<10?'Carga Baja':te<20?'Carga Moderada':te<27?'Carga Normal':'Carga Alta'):'Empresa $0')+'</div></div></div>';
 
   // RLI TABLE (simplificada)
-  h+='<div class="sdiv">Determinaci\u00f3n de la Base Imponible</div>';
-  h+='<div class="panel-full"><div class="ph"><h3>Determinaci\u00f3n RLI</h3><span style="font-size:10px;color:#9a849b">'+(reg==='14D3'?'Arts. 29-33 LIR + 14D N\u00b03':'Arts. 29-33 LIR')+'</span></div>';
-  h+='<table class="dtable"><thead><tr><th>C\u00f3d. F22</th><th>Concepto</th><th style="text-align:right">Monto CLP</th></tr></thead><tbody>';
+  h+='<div class="sdiv">Determinación de la Base Imponible</div>';
+  h+='<div class="panel-full"><div class="ph"><h3>Determinación RLI</h3><span style="font-size:10px;color:#9a849b">'+(reg==='14D3'?'Arts. 29-33 LIR + 14D N°3':'Arts. 29-33 LIR')+'</span></div>';
+  h+='<table class="dtable"><thead><tr><th>Cód. F22</th><th>Concepto</th><th style="text-align:right">Monto CLP</th></tr></thead><tbody>';
   h+='<tr class="grp"><td></td><td colspan="2">INGRESOS PERCIBIDOS</td></tr>';
   h+='<tr class="sub"><td class="num" style="color:#904891;font-weight:700">[1410]</td><td><b>Total Ingresos Percibidos</b></td><td class="num"><b>'+ff(acc.totalGan)+'</b></td></tr>';
   // [1420] Gastos operacionales (egresos 41xxxx)
@@ -1318,7 +1318,7 @@ function render(acc,monthly,n,ia){
   // Detalle egresos ya viene antes en la tabla
   // [1415] Costo mercaderías si hay
   if(acc.comprasMerc>0){
-    h+='<tr><td class="num" style="color:#1e40af;font-weight:700">[1415]</td><td>(-) Costo de Mercader\u00edas y Existencias al cierre</td><td class="num" style="color:#C0392B">'+ff(-acc.comprasMerc)+'</td></tr>';
+    h+='<tr><td class="num" style="color:#1e40af;font-weight:700">[1415]</td><td>(-) Costo de Mercaderías y Existencias al cierre</td><td class="num" style="color:#C0392B">'+ff(-acc.comprasMerc)+'</td></tr>';
   }
   h+='<tr class="grp"><td></td><td colspan="2">EGRESOS Y GASTOS PAGADOS</td></tr>';
   // Mercaderías/existencias al cierre
@@ -1327,7 +1327,7 @@ function render(acc,monthly,n,ia){
     acc.comprasMercDet.forEach(function(g){
       h+='<tr><td class="num" style="color:#1e40af;font-weight:700">'+hesc(g.cod)+'</td><td>'+hesc(g.cuenta)+'</td><td class="num">'+ff(g.monto)+'</td></tr>';
     });
-    h+='<tr class="sub"><td></td><td><b>Subtotal Mercader\u00edas</b></td><td class="num"><b>'+ff(acc.comprasMerc)+'</b></td></tr>';
+    h+='<tr class="sub"><td></td><td><b>Subtotal Mercaderías</b></td><td class="num"><b>'+ff(acc.comprasMerc)+'</b></td></tr>';
   }
   // Compras activo fijo
   if(acc.comprasAF>0){
@@ -1339,7 +1339,7 @@ function render(acc,monthly,n,ia){
   }
   h+='<tr class="sub"><td></td><td><b>Total Egresos y Gastos</b></td><td class="num" style="color:#C0392B"><b>'+ff(-acc.totalPer)+'</b></td></tr>';
   if(acc.gastosRech>0){
-    h+='<tr class="grp"><td></td><td colspan="2" style="color:#C07A1A">GASTOS NO ACEPTADOS - solo informativo (ya excluidos del c\u00e1lculo)</td></tr>';
+    h+='<tr class="grp"><td></td><td colspan="2" style="color:#C07A1A">GASTOS NO ACEPTADOS - solo informativo (ya excluidos del cálculo)</td></tr>';
     acc.gastosRechDet.forEach(function(g){
       h+='<tr style="background:#fef9e7;"><td class="num" style="color:#C07A1A;font-weight:700">'+hesc(g.cod)+'</td><td style="color:#C07A1A">'+hesc(g.cuenta)+'</td><td class="num" style="color:#C07A1A">'+ff(g.monto)+'</td></tr>';
     });
@@ -1348,8 +1348,8 @@ function render(acc,monthly,n,ia){
   if(n.rec||n.cm||n.per){
     h+='<tr class="grp"><td></td><td colspan="2">AJUSTES TRIBUTARIOS</td></tr>';
     if(n.rec)h+='<tr><td class="num" style="color:#904891;font-weight:700">[15]</td><td>(+) Gastos rechazados adicionales</td><td class="num">'+ff(n.rec)+'</td></tr>';
-    if(n.cm)h+='<tr><td class="num" style="color:#904891;font-weight:700">[32]</td><td>(+/-) Correcci\u00f3n Monetaria Neta</td><td class="num">'+ff(n.cm)+'</td></tr>';
-    if(n.per)h+='<tr><td class="num" style="color:#904891;font-weight:700">[1426]</td><td>(-) P\u00e9rdidas tributarias de ejercicios anteriores</td><td class="num" style="color:#C0392B">'+ff(-n.per)+'</td></tr>';
+    if(n.cm)h+='<tr><td class="num" style="color:#904891;font-weight:700">[32]</td><td>(+/-) Corrección Monetaria Neta</td><td class="num">'+ff(n.cm)+'</td></tr>';
+    if(n.per)h+='<tr><td class="num" style="color:#904891;font-weight:700">[1426]</td><td>(-) Pérdidas tributarias de ejercicios anteriores</td><td class="num" style="color:#C0392B">'+ff(-n.per)+'</td></tr>';
   }
   h+='<tr class="tr"><td class="num" style="color:#6D2E6E;font-weight:700">[1440]</td><td><b>RENTA L\u00cdQUIDA IMPONIBLE AFECTA A IDPC</b></td><td class="num"><b>'+ff(n.rli)+'</b></td></tr>';
 
@@ -1358,15 +1358,15 @@ function render(acc,monthly,n,ia){
       h+='<tr><td class="num" style="color:#904891;font-weight:700">[1432]</td><td>(-) Incentivo Art. 14E  -  50% de (RLI \u2212 retiros)</td><td class="num" style="color:#2D9B6F">'+ff(-n.reb14E)+'</td></tr>';
       h+='<tr class="sub"><td></td><td><b>Base Imponible post-14E</b></td><td class="num"><b>'+ff(n.rliNet)+'</b></td></tr>';
     }
-    h+='<tr><td class="num" style="color:#904891;font-weight:700">[21]</td><td>Impuesto 1\u00aa Categor\u00eda ('+n.tasa+'% x '+ff(n.rliNet)+')</td><td class="num" style="color:#C0392B;font-weight:600">'+ff(-n.impBruto)+'</td></tr>';
+    h+='<tr><td class="num" style="color:#904891;font-weight:700">[21]</td><td>Impuesto 1\u00aa Categoría ('+n.tasa+'% x '+ff(n.rliNet)+')</td><td class="num" style="color:#C0392B;font-weight:600">'+ff(-n.impBruto)+'</td></tr>';
     h+='<tr><td class="num" style="color:#904891;font-weight:700">[67]</td><td>(+) PPM Imputables acumulados</td><td class="num" style="color:#2D9B6F;font-weight:600">'+ff(n.ppmEmp)+'</td></tr>';
-    if(n.cred)h+='<tr><td class="num" style="color:#904891;font-weight:700">[68]</td><td>(+) Otros Cr\u00e9ditos</td><td class="num" style="color:#2D9B6F">'+ff(n.cred)+'</td></tr>';
+    if(n.cred)h+='<tr><td class="num" style="color:#904891;font-weight:700">[68]</td><td>(+) Otros Créditos</td><td class="num" style="color:#2D9B6F">'+ff(n.cred)+'</td></tr>';
     h+='<tr class="'+(n.difEmp<=0?'cero':'pay')+'">';
     h+='<td class="num" style="font-weight:700">'+(n.difEmp<=0?'[84]':'[89]')+'</td>';
     h+='<td><b>'+(n.difEmp>=0?'DIFERENCIA A PAGAR AL FISCO':'REMANENTE PPM A FAVOR')+'</b></td>';
     h+='<td class="num"><b>'+ff(Math.abs(n.difEmp))+'</b></td></tr>';
   }else if(reg==='14D8'){
-    h+='<tr class="cero"><td></td><td><b>Impuesto Empresa  -  R\u00e9gimen 14D N\u00b08 $0</b></td><td class="num"><b>$0</b></td></tr>';
+    h+='<tr class="cero"><td></td><td><b>Impuesto Empresa  -  Régimen 14D N°8 $0</b></td><td class="num"><b>$0</b></td></tr>';
     h+='<tr><td></td><td>Base imponible atribuida a socios (100% RLI)</td><td class="num">'+ff(n.rliPos)+'</td></tr>';
   }else{
     h+='<tr class="cero"><td></td><td><b>Impuesto Empresa  -  Renta Presunta $0</b></td><td class="num"><b>$0</b></td></tr>';
@@ -1376,11 +1376,11 @@ function render(acc,monthly,n,ia){
 
   // SOCIOS TABLA
   if(n.sc.length>0){
-    h+='<div class="sdiv">Tributaci\u00f3n Socios</div>';
+    h+='<div class="sdiv">Tributación Socios</div>';
     h+='<div class="panel-full"><div class="ph"><h3>Resumen IGC por Socio</h3></div>';
     h+='<table class="dtable"><thead><tr><th>Socio</th><th style="text-align:right">%</th>';
-    if(reg==='14D3')h+='<th style="text-align:right">Retiros</th><th style="text-align:right">Renta Bruta</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Cr\u00e9d. IDPC</th><th style="text-align:right;color:#2D9B6F">Cr\u00e9d. RAI</th><th style="text-align:right;color:#2D9B6F">Cr\u00e9d. F22</th>';
-    else if(reg==='14D8')h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Cr\u00e9d. PPM</th>';
+    if(reg==='14D3')h+='<th style="text-align:right">Retiros</th><th style="text-align:right">Renta Bruta</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Créd. IDPC</th><th style="text-align:right;color:#2D9B6F">Créd. RAI</th><th style="text-align:right;color:#2D9B6F">Créd. F22</th>';
+    else if(reg==='14D8')h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th><th style="text-align:right">Créd. PPM</th>';
     else h+='<th style="text-align:right">Base Atribuida</th><th style="text-align:right">IGC Bruto</th>';
     h+='<th style="text-align:right">Resultado</th></tr></thead><tbody>';
     n.sc.forEach(function(s){
@@ -1421,14 +1421,14 @@ function render(acc,monthly,n,ia){
     var ppmTotal=ppmData.reduce(function(s,m){return s+m.pagado;},0);
     var ppmProy=n.impBruto>0?ppmTotal/n.impBruto*100:0;
     var tasaVigente=sv('c_at')?gv('c_tasa'):12.5;
-    h+='<div class="sdiv">An\u00e1lisis PPM del Per\u00edodo</div>';
-    h+='<div class="panel-full"><div class="ph"><h3>Pagos Provisionales Mensuales [c\u00f3d. 67]</h3></div>';
+    h+='<div class="sdiv">Análisis PPM del Período</div>';
+    h+='<div class="panel-full"><div class="ph"><h3>Pagos Provisionales Mensuales [cód. 67]</h3></div>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px;background:var(--sur2);border-bottom:1px solid var(--bdr);">';
     h+='<div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">PPM Acumulado AT'+at+'</div><div style="font-size:20px;font-weight:700;color:#2D9B6F;font-family:monospace">'+ff(ppmTotal)+'</div></div>';
     h+='<div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Cobertura vs IDPC</div><div style="font-size:20px;font-weight:700;font-family:monospace;color:'+(ppmProy>=100?'#2D9B6F':'#C07A1A')+'">'+ppmProy.toFixed(1)+'%</div><div style="font-size:10px;color:var(--tm)">PPM cubre '+(ppmProy>=100?'todo el impuesto':'parcialmente el impuesto')+'</div></div>';
     h+='<div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Tasa promedio aplicada</div><div style="font-size:20px;font-weight:700;font-family:monospace;color:#904891">'+(acc.totalGan>0?(ppmTotal/acc.totalGan*100).toFixed(2):0)+'%</div><div style="font-size:10px;color:var(--tm)">Sobre ingresos totales</div></div>';
     h+='</div>';
-    h+='<table class="dtable"><thead><tr><th>Per\u00edodo</th><th style="text-align:right">PPM pagado</th><th style="text-align:right">Acumulado</th></tr></thead><tbody>';
+    h+='<table class="dtable"><thead><tr><th>Período</th><th style="text-align:right">PPM pagado</th><th style="text-align:right">Acumulado</th></tr></thead><tbody>';
     var ppmAcum=0;
     ppmData.forEach(function(m){
       ppmAcum+=m.pagado;
@@ -1440,7 +1440,7 @@ function render(acc,monthly,n,ia){
     if(acc.totalGan>0){
       var tasaReal=(ppmTotal/acc.totalGan*100).toFixed(2);
       h+='<div style="padding:10px 14px;background:var(--sur2);border-top:1px solid var(--bdr);font-size:12px;color:var(--t2)">';
-      h+='<b>Proyecci\u00f3n tasa PPM:</b> Tasa aplicada este per\u00edodo: '+tasaReal+'%. ';
+      h+='<b>Proyección tasa PPM:</b> Tasa aplicada este período: '+tasaReal+'%. ';
       if(n.impBruto>0&&acc.totalGan>0){
         var tasaIdeal=(n.impBruto/acc.totalGan*100).toFixed(2);
         h+='Tasa ideal para cubrir IDPC ('+ff(n.impBruto)+' sobre '+ff(acc.totalGan)+'): <b style="color:#904891">'+tasaIdeal+'%</b>. ';
@@ -1457,61 +1457,61 @@ function render(acc,monthly,n,ia){
 
   // IGC CARDS DETALLADAS
   if(nivel!=='MICRO'&&n.sc.length>0){
-    h+='<div class="sdiv">C\u00e1lculo Detallado IGC por Socio</div>';
+    h+='<div class="sdiv">Cálculo Detallado IGC por Socio</div>';
     n.sc.forEach(function(s,sidx){
       var c=s.calc,esPago=c.apagar>0,cls=esPago?'pago':'devol';
       var did='igcd-'+sidx,tid='igct-'+sidx;
       var resMsg=esPago
-        ?'<b>'+hesc(s.nombre)+'</b> debe pagar <b>'+ff(c.apagar)+'</b> de Impuesto Global Complementario en su declaraci\u00f3n de renta personal (F22, abril siguiente).'
-        :'Buenas noticias: <b>'+hesc(s.nombre)+'</b> tiene derecho a devoluci\u00f3n de <b>'+ff(c.devolucion)+'</b> del SII.';
+        ?'<b>'+hesc(s.nombre)+'</b> debe pagar <b>'+ff(c.apagar)+'</b> de Impuesto Global Complementario en su declaración de renta personal (F22, abril siguiente).'
+        :'Buenas noticias: <b>'+hesc(s.nombre)+'</b> tiene derecho a devolución de <b>'+ff(c.devolucion)+'</b> del SII.';
       h+='<div class="igc-card">';
       h+='<div class="igc-card-hdr" onclick="igcToggle(this)" data-did="'+did+'" data-tid="'+tid+'">';
       h+='<div><div style="font-size:15px;font-weight:700;margin-bottom:5px">'+hesc(s.nombre)+'</div>';
       h+='<div class="igc-badge-row">';
       h+='<span class="igc-badge tramo">Tramo '+hesc(c.tramo)+'</span>';
       h+='<span class="igc-badge tef">Tasa efectiva '+c.tasaEfectiva.toFixed(2)+'%</span>';
-      h+='<span class="igc-badge '+cls+'">'+(esPago?'Paga impuesto':'Devoluci\u00f3n a favor')+'</span>';
+      h+='<span class="igc-badge '+cls+'">'+(esPago?'Paga impuesto':'Devolución a favor')+'</span>';
       h+='</div></div>';
       h+='<div class="igc-resultado"><div class="etiqueta">'+(esPago?'A PAGAR':'A DEVOLVER')+'</div>';
       h+='<div class="monto '+cls+'">'+ff(esPago?c.apagar:c.devolucion)+'</div></div></div>';
       h+='<div class="igc-msg '+cls+'">'+resMsg+'</div>';
       h+='<div class="igc-toggle" id="'+tid+'" onclick="igcToggle(this)" data-did="'+did+'" data-tid="'+tid+'">';
-      h+='<span>Ver c\u00f3mo se calcul\u00f3 paso a paso</span><span class="arrow">\u25bc</span></div>';
+      h+='<span>Ver cómo se calculó paso a paso</span><span class="arrow">\u25bc</span></div>';
       h+='<div class="igc-detalle" id="'+did+'"><div class="igc-steps">';
       if(reg==='14D3'){
-        h+=mkStep('1','normal',ff(c.retiro),'','Retiro del ejercicio','Lo que retiraste de la empresa durante el a\u00f1o');
+        h+=mkStep('1','normal',ff(c.retiro),'','Retiro del ejercicio','Lo que retiraste de la empresa durante el año');
         if(s.otros>0)h+=mkStep('+','plus',ff(s.otros),'','Otros ingresos personales','Sueldos, honorarios, arriendos u otros');
         h+=mkStep('+','plus',ff(c.incremento),'amber','Incremento por IDPC (factor 0.142857)','La ley obliga a agregar el equivalente al impuesto empresa');
         h+='<div class="igc-divider"></div>';
         h+=mkStep('=','total',ff(c.rentaBruta),'bold','Renta Bruta Global','Base que se ingresa a la tabla progresiva del IGC');
         h+='<div class="igc-divider"></div>';
-        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','Renta Bruta x '+hesc(c.tramo)+' \u2212 cantidad a rebajar');
-        h+=mkStep('-','minus',ff(c.creditoIDPC),'green','Cr\u00e9dito IDPC (impuesto pagado por la empresa)','100% imputable con posible devoluci\u00f3n en 14D3');
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC según tabla (tramo '+hesc(c.tramo)+')','Renta Bruta x '+hesc(c.tramo)+' \u2212 cantidad a rebajar');
+        h+=mkStep('-','minus',ff(c.creditoIDPC),'green','Crédito IDPC (impuesto pagado por la empresa)','100% imputable con posible devolución en 14D3');
         if(c.creditoRAI>0){
-          h+=mkStep('-','minus',ff(c.creditoRAI),'green','Cr\u00e9dito IDPC del RAI','RAI disponible: '+ff(s.raiSocio)+' \u2192 imputado: '+ff(Math.min(s.raiSocio,c.retiro))+' \u2192 cr\u00e9dito: '+ff(c.creditoRAI));
+          h+=mkStep('-','minus',ff(c.creditoRAI),'green','Crédito IDPC del RAI','RAI disponible: '+ff(s.raiSocio)+' → imputado: '+ff(Math.min(s.raiSocio,c.retiro))+' → crédito: '+ff(c.creditoRAI));
         }
         if(c.creditoF22>0){
-          h+=mkStep('-','minus',ff(c.creditoF22),'green','Cr\u00e9dito F22 a\u00f1o anterior','PPM en exceso u otros cr\u00e9ditos del F22 del per\u00edodo anterior');
+          h+=mkStep('-','minus',ff(c.creditoF22),'green','Crédito F22 año anterior','PPM en exceso u otros créditos del F22 del período anterior');
         }
         h+='<div class="igc-divider"></div>';
         if(esPago){
           h+=mkStep('=','total',ff(c.apagar),'bold red','IMPUESTO GLOBAL COMPLEMENTARIO A PAGAR','Declarar en F22 personal de '+hesc(s.nombre)+' en abril');
         }else{
-          h+=mkStep('=','total',ff(c.devolucion),'bold green','DEVOLUCI\u00d3N A FAVOR DEL SOCIO','El SII devolver\u00e1 este monto en el F22 personal de abril');
+          h+=mkStep('=','total',ff(c.devolucion),'bold green','DEVOLUCI\u00d3N A FAVOR DEL SOCIO','El SII devolverá este monto en el F22 personal de abril');
         }
       }else if(reg==='14D8'){
-        h+=mkStep('1','normal',ff(c.baseAtribuida),'','Base atribuida ('+s.pct.toFixed(0)+'% de RLI)','R\u00e9gimen 14D8 no paga impuesto empresa');
+        h+=mkStep('1','normal',ff(c.baseAtribuida),'','Base atribuida ('+s.pct.toFixed(0)+'% de RLI)','Régimen 14D8 no paga impuesto empresa');
         if(s.otros>0)h+=mkStep('+','plus',ff(s.otros),'','Otros ingresos personales','');
         h+='<div class="igc-divider"></div>';
         h+=mkStep('=','total',ff(c.rentaBruta),'bold','Renta Bruta Global','');
         h+='<div class="igc-divider"></div>';
-        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','');
-        h+=mkStep('-','minus',ff(c.creditoPPM),'green','Cr\u00e9dito PPM de la empresa','');
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC según tabla (tramo '+hesc(c.tramo)+')','');
+        h+=mkStep('-','minus',ff(c.creditoPPM),'green','Crédito PPM de la empresa','');
         h+='<div class="igc-divider"></div>';
         h+=mkStep('=','total',ff(esPago?c.apagar:c.devolucion),(esPago?'bold red':'bold green'),(esPago?'IGC A PAGAR':'DEVOLUCI\u00d3N A FAVOR'),'');
       }else{
         h+=mkStep('1','normal',ff(c.baseAtribuida),'','Base atribuida ('+s.pct.toFixed(0)+'% base presunta)','');
-        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC seg\u00fan tabla (tramo '+hesc(c.tramo)+')','');
+        h+=mkStep('x','result',ff(c.igcBruto),'red','IGC según tabla (tramo '+hesc(c.tramo)+')','');
         h+=mkStep('=','total',ff(c.apagar),'bold red','IGC A PAGAR','');
       }
       h+='</div></div></div>';
@@ -1529,11 +1529,11 @@ function render(acc,monthly,n,ia){
     h+='</div>';
   }
   if(nivel==='PRO'&&ia.analisis){
-    h+='<div class="sdiv">An\u00e1lisis del Ejercicio</div>';
+    h+='<div class="sdiv">Análisis del Ejercicio</div>';
     h+='<div class="narr"><h3>Comentarios del Analista</h3><div class="txt">'+hesc(ia.analisis||'')+'</div></div>';
   }
-  h+='<div class="disclaimer">Proyecci\u00f3n estimativa con fines de planificaci\u00f3n tributaria. No sustituye la declaraci\u00f3n F22. Preparado por Contadoor el '+hoy+'.</div>';
-  h+='<div class="rpt-foot"><div class="lft">Contadoor  -  Asesor\u00eda Contable y Tributaria<br><small>Analista: '+hesc(analista)+' \u00b7 contadoor.cl</small></div></div>';
+  h+='<div class="disclaimer">Proyección estimativa con fines de planificación tributaria. No sustituye la declaración F22. Preparado por Contadoor el '+hoy+'.</div>';
+  h+='<div class="rpt-foot"><div class="lft">Contadoor  -  Asesoría Contable y Tributaria<br><small>Analista: '+hesc(analista)+' · contadoor.cl</small></div></div>';
   rw.innerHTML=h;rw.classList.add('on');
   rw.scrollIntoView({behavior:'smooth'});
 }
@@ -1559,10 +1559,10 @@ function renderRepo(){
   });
   if(!filtered.length){
     el.innerHTML='<div class="empty-state"><h3>'+(repo.length?'Sin resultados':'Sin reportes guardados')+'</h3>'
-      +'<p>'+(repo.length?'Prueba con otro filtro.':'Los reportes generados aparecer\u00e1n aqu\u00ed autom\u00e1ticamente.')+'</p></div>';
+      +'<p>'+(repo.length?'Prueba con otro filtro.':'Los reportes generados aparecerán aquí automáticamente.')+'</p></div>';
     return;
   }
-  var RL={'14D3':'14D N\u00b03','14D8':'14D N\u00b08','presunta':'Presunta'};
+  var RL={'14D3':'14D N°3','14D8':'14D N°8','presunta':'Presunta'};
   el.innerHTML='';
   filtered.forEach(function(r){
     var f=new Date(r.ts).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'});
@@ -1606,7 +1606,7 @@ function verReporte(id){
   var repo=getRepo();var r=repo.filter(function(x){return x.id===id;})[0];
   if(!r){alert('Reporte no encontrado.');return;}
   if(!r.rptHtml){
-    if(confirm('Este an\u00e1lisis no tiene reporte generado a\u00fan.\n\n\u00bfDeseas cargarlo en el formulario para generarlo?')){
+    if(confirm('Este análisis no tiene reporte generado aún.\n\n¿Deseas cargarlo en el formulario para generarlo?')){
       editRepo(id);
     }
     return;
@@ -1616,9 +1616,9 @@ function verReporte(id){
   modal.style.cssText='position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:#f0ebff;';
   var hdr=document.createElement('div');
   hdr.style.cssText='background:#08040f;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
-  hdr.innerHTML='<span style="font-weight:700;font-size:14px">\u1f4ca '+hesc(r.razon||'--')+'  -  AT'+r.at+'</span>'
+  hdr.innerHTML='<span style="font-weight:700;font-size:14px">📊 '+hesc(r.razon||'--')+'  -  AT'+r.at+'</span>'
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="window.print()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">\u1f5a8\ufe0f Imprimir</button>'
+    +'<button onclick="window.print()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">\u1f5a8️ Imprimir</button>'
     +'<button onclick="var _mid=document.getElementById(\'verReporteModal\');if(_mid)_mid.remove();setTimeout(function(){editRepo('+r.id+');},50);" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">Editar</button>'
     +'<button onclick="document.getElementById(\"verReporteModal\").remove()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">\u2715 Cerrar</button>'
     +'</div>';
@@ -1635,7 +1635,7 @@ function descargarReporte(id){
   var repo=getRepo();var r=repo.filter(function(x){return x.id===id;})[0];
   if(!r){alert('Reporte no encontrado.');return;}
   if(!r.rptHtml){
-    alert('Este an\u00e1lisis a\u00fan no tiene reporte generado. Carga el an\u00e1lisis y genera el reporte primero.');
+    alert('Este análisis aún no tiene reporte generado. Carga el análisis y genera el reporte primero.');
     return;
   }
   var css=Array.from(document.styleSheets).reduce(function(acc,ss){
@@ -1684,7 +1684,7 @@ function editRepo(id){
     if(!av){
       av=document.createElement('div');av.id='editingAlert';
       av.style.cssText='background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#1E40AF;margin-bottom:12px;display:flex;align-items:center;gap:8px';
-      av.innerHTML='<b>\u270f\ufe0f Editando:</b> '+hesc(r.razon||r.rut)+'  -  '+r.at
+      av.innerHTML='<b>✏️ Editando:</b> '+hesc(r.razon||r.rut)+'  -  '+r.at
         +'<button onclick="cancelEdit()" style="margin-left:auto;background:none;border:1px solid #93C5FD;border-radius:5px;padding:3px 8px;font-size:11px;color:#1E40AF;cursor:pointer">Cancelar</button>';
       var firstCard=document.querySelector('#view-nuevo .card');
       if(firstCard)firstCard.parentNode.insertBefore(av,firstCard);
@@ -1692,7 +1692,7 @@ function editRepo(id){
   },100);
 }
 function cancelEdit(){window._editingRepoId=null;var av=document.getElementById('editingAlert');if(av)av.remove();}
-function delRepo(id){if(!confirm('\u00bfEliminar este reporte?'))return;setRepo(getRepo().filter(function(r){return r.id!==id;}));renderRepo();}
+function delRepo(id){if(!confirm('¿Eliminar este reporte?'))return;setRepo(getRepo().filter(function(r){return r.id!==id;}));renderRepo();}
 
 // \u2500\u2500 CLIENTES \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function renderClientes(){
@@ -1715,7 +1715,7 @@ function filtrarCli(){
     return(!q||(x.razon||'').toLowerCase().indexOf(q)>=0||k.indexOf(q)>=0)
       &&(!nf||(x.nivel||'PRO')===nf)&&(!rf||(x.reg||'14D3')===rf);
   });
-  var RL={'14D3':'14D N\u00b03','14D8':'14D N\u00b08','presunta':'Presunta'};
+  var RL={'14D3':'14D N°3','14D8':'14D N°8','presunta':'Presunta'};
   var grid=document.getElementById('clientGrid');if(!grid)return;
   if(!keys.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><h3>Sin clientes</h3><p>Importa un CSV o genera un reporte para guardar perfiles.</p></div>';return;}
   grid.innerHTML='';
@@ -1730,8 +1730,8 @@ function filtrarCli(){
       +'<span style="font-size:10.5px;color:#9a849b">'+ns+' socio'+(ns!==1?'s':'')+'</span></div>'
       +'<div style="font-size:10.5px;color:#9a849b;margin-bottom:10px">Actualizado: '+f+'</div>'
       +'<div style="display:flex;gap:6px">'
-      +'<button class="btn-p" style="font-size:11px;padding:5px 10px;flex:1" data-usar="'+hesc(k)+'">Usar para an\u00e1lisis</button>'
-      +'<button class="btn-danger" data-del="'+hesc(k)+'">\u1f5d1</button></div>';
+      +'<button class="btn-p" style="font-size:11px;padding:5px 10px;flex:1" data-usar="'+hesc(k)+'">Usar para análisis</button>'
+      +'<button class="btn-danger" data-del="'+hesc(k)+'">🗑</button></div>';
     var bu=card.querySelector('[data-usar]');var bd=card.querySelector('[data-del]');
     if(bu)(function(rut){bu.addEventListener('click',function(){usarCli(rut);});})(k);
     if(bd)(function(rut){bd.addEventListener('click',function(){delCli(rut);});})(k);
@@ -1739,7 +1739,7 @@ function filtrarCli(){
   });
 }
 function usarCli(rut){var c=getCli();if(c[rut]){autoFill(c[rut]);pirGoView('nuevo');showTab('entrada');}}
-function delCli(rut){if(!confirm('\u00bfEliminar perfil?'))return;var c=getCli();delete c[rut];setCli(c);renderClientes();}
+function delCli(rut){if(!confirm('¿Eliminar perfil?'))return;var c=getCli();delete c[rut];setCli(c);renderClientes();}
 
 // \u2500\u2500 CSV \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function importarCSV(input){
@@ -1748,7 +1748,7 @@ function importarCSV(input){
   r.onload=function(e){
     var text=e.target.result;
     var lines=[];text.split('\n').forEach(function(l){var ll=l.replace(/\r/g,'');if(ll.trim())lines.push(ll);});
-    if(lines.length<2){alert('CSV vac\u00edo.');return;}
+    if(lines.length<2){alert('CSV vacío.');return;}
     var hdrs=lines[0].split(',').map(function(x){return x.trim().toLowerCase().replace(/[^a-z_]/g,'');});
     var c=getCli(),ok=0;
     for(var i=1;i<lines.length;i++){
@@ -1818,7 +1818,7 @@ function resetForm(){
 }
 
 // \u2500\u2500 AUTH \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-// El auth.js del ecosistema maneja la sesi\u00f3n
+// El auth.js del ecosistema maneja la sesión
 // \u2500\u2500 BOOT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 (function(){
   function boot(){
