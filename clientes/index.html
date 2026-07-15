@@ -19,7 +19,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
 .sb-logo{padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06);}
 .sb-logo img{height:24px;opacity:.9;}
-.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;}
+.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;min-height:0;}
 .sb-nav::-webkit-scrollbar{width:3px;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
 .sb-sec{font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 5px;}
@@ -465,8 +465,120 @@ function h(s){var r=String(s||'');r=r.split('&').join('&');r=r.split('<').join('
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 function nv(id){return parseFloat(sv(id))||0;}
 function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
+
+// ── SUPABASE CONFIG ───────────────────────────────────
+var SUPA_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
+var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
+
+function supaFetch(path, opts){
+  return fetch(SUPA_URL+'/rest/v1/'+path, Object.assign({
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,
+              'Content-Type':'application/json','Prefer':'return=representation'}
+  }, opts||{}));
+}
+
+// ── CLIENTES — localStorage como caché ───────────────
 function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
-function setClientes(a){localStorage.setItem('clientes_bd',JSON.stringify(a));}
+
+
+async function cargarClientesDesdeSupabase(){
+  try{
+    var r=await supaFetch('clientes?select=*&order=razon_social.asc');
+    if(!r.ok) throw new Error('Error '+r.status);
+    var data=await r.json();
+    // Mapear campos snake_case → camelCase para compatibilidad
+    var mapped=data.map(function(c){return{
+      id:c.id, razonSocial:c.razon_social, rut:c.rut, giro:c.giro,
+      email:c.email, contacto:c.contacto, tel:c.tel, wa:c.wa, ciudad:c.ciudad,
+      plan:c.plan, estado:c.estado||'activo', fechaInicio:c.fecha_inicio,
+      regimen:c.regimen, anioTributario:c.anio_tributario, obsTrib:c.obs_trib,
+      modalidadPago:c.modalidad_pago||'contadoor',
+      ivaCondicion:c.iva_condicion||'afecto',
+      monedaPlan:c.moneda_plan||'UF', montoBase:c.monto_base,
+      honVariable:c.hon_variable, trabIncluidos:c.trab_incluidos||0,
+      valorPorTrab:c.valor_por_trab||0, descTipo:c.desc_tipo,
+      descValor:c.desc_valor, precioObs:c.precio_obs,
+      analistaRrhh:c.analista_rrhh, analistaContable:c.analista_contable,
+      analistaPagos:c.analista_pagos, prioridadContable:c.prioridad_contable||'media',
+      claveSii:c.clave_sii, usuarioSii:c.usuario_sii,
+      clavePrevired:c.clave_previred, claveTgr:c.clave_tgr,
+      claveBanco:c.clave_banco, obsAcceso:c.obs_acceso,
+      obs:c.obs
+    };});
+    setClientes(mapped);
+    return mapped;
+  }catch(e){
+    console.warn('Supabase no disponible, usando caché local:', e.message);
+    return getClientes();
+  }
+}
+
+async function guardarClienteSupabase(c){
+  // Mapear camelCase → snake_case para Supabase
+  var row={
+    razon_social:c.razonSocial, rut:c.rut, giro:c.giro||null,
+    email:c.email||null, contacto:c.contacto||null,
+    tel:c.tel||null, wa:c.wa||null, ciudad:c.ciudad||null,
+    plan:c.plan||null, estado:c.estado||'activo',
+    fecha_inicio:c.fechaInicio||null,
+    regimen:c.regimen||null, anio_tributario:c.anioTributario||null,
+    obs_trib:c.obsTrib||null,
+    modalidad_pago:c.modalidadPago||'contadoor',
+    iva_condicion:c.ivaCondicion||'afecto',
+    moneda_plan:c.monedaPlan||'UF',
+    monto_base:c.montoBase||null, hon_variable:c.honVariable||null,
+    trab_incluidos:c.trabIncluidos||0,
+    valor_por_trab:c.valorPorTrab||0,
+    desc_tipo:c.descTipo||null, desc_valor:c.descValor||null,
+    precio_obs:c.precioObs||null,
+    analista_rrhh:c.analistaRrhh||null,
+    analista_contable:c.analistaContable||null,
+    analista_pagos:c.analistaPagos||null,
+    prioridad_contable:c.prioridadContable||'media',
+    clave_sii:c.claveSii||null, usuario_sii:c.usuarioSii||null,
+    clave_previred:c.clavePrevired||null, clave_tgr:c.claveTgr||null,
+    clave_banco:c.claveBanco||null, obs_acceso:c.obsAcceso||null,
+    obs:c.obs||null
+  };
+  try{
+    var r;
+    if(c._supaId){
+      // UPDATE
+      r=await supaFetch('clientes?id=eq.'+c._supaId,{
+        method:'PATCH', body:JSON.stringify(row)
+      });
+    }else{
+      // INSERT con upsert por RUT
+      r=await supaFetch('clientes',{
+        method:'POST',
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,
+                  'Content-Type':'application/json',
+                  'Prefer':'resolution=merge-duplicates,return=representation'},
+        body:JSON.stringify(row)
+      });
+    }
+    if(!r.ok){
+      var err=await r.json();
+      throw new Error(err.message||'Error guardando');
+    }
+    return await r.json();
+  }catch(e){
+    console.error('Error Supabase guardar cliente:', e.message);
+    throw e;
+  }
+}
+
+async function eliminarClienteSupabase(rut){
+  try{
+    var r=await supaFetch('clientes?rut=eq.'+encodeURIComponent(rut),{method:'DELETE'});
+    if(!r.ok) throw new Error('Error '+r.status);
+  }catch(e){
+    console.error('Error Supabase eliminar:', e.message);
+    throw e;
+  }
+}
+
+
 function getUsuarios(){try{return JSON.parse(localStorage.getItem('usuarios_sistema')||'[]');}catch(e){return[];}}
 
 // ── PREVIEW ────────────────────────────────────────────────────────────────
@@ -675,7 +787,14 @@ function guardarCliente(){
   };
   if(_editId){var i=arr.findIndex(function(x){return x.id===_editId;});if(i>=0)arr[i]=c;else arr.unshift(c);}
   else arr.unshift(c);
-  setClientes(arr);closeModal();renderClientes();
+  setClientes(arr);
+  // Guardar en Supabase async
+  var cSupa=Object.assign({},c);
+  if(_editId) cSupa._supaId=_editId;
+  guardarClienteSupabase(cSupa).then(function(){
+    cargarClientesDesdeSupabase().then(renderClientes);
+  }).catch(function(e){ console.warn('Solo guardado local:', e.message); });
+  closeModal();renderClientes();
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────
