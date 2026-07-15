@@ -227,11 +227,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 var _view='conciliar', _mcIdx=null, _concCnt=0;
 
 var TIPOS_CONCEPTO=[
-  {id:'factura_servicios', label:'Factura honorarios Contadoor', icon:'\u1f9fe'},
-  {id:'impuesto_tercero',  label:'Impuesto de tercero (IVA/PPM)', icon:'\u1f4cb'},
-  {id:'cotizacion_tercero',label:'Cotizaciones de tercero', icon:'\u1f465'},
-  {id:'convenio_cuota',    label:'Cuota convenio', icon:'\u1f91d'},
-  {id:'otro_pago',         label:'Otro pago', icon:'\u1f4c4'},
+  {id:'factura_servicios', label:'Factura honorarios Contadoor', icon:'🧾'},
+  {id:'impuesto_tercero',  label:'Impuesto de tercero (IVA/PPM)', icon:'📋'},
+  {id:'cotizacion_tercero',label:'Cotizaciones de tercero', icon:'👥'},
+  {id:'convenio_cuota',    label:'Cuota convenio', icon:'🤝'},
+  {id:'otro_pago',         label:'Otro pago', icon:'📄'},
 ];
 
 function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
@@ -276,7 +276,7 @@ function buscarSugerencias(rut, monto){
   facts.forEach(function(f){
     if(limpiarRut(f.rutCliente)===rut){
       var exacto=Math.abs(f.montoTotal-monto)<=(monto*0.01);
-      sugs.push({tipo:'factura_servicios',tipoLabel:'Factura honorarios Contadoor',icon:'\u1f9fe',descripcion:'Fact. N\u00b0'+f.numero+(f.periodo?' \u00b7 '+f.periodo:'')+' \u00b7 '+f.clienteNombre,monto:exacto?monto:f.montoTotal,refId:f.id,exacto:exacto,origen:'factura',label:exacto?'\u26a1 Match exacto':'\u1f4c4 Factura pendiente'});
+      sugs.push({tipo:'factura_servicios',tipoLabel:'Factura honorarios Contadoor',icon:'🧾',descripcion:'Fact. N°'+f.numero+(f.periodo?' · '+f.periodo:'')+' · '+f.clienteNombre,monto:exacto?monto:f.montoTotal,refId:f.id,exacto:exacto,origen:'factura',label:exacto?'⚡ Match exacto':'📄 Factura pendiente'});
     }
   });
   // 2. Obligaciones de pagos  -  match RUT + monto
@@ -284,7 +284,7 @@ function buscarSugerencias(rut, monto){
   obligs.forEach(function(o){
     if(limpiarRut(o.rut)===rut){
       var exacto=Math.abs(o.monto-monto)<=(monto*0.01);
-      sugs.push({tipo:'impuesto_tercero',tipoLabel:o.tipo||'Pago de tercero',icon:'\u1f4b0',descripcion:o.concepto+' \u00b7 '+o.clienteNombre,monto:exacto?monto:o.monto,refId:o.id,exacto:exacto,origen:'pago',label:exacto?'\u26a1 Match exacto':'\u1f4b0 Obligaci\u00f3n transferida'});
+      sugs.push({tipo:'impuesto_tercero',tipoLabel:o.tipo||'Pago de tercero',icon:'💰',descripcion:o.concepto+' · '+o.clienteNombre,monto:exacto?monto:o.monto,refId:o.id,exacto:exacto,origen:'pago',label:exacto?'⚡ Match exacto':'💰 Obligación transferida'});
     }
   });
   // 3. Convenios  -  cuotas pendientes por RUT
@@ -293,7 +293,7 @@ function buscarSugerencias(rut, monto){
       cv.cuotas.forEach(function(c,ci){
         if(c.estado==='pendiente'){
           var exacto=Math.abs(c.monto-monto)<=(monto*0.01);
-          sugs.push({tipo:'convenio_cuota',tipoLabel:'Cuota convenio '+cv.institucion,icon:'\u1f91d',descripcion:'Cuota '+c.numero+'/'+cv.nCuotas+' \u00b7 '+cv.institucion+' \u00b7 Vence: '+c.vencimiento,monto:exacto?monto:c.monto,refId:cv.id,cuotaIdx:ci,exacto:exacto,origen:'convenio',label:exacto?'\u26a1 Match exacto':'\u1f91d Cuota convenio'});
+          sugs.push({tipo:'convenio_cuota',tipoLabel:'Cuota convenio '+cv.institucion,icon:'🤝',descripcion:'Cuota '+c.numero+'/'+cv.nCuotas+' · '+cv.institucion+' · Vence: '+c.vencimiento,monto:exacto?monto:c.monto,refId:cv.id,cuotaIdx:ci,exacto:exacto,origen:'convenio',label:exacto?'⚡ Match exacto':'🤝 Cuota convenio'});
         }
       });
     }
@@ -320,16 +320,16 @@ function renderCarga(){
   var meta=getMetaCartola();
   document.getElementById('mainContent').innerHTML=
     '<div class="card"><div class="card-hd">\u1f4e4 Cargar cartola de transferencias recibidas</div>'
-    +(meta?'<div class="warn-box">\u26a0\ufe0f Cartola activa: <strong>'+hesc(meta.archivo)+'</strong>  -  '+hesc(meta.tsLoad)+' \u00b7 <strong>'+meta.total+' movimientos</strong><br>Una nueva carga del mismo per\u00edodo reemplazar\u00e1 los movimientos no conciliados y preservar\u00e1 los ya conciliados.</div>':'')
+    +(meta?'<div class="warn-box">⚠️ Cartola activa: <strong>'+hesc(meta.archivo)+'</strong>  -  '+hesc(meta.tsLoad)+' · <strong>'+meta.total+' movimientos</strong><br>Una nueva carga del mismo período reemplazará los movimientos no conciliados y preservará los ya conciliados.</div>':'')
     +'<div class="fg2" style="margin-bottom:14px">'
-    +'<div class="fgroup"><label>Per\u00edodo</label><input type="month" id="sel-periodo" value="'+new Date().toISOString().slice(0,7)+'"/></div>'
-    +'<div class="fgroup"><label>Banco</label><select id="sel-banco"><option>Ita\u00fa</option><option>Banco Estado</option><option>Santander</option><option>BCI</option><option>Otro</option></select></div>'
+    +'<div class="fgroup"><label>Período</label><input type="month" id="sel-periodo" value="'+new Date().toISOString().slice(0,7)+'"/></div>'
+    +'<div class="fgroup"><label>Banco</label><select id="sel-banco"><option>Itaú</option><option>Banco Estado</option><option>Santander</option><option>BCI</option><option>Otro</option></select></div>'
     +'</div>'
-    +'<div class="info-box">Columnas esperadas: <strong>Fecha \u00b7 Rut \u00b7 Nombre \u00b7 Banco origen \u00b7 Cuenta destino \u00b7 Monto \u00b7 Estado \u00b7 C\u00f3digo transferencia</strong></div>'
+    +'<div class="info-box">Columnas esperadas: <strong>Fecha · Rut · Nombre · Banco origen · Cuenta destino · Monto · Estado · Código transferencia</strong></div>'
     +'<div class="upload-zone" id="uz"><input type="file" id="fi" accept=".xlsx,.xls,.csv" onchange="procesarArchivo(this)"/>'
-    +'<div style="font-size:36px;margin-bottom:8px">\u1f4ca</div>'
-    +'<h3 style="font-size:15px;font-weight:600;margin-bottom:4px">Arrastra la cartola aqu\u00ed</h3>'
-    +'<p style="font-size:12px;color:#9a849b">Excel (.xlsx) o CSV \u00b7 Transferencias recibidas Ita\u00fa</p>'
+    +'<div style="font-size:36px;margin-bottom:8px">📊</div>'
+    +'<h3 style="font-size:15px;font-weight:600;margin-bottom:4px">Arrastra la cartola aquí</h3>'
+    +'<p style="font-size:12px;color:#9a849b">Excel (.xlsx) o CSV · Transferencias recibidas Itaú</p>'
     +'</div></div>';
   var z=document.getElementById('uz');
   z.addEventListener('dragover',function(e){e.preventDefault();z.classList.add('drag');});
@@ -352,7 +352,7 @@ function procesarFile(file){
       var filas=data.slice(hRow+1).filter(function(r){return r&&r.filter(Boolean).length>2;});
 
       function fc(kws){for(var k=0;k<kws.length;k++){var i=headers.findIndex(function(h){return h.includes(kws[k]);});if(i>=0)return i;}return -1;}
-      var cF=fc(['fecha']),cR=fc(['rut']),cN=fc(['nombre']),cB=fc(['banco']),cC=fc(['cuenta']),cM=fc(['monto']),cE=fc(['estado']),cCod=fc(['c\u00f3digo','codigo','cod','folio','ref']);
+      var cF=fc(['fecha']),cR=fc(['rut']),cN=fc(['nombre']),cB=fc(['banco']),cC=fc(['cuenta']),cM=fc(['monto']),cE=fc(['estado']),cCod=fc(['código','codigo','cod','folio','ref']);
 
       // Preservar conciliaciones previas
       var prev={};
@@ -388,12 +388,12 @@ function procesarFile(file){
 
       setMovimientos(nuevos);
       var periodo=sv('sel-periodo')||new Date().toISOString().slice(0,7);
-      var banco=sv('sel-banco')||'Ita\u00fa';
+      var banco=sv('sel-banco')||'Itaú';
       setMetaCartola({archivo:file.name,periodo,banco,total:nuevos.length,tsLoad:ts()});
       var hist=getHistorial();hist.unshift({archivo:file.name,periodo,banco,total:nuevos.length,tsLoad:ts()});setHistorial(hist.slice(0,20));
       var autoConc=nuevos.filter(function(m){return m.autoMatch;}).length;
       setView('conciliar');
-      alert('\u2705 Cartola cargada \u00b7 '+nuevos.length+' movimientos'+(autoConc?' \u00b7 '+autoConc+' con match autom\u00e1tico sugerido':''));
+      alert('✅ Cartola cargada · '+nuevos.length+' movimientos'+(autoConc?' · '+autoConc+' con match automático sugerido':''));
     }catch(err){alert('Error al leer archivo: '+err.message+'\n'+err.stack);}
   };
   reader.readAsArrayBuffer(file);
@@ -420,20 +420,20 @@ function renderConciliar(){
 
   if(meta){
     html+='<div class="info-box" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
-      +'<div>\u1f4ca <strong>'+hesc(meta.archivo)+'</strong> \u00b7 '+hesc(meta.periodo)+' \u00b7 '+hesc(meta.banco)+'</div>'
+      +'<div>📊 <strong>'+hesc(meta.archivo)+'</strong> · '+hesc(meta.periodo)+' · '+hesc(meta.banco)+'</div>'
       +'<div style="font-size:11px;opacity:.8">\u00daltima carga: '+hesc(meta.tsLoad)+'</div>'
-      +'<button class="btn-s btn-sm" onclick="setView(\'carga\')">\u1f504 Nueva carga</button>'
+      +'<button class="btn-s btn-sm" onclick="setView(\'carga\')">🔄 Nueva carga</button>'
       +'</div>';
   }
   if(conMark>0){
-    html+='<div class="success-box">\u26a1 <strong>'+conMark+' movimiento'+(conMark!==1?'s':'')+' con match autom\u00e1tico</strong>  -  revisa las sugerencias y confirma.</div>';
+    html+='<div class="success-box">⚡ <strong>'+conMark+' movimiento'+(conMark!==1?'s':'')+' con match automático</strong>  -  revisa las sugerencias y confirma.</div>';
   }
 
   html+=movs.map(function(m){
     var isConc=m.estado==='conciliado',isPar=m.estado==='parcial',isIgn=m.estado==='ignorado';
     var sumaConc=(m.conceptos||[]).reduce(function(s,c){return s+c.monto;},0)+(m.ajuste?m.ajuste.monto:0);
     var pct=m.monto>0?Math.min(100,Math.round(sumaConc/m.monto*100)):0;
-    var badge=isConc?'<span class="badge b-conciliado">\u2705 Conciliado</span>':isPar?'<span class="badge b-parcial">\u1f535 Parcial</span>':isIgn?'<span class="badge b-ignorado">\u1f6ab Ignorado</span>':'<span class="badge b-pendiente">\u23f3 Pendiente</span>';
+    var badge=isConc?'<span class="badge b-conciliado">✅ Conciliado</span>':isPar?'<span class="badge b-parcial">🔵 Parcial</span>':isIgn?'<span class="badge b-ignorado">\u1f6ab Ignorado</span>':'<span class="badge b-pendiente">⏳ Pendiente</span>';
 
     // Sugerencias en lista
     var sugsHTML='';
@@ -443,7 +443,7 @@ function renderConciliar(){
         return'<div class="sugerencia '+cls+'"><span>'+s.icon+' <strong>'+s.label+'</strong>  -  '+hesc(s.descripcion)+'</span><span style="font-weight:700;margin-left:auto">'+ff(s.monto)+'</span></div>';
       }).join('');
     } else if(m.estado==='pendiente'&&m.clienteNombre){
-      sugsHTML='<div class="sugerencia sug-cliente">\u1f194 Cliente: <strong>'+hesc(m.clienteNombre)+'</strong>  -  sin match autom\u00e1tico de monto</div>';
+      sugsHTML='<div class="sugerencia sug-cliente">\u1f194 Cliente: <strong>'+hesc(m.clienteNombre)+'</strong>  -  sin match automático de monto</div>';
     }
 
     // Conceptos ya asignados
@@ -451,19 +451,19 @@ function renderConciliar(){
     if((m.conceptos||[]).length){
       concHTML='<div class="conceptos-list">'
         +(m.conceptos||[]).map(function(c){return'<div class="concepto-item"><span class="concepto-tipo">'+hesc(c.tipoLabel)+'</span><span class="concepto-desc">'+hesc(c.descripcion)+'</span><span class="concepto-monto">'+ff(c.monto)+'</span></div>';}).join('')
-        +(m.ajuste?'<div class="concepto-item" style="border-color:#fde68a;background:#fef3c7"><span class="concepto-tipo" style="color:#C07A1A">\u26a0\ufe0f Ajuste</span><span class="concepto-desc">'+hesc(m.ajuste.obs)+'</span><span class="concepto-monto" style="color:#C07A1A">'+ff(m.ajuste.monto)+'</span></div>':'')
+        +(m.ajuste?'<div class="concepto-item" style="border-color:#fde68a;background:#fef3c7"><span class="concepto-tipo" style="color:#C07A1A">⚠️ Ajuste</span><span class="concepto-desc">'+hesc(m.ajuste.obs)+'</span><span class="concepto-monto" style="color:#C07A1A">'+ff(m.ajuste.monto)+'</span></div>':'')
         +'</div>'
-        +'<div class="saldo-bar"><div class="saldo-track"><div class="saldo-fill" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:#9a849b">'+pct+'% \u00b7 '+ff(sumaConc)+'/'+ff(m.monto)+'</span></div>';
-      if(m.tsConciliado)concHTML+='<div style="font-size:10px;color:#9a849b;margin-top:4px">Por: <strong>'+hesc(m.quien)+'</strong> \u00b7 '+hesc(m.tsConciliado)+'</div>';
+        +'<div class="saldo-bar"><div class="saldo-track"><div class="saldo-fill" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:#9a849b">'+pct+'% · '+ff(sumaConc)+'/'+ff(m.monto)+'</span></div>';
+      if(m.tsConciliado)concHTML+='<div style="font-size:10px;color:#9a849b;margin-top:4px">Por: <strong>'+hesc(m.quien)+'</strong> · '+hesc(m.tsConciliado)+'</div>';
     }
 
-    var accion=!isIgn?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">'+( isConc||isPar?'\u270f\ufe0f Editar':'\u1f517 Conciliar')+'</button>':'';
+    var accion=!isIgn?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">'+( isConc||isPar?'✏️ Editar':'\u1f517 Conciliar')+'</button>':'';
     var ignBtn=!isIgn?'<button class="btn-s btn-sm" onclick="ignorar('+m.idx+')">\u1f6ab Ignorar</button>':'<button class="btn-s btn-sm" onclick="restaurar('+m.idx+')">\u21a9 Restaurar</button>';
 
     return'<div class="mov-row'+(isConc?' conciliado':isPar?' parcial':isIgn?' ignorado':'')+'">'
       +'<div class="mov-header"><div class="mov-info">'
       +'<div class="mov-nombre">'+hesc(m.nombre||'Sin nombre')+(m.rut?' <span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:3px;padding:1px 6px;font-family:monospace">'+m.rut+'</span>':'')+'</div>'
-      +'<div class="mov-meta">'+hesc(m.fecha)+(m.bancoOrigen?' \u00b7 '+hesc(m.bancoOrigen):'')+(m.codigo?' \u00b7 Ref: '+hesc(m.codigo):'')+'</div>'
+      +'<div class="mov-meta">'+hesc(m.fecha)+(m.bancoOrigen?' · '+hesc(m.bancoOrigen):'')+(m.codigo?' · Ref: '+hesc(m.codigo):'')+'</div>'
       +'<div style="margin-top:5px">'+badge+'</div>'
       +sugsHTML+'</div>'
       +'<div><div class="mov-monto-lbl">Ingreso</div><div class="mov-monto">'+ff(m.monto)+'</div></div>'
@@ -481,16 +481,16 @@ function abrirConcepto(idx){
   var movs=getMovimientos();
   var m=movs.find(function(x){return x.idx===idx;});if(!m)return;
   _mcIdx=idx;_concCnt=0;
-  document.getElementById('conceptoSub').textContent=(m.nombre||'')+(m.fecha?' \u00b7 '+m.fecha:'');
+  document.getElementById('conceptoSub').textContent=(m.nombre||'')+(m.fecha?' · '+m.fecha:'');
   document.getElementById('mc-total-display').textContent=ff(m.monto);
-  document.getElementById('mc-rut-display').textContent=m.rut?(m.rut+(m.clienteNombre?' \u00b7 '+m.clienteNombre:'')):'';
+  document.getElementById('mc-rut-display').textContent=m.rut?(m.rut+(m.clienteNombre?' · '+m.clienteNombre:'')):'';
   document.getElementById('mc-quien').value=m.quien||'';
   document.getElementById('aj-obs').value='';
   document.getElementById('conceptosAsignados').innerHTML='';
 
   // Sugerencias en modal
   var sugs=m.sugerencias||[];
-  var sugHTML=sugs.length?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px">\u26a1 Sugerencias autom\u00e1ticas  -  haz clic para agregar</div>'
+  var sugHTML=sugs.length?'<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px">⚡ Sugerencias automáticas  -  haz clic para agregar</div>'
     +sugs.slice(0,4).map(function(s){
       var cls=s.exacto?'exacto':s.origen==='pago'?'pago':s.origen==='convenio'?'convenio':'';
       return'<div class="match-card '+cls+'" onclick="agregarSugerencia('+JSON.stringify(s).replace(/"/g,'\x26quot;')+')">'
@@ -573,7 +573,7 @@ function confirmarConcepto(){
   var suma=conceptos.reduce(function(s,c){return s+c.monto;},0);
   var dif=m.monto-suma;
   var ajObs=sv('aj-obs');
-  if(Math.abs(dif)>=1&&!ajObs){alert('Hay diferencia de '+ff(Math.abs(dif))+'. Ingresa observaci\u00f3n del ajuste.');return;}
+  if(Math.abs(dif)>=1&&!ajObs){alert('Hay diferencia de '+ff(Math.abs(dif))+'. Ingresa observación del ajuste.');return;}
   movs[idx].conceptos=conceptos;
   movs[idx].ajuste=Math.abs(dif)>=1?{monto:dif,obs:ajObs,ts:ts()}:null;
   movs[idx].quien=quien;movs[idx].tsConciliado=ts();
@@ -632,7 +632,7 @@ function renderPorCliente(){
     var conc=cl.movs.filter(function(m){return m.estado==='conciliado';}).length;
     var pend=cl.movs.filter(function(m){return m.estado==='pendiente';}).length;
     var filas=cl.movs.map(function(m){
-      var badge=m.estado==='conciliado'?'<span class="badge b-conciliado">\u2705</span>':m.estado==='parcial'?'<span class="badge b-parcial">\u1f535</span>':m.estado==='ignorado'?'<span class="badge b-ignorado">\u1f6ab</span>':'<span class="badge b-pendiente">\u23f3</span>';
+      var badge=m.estado==='conciliado'?'<span class="badge b-conciliado">✅</span>':m.estado==='parcial'?'<span class="badge b-parcial">🔵</span>':m.estado==='ignorado'?'<span class="badge b-ignorado">\u1f6ab</span>':'<span class="badge b-pendiente">⏳</span>';
       var concDesc=(m.conceptos||[]).map(function(c){return c.tipoLabel;}).join(' + ')||' - ';
       return'<tr>'
         +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8;font-size:12px">'+hesc(m.fecha)+'</td>'
@@ -646,9 +646,9 @@ function renderPorCliente(){
     return'<div class="cliente-row">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
       +'<div><div style="font-size:14px;font-weight:700">'+hesc(cl.nombre)+'</div>'
-      +'<div style="font-size:11.5px;color:#9a849b">RUT: '+hesc(cl.rut)+' \u00b7 '+cl.movs.length+' movimientos \u00b7 '+conc+' conciliados \u00b7 '+pend+' pendientes</div></div>'
+      +'<div style="font-size:11.5px;color:#9a849b">RUT: '+hesc(cl.rut)+' · '+cl.movs.length+' movimientos · '+conc+' conciliados · '+pend+' pendientes</div></div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
-      +(cl.waHref?'<a class="btn-wa btn-sm" href="'+cl.waHref+'" target="_blank" style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;text-decoration:none">\u1f4ac</a>':'')
+      +(cl.waHref?'<a class="btn-wa btn-sm" href="'+cl.waHref+'" target="_blank" style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;text-decoration:none">💬</a>':'')
       +'<div style="font-size:18px;font-weight:700;color:#2D9B6F">'+ff(total)+'</div>'
       +'</div></div>'
       +'<table class="mov-tabla"><thead><tr><th>Fecha</th><th>Nombre</th><th>Monto</th><th>Estado</th><th>Concepto</th><th></th></tr></thead><tbody>'+filas+'</tbody></table>'
@@ -661,11 +661,11 @@ function renderHistorial(){
   var arr=getHistorial();
   document.getElementById('mainContent').innerHTML=arr.length?arr.map(function(h){
     return'<div class="hist-row"><div style="display:flex;justify-content:space-between;align-items:center">'
-      +'<div><div style="font-size:14px;font-weight:700">\u1f4ca '+hesc(h.archivo)+'</div>'
-      +'<div style="font-size:11.5px;color:#9a849b">'+hesc(h.banco)+' \u00b7 '+hesc(h.periodo)+' \u00b7 '+h.total+' movimientos</div></div>'
+      +'<div><div style="font-size:14px;font-weight:700">📊 '+hesc(h.archivo)+'</div>'
+      +'<div style="font-size:11.5px;color:#9a849b">'+hesc(h.banco)+' · '+hesc(h.periodo)+' · '+h.total+' movimientos</div></div>'
       +'<div style="font-size:11px;color:#9a849b">'+hesc(h.tsLoad)+'</div>'
       +'</div></div>';
-  }).join(''):'<div class="empty-state"><h3>Sin historial</h3><p>Las cartolas cargadas aparecer\u00e1n aqu\u00ed.</p></div>';
+  }).join(''):'<div class="empty-state"><h3>Sin historial</h3><p>Las cartolas cargadas aparecerán aquí.</p></div>';
 }
 
 setView('conciliar');
