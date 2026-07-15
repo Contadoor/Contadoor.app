@@ -245,18 +245,29 @@ tr:hover td{background:#faf5ff;}
       </div>
 
       <div class="card-hd">💼 Valor mensual</div>
-      <div class="fg4">
-        <div class="fgroup"><label>Moneda</label>
+      <div class="fg4" style="margin-bottom:10px">
+        <div class="fgroup">
+          <label>Moneda base</label>
           <select id="f-moneda">
             <option value="UF">UF</option>
             <option value="CLP">CLP</option>
           </select>
         </div>
-        <div class="fgroup"><label>Monto base</label><input type="number" id="f-monto" placeholder="3.5" step="0.1"></div>
+        <div class="fgroup"><label>Monto base</label><input type="number" id="f-monto" placeholder="3.5" step="0.01"></div>
         <div class="fgroup"><label>Trab. incluidos</label><input type="number" id="f-trab" placeholder="5"></div>
-        <div class="fgroup"><label>Valor x trab. extra</label><input type="number" id="f-var" placeholder="0.3" step="0.1"></div>
+        <div class="fgroup"><label>Obs. precio</label><input type="text" id="f-precio-obs" placeholder="Precio especial, descuento..."></div>
       </div>
-      <div class="fgroup" style="margin-bottom:10px"><label>Vista previa</label><div class="preview-box" id="preview-val">—</div></div>
+      <div class="fg3" style="margin-bottom:10px" id="wrap-variable">
+        <div class="fgroup">
+          <label>Moneda valor variable</label>
+          <select id="f-moneda-var">
+            <option value="UF">UF (igual que base)</option>
+            <option value="CLP">CLP (mixto)</option>
+          </select>
+        </div>
+        <div class="fgroup"><label>Valor x trab. extra</label><input type="number" id="f-var" placeholder="0.3" step="0.01"></div>
+        <div class="fgroup"><label>Vista previa</label><div class="preview-box" id="preview-val">—</div></div>
+      </div>
 
       <div class="card-hd">👥 Equipo asignado</div>
       <div class="fg3">
@@ -467,7 +478,8 @@ function rowToCliente(r) {
     plan: r.plan, estado: r.estado || 'activo', inicio: r.fecha_inicio,
     reg: r.regimen, iva: r.iva_condicion || 'afecto', modalidad: r.modalidad_pago || 'contadoor',
     obsTrib: r.obs_trib,
-    moneda: r.moneda_plan || 'UF', monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0,
+    moneda: r.moneda_plan || 'UF', monedaVar: r.moneda_variable || r.moneda_plan || 'UF',
+    monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
     contador: r.analista_contable, rrhh: r.analista_rrhh, prio: r.prioridad_contable || 'media',
     siiU: r.usuario_sii,  siiK: r.clave_sii,
     prevU: r.usuario_previred, prevK: r.clave_previred,
@@ -488,7 +500,9 @@ function clienteToRow(c) {
     plan: c.plan || null, estado: c.estado || 'activo', fecha_inicio: c.inicio || null,
     regimen: c.reg || null, iva_condicion: c.iva || 'afecto', modalidad_pago: c.modalidad || 'contadoor',
     obs_trib: c.obsTrib || null,
-    moneda_plan: c.moneda || 'UF', monto_base: c.monto || null, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
+    moneda_plan: c.moneda || 'UF', moneda_variable: c.monedaVar || c.moneda || 'UF',
+    monto_base: c.monto || null, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
+    precio_obs: c.precioObs || null,
     analista_contable: c.contador || null, analista_rrhh: c.rrhh || null, prioridad_contable: c.prio || 'media',
     usuario_sii:  c.siiU  || null, clave_sii:  c.siiK  || null,
     usuario_previred: c.prevU || c.rut || null, clave_previred: c.prevK || null,
@@ -529,31 +543,40 @@ var _detalleId = null;
 var _socioCount = 0;
 
 function calcPreview() {
-  var base  = nv('f-monto');
-  var incl  = nv('f-trab');
-  var vTrab = nv('f-var');
-  var mon   = gv('f-moneda') || 'UF';
-  var pb    = g('preview-val');
+  var base     = nv('f-monto');
+  var incl     = nv('f-trab');
+  var vTrab    = nv('f-var');
+  var monBase  = gv('f-moneda')     || 'UF';
+  var monVar   = gv('f-moneda-var') || monBase;
+  var pb       = g('preview-val');
   if (!pb) return;
   if (!base) { pb.textContent = '—'; return; }
-  // Trab adicionales del mes anterior (desde reporte RRHH en localStorage)
+
+  // Trab adicionales del mes anterior desde reporte RRHH
   var trabMesAnt = 0;
   try {
     var rrhh = JSON.parse(localStorage.getItem('rrhh_ultimo') || '{}');
-    var rutCliente = gv('f-rut');
-    if (rrhh[rutCliente] && rrhh[rutCliente].totalTrab) {
-      trabMesAnt = Math.max(0, rrhh[rutCliente].totalTrab - incl);
+    var rut  = gv('f-rut');
+    if (rrhh[rut] && rrhh[rut].totalTrab) {
+      trabMesAnt = Math.max(0, rrhh[rut].totalTrab - incl);
     }
   } catch(e) {}
-  var baseNum = mon === 'UF' ? base * UF : base;
-  var varNum  = vTrab ? trabMesAnt * vTrab * (mon === 'UF' ? UF : 1) : 0;
-  var total   = baseNum + varNum;
-  var txt = base + (mon === 'CLP' ? ' CLP' : ' UF') + ' base';
-  if (incl)  txt += ' · ' + incl + ' trab. incl.';
-  if (vTrab) txt += ' +' + vTrab + (mon==='UF'?' UF':' CLP') + '/trab extra';
-  if (trabMesAnt) txt += ' · ' + trabMesAnt + ' adic. mes ant.';
-  txt += '  ≈ ' + ff(total);
-  pb.textContent = txt;
+
+  var esMixto  = monBase !== monVar;
+  var baseClp  = monBase === 'UF' ? base * UF : base;
+  var varClp   = (vTrab && trabMesAnt) ? trabMesAnt * vTrab * (monVar === 'UF' ? UF : 1) : 0;
+  var totalClp = baseClp + varClp;
+
+  // Texto descriptivo
+  var txt = base + ' ' + monBase + ' base';
+  if (incl) txt += ' · ' + incl + ' trab. incl.';
+  if (vTrab) {
+    txt += ' + ' + vTrab + ' ' + monVar + '/trab extra';
+    if (esMixto) txt += ' <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:4px">MIXTO</span>';
+  }
+  if (trabMesAnt) txt += ' · ' + trabMesAnt + ' adic. (mes ant.)';
+  txt += '<br><span style="color:var(--p);font-weight:700">≈ ' + ff(totalClp) + ' / mes</span>';
+  pb.innerHTML = txt;
 }
 
 function poblarAnalistas() {
@@ -606,13 +629,13 @@ function updatePct() {
 function resetForm() {
   // text/number/email/date/textarea
   ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad',
-   'f-obs-trib','f-monto','f-trab','f-var','f-inicio','f-obs',
+   'f-obs-trib','f-monto','f-trab','f-var','f-precio-obs','f-inicio','f-obs',
    'f-sii-u','f-sii-k','f-prev-u','f-prev-k','f-cu-u','f-cu-k','f-fact-u','f-fact-k','f-lic-u','f-lic-k','f-obs-acceso'
   ].forEach(function(id){ sv(id, ''); });
   // selects
   sv('f-plan', ''); sv('f-estado', 'activo'); sv('f-reg', '');
   sv('f-iva', 'afecto'); sv('f-modalidad', 'contadoor');
-  sv('f-moneda', 'UF'); sv('f-prio', 'media');
+  sv('f-moneda', 'UF'); sv('f-moneda-var', 'UF'); sv('f-prio', 'media');
   // logo
   sv('f-logo-b64', '');
   var lf = g('f-logo-file'); if (lf) lf.value = '';
@@ -648,7 +671,9 @@ function abrirEditar(id) {
   sv('f-plan', c.plan); sv('f-estado', c.estado || 'activo');
   sv('f-reg', c.reg); sv('f-iva', c.iva || 'afecto'); sv('f-modalidad', c.modalidad || 'contadoor');
   sv('f-obs-trib', c.obsTrib);
-  sv('f-moneda', c.moneda || 'UF'); sv('f-monto', c.monto || ''); sv('f-trab', c.trab || ''); sv('f-var', c.varTrab || '');
+  sv('f-moneda', c.moneda || 'UF'); sv('f-moneda-var', c.monedaVar || c.moneda || 'UF');
+  sv('f-monto', c.monto || ''); sv('f-trab', c.trab || ''); sv('f-var', c.varTrab || '');
+  sv('f-precio-obs', c.precioObs || '');
   sv('f-prio', c.prio || 'media');
   // Credenciales
   sv('f-sii-u',  c.siiU  || c.rut); sv('f-sii-k',  c.siiK);
@@ -704,7 +729,8 @@ function guardarCliente() {
     email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'),
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
     reg:      gv('f-reg'), iva: gv('f-iva'), modalidad: gv('f-modalidad'), obsTrib: gv('f-obs-trib'),
-    moneda:   gv('f-moneda') || 'UF', monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'),
+    moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
+    monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
     contador: gv('f-contador'), rrhh: gv('f-rrhh'), prio: gv('f-prio') || 'media',
     siiU:  gv('f-sii-u'),  siiK:  gv('f-sii-k'),
     prevU: gv('f-prev-u'), prevK: gv('f-prev-k'),
@@ -842,7 +868,7 @@ function renderClientes() {
   g('st-activos').textContent     = all.filter(function(c){ return c.estado==='activo'; }).length;
   g('st-onboarding').textContent  = all.filter(function(c){ return c.estado==='onboarding'; }).length;
   g('st-suspendidos').textContent = all.filter(function(c){ return c.estado==='suspendido'; }).length;
-  var mrr = all.filter(function(c){ return c.estado==='activo'; }).reduce(function(s,c){ return s+Math.round((c.monto||0)*UF); }, 0);
+  var mrr = all.filter(function(c){ return c.estado==='activo'; }).reduce(function(s,c){ var b=(c.moneda==='CLP')?(c.monto||0):(c.monto||0)*UF; return s+Math.round(b); }, 0);
   g('st-mrr').textContent = '$' + Math.round(mrr/1000) + 'K';
   g('tabla-meta').textContent = arr.length + ' cliente' + (arr.length!==1?'s':'') + ' encontrado' + (arr.length!==1?'s':'');
 
@@ -863,7 +889,8 @@ function renderClientes() {
     var est  = ESTADOS[c.estado] || ESTADOS.inactivo;
     var pb   = c.plan==='estrategico'?'badge-plan-e':c.plan==='asesoria'?'badge-plan-a':'badge-plan-c';
     var prio = c.prio || 'media';
-    var mrr2 = Math.round((c.monto||0)*UF);
+    var baseClp2 = (c.moneda==='CLP') ? (c.monto||0) : (c.monto||0)*UF;
+    var mrr2 = Math.round(baseClp2);
     var tr   = document.createElement('tr');
 
     // Cliente
@@ -888,8 +915,12 @@ function renderClientes() {
 
     // Valor
     var td4 = document.createElement('td'); td4.style.fontSize='11px';
+    var esMixto2 = c.monedaVar && c.monedaVar !== c.moneda && c.varTrab;
     td4.innerHTML = c.monto
-      ? '<span style="font-weight:600">'+c.monto+(c.moneda==='CLP'?' CLP':' UF')+'</span>'+(c.trab?' · '+c.trab+' trab.':'')+(mrr2?'<br><span style="color:var(--p);font-weight:700">≈ '+ff(mrr2)+'</span>':'')
+      ? '<span style="font-weight:600">'+c.monto+' '+(c.moneda||'UF')+'</span>'
+        +(esMixto2?' <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:3px">MIXTO</span>':'')
+        +(c.trab?' · '+c.trab+' trab.':'')
+        +(mrr2?'<br><span style="color:var(--p);font-weight:700">≈ '+ff(mrr2)+'</span>':'')
       : '<span style="color:var(--tm)">Sin valor</span>';
     tr.appendChild(td4);
 
@@ -972,10 +1003,11 @@ document.getElementById('f-logo-file').onchange = function(){
   };
   reader.readAsDataURL(file);
 };
-document.getElementById('f-monto').oninput  = calcPreview;
-document.getElementById('f-trab').oninput   = calcPreview;
-document.getElementById('f-var').oninput    = calcPreview;
-document.getElementById('f-moneda').onchange= calcPreview;
+document.getElementById('f-monto').oninput      = calcPreview;
+document.getElementById('f-trab').oninput       = calcPreview;
+document.getElementById('f-var').oninput        = calcPreview;
+document.getElementById('f-moneda').onchange    = calcPreview;
+document.getElementById('f-moneda-var').onchange= calcPreview;
 document.getElementById('f-rut').oninput = function(){
   var v = this.value;
   if (!g('f-sii-u').value) sv('f-sii-u', v); // RUT empresa → SII Empresa
