@@ -1296,6 +1296,49 @@ function render(acc,monthly,n,ia){
   h+='<div class="kpi '+(reg==='14D3'?'cr':'cg')+'"><div class="kpi-lbl">Impuesto 1\u00aa Cat. ('+n.tasa+'%)</div><div class="kpi-val">'+(reg==='14D3'?fk(n.impBruto):'$0')+'</div><div class="kpi-sub">'+(reg==='14D3'?'Antes de créditos':'Empresa exenta')+'</div></div>';
   h+='<div class="kpi '+(reg==='14D3'?(n.difEmp>0?'cr':'cg'):'cb')+'"><div class="kpi-lbl">'+(reg==='14D3'?(n.difEmp>=0?'Diferencia a Pagar':'Remanente'):'PPM Acumulados')+'</div><div class="kpi-val">'+(reg==='14D3'?fk(Math.abs(n.difEmp)):fk(n.ppmTotal))+'</div><div class="kpi-sub">'+(reg==='14D3'?'PPM: '+fk(n.ppmEmp):'Distribuir a socios')+'</div></div>';
   h+='</div>';
+
+  // ── ANÁLISIS TASA PPM RECOMENDADA ──────────────────────────────────────
+  if(reg==='14D3' && n.totalGan>0){
+    var tasaActual=n.ppmEmp>0?(n.ppmEmp/n.totalGan*100):0;
+    var tasaRec=n.impBruto>0?(n.impBruto/n.totalGan*100):0;
+    var diferenciaPct=tasaRec-tasaActual;
+    var estadoColor=Math.abs(diferenciaPct)<0.3?'#2D9B6F':diferenciaPct>0?'#C0392B':'#2D9B6F';
+    var estadoText=Math.abs(diferenciaPct)<0.3?'✅ Tasa óptima':diferenciaPct>0?'⚠️ Tasa insuficiente':'✅ Tasa en exceso';
+    h+='<div style="background:#fff;border:1px solid #E8DDE8;border-radius:10px;padding:16px 18px;margin-bottom:14px">';
+    h+='<div style="font-size:12px;font-weight:700;color:#1A0A1B;margin-bottom:12px">📊 Análisis de Tasa PPM</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">';
+    // Tasa actual
+    h+='<div style="background:#FAF7FA;border-radius:8px;padding:12px;text-align:center">';
+    h+='<div style="font-size:10px;color:#9A849B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tasa actual pagada</div>';
+    h+='<div style="font-size:22px;font-weight:700;color:#1A0A1B">'+tasaActual.toFixed(2)+'%</div>';
+    h+='<div style="font-size:10px;color:#9A849B;margin-top:2px">PPM pagado '+fk(n.ppmEmp)+' / Ingresos</div>';
+    h+='</div>';
+    // Tasa recomendada
+    h+='<div style="background:#FAF7FA;border-radius:8px;padding:12px;text-align:center;border:2px solid #904891">';
+    h+='<div style="font-size:10px;color:#904891;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:700">Tasa recomendada</div>';
+    h+='<div style="font-size:22px;font-weight:700;color:#904891">'+tasaRec.toFixed(2)+'%</div>';
+    h+='<div style="font-size:10px;color:#9A849B;margin-top:2px">IDPC '+fk(n.impBruto)+' / Ingresos</div>';
+    h+='</div>';
+    // Diferencia
+    h+='<div style="background:#FAF7FA;border-radius:8px;padding:12px;text-align:center">';
+    h+='<div style="font-size:10px;color:#9A849B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Diferencia</div>';
+    h+='<div style="font-size:22px;font-weight:700;color:'+estadoColor+'">'+(diferenciaPct>0?'+':'')+diferenciaPct.toFixed(2)+'%</div>';
+    h+='<div style="font-size:10px;color:'+estadoColor+';margin-top:2px;font-weight:600">'+estadoText+'</div>';
+    h+='</div>';
+    h+='</div>';
+    // Interpretación
+    h+='<div style="background:'+(diferenciaPct>0.3?'#fef0f0':diferenciaPct<-0.3?'#e8f5f0':'#f0f7ff')+';border-radius:7px;padding:10px 14px;font-size:12px;color:#1A0A1B;line-height:1.6">';
+    if(diferenciaPct>0.3){
+      h+='⚠️ La empresa está pagando PPM insuficiente. Con una tasa del <strong>'+tasaRec.toFixed(2)+'%</strong> cubriría el IDPC proyectado de '+fk(n.impBruto)+'. Se recomienda solicitar modificación de tasa al SII o provisionar la diferencia.';
+    } else if(diferenciaPct<-0.3){
+      h+='✅ La empresa paga PPM en exceso. Con reducir la tasa al <strong>'+tasaRec.toFixed(2)+'%</strong> optimizaría el flujo de caja. El exceso genera crédito que se recupera en el F22.';
+    } else {
+      h+='✅ La tasa de PPM actual es óptima y cubre adecuadamente el IDPC proyectado.';
+    }
+    h+='</div>';
+    h+='</div>';
+  }
+
   var te=n.tasaEf,pct=Math.min(te/40,1),ga=-90+pct*180;
   h+='<div class="gauge-card"><div><svg viewBox="0 0 170 100" style="width:170px;height:100px;overflow:visible">';
   h+='<defs><linearGradient id="gg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2D9B6F"/><stop offset="50%" stop-color="#C07A1A"/><stop offset="100%" stop-color="#C0392B"/></linearGradient></defs>';
