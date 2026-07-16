@@ -15,7 +15,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .sb-logo{padding:16px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);flex-shrink:0;}
 .sb-logo img{width:130px;display:block;}
 .sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
-.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;}
+.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
 .sb-nav::-webkit-scrollbar{width:3px;}
 .sb-nav::-webkit-scrollbar-track{background:transparent;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
@@ -220,41 +220,33 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   <nav>
     <div class="sb-section">Principal</div>
     <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-
     <div class="sb-section">Gestión</div>
-    <a class="sb-item " href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item " href="../planes/index.html">📋 Planes y Servicios</a>
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
     <a class="sb-item on" href="../reportes/index.html">📋 Panel de Control</a>
-
     <div class="sb-section">Remuneraciones</div>
-    <a class="sb-item " href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-
     <div class="sb-section">Contable</div>
-    <a class="sb-item " href="../reportes-contable/index.html">📊 Reporte Contable</a>
-    <a class="sb-item " href="../reportes-pagos/index.html">💰 Reporte Pagos</a>
+    <a class="sb-item" href="../reportes-contable/index.html">📊 Reporte Contable</a>
+    <a class="sb-item" href="../reportes-pagos/index.html">💰 Reporte Pagos</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🤝 Convenios</a>
-
     <div class="sb-section">Tributario</div>
-    <a class="sb-item " href="../pir/index.html">📊 PIR</a>
-    <a class="sb-item " href="../pre-iva/index.html">📋 Pre-IVA</a>
-
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
     <div class="sb-section">Financiero</div>
-    <a class="sb-item " href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item " href="../conciliacion/index.html">🏦 Conciliación</a>
+    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
+    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-
     <div class="sb-section">Comercial</div>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-
     <div class="sb-section">Configuración</div>
-    <a class="sb-item " href="../admin/index.html">👤 Admin</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🌐 Mi Contadoor</a>
+    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
   </nav>
   <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
 </aside>
@@ -279,6 +271,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
     <!-- VISTA NÓMINA -->
     <div class="view on" id="view-nomina">
+      <!-- Barra envío masivo -->
+      <div id="barraEnvio" style="display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;display:none;align-items:center;gap:12px">
+        <span id="barraEnvioCount" style="font-size:12px;font-weight:600"></span>
+        <button onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
+        <button onclick="deseleccionarTodos()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
+      </div>
       <div id="nominaContainer"></div>
     </div>
 
@@ -325,35 +323,39 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
 <!-- MODAL APERTURA DE PERÍODO -->
 <div class="modal-bg" id="modalApertura">
-  <div class="modal" style="max-width:500px">
-    <h2>📅 Abrir Período</h2>
-    <div class="modal-sub">Genera la nómina de reportes para todos los clientes activos</div>
-    <div class="fg2" style="margin-bottom:16px">
-      <div class="fgroup">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>📅 Abrir Período</h2>
+      <p>Genera la nómina de reportes para todos los clientes activos</p>
+    </div>
+    <div class="modal-body">
+      <div id="ap-resumen" style="margin-bottom:4px"></div>
+      <div class="card-hd">📌 Datos del período</div>
+      <div class="fgroup" style="margin-bottom:10px">
         <label>Período *</label>
-        <input type="month" id="ap-periodo"/>
+        <input type="month" id="ap-periodo" oninput="autoFillFechas()"/>
       </div>
-      <div class="fgroup">
-        <label>Analista RRHH responsable</label>
-        <input type="text" id="ap-analistaRrhh" placeholder="Nombre del analista RRHH"/>
-      </div>
-    </div>
-    <div class="fgroup" style="margin-bottom:12px">
-      <label>Analista Contable responsable</label>
-      <input type="text" id="ap-analistaCont" placeholder="Nombre del analista contable"/>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-hd">📅 Calendario del período</div>
+
+      <div class="card-hd">💰 Valores del período</div>
       <div class="fg2" style="margin-bottom:10px">
-        <div class="fgroup"><label>Vencimiento cotizaciones</label><input type="text" id="ap-vencCot" placeholder="Ej: 10 de julio"/></div>
-        <div class="fgroup"><label>Prórroga cotizaciones</label><input type="text" id="ap-prorrogaCot" placeholder="Ej: 31 de julio"/></div>
+        <div class="fgroup">
+          <label>Valor UF *</label>
+          <input type="number" id="ap-uf" placeholder="39700" step="1" oninput="actualizarPreviewApertura()"/>
+          <div style="font-size:10px;color:var(--tm);margin-top:2px">Valor UF del mes para cobro de servicios</div>
+        </div>
+        <div class="fgroup">
+          <label>Valor UTM *</label>
+          <input type="number" id="ap-utm" placeholder="65443" step="1" oninput="actualizarPreviewApertura()"/>
+          <div style="font-size:10px;color:var(--tm);margin-top:2px">UTM del mes para cálculo IVA/remanente</div>
+        </div>
       </div>
-      <div class="fg2">
-        <div class="fgroup"><label>Vencimiento SII (F29)</label><input type="text" id="ap-vencSii" placeholder="Ej: 20 de julio"/></div>
-        <div class="fgroup"><label>Envío reporte RRHH</label><input type="text" id="ap-envioRrhh" placeholder="Ej: 1 al 8 de julio"/></div>
+
+      <div style="background:var(--pp);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--pd);margin-bottom:8px">
+        📅 Las fechas límite y planificación del período se gestionan en <strong>Performance</strong>
       </div>
+
+      <div id="ap-preview" style="background:var(--pp);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--pd);margin-top:8px;display:none"></div>
     </div>
-    <div id="ap-preview" class="info-box" style="margin-bottom:14px"></div>
     <div class="modal-footer">
       <button class="btn-s" onclick="closeApertura()">Cancelar</button>
       <button class="btn-p" onclick="confirmarApertura()">📅 Abrir período y generar nómina</button>
@@ -767,7 +769,22 @@ function getReportes(){try{return JSON.parse(localStorage.getItem('reportes_mens
 function setReportes(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));renderAll();}
 function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
 function setPeriodos(arr){localStorage.setItem('rpt_periodos',JSON.stringify(arr));}
-function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
+function getClientes(){
+  try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}
+}
+function getClientesFiltrados(){
+  var todos=getClientes();
+  var u={}; try{u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
+  if(!u.nombre||u.rol==='master'||u.esMaster) return todos;
+  // Filtrar según rol y asignación
+  return todos.filter(function(c){
+    if(u.rol==='rrhh')     return c.rrhh===u.nombre||c.analistaRrhh===u.nombre;
+    if(u.rol==='contable') return c.contador===u.nombre||c.analistaContable===u.nombre;
+    if(u.rol==='pagos')    return c.analistaPagos===u.nombre;
+    if(u.rol==='admin')    return true;
+    return false;
+  });
+}
 function getHistoricoRemu(){try{return JSON.parse(localStorage.getItem('remu_historico')||'{}');}catch(e){return{};}}
 function setHistoricoRemu(obj){localStorage.setItem('remu_historico',JSON.stringify(obj));}
 
@@ -1419,7 +1436,7 @@ function onClienteChange(){
 // MODAL FORM
 // ═══════════════════════════════════════════════════════════
 function popularSelectClientes(){
-  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||!c.estado;});
+  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||c.estado==='suspendido';});
   var sel=document.getElementById('f-cliente');
   if(!sel) return;
   var cur=sel.value;
@@ -1648,7 +1665,92 @@ function guardarYVerReporte(){
 // ═══════════════════════════════════════════════════════════
 // APERTURA DE PERÍODO
 // ═══════════════════════════════════════════════════════════
+function autoFillFechas(){ actualizarPreviewApertura(); }
+
+function generarResumenApertura(){
+  var clientes = getClientes();
+  var activos   = clientes.filter(function(c){return c.estado==='activo';});
+  var onboarding= clientes.filter(function(c){return c.estado==='onboarding';});
+  var suspendidos=clientes.filter(function(c){return c.estado==='suspendido';});
+  var inactivos = clientes.filter(function(c){return c.estado==='inactivo'||!c.estado;});
+  var entran    = activos.concat(onboarding).concat(suspendidos);
+
+  // Resumen por analista
+  var porAnalista = {};
+  entran.forEach(function(c){
+    // Contable
+    var cnt = c.contador||c.analistaContable||'';
+    if(cnt){
+      if(!porAnalista[cnt]) porAnalista[cnt]={contable:0,rrhh:0,pagos:0};
+      porAnalista[cnt].contable++;
+    }
+    // RRHH
+    var rrhh = c.rrhh||c.analistaRrhh||'';
+    if(rrhh){
+      if(!porAnalista[rrhh]) porAnalista[rrhh]={contable:0,rrhh:0,pagos:0};
+      porAnalista[rrhh].rrhh++;
+    }
+    // Pagos
+    var pagos = c.analistaPagos||'';
+    if(pagos){
+      if(!porAnalista[pagos]) porAnalista[pagos]={contable:0,rrhh:0,pagos:0};
+      porAnalista[pagos].pagos++;
+    }
+  });
+
+  // Sin analista asignado
+  var sinAsignar = entran.filter(function(c){
+    return !(c.contador||c.analistaContable) && !(c.rrhh||c.analistaRrhh);
+  });
+
+  // Build HTML
+  var html = '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:16px">';
+  html += '<div style="background:linear-gradient(135deg,var(--pd),var(--p));padding:10px 14px">';
+  html += '<div style="font-size:12px;font-weight:700;color:#fff">📊 Resumen previo a la apertura</div>';
+  html += '</div>';
+  html += '<div style="padding:12px 14px">';
+
+  // Estados
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">';
+  html += '<div style="background:#ecfdf5;border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#064e3b">'+activos.length+'</div><div style="font-size:9px;color:#064e3b;text-transform:uppercase;font-weight:700">✅ Activos</div></div>';
+  html += '<div style="background:#eff6ff;border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#1e40af">'+onboarding.length+'</div><div style="font-size:9px;color:#1e40af;text-transform:uppercase;font-weight:700">🔄 Onboarding</div></div>';
+  html += '<div style="background:#fef3c7;border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#92400e">'+suspendidos.length+'</div><div style="font-size:9px;color:#92400e;text-transform:uppercase;font-weight:700">⏸ Suspendidos</div></div>';
+  html += '<div style="background:#f3f4f6;border-radius:8px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#6b7280">'+inactivos.length+'</div><div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700">❌ No entran</div></div>';
+  html += '</div>';
+
+  html += '<div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px">Total a aperturar: <span style="font-size:14px">'+entran.length+' clientes</span></div>';
+  html += '<div style="border-top:1px solid var(--bdr);margin:8px 0"></div>';
+
+  // Por analista
+  html += '<div style="font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Distribución por analista</div>';
+  var rows = '';
+  Object.keys(porAnalista).forEach(function(nombre){
+    var d = porAnalista[nombre];
+    var detalle = [];
+    if(d.contable) detalle.push(d.contable+' Contable');
+    if(d.rrhh)    detalle.push(d.rrhh+' RRHH');
+    if(d.pagos)   detalle.push(d.pagos+' Pagos');
+    rows += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bdr);font-size:11px">'
+      +'<span style="font-weight:600">'+nombre+'</span>'
+      +'<span style="color:var(--t2)">'+detalle.join(' · ')+'</span></div>';
+  });
+  if(sinAsignar.length){
+    rows += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--red)">'
+      +'<span style="font-weight:600">⚠️ Sin analista asignado</span>'
+      +'<span>'+sinAsignar.length+' cliente'+(sinAsignar.length>1?'s':'')+'</span></div>';
+  }
+  html += rows||'<div style="font-size:11px;color:var(--tm)">Sin analistas asignados</div>';
+  html += '</div></div>';
+  return html;
+}
+
 function abrirApertura(){
+  ['ap-vencCot','ap-prorrogaCot','ap-vencSii','ap-envioRrhh','ap-envioCont','ap-cierrePer'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var ufEl=document.getElementById('ap-uf');if(ufEl)ufEl.value='';
+  var utmEl=document.getElementById('ap-utm');if(utmEl)utmEl.value='';
+  // Mostrar resumen antes de aperturar
+  var resDiv=document.getElementById('ap-resumen');
+  if(resDiv) resDiv.innerHTML=generarResumenApertura();
   document.getElementById('modalApertura').classList.add('on');
   setPeriodoActual();
   // Prellenar fechas típicas
@@ -1669,7 +1771,7 @@ function abrirApertura(){
 function actualizarPreviewApertura(){
   var periodo=sv('ap-periodo');
   if(!periodo) return;
-  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||!c.estado;});
+  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||c.estado==='suspendido';});
   var conRrhh=clientes.filter(function(c){return c.tieneRrhh!==false;}).length;
   var sinRrhh=clientes.length-conRrhh;
   var prev=document.getElementById('ap-preview');
@@ -1681,7 +1783,7 @@ function actualizarPreviewApertura(){
 function confirmarApertura(){
   var periodo=sv('ap-periodo');
   if(!periodo){alert('Selecciona un período.');return;}
-  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||!c.estado;});
+  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||c.estado==='suspendido';});
   if(!clientes.length){alert('No hay clientes activos.');return;}
 
   var periodos=getPeriodos();
@@ -1691,10 +1793,11 @@ function confirmarApertura(){
     periodos=periodos.filter(function(p){return p.periodo!==periodo;});
   }
 
-  var calendario={
-    vencCot:sv('ap-vencCot'),prorrogaCot:sv('ap-prorrogaCot'),
-    vencSii:sv('ap-vencSii'),envioRrhh:sv('ap-envioRrhh')
-  };
+  var ufVal=parseFloat(document.getElementById('ap-uf').value)||0;
+  var utmVal=parseFloat(document.getElementById('ap-utm').value)||0;
+  if(!ufVal){alert('Ingresa el valor de la UF para este período.');return;}
+  if(!utmVal){alert('Ingresa el valor de la UTM para este período.');return;}
+  var calendario={}; // Fechas se gestionan en Performance
 
   // Crear nómina para cada cliente
   var arr=getReportes();
@@ -1715,7 +1818,7 @@ function confirmarApertura(){
         },
         tieneRrhh,tieneCont,
         prioridadRrhh:c.prioridadRrhh||'media',
-        preparado:sv('ap-analistaRrhh'),revisado:sv('ap-analistaCont'),
+        
         calendario,ts:Date.now(),
         totalCot:0,totalImp:0,totalHon:0,totalAtrasos:0,totalGeneral:0
       });
@@ -1723,7 +1826,13 @@ function confirmarApertura(){
     }
   });
 
-  periodos.push({periodo,calendario,analistaRrhh:sv('ap-analistaRrhh'),analistaCont:sv('ap-analistaCont'),ts:Date.now()});
+  periodos.push({periodo,uf:ufVal,utm:utmVal,calendario,ts:Date.now()});
+  // Guardar UF/UTM en Supabase periodos
+  fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/periodos',{
+    method:'POST',
+    headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
+    body:JSON.stringify({periodo:periodo,uf:ufVal,utm:utmVal,calendario:calendario,abierto_por:((function(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}').nombre||'Sistema';}catch(e){return 'Sistema';}}()))})
+  }).catch(function(){console.warn('Supabase periodos: solo local');});
   setPeriodos(periodos);
   localStorage.setItem('reportes_mensuales',JSON.stringify(arr));
   renderAll();
@@ -1737,9 +1846,52 @@ function closeApertura(){document.getElementById('modalApertura').classList.remo
 // ═══════════════════════════════════════════════════════════
 // RENDER NÓMINA
 // ═══════════════════════════════════════════════════════════
+
+// ── ENVÍO MASIVO ─────────────────────────────────────────────────────
+function actualizarBarraEnvio(){
+  var chks=document.querySelectorAll('.nomina-chk:checked');
+  var barra=document.getElementById('barraEnvio');
+  var count=document.getElementById('barraEnvioCount');
+  if(!barra) return;
+  if(chks.length>0){
+    barra.style.display='flex';
+    if(count) count.textContent=chks.length+' reporte'+(chks.length>1?'s':'')+' seleccionado'+(chks.length>1?'s':'');
+  }else{
+    barra.style.display='none';
+  }
+}
+function deseleccionarTodos(){
+  document.querySelectorAll('.nomina-chk').forEach(function(c){c.checked=false;});
+  actualizarBarraEnvio();
+}
+function enviarSeleccionados(){
+  var chks=document.querySelectorAll('.nomina-chk:checked');
+  if(!chks.length){alert('Selecciona al menos un reporte.');return;}
+  var ids=Array.from(chks).map(function(c){return c.getAttribute('data-id');});
+  var arr=getReportes();
+  var enviados=0;
+  ids.forEach(function(id){
+    var r=arr.find(function(x){return String(x.id)===String(id);});
+    if(r){
+      if(r.estado==='borrador'){alert('El reporte de '+r.clienteNombre+' aún está en borrador. Completa las secciones primero.');return;}
+      enviarEmail(r);
+      enviados++;
+    }
+  });
+  if(enviados>0){
+    deseleccionarTodos();
+    renderAll();
+  }
+}
 function renderNomina(){
   var cont=document.getElementById('nominaContainer');
   var arr=getReportes();
+  // Filtrar por analista según rol del usuario activo
+  var _u={}; try{_u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
+  if(_u.nombre&&_u.rol!=='master'&&!_u.esMaster){
+    var _cliFiltrados=getClientesFiltrados().map(function(c){return c.rut;});
+    arr=arr.filter(function(r){return _cliFiltrados.indexOf(r.rut)>=0;});
+  }
   var periodos=getPeriodos();
 
   if(!arr.length&&!periodos.length){
@@ -1793,7 +1945,10 @@ function renderNomina(){
         return '<span class="estado-chip pend">'+label+' ⏳</span>';
       }
       var priorBadge={alta:'badge-alta',media:'badge-media',baja:'badge-baja'}[r.prioridadRrhh||'media']||'badge-media';
-      html+='<div class="nomina-row" id="nr-'+r.id+'">';
+      html+='<div class="nomina-row" id="nr-'+r.id+'">'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:0 4px">'
+        +'<input type="checkbox" class="nomina-chk" data-id="'+r.id+'" data-estado="'+r.estado+'" style="width:15px;height:15px;accent-color:var(--p)" onchange="actualizarBarraEnvio()">'
+        +'</label>';
       html+='<div class="nomina-info">';
       html+='<div class="nomina-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>';
       // Badge modalidad de pago
@@ -2167,7 +2322,7 @@ function popularSelectMeses(){
 }
 
 function popularSelectClientes2(){
-  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||!c.estado;});
+  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||c.estado==='suspendido';});
   var sel=document.getElementById('selectClienteHist');if(!sel) return;
   var cur=sel.value;
   sel.innerHTML='<option value="">Selecciona un cliente...</option>';
@@ -2200,9 +2355,20 @@ function renderAll(){
 // ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
-setupUploadRemu();
-renderAll();
-setPeriodoActual();
+// Cargar UF desde Supabase periodos
+fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/periodos?select=uf,utm,periodo&order=periodo.desc&limit=1',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA'}})
+  .then(function(r){return r.ok?r.json():[];})
+  .then(function(rows){
+    if(rows&&rows[0]){
+      if(rows[0].uf) window._UF_SUPABASE=parseFloat(rows[0].uf);
+      if(rows[0].utm) window._UTM_SUPABASE=parseFloat(rows[0].utm);
+    }
+  }).catch(function(){})
+  .finally(function(){
+    setupUploadRemu();
+    renderAll();
+    setPeriodoActual();
+  });
 
 // ── APERTURA DE PERÍODO ────────────────────────────────────────────────────
 function getPeriodos(){
