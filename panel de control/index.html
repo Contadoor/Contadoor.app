@@ -654,6 +654,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <label>💡 Recomendaciones tributarias del mes</label>
         <textarea id="f-recomendaciones" rows="3" placeholder="Ej: Recomendamos revisar la tasa PPM..."></textarea>
       </div>
+      <div class="fgroup"><label>📝 Nota del analista (aparece al pie del reporte)</label><textarea id="f-obs-analista" rows="2" placeholder="Mensaje personalizado para el cliente..."></textarea></div>
     </div>
 
     <!-- PREPARADOR -->
@@ -729,9 +730,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div id="vistaContent"></div>
     <div class="modal-footer no-print">
       <button class="btn-s" onclick="closeVista()">Cerrar</button>
-      <button class="btn-s" onclick="editarDesdeVista()">✏️ Editar</button>
+      <button class="btn-s" onclick="editarDesdeVista()">✏️ Editar reporte</button>
+      <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
       <button class="btn-s" onclick="window.print()">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="enviarEmail()" style="color:var(--blue);border-color:var(--blue)">✉️ Email</button>
+      <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
+      <button class="btn-s" onclick="marcarPagado(_vistaId)" style="color:var(--green);border-color:var(--green)">✅ Marcar pagado</button>
       <button class="btn-wa" onclick="enviarWhatsApp()">💬 WhatsApp</button>
     </div>
   </div>
@@ -1509,6 +1513,7 @@ function abrirModalEditar(id){
   // OBS
   setV('f-obs-rrhh',r.obsRrhh||'');setV('f-obs-cont',r.obsCont||'');
   setV('f-recomendaciones',r.recomendaciones||'');
+  setV('f-obs-analista',r.obsAnalista||'');
   setV('f-preparado',r.preparado||'');setV('f-revisado',r.revisado||'');
   setV('f-email-analista',r.emailAnalista||'');
   // Atrasos
@@ -1608,6 +1613,7 @@ function guardarReporte(estado){
     // OBS + analistas
     obsRrhh:usaArchivo?sv('f-obs-rrhh'):sv('f-obs-rrhh-m'),
     obsCont:sv('f-obs-cont'),recomendaciones:sv('f-recomendaciones'),
+    obsAnalista:sv('f-obs-analista'),
     preparado:sv('f-preparado'),revisado:sv('f-revisado'),emailAnalista:sv('f-email-analista'),
     // ESTADO PAGO
     estadoPago,fechaPago:sv('f-fecha-pago'),
@@ -2131,6 +2137,11 @@ function verReporte(id){
   // FOOTER
   h+='<div style="display:flex;justify-content:space-between;align-items:center;background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a849b">';
   h+='<div>'+(r.preparado?'RRHH: <strong>'+hesc(r.preparado)+'</strong>':'')+(r.revisado?' · Contable: <strong>'+hesc(r.revisado)+'</strong>':'')+'</div>';
+  if(r.obsAnalista){
+    h+='<div style="margin:12px 20px;background:#f5f0f8;border-radius:8px;padding:10px 14px;border-left:3px solid #904891">';
+    h+='<div style="font-size:10px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">📝 Nota del analista</div>';
+    h+='<div style="font-size:12px;color:#5c4a5d;line-height:1.6">'+hesc(r.obsAnalista)+'</div></div>';
+  }
   h+='<div>Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
 
   document.getElementById('vistaContent').innerHTML=h;
@@ -2143,32 +2154,103 @@ function editarDesdeVista(){if(_vistaId){closeVista();abrirModalEditar(_vistaId)
 // ═══════════════════════════════════════════════════════════
 // ENVÍO
 // ═══════════════════════════════════════════════════════════
+function buildReporteEmailHTML(r){
+  var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+  var periodo=formatPeriodo(r.periodo);
+  var contacto=r.contacto||r.clienteNombre||(r.rut||'Cliente');
+  var h='';
+  // Header
+  h+='<div style="background:linear-gradient(135deg,#6D2E6E 0%,#904891 100%);padding:18px 28px;display:flex;align-items:center;justify-content:space-between">'
+    +'<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:26px;filter:brightness(0) invert(1)" alt="Contadoor">'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Reporte Mensual · '+periodo+'</span>'
+    +'</div>';
+  // Saludo
+  h+='<div style="padding:20px 28px;border-bottom:1px solid #eee">'
+    +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 4px">Hola '+hesc(contacto)+',</p>'
+    +'<p style="font-size:12px;color:#5c4a5d;margin:0 0 12px">'+hesc(r.clienteNombre||r.rut)+'</p>'
+    +'<p style="font-size:13px;color:#333;line-height:1.7;margin:0">Preparamos tu <strong style="color:#904891">Reporte Mensual de Gestión · '+periodo+'</strong>. A continuación el resumen de obligaciones del período.</p>'
+    +'</div>';
+  // KPIs
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8dde8">';
+  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cotizaciones</div><div style="font-size:18px;font-weight:700;color:#1a0a1b">'+ff(r.totalCot||0)+'</div></div>';
+  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Impuestos SII</div><div style="font-size:18px;font-weight:700;color:#C0392B">'+ff(r.totalImpInmediato||r.totalImp||0)+'</div></div>';
+  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total a pagar</div><div style="font-size:18px;font-weight:700;color:#904891">'+ff(r.totalGeneral||0)+'</div></div>';
+  h+='</div>';
+  // Tabla resumen
+  h+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0">'
+    +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">📋 Detalle de obligaciones</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  if(r.totalCot) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Cotizaciones previsionales</td><td style="text-align:right;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(r.totalCot)+'</td></tr>';
+  if(r.totalImpInmediato||r.totalImp) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Impuestos SII (F29)</td><td style="text-align:right;font-weight:600;color:#C0392B;border-bottom:1px solid #f5f0f5">'+ff(r.totalImpInmediato||r.totalImp)+'</td></tr>';
+  if(r.ivaPostergado) h+='<tr><td style="padding:6px 0;color:#C07A1A;border-bottom:1px solid #f5f0f5">IVA postergado (vence '+hesc(r.ivaFechaVenc||'')+')</td><td style="text-align:right;font-weight:600;color:#C07A1A;border-bottom:1px solid #f5f0f5">'+ff(r.ivaPostergado)+'</td></tr>';
+  if(r.honTotal) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Nuestros Servicios</td><td style="text-align:right;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(r.honTotal)+'</td></tr>';
+  if(r.totalAtrasos) h+='<tr><td style="padding:6px 0;color:#C0392B;border-bottom:1px solid #f5f0f5">Obligaciones anteriores pendientes</td><td style="text-align:right;font-weight:600;color:#C0392B;border-bottom:1px solid #f5f0f5">'+ff(r.totalAtrasos)+'</td></tr>';
+  h+='<tr style="border-top:2px solid #e8dde8"><td style="padding:8px 0;font-weight:700;color:#1a0a1b">TOTAL A PAGAR</td><td style="text-align:right;font-weight:700;font-size:15px;color:#904891">'+ff(r.totalGeneral||0)+'</td></tr>';
+  h+='</table></div>';
+  // Datos transferencia
+  h+='<div style="padding:14px 28px;background:#f5f0f8;border-bottom:1px solid #f0ebf0">'
+    +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">💳 Datos para transferencia</div>'
+    +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div>'
+    +'</div>';
+  // Recomendaciones
+  if(r.recomendaciones){
+    h+='<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">'
+      +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:6px">💡 Recomendaciones</div>'
+      +'<div style="font-size:12px;color:#5c4a5d;line-height:1.6">'+hesc(r.recomendaciones)+'</div>'
+      +'</div>';
+  }
+  // Nota analista
+  if(r.obsAnalista){
+    h+='<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">'
+      +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">📝 Nota del analista</div>'
+      +'<div style="font-size:12px;color:#5c4a5d;line-height:1.6;background:#f5f0f8;border-radius:8px;padding:10px 14px">'+hesc(r.obsAnalista)+'</div>'
+      +'</div>';
+  }
+  return h;
+}
+
 function enviarEmail(){
-  var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r) return;
+  var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r)return;
   var to=r.clienteEmail||'';
-  var replyTo=r.emailAnalista||'reportes@contadoor.cl';
-  var subject='Reporte Mensual de Gestión  -  '+formatPeriodo(r.periodo)+'  -  '+r.clienteNombre;
-  var body='Estimado/a,\n\nAdjunto el Reporte Mensual de Gestión correspondiente a '+formatPeriodo(r.periodo)+'.\n\n'
-    +'RESUMEN:\n'
-    +'\u2022 Cotizaciones previsionales: '+ff(r.totalCot)+'\n'
-    +'\u2022 Impuestos SII (F29): '+ff(r.totalImpInmediato||r.totalImp)+'\n'
-    +(r.ivaPostergado?'\u2022 IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
-    +'\u2022 Nuestros Servicios: '+ff(r.honTotal)+'\n'
-    +(r.totalAtrasos?'\u2022 Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
-    +'\u2022 TOTAL A PAGAR: '+ff(r.totalGeneral)+'\n\n'
-    +(r.recomendaciones?'RECOMENDACIONES:\n'+r.recomendaciones+'\n\n':'')
-    +'Transferencias a:\nAsesorías Contadoor Ltda. · RUT 77.166.269-2 · Itaú CC 0220729517\n\n'
-    +'Cualquier consulta, responda este correo directamente al analista.\n\n'
-    +(r.preparado?'Analista RRHH: '+r.preparado+'\n':'')
-    +(r.revisado?'Analista contable: '+r.revisado+'\n':'')
-    +'\nContadoor Chile\nreportes@contadoor.cl · +56 9 7988 1891';
-  window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'&reply-to='+encodeURIComponent(replyTo);
-  if(window.crearNotificacion) crearNotificacion({
-    modulo:'sistema',tipo:'info',prioridad:'baja',
-    clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,
-    mensaje:'Reporte de '+r.clienteNombre+' · '+formatPeriodo(r.periodo)+' enviado por email a '+(to||'cliente')+'.',
-    accion:null
-  });
+  if(!to){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
+  var u={};try{u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
+  var periodo=formatPeriodo(r.periodo);
+  if(!confirm('¿Enviar reporte de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to))return;
+  var btn=document.querySelector('[onclick="enviarEmail()"]');
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  var htmlReporte=buildReporteEmailHTML(r);
+  function minH(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
+  fetch('https://contafunnel-proxy.vercel.app/api/crear-evento',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      tipo:'reporte',
+      analistaNombre:u.nombre||r.revisado||'Contadoor',
+      analistaWa:u.wa||'979881891',
+      toEmail:to,
+      toNombre:r.contacto||r.clienteNombre||r.rut,
+      toEmpresa:r.clienteNombre||r.rut,
+      periodo:periodo,
+      htmlReporte:minH(htmlReporte)
+    })
+  })
+  .then(function(res){return res.json();})
+  .then(function(data){
+    if(data.ok||data.id){
+      // Marcar como enviado en localStorage
+      var arr=getReportes();
+      var idx=arr.findIndex(function(x){return x.id===_vistaId;});
+      if(idx>=0){arr[idx].estado='enviado_total';arr[idx].fechaEnvio=new Date().toISOString();setReportes(arr);}
+      closeVista();renderAll();
+      var t=document.createElement('div');
+      t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
+      t.textContent='✅ Reporte enviado a '+to;document.body.appendChild(t);
+      setTimeout(function(){t.remove();},4000);
+      if(window.crearNotificacion)crearNotificacion({modulo:'sistema',tipo:'info',prioridad:'baja',clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,mensaje:'Reporte de '+r.clienteNombre+' · '+periodo+' enviado a '+to+'.',accion:null});
+    }else{alert('Error al enviar: '+(data.error||'Error desconocido'));}
+  })
+  .catch(function(err){alert('Error de conexión: '+err.message);})
+  .finally(function(){if(btn){btn.disabled=false;btn.textContent='✉️ Email';}});
 }
 
 function enviarWhatsApp(){
@@ -2369,6 +2451,169 @@ fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/periodos?select=uf,utm,p
     renderAll();
     setPeriodoActual();
   });
+
+// ── NOTA RÁPIDA ANALISTA ─────────────────────────────────────────────────
+function abrirEditRapido(){
+  var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r)return;
+  var ex=document.getElementById('modal-nota-analista');if(ex)ex.remove();
+  var overlay=document.createElement('div');
+  overlay.id='modal-nota-analista';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML='<div style="background:var(--sur);border-radius:12px;max-width:500px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25);overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--p)">📝 Nota del analista</div>'
+    +'<button id="nota-btn-cerrar" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tm)">×</button>'
+    +'</div>'
+    +'<div style="padding:16px 18px">'
+    +'<div style="font-size:11px;color:var(--tm);margin-bottom:8px">Esta nota aparece al pie del reporte cuando lo vea el cliente.</div>'
+    +'<textarea id="nota-analista-txt" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;background:var(--sur2);color:var(--t1);outline:none;resize:vertical;min-height:100px" placeholder="Ej: Recuerda que el F29 vence el 20. Quedamos atentos.">'+(r.obsAnalista||'')+'</textarea>'
+    +'</div>'
+    +'<div style="padding:12px 18px;border-top:1px solid var(--bdr);background:var(--sur2);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button id="nota-btn-cancelar" style="background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">Cancelar</button>'
+    +'<button id="nota-btn-guardar" style="background:var(--p);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer">💾 Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(overlay);
+  var _ov=document.getElementById('modal-nota-analista');
+  document.getElementById('nota-btn-cerrar').onclick=function(){_ov.remove();};
+  document.getElementById('nota-btn-cancelar').onclick=function(){_ov.remove();};
+  document.getElementById('nota-btn-guardar').onclick=function(){
+    var txt=document.getElementById('nota-analista-txt').value||'';
+    var arr=getReportes();
+    var i=arr.findIndex(function(x){return x.id===_vistaId;});
+    if(i>=0){arr[i].obsAnalista=txt;setReportes(arr);}
+    _ov.remove();
+    verReporte(_vistaId);
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
+    t.textContent='✅ Nota guardada';document.body.appendChild(t);
+    setTimeout(function(){t.remove();},3000);
+  };
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+}
+
+
+// ── RECORDATORIOS DE PAGO ────────────────────────────────────────────────
+// Se envían automáticamente cuando el cliente no ha confirmado pago del reporte
+
+function getRecordatorios(){
+  try{return JSON.parse(localStorage.getItem('recordatorios_enviados')||'{}');}catch(e){return{};}
+}
+function setRecordatorios(obj){localStorage.setItem('recordatorios_enviados',JSON.stringify(obj));}
+
+function buildRecordatorioHTML(r, diasVencido){
+  var periodo=formatPeriodo(r.periodo);
+  var contacto=r.contacto||r.clienteNombre||(r.rut||'Cliente');
+  var esUrgente=diasVencido>=5;
+  var h='';
+  h+='<div style="background:linear-gradient(135deg,#6D2E6E 0%,#904891 100%);padding:18px 28px;display:flex;align-items:center;justify-content:space-between">'
+    +'<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:26px;filter:brightness(0) invert(1)" alt="Contadoor">'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">'+(esUrgente?'⚠️ Pago pendiente urgente':'🔔 Recordatorio de pago')+'</span>'
+    +'</div>';
+  h+='<div style="padding:20px 28px;border-bottom:1px solid #eee">'
+    +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 4px">Hola '+hesc(contacto)+',</p>'
+    +'<p style="font-size:13px;color:#333;line-height:1.7;margin:0">Te recordamos que el pago correspondiente al <strong style="color:#904891">Reporte Mensual · '+periodo+'</strong> aún aparece como pendiente en nuestro sistema.</p>'
+    +'</div>';
+  h+='<div style="padding:16px 28px;background:'+(esUrgente?'#fef2f2':'#fef9ec')+';border-bottom:1px solid #f0ebf0">'
+    +'<div style="font-size:13px;font-weight:700;color:'+(esUrgente?'#C0392B':'#C07A1A')+';margin-bottom:8px">'+(esUrgente?'⚠️ Pago con '+diasVencido+' días de atraso':'🔔 Pago pendiente')+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<tr><td style="padding:6px 0;color:#5c4a5d">Total a pagar</td><td style="text-align:right;font-weight:700;font-size:15px;color:#904891">'+ff(r.totalGeneral||0)+'</td></tr>'
+    +'<tr><td style="padding:6px 0;color:#5c4a5d">Período</td><td style="text-align:right;font-weight:600">'+periodo+'</td></tr>'
+    +'</table></div>';
+  h+='<div style="padding:14px 28px;background:#f5f0f8;border-bottom:1px solid #f0ebf0">'
+    +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">💳 Datos para transferencia</div>'
+    +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div>'
+    +'</div>';
+  h+='<div style="padding:14px 28px">'
+    +'<p style="font-size:12px;color:#5c4a5d;line-height:1.7;margin:0">Si ya realizaste el pago, por favor responde este correo con el comprobante para actualizar tu estado. Si tienes alguna consulta, no dudes en contactarnos.</p>'
+    +'</div>';
+  return h;
+}
+
+function enviarRecordatorio(id, tipo){
+  // tipo: 'manual' o 'auto'
+  var r=getReportes().find(function(x){return x.id===id;});
+  if(!r){alert('Reporte no encontrado.');return;}
+  var to=r.clienteEmail||'';
+  if(!to){alert('El cliente no tiene email registrado.');return;}
+  var u={};try{u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
+  var periodo=formatPeriodo(r.periodo);
+  var rec=getRecordatorios();
+  var keyRec=r.id+'_rec';
+  var ultimoEnvio=rec[keyRec]?new Date(rec[keyRec]):null;
+  var hoy=new Date();
+  // No enviar más de 1 vez por semana
+  if(tipo==='auto'&&ultimoEnvio&&(hoy-ultimoEnvio)<7*24*60*60*1000) return;
+  // Calcular días desde envío del reporte
+  var diasVencido=0;
+  if(r.fechaEnvio){diasVencido=Math.floor((hoy-new Date(r.fechaEnvio))/(1000*60*60*24));}
+  if(tipo==='manual'&&!confirm('¿Enviar recordatorio de pago de '+periodo+' a '+hesc(r.clienteNombre)+'?\n\nEmail: '+to))return;
+  var htmlRec=buildRecordatorioHTML(r,diasVencido);
+  function minH(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
+  fetch('https://contafunnel-proxy.vercel.app/api/crear-evento',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      tipo:'recordatorio',
+      analistaNombre:u.nombre||r.revisado||'Contadoor',
+      analistaWa:u.wa||'979881891',
+      toEmail:to,
+      toNombre:r.contacto||r.clienteNombre||r.rut,
+      toEmpresa:r.clienteNombre||r.rut,
+      periodo:periodo,
+      htmlReporte:minH(htmlRec)
+    })
+  })
+  .then(function(res){return res.json();})
+  .then(function(data){
+    if(data.ok||data.id){
+      // Registrar envío
+      rec[keyRec]=new Date().toISOString();
+      var recCount=rec[r.id+'_count']||0;
+      rec[r.id+'_count']=recCount+1;
+      setRecordatorios(rec);
+      if(tipo==='manual'){
+        var t=document.createElement('div');
+        t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
+        t.textContent='🔔 Recordatorio enviado a '+to;document.body.appendChild(t);
+        setTimeout(function(){t.remove();},4000);
+      }
+    }
+  })
+  .catch(function(err){if(tipo==='manual')alert('Error: '+err.message);});
+}
+
+function verificarRecordatoriosAutomaticos(){
+  // Corre al cargar — envía recordatorios a reportes enviados sin pago confirmado
+  var arr=getReportes();
+  var hoy=new Date();
+  arr.forEach(function(r){
+    if(!r.clienteEmail) return;
+    if(r.pagado) return; // ya pagó
+    if(r.estado!=='enviado_total'&&r.estado!=='enviado') return; // solo reportes enviados
+    if(!r.fechaEnvio) return;
+    var diasDesdeEnvio=Math.floor((hoy-new Date(r.fechaEnvio))/(1000*60*60*24));
+    // Recordatorio a los 3 días y a los 7 días
+    if(diasDesdeEnvio>=3){
+      enviarRecordatorio(r.id,'auto');
+    }
+  });
+}
+
+function marcarPagado(id){
+  var arr=getReportes();
+  var idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx>=0){
+    arr[idx].pagado=true;
+    arr[idx].fechaPago=new Date().toISOString();
+    setReportes(arr);
+    if(_vistaId===id) closeVista();
+    renderAll();
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
+    t.textContent='✅ Pago confirmado';document.body.appendChild(t);
+    setTimeout(function(){t.remove();},3000);
+  }
+}
 
 // ── APERTURA DE PERÍODO ────────────────────────────────────────────────────
 function getPeriodos(){
