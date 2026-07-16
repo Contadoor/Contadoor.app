@@ -132,6 +132,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <span id="sel-periodo-label" style="font-size:13px;font-weight:600;color:#c9a6e8;background:rgba(144,72,145,.2);border:1px solid rgba(144,72,145,.3);padding:5px 12px;border-radius:6px;"></span>
     <span class="lbl-corte" id="lbl-corte"></span>
     <button class="btn-calcular" id="btn-nueva-sim">🔄 Nueva simulación</button>
+    <button class="btn-calcular" id="btn-editar-reporte">✏️ Editar reporte</button>
     <button class="btn-calcular" id="btn-vista-previa">👁️ Vista previa</button>
     <button class="btn-generar" id="btn-enviar">✉️ Enviar Pre-IVA</button>
   </div>
@@ -253,6 +254,7 @@ var _periodoActual='';
 var _datos={debitoRegistrado:0,creditoRegistrado:0,remanente:0,diasTranscurridos:22,diasTotales:31,ppm:0,tasaPPM:0};
 var _todosClientes=[];
 var _UF=39700;
+var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
 // ── CARGAR CLIENTES DESDE SUPABASE ────────────────────────────────────────
 function cargarClientes(){
   return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh&order=razon_social.asc')
@@ -499,6 +501,7 @@ function renderHistorial(){
         +'<span style="color:var(--t2)">'+hesc(per)+'</span>'
         +'<span style="color:var(--tm)">'+hesc(fecha)+'</span>'
         +'<span style="color:var(--green);font-weight:600">'+hesc(f29)+'</span>'
+        +'<button onclick="abrirModalEdicion()" style="background:var(--pp);color:var(--pd);border:1px solid var(--bdr);border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer">✏️ Editar</button>'
         +'</div>';
     });
     el.innerHTML=html;
@@ -643,10 +646,11 @@ function buildDesgloseHTML(porTipoDoc,titulo,colorAccento){
 function buildReporteHTML(){
   if(!_clienteActual)return null;
   var c=_clienteActual,u=getUsuario();
-  var debProy=document.getElementById('res-debito').textContent;
-  var credProy=document.getElementById('res-credito').textContent;
-  var f29=document.getElementById('res-f29').textContent;
-  var ppm=document.getElementById('res-ppm').textContent;
+  // Usar overrides si el analista editó el reporte
+  var debProy=_editOverrides.debito!==null?_editOverrides.debito:document.getElementById('res-debito').textContent;
+  var credProy=_editOverrides.credito!==null?_editOverrides.credito:document.getElementById('res-credito').textContent;
+  var f29=_editOverrides.f29!==null?_editOverrides.f29:document.getElementById('res-f29').textContent;
+  var ppm=_editOverrides.ppm!==null?_editOverrides.ppm:document.getElementById('res-ppm').textContent;
   // Calcular diasRest desde fecha real (no desde DOM que puede tener default)
   var _bhoy=new Date();
   var _banio=parseInt(_periodoActual.slice(0,4)), _bmes=parseInt(_periodoActual.slice(4,6))-1;
@@ -677,7 +681,20 @@ function buildReporteHTML(){
   html+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0"><div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">📊 Composición proyectada al cierre</div><table style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Débito IVA (ventas proyectadas)</td><td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+debProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Crédito IVA (compras proyectadas)</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+credProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Remanente período anterior</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+remanente+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">PPM (tasa '+tasaPPM+'%)</td><td style="text-align:right;font-weight:600;color:#904891;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+ppm+'</td></tr><tr style="border-top:2px solid #e8dde8"><td style="padding:8px 0;font-weight:700;color:#1a0a1b">F29 estimado a pagar</td><td style="text-align:right;font-weight:700;font-size:15px;color:#C0392B;font-variant-numeric:tabular-nums">'+f29+'</td></tr></table><div style="font-size:10px;color:#c9c0cc;margin-top:6px">Proyección basada en promedio diario al día '+now.getDate()+' · puede variar al cierre</div></div>';
   html+=buildDesgloseHTML(_datos.porTipoDocVentas||{},'📄 Ventas por tipo de documento','#904891');
   html+=buildDesgloseHTML(_datos.porTipoDocCompras||{},'📋 Compras por tipo de documento','#2D9B6F');
+  // Acciones: usar las editadas si existen
+  var accionesFinales=(_editOverrides.acciones&&_editOverrides.acciones.length)?_editOverrides.acciones:null;
+  if(accionesFinales){
+    accionesHTML='';
+    accionesFinales.forEach(function(a){
+      var color=a.tipo==='verde'?'#2D9B6F':a.tipo==='amarillo'?'#C07A1A':'#904891';
+      accionesHTML+='<div style="background:#faf7fa;border-radius:8px;padding:12px 14px;border-left:3px solid '+color+';margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#1a0a1b;margin-bottom:3px">'+a.titulo+'</div><div style="font-size:11px;color:#5c4a5d;line-height:1.5;margin-bottom:4px">'+a.desc+'</div><div style="font-size:11px;font-weight:700;color:'+color+'">'+a.monto+'</div></div>';
+    });
+  }
   html+='<div style="padding:16px 28px"><div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">⚡ Zona de acción — quedan '+diasRest+' días</div>'+accionesHTML+'</div>';
+  // Observaciones del analista
+  if(_editOverrides.obs&&_editOverrides.obs.trim()){
+    html+='<div style="padding:14px 28px;border-top:1px solid #f0ebf0"><div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">📝 Nota del analista</div><div style="font-size:12px;color:#5c4a5d;line-height:1.6;background:#f5f0f8;border-radius:8px;padding:10px 14px">'+hesc(_editOverrides.obs)+'</div></div>';
+  }
   return html;
 }
 function generarReporte(){
@@ -783,7 +800,151 @@ function limpiarSimulacion(){
   document.getElementById('bar-credito').style.width='0%';
   document.getElementById('acciones-grid').innerHTML='';
   _datos.debitoRegistrado=0;_datos.creditoRegistrado=0;_datos.ppm=0;
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
 }
+// ── MODAL EDITAR REPORTE ─────────────────────────────────────────────────
+function abrirModalEdicion(){
+  if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
+  // Pre-llenar con valores actuales o overrides
+  var debito=_editOverrides.debito!==null?_editOverrides.debito:document.getElementById('res-debito').textContent;
+  var credito=_editOverrides.credito!==null?_editOverrides.credito:document.getElementById('res-credito').textContent;
+  var f29=_editOverrides.f29!==null?_editOverrides.f29:document.getElementById('res-f29').textContent;
+  var ppm=_editOverrides.ppm!==null?_editOverrides.ppm:document.getElementById('res-ppm').textContent;
+  var rem=_editOverrides.remanente!==null?_editOverrides.remanente:document.getElementById('res-remanente').textContent;
+  // Acciones actuales
+  var acciones=_editOverrides.acciones.length?_editOverrides.acciones:[];
+  if(!acciones.length){
+    document.querySelectorAll('#acciones-grid .accion').forEach(function(el){
+      var tipo=el.classList.contains('verde')?'verde':el.classList.contains('amarillo')?'amarillo':'morado';
+      acciones.push({
+        tipo:tipo,
+        titulo:el.querySelector('.ac-titulo')?el.querySelector('.ac-titulo').textContent:'',
+        desc:el.querySelector('.ac-desc')?el.querySelector('.ac-desc').textContent:'',
+        monto:el.querySelector('.ac-monto')?el.querySelector('.ac-monto').textContent:''
+      });
+    });
+  }
+  // Build modal
+  var m=document.getElementById('modal-edicion');
+  if(m) m.remove();
+  var overlay=document.createElement('div');
+  overlay.id='modal-edicion';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+  var fmtNum=function(v){return String(v||'').replace(/[^0-9]/g,'');};
+  var accionesHtml=acciones.map(function(a,i){
+    var colores=['verde','amarillo','morado'];
+    var opts=colores.map(function(c){return '<option value="'+c+'"'+(a.tipo===c?' selected':'')+'>'+c+'</option>';}).join('');
+    return '<div style="background:var(--sur2);border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid var(--bdr)">'
+      +'<div style="display:flex;gap:8px;margin-bottom:6px">'
+      +'<select class="inp-field ac-tipo" data-idx="'+i+'" style="width:100px;flex-shrink:0">'+opts+'</select>'
+      +'<input class="inp-field ac-titulo" data-idx="'+i+'" value="'+hesc(a.titulo)+'" placeholder="Título" style="flex:1">'
+      +'<button class="ed-btn-elim" data-elimidx="'+i+'" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0">✕</button>'
+      +'</div>'
+      +'<input class="inp-field ac-desc" data-idx="'+i+'" value="'+hesc(a.desc)+'" placeholder="Descripción" style="width:100%;margin-bottom:6px">'
+      +'<input class="inp-field ac-monto" data-idx="'+i+'" value="'+hesc(a.monto)+'" placeholder="Monto / detalle" style="width:100%">'
+      +'</div>';
+  }).join('');
+  overlay.innerHTML='<div style="background:var(--sur);border-radius:14px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+    +'<div style="font-size:14px;font-weight:700;color:var(--p)">✏️ Editar reporte — '+formatPeriodo(_periodoActual)+'</div>'
+    +'<button id="ed-btn-cerrar" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--tm)">×</button>'
+    +'</div>'
+    +'<div style="overflow-y:auto;flex:1;padding:20px">'
+    // Montos
+    +'<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">💰 Montos proyectados</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
+    +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">Débito IVA</div><input id="ed-debito" class="inp-field" value="'+fmtNum(debito)+'" type="number" style="width:100%"></div>'
+    +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">Crédito IVA</div><input id="ed-credito" class="inp-field" value="'+fmtNum(credito)+'" type="number" style="width:100%"></div>'
+    +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">PPM</div><input id="ed-ppm" class="inp-field" value="'+fmtNum(ppm)+'" type="number" style="width:100%"></div>'
+    +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">Remanente</div><input id="ed-remanente" class="inp-field" value="'+fmtNum(rem)+'" type="number" style="width:100%"></div>'
+    +'<div style="grid-column:1/-1"><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">F29 a pagar (manual)</div><input id="ed-f29" class="inp-field" value="'+fmtNum(f29)+'" type="number" style="width:100%"><div style="font-size:10px;color:var(--tm);margin-top:3px">Si lo dejas en 0, se recalcula automáticamente</div></div>'
+    +'</div>'
+    // Acciones
+    +'<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">⚡ Acciones sugeridas</div>'
+    +'<div id="ed-acciones">'+accionesHtml+'</div>'
+    +'<button id="ed-btn-agregar" style="background:var(--pp);color:var(--pd);border:1px solid var(--bdr);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;margin-bottom:16px">+ Agregar acción</button>'
+    // Observaciones
+    +'<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">📝 Observaciones del analista</div>'
+    +'<textarea id="ed-obs" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;background:var(--sur2);color:var(--t1);outline:none;resize:vertical;min-height:80px" placeholder="Agrega una nota personalizada al cliente (aparecerá al pie del reporte)...">'+hesc(_editOverrides.obs||'')+'</textarea>'
+    +'</div>'
+    +'<div style="padding:12px 20px;border-top:1px solid var(--bdr);background:var(--sur2);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0">'
+    +'<button id="ed-btn-cancelar" style="background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer">Cancelar</button>'
+    +'<button id="ed-btn-restablecer" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer">Restablecer</button>'
+    +'<button id="ed-btn-guardar" style="background:var(--p);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer">💾 Aplicar cambios</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(overlay);
+  // Wire modal buttons via event delegation (avoid inline onclick with quotes)
+  var _ov=document.getElementById('modal-edicion');
+  var _cerrar=document.getElementById('ed-btn-cerrar');if(_cerrar)_cerrar.onclick=function(){_ov.remove();};
+  var _cancel=document.getElementById('ed-btn-cancelar');if(_cancel)_cancel.onclick=function(){_ov.remove();};
+  var _reset=document.getElementById('ed-btn-restablecer');if(_reset)_reset.onclick=limpiarEdicion;
+  var _guard=document.getElementById('ed-btn-guardar');if(_guard)_guard.onclick=guardarEdicion;
+  var _agr=document.getElementById('ed-btn-agregar');if(_agr)_agr.onclick=agregarAccion;
+  // Event delegation for eliminate buttons
+  var _edAcc=document.getElementById('ed-acciones');
+  if(_edAcc)_edAcc.addEventListener('click',function(e){
+    var btn=e.target.closest('.ed-btn-elim');
+    if(btn){var idx=parseInt(btn.getAttribute('data-elimidx'));eliminarAccion(idx);}
+    var rm=e.target.closest('.ed-rm-btn');
+    if(rm){var parent=rm.closest('div[style*="background:var(--sur2)"]');if(parent)parent.remove();}
+  });
+}
+function agregarAccion(){
+  var cont=document.getElementById('ed-acciones');if(!cont)return;
+  var idx=cont.querySelectorAll('[data-idx]').length;
+  var div=document.createElement('div');
+  div.style.cssText='background:var(--sur2);border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid var(--bdr)';
+  div.innerHTML='<div style="display:flex;gap:8px;margin-bottom:6px">'
+    +'<select class="inp-field ac-tipo" data-idx="'+idx+'" style="width:100px;flex-shrink:0"><option value="verde">verde</option><option value="amarillo">amarillo</option><option value="morado">morado</option></select>'
+    +'<input class="inp-field ac-titulo" data-idx="'+idx+'" placeholder="Título" style="flex:1">'
+    +'<button class="ed-rm-btn" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0">✕</button>'
+    +'</div>'
+    +'<input class="inp-field ac-desc" data-idx="'+idx+'" placeholder="Descripción" style="width:100%;margin-bottom:6px">'
+    +'<input class="inp-field ac-monto" data-idx="'+idx+'" placeholder="Monto / detalle" style="width:100%">';
+  cont.appendChild(div);
+}
+function eliminarAccion(idx){
+  var items=document.querySelectorAll('#ed-acciones > div');
+  if(items[idx]) items[idx].remove();
+}
+function guardarEdicion(){
+  var debito=document.getElementById('ed-debito').value;
+  var credito=document.getElementById('ed-credito').value;
+  var ppm=document.getElementById('ed-ppm').value;
+  var remanente=document.getElementById('ed-remanente').value;
+  var f29raw=parseInt(document.getElementById('ed-f29').value)||0;
+  var obs=document.getElementById('ed-obs').value||'';
+  // Recalcular f29 si se dejó en 0
+  var debNum=parseInt(debito)||0,credNum=parseInt(credito)||0,ppmNum=parseInt(ppm)||0,remNum=parseInt(remanente)||0;
+  var f29Calc=f29raw>0?f29raw:Math.max(debNum-credNum-remNum-ppmNum,0);
+  // Recolectar acciones
+  var acciones=[];
+  var bloques=document.querySelectorAll('#ed-acciones > div');
+  bloques.forEach(function(b){
+    var tipo=b.querySelector('.ac-tipo');var tit=b.querySelector('.ac-titulo');
+    var desc=b.querySelector('.ac-desc');var monto=b.querySelector('.ac-monto');
+    if(tit&&tit.value.trim()){
+      acciones.push({tipo:tipo?tipo.value:'morado',titulo:tit.value.trim(),desc:desc?desc.value.trim():'',monto:monto?monto.value.trim():''});
+    }
+  });
+  // Guardar overrides
+  _editOverrides.debito=ff(debNum);
+  _editOverrides.credito=ff(credNum);
+  _editOverrides.ppm=ff(ppmNum);
+  _editOverrides.remanente=ff(remNum);
+  _editOverrides.f29=ff(f29Calc);
+  _editOverrides.acciones=acciones;
+  _editOverrides.obs=obs;
+  document.getElementById('modal-edicion').remove();
+  mostrarToast('✅ Cambios aplicados — usa Vista previa para revisar');
+}
+function limpiarEdicion(){
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+  document.getElementById('modal-edicion').remove();
+  mostrarToast('↩️ Reporte restablecido a valores calculados');
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 (function(){
   var u=getUsuario();
@@ -798,6 +959,7 @@ function limpiarSimulacion(){
   // Event listeners
   var btnLimpCli=document.getElementById('btn-limpiar-cliente');if(btnLimpCli)btnLimpCli.onclick=limpiarCliente;
   var btnNuevaSim=document.getElementById('btn-nueva-sim');if(btnNuevaSim)btnNuevaSim.onclick=limpiarSimulacion;
+  var btnEditar=document.getElementById('btn-editar-reporte');if(btnEditar)btnEditar.onclick=abrirModalEdicion;
   var btnVista=document.getElementById('btn-vista-previa');if(btnVista)btnVista.onclick=generarReporte;
   var btnEnviar=document.getElementById('btn-enviar');if(btnEnviar)btnEnviar.onclick=enviarPreIVA;
   var btnVolver=document.getElementById('btn-volver-nomina');
