@@ -263,8 +263,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <span id="per-pill" style="font-size:11px;font-weight:500;color:#c9a6e8;background:rgba(144,72,145,.15);border:1px solid rgba(144,72,145,.3);padding:3px 10px;border-radius:20px;display:none"></span>
     <span id="per-uf" style="font-size:11px;color:rgba(255,255,255,.4);display:none"></span>
     <span id="per-utm" style="font-size:11px;color:rgba(255,255,255,.4);display:none"></span>
-    <button class="btn-p btn-sm no-print" onclick="abrirApertura()">📅 Abrir Período</button>
-    <button class="btn-s btn-sm no-print" onclick="abrirModalNuevo()">+ Nuevo reporte</button>
+    <button class="btn-p btn-sm no-print" onclick="abrirApertura()" style="color:#fff">📅 Abrir Período</button>
+    <button class="btn-s btn-sm no-print" onclick="editarPeriodo()" style="color:#fff;border-color:rgba(255,255,255,.3)" title="Editar UF/UTM">✏️ Editar período</button>
   </div>
   <!-- Barra filtros -->
   <div style="background:var(--sur2);border-bottom:1px solid var(--bdr);padding:8px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1894,18 +1894,38 @@ function renderNomina(){
   }
   // Solo período activo
   var perActivo=getPeriodoActivo();
-  var perKey=perActivo?perActivo.periodo:'';
-  // Actualizar topbar período
+  // Determinar período a mostrar
+  // Si hay período activo en apertura_periodos, usarlo
+  // Si no, usar el período más reciente de reportes_mensuales
+  var perKey='';
   if(perActivo){
+    perKey=perActivo.periodo;
     var pp=document.getElementById('per-pill');
     var pu=document.getElementById('per-uf');
     var pt=document.getElementById('per-utm');
     if(pp){pp.textContent=formatPer(perActivo.periodo);pp.style.display='';}
     if(pu){pu.textContent='UF $'+ffPer(perActivo.uf);pu.style.display='';}
     if(pt){pt.textContent='UTM $'+ffPer(perActivo.utm);pt.style.display='';}
+  } else {
+    // Fallback: usar el período más reciente de los reportes existentes
+    var periodos=arr.map(function(r){return r.periodo;}).filter(Boolean);
+    periodos.sort().reverse();
+    if(periodos.length) perKey=periodos[0];
   }
-  // Filtrar por período activo
-  if(perKey) arr=arr.filter(function(r){return r.periodo===perKey;});
+  // Filtrar por período — comparación flexible (2026-07 == 202607)
+  if(perKey){
+    var perKeyNorm=perKey.replace('-','');
+    arr=arr.filter(function(r){
+      var rp=String(r.periodo||'').replace('-','');
+      return rp===perKeyNorm;
+    });
+  }
+  // Si no hay reportes locales para el período activo, cargar desde Supabase
+  if(perKey&&arr.length===0){
+    cargarReportesSupabase(perKey,function(){renderNomina();});
+    cont.innerHTML='<div style="text-align:center;padding:32px;color:var(--tm);font-size:13px">Cargando reportes...</div>';
+    return;
+  }
   // Filtros UI
   var q=(document.getElementById('inp-buscar')||{}).value||'';
   if(q) arr=arr.filter(function(r){return (r.clienteNombre||'').toLowerCase().indexOf(q.toLowerCase())>=0||(r.rut||'').indexOf(q)>=0;});
@@ -2193,6 +2213,85 @@ function renderAll(){
 // ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
+
+
+// ── CARGAR REPORTES DESDE SUPABASE ───────────────────────────────────────
+function cargarReportesSupabase(periodo, callback){
+  // Query con ambos formatos de período
+  var perNorm=periodo.replace('-','');
+  var perDash=perNorm.length===6?perNorm.slice(0,4)+'-'+perNorm.slice(4):periodo;
+  fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/reportes_mensuales?or=(periodo.eq.'+encodeURIComponent(perDash)+',periodo.eq.'+encodeURIComponent(perNorm)+')&select=*',{
+    headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA'}
+  })
+  .then(function(r){return r.ok?r.json():[];})
+  .then(function(data){
+    if(!data||!data.length){if(callback)callback();return;}
+    var local=getReportes();
+    var updated=false;
+    data.forEach(function(sb){
+      var idx=local.findIndex(function(x){
+        return x.rut===sb.rut&&String(x.periodo)===String(sb.periodo);
+      });
+      if(idx>=0){
+        // Merge Supabase data into local
+        Object.keys(sb).forEach(function(k){if(sb[k]!==null&&sb[k]!==undefined)local[idx][k]=sb[k];});
+        updated=true;
+      } else {
+        // Add from Supabase if not exists locally
+        local.push({
+          id:sb.id||Date.now()+Math.random(),
+          rut:sb.rut, periodo:sb.periodo,
+          clienteNombre:sb.cliente_nombre||sb.rut,
+          clienteEmail:sb.cliente_email||'',
+          clienteWa:sb.cliente_wa||'',
+          estado:sb.estado||'borrador',
+          secciones:sb.secciones||{},
+          prioridadRrhh:sb.prioridad_rrhh||'media',
+          totalGeneral:sb.total_general||0,
+          totalCot:sb.total_cot||0,
+          totalImp:sb.total_imp||0,
+          honTotal:sb.hon_total||0,
+          obsAnalista:sb.obs_analista||'',
+          fechaEnvio:sb.fecha_envio||null,
+          pagado:sb.pagado||false
+        });
+        updated=true;
+      }
+    });
+    if(updated) localStorage.setItem('reportes_mensuales',JSON.stringify(local));
+    if(callback)callback();
+  })
+  .catch(function(){if(callback)callback();});
+}
+
+// ── EDITAR PERÍODO (UF/UTM) ───────────────────────────────────────────────
+function editarPeriodo(){
+  var per=getPeriodoActivo();
+  if(!per){alert('No hay período activo.');return;}
+  var ufNew=prompt('Nuevo valor UF (actual: $'+ffPer(per.uf)+')',per.uf);
+  if(!ufNew) return;
+  var utmNew=prompt('Nuevo valor UTM (actual: $'+ffPer(per.utm)+')',per.utm);
+  if(!utmNew) return;
+  var uf=parseFloat(ufNew),utm=parseFloat(utmNew);
+  if(!uf||!utm){alert('Valores inválidos.');return;}
+  var ps=getPeriodos();
+  ps[per.periodo].uf=uf;
+  ps[per.periodo].utm=utm;
+  localStorage.setItem('apertura_periodos',JSON.stringify(ps));
+  // Sync rpt_periodos
+  var rptPer=[];try{rptPer=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
+  var idx=rptPer.findIndex(function(p){return p.periodo===per.periodo;});
+  if(idx>=0){rptPer[idx].uf=uf;rptPer[idx].utm=utm;}
+  localStorage.setItem('rpt_periodos',JSON.stringify(rptPer));
+  // Sync Supabase
+  fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/periodos?periodo=eq.'+per.periodo,{
+    method:'PATCH',
+    headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Content-Type':'application/json','Prefer':'return=representation'},
+    body:JSON.stringify({uf:uf,utm:utm})
+  }).catch(function(){});
+  renderNomina();
+  alert('✅ Período actualizado. UF: $'+ffPer(uf)+' · UTM: $'+ffPer(utm));
+}
 
 // ── CARGAR CLIENTES DESDE SUPABASE ───────────────────────────────────────
 function cargarClientesSupabase(){
