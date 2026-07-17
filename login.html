@@ -4,303 +4,349 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contadoor.app — Acceso</title>
+<title>Gestoor · Acceso</title>
 <style>
-:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
+:root{--p:#904891;--pd:#6D2E6E;--deep:#08040f;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.login-wrap{width:100%;max-width:420px;}
-.logo-area{text-align:center;margin-bottom:32px;}
-.logo-area img{height:40px;margin-bottom:12px;}
-.app-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px;}
-.app-sub{font-size:12px;color:rgba(255,255,255,.25);margin-top:3px;text-transform:uppercase;letter-spacing:1.5px;}
-.login-card{background:rgba(255,255,255,.04);border:1px solid rgba(144,72,145,.2);border-radius:16px;padding:28px;}
-.paso{display:none;}.paso.on{display:block;}
-.paso-title{font-size:13px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;}
-.usuario-btn{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s;margin-bottom:8px;text-align:left;}
-.usuario-btn:hover{background:rgba(144,72,145,.12);border-color:rgba(144,72,145,.3);}
-.usuario-avatar{width:40px;height:40px;border-radius:50%;background:rgba(144,72,145,.3);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;}
-.usuario-info{flex:1;}
-.usuario-nombre{font-size:14px;font-weight:600;color:#fff;}
-.usuario-rol{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;}
-.usuario-arrow{color:rgba(255,255,255,.2);font-size:16px;}
-.pin-usuario{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:12px 14px;background:rgba(144,72,145,.1);border:1px solid rgba(144,72,145,.2);border-radius:10px;}
-.pin-avatar{width:36px;height:36px;border-radius:50%;background:rgba(144,72,145,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;}
-.pin-nombre{font-size:14px;font-weight:600;color:#fff;}
-.pin-rol{font-size:11px;color:rgba(255,255,255,.35);}
-.pin-dots{display:flex;gap:10px;justify-content:center;margin-bottom:20px;}
-.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);transition:.15s;}
-.pin-dot.filled{background:var(--p);border-color:var(--p);}
-.pin-teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.pin-key{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;font-size:18px;font-weight:600;color:#fff;cursor:pointer;transition:.15s;text-align:center;}
-.pin-key:hover{background:rgba(144,72,145,.2);border-color:rgba(144,72,145,.4);}
-.pin-key:active{transform:scale(.95);}
-.pin-key.del{font-size:14px;color:rgba(255,255,255,.4);}
-.pin-key.enter{background:var(--p);border-color:var(--p);font-size:13px;}
-.pin-key.enter:hover{background:var(--pd);}
-.pin-error{text-align:center;color:#f87171;font-size:12px;margin-top:10px;min-height:18px;}
-.back-link{text-align:center;margin-top:14px;}
-.back-link button{background:none;border:none;color:rgba(255,255,255,.3);font-size:12px;cursor:pointer;}
-.back-link button:hover{color:rgba(255,255,255,.6);}
-.footer-txt{text-align:center;margin-top:20px;font-size:11px;color:rgba(255,255,255,.15);}
-.loading-msg{text-align:center;color:rgba(255,255,255,.3);font-size:13px;padding:20px;}
-.sync-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:rgba(255,255,255,.2);margin-top:8px;}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:#2D9B6F;}
-.sync-dot.loading{background:#C07A1A;animation:pulse .8s infinite;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.lcard{width:100%;max-width:380px;}
+.logo-z{text-align:center;margin-bottom:28px;}
+.logo-z img{height:36px;display:block;margin:0 auto 10px;}
+.app-n{font-size:13px;font-weight:500;}
+.app-n .g{color:#c9a6e8;}
+.app-n .d{color:rgba(240,235,255,.3);}
+.app-s{font-size:10px;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:1.8px;margin-top:3px;}
+.card{background:rgba(144,72,145,.06);border:1px solid rgba(144,72,145,.25);border-radius:16px;padding:26px;}
+.step{display:none;}.step.on{display:block;}
+.step-lbl{font-size:11px;font-weight:600;color:rgba(201,166,232,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;}
+.inp-wrap{position:relative;margin-bottom:12px;}
+.inp-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(201,166,232,.3);font-size:16px;pointer-events:none;}
+.inp{width:100%;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.2);border-radius:9px;padding:11px 12px 11px 38px;font-size:13px;color:#f0ebff;font-family:var(--sans);outline:none;transition:.15s;}
+.inp::placeholder{color:rgba(240,235,255,.2);}
+.inp:focus{border-color:rgba(144,72,145,.6);}
+.inp.err{border-color:rgba(248,113,113,.5);}
+.check-row{display:flex;align-items:center;gap:8px;margin:10px 0 14px;}
+.check-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--p);cursor:pointer;flex-shrink:0;}
+.check-row label{font-size:12px;color:rgba(240,235,255,.4);cursor:pointer;}
+.btn-p{width:100%;background:var(--p);border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--sans);transition:.15s;}
+.btn-p:hover{background:var(--pd);}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;}
+.err-msg{font-size:12px;color:#f87171;margin-top:8px;min-height:16px;text-align:center;}
+.user-pill{display:flex;align-items:center;gap:10px;background:rgba(144,72,145,.12);border:1px solid rgba(144,72,145,.3);border-radius:10px;padding:10px 14px;margin-bottom:18px;}
+.user-av{width:36px;height:36px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.user-nm{font-size:13px;font-weight:600;color:#f0ebff;}
+.user-rl{font-size:11px;color:rgba(201,166,232,.5);margin-top:1px;}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:18px;}
+.dot{width:13px;height:13px;border-radius:50%;background:rgba(144,72,145,.15);border:2px solid rgba(144,72,145,.2);transition:.15s;}
+.dot.f{background:var(--p);border-color:var(--p);}
+.teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.key{background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.15);border-radius:9px;padding:13px;font-size:17px;font-weight:400;color:#f0ebff;text-align:center;cursor:pointer;transition:.15s;user-select:none;}
+.key:hover{background:rgba(144,72,145,.2);border-color:rgba(144,72,145,.35);}
+.key:active{transform:scale(.95);}
+.key.del{font-size:12px;color:rgba(201,166,232,.4);}
+.key.ok{background:var(--p);border-color:var(--p);font-size:13px;font-weight:600;}
+.key.ok:hover{background:var(--pd);}
+.back{text-align:center;margin-top:12px;}
+.back button{background:none;border:none;font-size:12px;color:rgba(201,166,232,.3);cursor:pointer;font-family:var(--sans);}
+.back button:hover{color:rgba(201,166,232,.6);}
+.footer{text-align:center;margin-top:16px;}
+.footer-line{font-size:10px;color:rgba(255,255,255,.1);letter-spacing:.5px;}
+.divider{width:40px;height:1px;background:rgba(144,72,145,.2);margin:8px auto;}
+.slogan{font-size:10px;color:rgba(201,166,232,.2);font-style:italic;}
+.loading-dots{display:inline-flex;gap:4px;margin-left:6px;}
+.loading-dots span{width:4px;height:4px;border-radius:50%;background:#fff;animation:ld .8s infinite both;}
+.loading-dots span:nth-child(2){animation-delay:.15s;}
+.loading-dots span:nth-child(3){animation-delay:.3s;}
+@keyframes ld{0%,80%,100%{opacity:.2}40%{opacity:1}}
 </style>
 </head>
 <body>
-<div class="login-wrap">
-  <div class="logo-area">
+<div class="lcard">
+  <div class="logo-z">
     <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
-    <div class="app-name">Gestoor · Contadoor</div>
-    <div class="app-sub">Sistema de Gestión Interno</div>
+    <div class="app-n"><span class="g">Gestoor</span> <span class="d">· Contadoor</span></div>
+    <div class="app-s">Sistema de gestión interno</div>
   </div>
-  <div class="login-card">
-    <div class="paso on" id="paso1">
-      <div class="paso-title">¿Quién eres?</div>
-      <div id="listaUsuarios"><div class="loading-msg">Cargando usuarios...</div></div>
-      <div style="text-align:center;margin-top:8px">
-        <span class="sync-badge"><span class="sync-dot loading" id="syncDot"></span><span id="syncLabel">Conectando...</span></span>
+  <div class="card">
+    <!-- PASO 1: EMAIL -->
+    <div class="step on" id="paso1">
+      <div class="step-lbl">¿Quién eres?</div>
+      <div class="inp-wrap">
+        <i class="ti ti-mail inp-ico" aria-hidden="true"></i>
+        <input class="inp" type="email" id="inp-email" placeholder="Tu correo electrónico" autocomplete="email"/>
       </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk-recordar" checked>
+        <label for="chk-recordar">Recordar mi correo en este dispositivo</label>
+      </div>
+      <button class="btn-p" id="btn-continuar">Continuar →</button>
+      <div class="err-msg" id="err1"></div>
     </div>
-    <div class="paso" id="paso2">
-      <div class="paso-title">Ingresa tu PIN</div>
-      <div class="pin-usuario">
-        <div class="pin-avatar" id="pinAvatar"></div>
+    <!-- PASO 2: PIN -->
+    <div class="step" id="paso2">
+      <div class="step-lbl">Ingresa tu PIN</div>
+      <div class="user-pill">
+        <div class="user-av" id="pin-av">--</div>
         <div>
-          <div class="pin-nombre" id="pinNombre"></div>
-          <div class="pin-rol" id="pinRol"></div>
+          <div class="user-nm" id="pin-nombre">—</div>
+          <div class="user-rl" id="pin-rol">—</div>
         </div>
       </div>
       <div class="pin-dots">
-        <div class="pin-dot" id="d0"></div>
-        <div class="pin-dot" id="d1"></div>
-        <div class="pin-dot" id="d2"></div>
-        <div class="pin-dot" id="d3"></div>
+        <div class="dot" id="d0"></div>
+        <div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div>
+        <div class="dot" id="d3"></div>
       </div>
-      <div class="pin-teclado">
-        <div class="pin-key" id="k1">1</div>
-        <div class="pin-key" id="k2">2</div>
-        <div class="pin-key" id="k3">3</div>
-        <div class="pin-key" id="k4">4</div>
-        <div class="pin-key" id="k5">5</div>
-        <div class="pin-key" id="k6">6</div>
-        <div class="pin-key" id="k7">7</div>
-        <div class="pin-key" id="k8">8</div>
-        <div class="pin-key" id="k9">9</div>
-        <div class="pin-key del" id="kDel">⌫ Borrar</div>
-        <div class="pin-key" id="k0">0</div>
-        <div class="pin-key enter" id="kEnter">Entrar →</div>
-      </div>
-      <div class="pin-error" id="pinError"></div>
-      <div class="back-link"><button id="btnVolver">← Cambiar usuario</button></div>
+      <div class="teclado" id="teclado"></div>
+      <div class="err-msg" id="err2"></div>
+      <div class="back"><button id="btn-volver">← Cambiar usuario</button></div>
     </div>
   </div>
-  <div class="footer-txt">Contadoor Chile · Solo uso interno autorizado</div>
+  <div class="footer">
+    <div class="footer-line">Contadoor Chile · Solo uso interno autorizado</div>
+    <div class="divider"></div>
+    <div class="slogan">Somos la puerta a tu solución</div>
+  </div>
 </div>
 <script>
-// ── SUPABASE ──────────────────────────────────────────────────────────────
 var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 
-// ── USUARIO DEFAULT (siempre disponible) ──────────────────────────────────
-var USUARIOS_DEFAULT=[{
-  id:1,nombre:'Luciano Duarte',iniciales:'LD',
-  rol:'master',rolLabel:'Master · Acceso total',
-  pin:'1234',esMaster:true,activo:true,modulos:['*']
+// Sesión persistente: 30 días si marcó "recordar", 8 horas si no
+var DURACION_LARGA = 30 * 24 * 60 * 60 * 1000;
+var DURACION_CORTA = 8 * 60 * 60 * 1000;
+var STORAGE_KEY = 'gestoor_sesion';
+
+var USUARIOS_DEFAULT = [{
+  id:1, nombre:'Luciano Duarte', iniciales:'LD',
+  rol:'master', rolLabel:'Master · Acceso total',
+  email:'luciano@contadoor.cl', pin:'1234',
+  esMaster:true, activo:true, modulos:['*']
 }];
 
-// ── ESTADO ────────────────────────────────────────────────────────────────
-var _usuarios=[];
-var _usuarioSeleccionado=null;
-var _pinActual='';
+var _usuarioActual = null;
+var _pinActual = '';
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function getLocal(){
-  try{var u=JSON.parse(localStorage.getItem('usuarios_sistema')||'null');return(u&&u.length)?u:USUARIOS_DEFAULT;}
-  catch(e){return USUARIOS_DEFAULT;}
+// ── SESIÓN PERSISTENTE ────────────────────────────────────────────────────
+function getSesionGuardada(){
+  try{
+    var s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(!s) return null;
+    var duracion = s.recordar ? DURACION_LARGA : DURACION_CORTA;
+    if(Date.now() - s.tsLogin > duracion){
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return s;
+  }catch(e){return null;}
+}
+function guardarSesion(u, recordar){
+  var sesion = {
+    id:u.id, sbId:u.sbId||null,
+    nombre:u.nombre, iniciales:u.iniciales||(u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
+    rol:u.rol, rolLabel:u.rolLabel||u.rol,
+    email:u.email||'', wa:u.wa||'',
+    esMaster:u.esMaster||u.rol==='master',
+    modulos:u.modulos||[],
+    tsLogin:Date.now(),
+    recordar:recordar
+  };
+  // Guardar en localStorage (persistente) Y sessionStorage (para auth.js)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sesion));
+  sessionStorage.setItem('usuario_activo', JSON.stringify(sesion));
+  return sesion;
 }
 
-// ── CARGAR USUARIOS ───────────────────────────────────────────────────────
-// 1. Mostrar locales de inmediato
-// 2. Cargar desde Supabase en background y actualizar lista
-function cargarUsuarios(){
-  // Primero mostrar locales
-  _usuarios=getLocal().filter(function(u){return u.activo!==false;});
-  renderLista();
+// ── USUARIOS ──────────────────────────────────────────────────────────────
+function getUsuariosLocal(){
+  try{
+    var u=JSON.parse(localStorage.getItem('usuarios_sistema')||'null');
+    return(u&&u.length)?u:USUARIOS_DEFAULT;
+  }catch(e){return USUARIOS_DEFAULT;}
+}
 
-  // Luego Supabase
-  setSyncState('loading');
-  fetch(SB_URL+'/rest/v1/usuarios?select=*&activo=eq.true&order=nombre.asc',{
+function buscarUsuarioPorEmail(email){
+  var emailLower = email.toLowerCase().trim();
+  // 1. Buscar en local primero (más rápido)
+  var local = getUsuariosLocal();
+  var localMatch = local.find(function(u){
+    return u.email && u.email.toLowerCase()===emailLower;
+  });
+  if(localMatch) return Promise.resolve(localMatch);
+
+  // 2. Buscar en Supabase
+  return fetch(SB_URL+'/rest/v1/usuarios?email=eq.'+encodeURIComponent(email)+'&activo=eq.true&select=*',{
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
   })
   .then(function(r){return r.ok?r.json():[];})
   .then(function(data){
-    if(!data||!data.length){setSyncState('local');return;}
-    // Merge — Supabase es la fuente de verdad para usuarios del equipo
-    // Siempre incluir a Luciano (master) aunque no esté en Supabase
-    var local=getLocal();
-    var merged=[];
-    // Agregar Luciano primero
-    var luciano=local.find(function(u){return u.esMaster||u.rol==='master';});
-    if(luciano) merged.push(luciano);
-    // Agregar usuarios de Supabase
-    data.forEach(function(u){
-      var yaEsta=merged.find(function(x){return x.nombre===u.nombre;});
-      if(!yaEsta){
-        merged.push({
-          id:u.id, sbId:u.id,
-          nombre:u.nombre,
-          iniciales:u.iniciales||u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(),
-          rol:u.rol, rolLabel:u.rol_label||u.rol,
-          email:u.email||'', wa:u.wa||'',
-          pin:u.pin||'0000',
-          esMaster:u.rol==='master',
-          activo:u.activo!==false,
-          modulos:u.modulos||[]
-        });
-      } else {
-        // Actualizar datos del usuario local con los de Supabase
-        yaEsta.sbId=u.id;
-        yaEsta.rolLabel=u.rol_label||u.rol||yaEsta.rolLabel;
-        yaEsta.email=u.email||yaEsta.email||'';
-        yaEsta.wa=u.wa||yaEsta.wa||'';
-        yaEsta.modulos=u.modulos||yaEsta.modulos||[];
-        if(u.pin) yaEsta.pin=u.pin;
-      }
-    });
-    // Guardar merged en localStorage para próxima vez
-    localStorage.setItem('usuarios_sistema',JSON.stringify(merged));
-    _usuarios=merged.filter(function(u){return u.activo!==false;});
-    renderLista();
-    setSyncState('ok');
+    if(!data||!data.length) return null;
+    var u = data[0];
+    return {
+      id:u.id, sbId:u.id,
+      nombre:u.nombre,
+      iniciales:u.iniciales||(u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
+      rol:u.rol, rolLabel:u.rol_label||u.rol,
+      email:u.email||'', wa:u.wa||'',
+      pin:u.pin||'0000',
+      esMaster:u.rol==='master',
+      activo:u.activo!==false,
+      modulos:u.modulos||[]
+    };
   })
-  .catch(function(){
-    setSyncState('local');
-  });
+  .catch(function(){return null;});
 }
 
-function setSyncState(state){
-  var dot=document.getElementById('syncDot');
-  var lbl=document.getElementById('syncLabel');
-  if(!dot||!lbl)return;
-  if(state==='ok'){dot.className='sync-dot';dot.style.background='#2D9B6F';lbl.textContent='Usuarios sincronizados';}
-  else if(state==='loading'){dot.className='sync-dot loading';dot.style.background='#C07A1A';lbl.textContent='Cargando...';}
-  else{dot.className='sync-dot';dot.style.background='#C07A1A';lbl.textContent='Modo local';}
-}
-
-// ── RENDER LISTA ──────────────────────────────────────────────────────────
-function renderLista(){
-  var cont=document.getElementById('listaUsuarios');
-  if(!_usuarios.length){
-    cont.innerHTML='<div class="loading-msg">Sin usuarios configurados</div>';
-    return;
-  }
-  cont.innerHTML='';
-  _usuarios.forEach(function(u){
-    var btn=document.createElement('div');
-    btn.className='usuario-btn';
-    btn.innerHTML='<div class="usuario-avatar">'+hesc(u.iniciales||u.nombre.slice(0,2).toUpperCase())+'</div>'
-      +'<div class="usuario-info">'
-      +'<div class="usuario-nombre">'+hesc(u.nombre)+'</div>'
-      +'<div class="usuario-rol">'+hesc(u.rolLabel||u.rol)+'</div>'
-      +'</div>'
-      +'<div class="usuario-arrow">›</div>';
-    btn.onclick=(function(usr){return function(){seleccionarUsuario(usr);};})(u);
-    cont.appendChild(btn);
-  });
-}
-
-// ── SELECCIONAR USUARIO ───────────────────────────────────────────────────
-function seleccionarUsuario(u){
-  _usuarioSeleccionado=u;_pinActual='';
-  document.getElementById('pinAvatar').textContent=u.iniciales||u.nombre.slice(0,2).toUpperCase();
-  document.getElementById('pinNombre').textContent=u.nombre;
-  document.getElementById('pinRol').textContent=u.rolLabel||u.rol;
-  document.getElementById('pinError').textContent='';
-  actualizarDots();
-  document.getElementById('paso1').classList.remove('on');
-  document.getElementById('paso2').classList.add('on');
-}
-function volverPaso1(){
-  _usuarioSeleccionado=null;_pinActual='';
-  document.getElementById('paso2').classList.remove('on');
-  document.getElementById('paso1').classList.add('on');
-  document.getElementById('pinError').textContent='';
-  actualizarDots();
-}
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function validarEmail(e){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);}
 
 // ── PIN ───────────────────────────────────────────────────────────────────
 function actualizarDots(){
   for(var i=0;i<4;i++){
     var d=document.getElementById('d'+i);
-    if(d) d.classList.toggle('filled',i<_pinActual.length);
+    if(d) d.classList.toggle('f', i<_pinActual.length);
   }
 }
 function presionarTecla(n){
-  if(_pinActual.length>=4)return;
-  _pinActual+=n;actualizarDots();
-  document.getElementById('pinError').textContent='';
-  if(_pinActual.length===4)setTimeout(verificarPin,300);
+  if(_pinActual.length>=4) return;
+  _pinActual+=n; actualizarDots();
+  document.getElementById('err2').textContent='';
+  if(_pinActual.length===4) setTimeout(verificarPin,300);
 }
-function borrarTecla(){_pinActual=_pinActual.slice(0,-1);actualizarDots();}
+function borrarTecla(){_pinActual=_pinActual.slice(0,-1); actualizarDots();}
 function verificarPin(){
-  if(!_usuarioSeleccionado)return;
-  if(_pinActual===_usuarioSeleccionado.pin){
-    sessionStorage.setItem('usuario_activo',JSON.stringify({
-      id:_usuarioSeleccionado.id,
-      sbId:_usuarioSeleccionado.sbId||null,
-      nombre:_usuarioSeleccionado.nombre,
-      iniciales:_usuarioSeleccionado.iniciales||_usuarioSeleccionado.nombre.slice(0,2).toUpperCase(),
-      rol:_usuarioSeleccionado.rol,
-      rolLabel:_usuarioSeleccionado.rolLabel||_usuarioSeleccionado.rol,
-      email:_usuarioSeleccionado.email||'',
-      wa:_usuarioSeleccionado.wa||'',
-      esMaster:_usuarioSeleccionado.esMaster||_usuarioSeleccionado.rol==='master',
-      modulos:_usuarioSeleccionado.modulos||[],
-      tsLogin:Date.now()
-    }));
+  if(!_usuarioActual) return;
+  if(_pinActual===_usuarioActual.pin){
+    var recordar = document.getElementById('chk-recordar') ? document.getElementById('chk-recordar').checked : true;
+    guardarSesion(_usuarioActual, recordar);
+    // Guardar email si marcó recordar
+    if(recordar){
+      localStorage.setItem('gestoor_email_guardado', _usuarioActual.email||'');
+    } else {
+      localStorage.removeItem('gestoor_email_guardado');
+    }
     window.location.href='index.html';
-  }else{
-    document.getElementById('pinError').textContent='PIN incorrecto. Inténtalo de nuevo.';
-    _pinActual='';actualizarDots();
-    var card=document.querySelector('.login-card');
-    card.style.borderColor='#f87171';
-    setTimeout(function(){card.style.borderColor='rgba(144,72,145,.2)';},600);
+  } else {
+    document.getElementById('err2').textContent='PIN incorrecto. Inténtalo de nuevo.';
+    _pinActual=''; actualizarDots();
+    var card=document.querySelector('.card');
+    card.style.borderColor='rgba(248,113,113,.4)';
+    setTimeout(function(){card.style.borderColor='rgba(144,72,145,.25)';},700);
   }
 }
 
-// ── EVENTOS ───────────────────────────────────────────────────────────────
+// ── TECLADO PIN ───────────────────────────────────────────────────────────
+function buildTeclado(){
+  var t=document.getElementById('teclado'); t.innerHTML='';
+  var keys=['1','2','3','4','5','6','7','8','9','del','0','ok'];
+  keys.forEach(function(k){
+    var div=document.createElement('div');
+    if(k==='del'){div.className='key del';div.textContent='⌫ Borrar';div.onclick=borrarTecla;}
+    else if(k==='ok'){div.className='key ok';div.textContent='Entrar →';div.onclick=verificarPin;}
+    else{div.className='key';div.textContent=k;div.onclick=(function(n){return function(){presionarTecla(n);};})(k);}
+    t.appendChild(div);
+  });
+}
+
+// ── PASO 1 → 2 ───────────────────────────────────────────────────────────
+function mostrarPaso2(u){
+  _usuarioActual=u; _pinActual='';
+  document.getElementById('pin-av').textContent=u.iniciales||(u.nombre.slice(0,2).toUpperCase());
+  document.getElementById('pin-nombre').textContent=u.nombre;
+  document.getElementById('pin-rol').textContent=u.rolLabel||u.rol;
+  document.getElementById('err2').textContent='';
+  actualizarDots();
+  document.getElementById('paso1').classList.remove('on');
+  document.getElementById('paso2').classList.add('on');
+}
+function volverPaso1(){
+  _usuarioActual=null; _pinActual='';
+  document.getElementById('paso2').classList.remove('on');
+  document.getElementById('paso1').classList.add('on');
+  document.getElementById('err2').textContent='';
+  actualizarDots();
+}
+
+// ── CONTINUAR ─────────────────────────────────────────────────────────────
+function continuar(){
+  var email = (document.getElementById('inp-email').value||'').trim();
+  var errEl = document.getElementById('err1');
+  var btnEl = document.getElementById('btn-continuar');
+  errEl.textContent='';
+  if(!email){
+    document.getElementById('inp-email').classList.add('err');
+    errEl.textContent='Ingresa tu correo electrónico.';
+    return;
+  }
+  if(!validarEmail(email)){
+    document.getElementById('inp-email').classList.add('err');
+    errEl.textContent='Correo inválido. Ej: nombre@empresa.cl';
+    return;
+  }
+  document.getElementById('inp-email').classList.remove('err');
+  btnEl.disabled=true;
+  btnEl.innerHTML='Buscando<span class="loading-dots"><span></span><span></span><span></span></span>';
+  buscarUsuarioPorEmail(email).then(function(u){
+    btnEl.disabled=false;
+    btnEl.textContent='Continuar →';
+    if(!u){
+      errEl.textContent='No encontramos ese correo. Verifica o contacta a Luciano.';
+      document.getElementById('inp-email').classList.add('err');
+      return;
+    }
+    mostrarPaso2(u);
+  }).catch(function(){
+    btnEl.disabled=false;
+    btnEl.textContent='Continuar →';
+    errEl.textContent='Error de conexión. Intenta de nuevo.';
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
 (function(){
-  // Si ya hay sesión activa → ir al dashboard
-  if(sessionStorage.getItem('usuario_activo')){
+  // Si ya tiene sesión válida → ir directo al dashboard
+  var sesionGuardada = getSesionGuardada();
+  if(sesionGuardada){
+    // Restaurar en sessionStorage para que auth.js la vea
+    sessionStorage.setItem('usuario_activo', JSON.stringify(sesionGuardada));
     window.location.href='index.html';
     return;
   }
 
-  // Wire teclas PIN
-  ['1','2','3','4','5','6','7','8','9','0'].forEach(function(n){
-    var el=document.getElementById('k'+n);
-    if(el) el.onclick=function(){presionarTecla(n);};
-  });
-  var kDel=document.getElementById('kDel');if(kDel)kDel.onclick=borrarTecla;
-  var kEnter=document.getElementById('kEnter');if(kEnter)kEnter.onclick=verificarPin;
-  var btnV=document.getElementById('btnVolver');if(btnV)btnV.onclick=volverPaso1;
+  // Pre-llenar email si lo tenía guardado
+  var emailGuardado = localStorage.getItem('gestoor_email_guardado')||'';
+  if(emailGuardado){
+    document.getElementById('inp-email').value=emailGuardado;
+    document.getElementById('chk-recordar').checked=true;
+  }
 
-  // Teclado físico
+  // Wire botones
+  var btnCont = document.getElementById('btn-continuar');
+  if(btnCont) btnCont.onclick=continuar;
+
+  var btnVolver = document.getElementById('btn-volver');
+  if(btnVolver) btnVolver.onclick=volverPaso1;
+
+  // Enter en campo email
+  var inpEmail = document.getElementById('inp-email');
+  if(inpEmail){
+    inpEmail.addEventListener('keydown',function(e){if(e.key==='Enter')continuar();});
+    inpEmail.addEventListener('input',function(){this.classList.remove('err');document.getElementById('err1').textContent='';});
+  }
+
+  // Teclado PIN
+  buildTeclado();
+
+  // Teclado físico para PIN
   document.addEventListener('keydown',function(e){
     if(document.getElementById('paso2').classList.contains('on')){
-      if(e.key>='0'&&e.key<='9')presionarTecla(e.key);
-      if(e.key==='Backspace')borrarTecla();
-      if(e.key==='Enter')verificarPin();
+      if(e.key>='0'&&e.key<='9') presionarTecla(e.key);
+      if(e.key==='Backspace') borrarTecla();
+      if(e.key==='Enter') verificarPin();
     }
   });
-
-  // Cargar usuarios
-  cargarUsuarios();
 })();
 </script>
 </body>
