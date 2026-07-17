@@ -2831,7 +2831,7 @@ function enviarEmail(){
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({tipo:'reporte',analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',toEmail:to,toNombre:r.clienteNombre,toEmpresa:r.clienteNombre,periodo:periodo,htmlReporte:htmlRpt})
-  }).then(function(res){return res.json();}).then(function(data){
+  }).then(function(res){if(!res.ok)return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+t.slice(0,200));});return res.json();}).then(function(data){
     if(data.ok||data.id){
       var arr=getReportes();
       var idx=arr.findIndex(function(x){return String(x.id)===String(_vistaId);});
