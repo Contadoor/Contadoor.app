@@ -207,6 +207,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .cal-desc{flex:1;font-size:12px;color:var(--t2);}
 .cal-badge{font-size:10px;padding:2px 8px;border-radius:20px;}
 
+.fb{background:transparent;border:1px solid var(--bdr);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--t2);cursor:pointer;font-family:var(--sans);}
+.fb:hover{border-color:var(--p);color:var(--p);}
+.fb.on{background:var(--p);border-color:var(--p);color:#fff;}
+.act-ico{width:28px;height:28px;border-radius:6px;border:1px solid var(--bdr);background:var(--sur);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:.15s;}
+.act-ico:hover{border-color:var(--p);}
+.act-ico.primary{background:var(--p);border-color:var(--p);}
 @media print{
   .sidebar,.topbar,.tab-bar,.no-print{display:none!important;}
   .main{margin-left:0;}
@@ -253,74 +259,41 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">📋 Panel de Control
-    <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
-  </div>
+    <div class="tb-title">📋 Panel de Control</div>
+    <span id="per-pill" style="font-size:11px;font-weight:500;color:#c9a6e8;background:rgba(144,72,145,.15);border:1px solid rgba(144,72,145,.3);padding:3px 10px;border-radius:20px;display:none"></span>
+    <span id="per-uf" style="font-size:11px;color:rgba(255,255,255,.4);display:none"></span>
+    <span id="per-utm" style="font-size:11px;color:rgba(255,255,255,.4);display:none"></span>
     <button class="btn-p btn-sm no-print" onclick="abrirApertura()">📅 Abrir Período</button>
     <button class="btn-s btn-sm no-print" onclick="abrirModalNuevo()">+ Nuevo reporte</button>
   </div>
-  <div id="banner-periodo"></div>
-<div class="content">
-
-    <div class="tab-bar no-print">
-      <div class="tab on" onclick="setView('nomina')">📋 Panel de Control</div>
-      <div class="tab" onclick="setView('lista')">📁 Todos los reportes</div>
-      <div class="tab" onclick="setView('porcliente')">👤 Por cliente</div>
-      <div class="tab" onclick="setView('pormes')">📅 Por mes</div>
-    </div>
-
-    <!-- VISTA NÓMINA -->
-    <div class="view on" id="view-nomina">
-      <!-- Barra envío masivo -->
-      <div id="barraEnvio" style="display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;display:none;align-items:center;gap:12px">
-        <span id="barraEnvioCount" style="font-size:12px;font-weight:600"></span>
-        <button onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
-        <button onclick="deseleccionarTodos()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
-      </div>
-      <div id="nominaContainer"></div>
-    </div>
-
-    <!-- VISTA LISTA -->
-    <div class="view" id="view-lista">
-      <div class="fg3" style="margin-bottom:14px">
-        <div class="fgroup"><label>Filtrar por mes</label><select id="filtroMes" onchange="renderLista()"><option value="">Todos los meses</option></select></div>
-        <div class="fgroup"><label>Estado</label>
-          <select id="filtroEstado" onchange="renderLista()">
-            <option value="">Todos</option>
-            <option value="borrador">Borrador</option>
-            <option value="enviado_rrhh">Enviado RRHH</option>
-            <option value="enviado_total">Enviado completo</option>
-          </select>
-        </div>
-        <div class="fgroup"><label>Buscar cliente</label><input type="text" id="filtroQ" placeholder="Nombre o RUT..." oninput="renderLista()"/></div>
-      </div>
-      <div id="listaReportes"></div>
-    </div>
-
-    <!-- VISTA POR CLIENTE -->
-    <div class="view" id="view-porcliente">
-      <div class="fg2" style="margin-bottom:16px">
-        <div class="fgroup"><label>Seleccionar cliente</label>
-          <select id="selectClienteHist" onchange="renderHistorialCliente()"><option value="">Selecciona un cliente...</option></select>
-        </div>
-      </div>
-      <div id="historialClienteContent"></div>
-    </div>
-
-    <!-- VISTA POR MES -->
-    <div class="view" id="view-pormes">
-      <div class="fg2" style="margin-bottom:16px">
-        <div class="fgroup"><label>Seleccionar mes</label>
-          <select id="selectMesHist" onchange="renderHistorialMes()"><option value="">Selecciona un mes...</option></select>
-        </div>
-      </div>
-      <div id="historialMesContent"></div>
-    </div>
-
+  <!-- Barra filtros -->
+  <div style="background:var(--sur2);border-bottom:1px solid var(--bdr);padding:8px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <input type="text" id="inp-buscar" placeholder="🔍 Buscar cliente..." 
+      style="font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:6px 10px;outline:none;background:var(--sur);width:180px"
+      oninput="renderNomina()">
+    <span style="font-size:11px;color:var(--tm);font-weight:600">PRIORIDAD:</span>
+    <button class="fb on" onclick="setFiltroNomina('prioridad','',this)">Todas</button>
+    <button class="fb" onclick="setFiltroNomina('prioridad','alta',this)">🔴 Alta</button>
+    <button class="fb" onclick="setFiltroNomina('prioridad','media',this)">🟡 Media</button>
+    <button class="fb" onclick="setFiltroNomina('prioridad','baja',this)">🟢 Baja</button>
+    <span style="width:1px;height:16px;background:var(--bdr);margin:0 4px"></span>
+    <span style="font-size:11px;color:var(--tm);font-weight:600">ESTADO:</span>
+    <button class="fb on" onclick="setFiltroNomina('estado','',this)">Todos</button>
+    <button class="fb" onclick="setFiltroNomina('estado','listo',this)">✅ Listos</button>
+    <button class="fb" onclick="setFiltroNomina('estado','enviado',this)">📤 Enviados</button>
+    <button class="fb" onclick="setFiltroNomina('estado','proceso',this)">⏳ En proceso</button>
   </div>
+  <!-- Stats -->
+  <div id="stats-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--bdr)"></div>
+  <!-- Barra envío masivo -->
+  <div id="barraEnvio" style="display:none;background:var(--p);color:#fff;padding:10px 16px;align-items:center;gap:12px">
+    <span id="barraEnvioCount" style="font-size:12px;font-weight:600"></span>
+    <button onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
+    <button onclick="deseleccionarTodos()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
+  </div>
+  <!-- Tabla principal -->
+  <div id="nominaContainer" style="padding:0 0 32px"></div>
 </main>
-</div>
-
 <!-- MODAL APERTURA DE PERÍODO -->
 <div class="modal-bg" id="modalApertura">
   <div class="modal" style="max-width:560px">
@@ -1911,427 +1884,159 @@ function enviarSeleccionados(){
 }
 function renderNomina(){
   var cont=document.getElementById('nominaContainer');
+  if(!cont) return;
   var arr=getReportes();
-  // Filtrar por analista según rol del usuario activo
-  var _u={}; try{_u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
-  if(_u.nombre&&_u.rol!=='master'&&!_u.esMaster){
-    var _cliFiltrados=getClientesFiltrados().map(function(c){return c.rut;});
-    arr=arr.filter(function(r){return _cliFiltrados.indexOf(r.rut)>=0;});
+  var u=getUsuario();
+  // Filtro por rol
+  if(u.nombre&&u.rol!=='master'&&!u.esMaster){
+    var _cli=getClientesFiltrados().map(function(c){return c.rut;});
+    arr=arr.filter(function(r){return _cli.indexOf(r.rut)>=0;});
   }
-  // Filtro manual por analista (master/admin)
-  var _fAnalista=window._filtroAnalista||'';
-  if(_fAnalista){
-    var _clisAnalista=getClientes().filter(function(c){
-      return c.contador===_fAnalista||c.analistaContable===_fAnalista||
-             c.rrhh===_fAnalista||c.analistaRrhh===_fAnalista;
-    }).map(function(c){return c.rut;});
-    arr=arr.filter(function(r){return _clisAnalista.indexOf(r.rut)>=0;});
+  // Solo período activo
+  var perActivo=getPeriodoActivo();
+  var perKey=perActivo?perActivo.periodo:'';
+  // Actualizar topbar período
+  if(perActivo){
+    var pp=document.getElementById('per-pill');
+    var pu=document.getElementById('per-uf');
+    var pt=document.getElementById('per-utm');
+    if(pp){pp.textContent=formatPer(perActivo.periodo);pp.style.display='';}
+    if(pu){pu.textContent='UF $'+ffPer(perActivo.uf);pu.style.display='';}
+    if(pt){pt.textContent='UTM $'+ffPer(perActivo.utm);pt.style.display='';}
   }
-  var periodos=getPeriodos();
-
-  if(!arr.length&&!periodos.length){
-    cont.innerHTML='<div class="empty-state"><h3>Sin período abierto</h3><p>Haz clic en "Abrir Período" para generar la nómina de reportes del mes.</p></div>';
+  // Filtrar por período activo
+  if(perKey) arr=arr.filter(function(r){return r.periodo===perKey;});
+  // Filtros UI
+  var q=(document.getElementById('inp-buscar')||{}).value||'';
+  if(q) arr=arr.filter(function(r){return (r.clienteNombre||'').toLowerCase().indexOf(q.toLowerCase())>=0||(r.rut||'').indexOf(q)>=0;});
+  var fPrio=window._fPrio||'';
+  var fEst=window._fEst||'';
+  if(fPrio) arr=arr.filter(function(r){return (r.prioridadRrhh||'media')===fPrio;});
+  if(fEst==='listo') arr=arr.filter(function(r){
+    var s=r.secciones||{};
+    return(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na))&&r.estado!=='enviado_total';
+  });
+  if(fEst==='enviado') arr=arr.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';});
+  if(fEst==='proceso') arr=arr.filter(function(r){
+    var s=r.secciones||{};
+    return r.estado!=='enviado_total'&&!(s.rrhh&&(s.rrhh.ok||s.rrhh.na)&&s.imp&&(s.imp.ok||s.imp.na)&&s.hon&&(s.hon.ok||s.hon.na));
+  });
+  // Ordenar por prioridad
+  var ord={alta:0,media:1,baja:2};
+  arr.sort(function(a,b){return(ord[a.prioridadRrhh||'media']||1)-(ord[b.prioridadRrhh||'media']||1);});
+  // Stats
+  var total=arr.length;
+  var listos=arr.filter(function(r){var s=r.secciones||{};return(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na))&&r.estado!=='enviado_total';}).length;
+  var enviados=arr.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';}).length;
+  var proceso=total-listos-enviados;
+  var sb=document.getElementById('stats-bar');
+  if(sb){sb.innerHTML=[
+    {v:total,l:'Total',c:'var(--t1)'},{v:listos,l:'Listos',c:'var(--green)'},{v:proceso,l:'En proceso',c:'var(--amber)'},{v:enviados,l:'Enviados',c:'var(--blue)'}
+  ].map(function(s){return'<div style="padding:10px;text-align:center;border-right:1px solid var(--bdr)">'
+    +'<div style="font-size:20px;font-weight:700;color:'+s.c+'">'+s.v+'</div>'
+    +'<div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px;margin-top:1px">'+s.l+'</div></div>';}).join('');}
+  if(!arr.length){
+    cont.innerHTML='<div style="text-align:center;padding:48px;color:var(--tm)"><div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-size:14px;font-weight:600;margin-bottom:4px">Sin reportes para este período</div><div style="font-size:12px">Abre un período para generar la nómina de clientes.</div></div>';
     return;
   }
-
-  // Agrupar por período
-  var porPeriodo={};
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html+='<thead style="position:sticky;top:48px;z-index:5"><tr style="background:var(--sur2)">'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;width:30px"><input type="checkbox" id="chk-all" style="accent-color:var(--p)" onchange="toggleTodos(this.checked)"></th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:left">Cliente</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Prio.</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">RRHH</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Contable</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Pagos</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Total</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Acciones</th>'
+    +'</tr></thead><tbody>';
   arr.forEach(function(r){
-    if(!porPeriodo[r.periodo]) porPeriodo[r.periodo]=[];
-    porPeriodo[r.periodo].push(r);
-  });
-
-  var html='';
-  Object.keys(porPeriodo).sort().reverse().forEach(function(periodo){
-    var lista=porPeriodo[periodo];
-    var total=lista.reduce(function(s,r){return s+(r.totalGeneral||0);},0);
-    var enviados=lista.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado_rrhh';}).length;
-    var completos=lista.filter(function(r){
-      return r.secciones&&r.secciones.rrhh&&r.secciones.imp&&r.secciones.hon&&
-        (r.secciones.rrhh.ok||r.secciones.rrhh.na)&&
-        (r.secciones.imp.ok||r.secciones.imp.na)&&
-        (r.secciones.hon.ok||r.secciones.hon.na);
-    }).length;
-
-    html+='<div class="card" style="margin-bottom:20px">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
-    html+='<div><div style="font-size:16px;font-weight:700;color:#904891">📅 '+formatPeriodo(periodo)+'</div>';
-    html+='<div style="font-size:11px;color:#9a849b;margin-top:2px">'+lista.length+' clientes · '+completos+' secciones completas · '+enviados+' enviados · Total: '+ff(total)+'</div></div>';
-    // Obtener analistas únicos del período
-    var _analistas=[...new Set(lista.map(function(r){
-      var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
-      return c.contador||c.analistaContable||'';
-    }).filter(Boolean))].sort();
-    html+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
-    html+='<span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:600">PRIORIDAD:</span>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="alta">🔴 Alta</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="media">🟡 Media</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="baja">🟢 Baja</button>';
-    html+='<button class="btn-s btn-sm" onclick="filtrarNominaPrioridad(this.dataset.per,this.dataset.p)" data-per="'+periodo+'" data-p="">Todas</button>';
-    if(_analistas.length>1){
-      html+='<span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:600;margin-left:6px">ANALISTA:</span>';
-      _analistas.forEach(function(a){
-        var iniciales=a.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
-        var _aEsc=a.replace(/'/g,'');
-        html+='<button class="btn-s btn-sm" data-analista="'+_aEsc+'" title="'+a+'">'+iniciales+'</button>';
-      });
-      html+='<button class="btn-s btn-sm" data-analista="">Todos</button>';
+    var s=r.secciones||{};
+    var rrhhOk=s.rrhh&&(s.rrhh.ok||s.rrhh.na);
+    var contOk=s.imp&&(s.imp.ok||s.imp.na);
+    var honOk=s.hon&&(s.hon.ok||s.hon.na);
+    var enviado=r.estado==='enviado_total'||r.estado==='enviado';
+    var listo=rrhhOk&&contOk&&honOk&&!enviado;
+    var bgRow=enviado?'background:#ecfdf5':listo?'background:#fefce8':'var(--sur)';
+    var prio=r.prioridadRrhh||'media';
+    var prioBg={alta:'#fee2e2',media:'#fef3c7',baja:'#ecfdf5'}[prio];
+    var prioCol={alta:'#b91c1c',media:'#78350f',baja:'#064e3b'}[prio];
+    var chipOk='<span style="font-size:11px;color:var(--green)">✅</span>';
+    var chipPend='<span style="font-size:11px;color:var(--amber)">⏳</span>';
+    var chipNA='<span style="font-size:11px;color:var(--tm)">N/A</span>';
+    function chip(sec){
+      if(!s[sec]) return chipPend;
+      if(s[sec].na) return chipNA;
+      if(s[sec].ok) return chipOk;
+      return chipPend;
     }
-    html+='</div></div>';
-
-    // Ordenar por prioridad
-    var orden={alta:0,media:1,baja:2};
-    lista.sort(function(a,b){
-      return (orden[a.prioridadRrhh||'media']||1)-(orden[b.prioridadRrhh||'media']||1);
-    });
-
-    html+='<div id="nomina-'+periodo.replace(/[^a-z0-9]/gi,'_')+'">';
-    lista.forEach(function(r){
-      var sec=r.secciones||{};
-      function chip(key,label){
-        if(!sec[key]) return '<span class="estado-chip pend">'+label+' ⏳</span>';
-        if(sec[key].na) return '<span class="estado-chip na">'+label+' N/A</span>';
-        if(sec[key].ok) return '<span class="estado-chip ok">'+label+' ✅</span>';
-        return '<span class="estado-chip pend">'+label+' ⏳</span>';
-      }
-      var priorBadge={alta:'badge-alta',media:'badge-media',baja:'badge-baja'}[r.prioridadRrhh||'media']||'badge-media';
-      html+='<div class="nomina-row" id="nr-'+r.id+'">'
-        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:0 4px">'
-        +'<input type="checkbox" class="nomina-chk" data-id="'+r.id+'" data-estado="'+r.estado+'" style="width:15px;height:15px;accent-color:var(--p)" onchange="actualizarBarraEnvio()">'
-        +'</label>';
-      html+='<div class="nomina-info">';
-      html+='<div class="nomina-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>';
-      // Badge modalidad de pago
-      var cliBd=getClientes().find(function(c){return c.rut===r.rut;})||{};
-      var modalidad=cliBd.modalidadPago||'contadoor';
-      var modalBadge=modalidad==='directo'
-        ?'<span style="font-size:9px;font-weight:700;background:#e8f0fe;color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">🏦 Pago directo</span>'
-        :'<span style="font-size:9px;font-weight:700;background:var(--pp);color:var(--p);padding:1px 6px;border-radius:8px;margin-left:6px">💳 Transfiere</span>';
-      html+='<div class="nomina-rut">'+hesc(r.rut)+' <span class="badge '+priorBadge+'" style="margin-left:6px">'+( r.prioridadRrhh||'media')+'</span>'+modalBadge+(r.totalGeneral?'<span style="margin-left:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:#904891">'+ff(r.totalGeneral)+'</span>':'')+'</div>';
-      html+='<div class="nomina-estados">'+chip('rrhh','RRHH')+chip('imp','Imp.')+chip('hon','Hon.')+'<span class="estado-chip '+(r.estado==='enviado_total'||r.estado==='enviado_rrhh'?'ok':'pend')+'">'+(r.estado==='enviado_total'?'📤 Enviado':r.estado==='enviado_rrhh'?'📤 RRHH env.':'📤 Pendiente env.')+'</span></div>';
-      html+='</div>';
-      html+='<div style="display:flex;gap:5px;flex-shrink:0">';
-      if(r.clienteWa) html+='<a class="btn-wa btn-sm" href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank">💬</a>';
-      var btnLabel='✏️ Editar';
-      html+='<button class="btn-p btn-sm" onclick="abrirModalEditar('+r.id+')">'+btnLabel+'</button>';
-      if(r.totalGeneral>0) html+='<button class="btn-s btn-sm" onclick="verReporte('+r.id+')">👁 Ver</button>';
-      html+='</div></div>';
-    });
-    html+='</div></div>';
+    var rowBg=enviado?'#ecfdf5':listo?'#fefce8':'var(--sur)';
+    html+='<tr style="background:'+rowBg+';border-bottom:1px solid var(--bdr)">';
+    html+='<td style="padding:8px 14px"><input type="checkbox" class="nomina-chk" data-id="'+r.id+'" style="accent-color:var(--p)" onchange="actualizarBarraEnvio()"></td>';
+    html+='<td style="padding:8px 14px">'
+      +'<div style="font-weight:600;font-size:12px">'+hesc(r.clienteNombre||r.rut)+'</div>'
+      +'<div style="font-size:10px;color:var(--tm)">'+hesc(r.rut)+'</div>'
+      +(enviado?'<div style="font-size:10px;color:var(--green);margin-top:2px">📤 Enviado</div>':'')
+      +'</td>';
+    html+='<td style="padding:8px 14px;text-align:center"><span style="background:'+prioBg+';color:'+prioCol+';font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px">'+prio+'</span></td>';
+    html+='<td style="padding:8px 14px;text-align:center">'+chip('rrhh')+'</td>';
+    html+='<td style="padding:8px 14px;text-align:center">'+chip('imp')+'</td>';
+    html+='<td style="padding:8px 14px;text-align:center">'+chip('hon')+'</td>';
+    html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'+(r.totalGeneral?ff(r.totalGeneral):'—')+'</td>';
+    // Acciones
+    html+='<td style="padding:8px 14px"><div style="display:flex;gap:4px;justify-content:flex-end">';
+    var rid=String(r.id);
+    html+='<button class="act-ico btn-ver" data-rid="'+rid+'" title="Ver reporte">👁</button>';
+    html+='<button class="act-ico btn-edit" data-rid="'+rid+'" title="Editar">✏️</button>';
+    html+='<button class="act-ico btn-nota" data-rid="'+rid+'" title="Nota analista">📝</button>';
+    if(enviado){
+      html+='<button class="act-ico btn-rec" data-rid="'+rid+'" title="Recordatorio">🔔</button>';
+    }else{
+      html+='<button class="act-ico btn-mail" data-rid="'+rid+'" title="Enviar email" style="background:var(--p);border-color:var(--p)">✉️</button>';
+    }
+    if(r.clienteWa){
+      html+='<button class="act-ico btn-wa" data-rid="'+rid+'" title="WhatsApp" style="border-color:#25d366">💬</button>';
+    }
+    html+='</div></td>';
+    html+='</tr>';
   });
-
-  cont.innerHTML=html||'<div class="empty-state"><h3>Sin reportes</h3><p>Abre un período para generar la nómina.</p></div>';
-  // Wire analista filter buttons via delegation
+  html+='</tbody></table>';
+  cont.innerHTML=html;
   cont.addEventListener('click',function(e){
-    var btn=e.target.closest('[data-analista]');
-    if(btn) filtrarNominaAnalista(btn.getAttribute('data-analista'));
-  });
+    var btn=e.target.closest('[data-rid]');
+    if(!btn) return;
+    var rid=btn.getAttribute('data-rid');
+    if(btn.classList.contains('btn-ver')) verReporte(rid);
+    else if(btn.classList.contains('btn-edit')) abrirModalEditar(rid);
+    else if(btn.classList.contains('btn-nota')){_vistaId=rid;abrirEditRapido();}
+    else if(btn.classList.contains('btn-rec')){enviarRecordatorio(rid,'manual');}
+    else if(btn.classList.contains('btn-mail')){_vistaId=rid;enviarEmailDirecto(rid);}
+    else if(btn.classList.contains('btn-wa')){_vistaId=rid;enviarWhatsApp();}
+    else if(btn.classList.contains('nomina-chk')) actualizarBarraEnvio();
+  },true);
 }
 
-function filtrarNominaAnalista(analista){
-  // Guardar filtro activo
-  window._filtroAnalista = analista;
+function toggleTodos(checked){
+  document.querySelectorAll('.nomina-chk').forEach(function(c){c.checked=checked;});
+  actualizarBarraEnvio();
+}
+
+function setFiltroNomina(tipo,val,btn){
+  if(tipo==='prioridad') window._fPrio=val;
+  else if(tipo==='estado') window._fEst=val;
+  // Update button active state
+  var parent=btn.parentNode;
+  parent.querySelectorAll('.fb').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
   renderNomina();
 }
-function filtrarNominaPrioridad(periodo,prioridad){
-  var items=document.querySelectorAll('#nomina-'+periodo.replace(/[^a-z0-9]/gi,'_')+' .nomina-row');
-  items.forEach(function(el){
-    var r=getReportes().find(function(x){return el.id==='nr-'+x.id;});
-    if(!r) return;
-    el.style.display=(!prioridad||(r.prioridadRrhh||'media')===prioridad)?'flex':'none';
-  });
-}
 
-// ═══════════════════════════════════════════════════════════
-// VISTA REPORTE AL CLIENTE
-// ═══════════════════════════════════════════════════════════
-function verReporte(id){
-  var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r) return;
+function enviarEmailDirecto(id){
   _vistaId=id;
-  var usaArchivo=r.usaArchivo;
-  var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
-  var cal=r.calendario||{};
-
-  // Calcular totales cotizaciones
-  var totalDescTrab=usaArchivo?((r.afp||0)+(r.salud||0)+(r.apv||0)+(r.cesTrab||0)+(r.iu||0)+(r.otrosDesc||0)):0;
-  var totalAportesEmp=usaArchivo?((r.sis||0)+(r.mutual||0)+(r.cesEmp||0)):0;
-  var totalCot=usaArchivo?totalDescTrab+totalAportesEmp:(r.cotM||r.totalCot||0);
-  var totalImp=(r.iva||0)+(r.ppm||0)+(r.ret||0)+(r.iuSii||r.iu||0)+(r.otrosImp||0);
-  var totalAtrasos=(r.atrasos||[]).reduce(function(s,a){return s+a.monto;},0);
-  var totalGeneral=totalCot+totalImp+(r.honTotal||0)+totalAtrasos;
-
-  // Comparativo mes anterior
-  var arr=getReportes();
-  var pParts=r.periodo.split('-');
-  var pAnterior=(parseInt(pParts[1])-1===0)?
-    (parseInt(pParts[0])-1)+'-12':
-    pParts[0]+'-'+String(parseInt(pParts[1])-1).padStart(2,'0');
-  var rAnterior=arr.find(function(x){return x.rut===r.rut&&x.periodo===pAnterior;});
-
-  function varIcon(actual,anterior){
-    if(!anterior) return '';
-    var diff=actual-anterior,pct=anterior>0?((diff/anterior)*100).toFixed(1):0;
-    if(Math.abs(diff)<1) return '<span class="var-eq">→ Sin cambio</span>';
-    return diff>0?'<span class="var-up">\u2191 +'+pct+'%</span>':'<span class="var-dn">\u2193 '+pct+'%</span>';
-  }
-
-  var h='';
-  // HEADER
-  h+='<div class="rpt-header">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
-  h+='<div><img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="width:150px;filter:brightness(0) invert(1);margin-bottom:10px"/>';
-  h+='<div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1.5px">Reporte Mensual de Gestión</div>';
-  h+='<div style="font-size:20px;font-weight:700;margin-top:4px">'+hesc(r.clienteNombre)+'</div>';
-  h+='<div style="font-size:12px;opacity:.65;margin-top:3px">'+hesc(r.rut)+' · '+formatPeriodo(r.periodo)+'</div></div>';
-  h+='<div style="text-align:right">';
-  h+='<div style="font-size:11px;opacity:.5">Total a pagar</div>';
-  h+='<div style="font-size:30px;font-weight:700">'+ff(totalGeneral)+'</div>';
-  h+='<div style="font-size:11px;opacity:.5;margin-top:4px">Emitido '+hoy+'</div>';
-  h+='</div></div></div>';
-
-  // KPIS
-  h+='<div class="rpt-kpi-grid" style="margin-top:14px">';
-  var nTrab=r.nTrab||r.trabM||0;
-  var liquido=r.liquidoPagar||r.liquidoM||0;
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">👥 Trabajadores</div><div class="rpt-kpi-val" style="color:#2D9B6F">'+nTrab+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(nTrab,rAnterior.nTrab||rAnterior.trabM||0)+'</div>':'')+'</div>';
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">💰 Sueldos líquidos pagados</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(liquido)+'</div></div>';
-  h+='<div class="rpt-kpi"><div class="rpt-kpi-lbl">📊 Total cotizaciones</div><div class="rpt-kpi-val" style="font-size:16px">'+ff(totalCot)+'</div>'+(rAnterior?'<div class="rpt-kpi-sub comparativo">'+varIcon(totalCot,rAnterior.totalCot)+'</div>':'')+'</div>';
-  h+='</div>';
-
-  // COTIZACIONES  -  si usa archivo, mostrar desglose
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
-
-  // Descuentos trabajadores
-  h+='<div><div style="font-size:11px;font-weight:700;color:#2D9B6F;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">👥 Descuentos trabajadores</div>';
-  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden">';
-  h+='<table class="rpt-tabla">';
-  if(usaArchivo){
-    if(r.afp) h+='<tr><td>AFP</td><td class="num">'+ff(r.afp)+'</td></tr>';
-    if(r.salud) h+='<tr><td>Salud (ISAPRE/Fonasa)</td><td class="num">'+ff(r.salud)+'</td></tr>';
-    if(r.apv) h+='<tr><td>APV</td><td class="num">'+ff(r.apv)+'</td></tr>';
-    if(r.cesTrab) h+='<tr><td>Seg. Cesantía trabajador</td><td class="num">'+ff(r.cesTrab)+'</td></tr>';
-    if(r.iu) h+='<tr><td>Imp. Único 2\u00aa Cat.</td><td class="num">'+ff(r.iu)+'</td></tr>';
-    if(r.otrosDesc) h+='<tr><td>Otros descuentos</td><td class="num">'+ff(r.otrosDesc)+'</td></tr>';
-    h+='<tr class="subtotal"><td>Subtotal descuentos</td><td class="num">'+ff(totalDescTrab)+'</td></tr>';
-  }else{
-    h+='<tr><td>Total cotizaciones</td><td class="num">'+ff(r.cotM||0)+'</td></tr>';
-  }
-  h+='</table></div>'+(r.obsRrhh?'<div style="font-size:11px;color:#9a849b;font-style:italic;margin-top:6px">'+hesc(r.obsRrhh)+'</div>':'')+'</div>';
-
-  // Aportes patronales
-  h+='<div><div style="font-size:11px;font-weight:700;color:#5c4a5d;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🏢 Aportes empresa</div>';
-  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden">';
-  h+='<table class="rpt-tabla">';
-  if(usaArchivo){
-    if(r.sis) h+='<tr><td>SIS</td><td class="num">'+ff(r.sis)+'</td></tr>';
-    if(r.mutual) h+='<tr><td>Mutual / Accidentes</td><td class="num">'+ff(r.mutual)+'</td></tr>';
-    if(r.cesEmp) h+='<tr><td>Seg. Cesantía empleador</td><td class="num">'+ff(r.cesEmp)+'</td></tr>';
-    h+='<tr class="subtotal"><td>Subtotal aportes</td><td class="num">'+ff(totalAportesEmp)+'</td></tr>';
-  }else{
-    h+='<tr><td>Aportes patronales</td><td class="num"> - </td></tr>';
-  }
-  h+='</table></div>';
-  h+='<div style="background:rgba(45,155,111,.08);border:1px solid rgba(45,155,111,.2);border-radius:8px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between">';
-  h+='<span style="font-weight:700;font-size:12px;color:#2D9B6F">Total cotizaciones a pagar</span>';
-  h+='<span style="font-weight:700;font-family:monospace;color:#2D9B6F">'+ff(totalCot)+'</span></div>';
-  if(cal.vencCot) h+='<div style="font-size:11px;color:#C07A1A;margin-top:5px">⚠️ Vence: '+hesc(cal.vencCot)+(cal.prorrogaCot?' (prórroga hasta '+hesc(cal.prorrogaCot)+')':'')+'</div>';
-  h+='</div></div>';
-
-  // IMPUESTOS SII
-  h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden;margin-bottom:14px">';
-  h+='<div style="background:#faf7fa;padding:10px 14px;border-bottom:1px solid #e8dde8;font-size:11px;font-weight:700;color:#C07A1A;text-transform:uppercase;letter-spacing:.8px">📊 Impuestos SII</div>';
-  h+='<table class="rpt-tabla">';
-  if(r.iva) h+='<tr><td>IVA a pagar</td><td class="num">'+ff(r.iva)+'</td></tr>';
-  if(r.ppm) h+='<tr><td>PPM (Pago Provisional Mensual)</td><td class="num">'+ff(r.ppm)+'</td></tr>';
-  if(r.ret) h+='<tr><td>Retenciones 2\u00aa Categoría</td><td class="num">'+ff(r.ret)+'</td></tr>';
-  if(r.iuSii||r.iu) h+='<tr><td>Imp. Único 2\u00aa Cat. <span style="font-size:10px;color:#C07A1A">(desde RRHH)</span></td><td class="num">'+ff(r.iuSii||r.iu)+'</td></tr>';
-  if(r.otrosImp) h+='<tr><td>Otros impuestos</td><td class="num">'+ff(r.otrosImp)+'</td></tr>';
-  h+='<tr class="total"><td>Total Impuestos SII</td><td class="num">'+ff(totalImp)+'</td></tr>';
-  h+='</table>';
-  if(cal.vencSii) h+='<div style="padding:8px 14px;font-size:11px;color:#C0392B">🔴 Vence el '+hesc(cal.vencSii)+'  -  Sin prórroga</div>';
-  h+='</div>';
-
-  // HONORARIOS
-  h+='<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💼 Nuestros Servicios</div>';
-  h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
-  if(r.honBase) h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Base</div><div style="font-weight:700">'+ff(r.honBase)+'</div></div>';
-  if(r.honVar) h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Variable</div><div style="font-weight:700">'+ff(r.honVar)+'</div></div>';
-  h+='<div style="background:#eff6ff;border:2px solid #1e40af;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#185fa5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total</div><div style="font-weight:700;color:#1e40af;font-size:16px">'+ff(r.honTotal)+'</div></div>';
-  h+='<div style="background:'+(r.honEstado==='pagado'?'#ecfdf5':'#fef3c7')+';border:1px solid '+(r.honEstado==='pagado'?'#a7f3d0':'#fde68a')+';border-radius:8px;padding:10px 14px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">Estado</div><div style="font-weight:700;color:'+(r.honEstado==='pagado'?'#064e3b':'#78350f')+'">'+(r.honEstado==='pagado'?'✅ Pagado':'⏳ Pendiente')+'</div></div>';
-  if(r.factura) h+='<div style="background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:10px 14px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Factura</div><div style="font-weight:600">'+hesc(r.factura)+'</div></div>';
-  h+='</div></div>';
-
-  // ATRASOS
-  if((r.atrasos||[]).length){
-    h+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;overflow:hidden;margin-bottom:14px">';
-    h+='<div style="background:#fff0f0;padding:10px 14px;border-bottom:1px solid #fecaca;font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase">⚠️ Pagos períodos anteriores</div>';
-    h+='<table class="rpt-tabla"><thead><tr><th>Concepto</th><th>Período</th><th style="text-align:right">Monto</th></tr></thead><tbody>';
-    (r.atrasos||[]).forEach(function(a){
-      h+='<tr><td>'+hesc(a.concepto)+'</td><td style="color:#9a849b">'+hesc(a.periodo)+'</td><td class="num" style="color:#C0392B;font-weight:600">'+ff(a.monto)+'</td></tr>';
-    });
-    h+='</tbody><tfoot><tr class="total"><td colspan="2">Total atrasos</td><td class="num">'+ff(totalAtrasos)+'</td></tr></tfoot></table></div>';
-  }
-
-  // CALENDARIO DE PAGOS
-  if(cal.vencCot||cal.vencSii){
-    h+='<div class="rpt-cal"><div class="rpt-cal-titulo">📅 Calendario de pagos  -  '+formatPeriodo(r.periodo)+'</div>';
-    if(cal.vencCot) h+='<div class="rpt-cal-item"><div class="cal-fecha">'+hesc(cal.vencCot)+'</div><div class="cal-concepto">Cotizaciones previsionales'+(cal.prorrogaCot?' (prórroga: '+hesc(cal.prorrogaCot)+')':'')+'</div><div class="rpt-cal-monto" style="color:#C07A1A">'+ff(totalCot)+'</div></div>';
-    if(cal.vencSii) h+='<div class="rpt-cal-item"><div class="cal-fecha" style="color:#C0392B">'+hesc(cal.vencSii)+'</div><div class="cal-concepto">Impuesto mensual SII (F29) <span style="color:#C0392B;font-size:10px">Sin prórroga</span></div><div class="rpt-cal-monto" style="color:#C0392B">'+ff(totalImp)+'</div></div>';
-    h+='<div class="rpt-cal-item" style="border-top:1px solid #e8dde8"><div class="cal-fecha" style="color:#904891">Total</div><div class="cal-concepto" style="font-weight:700">Total a pagar este período</div><div class="rpt-cal-monto" style="color:#904891;font-size:16px">'+ff(totalGeneral)+'</div></div>';
-    h+='</div>';
-  }
-
-  // RECOMENDACIONES
-  if(r.recomendaciones){
-    h+='<div style="background:linear-gradient(135deg,#F5EAF5,#fff);border:1px solid rgba(144,72,145,.2);border-radius:10px;padding:16px 18px;margin-bottom:14px">';
-    h+='<div style="font-size:11px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💡 Recomendaciones del mes</div>';
-    h+='<div style="font-size:13px;color:#5c4a5d;line-height:1.7;white-space:pre-wrap">'+hesc(r.recomendaciones)+'</div></div>';
-  }
-
-  // FOOTER
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a849b">';
-  h+='<div>'+(r.preparado?'RRHH: <strong>'+hesc(r.preparado)+'</strong>':'')+(r.revisado?' · Contable: <strong>'+hesc(r.revisado)+'</strong>':'')+'</div>';
-  if(r.obsAnalista){
-    h+='<div style="margin:12px 20px;background:#f5f0f8;border-radius:8px;padding:10px 14px;border-left:3px solid #904891">';
-    h+='<div style="font-size:10px;font-weight:700;color:#904891;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">📝 Nota del analista</div>';
-    h+='<div style="font-size:12px;color:#5c4a5d;line-height:1.6">'+hesc(r.obsAnalista)+'</div></div>';
-  }
-  h+='<div>Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
-
-  document.getElementById('vistaContent').innerHTML=h;
-  document.getElementById('modalVista').classList.add('on');
+  enviarEmail();
 }
 
-function closeVista(){document.getElementById('modalVista').classList.remove('on');}
-function editarDesdeVista(){if(_vistaId){closeVista();abrirModalEditar(_vistaId);}}
 
-// ═══════════════════════════════════════════════════════════
-// ENVÍO
-// ═══════════════════════════════════════════════════════════
-function buildReporteEmailHTML(r){
-  var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
-  var periodo=formatPeriodo(r.periodo);
-  var contacto=r.contacto||r.clienteNombre||(r.rut||'Cliente');
-  var h='';
-  // Header
-  h+='<div style="background:linear-gradient(135deg,#6D2E6E 0%,#904891 100%);padding:18px 28px;display:flex;align-items:center;justify-content:space-between">'
-    +'<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:26px;filter:brightness(0) invert(1)" alt="Contadoor">'
-    +'<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Reporte Mensual · '+periodo+'</span>'
-    +'</div>';
-  // Saludo
-  h+='<div style="padding:20px 28px;border-bottom:1px solid #eee">'
-    +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 4px">Hola '+hesc(contacto)+',</p>'
-    +'<p style="font-size:12px;color:#5c4a5d;margin:0 0 12px">'+hesc(r.clienteNombre||r.rut)+'</p>'
-    +'<p style="font-size:13px;color:#333;line-height:1.7;margin:0">Preparamos tu <strong style="color:#904891">Reporte Mensual de Gestión · '+periodo+'</strong>. A continuación el resumen de obligaciones del período.</p>'
-    +'</div>';
-  // KPIs
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8dde8">';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Cotizaciones</div><div style="font-size:18px;font-weight:700;color:#1a0a1b">'+ff(r.totalCot||0)+'</div></div>';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Impuestos SII</div><div style="font-size:18px;font-weight:700;color:#C0392B">'+ff(r.totalImpInmediato||r.totalImp||0)+'</div></div>';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total a pagar</div><div style="font-size:18px;font-weight:700;color:#904891">'+ff(r.totalGeneral||0)+'</div></div>';
-  h+='</div>';
-  // Tabla resumen
-  h+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0">'
-    +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">📋 Detalle de obligaciones</div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  if(r.totalCot) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Cotizaciones previsionales</td><td style="text-align:right;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(r.totalCot)+'</td></tr>';
-  if(r.totalImpInmediato||r.totalImp) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Impuestos SII (F29)</td><td style="text-align:right;font-weight:600;color:#C0392B;border-bottom:1px solid #f5f0f5">'+ff(r.totalImpInmediato||r.totalImp)+'</td></tr>';
-  if(r.ivaPostergado) h+='<tr><td style="padding:6px 0;color:#C07A1A;border-bottom:1px solid #f5f0f5">IVA postergado (vence '+hesc(r.ivaFechaVenc||'')+')</td><td style="text-align:right;font-weight:600;color:#C07A1A;border-bottom:1px solid #f5f0f5">'+ff(r.ivaPostergado)+'</td></tr>';
-  if(r.honTotal) h+='<tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Nuestros Servicios</td><td style="text-align:right;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(r.honTotal)+'</td></tr>';
-  if(r.totalAtrasos) h+='<tr><td style="padding:6px 0;color:#C0392B;border-bottom:1px solid #f5f0f5">Obligaciones anteriores pendientes</td><td style="text-align:right;font-weight:600;color:#C0392B;border-bottom:1px solid #f5f0f5">'+ff(r.totalAtrasos)+'</td></tr>';
-  h+='<tr style="border-top:2px solid #e8dde8"><td style="padding:8px 0;font-weight:700;color:#1a0a1b">TOTAL A PAGAR</td><td style="text-align:right;font-weight:700;font-size:15px;color:#904891">'+ff(r.totalGeneral||0)+'</td></tr>';
-  h+='</table></div>';
-  // Datos transferencia
-  h+='<div style="padding:14px 28px;background:#f5f0f8;border-bottom:1px solid #f0ebf0">'
-    +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">💳 Datos para transferencia</div>'
-    +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div>'
-    +'</div>';
-  // Recomendaciones
-  if(r.recomendaciones){
-    h+='<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">'
-      +'<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:6px">💡 Recomendaciones</div>'
-      +'<div style="font-size:12px;color:#5c4a5d;line-height:1.6">'+hesc(r.recomendaciones)+'</div>'
-      +'</div>';
-  }
-  // Nota analista
-  if(r.obsAnalista){
-    h+='<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">'
-      +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">📝 Nota del analista</div>'
-      +'<div style="font-size:12px;color:#5c4a5d;line-height:1.6;background:#f5f0f8;border-radius:8px;padding:10px 14px">'+hesc(r.obsAnalista)+'</div>'
-      +'</div>';
-  }
-  return h;
-}
-
-function enviarEmail(){
-  var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r)return;
-  var to=r.clienteEmail||'';
-  if(!to){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
-  var u={};try{u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){}
-  var periodo=formatPeriodo(r.periodo);
-  if(!confirm('¿Enviar reporte de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to))return;
-  var btn=document.querySelector('[onclick="enviarEmail()"]');
-  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
-  var htmlReporte=buildReporteEmailHTML(r);
-    fetch('https://contafunnel-proxy.vercel.app/api/crear-evento',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      tipo:'reporte',
-      analistaNombre:u.nombre||r.revisado||'Contadoor',
-      analistaWa:u.wa||'979881891',
-      toEmail:to,
-      toNombre:r.contacto||r.clienteNombre||r.rut,
-      toEmpresa:r.clienteNombre||r.rut,
-      periodo:periodo,
-      htmlReporte:minH(htmlReporte)
-    })
-  })
-  .then(function(res){return res.json();})
-  .then(function(data){
-    if(data.ok||data.id){
-      // Marcar como enviado en localStorage
-      var arr=getReportes();
-      var idx=arr.findIndex(function(x){return x.id===_vistaId;});
-      if(idx>=0){arr[idx].estado='enviado_total';arr[idx].fechaEnvio=new Date().toISOString();setReportes(arr);}
-      closeVista();renderAll();
-      var t=document.createElement('div');
-      t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-      t.textContent='✅ Reporte enviado a '+to;document.body.appendChild(t);
-      setTimeout(function(){t.remove();},4000);
-      if(window.crearNotificacion)crearNotificacion({modulo:'sistema',tipo:'info',prioridad:'baja',clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,mensaje:'Reporte de '+r.clienteNombre+' · '+periodo+' enviado a '+to+'.',accion:null});
-    }else{alert('Error al enviar: '+(data.error||'Error desconocido'));}
-  })
-  .catch(function(err){alert('Error de conexión: '+err.message);})
-  .finally(function(){if(btn){btn.disabled=false;btn.textContent='✉️ Email';}});
-}
-
-function enviarWhatsApp(){
-  var r=getReportes().find(function(x){return x.id===_vistaId;});if(!r) return;
-  if(!r.clienteWa){alert('Este cliente no tiene número de WhatsApp registrado.');return;}
-  var msg='Hola! Le enviamos el Reporte de Gestión de *'+r.clienteNombre+'*  -  *'+formatPeriodo(r.periodo)+'*\n\n'
-    +'📊 *RESUMEN:*\n'
-    +'👥 Cotizaciones: '+ff(r.totalCot)+'\n'
-    +'📋 Impuestos SII: '+ff(r.totalImpInmediato||r.totalImp)+'\n'
-    +(r.ivaPostergado?'⏳ IVA postergado (vence '+r.ivaFechaVenc+'): '+ff(r.ivaPostergado)+'\n':'')
-    +'💼 Honorarios: '+ff(r.honTotal)+'\n'
-    +(r.totalAtrasos?'⚠️ Obligaciones anteriores: '+ff(r.totalAtrasos)+'\n':'')
-    +'✅ *TOTAL: '+ff(r.totalGeneral)+'*\n\n'
-    +(r.recomendaciones?'💡 '+r.recomendaciones+'\n\n':'')
-    +'Transferencias a Itaú CC 0220729517 · RUT 77.166.269-2\n'
-    +'Cualquier consulta, escríbanos. Saludos, Contadoor.';
-  window.open('https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
-  if(window.crearNotificacion) crearNotificacion({
-    modulo:'sistema',tipo:'info',prioridad:'baja',
-    clienteNombre:r.clienteNombre,clienteRut:r.rut,periodo:r.periodo,
-    mensaje:'Reporte de '+r.clienteNombre+' · '+formatPeriodo(r.periodo)+' enviado por WhatsApp.',
-    accion:null
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-// RENDER LISTA
-// ═══════════════════════════════════════════════════════════
 function renderLista(){
   var arr=getReportes();
   var mes=sv('filtroMes'),est=sv('filtroEstado'),q=(sv('filtroQ')||'').toLowerCase();
@@ -2481,10 +2186,8 @@ function setView(v){
 }
 
 function renderAll(){
-  popularSelectMeses();popularSelectClientes();popularSelectClientes2();
-  renderLista();renderNomina();
-  renderBannerPeriodo();
-  renderBannerPeriodo();
+  popularSelectClientes();
+  renderNomina();
 }
 
 // ═══════════════════════════════════════════════════════════
