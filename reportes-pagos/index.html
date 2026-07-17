@@ -323,7 +323,20 @@ function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
 function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
-function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
+function getPeriodos(){
+  try{
+    // Leer desde rpt_periodos (legacy) y apertura_periodos (nuevo)
+    var arr=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');
+    var obj=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');
+    // Convertir apertura_periodos (objeto) a array
+    Object.values(obj).forEach(function(p){
+      if(p&&p.periodo&&!arr.find(function(x){return x.periodo===p.periodo;})){
+        arr.push({periodo:p.periodo,uf:p.uf,utm:p.utm,ts:p.ts});
+      }
+    });
+    return arr.sort(function(a,b){return a.periodo>b.periodo?-1:1;});
+  }catch(e){return[];}
+}
 
 // ── SUPABASE ─────────────────────────────────────────────────────────────
 var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
