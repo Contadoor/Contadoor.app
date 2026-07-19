@@ -15,7 +15,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .sb-logo{padding:16px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);flex-shrink:0;}
 .sb-logo img{width:130px;display:block;}
 .sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
-.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;}
+.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
 .sb-nav::-webkit-scrollbar{width:3px;}
 .sb-nav::-webkit-scrollbar-track{background:transparent;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
@@ -122,41 +122,33 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   <nav>
     <div class="sb-section">Principal</div>
     <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-
     <div class="sb-section">Gestión</div>
-    <a class="sb-item " href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item " href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item " href="../reportes/index.html">📋 Panel de Control</a>
-
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
+    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
     <div class="sb-section">Remuneraciones</div>
-    <a class="sb-item " href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-
     <div class="sb-section">Contable</div>
-    <a class="sb-item " href="../reportes-contable/index.html">📊 Reporte Contable</a>
-    <a class="sb-item " href="../reportes-pagos/index.html">💰 Reporte Pagos</a>
+    <a class="sb-item" href="../reportes-contable/index.html">📊 Reporte Contable</a>
+    <a class="sb-item" href="../reportes-pagos/index.html">💰 Reporte Pagos</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🤝 Convenios</a>
-
     <div class="sb-section">Tributario</div>
-    <a class="sb-item " href="../pir/index.html">📊 PIR</a>
-    <a class="sb-item " href="../pre-iva/index.html">📋 Pre-IVA</a>
-
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
     <div class="sb-section">Financiero</div>
-    <a class="sb-item " href="../pagos/index.html">✅ Aprobaciones</a>
+    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
     <a class="sb-item on" href="../conciliacion/index.html">🏦 Conciliación</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-
     <div class="sb-section">Comercial</div>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-
     <div class="sb-section">Configuración</div>
-    <a class="sb-item " href="../admin/index.html">👤 Admin</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🌐 Mi Contadoor</a>
+    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
   </nav>
   <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
 </aside>
@@ -225,6 +217,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
 <script>
 var _view='conciliar', _mcIdx=null, _concCnt=0;
+var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
+function sbH(){return{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
+function sbPatch(path,data){return fetch(SB_URL+'/rest/v1/'+path,{method:'PATCH',headers:Object.assign({'Prefer':'return=representation'},sbH()),body:JSON.stringify(data)}).catch(function(){});}
+function getReportesMensuales(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
+function setReportesMensuales(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
 
 var TIPOS_CONCEPTO=[
   {id:'factura_servicios', label:'Factura honorarios Contadoor', icon:'🧾'},
@@ -295,6 +293,26 @@ function buscarSugerencias(rut, monto){
           var exacto=Math.abs(c.monto-monto)<=(monto*0.01);
           sugs.push({tipo:'convenio_cuota',tipoLabel:'Cuota convenio '+cv.institucion,icon:'🤝',descripcion:'Cuota '+c.numero+'/'+cv.nCuotas+' · '+cv.institucion+' · Vence: '+c.vencimiento,monto:exacto?monto:c.monto,refId:cv.id,cuotaIdx:ci,exacto:exacto,origen:'convenio',label:exacto?'⚡ Match exacto':'🤝 Cuota convenio'});
         }
+      });
+    }
+  });
+  // 4. Reportes mensuales (RRHH, contable, pagos) — aviso enviado
+  getReportesMensuales().filter(function(r){
+    return r.estado==='aviso_enviado'||r.estado==='enviado_total'||r.estado==='enviado';
+  }).forEach(function(r){
+    if(limpiarRut(r.rut)===rut){
+      var total=r.totalGeneral||0;
+      var exacto=total>0&&Math.abs(total-monto)<=(monto*0.01);
+      sugs.push({
+        tipo:'reporte_mensual',
+        tipoLabel:'Reporte mensual Contadoor',
+        icon:'📋',
+        descripcion:(r.clienteNombre||r.rut)+' · '+(r.periodo||''),
+        monto:exacto?monto:total,
+        refId:r.id,
+        exacto:exacto,
+        origen:'reporte',
+        label:exacto?'⚡ Match exacto':'📋 Reporte mensual'
       });
     }
   });
@@ -598,6 +616,27 @@ function confirmarConcepto(){
     }
   });
   if(cChanged)localStorage.setItem('convenios_bd',JSON.stringify(convs));
+  // Actualizar reportes mensuales → estado transferido
+  var rpts=getReportesMensuales();var rChanged=false;
+  conceptos.forEach(function(c){
+    if(c.tipo==='reporte_mensual'&&c.refId){
+      var ri=rpts.findIndex(function(r){return String(r.id)==String(c.refId);});
+      if(ri>=0&&rpts[ri].estado!=='transferido'&&rpts[ri].estado!=='finalizado'){
+        rpts[ri].estado='transferido';
+        rpts[ri].fechaTransferido=ts();
+        rpts[ri].montoTransferido=c.monto;
+        rpts[ri].quienTransfirio=quien;
+        rChanged=true;
+        // Sync Supabase
+        sbPatch('reportes_mensuales?id=eq.'+encodeURIComponent(c.refId),{
+          estado:'transferido',
+          fecha_transferido:new Date().toISOString(),
+          quien_transferido:quien
+        });
+      }
+    }
+  });
+  if(rChanged)setReportesMensuales(rpts);
   setMovimientos(movs);closeConcepto();renderConciliar();
 }
 
