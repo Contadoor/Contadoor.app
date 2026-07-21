@@ -337,7 +337,7 @@ function setView(v){
 function renderCarga(){
   var meta=getMetaCartola();
   document.getElementById('mainContent').innerHTML=
-    '<div class="card"><div class="card-hd">\u1f4e4 Cargar cartola de transferencias recibidas</div>'
+    '<div class="card"><div class="card-hd">📤 Cargar cartola de transferencias recibidas</div>'
     +(meta?'<div class="warn-box">⚠️ Cartola activa: <strong>'+hesc(meta.archivo)+'</strong>  -  '+hesc(meta.tsLoad)+' · <strong>'+meta.total+' movimientos</strong><br>Una nueva carga del mismo período reemplazará los movimientos no conciliados y preservará los ya conciliados.</div>':'')
     +'<div class="fg2" style="margin-bottom:14px">'
     +'<div class="fgroup"><label>Período</label><input type="month" id="sel-periodo" value="'+new Date().toISOString().slice(0,7)+'"/></div>'
@@ -422,7 +422,7 @@ function renderConciliar(){
   var movs=getMovimientos();
   var meta=getMetaCartola();
   if(!movs.length){
-    document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Sin cartola cargada</h3><p>Carga la cartola de transferencias para comenzar.</p></div><div style="text-align:center;margin-top:14px"><button class="btn-p" onclick="setView(\'carga\')">\u1f4e4 Cargar cartola</button></div>';
+    document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Sin cartola cargada</h3><p>Carga la cartola de transferencias para comenzar.</p></div><div style="text-align:center;margin-top:14px"><button class="btn-p" onclick="setView(\'carga\')">📤 Cargar cartola</button></div>';
     return;
   }
   var conc=movs.filter(function(m){return m.estado==='conciliado';}).length;
@@ -451,7 +451,7 @@ function renderConciliar(){
     var isConc=m.estado==='conciliado',isPar=m.estado==='parcial',isIgn=m.estado==='ignorado';
     var sumaConc=(m.conceptos||[]).reduce(function(s,c){return s+c.monto;},0)+(m.ajuste?m.ajuste.monto:0);
     var pct=m.monto>0?Math.min(100,Math.round(sumaConc/m.monto*100)):0;
-    var badge=isConc?'<span class="badge b-conciliado">✅ Conciliado</span>':isPar?'<span class="badge b-parcial">🔵 Parcial</span>':isIgn?'<span class="badge b-ignorado">\u1f6ab Ignorado</span>':'<span class="badge b-pendiente">⏳ Pendiente</span>';
+    var badge=isConc?'<span class="badge b-conciliado">✅ Conciliado</span>':isPar?'<span class="badge b-parcial">🔵 Parcial</span>':isIgn?'<span class="badge b-ignorado">🚫 Ignorado</span>':'<span class="badge b-pendiente">⏳ Pendiente</span>';
 
     // Sugerencias en lista
     var sugsHTML='';
@@ -461,7 +461,7 @@ function renderConciliar(){
         return'<div class="sugerencia '+cls+'"><span>'+s.icon+' <strong>'+s.label+'</strong>  -  '+hesc(s.descripcion)+'</span><span style="font-weight:700;margin-left:auto">'+ff(s.monto)+'</span></div>';
       }).join('');
     } else if(m.estado==='pendiente'&&m.clienteNombre){
-      sugsHTML='<div class="sugerencia sug-cliente">\u1f194 Cliente: <strong>'+hesc(m.clienteNombre)+'</strong>  -  sin match automático de monto</div>';
+      sugsHTML='<div class="sugerencia sug-cliente">🆔 Cliente: <strong>'+hesc(m.clienteNombre)+'</strong>  -  sin match automático de monto</div>';
     }
 
     // Conceptos ya asignados
@@ -475,8 +475,8 @@ function renderConciliar(){
       if(m.tsConciliado)concHTML+='<div style="font-size:10px;color:#9a849b;margin-top:4px">Por: <strong>'+hesc(m.quien)+'</strong> · '+hesc(m.tsConciliado)+'</div>';
     }
 
-    var accion=!isIgn?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">'+( isConc||isPar?'✏️ Editar':'\u1f517 Conciliar')+'</button>':'';
-    var ignBtn=!isIgn?'<button class="btn-s btn-sm" onclick="ignorar('+m.idx+')">\u1f6ab Ignorar</button>':'<button class="btn-s btn-sm" onclick="restaurar('+m.idx+')">\u21a9 Restaurar</button>';
+    var accion=!isIgn?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">'+( isConc||isPar?'✏️ Editar':'🔗 Conciliar')+'</button>':'';
+    var ignBtn=!isIgn?'<button class="btn-s btn-sm" onclick="ignorar('+m.idx+')">🚫 Ignorar</button>':'<button class="btn-s btn-sm" onclick="restaurar('+m.idx+')">\u21a9 Restaurar</button>';
 
     return'<div class="mov-row'+(isConc?' conciliado':isPar?' parcial':isIgn?' ignorado':'')+'">'
       +'<div class="mov-header"><div class="mov-info">'
@@ -671,7 +671,7 @@ function renderPorCliente(){
     var conc=cl.movs.filter(function(m){return m.estado==='conciliado';}).length;
     var pend=cl.movs.filter(function(m){return m.estado==='pendiente';}).length;
     var filas=cl.movs.map(function(m){
-      var badge=m.estado==='conciliado'?'<span class="badge b-conciliado">✅</span>':m.estado==='parcial'?'<span class="badge b-parcial">🔵</span>':m.estado==='ignorado'?'<span class="badge b-ignorado">\u1f6ab</span>':'<span class="badge b-pendiente">⏳</span>';
+      var badge=m.estado==='conciliado'?'<span class="badge b-conciliado">✅</span>':m.estado==='parcial'?'<span class="badge b-parcial">🔵</span>':m.estado==='ignorado'?'<span class="badge b-ignorado">🚫</span>':'<span class="badge b-pendiente">⏳</span>';
       var concDesc=(m.conceptos||[]).map(function(c){return c.tipoLabel;}).join(' + ')||' - ';
       return'<tr>'
         +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8;font-size:12px">'+hesc(m.fecha)+'</td>'
@@ -679,7 +679,7 @@ function renderPorCliente(){
         +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8;font-size:12px;font-weight:700;color:#2D9B6F;font-family:monospace">'+ff(m.monto)+'</td>'
         +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8">'+badge+'</td>'
         +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8;font-size:11px;color:#9a849b">'+hesc(concDesc)+'</td>'
-        +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8">'+(m.estado==='pendiente'?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">\u1f517 Conciliar</button>':'')+'</td>'
+        +'<td style="padding:6px 12px;border-bottom:1px solid #e8dde8">'+(m.estado==='pendiente'?'<button class="btn-p btn-sm" onclick="abrirConcepto('+m.idx+')">🔗 Conciliar</button>':'')+'</td>'
         +'</tr>';
     }).join('');
     return'<div class="cliente-row">'
