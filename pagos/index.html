@@ -446,14 +446,14 @@ var AREA_LABELS = {
 };
 
 var ESTADOS = {
-  creada:              {label:'Creada',            cls:'b-creada',      icon:'editar',  orden:0},
-  aviso_enviado:       {label:'Aviso enviado',     cls:'b-aviso',       icon:'mail',    orden:1},
-  transferido:         {label:'Transferido',       cls:'b-transferido', icon:'bank',    orden:2},
-  en_previred:         {label:'En Previred',       cls:'b-previred',    icon:'clock',   orden:3},
-  aprobacion:          {label:'En aprobacion',     cls:'b-aprobacion',  icon:'loading', orden:4},
-  aprobado:            {label:'Aprobado',          cls:'b-aprobado',    icon:'check',   orden:5},
-  finalizado:          {label:'Finalizado',        cls:'b-finalizado',  icon:'lock',    orden:6},
-  rechazado:           {label:'Rechazado',         cls:'b-rechazado',   icon:'x',       orden:1}
+  creada:              {label:'Creada',           cls:'b-creada',      icon:'✏️',  orden:0},
+  aviso_enviado:       {label:'Aviso enviado',    cls:'b-aviso',       icon:'📨',  orden:1},
+  transferido:         {label:'Transferido',      cls:'b-transferido', icon:'💳',  orden:2},
+  en_previred:         {label:'En Previred',      cls:'b-previred',    icon:'⚙️',  orden:3},
+  aprobacion:          {label:'En aprobacion',    cls:'b-aprobacion',  icon:'⏳',  orden:4},
+  aprobado:            {label:'Aprobado',         cls:'b-aprobado',    icon:'✅',  orden:5},
+  finalizado:          {label:'Finalizado',       cls:'b-finalizado',  icon:'🔒',  orden:6},
+  rechazado:           {label:'Rechazado',        cls:'b-rechazado',   icon:'❌',  orden:1}
 };
 var FLUJO_PASOS = ['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado','finalizado'];
 
@@ -679,7 +679,7 @@ function solicitarAprobacion(){
   setObs(arr);_seleccionados.clear();actualizarBarraSeleccion();
 
   // Generar email para Luciano
-  var subject='\u1f514 Aprobación requerida  -  '+selArr.length+' pago'+(selArr.length!==1?'s':'')+' · Total: '+ff(total);
+  var subject='🔔 Aprobación requerida  -  '+selArr.length+' pago'+(selArr.length!==1?'s':'')+' · Total: '+ff(total);
   var body='Hola '+MASTER_NOMBRE+',\n\nSe han enviado los siguientes pagos para tu aprobación:\n\n'
     +selArr.map(function(ob,i){return(i+1)+'. '+ob.clienteNombre+'  -  '+ob.concepto+'\n   Tipo: '+ob.tipo+'\n   Monto: '+ff(ob.monto)+'\n   Creado por: '+ob.creadoPor+'\n   Conciliado por: '+(ob.conciliacion?ob.conciliacion.quien:' - ')+'\n   Referencia cartola: '+(ob.conciliacion?ob.conciliacion.ref||' - ':' - ')+'\n';}).join('\n')
     +'\nTOTAL A APROBAR: '+ff(total)+'\n\nIngresa al sistema para aprobar o rechazar:\nhttps://contadoor.github.io/Contadoor.app/pagos/\n\nContadoor.app';
@@ -851,7 +851,7 @@ function renderObligaciones(){
       _viewActual==='historial'?' en el historial':''
     )+'</h3><p>'+(
       _viewActual==='todas'?'Crea la primera con el botón "+ Nueva obligación"':
-      _viewActual==='aprobar'?'No hay pagos pendientes de tu aprobación \u1f44d':'Cambia el filtro o la vista'
+      _viewActual==='aprobar'?'No hay pagos pendientes de tu aprobación 👍':'Cambia el filtro o la vista'
     )+'</p></div>';
     return;
   }
