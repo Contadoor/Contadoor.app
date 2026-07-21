@@ -789,9 +789,12 @@ function renderTabla(periodo){
       html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" style="background:#904891;font-size:11px">📨 Aviso Cotizaciones</button>';
     }else if(est==='aviso_enviado'||est==='enviado'){
       html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
-      html+='<button class="btn-p" onclick="marcarTransferido(_btnIds['+_k+'])" style="background:#1e40af;font-size:11px">💳 Transferido</button>';
+      html+='<span style="font-size:10px;background:#fef9ec;color:#854F0B;border:1px solid #fde68a;padding:2px 8px;border-radius:20px">⏳ Esperando pago</span>';
     }else if(est==='transferido'){
-      html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" style="background:#0c4a6e;font-size:11px">⚙️ Previred</button>';
+      html+='<div style="display:flex;flex-direction:column;gap:4px">';
+      html+='<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:20px;text-align:center">💳 Cliente transfirió</span>';
+      html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" style="background:#0c4a6e;font-size:11px">⚙️ Ingresar Previred</button>';
+      html+='</div>';
     }else if(est==='en_previred'){
       html+='<button class="btn-p" onclick="enviarAprobacionRrhh(_btnIds['+_k+'])" style="background:#854F0B;font-size:11px">⏳ A aprobación</button>';
     }else if(est==='pendiente_aprobacion'||est==='aprobacion'){
@@ -1239,9 +1242,16 @@ function enviarReporteParcial(){
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   var data=(_remuData&&_remuData.trabajadores&&_remuData.trabajadores.length)?_remuData:null;
   var htmlContent=buildPreReporteRrhhHTML(r,data);
-  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-    +'<style>body{margin:0;padding:20px;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}</style>'
-    +'</head><body><div style="max-width:600px;margin:0 auto">'+htmlContent+'</div></body></html>';
+  // Compactar HTML para no superar límite Vercel (4.5MB)
+  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+    +'<body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
+  // Limpiar espacios redundantes
+  htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
+  if(htmlEmail.length>300000){
+    alert('El HTML del reporte es muy largo ('+Math.round(htmlEmail.length/1024)+'KB). Contacta soporte.');
+    if(btn){btn.disabled=false;btn.textContent='📨 Aviso de Cotizaciones';}
+    return;
+  }
   fetch('https://contafunnel-proxy.vercel.app/api/enviar-reporte',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -1278,85 +1288,67 @@ function enviarReporteParcial(){
 }
 function buildPreReporteRrhhHTML(r,data){
   var periodo=formatPeriodo(r.periodo);
-  var contacto=r.clienteNombre||r.rut;
   var u=getUsuario();
-  // Fecha tope: día 13 del mes siguiente
-  var partes=String(r.periodo).split('-');
-  var anio=parseInt(partes[0]),mes=parseInt(partes[1]);
+  var partes=String(r.periodo||'').split('-');
+  var anio=parseInt(partes[0])||new Date().getFullYear();
+  var mes=parseInt(partes[1])||1;
   mes++;if(mes>12){mes=1;anio++;}
   var MESES2=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   var fechaTope='13 de '+MESES2[mes-1]+' de '+anio;
-  var hoy=new Date();
-  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,13)-hoy)/(1000*60*60*24)));
-  // Calcular cotizaciones
-  var dctoAfp=0,dctoSalud=0,cesTrab=0,cesEmp=0,sis=0,mutual=0,nomina=0,costoEmpresa=0,nTrab=0,nActivos=0,nLic=0;
+  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,13)-new Date())/(864e5)));
+  var nomina=0,totalCot=0,dctoAfp=0,dctoSalud=0,cesTrab=0,cesEmp=0,sis=0,mutual=0,costoEmp=0,nTrab=0,nActivos=0,nLic=0;
   if(data&&data.trabajadores){
     data.trabajadores.forEach(function(t){dctoAfp+=t.dctoAfp;dctoSalud+=t.dctoSalud;cesTrab+=t.cesTrab;cesEmp+=t.cesEmp;sis+=t.sis;mutual+=t.mutual;});
-    nomina=data.nomina;costoEmpresa=data.costoEmpresa||0;
-    nTrab=data.nTrab;nActivos=data.nTrabActivos||nTrab;nLic=data.nLicencia||0;
-  }else{
-    nomina=r.liquidoPagar||0;nTrab=r.nTrab||0;nActivos=nTrab;
-    dctoAfp=r.afp||0;dctoSalud=r.salud||0;cesTrab=r.cesTrab||0;
-    cesEmp=r.cesEmp||0;sis=r.sis||0;mutual=r.mutual||0;
-  }
-  var totalCot=dctoAfp+dctoSalud+cesTrab+cesEmp+sis+mutual;
+    nomina=data.nomina;costoEmp=data.costoEmpresa||0;nTrab=data.nTrab;nActivos=data.nTrabActivos||nTrab;nLic=data.nLicencia||0;
+  }else{nomina=r.liquidoPagar||0;nTrab=r.nTrab||0;nActivos=nTrab;dctoAfp=r.afp||0;dctoSalud=r.salud||0;}
+  totalCot=dctoAfp+dctoSalud+cesTrab+cesEmp+sis+mutual;
   var analistaEmail=u.email||'reportes@contadoor.cl';
-  var waMsg='Hola Contadoor, soy '+hesc(r.clienteNombre||r.rut)+'. Quiero informar la situación de las cotizaciones de '+periodo+'.';
+  var waMsg='Hola Contadoor, soy de '+hesc(r.clienteNombre||r.rut)+'. Quiero informar mi situación de cotizaciones de '+periodo+'.';
   var waUrl='https://wa.me/56979881891?text='+encodeURIComponent(waMsg);
-    var mailUrl='mailto:'+analistaEmail+'?subject='+encodeURIComponent('Postergacion cotizaciones '+periodo)+'&body='+encodeURIComponent('Hola Contadoor. Empresa: '+(r.clienteNombre||'')+'. Período: '+periodo);
-  h+='<div style="background:linear-gradient(135deg,#6D2E6E,#904891);padding:18px 28px;display:flex;align-items:center;justify-content:space-between">';
-  h+='<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:26px;filter:brightness(0) invert(1)">';
-  h+='<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Aviso de Cotizaciones RRHH · '+periodo+'</span>';
-  h+='</div>';
-  h+='<div style="padding:20px 28px;border-bottom:1px solid #eee">';
-  h+='<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 8px">Hola '+hesc(contacto)+',</p>';
-  h+='<p style="font-size:13px;color:#333;line-height:1.75;margin:0 0 8px">Compartimos el <strong style="color:#904891">Aviso de Cotizaciones de Remuneraciones · '+periodo+'</strong> para que puedas planificar el pago de cotizaciones previsionales.</p>';
-  h+='<p style="font-size:12px;color:#5c4a5d;line-height:1.65;margin:0">Este es un <strong>informe previo</strong>. En los próximos días recibirás el Reporte Mensual Consolidado con el detalle completo de obligaciones.</p>';
-  h+='</div>';
-  // Alerta días restantes
-  h+='<div style="padding:11px 28px;background:'+(diasRest<=3?'#fef2f2':'#fef9ec')+';border-bottom:1px solid '+(diasRest<=3?'#fecaca':'#fde68a')+'">';
-  h+='<div style="font-size:12px;font-weight:700;color:'+(diasRest<=3?'#C0392B':'#C07A1A')+'">📅 Vencimiento cotizaciones: '+fechaTope+(diasRest>0?' — '+diasRest+' días':'')+'</div>';
-  h+='</div>';
-  // KPIs
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8dde8">';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">👥 Dotación</div><div style="font-size:20px;font-weight:700;color:#1a0a1b">'+nTrab+' trabajadores</div><div style="font-size:10px;color:#9a849b;margin-top:2px">'+nActivos+' activos'+(nLic?' · '+nLic+' en licencia':'')+'</div></div>';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">💰 Nómina líquida</div><div style="font-size:20px;font-weight:700;color:#2D9B6F">'+ff(nomina)+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Total a pagar</div></div>';
-  h+='<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🏢 Costo empresa</div><div style="font-size:20px;font-weight:700;color:#904891">'+ff(costoEmpresa)+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Incl. aportes empleador</div></div>';
-  h+='</div>';
-  // Detalle cotizaciones
-  h+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0">';
-  h+='<div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">🏦 Detalle de cotizaciones</div>';
-  h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  h+='<tr style="background:#faf7fa"><td colspan="2" style="padding:7px 10px;font-size:10px;font-weight:700;color:#904891;text-transform:uppercase">Descuentos trabajadores</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">AFP</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(dctoAfp)+'</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Salud (Isapre/Fonasa)</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(dctoSalud)+'</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Seguro cesantía trabajador</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(cesTrab)+'</td></tr>';
-  h+='<tr style="background:#faf7fa"><td colspan="2" style="padding:7px 10px;font-size:10px;font-weight:700;color:#904891;text-transform:uppercase">Aportes empleador</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">SIS</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(sis)+'</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Mutual de seguridad</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(mutual)+'</td></tr>';
-  h+='<tr><td style="padding:6px 10px;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Seguro cesantía empleador</td><td style="text-align:right;padding:6px 10px;font-weight:600;border-bottom:1px solid #f5f0f5">'+ff(cesEmp)+'</td></tr>';
-  h+='<tr style="border-top:2px solid #e8dde8"><td style="padding:8px 10px;font-weight:700;color:#1a0a1b">Total cotizaciones</td><td style="text-align:right;padding:8px 10px;font-weight:700;font-size:15px;color:#904891">'+ff(totalCot)+'</td></tr>';
-  h+='</table></div>';
-  // Postergación
-  h+='<div style="padding:16px 28px;background:#f5f0f8;border-bottom:1px solid #f0ebf0">';
-  h+='<div style="font-size:12px;font-weight:700;color:#1a0a1b;margin-bottom:6px">⏳ ¿Necesitas postergar alguna cotización?</div>';
-  h+='<p style="font-size:12px;color:#5c4a5d;line-height:1.65;margin:0 0 12px">Si necesitas postergar el pago, debes informarnos <strong>antes del '+fechaTope+'</strong>. Podemos orientarte en el proceso.</p>';
-  h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
-  h+='<a href="'+waUrl+'" style="background:#25d366;color:#fff;border-radius:8px;padding:10px 18px;font-size:12px;font-weight:600;text-decoration:none;display:inline-block">💬 Avisar por WhatsApp</a>';
-  h+='<a href="'+mailUrl+'" style="background:#904891;color:#fff;border-radius:8px;padding:10px 18px;font-size:12px;font-weight:600;text-decoration:none;display:inline-block">📧 Responder por email</a>';
-  h+='</div></div>';
-  // Datos transferencia
-  h+='<div style="padding:14px 28px;border-bottom:1px solid #f0ebf0">';
-  h+='<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:6px">💳 Datos para transferencia</div>';
-  h+='<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div>';
-  h+='</div>';
-  h+='<div style="padding:12px 28px;background:#1a0a1b;text-align:center">';
-  h+='<p style="font-size:11px;color:#c9a6e8;margin:0 0 2px">'+hesc(u.nombre||'Contadoor')+' · Asesorías Contadoor Ltda.</p>';
-  h+='<p style="font-size:10px;color:#4a3060;margin:0">reportes@contadoor.cl · +56 9 7988 1891</p>';
-  h+='</div>';
-  return h;
+  var mailUrl='mailto:'+analistaEmail+'?subject='+encodeURIComponent('Cotizaciones '+periodo)+'&body='+encodeURIComponent('Hola Contadoor. Empresa: '+(r.clienteNombre||'')+'. Periodo: '+periodo);
+  var p='padding',b='border',bg='background',fs='font-size',fw='font-weight',c='color',br='border-radius',ta='text-align';
+  return '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto">'
+  +'<div style="'+bg+':linear-gradient(135deg,#6D2E6E,#904891);'+p+':16px 24px;display:flex;align-items:center;justify-content:space-between">'
+  +'<span style="'+c+':white;'+fw+':600;'+fs+':15px">Contadoor</span>'
+  +'<span style="'+fs+':11px;'+c+':rgba(255,255,255,.9);'+bg+':rgba(0,0,0,.2);'+p+':3px 10px;'+br+':10px">Aviso de Cotizaciones · '+periodo+'</span></div>'
+  +'<div style="'+p+':18px 24px;'+b+'-bottom:1px solid #eee">'
+  +'<p style="'+fs+':15px;'+fw+':600;margin:0 0 6px">Hola '+hesc(r.clienteNombre||r.rut)+',</p>'
+  +'<p style="'+fs+':13px;'+c+':'+hesc('#333')+';line-height:1.7;margin:0 0 6px">Compartimos el <strong style="'+c+':'+hesc('#904891')+'">Aviso de Cotizaciones · '+periodo+'</strong> para que puedas planificar el pago.</p>'
+  +'<p style="'+fs+':12px;'+c+':'+hesc('#666')+';margin:0">Este es un informe previo. En los próximos días recibirás el Reporte Mensual Consolidado.</p></div>'
+  +'<div style="'+p+':10px 24px;'+bg+':'+(diasRest<=3?'#fef2f2':'#fef9ec')+';'+b+'-bottom:1px solid '+(diasRest<=3?'#fecaca':'#fde68a')+'">'
+  +'<span style="'+fs+':12px;'+fw+':600;'+c+':'+(diasRest<=3?'#C0392B':'#C07A1A')+'">Vencimiento cotizaciones: '+fechaTope+(diasRest>0?' — '+diasRest+' días':'')+'</span></div>'
+  +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;'+bg+':'+hesc('#e8dde8')+'">'
+  +'<div style="'+bg+':white;'+p+':12px 14px"><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">Dotación</div><div style="'+fs+':20px;'+fw+':600">'+nTrab+'</div><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">'+nActivos+' activos'+(nLic?' · '+nLic+' licencia':'')+'</div></div>'
+  +'<div style="'+bg+':white;'+p+':12px 14px"><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">Nómina líquida</div><div style="'+fs+':20px;'+fw+':600;'+c+':'+hesc('#2D9B6F')+'">'+ff(nomina)+'</div><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">Total a pagar</div></div>'
+  +'<div style="'+bg+':white;'+p+':12px 14px"><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">Costo empresa</div><div style="'+fs+':20px;'+fw+':600;'+c+':'+hesc('#904891')+'">'+ff(costoEmp)+'</div><div style="'+fs+':10px;'+c+':'+hesc('#9a849b')+'">Incl. aportes</div></div></div>'
+  +'<div style="'+p+':14px 24px;'+b+'-bottom:1px solid #f0ebf0">'
+  +'<div style="'+fs+':11px;'+fw+':600;margin-bottom:8px">Detalle de cotizaciones</div>'
+  +'<table style="width:100%;border-collapse:collapse;'+fs+':12px">'
+  +'<tr style="'+bg+':'+hesc('#faf7fa')+'"><td colspan="2" style="'+p+':6px 8px;'+fs+':10px;'+fw+':600;'+c+':'+hesc('#904891')+'">Descuentos trabajadores</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">AFP</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(dctoAfp)+'</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">Salud</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(dctoSalud)+'</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">Cesantía trabajador</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(cesTrab)+'</td></tr>'
+  +'<tr style="'+bg+':'+hesc('#faf7fa')+'"><td colspan="2" style="'+p+':6px 8px;'+fs+':10px;'+fw+':600;'+c+':'+hesc('#904891')+'">Aportes empleador</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">SIS</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(sis)+'</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">Mutual</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(mutual)+'</td></tr>'
+  +'<tr><td style="'+p+':5px 8px;'+c+':'+hesc('#5c4a5d')+';'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">Cesantía empleador</td><td style="'+ta+':right;'+p+':5px 8px;'+fw+':600;'+b+'-bottom:1px solid '+hesc('#f5f0f5')+'">'+ff(cesEmp)+'</td></tr>'
+  +'<tr style="'+b+'-top:2px solid '+hesc('#e8dde8')+'"><td style="'+p+':7px 8px;'+fw+':600">Total cotizaciones</td><td style="'+ta+':right;'+p+':7px 8px;'+fw+':700;'+fs+':15px;'+c+':'+hesc('#904891')+'">'+ff(totalCot)+'</td></tr>'
+  +'</table></div>'
+  +'<div style="'+p+':14px 24px;'+bg+':'+hesc('#f5f0f8')+';'+b+'-bottom:1px solid '+hesc('#f0ebf0')+'">'
+  +'<div style="'+fs+':12px;'+fw+':600;margin-bottom:6px">¿Necesitas postergar alguna cotización?</div>'
+  +'<p style="'+fs+':12px;'+c+':'+hesc('#5c4a5d')+';line-height:1.65;margin:0 0 10px">Si necesitas postergar, infórmanos <strong>antes del '+fechaTope+'</strong>.</p>'
+  +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+  +'<a href="'+waUrl+'" style="'+bg+':'+hesc('#25d366')+';'+c+':white;'+br+':7px;'+p+':8px 14px;'+fs+':12px;'+fw+':600;text-decoration:none">WhatsApp</a>'
+  +'<a href="'+mailUrl+'" style="'+bg+':'+hesc('#904891')+';'+c+':white;'+br+':7px;'+p+':8px 14px;'+fs+':12px;'+fw+':600;text-decoration:none">Responder email</a>'
+  +'</div></div>'
+  +'<div style="'+p+':12px 24px;'+b+'-bottom:1px solid #eee">'
+  +'<div style="'+fs+':11px;'+fw+':600;'+c+':'+hesc('#904891')+';margin-bottom:4px">Datos para transferencia</div>'
+  +'<div style="'+fs+':12px;'+c+':'+hesc('#5c4a5d')+';line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div></div>'
+  +'<div style="'+p+':10px 24px;'+bg+':'+hesc('#1a0a1b')+';'+ta+':center">'
+  +'<p style="'+fs+':11px;'+c+':'+hesc('#c9a6e8')+';margin:0 0 2px">'+hesc(u.nombre||'Contadoor')+' · Asesorías Contadoor Ltda.</p>'
+  +'<p style="'+fs+':10px;'+c+':'+hesc('#4a3060')+';margin:0">reportes@contadoor.cl · +56 9 7988 1891</p></div>'
+  +'</div>';
 }
-
 function enviarPreReporteRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r){alert('Reporte no encontrado.');return;}
@@ -1373,9 +1365,16 @@ function enviarPreReporteRrhh(id){
     if(!perLibro||perLibro===perRep)data=_remuData;
   }
   var htmlContent=buildPreReporteRrhhHTML(r,data);
-  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-    +'<style>body{margin:0;padding:20px;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}</style>'
-    +'</head><body><div style="max-width:600px;margin:0 auto">'+htmlContent+'</div></body></html>';
+  // Compactar HTML para no superar límite Vercel (4.5MB)
+  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+    +'<body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
+  // Limpiar espacios redundantes
+  htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
+  if(htmlEmail.length>300000){
+    alert('El HTML del reporte es muy largo ('+Math.round(htmlEmail.length/1024)+'KB). Contacta soporte.');
+    if(btn){btn.disabled=false;btn.textContent='📨 Aviso de Cotizaciones';}
+    return;
+  }
   fetch('https://contafunnel-proxy.vercel.app/api/enviar-reporte',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
