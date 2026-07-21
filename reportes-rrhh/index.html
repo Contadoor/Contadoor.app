@@ -110,6 +110,16 @@ tr:hover td{background:#f9fefb;}
 .ec-completado{background:#ecfdf5;color:#064e3b;}
 .ec-enviado{background:#eff6ff;color:#1e40af;}
 .ec-atrasado{background:#fee2e2;color:#b91c1c;}
+.ec-transferido{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.ec-previred{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc}
+.ec-aprobacion{background:#fef3c7;color:#78350f;border:1px solid #fde68a}
+.ec-aprobado{background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7}
+.ec-finalizado{background:#f0fdf4;color:#14532d;border:1px solid #86efac}
+.ec-transferido{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.ec-previred{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc}
+.ec-aprobacion{background:#fef3c7;color:#78350f;border:1px solid #fde68a}
+.ec-aprobado{background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7}
+.ec-finalizado{background:#f0fdf4;color:#14532d;border:1px solid #86efac}
 
 /* BOTONES */
 .btn-p{background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
@@ -416,7 +426,7 @@ tr:hover td{background:#f9fefb;}
       <button class="btn-s" onclick="closeModalRrhh()">Cancelar</button>
       <button class="btn-s" onclick="guardarRrhh('borrador')" style="color:var(--green);border-color:var(--green)">💾 Guardar borrador</button>
       <button class="btn-p" onclick="guardarRrhh('ok')" style="background:var(--green)">✅ Marcar RRHH OK</button>
-      <button class="btn-p" id="btnEnviarParcial" onclick="enviarReporteParcial()" style="display:none;background:var(--p)">📨 Enviar Pre-Reporte</button>
+      <button class="btn-p" id="btnEnviarParcial" onclick="enviarReporteParcial()" style="display:none;background:var(--p)">📨 Enviar Aviso de Cotizaciones</button>
     </div>
   </div>
 </div>
@@ -749,11 +759,18 @@ function renderTabla(periodo){
     html+='</div></td>';
     // Estado
     var ecMap={
-      pendiente:{cls:'ec-pendiente',label:'⏳ Pendiente'},
-      libro_ok:{cls:'ec-libro-ok',label:'📊 Libro cargado'},
-      completado:{cls:'ec-completado',label:'✅ RRHH OK'},
-      enviado:{cls:'ec-enviado',label:'📤 Enviado al cliente'},
-      atrasado:{cls:'ec-atrasado',label:'⚠️ Atrasado'}
+      pendiente:            {cls:'ec-pendiente',  label:'⏳ Pendiente'},
+      libro_ok:             {cls:'ec-libro-ok',   label:'📊 Libro cargado'},
+      completado:           {cls:'ec-completado', label:'✅ RRHH OK'},
+      aviso_enviado:        {cls:'ec-enviado',    label:'📨 Aviso enviado'},
+      enviado:              {cls:'ec-enviado',    label:'📨 Aviso enviado'},
+      transferido:          {cls:'ec-transferido',label:'💳 Transferido'},
+      en_previred:          {cls:'ec-previred',   label:'⚙️ En Previred'},
+      pendiente_aprobacion: {cls:'ec-aprobacion', label:'⏳ En aprobación'},
+      aprobacion:           {cls:'ec-aprobacion', label:'⏳ En aprobación'},
+      aprobado:             {cls:'ec-aprobado',   label:'✅ Aprobado'},
+      finalizado:           {cls:'ec-finalizado', label:'🔒 Finalizado'},
+      atrasado:             {cls:'ec-atrasado',   label:'⚠️ Atrasado'}
     };
     var ecInfo=ecMap[est]||ecMap.pendiente;
     html+='<td><span class="ec '+ecInfo.cls+'">'+ecInfo.label+'</span></td>';
@@ -765,11 +782,26 @@ function renderTabla(periodo){
     html+='<td><div class="acciones">';
     var _k=Object.keys(_btnIds).length;
     _btnIds[_k]=r.id;
-    if(est==='completado'||est==='enviado'){
-      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
-      html+='<button class="btn-p" onclick="enviarPreReporteRrhh(_btnIds['+_k+'])" style="background:#904891">📨 Pre-Reporte</button>';
-    }else{
+    if(est==='pendiente'||est==='libro_ok'||!est){
       html+='<button class="btn-p" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Completar</button>';
+    }else if(est==='completado'){
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
+      html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" style="background:#904891;font-size:11px">📨 Aviso Cotizaciones</button>';
+    }else if(est==='aviso_enviado'||est==='enviado'){
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
+      html+='<button class="btn-p" onclick="marcarTransferido(_btnIds['+_k+'])" style="background:#1e40af;font-size:11px">💳 Transferido</button>';
+    }else if(est==='transferido'){
+      html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" style="background:#0c4a6e;font-size:11px">⚙️ Previred</button>';
+    }else if(est==='en_previred'){
+      html+='<button class="btn-p" onclick="enviarAprobacionRrhh(_btnIds['+_k+'])" style="background:#854F0B;font-size:11px">⏳ A aprobación</button>';
+    }else if(est==='pendiente_aprobacion'||est==='aprobacion'){
+      html+='<span style="font-size:11px;color:var(--tm);padding:4px">⏳ En aprobación</span>';
+    }else if(est==='aprobado'){
+      html+='<button class="btn-p" onclick="marcarFinalizadoRrhh(_btnIds['+_k+'])" style="background:#064e3b;font-size:11px">🔒 Finalizar</button>';
+    }else if(est==='finalizado'){
+      html+='<span style="font-size:11px;color:var(--green);padding:4px">🔒 Finalizado</span>';
+    }else{
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
     }
     html+='</div></td>';
     html+='</tr>';
@@ -1202,7 +1234,7 @@ function enviarReporteParcial(){
   if(!to){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
   var u=getUsuario();
   var periodo=formatPeriodo(r.periodo);
-  if(!confirm('¿Enviar Pre-Reporte RRHH de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to+'\n\nSale desde: reportes@contadoor.cl'))return;
+  if(!confirm('¿Enviar Aviso de Cotizaciones RRHH de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to+'\n\nSale desde: reportes@contadoor.cl'))return;
   var btn=document.getElementById('btnEnviarParcial');
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   var data=(_remuData&&_remuData.trabajadores&&_remuData.trabajadores.length)?_remuData:null;
@@ -1216,7 +1248,7 @@ function enviarReporteParcial(){
     body:JSON.stringify({
       toEmail:to,
       toNombre:r.clienteNombre||r.rut,
-      subject:'Pre-Reporte RRHH · '+periodo+' · '+hesc(r.clienteNombre||r.rut),
+      subject:'Aviso de Cotizaciones RRHH · '+periodo+' · '+hesc(r.clienteNombre||r.rut),
       htmlReporte:htmlEmail,
       replyTo:u.email||'info@contadoor.cl'
     })
@@ -1235,14 +1267,14 @@ function enviarReporteParcial(){
       renderTabla();
       var t=document.createElement('div');
       t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-      t.textContent='✅ Pre-Reporte enviado a '+to;document.body.appendChild(t);
+      t.textContent='✅ Aviso de Cotizaciones enviado a '+to;document.body.appendChild(t);
       setTimeout(function(){t.remove();},4000);
     }else{
       alert('Error al enviar: '+(d.error||JSON.stringify(d).slice(0,200)));
     }
   })
   .catch(function(err){alert('Error de conexión: '+err.message);})
-  .finally(function(){if(btn){btn.disabled=false;btn.textContent='📨 Enviar Pre-Reporte';}});
+  .finally(function(){if(btn){btn.disabled=false;btn.textContent='📨 Enviar Aviso de Cotizaciones';}});
 }
 function buildPreReporteRrhhHTML(r,data){
   var periodo=formatPeriodo(r.periodo);
@@ -1274,11 +1306,11 @@ function buildPreReporteRrhhHTML(r,data){
     var mailUrl='mailto:'+analistaEmail+'?subject='+encodeURIComponent('Postergacion cotizaciones '+periodo)+'&body='+encodeURIComponent('Hola Contadoor. Empresa: '+(r.clienteNombre||'')+'. Período: '+periodo);
   h+='<div style="background:linear-gradient(135deg,#6D2E6E,#904891);padding:18px 28px;display:flex;align-items:center;justify-content:space-between">';
   h+='<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:26px;filter:brightness(0) invert(1)">';
-  h+='<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Pre-Reporte RRHH · '+periodo+'</span>';
+  h+='<span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Aviso de Cotizaciones RRHH · '+periodo+'</span>';
   h+='</div>';
   h+='<div style="padding:20px 28px;border-bottom:1px solid #eee">';
   h+='<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 8px">Hola '+hesc(contacto)+',</p>';
-  h+='<p style="font-size:13px;color:#333;line-height:1.75;margin:0 0 8px">Compartimos el <strong style="color:#904891">Pre-Reporte de Remuneraciones · '+periodo+'</strong> para que puedas planificar el pago de cotizaciones previsionales.</p>';
+  h+='<p style="font-size:13px;color:#333;line-height:1.75;margin:0 0 8px">Compartimos el <strong style="color:#904891">Aviso de Cotizaciones de Remuneraciones · '+periodo+'</strong> para que puedas planificar el pago de cotizaciones previsionales.</p>';
   h+='<p style="font-size:12px;color:#5c4a5d;line-height:1.65;margin:0">Este es un <strong>informe previo</strong>. En los próximos días recibirás el Reporte Mensual Consolidado con el detalle completo de obligaciones.</p>';
   h+='</div>';
   // Alerta días restantes
@@ -1333,7 +1365,7 @@ function enviarPreReporteRrhh(id){
   if(!to){alert('El cliente no tiene email registrado.');return;}
   var u=getUsuario();
   var periodo=formatPeriodo(r.periodo);
-  if(!confirm('¿Enviar Pre-Reporte RRHH de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to+'\n\nSale desde: reportes@contadoor.cl'))return;
+  if(!confirm('¿Enviar Aviso de Cotizaciones RRHH de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to+'\n\nSale desde: reportes@contadoor.cl'))return;
   var data=null;
   if(_remuData&&_remuData.trabajadores&&_remuData.trabajadores.length){
     var perLibro=String(_remuData.periodo||'').replace('-','');
@@ -1350,7 +1382,7 @@ function enviarPreReporteRrhh(id){
     body:JSON.stringify({
       toEmail:to,
       toNombre:r.clienteNombre||r.rut,
-      subject:'Pre-Reporte RRHH · '+periodo+' · '+hesc(r.clienteNombre||r.rut),
+      subject:'Aviso de Cotizaciones RRHH · '+periodo+' · '+hesc(r.clienteNombre||r.rut),
       htmlReporte:htmlEmail,
       replyTo:u.email||'info@contadoor.cl'
     })
@@ -1368,7 +1400,7 @@ function enviarPreReporteRrhh(id){
       renderTabla();
       var t=document.createElement('div');
       t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-      t.textContent='✅ Pre-Reporte enviado a '+to;document.body.appendChild(t);
+      t.textContent='✅ Aviso de Cotizaciones enviado a '+to;document.body.appendChild(t);
       setTimeout(function(){t.remove();},4000);
     }else{
       alert('Error: '+(d.error||JSON.stringify(d).slice(0,200)));
@@ -1389,7 +1421,7 @@ function enviarPreReporteMasivo(){
     return !!(r.clienteEmail||(c&&c.email));
   });
   if(!conEmail.length){alert('No hay clientes con email en este período.');return;}
-  if(!confirm('¿Enviar Pre-Reporte RRHH a '+conEmail.length+' clientes?\nPeríodo: '+formatPeriodo(perKey)))return;
+  if(!confirm('¿Enviar Aviso de Cotizaciones RRHH a '+conEmail.length+' clientes?\nPeríodo: '+formatPeriodo(perKey)))return;
   var enviados=0,errores=0,total=conEmail.length;
   var u=getUsuario();
   var toastEl=document.createElement('div');
@@ -1411,7 +1443,7 @@ function enviarPreReporteMasivo(){
     toastEl.textContent='Enviando '+(idx+1)+' / '+total+': '+hesc(r.clienteNombre||r.rut)+'...';
     var htmlContent=buildPreReporteRrhhHTML(r,null);
     var htmlEmail='<div style="max-width:600px;margin:0 auto;background:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;border-radius:4px;overflow:hidden">'+htmlContent+'</div>';
-    fetch('https://contafunnel-proxy.vercel.app/api/crear-evento',{
+    fetch('https://contafunnel-proxy.vercel.app/api/enviar-reporte',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({tipo:'reporte',analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',
         toEmail:to,replyTo:u.email||'reportes@contadoor.cl',
@@ -1421,7 +1453,65 @@ function enviarPreReporteMasivo(){
     .then(function(res){return res.ok?res.json():Promise.reject(res.status);})
     .then(function(d){if(d.ok||d.id||d.messageId)enviados++;else errores++;})
     .catch(function(){errores++;})
-    .finally(function(){setTimeout(function(){enviarUno(idx+1);},800);});
+    .finally(function(){setTimeout
+// ── FLUJO DE PAGOS RRHH ──────────────────────────────────────────────────────
+function sbPatchRrhh(id,data){
+  fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/reportes_mensuales?id=eq.'+encodeURIComponent(id),{
+    method:'PATCH',
+    headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Content-Type':'application/json','Prefer':'return=representation'},
+    body:JSON.stringify(data)
+  }).catch(function(){});
+}
+function actualizarEstadoRrhh(id,nuevoEstado,extra){
+  var arr=getReportes();
+  var i=arr.findIndex(function(x){return String(x.id)===String(id);});
+  if(i<0)return;
+  arr[i].estado=nuevoEstado;
+  if(extra)Object.assign(arr[i],extra);
+  setReportes(arr);
+  sbPatchRrhh(id,Object.assign({estado:nuevoEstado},extra||{}));
+}
+function toast(msg){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999;max-width:300px';
+  t.textContent=msg;document.body.appendChild(t);
+  setTimeout(function(){t.remove();},3500);
+}
+function enviarAvisoCot(id){_vistaId=id;enviarPreReporteRrhh(id);}
+function marcarTransferido(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
+  if(!confirm('¿Confirmar que '+hesc(r.clienteNombre)+' ya realizó la transferencia?'))return;
+  actualizarEstadoRrhh(id,'transferido',{fechaTransferido:new Date().toISOString()});
+  renderTabla();toast('💳 Marcado como transferido');
+}
+function marcarEnPreviredRrhh(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
+  if(!confirm('¿Confirmar ingreso en Previred para '+hesc(r.clienteNombre)+'?'))return;
+  actualizarEstadoRrhh(id,'en_previred',{fechaPrevired:new Date().toISOString(),quienPrevired:getUsuario().nombre||''});
+  renderTabla();toast('⚙️ Ingresado en Previred');
+}
+function enviarAprobacionRrhh(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
+  if(!confirm('¿Enviar a aprobación de Luciano?'))return;
+  actualizarEstadoRrhh(id,'pendiente_aprobacion',{fechaAprobacion:new Date().toISOString()});
+  var obs=[];try{obs=JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){}
+  var u=getUsuario();
+  obs.push({id:Date.now()+Math.random(),rut:r.rut,clienteNombre:r.clienteNombre||r.rut,
+    area:'rrhh',tipo:'Cotizaciones previsionales',
+    concepto:'Cotizaciones '+formatPeriodo(r.periodo),
+    monto:r.totalCot||r.totalGeneral||0,periodo:r.periodo,
+    estado:'aprobacion',refReporteId:String(r.id),
+    creadoPor:u.nombre||'',fechaCreacion:new Date().toISOString()});
+  localStorage.setItem('pagos_bd',JSON.stringify(obs));
+  renderTabla();toast('⏳ Enviado a aprobación');
+}
+function marcarFinalizadoRrhh(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
+  if(!confirm('¿Verificaste que las cotizaciones quedaron pagadas correctamente?\nEsto cierra el proceso de '+hesc(r.clienteNombre)+'.'))return;
+  actualizarEstadoRrhh(id,'finalizado',{fechaFinalizado:new Date().toISOString(),quienFinalizo:getUsuario().nombre||''});
+  renderTabla();toast('🔒 Proceso finalizado correctamente');
+}
+(function(){enviarUno(idx+1);},800);});
   }
   enviarUno(0);
 }
