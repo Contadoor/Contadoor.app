@@ -85,7 +85,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="sb-sec">Gestión</div>
     <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
     <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../reportes/index.html">📋 Panel de Control</a>
+    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
     <div class="sb-sec">Remuneraciones</div>
     <a class="sb-item" href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
@@ -227,7 +227,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
 var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-var PROXY='https://contafunnel-proxy.vercel.app';
+var PROXY='https://contafunnel-v2.vercel.app';
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function nv(id){var e=document.getElementById(id);return parseFloat((e?e.value:'')||0)||0;}
@@ -596,7 +596,7 @@ function enviarPreIVA(){
   var varComp='';
   if(f29Ant>0){var vp=Math.round((f29Num-f29Ant)/f29Ant*100);var vi=vp>0?'↗':vp<0?'↘':'=';varComp='F29 proyectado: '+ff(f29Num)+' · '+vi+' '+(vp>0?'+':'')+vp+'% vs '+formatPeriodo(getPeriodoAnterior(_periodoActual));}
   function minHTML(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
-  fetch(PROXY+'/api/crear-evento',{
+  fetch(PROXY+'/api/enviar-preiva',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
