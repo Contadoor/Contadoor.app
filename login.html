@@ -168,15 +168,9 @@ function getUsuariosLocal(){
 
 function buscarUsuarioPorEmail(email){
   var emailLower = email.toLowerCase().trim();
-  // 1. Buscar en local primero (más rápido)
-  var local = getUsuariosLocal();
-  var localMatch = local.find(function(u){
-    return u.email && u.email.toLowerCase()===emailLower;
-  });
-  if(localMatch) return Promise.resolve(localMatch);
 
-  // 2. Buscar en Supabase
-  return fetch(SB_URL+'/rest/v1/usuarios?email=eq.'+encodeURIComponent(email)+'&activo=eq.true&select=*',{
+  // Buscar SIEMPRE en Supabase primero (fuente principal)
+  return fetch(SB_URL+'/rest/v1/usuarios_sistema?email=eq.'+encodeURIComponent(email)+'&select=*',{
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
   })
   .then(function(r){return r.ok?r.json():[];})
@@ -190,12 +184,19 @@ function buscarUsuarioPorEmail(email){
       rol:u.rol, rolLabel:u.rol_label||u.rol,
       email:u.email||'', wa:u.wa||'',
       pin:u.pin||'0000',
-      esMaster:u.rol==='master',
+      esMaster:u.es_master||u.rol==='master',
       activo:u.activo!==false,
       modulos:u.modulos||[]
     };
   })
-  .catch(function(){return null;});
+  .catch(function(){
+    // Fallback: buscar en localStorage (offline)
+    var local = getUsuariosLocal();
+    var localMatch = local.find(function(u){
+      return u.email && u.email.toLowerCase()===emailLower;
+    });
+    return localMatch||null;
+  });
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
