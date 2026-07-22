@@ -1158,14 +1158,16 @@ function parsearLibro(file){
         var trabajadores=[];
         for(var fi=0;fi<filas.length;fi++){
           var celdas=filas[fi].querySelectorAll('td');
-          if(celdas.length<30) continue;
+          if(celdas.length<20) continue;
           var c=[];
           for(var ci=0;ci<celdas.length;ci++) c.push(celdas[ci].textContent.trim());
-          // Ignorar fila de totales
-          var primerVal=c[0]||'';
-          if(/totales?/i.test(primerVal)||/totales?/i.test(c[1]||'')) break;
-          // Solo filas con RUT válido (formato XX.XXX.XXX-X)
-          if(!/\d{1,2}\.\d{3}\.\d{3}-[\dkK]/.test(c[IDX.rut])) continue;
+          // Ignorar fila de totales (cualquier columna que diga Totales)
+          if(/totales?/i.test(c[IDX.pctAfp]||'')) break;
+          // Filtro principal: columna PERIODO debe tener formato MM-YYYY (ej: 06-2026)
+          // Fallback: columna RUT tiene dígitos con guión
+          var periodoValido=/^\d{2}-\d{4}$/.test(c[0]);
+          var rutValido=/\d{7,8}-[\dkK]/i.test((c[IDX.rut]||'').replace(/\./g,''));
+          if(!periodoValido && !rutValido) continue;
           var diasT=parseInt(c[IDX.dias])||0;
           var diasL=parseInt(c[IDX.licencia])||0;
           trabajadores.push({
@@ -1211,7 +1213,20 @@ function parsearLibro(file){
             tributable:     montoCLP(c[IDX.tributable])
           });
         }
-        if(!trabajadores.length){reject(new Error('No se encontraron trabajadores con RUT válido.'));return;}
+        if(!trabajadores.length){
+          // Debug: mostrar primeras 3 filas para diagnóstico
+          var debugRows=[];
+          var allRows=tabla.querySelectorAll('tr');
+          for(var di=0;di<Math.min(5,allRows.length);di++){
+            var dCeldas=allRows[di].querySelectorAll('td');
+            if(dCeldas.length>5){
+              debugRows.push('Fila '+di+' ('+dCeldas.length+' celdas): c[0]="'+dCeldas[0].textContent.trim()+'" c[1]="'+dCeldas[1].textContent.trim()+'"');
+            }
+          }
+          console.warn('Parser debug:', debugRows.join(' | '));
+          reject(new Error('No se encontraron trabajadores.\n\nDiagnóstico (consola F12):\n'+debugRows.slice(0,3).join('\n')));
+          return;
+        }
         // ── Totales consolidados ──────────────────────────────────
         function sum(campo){return trabajadores.reduce(function(s,t){return s+(t[campo]||0);},0);}
         var nomina           = sum('liquido');
