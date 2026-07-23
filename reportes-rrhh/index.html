@@ -567,7 +567,7 @@ function setHistoricoRemu(o){localStorage.setItem('remu_historico',JSON.stringif
 document.addEventListener('DOMContentLoaded',function(){
   var btnM=document.getElementById('btnEnviarMasivo');
   var btnD=document.getElementById('btnDeseleccionar');
-  if(btnM) btnM.onclick=enviarMasivoRrhh;
+  if(btnM) btnM.onclick=enviarSeleccionados; // era enviarMasivoRrhh (legacy eliminado)
   if(btnD) btnD.onclick=deseleccionarRrhh;
 });
 function init(){
@@ -741,28 +741,6 @@ function deseleccionarRrhh(){
   document.querySelectorAll('.rrhh-chk').forEach(function(c){c.checked=false;});
   actualizarBulkBar();
 }
-function enviarMasivoRrhh(){
-  var chks=document.querySelectorAll('.rrhh-chk:checked');
-  if(!chks.length){return;}
-  var ids=Array.from(chks).map(function(c){return c.getAttribute('data-id');});
-  var arr=getReportes();
-  var enviados=0;
-  ids.forEach(function(id){
-    var r=arr.find(function(x){return String(x.id)===String(id);});
-    if(!r) return;
-    if(getEstadoRrhh(r)!=='completado'&&getEstadoRrhh(r)!=='enviado'){
-      alert('El reporte de '+r.clienteNombre+' no está completo aún.');return;
-    }
-    r.estado='enviado_rrhh'; enviados++;
-  });
-  if(enviados>0){
-    setReportes(arr);
-  (function(){var _r=getReportes().find(function(x){return x.rut===rut&&String(x.periodo)===String(periodo);});if(_r)syncEstado(_r.rut,String(_r.periodo),{estado:_r.estado||'en_proceso'});})();
-  if(r&&r.rut&&r.periodo) sbPatchReporte(r.rut,r.periodo,{estado:r.estado||'enviado'}).catch(function(){});
-    deseleccionarRrhh();
-    cargarPeriodo();
-  }
-}
 
 function renderTabla(periodo){
   _btnIds={};
@@ -853,7 +831,7 @@ function renderTabla(periodo){
   }
 
   var html='<table><thead><tr>'
-    +'<th style="width:30px"><input type="checkbox" id="chkAll" onchange="document.querySelectorAll(\'.rrhh-chk\').forEach(function(c){c.checked=document.getElementById(\'chkAll\').checked;});actualizarBulkBar();"></th>'
+    +'<th style="width:30px"><input type="checkbox" id="chkAll" onchange="document.querySelectorAll(\'.rrhh-chk:not(:disabled)\').forEach(function(c){c.checked=document.getElementById(\'chkAll\').checked;});actualizarBulkBar();"></th>'
     +'<th>Cliente / Plan</th>'
     +'<th>Etapas</th>'
     +'<th>Prioridad</th>'
@@ -873,7 +851,7 @@ function renderTabla(periodo){
     var planLabel=c&&c.plan?c.plan:' - ';
 
     var est_r=getEstadoRrhh(r);
-    var _chkOk=(est_r==='completado'||est_r==='enviado'); // 'enviado' = legacy aviso state
+    var _chkOk=(est_r==='completado'); // solo RRHH OK puede iniciar nuevo aviso
     html+='<tr>'
       +'<td style="text-align:center">'
       +(_chkOk
@@ -942,16 +920,18 @@ function renderTabla(periodo){
       html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" style="background:#904891;font-size:11px">📨 Aviso Cotizaciones</button>';
     }else if(est==='aviso_enviado'||est==='enviado'){
       html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
+      html+='<button onclick="reenviarAviso(_btnIds['+_k+'])" style="font-size:11px;background:#fff;color:#904891;border:1px solid #904891;border-radius:6px;padding:5px 9px;cursor:pointer">📨 Reenviar aviso</button>';
+      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" style="font-size:11px;background:#fff;color:#C07A1A;border:1px solid #C07A1A;border-radius:6px;padding:5px 9px;cursor:pointer">🔄 Reprocesar</button>';
       if(!r.haPostergado){
         html+='<span style="font-size:10px;background:#fef9ec;color:#854F0B;border:1px solid #fde68a;padding:2px 8px;border-radius:20px">⏳ Esperando pago</span>';
-        html+='<button onclick="marcarPostergado(_btnIds['+_k+'])" style="font-size:10px;background:#fff;color:#904891;border:1px solid #e8dde8;border-radius:6px;padding:2px 8px;cursor:pointer">📅 Postergó</button>';
       }else{
-        html+='<span style="font-size:10px;background:#f5f0f8;color:#904891;border:1px solid #e8dde8;padding:2px 8px;border-radius:20px">📅 Postergó — rec. 25-30</span>';
+        html+='<span style="font-size:10px;background:#f5f0f8;color:#904891;border:1px solid #e8dde8;padding:2px 8px;border-radius:20px">📅 Postergó</span>';
       }
     }else if(est==='transferido'){
       html+='<div style="display:flex;flex-direction:column;gap:4px">';
       html+='<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:20px;text-align:center">💳 Cliente transfirió</span>';
       html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" style="background:#0c4a6e;font-size:11px">⚙️ Ingresar Previred</button>';
+      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" style="font-size:10px;background:#fff;color:#C07A1A;border:1px solid #C07A1A;border-radius:6px;padding:3px 8px;cursor:pointer">🔄 Reprocesar RRHH</button>';
       html+='</div>';
     }else if(est==='en_previred'){
       html+='<button class="btn-p" onclick="enviarAprobacionRrhh(_btnIds['+_k+'])" style="background:#854F0B;font-size:11px">⏳ A aprobación</button>';
@@ -974,12 +954,21 @@ function renderTabla(periodo){
 }
 
 function getEstadoRrhh(r){
+  // ── Estados operacionales — PRIORIDAD ABSOLUTA ─────────────────
+  // Una vez que el flujo de pagos avanzó, NADA puede retrogradar el estado.
+  // Solo un reprocesamiento explícito puede volver a 'completado'.
+  var _est = r.estado||'';
+  var ESTADOS_OP = {
+    'finalizado':1,'aprobado':1,'pendiente_aprobacion':1,'aprobacion':1,
+    'en_previred':1,'transferido':1,'aviso_enviado':1,'cancelado':1
+  };
+  if(ESTADOS_OP[_est]) return _est;
+  // Legacy mapping
+  if(_est==='enviado_rrhh'||_est==='enviado'||_est==='procesado') return 'aviso_enviado';
+  // ── Estados RRHH — basados en secciones ────────────────────────
   var sec=r.secciones&&r.secciones.rrhh;
-  if(!sec) return 'pendiente';
-  if(r.estado==='enviado_rrhh'||r.estado==='enviado'||r.estado==='procesado') return 'enviado';
-  if(sec.ok) return 'completado';
-  if(r.usaArchivo||r.afp>0) return 'libro_ok';
-  // Detectar atraso  -  simplificado: si el período ya venció
+  if(sec&&sec.ok) return 'completado';
+  if(r.usaArchivo||r.afp>0||r.nTrab>0) return 'libro_ok';
   return 'pendiente';
 }
 
@@ -1557,7 +1546,8 @@ function abrirModal(id,enviar){
   _reporteActual=r;
   // Cargar historial 6 meses del cliente
   setTimeout(function(){renderHistorialCliente6m(r.rut);},100);
-  document.getElementById('modal-cliente-nombre').textContent=hesc(r.clienteNombre||r.rut)+'  -  '+formatPeriodo(r.periodo);
+  var _revLabel=r.revision&&r.revision>1?' · v'+r.revision:'';
+  document.getElementById('modal-cliente-nombre').textContent=hesc(r.clienteNombre||r.rut)+'  -  '+formatPeriodo(r.periodo)+_revLabel;
   setV('m-reporte-id',r.id);
   setV('m-cliente-rut',r.rut);
   // Pre-llenar si hay datos
@@ -1776,8 +1766,9 @@ function guardarRrhh(accion){
       }
 
       if(hayTrabajadores && idReal){
+        var _revision = arr[idx].revision||1;
         return sbReplaceTrabajadoresRrhh(
-          idReal, arr[idx].rut, arr[idx].periodo, _remuData.trabajadores
+          idReal, arr[idx].rut, arr[idx].periodo, _remuData.trabajadores, _revision
         ).then(function(){
           console.log('[RRHH] Detalle trabajadores guardado: '+
             _remuData.trabajadores.length+' trabajadores');
@@ -1916,7 +1907,7 @@ function buildPreReporteRrhhHTML(r,data){
   // Saludo
   +'<div style="padding:18px 24px 14px;border-bottom:1px solid #f0ebf0">'
   +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 6px">Hola '+contacto+',</p>'
-  +'<p style="font-size:13px;color:#5c4a5d;margin:0;line-height:1.7">Compartimos el <strong style="color:#904891">Aviso de Cotizaciones · '+periodo+'</strong> para que puedas planificar el pago de las obligaciones previsionales de tu empresa.</p>'
+  +'<p style="font-size:13px;color:#5c4a5d;margin:0;line-height:1.7">Compartimos el <strong style="color:#904891">'+(r.revision&&r.revision>1?'Actualizaci\u00f3n de Cotizaciones · Revisi\u00f3n '+r.revision+' · ':'Aviso de Cotizaciones · ')+periodo+'</strong> para que puedas planificar el pago de las obligaciones previsionales de tu empresa.</p>'
   +'</div>'
   // Fechas importantes
   +'<div style="padding:14px 24px;background:#f5f0f8;border-bottom:1px solid #e8dde8">'
@@ -2022,8 +2013,10 @@ function validarParaEnvioAviso(r){
   if(est==='libro_ok'){
     return {ok:false, motivo:'El libro fue cargado pero el reporte RRHH no ha sido marcado como OK (Completado).'};
   }
-  // (estados aviso_enviado / enviado / transferido / etc. pueden re-enviar —
-  //  las validaciones de pendiente y libro_ok arriba son la barrera real)
+  // 2c. Solo 'completado' puede iniciar un NUEVO Aviso (getEstadoRrhh ya tiene prioridad correcta)
+  if(est!=='completado'){
+    return {ok:false, motivo:'Solo reportes en estado RRHH OK (Completado) pueden enviar el Aviso de Cotizaciones. Estado actual: '+est};
+  }
   // 3. Al menos 1 trabajador
   var nTrab=r.nTrab||r.trabM||0;
   if(nTrab<=0){
@@ -2039,6 +2032,10 @@ function validarParaEnvioAviso(r){
   var email=r.clienteEmail||(_cli&&_cli.email)||'';
   if(!email){
     return {ok:false, motivo:'El cliente no tiene un correo electrónico registrado.'};
+  }
+  // 5b. Formato email válido
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+    return {ok:false, motivo:'El correo del cliente no tiene un formato válido: '+email};
   }
   return {ok:true, email:email};
 }
@@ -2095,7 +2092,8 @@ function enviarAvisoRrhhCore(r, opciones){
       toEmpresa:r.clienteNombre||r.rut,
       periodo:periodo,
       htmlReporte:htmlEmail,
-      replyTo:replyTo
+      replyTo:replyTo,
+      revision:r.revision||1
     })
   })
   .then(function(res){
@@ -2108,7 +2106,7 @@ function enviarAvisoRrhhCore(r, opciones){
       // Log completo de la respuesta del endpoint
       console.log('[RRHH EMAIL] respuesta endpoint:',JSON.stringify(d));
       if(d&&(d.id||d.messageId)) console.log('[RRHH EMAIL] messageId proveedor:',d.id||d.messageId);
-      if(!(d&&d.ok)) return {ok:false, motivo:d&&d.error?d.error:'El servidor rechazó el envío.'};
+      if(!(d&&d.ok)) return {ok:false, emailEnviado:false, estadoActualizado:false, motivo:d&&d.error?d.error:'El servidor rechazó el envío.'};
       // ── 4. PATCH Supabase (awaited — no fire-and-forget) ───
       var fechaEnvio=new Date().toISOString();
       var idReal=/^\d+$/.test(String(r.id))?r.id:null;
@@ -2125,7 +2123,7 @@ function enviarAvisoRrhhCore(r, opciones){
         console.log('[RRHH EMAIL] PATCH Supabase:',idReal?(_patchOk?'ok':'FALLÓ (patchRes null)'):'sin id real (nuevo reporte)');
         if(!_patchOk&&idReal){
           // Correo llegó pero el estado no quedó en Supabase
-          return {ok:false, emailEnviado:true, motivo:'Correo enviado pero estado no actualizado en Supabase.'};
+          return {ok:false, emailEnviado:true, estadoActualizado:false, motivo:'Correo enviado pero estado no actualizado en Supabase.'};
         }
         // ── 5. Actualizar caché local ─────────────────────────
         var arr=getReportes();
@@ -2136,16 +2134,17 @@ function enviarAvisoRrhhCore(r, opciones){
           arr[i].estado='aviso_enviado';
           setReportesCache(arr);
         }
-        return {ok:true, email:val.email};
+        var _msgId = typeof d!=='undefined'&&d?(d.id||d.messageId||null):null;
+        return {ok:true, emailEnviado:true, estadoActualizado:true, email:val.email, messageId:_msgId};
       }).catch(function(_patchErr){
         console.error('[RRHH EMAIL] PATCH Supabase excepción:',_patchErr);
-        return {ok:false, emailEnviado:true, motivo:'Correo enviado pero excepción en PATCH Supabase.'};
+        return {ok:false, emailEnviado:true, estadoActualizado:false, motivo:'Correo enviado pero excepción en PATCH Supabase: '+(_patchErr&&_patchErr.message||_patchErr)};
       });
     });
   })
   .catch(function(err){
     console.error('[RRHH EMAIL] Error fetch:',err);
-    return {ok:false, motivo:'Error de conexión: '+(err.message||String(err))};
+    return {ok:false, emailEnviado:false, estadoActualizado:false, motivo:'Error de conexión: '+(err.message||String(err))};
   });
 }
 
@@ -2172,56 +2171,127 @@ function enviarPreReporteRrhh(id){
 }
 
 
-function enviarPreReporteMasivo(){
-  var per=getPeriodoActivo();
-  if(!per){alert('No hay período activo.');return;}
-  var perKey=per.periodo;
-  var arr=getReportes().filter(function(r){
-    return String(r.periodo||'').replace('-','')===String(perKey).replace('-','');
-  });
-  var clientes=getClientes();
-  var conEmail=arr.filter(function(r){
-    var c=clientes.find(function(x){return x.rut===r.rut;});
-    return !!(r.clienteEmail||(c&&c.email));
-  });
-  if(!conEmail.length){alert('No hay clientes con email en este período.');return;}
-  if(!confirm('¿Enviar Aviso de Cotizaciones RRHH a '+conEmail.length+' clientes?\nPeríodo: '+formatPeriodo(perKey)))return;
-  var enviados=0,errores=0,total=conEmail.length;
-  var u=getUsuario();
-  var toastEl=document.createElement('div');
-  toastEl.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a0a1b;border:1px solid #904891;color:#f0ebff;padding:14px 18px;border-radius:8px;font-size:13px;z-index:9999;min-width:240px';
-  toastEl.textContent='Enviando 0 / '+total+'...';
-  document.body.appendChild(toastEl);
-  function minH(h){var s=h||'';return s.replace(/>  +</g,'><').replace(/  +/g,' ');}
 
-  function enviarUno(idx){
-    if(idx>=conEmail.length){
-      toastEl.style.borderColor='#4ade80';toastEl.style.color='#4ade80';
-      toastEl.textContent='✅ Enviados: '+enviados+(errores?' · '+errores+' errores':'');
-      setTimeout(function(){toastEl.remove();},6000);
-      return;
-    }
-    var r=conEmail[idx];
-    var c=clientes.find(function(x){return x.rut===r.rut;});
-    var to=r.clienteEmail||(c&&c.email)||'';
-    toastEl.textContent='Enviando '+(idx+1)+' / '+total+': '+hesc(r.clienteNombre||r.rut)+'...';
-    var htmlContent=buildPreReporteRrhhHTML(r,null);
-    var htmlEmail='<div style="max-width:600px;margin:0 auto;background:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;border-radius:4px;overflow:hidden">'+htmlContent+'</div>';
-    fetch('https://contafunnel-v2.vercel.app/api/enviar-cotizaciones',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',
-        toEmail:to,replyTo:u.email||(getClientes().find(function(x){return x.rut===r.rut;})||{}).emailAnalista||'reportes@contadoor.cl',
-        toNombre:r.clienteNombre||r.rut,toEmpresa:r.clienteNombre||r.rut,
-        periodo:formatPeriodo(r.periodo),htmlReporte:minH(htmlEmail)})
+// ── REENVÍO DEL MISMO AVISO (sin cambiar revisión ni flujo) ─────────────────
+function reenviarAviso(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});
+  if(!r){alert('Reporte no encontrado.');return;}
+  var _cli=getClientes().find(function(x){return x.rut===r.rut;});
+  var _email=r.clienteEmail||(_cli&&_cli.email)||'';
+  if(!_email){alert('El cliente no tiene email registrado.');return;}
+  var _rev=r.revision||1;
+  if(!confirm('El reporte NO ser\u00e1 modificado.\nSe reenviar\u00e1 el aviso de cotizaciones (Revisi\u00f3n '+_rev+') exactamente como est\u00e1.\n\nEmail destino: '+_email+'\n\n\u00bfContinuar?'))return;
+  // Usa el core pero sin cambiar el guard rail — bypass temporal de estado
+  // Al reenviar: estado permanece aviso_enviado, solo actualiza fecha
+  var u=getUsuario();
+  var periodo=formatPeriodo(r.periodo);
+  var htmlContent;
+  try{htmlContent=buildPreReporteRrhhHTML(r,null);}
+  catch(e){alert('Error generando email: '+e.message);return;}
+  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
+  htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
+  console.log('[RRHH REENVÍO] reporte_id:',r.id,'| rev:',_rev,'| email:',_email);
+  fetch('https://contafunnel-v2.vercel.app/api/enviar-cotizaciones',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',
+      toEmail:_email,toNombre:(_cli&&(_cli.contacto||_cli.contact))||r.clienteNombre||r.rut,
+      toEmpresa:r.clienteNombre||r.rut,periodo:periodo,htmlReporte:htmlEmail,
+      replyTo:u.email||(_cli&&_cli.emailAnalista)||'reportes@contadoor.cl',
+      revision:_rev
     })
-    .then(function(res){return res.ok?res.json():Promise.reject(res.status);})
-    .then(function(d){if(d.ok||d.id||d.messageId)enviados++;else errores++;})
-    .catch(function(){errores++;})
-    .finally(function(){setTimeout(function(){enviarUno(idx+1);},800);});
-  }
-  enviarUno(0);
+  }).then(function(res){return res.ok?res.json():res.text().then(function(t){return {ok:false,error:'HTTP '+res.status+': '+t.slice(0,100)};});})
+  .then(function(d){
+    console.log('[RRHH REENV\u00cdO] respuesta:',JSON.stringify(d));
+    if(d&&d.ok){
+      // Solo registrar fecha de reenv\u00edo, NO cambiar estado ni revisi\u00f3n
+      var arr=getReportes();
+      var i=arr.findIndex(function(x){return String(x.id)===String(id);});
+      if(i>=0){arr[i].preReporteFecha=new Date().toISOString();setReportesCache(arr);}
+      toast('\u2705 Aviso reenviado a '+_email);
+    }else{alert('\u274c Error al reenviar: '+(d&&d.error)||'Error desconocido');}
+  }).catch(function(err){alert('Error de conexión: '+err.message);});
 }
-// ── FLUJO DE PAGOS RRHH ──────────────────────────────────────────────────────
+
+// ── INICIO DE REPROCESO RRHH ──────────────────────────────────────────────────
+function iniciarReproceso(id){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});
+  if(!r){alert('Reporte no encontrado.');return;}
+  var _revActual=r.revision||1;
+  var _esUrgente=(r.estado==='finalizado');
+  var _msgExtra=_esUrgente?'\n\n\u26a0\ufe0f ATENCI\u00d3N: Este reporte est\u00e1 FINALIZADO. El reproceso es excepcional.':'';
+  if(!confirm('\u26a0\ufe0f Vas a reprocesar un reporte que ya avanz\u00f3 en el flujo.\n\nSe crear\u00e1 la Revisi\u00f3n '+(_revActual+1)+' del RRHH.\nLa versi\u00f3n anterior (v'+_revActual+') quedar\u00e1 disponible para auditor\u00eda.\nEl nuevo proceso volver\u00e1 a RRHH OK y deber\u00e1s enviar nuevamente el Aviso.\nLos movimientos bancarios reales NO ser\u00e1n eliminados.'+_msgExtra+'\n\n\u00bfDeseas continuar?'))return;
+  var motivo=prompt('Motivo del reproceso (obligatorio):','');
+  if(!motivo||!motivo.trim()){alert('Debes ingresar el motivo del reproceso.');return;}
+  ejecutarReproceso(id, motivo.trim());
+}
+
+// ── EJECUCIÓN DEL REPROCESO ───────────────────────────────────────────────────
+function ejecutarReproceso(id, motivo){
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});
+  if(!r){alert('Reporte no encontrado.');return;}
+  var u=getUsuario();
+  var _revActual=r.revision||1;
+  var _revNueva=_revActual+1;
+  var idReal=/^\d+$/.test(String(r.id))?r.id:null;
+  if(!idReal){alert('El reporte no tiene ID real. Guárdalo antes de reprocesar.');return;}
+  // 1. Fotografiar versión anterior en reporte_rrhh_versiones
+  console.log('[RRHH REPROCESO] Fotografiando v'+_revActual+' de reporte',idReal);
+  sbFotografiarVersionRrhh(r, _revActual, motivo, u.nombre||'').then(function(){
+    // 2. PATCH para incrementar revisión y resetear flujo
+    var campos={
+      revision:           _revNueva,
+      reprocesado_at:     new Date().toISOString(),
+      reprocesado_por:    u.nombre||'',
+      motivo_reproceso:   motivo,
+      // Reset del flujo posterior
+      estado:             'completado',
+      pre_reporte_enviado:false,
+      pre_reporte_fecha:  null,
+      decision_cotiz:     null,
+      ha_postergado:      false,
+      fecha_postergacion: null,
+      n_recordatorios:    0,
+      ultimo_recordatorio:null,
+      fecha_previred:     null,
+      quien_previred:     null,
+      fecha_aprobacion:   null,
+      fecha_finalizado:   null,
+      quien_finalizado:   null
+    };
+    console.log('[RRHH REPROCESO] PATCH campos reset + revision',_revNueva);
+    return sbPatch('reportes_mensuales?id=eq.'+encodeURIComponent(idReal), campos);
+  }).then(function(patchRes){
+    if(!patchRes){
+      alert('\u274c Error al aplicar el reproceso en Supabase.');return;
+    }
+    // 3. Actualizar cache local
+    var arr=getReportes();
+    var i=arr.findIndex(function(x){return String(x.id)===String(id);});
+    if(i>=0){
+      Object.assign(arr[i],{
+        revision:_revNueva, reprocesadoAt:campos.reprocesado_at,
+        reprocesadoPor:campos.reprocesado_por, motivoReproceso:motivo,
+        estado:'completado', preReporteEnviado:false, preReporteFecha:null,
+        decisionCotiz:null, haPostergado:false, nRecordatorios:0,
+        ultimoRecordatorio:null, fechaPrevired:null, quienPrevired:null,
+        fechaAprobacion:null, fechaFinalizado:null, quienFinalizado:null,
+        // Limpiar secciones para forzar re-procesamiento
+        secciones:Object.assign({},arr[i].secciones||{},{rrhh:{ok:false}})
+      });
+      setReportesCache(arr);
+    }
+    renderTabla(sv('selectPeriodo'));
+    toast('\u2705 Reproceso iniciado. Carga el nuevo libro RRHH para la Revisi\u00f3n '+_revNueva+'.');
+    // Abrir modal para cargar nuevo libro
+    setTimeout(function(){abrirModal(id,false);},300);
+  }).catch(function(err){
+    console.error('[RRHH REPROCESO] Error:',err);
+    alert('\u274c Error en el reproceso: '+err.message);
+  });
+}
+
+
 function sbPatchRrhh(id,data){
   if(!id || /^nuevo_/.test(String(id))) return; // no parchear IDs temporales
   // Traducir camelCase → snake_case para Supabase
@@ -2577,11 +2647,12 @@ function enviarSeleccionados(){
     var _r=getReportes().find(function(x){return String(x.id)===String(ids[i]);});
     var nombreCliente=_r?(_r.clienteNombre||_r.rut):'ID '+ids[i];
     if(btnBar) btnBar.querySelector('span').textContent='Enviando '+(i+1)+'/'+total+': '+nombreCliente+'...';
-    enviarAvisoCotSilencioso(ids[i], function(ok, motivo, emailEnviado){
+    enviarAvisoCotSilencioso(ids[i], function(ok, motivo, emailEnviado, estadoActualizado){
       if(ok){
         enviados.push({nombre:nombreCliente});
       }else if(emailEnviado){
-        emailSinEstado.push({nombre:nombreCliente, motivo:motivo||'Estado no actualizado'});
+        // correo llegó al destinatario pero Supabase no se actualizó — NO reenviar
+        emailSinEstado.push({nombre:nombreCliente, motivo:(motivo||'Correo enviado. Supabase no actualizado')+' — NO reenviar para evitar duplicado'});
       }else{
         noEnviados.push({nombre:nombreCliente, motivo:motivo||'Error desconocido'});
       }
@@ -2609,7 +2680,7 @@ function enviarAvisoCotSilencioso(id, cb){
   // ── Motor único ─────────────────────────────────────────────
   enviarAvisoRrhhCore(r).then(function(res){
     console.log('[RRHH MASIVO] FINAL:',JSON.stringify(res));
-    cb(res.ok, res.motivo||null, res.emailEnviado||false);
+    cb(res.ok, res.motivo||null, res.emailEnviado||false, res.estadoActualizado||false);
   }).catch(function(err){
     console.error('[RRHH MASIVO] excepcion:',err);
     cb(false,'Error inesperado: '+(err.message||String(err)), false);
