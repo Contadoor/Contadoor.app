@@ -873,7 +873,7 @@ function renderTabla(periodo){
     var planLabel=c&&c.plan?c.plan:' - ';
 
     var est_r=getEstadoRrhh(r);
-    var _chkOk=(est_r==='completado');
+    var _chkOk=(est_r==='completado'||est_r==='enviado'); // 'enviado' = legacy aviso state
     html+='<tr>'
       +'<td style="text-align:center">'
       +(_chkOk
@@ -2022,10 +2022,8 @@ function validarParaEnvioAviso(r){
   if(est==='libro_ok'){
     return {ok:false, motivo:'El libro fue cargado pero el reporte RRHH no ha sido marcado como OK (Completado).'};
   }
-  if(est!=='completado'){
-    // aviso_enviado, transferido, etc. — ya avanzó
-    return {ok:false, motivo:'El reporte ya fue enviado o está en una etapa posterior. No se puede reenviar desde este flujo.'};
-  }
+  // (estados aviso_enviado / enviado / transferido / etc. pueden re-enviar —
+  //  las validaciones de pendiente y libro_ok arriba son la barrera real)
   // 3. Al menos 1 trabajador
   var nTrab=r.nTrab||r.trabM||0;
   if(nTrab<=0){
