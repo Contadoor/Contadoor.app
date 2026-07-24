@@ -792,3 +792,30 @@ function sbNormRut(rut){
 }
 
 console.log('✅ supabase.js v3 · Gestoor');
+
+// ── SUPABASE AUTH SDK ────────────────────────────────────────────────────────
+// Carga el SDK oficial de Supabase para autenticación real.
+// No interfiere con sbFetch/sbGet/sbPatch existentes (que usan anon key + fetch directo).
+// Los módulos actuales siguen funcionando sin cambios.
+(function(){
+  if(window._sbAuthReady) return;
+  var s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+  s.crossOrigin='anonymous';
+  s.onload=function(){
+    // window.supabase = el objeto del CDN; distinto de este archivo
+    window._sbAuthClient=window.supabase.createClient(SB_URL,SB_KEY,{
+      auth:{
+        autoRefreshToken:true,
+        persistSession:true,
+        detectSessionInUrl:true
+      }
+    });
+    window._sbAuthReady=true;
+    window.dispatchEvent(new Event('gestoor-auth-ready'));
+  };
+  s.onerror=function(){
+    console.error('[Gestoor Auth] Error al cargar Supabase SDK. Verifique conexión.');
+  };
+  document.head.appendChild(s);
+})();
