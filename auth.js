@@ -1,8 +1,7 @@
-// auth.js — Gestoor v3 · Supabase Auth nativo
-// Incluir en todos los módulos DESPUÉS de supabase.js:
-//   <script src="../supabase.js"></script>   ← inicializa _sbAuthClient
-//   <script src="../auth.js"></script>        ← este archivo
-// En dashboard (raíz): rutas relativas sin ../
+// auth.js — Gestoor v4 · Supabase Auth nativo · Guard global
+// Cargar DESPUÉS de supabase.js en todos los módulos protegidos.
+// El HTML debe tener <html class="auth-pending"> y el guard CSS en el <head>.
+// Opcionalmente declarar: <script>window.GESTOOR_MODULO='pagos';</script>
 
 (function(){
   var LOGIN_PAGE='login.html';
@@ -19,26 +18,30 @@
     !path.includes('/pre-iva/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
 
-  // ── Módulo actual ────────────────────────────────────────────────────────────
-  var MODULO_ACTUAL=(function(){
-    if(path.includes('/clientes/'))           return 'clientes';
-    if(path.includes('/pir/'))                return 'pir';
-    if(path.includes('/pre-iva/'))            return 'pre-iva';
-    if(path.includes('/reportes-rrhh/'))      return 'reportes-rrhh';
-    if(path.includes('/reportes-contable/'))  return 'reportes-contable';
-    if(path.includes('/reportes-pagos/'))     return 'reportes-pagos';
-    if(path.includes('/panel-de-control/'))   return 'panel-de-control';
-    if(path.includes('/pagos/'))              return 'pagos';
-    if(path.includes('/conciliacion/'))       return 'conciliacion';
-    if(path.includes('/cobranza/'))           return 'cobranza';
-    if(path.includes('/convenios/'))          return 'convenios';
-    if(path.includes('/portal/'))             return 'portal';
-    if(path.includes('/planes/'))             return 'planes';
-    if(path.includes('/admin/'))              return 'admin';
-    if(path.includes('/performance/'))        return 'performance';
+  // ── Identificador de módulo ──────────────────────────────────────────────────
+  // Prioridad: declaración explícita del HTML > detección por pathname
+  function detectarModuloDesdePath(){
+    if(path.includes('/clientes/'))          return 'clientes';
+    if(path.includes('/pir/'))               return 'pir';
+    if(path.includes('/pre-iva/'))           return 'pre-iva';
+    if(path.includes('/reportes-rrhh/'))     return 'reportes-rrhh';
+    if(path.includes('/reportes-contable/')) return 'reportes-contable';
+    if(path.includes('/reportes-pagos/'))    return 'reportes-pagos';
+    if(path.includes('/panel-de-control/'))  return 'panel-de-control';
+    if(path.includes('/pagos/'))             return 'pagos';
+    if(path.includes('/conciliacion/'))      return 'conciliacion';
+    if(path.includes('/cobranza/'))          return 'cobranza';
+    if(path.includes('/convenios/'))         return 'convenios';
+    if(path.includes('/portal/'))            return 'portal';
+    if(path.includes('/planes/'))            return 'planes';
+    if(path.includes('/admin/'))             return 'admin';
+    if(path.includes('/performance/'))       return 'performance';
+    if(path.includes('/reportes/'))          return 'reportes';
     return 'dashboard';
-  })();
+  }
+  var MODULO_ACTUAL=window.GESTOOR_MODULO||detectarModuloDesdePath();
 
+  // ── Tabla de redirección por rol ─────────────────────────────────────────────
   var ROL_REDIRECT={
     rrhh:     'reportes-rrhh/index.html',
     contable: 'reportes-contable/index.html',
@@ -46,11 +49,12 @@
     cobranza: 'cobranza/index.html'
   };
 
+  // ── Permisos por rol ─────────────────────────────────────────────────────────
   var MODULOS_POR_ROL={
     master:   ['*'],
     admin:    ['*'],
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva'],
-    contable: ['dashboard','reportes-contable','panel-de-control','clientes','pir','pre-iva','planes'],
+    contable: ['dashboard','reportes-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes'],
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes'],
     cobranza: ['dashboard','cobranza','conciliacion','clientes']
   };
@@ -63,12 +67,34 @@
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
-  function redirigirLogin(){
-    window.location.href=loginUrl;
+  // ── Helper: ejecutar cuando el DOM esté listo ────────────────────────────────
+  // Soluciona la race condition: cuando auth.js corre de forma asíncrona
+  // (después de getUser + consulta BD), DOMContentLoaded ya disparó.
+  function whenReady(fn){
+    if(document.readyState==='loading'){
+      document.addEventListener('DOMContentLoaded',fn);
+    }else{
+      fn(); // DOM ya está listo — ejecutar inmediatamente
+    }
   }
 
+  // ── Revelar contenido (quitar protección anti-flash) ─────────────────────────
+  // Solo se llama cuando Auth confirma identidad + perfil activo + permiso.
+  // NUNCA se llama por timeout. FAIL CLOSED.
+  function revelarContenido(){
+    document.documentElement.classList.remove('auth-pending');
+  }
+
+  // ── Redirección al login (fail-closed) ───────────────────────────────────────
+  function redirigirLogin(){
+    // replace() evita que el botón Atrás regrese a la página protegida
+    window.location.replace(loginUrl);
+  }
+
+  // ── Acceso denegado ──────────────────────────────────────────────────────────
   function mostrarAccesoDenegado(){
-    document.addEventListener('DOMContentLoaded',function(){
+    revelarContenido(); // revelar para que el mensaje sea visible
+    whenReady(function(){
       document.body.innerHTML=
         '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0ebff;font-family:sans-serif">'
         +'<div style="text-align:center;padding:40px">'
@@ -82,7 +108,6 @@
   }
 
   // ── Función central de logout ────────────────────────────────────────────────
-  // Un único punto de salida para todos los botones/handlers de Gestoor.
   function cerrarSesionGestoor(){
     var client=window._sbAuthClient;
     var doLogout=function(){
@@ -90,8 +115,8 @@
       sessionStorage.removeItem('usuario_activo');
       localStorage.removeItem('gestoor_sesion');
       localStorage.removeItem('usuario_sesion');
-      // gestoor_email_guardado se conserva para pre-llenar el correo en el próximo login
-      window.location.replace(loginUrl); // replace evita volver con el botón Atrás
+      // gestoor_email_guardado se conserva para pre-llenar correo en el próximo login
+      window.location.replace(loginUrl);
     };
     if(client){
       client.auth.signOut().then(doLogout).catch(doLogout);
@@ -100,43 +125,36 @@
     }
   }
 
+  // ── Inyectar topbar con identidad real ───────────────────────────────────────
   function inyectarTopbar(sesion){
-    document.addEventListener('DOMContentLoaded',function(){
+    whenReady(function(){
 
-      // ── MODO DASHBOARD: detectar #sessionBadge y #btnLogout nativos ──────────
-      // El Dashboard tiene su propio header con estos IDs en el HTML estático.
-      // En ese caso, actualizamos los elementos existentes sin crear duplicados.
+      // ── MODO DASHBOARD: reutilizar #sessionBadge y #btnLogout nativos ────────
       var sbNativo=document.getElementById('sessionBadge');
       var btnNativo=document.getElementById('btnLogout');
 
       if(sbNativo){
-        // Actualizar el badge nativo con la identidad real (de public.usuarios)
         sbNativo.textContent=sesion.nombre+' \u00b7 '+(sesion.rolLabel||sesion.rol);
       }
-
       if(btnNativo){
-        // Reutilizar el botón Salir existente — sobrescribir onclick legacy
         btnNativo.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
-        // Hacerlo visible si estaba oculto por CSS (display:none)
         btnNativo.style.display='';
         btnNativo.removeAttribute('disabled');
       }
 
-      // stat-usuario (nombre corto en el dashboard)
+      // stat-usuario (dashboard)
       var statU=document.getElementById('stat-usuario');
       if(statU) statU.textContent=sesion.nombre.split(' ')[0];
 
-      // Si el modo dashboard fue suficiente (tenía badge o botón nativos), salir
+      // Si había elementos nativos, el dashboard ya está completo
       if(sbNativo||btnNativo) return;
 
-      // ── MODO MÓDULO: insertar badge + botón en .topbar ────────────────────────
-      // Los módulos (RRHH, Contable, etc.) tienen .topbar pero no #sessionBadge.
+      // ── MODO MÓDULO: insertar badge en .topbar ───────────────────────────────
       var topbar=document.querySelector('.topbar');
       if(!topbar) return;
 
-      // Badge de usuario dinámico
       var badge=document.createElement('div');
       badge.style.cssText='display:flex;align-items:center;gap:8px;margin-right:8px;flex-shrink:0';
       badge.innerHTML=
@@ -148,7 +166,6 @@
         +'<div style="font-size:9px;color:rgba(255,255,255,.3)">'+(sesion.rolLabel||sesion.rol)+'</div>'
         +'</div>';
 
-      // Detectar si ya hay un botón Salir en el topbar
       var btnEnTopbar=Array.from(topbar.querySelectorAll('button')).find(function(b){
         return b.textContent.trim()==='Salir'||b.id==='btnLogout';
       });
@@ -174,28 +191,28 @@
     });
   }
 
-  // ── Lógica principal de verificación ────────────────────────────────────────
+  // ── Verificación principal ───────────────────────────────────────────────────
   function verificarSesionAuth(){
     var client=window._sbAuthClient;
     if(!client){
-      console.warn('[auth.js] _sbAuthClient no disponible. Redirigiendo al login.');
+      // SDK no disponible → fail-closed: contenido permanece oculto y redirige
+      console.warn('[auth.js] _sbAuthClient no disponible. Fail-closed → login.');
       redirigirLogin();
       return;
     }
 
-    // getUser() verifica el JWT contra el servidor Supabase — no solo localStorage.
-    // Es la fuente de identidad autorizada. getSession() solo lee cache local.
+    // getUser() verifica el JWT contra el servidor Supabase (no solo localStorage)
     client.auth.getUser().then(function(result){
       var user=result.data&&result.data.user;
       var authErr=result.error;
 
-      // Sin usuario verificado por el servidor → login
+      // Sin usuario verificado → fail-closed
       if(authErr||!user){
         redirigirLogin();
         return;
       }
 
-      // Cargar perfil desde public.usuarios usando el UID verificado
+      // Cargar perfil desde public.usuarios
       client.from('usuarios')
         .select('id,nombre,iniciales,rol,rol_label,es_master,activo,modulos,wa,email')
         .eq('auth_user_id',user.id)
@@ -204,14 +221,14 @@
           var perfil=profileResult.data;
           var err=profileResult.error;
 
-          // Perfil no encontrado → signOut + login
+          // Sin perfil → signOut + fail-closed
           if(err||!perfil){
-            console.warn('[auth.js] Perfil no encontrado en public.usuarios para UID:',user.id);
+            console.warn('[auth.js] Perfil no encontrado para UID:',user.id);
             sessionStorage.removeItem('usuario_activo');
             client.auth.signOut().then(redirigirLogin).catch(redirigirLogin);
             return;
           }
-          // Perfil inactivo → signOut + login
+          // Perfil inactivo → signOut + fail-closed
           if(!perfil.activo){
             console.warn('[auth.js] Usuario inactivo:',perfil.email);
             sessionStorage.removeItem('usuario_activo');
@@ -219,8 +236,7 @@
             return;
           }
 
-          // Cache visual — compatible con módulos existentes (mismo formato de siempre)
-          // SOLO cache de interfaz. La fuente de autenticación es Supabase Auth + public.usuarios.
+          // Identidad confirmada — construir cache visual (compatible con módulos)
           var sesion={
             id:perfil.id,
             nombre:perfil.nombre,
@@ -229,39 +245,41 @@
             rolLabel:perfil.rol_label||perfil.rol,
             email:perfil.email||user.email||'',
             wa:perfil.wa||'',
-            esMaster:perfil.es_master===true,  // siempre desde perfil BD, nunca hardcodeado
+            esMaster:perfil.es_master===true,
             modulos:perfil.modulos||[],
             tsLogin:Date.now()
           };
           sessionStorage.setItem('usuario_activo',JSON.stringify(sesion));
           window._contadoorSesion=sesion;
 
-          // Auto-redirect por rol si entra al dashboard
+          // Auto-redirect analistas desde dashboard
           if(MODULO_ACTUAL==='dashboard'&&!perfil.es_master){
             var redirect=ROL_REDIRECT[perfil.rol];
-            if(redirect){ window.location.href=redirect; return; }
+            if(redirect){ window.location.replace(redirect); return; }
           }
 
           // Control de acceso al módulo actual
           if(!puedeVerModulo(perfil,MODULO_ACTUAL)){
-            mostrarAccesoDenegado();
+            mostrarAccesoDenegado(); // revelar + mensaje (no redirige al login)
             return;
           }
 
-          // Sesión válida — inyectar topbar
+          // ── ACCESO CONCEDIDO ─────────────────────────────────────────────────
+          revelarContenido();   // quitar auth-pending → contenido visible
           inyectarTopbar(sesion);
-        })
-        .catch(function(e){
+
+        }).catch(function(e){
           console.error('[auth.js] Error cargando perfil:',e);
-          redirigirLogin();
+          redirigirLogin(); // fail-closed
         });
+
     }).catch(function(e){
       console.error('[auth.js] Error en getUser:',e);
-      redirigirLogin();
+      redirigirLogin(); // fail-closed
     });
   }
 
-  // Esperar a que el SDK esté listo
+  // Esperar SDK
   if(window._sbAuthReady){
     verificarSesionAuth();
   }else{
