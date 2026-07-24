@@ -102,10 +102,41 @@
 
   function inyectarTopbar(sesion){
     document.addEventListener('DOMContentLoaded',function(){
+
+      // ── MODO DASHBOARD: detectar #sessionBadge y #btnLogout nativos ──────────
+      // El Dashboard tiene su propio header con estos IDs en el HTML estático.
+      // En ese caso, actualizamos los elementos existentes sin crear duplicados.
+      var sbNativo=document.getElementById('sessionBadge');
+      var btnNativo=document.getElementById('btnLogout');
+
+      if(sbNativo){
+        // Actualizar el badge nativo con la identidad real (de public.usuarios)
+        sbNativo.textContent=sesion.nombre+' \u00b7 '+(sesion.rolLabel||sesion.rol);
+      }
+
+      if(btnNativo){
+        // Reutilizar el botón Salir existente — sobrescribir onclick legacy
+        btnNativo.onclick=function(){
+          if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
+        };
+        // Hacerlo visible si estaba oculto por CSS (display:none)
+        btnNativo.style.display='';
+        btnNativo.removeAttribute('disabled');
+      }
+
+      // stat-usuario (nombre corto en el dashboard)
+      var statU=document.getElementById('stat-usuario');
+      if(statU) statU.textContent=sesion.nombre.split(' ')[0];
+
+      // Si el modo dashboard fue suficiente (tenía badge o botón nativos), salir
+      if(sbNativo||btnNativo) return;
+
+      // ── MODO MÓDULO: insertar badge + botón en .topbar ────────────────────────
+      // Los módulos (RRHH, Contable, etc.) tienen .topbar pero no #sessionBadge.
       var topbar=document.querySelector('.topbar');
       if(!topbar) return;
 
-      // Badge de usuario (nombre + rol)
+      // Badge de usuario dinámico
       var badge=document.createElement('div');
       badge.style.cssText='display:flex;align-items:center;gap:8px;margin-right:8px;flex-shrink:0';
       badge.innerHTML=
@@ -117,34 +148,28 @@
         +'<div style="font-size:9px;color:rgba(255,255,255,.3)">'+(sesion.rolLabel||sesion.rol)+'</div>'
         +'</div>';
 
-      // Detectar si ya existe un botón Salir en el HTML estático (#btnLogout o texto "Salir")
-      var btnExistente=document.getElementById('btnLogout')
-        ||Array.from(topbar.querySelectorAll('button')).find(function(b){
-            return b.textContent.trim()==='Salir';
-          });
+      // Detectar si ya hay un botón Salir en el topbar
+      var btnEnTopbar=Array.from(topbar.querySelectorAll('button')).find(function(b){
+        return b.textContent.trim()==='Salir'||b.id==='btnLogout';
+      });
 
-      if(btnExistente){
-        // REUTILIZAR el botón existente — sobrescribir su onclick legacy
-        // para que ejecute el logout real de Supabase
-        btnExistente.onclick=function(){
+      if(btnEnTopbar){
+        btnEnTopbar.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
-        // Asegurarse de que sea visible si el HTML lo ocultaba
-        if(btnExistente.style.display==='none') btnExistente.style.display='';
-        // Insertar badge antes del botón existente
-        topbar.insertBefore(badge, btnExistente);
+        if(btnEnTopbar.style.display==='none') btnEnTopbar.style.display='';
+        topbar.insertBefore(badge,btnEnTopbar);
       }else{
-        // No existe botón Salir — crear uno
-        var btnLogout=document.createElement('button');
-        btnLogout.textContent='Salir';
-        btnLogout.style.cssText='background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0';
-        btnLogout.onclick=function(){
+        var btnNuevo=document.createElement('button');
+        btnNuevo.textContent='Salir';
+        btnNuevo.style.cssText='background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0';
+        btnNuevo.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
         var lastBtn=topbar.querySelector('button:last-child');
         if(lastBtn) topbar.insertBefore(badge,lastBtn);
         else topbar.appendChild(badge);
-        topbar.appendChild(btnLogout);
+        topbar.appendChild(btnNuevo);
       }
     });
   }
