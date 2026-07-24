@@ -17,14 +17,16 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
 .app-n .d{color:rgba(240,235,255,.3);}
 .app-s{font-size:10px;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:1.8px;margin-top:3px;}
 .card{background:rgba(144,72,145,.06);border:1px solid rgba(144,72,145,.25);border-radius:16px;padding:26px;}
-.step{display:none;}.step.on{display:block;}
 .step-lbl{font-size:11px;font-weight:600;color:rgba(201,166,232,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;}
 .inp-wrap{position:relative;margin-bottom:12px;}
 .inp-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(201,166,232,.3);font-size:16px;pointer-events:none;}
-.inp{width:100%;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.2);border-radius:9px;padding:11px 12px 11px 38px;font-size:13px;color:#f0ebff;font-family:var(--sans);outline:none;transition:.15s;}
+.inp-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(201,166,232,.3);font-size:14px;cursor:pointer;background:none;border:none;padding:4px;line-height:1;}
+.inp-eye:hover{color:rgba(201,166,232,.7);}
+.inp{width:100%;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.2);border-radius:9px;padding:11px 38px 11px 38px;font-size:13px;color:#f0ebff;font-family:var(--sans);outline:none;transition:.15s;}
 .inp::placeholder{color:rgba(240,235,255,.2);}
 .inp:focus{border-color:rgba(144,72,145,.6);}
 .inp.err{border-color:rgba(248,113,113,.5);}
+.inp-single{padding-right:12px;}
 .check-row{display:flex;align-items:center;gap:8px;margin:10px 0 14px;}
 .check-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--p);cursor:pointer;flex-shrink:0;}
 .check-row label{font-size:12px;color:rgba(240,235,255,.4);cursor:pointer;}
@@ -32,23 +34,8 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
 .btn-p:hover{background:var(--pd);}
 .btn-p:disabled{opacity:.4;cursor:not-allowed;}
 .err-msg{font-size:12px;color:#f87171;margin-top:8px;min-height:16px;text-align:center;}
-.user-pill{display:flex;align-items:center;gap:10px;background:rgba(144,72,145,.12);border:1px solid rgba(144,72,145,.3);border-radius:10px;padding:10px 14px;margin-bottom:18px;}
-.user-av{width:36px;height:36px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
-.user-nm{font-size:13px;font-weight:600;color:#f0ebff;}
-.user-rl{font-size:11px;color:rgba(201,166,232,.5);margin-top:1px;}
-.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:18px;}
-.dot{width:13px;height:13px;border-radius:50%;background:rgba(144,72,145,.15);border:2px solid rgba(144,72,145,.2);transition:.15s;}
-.dot.f{background:var(--p);border-color:var(--p);}
-.teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
-.key{background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.15);border-radius:9px;padding:13px;font-size:17px;font-weight:400;color:#f0ebff;text-align:center;cursor:pointer;transition:.15s;user-select:none;}
-.key:hover{background:rgba(144,72,145,.2);border-color:rgba(144,72,145,.35);}
-.key:active{transform:scale(.95);}
-.key.del{font-size:12px;color:rgba(201,166,232,.4);}
-.key.ok{background:var(--p);border-color:var(--p);font-size:13px;font-weight:600;}
-.key.ok:hover{background:var(--pd);}
-.back{text-align:center;margin-top:12px;}
-.back button{background:none;border:none;font-size:12px;color:rgba(201,166,232,.3);cursor:pointer;font-family:var(--sans);}
-.back button:hover{color:rgba(201,166,232,.6);}
+.olvide{display:block;text-align:center;margin-top:12px;font-size:12px;color:rgba(201,166,232,.35);text-decoration:none;cursor:pointer;background:none;border:none;font-family:var(--sans);width:100%;}
+.olvide:hover{color:rgba(201,166,232,.65);}
 .footer{text-align:center;margin-top:16px;}
 .footer-line{font-size:10px;color:rgba(255,255,255,.1);letter-spacing:.5px;}
 .divider{width:40px;height:1px;background:rgba(144,72,145,.2);margin:8px auto;}
@@ -58,6 +45,8 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
 .loading-dots span:nth-child(2){animation-delay:.15s;}
 .loading-dots span:nth-child(3){animation-delay:.3s;}
 @keyframes ld{0%,80%,100%{opacity:.2}40%{opacity:1}}
+/* Panel de éxito recuperación */
+.ok-msg{font-size:13px;color:#6ee7b7;text-align:center;margin-top:10px;line-height:1.6;display:none;}
 </style>
 </head>
 <body>
@@ -67,40 +56,40 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
     <div class="app-n"><span class="g">Gestoor</span> <span class="d">· Contadoor</span></div>
     <div class="app-s">Sistema de gestión interno</div>
   </div>
-  <div class="card">
-    <!-- PASO 1: EMAIL -->
-    <div class="step on" id="paso1">
-      <div class="step-lbl">¿Quién eres?</div>
+  <div class="card" id="cardLogin">
+    <!-- INICIO DE SESIÓN -->
+    <div id="panelLogin">
+      <div class="step-lbl">Iniciar sesión</div>
       <div class="inp-wrap">
-        <i class="ti ti-mail inp-ico" aria-hidden="true"></i>
-        <input class="inp" type="email" id="inp-email" placeholder="Tu correo electrónico" autocomplete="email"/>
+        <span class="inp-ico">✉</span>
+        <input class="inp" type="email" id="inp-email" placeholder="Correo electrónico" autocomplete="email"/>
+      </div>
+      <div class="inp-wrap">
+        <span class="inp-ico">🔒</span>
+        <input class="inp" type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password"/>
+        <button type="button" class="inp-eye" id="btn-eye" title="Mostrar/ocultar contraseña">👁</button>
       </div>
       <div class="check-row">
         <input type="checkbox" id="chk-recordar" checked>
-        <label for="chk-recordar">Recordar mi correo en este dispositivo</label>
+        <label for="chk-recordar">Recordar mi correo</label>
       </div>
-      <button class="btn-p" id="btn-continuar">Continuar →</button>
-      <div class="err-msg" id="err1"></div>
+      <button class="btn-p" id="btn-login">Iniciar sesión</button>
+      <div class="err-msg" id="err-login"></div>
+      <button type="button" class="olvide" id="btn-olvide">¿Olvidaste tu contraseña?</button>
     </div>
-    <!-- PASO 2: PIN -->
-    <div class="step" id="paso2">
-      <div class="step-lbl">Ingresa tu PIN</div>
-      <div class="user-pill">
-        <div class="user-av" id="pin-av">--</div>
-        <div>
-          <div class="user-nm" id="pin-nombre">—</div>
-          <div class="user-rl" id="pin-rol">—</div>
-        </div>
+    <!-- RECUPERAR CONTRASEÑA -->
+    <div id="panelRecuperar" style="display:none">
+      <div class="step-lbl">Recuperar contraseña</div>
+      <div class="inp-wrap">
+        <span class="inp-ico">✉</span>
+        <input class="inp" type="email" id="inp-email-rec" placeholder="Tu correo electrónico" autocomplete="email"/>
       </div>
-      <div class="pin-dots">
-        <div class="dot" id="d0"></div>
-        <div class="dot" id="d1"></div>
-        <div class="dot" id="d2"></div>
-        <div class="dot" id="d3"></div>
+      <button class="btn-p" id="btn-enviar-rec">Enviar instrucciones</button>
+      <div class="err-msg" id="err-rec"></div>
+      <div class="ok-msg" id="ok-rec">
+        ✅ Revisa tu correo.<br>Recibirás un link para restablecer tu contraseña.
       </div>
-      <div class="teclado" id="teclado"></div>
-      <div class="err-msg" id="err2"></div>
-      <div class="back"><button id="btn-volver">← Cambiar usuario</button></div>
+      <button type="button" class="olvide" id="btn-volver-login">← Volver al inicio de sesión</button>
     </div>
   </div>
   <div class="footer">
@@ -109,244 +98,234 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
     <div class="slogan">Somos la puerta a tu solución</div>
   </div>
 </div>
+
+<!-- Supabase JS SDK (v2) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 
-// Sesión persistente: 30 días si marcó "recordar", 8 horas si no
-var DURACION_LARGA = 30 * 24 * 60 * 60 * 1000;
-var DURACION_CORTA = 8 * 60 * 60 * 1000;
-var STORAGE_KEY = 'gestoor_sesion';
+// Crear cliente Supabase
+var sbClient=window.supabase.createClient(SB_URL,SB_KEY,{
+  auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
+});
 
-var USUARIOS_DEFAULT = [{
-  id:1, nombre:'Luciano Duarte', iniciales:'LD',
-  rol:'master', rolLabel:'Master · Acceso total',
-  email:'luciano@contadoor.cl', pin:'1234',
-  esMaster:true, activo:true, modulos:['*']
-}];
+// Redireccionamiento por rol
+var ROL_DESTINOS={
+  master:   'index.html',
+  admin:    'index.html',
+  rrhh:     'reportes-rrhh/index.html',
+  contable: 'reportes-contable/index.html',
+  pagos:    'reportes-pagos/index.html',
+  cobranza: 'cobranza/index.html'
+};
 
-var _usuarioActual = null;
-var _pinActual = '';
+function setBtn(btn,html,disabled){btn.innerHTML=html;btn.disabled=!!disabled;}
+function setErr(id,msg){document.getElementById(id).textContent=msg||'';}
 
-// ── SESIÓN PERSISTENTE ────────────────────────────────────────────────────
-function getSesionGuardada(){
-  try{
-    var s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
-    if(!s) return null;
-    var duracion = s.recordar ? DURACION_LARGA : DURACION_CORTA;
-    if(Date.now() - s.tsLogin > duracion){
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return s;
-  }catch(e){return null;}
-}
-function guardarSesion(u, recordar){
-  var sesion = {
-    id:u.id, sbId:u.sbId||null,
-    nombre:u.nombre, iniciales:u.iniciales||(u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
-    rol:u.rol, rolLabel:u.rolLabel||u.rol,
-    email:u.email||'', wa:u.wa||'',
-    esMaster:u.esMaster||u.rol==='master',
-    modulos:u.modulos||[],
-    tsLogin:Date.now(),
-    recordar:recordar
-  };
-  // Guardar en localStorage (persistente) Y sessionStorage (para auth.js)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sesion));
-  sessionStorage.setItem('usuario_activo', JSON.stringify(sesion));
-  return sesion;
-}
+// ── INICIO DE SESIÓN ──────────────────────────────────────────────────────────
+document.getElementById('btn-login').onclick=function(){
+  var email=(document.getElementById('inp-email').value||'').trim();
+  var pass=document.getElementById('inp-pass').value||'';
+  setErr('err-login','');
 
-// ── USUARIOS ──────────────────────────────────────────────────────────────
-function getUsuariosLocal(){
-  try{
-    var u=JSON.parse(localStorage.getItem('usuarios_sistema')||'null');
-    return(u&&u.length)?u:USUARIOS_DEFAULT;
-  }catch(e){return USUARIOS_DEFAULT;}
-}
+  if(!email||!pass){
+    setErr('err-login','Ingresa tu correo y contraseña.');
+    return;
+  }
 
-function buscarUsuarioPorEmail(email){
-  var emailLower = email.toLowerCase().trim();
+  var btn=document.getElementById('btn-login');
+  setBtn(btn,'Verificando<span class="loading-dots"><span></span><span></span><span></span></span>',true);
 
-  // Buscar SIEMPRE en Supabase primero (fuente principal)
-  return fetch(SB_URL+'/rest/v1/usuarios_sistema?email=eq.'+encodeURIComponent(email)+'&select=*',{
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-  })
-  .then(function(r){return r.ok?r.json():[];})
-  .then(function(data){
-    if(!data||!data.length) return null;
-    var u = data[0];
-    return {
-      id:u.id, sbId:u.id,
-      nombre:u.nombre,
-      iniciales:u.iniciales||(u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
-      rol:u.rol, rolLabel:u.rol_label||u.rol,
-      email:u.email||'', wa:u.wa||'',
-      pin:u.pin||'0000',
-      esMaster:u.es_master||u.rol==='master',
-      activo:u.activo!==false,
-      modulos:u.modulos||[]
-    };
-  })
-  .catch(function(){
-    // Fallback: buscar en localStorage (offline)
-    var local = getUsuariosLocal();
-    var localMatch = local.find(function(u){
-      return u.email && u.email.toLowerCase()===emailLower;
+  sbClient.auth.signInWithPassword({email:email,password:pass})
+    .then(function(result){
+      if(result.error){
+        setBtn(btn,'Iniciar sesión',false);
+        // Mensaje genérico — nunca revelar si el email existe o no
+        setErr('err-login','Correo o contraseña incorrectos.');
+        return;
+      }
+
+      var authUser=result.data.user;
+
+      // Cargar perfil desde public.usuarios
+      return sbClient.from('usuarios')
+        .select('id,nombre,iniciales,rol,rol_label,es_master,activo,modulos,wa,email')
+        .eq('auth_user_id',authUser.id)
+        .single()
+        .then(function(profileResult){
+          var perfil=profileResult.data;
+          var err=profileResult.error;
+
+          if(err||!perfil){
+            sbClient.auth.signOut();
+            sessionStorage.removeItem('usuario_activo');
+            setBtn(btn,'Iniciar sesión',false);
+            setErr('err-login','Tu cuenta no está configurada en Gestoor. Contacta al administrador.');
+            return;
+          }
+          if(!perfil.activo){
+            sbClient.auth.signOut();
+            sessionStorage.removeItem('usuario_activo');
+            setBtn(btn,'Iniciar sesión',false);
+            setErr('err-login','Tu cuenta está desactivada. Contacta al administrador.');
+            return;
+          }
+
+          // Guardar email si "recordarme" está marcado
+          var recordar=document.getElementById('chk-recordar').checked;
+          if(recordar){
+            localStorage.setItem('gestoor_email_guardado',email);
+          }else{
+            localStorage.removeItem('gestoor_email_guardado');
+          }
+
+          // Cache visual para módulos (formato compatible con módulos existentes)
+          var sesion={
+            id:perfil.id,
+            nombre:perfil.nombre,
+            iniciales:perfil.iniciales||(perfil.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()),
+            rol:perfil.rol,
+            rolLabel:perfil.rol_label||perfil.rol,
+            email:perfil.email||authUser.email||'',
+            wa:perfil.wa||'',
+            esMaster:perfil.es_master===true,
+            modulos:perfil.modulos||[],
+            tsLogin:Date.now()
+          };
+          sessionStorage.setItem('usuario_activo',JSON.stringify(sesion));
+
+          // Redirigir según rol
+          var destino=ROL_DESTINOS[perfil.rol]||'index.html';
+          window.location.href=destino;
+        });
+    })
+    .catch(function(e){
+      console.error('[login] Error:',e);
+      setBtn(btn,'Iniciar sesión',false);
+      setErr('err-login','Error de conexión. Intenta de nuevo.');
     });
-    return localMatch||null;
-  });
-}
+};
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
-function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function validarEmail(e){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);}
+// ── MOSTRAR/OCULTAR CONTRASEÑA ────────────────────────────────────────────────
+document.getElementById('btn-eye').onclick=function(){
+  var inp=document.getElementById('inp-pass');
+  inp.type=inp.type==='password'?'text':'password';
+};
 
-// ── PIN ───────────────────────────────────────────────────────────────────
-function actualizarDots(){
-  for(var i=0;i<4;i++){
-    var d=document.getElementById('d'+i);
-    if(d) d.classList.toggle('f', i<_pinActual.length);
-  }
-}
-function presionarTecla(n){
-  if(_pinActual.length>=4) return;
-  _pinActual+=n; actualizarDots();
-  document.getElementById('err2').textContent='';
-  if(_pinActual.length===4) setTimeout(verificarPin,300);
-}
-function borrarTecla(){_pinActual=_pinActual.slice(0,-1); actualizarDots();}
-function verificarPin(){
-  if(!_usuarioActual) return;
-  if(_pinActual===_usuarioActual.pin){
-    var recordar = document.getElementById('chk-recordar') ? document.getElementById('chk-recordar').checked : true;
-    guardarSesion(_usuarioActual, recordar);
-    // Guardar email si marcó recordar
-    if(recordar){
-      localStorage.setItem('gestoor_email_guardado', _usuarioActual.email||'');
-    } else {
-      localStorage.removeItem('gestoor_email_guardado');
-    }
-    window.location.href='index.html';
-  } else {
-    document.getElementById('err2').textContent='PIN incorrecto. Inténtalo de nuevo.';
-    _pinActual=''; actualizarDots();
-    var card=document.querySelector('.card');
-    card.style.borderColor='rgba(248,113,113,.4)';
-    setTimeout(function(){card.style.borderColor='rgba(144,72,145,.25)';},700);
-  }
-}
+// ── NAVEGACIÓN ENTRE PANELES ──────────────────────────────────────────────────
+document.getElementById('btn-olvide').onclick=function(){
+  document.getElementById('panelLogin').style.display='none';
+  document.getElementById('panelRecuperar').style.display='block';
+  // Pre-llenar email si ya lo escribió
+  var emailActual=document.getElementById('inp-email').value||'';
+  if(emailActual) document.getElementById('inp-email-rec').value=emailActual;
+  setErr('err-rec','');
+  document.getElementById('ok-rec').style.display='none';
+};
+document.getElementById('btn-volver-login').onclick=function(){
+  document.getElementById('panelRecuperar').style.display='none';
+  document.getElementById('panelLogin').style.display='block';
+};
 
-// ── TECLADO PIN ───────────────────────────────────────────────────────────
-function buildTeclado(){
-  var t=document.getElementById('teclado'); t.innerHTML='';
-  var keys=['1','2','3','4','5','6','7','8','9','del','0','ok'];
-  keys.forEach(function(k){
-    var div=document.createElement('div');
-    if(k==='del'){div.className='key del';div.textContent='⌫ Borrar';div.onclick=borrarTecla;}
-    else if(k==='ok'){div.className='key ok';div.textContent='Entrar →';div.onclick=verificarPin;}
-    else{div.className='key';div.textContent=k;div.onclick=(function(n){return function(){presionarTecla(n);};})(k);}
-    t.appendChild(div);
-  });
-}
+// ── RECUPERAR CONTRASEÑA ──────────────────────────────────────────────────────
+document.getElementById('btn-enviar-rec').onclick=function(){
+  var email=(document.getElementById('inp-email-rec').value||'').trim();
+  setErr('err-rec','');
+  document.getElementById('ok-rec').style.display='none';
 
-// ── PASO 1 → 2 ───────────────────────────────────────────────────────────
-function mostrarPaso2(u){
-  _usuarioActual=u; _pinActual='';
-  document.getElementById('pin-av').textContent=u.iniciales||(u.nombre.slice(0,2).toUpperCase());
-  document.getElementById('pin-nombre').textContent=u.nombre;
-  document.getElementById('pin-rol').textContent=u.rolLabel||u.rol;
-  document.getElementById('err2').textContent='';
-  actualizarDots();
-  document.getElementById('paso1').classList.remove('on');
-  document.getElementById('paso2').classList.add('on');
-}
-function volverPaso1(){
-  _usuarioActual=null; _pinActual='';
-  document.getElementById('paso2').classList.remove('on');
-  document.getElementById('paso1').classList.add('on');
-  document.getElementById('err2').textContent='';
-  actualizarDots();
-}
-
-// ── CONTINUAR ─────────────────────────────────────────────────────────────
-function continuar(){
-  var email = (document.getElementById('inp-email').value||'').trim();
-  var errEl = document.getElementById('err1');
-  var btnEl = document.getElementById('btn-continuar');
-  errEl.textContent='';
-  if(!email){
-    document.getElementById('inp-email').classList.add('err');
-    errEl.textContent='Ingresa tu correo electrónico.';
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    setErr('err-rec','Ingresa un correo válido.');
     return;
   }
-  if(!validarEmail(email)){
-    document.getElementById('inp-email').classList.add('err');
-    errEl.textContent='Correo inválido. Ej: nombre@empresa.cl';
-    return;
-  }
-  document.getElementById('inp-email').classList.remove('err');
-  btnEl.disabled=true;
-  btnEl.innerHTML='Buscando<span class="loading-dots"><span></span><span></span><span></span></span>';
-  buscarUsuarioPorEmail(email).then(function(u){
-    btnEl.disabled=false;
-    btnEl.textContent='Continuar →';
-    if(!u){
-      errEl.textContent='No encontramos ese correo. Verifica o contacta a Luciano.';
-      document.getElementById('inp-email').classList.add('err');
-      return;
-    }
-    mostrarPaso2(u);
-  }).catch(function(){
-    btnEl.disabled=false;
-    btnEl.textContent='Continuar →';
-    errEl.textContent='Error de conexión. Intenta de nuevo.';
-  });
-}
 
-// ── INIT ──────────────────────────────────────────────────────────────────
+  var btn=document.getElementById('btn-enviar-rec');
+  setBtn(btn,'Enviando<span class="loading-dots"><span></span><span></span><span></span></span>',true);
+
+  // Usar la URL real del proyecto (GitHub Pages o dominio futuro)
+  // Supabase Dashboard → Auth → URL Configuration → Redirect URLs
+  // debe incluir esta URL en la lista blanca
+  var resetUrl=window.location.origin+window.location.pathname.replace('login.html','reset-password.html');
+
+  sbClient.auth.resetPasswordForEmail(email,{redirectTo:resetUrl})
+    .then(function(result){
+      setBtn(btn,'Enviar instrucciones',false);
+      if(result.error){
+        // Error genérico — no confirmar si el email existe
+        console.error('[login] resetPassword error:',result.error);
+      }
+      // Siempre mostrar mensaje de éxito (evita enumeration attack)
+      document.getElementById('ok-rec').style.display='block';
+    })
+    .catch(function(e){
+      console.error('[login] resetPassword excepción:',e);
+      setBtn(btn,'Enviar instrucciones',false);
+      setErr('err-rec','Error de conexión. Intenta de nuevo.');
+    });
+};
+
+// ── ENTER EN CAMPOS ───────────────────────────────────────────────────────────
+document.getElementById('inp-email').addEventListener('keydown',function(e){
+  if(e.key==='Enter') document.getElementById('inp-pass').focus();
+});
+document.getElementById('inp-pass').addEventListener('keydown',function(e){
+  if(e.key==='Enter') document.getElementById('btn-login').onclick();
+});
+document.getElementById('inp-email-rec').addEventListener('keydown',function(e){
+  if(e.key==='Enter') document.getElementById('btn-enviar-rec').onclick();
+});
+
+// ── LIMPIAR ERRORES AL ESCRIBIR ───────────────────────────────────────────────
+['inp-email','inp-pass'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',function(){
+    setErr('err-login','');
+    this.classList.remove('err');
+  });
+});
+
+// ── INIT: si ya hay sesión válida, redirigir al dashboard ─────────────────────
 (function(){
-  // Si ya tiene sesión válida → ir directo al dashboard
-  var sesionGuardada = getSesionGuardada();
-  if(sesionGuardada){
-    // Restaurar en sessionStorage para que auth.js la vea
-    sessionStorage.setItem('usuario_activo', JSON.stringify(sesionGuardada));
-    window.location.href='index.html';
-    return;
-  }
-
-  // Pre-llenar email si lo tenía guardado
-  var emailGuardado = localStorage.getItem('gestoor_email_guardado')||'';
+  // Pre-llenar email guardado
+  var emailGuardado=localStorage.getItem('gestoor_email_guardado')||'';
   if(emailGuardado){
     document.getElementById('inp-email').value=emailGuardado;
     document.getElementById('chk-recordar').checked=true;
   }
 
-  // Wire botones
-  var btnCont = document.getElementById('btn-continuar');
-  if(btnCont) btnCont.onclick=continuar;
+  // Verificar identidad real contra Supabase (no solo cache local)
+  sbClient.auth.getUser().then(function(result){
+    var user=result.data&&result.data.user;
+    var authErr=result.error;
 
-  var btnVolver = document.getElementById('btn-volver');
-  if(btnVolver) btnVolver.onclick=volverPaso1;
-
-  // Enter en campo email
-  var inpEmail = document.getElementById('inp-email');
-  if(inpEmail){
-    inpEmail.addEventListener('keydown',function(e){if(e.key==='Enter')continuar();});
-    inpEmail.addEventListener('input',function(){this.classList.remove('err');document.getElementById('err1').textContent='';});
-  }
-
-  // Teclado PIN
-  buildTeclado();
-
-  // Teclado físico para PIN
-  document.addEventListener('keydown',function(e){
-    if(document.getElementById('paso2').classList.contains('on')){
-      if(e.key>='0'&&e.key<='9') presionarTecla(e.key);
-      if(e.key==='Backspace') borrarTecla();
-      if(e.key==='Enter') verificarPin();
+    if(authErr||!user){
+      // Sin usuario válido — limpiar cache y permanecer en login
+      sessionStorage.removeItem('usuario_activo');
+      return;
     }
+
+    // Usuario autenticado — verificar perfil activo en public.usuarios
+    sbClient.from('usuarios')
+      .select('rol,es_master,activo,auth_user_id')
+      .eq('auth_user_id',user.id)
+      .single()
+      .then(function(pr){
+        if(pr.data&&pr.data.activo){
+          // Perfil válido y activo → redirigir según rol
+          var destino=ROL_DESTINOS[pr.data.rol]||'index.html';
+          window.location.href=destino;
+        }else{
+          // Perfil no existe, consulta falló o activo=false → signOut + limpiar
+          sbClient.auth.signOut().catch(function(){});
+          sessionStorage.removeItem('usuario_activo');
+        }
+      }).catch(function(){
+        // Error de red/BD — signOut preventivo y permanecer en login
+        sbClient.auth.signOut().catch(function(){});
+        sessionStorage.removeItem('usuario_activo');
+      });
+  }).catch(function(){
+    // Error inesperado — permanecer en login sin mostrar error técnico
+    sessionStorage.removeItem('usuario_activo');
   });
 })();
 </script>
