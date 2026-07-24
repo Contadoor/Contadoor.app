@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -20,14 +19,15 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 #sessionBadge{font-size:11px;color:rgba(255,255,255,.5);}
 #btnLogout{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;display:none;font-family:inherit;}
 #btnLogout:hover{background:rgba(192,0,0,.2);color:#f87171;border-color:rgba(192,0,0,.3);}
-.hero{padding:40px 40px 32px;text-align:center;border-bottom:1px solid rgba(144,72,145,.15);background:linear-gradient(135deg,#08040f 0%,#2d0a3e 50%,#08040f 100%);position:relative;overflow:hidden;}
-.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(144,72,145,.25) 0%,transparent 70%);pointer-events:none;}
-.hero-eye{font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:rgba(144,72,145,.6);margin-bottom:10px;}
-.hero-title{font-size:28px;font-weight:700;color:rgba(240,235,255,.35);line-height:1.25;margin-bottom:6px;}
+.hero{padding:22px 40px 18px;text-align:center;border-bottom:1px solid rgba(144,72,145,.15);background:linear-gradient(135deg,#08040f 0%,#2d0a3e 50%,#08040f 100%);position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(144,72,145,.18) 0%,transparent 65%);pointer-events:none;}
+.hero-eye{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(144,72,145,.55);margin-bottom:6px;}
+.hero-title{font-size:26px;font-weight:800;color:rgba(240,235,255,.92);line-height:1.2;margin-bottom:5px;letter-spacing:1px;}
 .hero-title span{color:#c9a6e8;letter-spacing:-.5px;}
-.hero-sub{font-size:13px;color:rgba(240,235,255,.2);margin-bottom:20px;}
-.hero-stats{display:inline-flex;gap:28px;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.15);border-radius:12px;padding:12px 24px;}
-.hstat{text-align:center;}
+.hero-sub{font-size:12px;color:rgba(240,235,255,.28);margin-bottom:16px;letter-spacing:.2px;}
+.hero-stats{display:inline-flex;gap:0;background:rgba(144,72,145,.07);border:1px solid rgba(144,72,145,.15);border-radius:10px;overflow:hidden;}
+.hstat{text-align:center;padding:10px 22px;border-right:1px solid rgba(144,72,145,.12);}
+.hstat:last-child{border-right:none;}
 .hstat-v{font-size:19px;font-weight:700;color:#fff;}
 .hstat-l{font-size:10px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
 .main{max-width:1100px;margin:0 auto;padding:32px 20px 60px;background:#08040f;}
@@ -61,7 +61,6 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 .footer span{color:var(--p);}
 @media(max-width:900px){.g3{grid-template-columns:1fr 1fr;}.g4{grid-template-columns:1fr 1fr;}.hero{padding:28px 16px 20px;}.main{padding:20px 12px 40px;}.header{padding:0 16px;}}
 @media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr;}.hero-stats{gap:16px;padding:10px 16px;}}
-
 .page-wrap{margin-left:220px;}
 </style>
 </head>
@@ -77,19 +76,19 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
   </div>
   <div class="header-right">
     <div id="sessionBadge">Cargando...</div>
-    <button id="btnLogout" onclick="if(confirm('¿Cerrar sesión?')){sessionStorage.removeItem('usuario_activo');window.location.href='login.html';}">Salir</button>
+    <button id="btnLogout">Salir</button>
   </div>
 </header>
 
 <div class="hero">
-  <div class="hero-eye">Bienvenido a Gestoor</div>
-  <div class="hero-title"><span>Gestoor</span> · Contadoor</div>
-  <div class="hero-sub">Sistema interno de gestión · Solo uso autorizado</div>
+  <div class="hero-eye">Centro de Operaciones</div>
+  <div class="hero-title">GESTOOR</div>
+  <div class="hero-sub">Gestión, control y seguimiento en tiempo real</div>
   <div class="hero-stats">
     <div class="hstat"><div class="hstat-v" id="stat-clientes">—</div><div class="hstat-l">Clientes activos</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-fecha">—</div><div class="hstat-l">Hoy</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-usuario">—</div><div class="hstat-l">Conectado como</div></div>
-    <div class="hstat"><div class="hstat-v">2015</div><div class="hstat-l">Desde</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-periodo">—</div><div class="hstat-l">Período actual</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-pendientes">—</div><div class="hstat-l">Procesos pendientes</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-alertas">—</div><div class="hstat-l">Alertas</div></div>
   </div>
 </div>
 
@@ -281,30 +280,21 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 <script>
 (function(){
   try{
-    var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(!s){
-      s={nombre:'Luciano Duarte',rol:'master',rolLabel:'Master',
-         esMaster:true,modulos:['*'],tsLogin:Date.now()};
-      sessionStorage.setItem('usuario_activo',JSON.stringify(s));
-    }
-    var badge=document.getElementById('sessionBadge');
-    if(badge) badge.textContent=s.nombre+' · '+(s.rolLabel||'Master');
-    var btn=document.getElementById('btnLogout');
-    if(btn) btn.style.display='block';
-    var statU=document.getElementById('stat-usuario');
-    if(statU) statU.textContent=s.nombre.split(' ')[0];
+    var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var hoy=new Date();
+    var statP=document.getElementById('stat-periodo');
+    if(statP) statP.textContent=meses[hoy.getMonth()]+' '+hoy.getFullYear();
     try{
       var cl=JSON.parse(localStorage.getItem('clientes_bd')||'[]');
       var activos=cl.filter(function(c){return c.estado==='activo';}).length;
       var statC=document.getElementById('stat-clientes');
       if(statC) statC.textContent=activos||'—';
     }catch(e){}
-    var hoy=new Date();
-    var meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    var statF=document.getElementById('stat-fecha');
-    if(statF) statF.textContent=hoy.getDate()+' '+meses[hoy.getMonth()]+' '+hoy.getFullYear();
   }catch(e){}
 })();
 </script>
+<script src="./supabase.js"></script>
+<script src="./auth.js"></script>
 </body>
 </html>
