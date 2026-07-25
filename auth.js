@@ -6,7 +6,6 @@
 (function(){
   var LOGIN_PAGE='login.html';
 
-  // ── Ruta del login según profundidad ────────────────────────────────────────
   var path=window.location.pathname;
   var esRaiz=(path.endsWith('/')||path.endsWith('index.html'))&&
     !path.includes('/clientes/')&&!path.includes('/pir/')&&
@@ -18,8 +17,6 @@
     !path.includes('/pre-iva/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
 
-  // ── Identificador de módulo ──────────────────────────────────────────────────
-  // Prioridad: declaración explícita del HTML > detección por pathname
   function detectarModuloDesdePath(){
     if(path.includes('/clientes/'))          return 'clientes';
     if(path.includes('/pir/'))               return 'pir';
@@ -41,7 +38,6 @@
   }
   var MODULO_ACTUAL=window.GESTOOR_MODULO||detectarModuloDesdePath();
 
-  // ── Tabla de redirección por rol ─────────────────────────────────────────────
   var ROL_REDIRECT={
     rrhh:     'reportes-rrhh/index.html',
     contable: 'reportes-contable/index.html',
@@ -49,7 +45,6 @@
     cobranza: 'cobranza/index.html'
   };
 
-  // ── Permisos por rol ─────────────────────────────────────────────────────────
   var MODULOS_POR_ROL={
     master:   ['*'],
     admin:    ['*'],
@@ -67,33 +62,24 @@
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
-  // ── Helper: ejecutar cuando el DOM esté listo ────────────────────────────────
-  // Soluciona la race condition: cuando auth.js corre de forma asíncrona
-  // (después de getUser + consulta BD), DOMContentLoaded ya disparó.
   function whenReady(fn){
     if(document.readyState==='loading'){
       document.addEventListener('DOMContentLoaded',fn);
     }else{
-      fn(); // DOM ya está listo — ejecutar inmediatamente
+      fn();
     }
   }
 
-  // ── Revelar contenido (quitar protección anti-flash) ─────────────────────────
-  // Solo se llama cuando Auth confirma identidad + perfil activo + permiso.
-  // NUNCA se llama por timeout. FAIL CLOSED.
   function revelarContenido(){
     document.documentElement.classList.remove('auth-pending');
   }
 
-  // ── Redirección al login (fail-closed) ───────────────────────────────────────
   function redirigirLogin(){
-    // replace() evita que el botón Atrás regrese a la página protegida
     window.location.replace(loginUrl);
   }
 
-  // ── Acceso denegado ──────────────────────────────────────────────────────────
   function mostrarAccesoDenegado(){
-    revelarContenido(); // revelar para que el mensaje sea visible
+    revelarContenido();
     whenReady(function(){
       document.body.innerHTML=
         '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0ebff;font-family:sans-serif">'
@@ -107,7 +93,6 @@
     });
   }
 
-  // ── Función central de logout ────────────────────────────────────────────────
   function cerrarSesionGestoor(){
     var client=window._sbAuthClient;
     var doLogout=function(){
@@ -115,7 +100,6 @@
       sessionStorage.removeItem('usuario_activo');
       localStorage.removeItem('gestoor_sesion');
       localStorage.removeItem('usuario_sesion');
-      // gestoor_email_guardado se conserva para pre-llenar correo en el próximo login
       window.location.replace(loginUrl);
     };
     if(client){
@@ -125,14 +109,10 @@
     }
   }
 
-  // ── Inyectar topbar con identidad real ───────────────────────────────────────
   function inyectarTopbar(sesion){
     whenReady(function(){
-
-      // ── MODO DASHBOARD: reutilizar #sessionBadge y #btnLogout nativos ────────
       var sbNativo=document.getElementById('sessionBadge');
       var btnNativo=document.getElementById('btnLogout');
-
       if(sbNativo){
         sbNativo.textContent=sesion.nombre+' \u00b7 '+(sesion.rolLabel||sesion.rol);
       }
@@ -143,18 +123,12 @@
         btnNativo.style.display='';
         btnNativo.removeAttribute('disabled');
       }
-
-      // stat-usuario (dashboard)
       var statU=document.getElementById('stat-usuario');
       if(statU) statU.textContent=sesion.nombre.split(' ')[0];
-
-      // Si había elementos nativos, el dashboard ya está completo
       if(sbNativo||btnNativo) return;
 
-      // ── MODO MÓDULO: insertar badge en .topbar ───────────────────────────────
       var topbar=document.querySelector('.topbar');
       if(!topbar) return;
-
       var badge=document.createElement('div');
       badge.style.cssText='display:flex;align-items:center;gap:8px;margin-right:8px;flex-shrink:0';
       badge.innerHTML=
@@ -165,11 +139,9 @@
         +'<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.8)">'+sesion.nombre+'</div>'
         +'<div style="font-size:9px;color:rgba(255,255,255,.3)">'+(sesion.rolLabel||sesion.rol)+'</div>'
         +'</div>';
-
       var btnEnTopbar=Array.from(topbar.querySelectorAll('button')).find(function(b){
         return b.textContent.trim()==='Salir'||b.id==='btnLogout';
       });
-
       if(btnEnTopbar){
         btnEnTopbar.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
@@ -191,28 +163,13 @@
     });
   }
 
-  // ── Verificación principal ───────────────────────────────────────────────────
   function verificarSesionAuth(){
     var client=window._sbAuthClient;
-    if(!client){
-      // SDK no disponible → fail-closed: contenido permanece oculto y redirige
-      console.warn('[auth.js] _sbAuthClient no disponible. Fail-closed → login.');
-      redirigirLogin();
-      return;
-    }
-
-    // getUser() verifica el JWT contra el servidor Supabase (no solo localStorage)
+    if(!client){ redirigirLogin(); return; }
     client.auth.getUser().then(function(result){
       var user=result.data&&result.data.user;
       var authErr=result.error;
-
-      // Sin usuario verificado → fail-closed
-      if(authErr||!user){
-        redirigirLogin();
-        return;
-      }
-
-      // Cargar perfil desde public.usuarios
+      if(authErr||!user){ redirigirLogin(); return; }
       client.from('usuarios')
         .select('id,nombre,iniciales,rol,rol_label,es_master,activo,modulos,wa,email')
         .eq('auth_user_id',user.id)
@@ -220,23 +177,16 @@
         .then(function(profileResult){
           var perfil=profileResult.data;
           var err=profileResult.error;
-
-          // Sin perfil → signOut + fail-closed
           if(err||!perfil){
-            console.warn('[auth.js] Perfil no encontrado para UID:',user.id);
             sessionStorage.removeItem('usuario_activo');
             client.auth.signOut().then(redirigirLogin).catch(redirigirLogin);
             return;
           }
-          // Perfil inactivo → signOut + fail-closed
           if(!perfil.activo){
-            console.warn('[auth.js] Usuario inactivo:',perfil.email);
             sessionStorage.removeItem('usuario_activo');
             client.auth.signOut().then(redirigirLogin).catch(redirigirLogin);
             return;
           }
-
-          // Identidad confirmada — construir cache visual (compatible con módulos)
           var sesion={
             id:perfil.id,
             nombre:perfil.nombre,
@@ -251,35 +201,26 @@
           };
           sessionStorage.setItem('usuario_activo',JSON.stringify(sesion));
           window._contadoorSesion=sesion;
-
-          // Auto-redirect analistas desde dashboard
           if(MODULO_ACTUAL==='dashboard'&&!perfil.es_master){
             var redirect=ROL_REDIRECT[perfil.rol];
             if(redirect){ window.location.replace(redirect); return; }
           }
-
-          // Control de acceso al módulo actual
           if(!puedeVerModulo(perfil,MODULO_ACTUAL)){
-            mostrarAccesoDenegado(); // revelar + mensaje (no redirige al login)
+            mostrarAccesoDenegado();
             return;
           }
-
-          // ── ACCESO CONCEDIDO ─────────────────────────────────────────────────
-          revelarContenido();   // quitar auth-pending → contenido visible
+          revelarContenido();
           inyectarTopbar(sesion);
-
         }).catch(function(e){
-          console.error('[auth.js] Error cargando perfil:',e);
-          redirigirLogin(); // fail-closed
+          console.error('[auth.js] Error perfil:',e);
+          redirigirLogin();
         });
-
     }).catch(function(e){
-      console.error('[auth.js] Error en getUser:',e);
-      redirigirLogin(); // fail-closed
+      console.error('[auth.js] Error getUser:',e);
+      redirigirLogin();
     });
   }
 
-  // Esperar SDK
   if(window._sbAuthReady){
     verificarSesionAuth();
   }else{
