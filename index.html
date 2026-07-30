@@ -1,5 +1,6 @@
+
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -61,8 +62,10 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 .footer span{color:var(--p);}
 @media(max-width:900px){.g3{grid-template-columns:1fr 1fr;}.g4{grid-template-columns:1fr 1fr;}.hero{padding:28px 16px 20px;}.main{padding:20px 12px 40px;}.header{padding:0 16px;}}
 @media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr;}.hero-stats{gap:16px;padding:10px 16px;}}
+
 .page-wrap{margin-left:220px;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <header class="header">
@@ -83,12 +86,12 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 <div class="hero">
   <div class="hero-eye">Centro de Operaciones</div>
   <div class="hero-title">GESTOOR</div>
-  <div class="hero-sub">Gestión, control y seguimiento en tiempo real</div>
+  <div class="hero-sub">Gesti&#243;n, control y seguimiento en tiempo real</div>
   <div class="hero-stats">
-    <div class="hstat"><div class="hstat-v" id="stat-clientes">—</div><div class="hstat-l">Clientes activos</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-periodo">—</div><div class="hstat-l">Período actual</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-pendientes">—</div><div class="hstat-l">Procesos pendientes</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-alertas">—</div><div class="hstat-l">Alertas</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-clientes">&#8212;</div><div class="hstat-l">Clientes activos</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-periodo">&#8212;</div><div class="hstat-l">Per&#237;odo actual</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-pendientes">&#8212;</div><div class="hstat-l">Procesos pendientes</div></div>
+    <div class="hstat"><div class="hstat-v" id="stat-alertas">&#8212;</div><div class="hstat-l">Alertas</div></div>
   </div>
 </div>
 
@@ -280,17 +283,26 @@ body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100
 <script>
 (function(){
   try{
+    // Solo lógica visual — sin autenticación, sin sesión, sin identidad.
+    // auth.js (cargado a continuación) se encarga de la identidad real.
+
+    // Período actual (ej. "Julio 2026")
     var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     var hoy=new Date();
     var statP=document.getElementById('stat-periodo');
     if(statP) statP.textContent=meses[hoy.getMonth()]+' '+hoy.getFullYear();
+
+    // Clientes activos desde cache local
     try{
       var cl=JSON.parse(localStorage.getItem('clientes_bd')||'[]');
       var activos=cl.filter(function(c){return c.estado==='activo';}).length;
       var statC=document.getElementById('stat-clientes');
       if(statC) statC.textContent=activos||'—';
     }catch(e){}
+
+    // Procesos pendientes y Alertas: pendiente conexión a Panel de Control
+    // se quedan en "—" hasta que Panel los alimente
   }catch(e){}
 })();
 </script>
