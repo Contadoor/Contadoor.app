@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -131,6 +131,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 /* CHECKBOX */
 .ob-check{width:18px;height:18px;cursor:pointer;flex-shrink:0;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -487,7 +488,15 @@ function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_acti
 
 function getObs(){try{return JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){return[];}}
 function setObs(arr){localStorage.setItem('pagos_bd',JSON.stringify(arr));renderAll();}
-function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
+function getClientes(){
+  var c=sbCacheGetOrLocal('clientes','clientes_bd');
+  return c||[];
+}
+function inicializarClientes(cb){
+  sbGetClientes(function(rows){
+    if(cb)cb(rows);
+  });
+}
 
 // \u2500\u2500 TIPOS POR \u00c1REA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function onAreaChange(){
@@ -970,6 +979,7 @@ function exportarCSV(){
 
 renderAll();
 </script>
+<script src="../supabase.js"></script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
 </body>
