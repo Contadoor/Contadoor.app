@@ -140,7 +140,7 @@
         btnNativo.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
-        btnNativo.style.display='';
+        btnNativo.style.display='block';
         btnNativo.removeAttribute('disabled');
       }
 
