@@ -286,4 +286,22 @@
     window.addEventListener('gestoor-auth-ready',verificarSesionAuth);
   }
 
+  // ── Listener: sesión requerida desde sbFetch ──────────────────────────────
+  // Se emite cuando sbFetch detecta _gestoorAccessToken === null tras SDK listo,
+  // o cuando vence el timeout del CDN (reason: GESTOOR_SDK_TIMEOUT).
+  // Delega en cerrarSesionGestoor() para limpieza completa:
+  //   signOut() + sessionStorage + localStorage(gestoor_sesion, usuario_sesion)
+  //   + location.replace(loginUrl).
+  // _redirigiendo evita múltiples redirecciones simultáneas.
+  // No aplica en login.html (ese archivo no carga auth.js).
+  var _redirigiendo=false;
+  window.addEventListener('gestoor-session-required',function(e){
+    if(_redirigiendo) return;
+    _redirigiendo=true;
+    var pathInfo=(e&&e.detail&&e.detail.path)||'';
+    var reason=(e&&e.detail&&e.detail.reason)||'GESTOOR_NO_SESSION';
+    console.warn('[auth.js] gestoor-session-required — '+reason+(pathInfo?' Path: '+pathInfo:''));
+    cerrarSesionGestoor();
+  });
+
 })();
