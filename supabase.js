@@ -6,27 +6,145 @@
 var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 
+// ── TOKEN JWT ────────────────────────────────────────────────
+// Actualizado automáticamente por onAuthStateChange (API pública del SDK).
+// sbH() lo lee de forma síncrona — ningún caller necesita await.
+// Fail-closed: si es null, sbFetch emite error en lugar de usar anon como Bearer.
+var _gestoorAccessToken = null;
+
 // ── CORE ─────────────────────────────────────────────────────
 function sbH(extra){
-  return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},extra||{});
+  if(!_gestoorAccessToken){
+    // Sin JWT activo: no usar anon key como Bearer silenciosamente.
+    // sbFetch captura este error y emite el evento gestoor-session-required.
+    throw new Error('GESTOOR_NO_SESSION');
+  }
+  // extra puede sobrescribir Content-Type, Prefer, etc.
+  // apikey y Authorization se aplican AL FINAL — ningún caller puede sobrescribirlos.
+  return Object.assign(
+    {'Content-Type':'application/json'},
+    extra||{},
+    {
+      'apikey':        SB_KEY,                       // siempre: identifica el proyecto
+      'Authorization': 'Bearer '+_gestoorAccessToken  // siempre: JWT del usuario autenticado
+    }
+  );
 }
-function sbFetch(path,opts){
+// _sbFetchCore: ejecuta fetch una vez que el token está confirmado disponible.
+// Función interna — no llamar directamente desde módulos.
+// _gestoorAuthReadyPromise: promesa compartida de inicialización del SDK.
+// Todos los sbFetch simultáneos que lleguen antes de Auth ready esperan
+// la misma promesa — no se crea un listener ni un timeout por petición.
+var _gestoorAuthReadyPromise=null;
+
+// Retorna Promise que resuelve cuando gestoor-auth-ready fue disparado.
+// Idempotente: si _sbAuthReady ya es true, resuelve inmediatamente.
+// Si varias peticiones esperan, todas reciben la misma instancia.
+// cleanup() garantiza que ni el timer ni el listener queden pendientes
+// independientemente de qué rama (evento o timeout) resuelva primero.
+function _waitForAuthReady(){
+  if(window._sbAuthReady===true){ return Promise.resolve(); }
+  if(_gestoorAuthReadyPromise){ return _gestoorAuthReadyPromise; }
+  _gestoorAuthReadyPromise=new Promise(function(resolve,reject){
+    var timer;
+    function cleanup(){
+      clearTimeout(timer);
+      window.removeEventListener('gestoor-auth-ready',handler);
+      _gestoorAuthReadyPromise=null;
+    }
+    function handler(){
+      cleanup();
+      resolve();
+    }
+    timer=setTimeout(function(){
+      cleanup();
+      reject(new Error('GESTOOR_SDK_TIMEOUT'));
+    },8000);
+    window.addEventListener('gestoor-auth-ready',handler);
+  });
+  return _gestoorAuthReadyPromise;
+}
+
+// _sbFetchCore: ejecuta el fetch una vez que el token está confirmado disponible.
+// Función interna — no invocar directamente desde módulos.
+function _sbFetchCore(path,opts){
+  var headers;
+  try{
+    headers=sbH((opts||{}).headers||{});
+  }catch(e){
+    if(e.message==='GESTOOR_NO_SESSION'){
+      console.warn('[Gestoor] sbFetch sin JWT activo. Path:',path);
+      window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{path:path}}));
+    }
+    return Promise.reject(e);
+  }
   var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:sbH(o.headers||{})}));
+  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:headers}));
+}
+
+function sbFetch(path,opts){
+  // Caso 1: token disponible → fetch inmediato, sin esperas
+  if(_gestoorAccessToken){ return _sbFetchCore(path,opts); }
+
+  // Caso 2: SDK ya listo, sin sesión → fail-closed
+  if(window._sbAuthReady===true){
+    console.warn('[Gestoor] sbFetch sin JWT · sin sesión activa. Path:',path);
+    window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{path:path,reason:'GESTOOR_NO_SESSION'}}));
+    return Promise.reject(new Error('GESTOOR_NO_SESSION'));
+  }
+
+  // Caso 3: SDK todavía cargando → esperar promesa compartida.
+  // Todas las sbFetch simultáneas esperan la misma instancia de _waitForAuthReady.
+  return _waitForAuthReady().then(function(){
+    if(_gestoorAccessToken){ return _sbFetchCore(path,opts); }
+    console.warn('[Gestoor] sbFetch sin JWT tras SDK listo. Path:',path);
+    window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{path:path,reason:'GESTOOR_NO_SESSION'}}));
+    return Promise.reject(new Error('GESTOOR_NO_SESSION'));
+  }).catch(function(e){
+    if(e.message==='GESTOOR_SDK_TIMEOUT'){
+      console.warn('[Gestoor] Timeout esperando SDK (8s). Path:',path);
+      window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{path:path,reason:'GESTOOR_SDK_TIMEOUT'}}));
+    }
+    return Promise.reject(e);
+  });
 }
 function sbGet(path){
-  return sbFetch(path).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
+  return sbFetch(path).then(function(r){
+    if(!r.ok){console.warn('[Gestoor sbGet] HTTP '+r.status+' en '+path);}
+    return r.ok?r.json():[];
+  }).catch(function(e){
+    if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Gestoor sbGet] Error en '+path,e&&e.message||e);
+    return [];
+  });
 }
 function sbPost(table,data,prefer){
   return sbFetch(table,{method:'POST',headers:{'Prefer':prefer||'resolution=merge-duplicates,return=representation'},body:JSON.stringify(data)})
-    .then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+    .then(function(r){
+      if(!r.ok){console.warn('[Gestoor sbPost] HTTP '+r.status+' en '+table);}
+      return r.ok?r.json():null;
+    }).catch(function(e){
+      if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Gestoor sbPost] Error en '+table,e&&e.message||e);
+      return null;
+    });
 }
 function sbPatch(path,data){
   return sbFetch(path,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(data)})
-    .then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+    .then(function(r){
+      if(!r.ok){console.warn('[Gestoor sbPatch] HTTP '+r.status+' en '+path);}
+      return r.ok?r.json():null;
+    }).catch(function(e){
+      if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Gestoor sbPatch] Error en '+path,e&&e.message||e);
+      return null;
+    });
 }
 function sbDelete(path){
-  return sbFetch(path,{method:'DELETE'}).then(function(r){return r.ok;}).catch(function(){return false;});
+  return sbFetch(path,{method:'DELETE'}).then(function(r){
+    if(!r.ok){console.warn('[Gestoor sbDelete] HTTP '+r.status+' en '+path);}
+    return r.ok;
+  }).catch(function(e){
+    if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Gestoor sbDelete] Error en '+path,e&&e.message||e);
+    return false;
+  });
 }
 function sbUpsert(table,data){return sbPost(table,data,'resolution=merge-duplicates,return=representation');}
 
@@ -212,6 +330,10 @@ function sbUpsertPeriodo(p){
 }
 
 // ── USUARIOS ─────────────────────────────────────────────────
+// Consulta usuarios_sistema (tabla legacy con PIN).
+// admin/index.html tiene su propio sbFetch con Bearer SB_KEY y depende de
+// esta tabla directamente. sbGetUsuarios queda intacto hasta que Admin
+// sea migrado de forma independiente en una fase posterior.
 function sbGetUsuarios(cb){
   var cached=sbCacheOrLocal('usuarios','usuarios_sistema');
   if(cached) cb(cached);
@@ -795,8 +917,9 @@ console.log('✅ supabase.js v3 · Gestoor');
 
 // ── SUPABASE AUTH SDK ────────────────────────────────────────────────────────
 // Carga el SDK oficial de Supabase para autenticación real.
-// No interfiere con sbFetch/sbGet/sbPatch existentes (que usan anon key + fetch directo).
-// Los módulos actuales siguen funcionando sin cambios.
+// Mantiene _gestoorAccessToken sincronizado — sbFetch usa ese JWT como Bearer.
+// admin/index.html tiene su propio sbFetch local con Bearer SB_KEY (anon)
+// y no depende de este SDK para sus peticiones de datos.
 (function(){
   if(window._sbAuthReady) return;
   var s=document.createElement('script');
@@ -811,11 +934,39 @@ console.log('✅ supabase.js v3 · Gestoor');
         detectSessionInUrl:true
       }
     });
-    window._sbAuthReady=true;
-    window.dispatchEvent(new Event('gestoor-auth-ready'));
+
+    // Mantener _gestoorAccessToken sincronizado con el ciclo de vida de Auth.
+    // Cubre: carga inicial (INITIAL_SESSION), login (SIGNED_IN),
+    // renovación automática (TOKEN_REFRESHED) y logout (SIGNED_OUT).
+    window._sbAuthClient.auth.onAuthStateChange(function(event,session){
+      _gestoorAccessToken=(session&&session.access_token)||null;
+      console.log('[Gestoor Auth]',event,'| JWT:',_gestoorAccessToken?'OK':'null');
+    });
+
+    // Inicializar _gestoorAccessToken desde la sesión persistida en localStorage
+    // ANTES de disparar gestoor-auth-ready, para que la primera sbFetch
+    // ya tenga el token disponible sin race condition.
+    window._sbAuthClient.auth.getSession().then(function(result){
+      var session=result.data&&result.data.session;
+      _gestoorAccessToken=(session&&session.access_token)||null;
+      window._sbAuthReady=true;
+      window.dispatchEvent(new Event('gestoor-auth-ready'));
+    }).catch(function(){
+      // Sin sesión o error de red: disparar el evento de todas formas.
+      // auth.js se encargará de la redirección al login.
+      _gestoorAccessToken=null;
+      window._sbAuthReady=true;
+      window.dispatchEvent(new Event('gestoor-auth-ready'));
+    });
   };
   s.onerror=function(){
-    console.error('[Gestoor Auth] Error al cargar Supabase SDK. Verifique conexión.');
+    // Si el CDN falla, marcar como listo (sin cliente) para que _waitForAuthReady
+    // resuelva de inmediato en lugar de esperar 8s. auth.js detectará que
+    // _sbAuthClient es null y redirigirá al login.
+    console.error('[Gestoor Auth] Error cargando Supabase SDK — verificar red o CDN.');
+    _gestoorAccessToken=null;
+    window._sbAuthReady=true;
+    window.dispatchEvent(new Event('gestoor-auth-ready'));
   };
   document.head.appendChild(s);
 })();
