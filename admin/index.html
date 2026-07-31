@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -84,13 +84,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .mod-check-item .mod-icon{font-size:14px;}
 
 /* PIN INPUT */
-.pin-input-wrap{display:flex;gap:8px;justify-content:center;margin:8px 0;}
-.pin-input-wrap input{width:50px;height:50px;text-align:center;font-size:20px;font-weight:700;border:2px solid var(--bdr);border-radius:8px;font-family:var(--sans);outline:none;background:var(--sur2);}
-.pin-input-wrap input:focus{border-color:var(--p);}
-
 .info-box{background:#eff6ff;border:1px solid #bfdbfe;border-left:3px solid #3B82F6;border-radius:8px;padding:10px 13px;font-size:12px;color:#1e40af;line-height:1.5;margin-bottom:14px;}
 .warn-box{background:#fef3c7;border:1px solid #fde68a;border-left:3px solid #C07A1A;border-radius:8px;padding:10px 13px;font-size:12px;color:#78350f;line-height:1.5;margin-bottom:14px;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -135,7 +132,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
   </div>
     <span id="sessionInfo" style="font-size:11px;color:rgba(255,255,255,.3);margin-right:8px"></span>
-    <button class="btn-p btn-sm" onclick="abrirModalNuevo()">+ Nuevo usuario</button>
+    <button class="btn-s btn-sm" onclick="abrirModalNuevo()" title="Disponible en próxima fase" style="opacity:.5;cursor:not-allowed">+ Nuevo usuario</button>
   </div>
   <div class="content">
     <div class="warn-box">⚠️ Esta sección solo está disponible para el usuario Master. Los cambios aquí afectan el acceso de todo el equipo al sistema.</div>
@@ -148,7 +145,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <div class="modal-bg" id="modal">
   <div class="modal">
     <h2 id="modalTitle">Nuevo usuario</h2>
-    <div class="modal-sub">Define el nombre, rol, PIN de acceso y módulos habilitados</div>
+    <div class="modal-sub">Define el nombre, rol y módulos habilitados</div>
     <input type="hidden" id="f-id"/>
 
     <div class="card-hd">👤 Datos del usuario</div>
@@ -174,31 +171,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <span class="hint">Define la vista de inicio y los permisos base del usuario</span>
       </div>
       <div class="fgroup">
-        <label>Email</label>
+        <label>Email de contacto</label>
         <input type="email" id="f-email" placeholder="analista@contadoor.cl"/>
-        <span class="hint">Se usa como Reply-To en los reportes enviados</span>
+        <span class="hint">Se usa en reportes y comunicaciones. No modifica el correo de acceso a Gestoor.</span>
       </div>
       <div class="fgroup">
         <label>WhatsApp</label>
         <input type="text" id="f-wa" placeholder="9XXXXXXXX"/>
         <span class="hint">Sin +56 — aparece en los reportes al cliente</span>
       </div>
-      <div class="fgroup">
-        <label>Estado</label>
-        <select id="f-activo">
-          <option value="1">✅ Activo</option>
-          <option value="0">❌ Inactivo</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="card-hd">🔑 PIN de acceso (4 dígitos)</div>
-    <div class="info-box" style="margin-bottom:10px">El PIN debe ser de 4 dígitos numéricos. El usuario lo ingresará en la pantalla de login.</div>
-    <div class="pin-input-wrap">
-      <input type="number" id="pin0" maxlength="1" min="0" max="9" oninput="nextPin(this,'pin1')" onkeydown="prevPin(event,'pin0')" style="width:50px"/>
-      <input type="number" id="pin1" maxlength="1" min="0" max="9" oninput="nextPin(this,'pin2')" onkeydown="prevPin(event,'pin0')" style="width:50px"/>
-      <input type="number" id="pin2" maxlength="1" min="0" max="9" oninput="nextPin(this,'pin3')" onkeydown="prevPin(event,'pin1')" style="width:50px"/>
-      <input type="number" id="pin3" maxlength="1" min="0" max="9" oninput="nextPin(this,null)" onkeydown="prevPin(event,'pin2')" style="width:50px"/>
     </div>
 
     <div class="card-hd" style="margin-top:16px">📦 Módulos habilitados</div>
@@ -216,7 +197,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </div>
 
 <script>
-// ── MÓDULOS DISPONIBLES ───────────────────────────────────────────────────
+/// ── MÓDULOS DISPONIBLES ───────────────────────────────────────────────────
 // ── MÓDULOS DEL SISTEMA ───────────────────────────────────────────────────
 var MODULOS_DISPONIBLES = [
   // Gestión
@@ -274,304 +255,313 @@ var ROL_TEMPLATES = {
   }
 };
 
-var USUARIOS_DEFAULT = [
-  {id:1,nombre:'Luciano Duarte',iniciales:'LD',rol:'master',rolLabel:'Master · Acceso total',
-   pin:'1234',esMaster:true,activo:true,
-   modulos:['clientes','reportes','reportes-rrhh','reportes-contable','reportes-pagos',
-            'trabajadores','calendario-rrhh','facturacion','pagos','conciliacion',
-            'cobranza','convenios','pir','performance','admin'],
-   tsCreado:'Sistema'}
-];
+// ── ESTADO EN MEMORIA ─────────────────────────────────────────────────────
+// Única fuente de verdad para la sesión del módulo.
+// No se escribe ni lee desde localStorage (caché legacy eliminado).
+var _editId = null;
+var _admUsuarios = [];
 
-var _editId=null;
+// ── CARGA DESDE public.usuarios (JWT) ────────────────────────────────────
+// Columnas: solo las verificadas. No usa select=*, no usa usuarios_sistema.
+function adminCargar(){
+  var cont = document.getElementById('listaUsuarios');
+  if(cont) cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--tm)">⏳ Cargando usuarios...</div>';
 
-
-// ── SUPABASE ─────────────────────────────────────────────────────────────
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbFetch(path,opts){
-  var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},o.headers||{})}));
-}
-function cargarUsuariosSupabase(){
-  sbFetch('usuarios?select=*&order=nombre.asc')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(data){
-      if(!data||!data.length){renderUsuarios();return;}
-      var local=getUsuarios();
-      // Merge Supabase into local — Supabase is source of truth
-      data.forEach(function(u){
-        var lu=local.find(function(x){return x.sbId===u.id||x.nombre===u.nombre;});
-        if(lu){
-          lu.sbId=u.id;lu.rolLabel=u.rol_label||u.rol;lu.activo=u.activo!==false;
-          lu.email=u.email||lu.email;lu.wa=u.wa||lu.wa;lu.modulos=u.modulos||lu.modulos;
-        }else{
-          local.push({
-            id:Date.now()+Math.random(),sbId:u.id,
-            nombre:u.nombre,iniciales:u.iniciales||u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(),
-            rol:u.rol,rolLabel:u.rol_label||u.rol,email:u.email||'',wa:u.wa||'',
-            activo:u.activo!==false,modulos:u.modulos||[],pin:'0000',
-            tsCreado:u.created_at||new Date().toISOString()
-          });
-        }
+  sbFetch(
+    'usuarios?select=id,nombre,iniciales,rol,rol_label,es_master,activo,modulos,wa,email,auth_user_id' +
+    '&order=nombre.asc'
+  ).then(function(r){
+    if(!r.ok){
+      return r.text().then(function(txt){
+        var body = {};
+        try{ body = JSON.parse(txt); }catch(e){}
+        throw {status:r.status, body:body};
       });
-      localStorage.setItem('usuarios_sistema',JSON.stringify(local));
-      renderUsuarios();
-    }).catch(function(){renderUsuarios();});
-}
-function syncUsuarioSupabase(u){
-  var row={
-    nombre:u.nombre,
-    iniciales:u.iniciales||u.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(),
-    rol:u.rol,rol_label:u.rolLabel||u.rol,
-    email:u.email||'',wa:u.wa||'',
-    activo:u.activo!==false,modulos:u.modulos||[],
-    pin:u.pin||'0000'
-  };
-  if(u.sbId){
-    sbFetch('usuarios?id=eq.'+u.sbId,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(row)}).catch(function(){});
-  }else{
-    sbFetch('usuarios',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(row)})
-      .then(function(r){return r.ok?r.json():null;})
-      .then(function(data){
-        if(data&&data[0]){
-          var local=getUsuarios();
-          var idx=local.findIndex(function(x){return x.id===u.id;});
-          if(idx>=0){local[idx].sbId=data[0].id;localStorage.setItem('usuarios_sistema',JSON.stringify(local));}
-        }
-      }).catch(function(){});
-  }
-}
-
-function getUsuarios(){
-  var cached=sbCacheOrLocal('usuarios','usuarios_sistema');
-  return cached||[];
-}
-function recargarUsuarios(cb){
-  sbGetUsuarios(function(rows){
-    if(typeof renderUsuarios==='function') renderUsuarios();
-    if(cb) cb(rows);
+    }
+    return r.json();
+  }).then(function(data){
+    _admUsuarios = data || [];
+    // Limpiar caché legacy (solo estas dos claves, no otras de Gestoor)
+    try{ localStorage.removeItem('usuarios_sistema'); }catch(e){}
+    try{ localStorage.removeItem('sbc_usuarios'); }catch(e){}
+    renderUsuarios();
+  }).catch(function(e){
+    var msg = 'Error al cargar usuarios.';
+    if(e && e.status === 401) msg = '❌ Sesión no válida (HTTP 401). Recarga la página.';
+    else if(e && e.status === 403) msg = '❌ Sin permiso para listar usuarios (HTTP 403).';
+    else if(e && e.status) msg += ' HTTP ' + e.status;
+    if(e && e.body && e.body.message) msg += ' — ' + e.body.message;
+    if(cont) cont.innerHTML = '<div style="padding:24px;background:#fee2e2;color:#991b1b;border-radius:8px;margin:16px">' + hesc(msg) + '</div>';
   });
 }
-function setUsuarios(arr){localStorage.setItem('usuarios_sistema',JSON.stringify(arr));arr.forEach(syncUsuarioSupabase);renderUsuarios();}
-function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
-function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 
-// ── RENDER USUARIOS ───────────────────────────────────────────────────────
+// ── PATCH A public.usuarios (JWT) ─────────────────────────────────────────
+function adminPatch(id, data){
+  return sbFetch('usuarios?id=eq.' + encodeURIComponent(id), {
+    method: 'PATCH',
+    headers: {'Prefer': 'return=representation'},
+    body: JSON.stringify(data)
+  }).then(function(r){
+    if(!r.ok){
+      return r.text().then(function(txt){
+        var body = {};
+        try{ body = JSON.parse(txt); }catch(e){}
+        throw {status:r.status, body:body};
+      });
+    }
+    return r.json().then(function(rows){
+      if(!Array.isArray(rows) || rows.length === 0){
+        throw {status:200, body:{message:'Supabase no actualizó ningún usuario. Verifica que el ID existe y que tienes permiso.'}};
+      }
+      return rows;
+    });
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function getUsuarios(){ return _admUsuarios; }
+
+function hesc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sv(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+
+function adminToast(msg, tipo){
+  var t = document.getElementById('adminToast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'adminToast';
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:9px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.2);display:none;';
+    document.body.appendChild(t);
+  }
+  t.style.background = (tipo === 'error') ? '#C0392B' : '#2D9B6F';
+  t.style.color = '#fff';
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.style.display = 'none'; }, tipo === 'error' ? 5000 : 3000);
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
 function renderUsuarios(){
-  var arr=getUsuarios();
-  var cont=document.getElementById('listaUsuarios');
-  var ROL_COLORS={rrhh:'#1D9E75',contable:'#C07A1A',pagos:'#3B82F6',cobranza:'#904891',admin:'#5c4a5d',master:'#904891'};
-  cont.innerHTML=arr.map(function(u){
-    // Solo módulos que tiene activos
-    var modsActivos=(u.modulos||[]);
-    var modsHTML=modsActivos.map(function(id){
-      var m=MODULOS_DISPONIBLES.find(function(x){return x.id===id;});
-      return m?'<span class="u-mod-tag">'+m.icon+' '+m.nombre+'</span>':'';
+  var arr = _admUsuarios;
+  var cont = document.getElementById('listaUsuarios');
+  if(!cont) return;
+  var ROL_COLORS = {rrhh:'#1D9E75',contable:'#C07A1A',pagos:'#3B82F6',cobranza:'#904891',admin:'#5c4a5d',master:'#904891'};
+  var sesion = getUsuario();  // desde supabase.js — sessionStorage.usuario_activo
+  var sesionId = sesion && sesion.id ? String(sesion.id) : null;
+
+  if(!arr.length){
+    cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--tm)">No se encontraron usuarios.</div>';
+    return;
+  }
+
+  cont.innerHTML = arr.map(function(u){
+    var modsHTML = (u.modulos||[]).map(function(mid){
+      var m = MODULOS_DISPONIBLES.find(function(x){ return x.id === mid; });
+      return m ? '<span class="u-mod-tag">' + m.icon + ' ' + m.nombre + '</span>' : '';
     }).join('');
-    var rolColor=ROL_COLORS[u.rol]||'#5c4a5d';
-    var rolLabel=u.rolLabel||u.rol||' - ';
-    return'<div class="usuario-card">'
-      +'<div class="u-avatar'+(u.esMaster?' master':'')+'">'+hesc(u.iniciales||u.nombre.slice(0,2).toUpperCase())+'</div>'
-      +'<div class="u-info" style="flex:1">'
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'
-      +'<div class="u-nombre">'+hesc(u.nombre)+'</div>'
-      +(u.esMaster?'<span class="master-badge">👑 Master</span>':'')
-      +'<span style="background:'+rolColor+'22;color:'+rolColor+';border:1px solid '+rolColor+'44;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700">'+hesc(rolLabel)+'</span>'
-      +(!u.activo?'<span class="inactivo-badge">Inactivo</span>':'')
-      +'</div>'
-      +(u.email?'<div style="font-size:10px;color:#9a849b;margin-bottom:2px">✉️ '+hesc(u.email)+(u.wa?' · 💬 +56 '+hesc(u.wa):'')+'</div>':'')
-      +'<div class="u-modulos" style="margin-bottom:6px">'+modsHTML+'</div>'
-      +'<div class="u-actions">'
-      +'<span class="u-pin-badge">PIN: '+u.pin.replace(/./g,'●')+'</span>'
-      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="abrirModalEditar('+u.id+')">✏️ Editar</button>':'')
-      +(!u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPin('+u.id+')">🔑 PIN</button>':'')
-      +(u.esMaster?'<button class="btn-s btn-sm" onclick="cambiarPinMaster()">🔑 Cambiar mi PIN</button>':'')
-      +(!u.esMaster?'<button class="btn-danger btn-sm" onclick="eliminarUsuario('+u.id+')">🗑</button>':'')
-      +'</div>'
-      +'</div>'
-      +'</div>';
+    var rolColor = ROL_COLORS[u.rol] || '#5c4a5d';
+    var rolLabel = u.rol_label || u.rol || '-';
+    var esYo = sesionId && String(u.id) === sesionId;
+    var mastersActivos = arr.filter(function(x){ return x.es_master && x.activo; });
+
+    var acciones = '';
+    if(!u.es_master){
+      acciones += '<button class="btn-s btn-sm" onclick="abrirModalEditar(\'' + u.id + '\')">✏️ Editar</button>';
+      if(!esYo){
+        if(u.activo){
+          acciones += '<button class="btn-danger btn-sm" onclick="toggleActivo(\'' + u.id + '\',false)">⏸ Desactivar</button>';
+        } else {
+          acciones += '<button class="btn-s btn-sm" onclick="toggleActivo(\'' + u.id + '\',true)">▶ Reactivar</button>';
+        }
+      }
+    }
+
+    return '<div class="usuario-card">'
+      + '<div class="u-avatar' + (u.es_master ? ' master' : '') + '">' + hesc(u.iniciales || u.nombre.slice(0,2).toUpperCase()) + '</div>'
+      + '<div class="u-info" style="flex:1">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'
+      + '<div class="u-nombre">' + hesc(u.nombre) + '</div>'
+      + (u.es_master ? '<span class="master-badge">👑 Master</span>' : '')
+      + '<span style="background:' + rolColor + '22;color:' + rolColor + ';border:1px solid ' + rolColor + '44;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700">' + hesc(rolLabel) + '</span>'
+      + (!u.activo ? '<span class="inactivo-badge">Inactivo</span>' : '')
+      + (esYo ? '<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:3px 8px">👤 Tú</span>' : '')
+      + '</div>'
+      + (u.email ? '<div style="font-size:10px;color:#9a849b;margin-bottom:2px">✉️ ' + hesc(u.email) + (u.wa ? ' · 💬 +56 ' + hesc(u.wa) : '') + '</div>' : '')
+      + (!u.auth_user_id ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta Supabase Auth vinculada</div>' : '')
+      + '<div class="u-modulos" style="margin-bottom:6px">' + modsHTML + '</div>'
+      + '<div class="u-actions">' + acciones + '</div>'
+      + '</div>'
+      + '</div>';
   }).join('');
 
-  // Session info
   try{
-    var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(s) document.getElementById('sessionInfo').textContent='Sesión: '+s.nombre;
+    var s = getUsuario();
+    var si = document.getElementById('sessionInfo');
+    if(s && si) si.textContent = 'Sesión: ' + s.nombre;
   }catch(e){}
 }
 
 // ── ROL CHANGE ────────────────────────────────────────────────────────────
 function onRolChange(){
-  var rol=document.getElementById('f-rol').value;
+  var rol = document.getElementById('f-rol').value;
   if(!rol) return;
-  var tmpl=ROL_TEMPLATES[rol];
+  var tmpl = ROL_TEMPLATES[rol];
   if(!tmpl) return;
   renderModulosGrid(tmpl.modulos);
-  var info=document.getElementById('rolPresetInfo');
-  if(info) info.textContent='  -  '+tmpl.modulos.length+' módulos cargados desde plantilla '+tmpl.label;
+  var info = document.getElementById('rolPresetInfo');
+  if(info) info.textContent = '  -  ' + tmpl.modulos.length + ' módulos cargados desde plantilla ' + tmpl.label;
 }
 
-// ── MÓDULOS GRID AGRUPADO ─────────────────────────────────────────────────
+// ── MÓDULOS GRID ──────────────────────────────────────────────────────────
 function renderModulosGrid(seleccionados){
-  var grid=document.getElementById('modulosGrid');
-  // Agrupar por grupo
-  var grupos={};
+  var grid = document.getElementById('modulosGrid');
+  var grupos = {};
   MODULOS_DISPONIBLES.forEach(function(m){
-    if(!grupos[m.grupo]) grupos[m.grupo]=[];
+    if(!grupos[m.grupo]) grupos[m.grupo] = [];
     grupos[m.grupo].push(m);
   });
-  var html='';
+  var html = '';
   Object.keys(grupos).forEach(function(g){
-    html+='<div style="margin-bottom:12px">';
-    html+='<div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8dde8">'+g+'</div>';
-    html+='<div class="modulos-grid">';
+    html += '<div style="margin-bottom:12px">';
+    html += '<div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8dde8">' + g + '</div>';
+    html += '<div class="modulos-grid">';
     grupos[g].forEach(function(m){
-      var checked=(seleccionados||[]).includes(m.id);
-      html+='<div class="mod-check-item">'
-        +'<input type="checkbox" id="mod-'+m.id+'" value="'+m.id+'"'+(checked?' checked':'')+'>'
-        +'<span class="mod-icon">'+m.icon+'</span>'
-        +'<label for="mod-'+m.id+'">'+m.nombre+'</label>'
-        +'</div>';
+      var checked = (seleccionados||[]).includes(m.id);
+      html += '<div class="mod-check-item">'
+        + '<input type="checkbox" id="mod-' + m.id + '" value="' + m.id + '"' + (checked ? ' checked' : '') + '>'
+        + '<span class="mod-icon">' + m.icon + '</span>'
+        + '<label for="mod-' + m.id + '">' + m.nombre + '</label>'
+        + '</div>';
     });
-    html+='</div></div>';
+    html += '</div></div>';
   });
-  grid.innerHTML=html;
+  grid.innerHTML = html;
 }
 
 function getModulosSeleccionados(){
   return MODULOS_DISPONIBLES.filter(function(m){
-    var el=document.getElementById('mod-'+m.id);
-    return el&&el.checked;
-  }).map(function(m){return m.id;});
+    var el = document.getElementById('mod-' + m.id);
+    return el && el.checked;
+  }).map(function(m){ return m.id; });
 }
 
-// ── PIN INPUT ─────────────────────────────────────────────────────────────
-function nextPin(el,nextId){
-  var v=el.value.replace(/\D/g,'');
-  el.value=v.slice(-1);
-  if(v&&nextId) document.getElementById(nextId).focus();
+// ── MODAL EDITAR ──────────────────────────────────────────────────────────
+function abrirModalEditar(id){
+  var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
+  if(!u) return;
+  _editId = id;
+  document.getElementById('modalTitle').textContent = 'Editar — ' + u.nombre;
+  document.getElementById('f-nombre').value = u.nombre || '';
+  document.getElementById('f-iniciales').value = u.iniciales || '';
+  document.getElementById('f-rol').value = u.rol || '';
+  document.getElementById('f-email').value = u.email || '';
+  document.getElementById('f-wa').value = u.wa || '';
+  var info = document.getElementById('rolPresetInfo');
+  if(info && u.rol){
+    var tmpl = ROL_TEMPLATES[u.rol];
+    info.textContent = tmpl ? '  -  Rol: ' + tmpl.label : '';
+  }
+  renderModulosGrid(u.modulos || []);
+  document.getElementById('modal').classList.add('on');
 }
-function prevPin(e,prevId){
-  if(e.key==='Backspace'&&!e.target.value) document.getElementById(prevId)&&document.getElementById(prevId).focus();
+
+// ── MODAL NUEVO — deshabilitado en Fase 2B-A ─────────────────────────────
+function abrirModalNuevo(){
+  adminToast('La invitación de nuevos usuarios estará disponible en la próxima fase.', 'error');
 }
-function getPin(){
-  return ['pin0','pin1','pin2','pin3'].map(function(id){return sv(id);}).join('');
-}
-function setPin(p){
-  ['pin0','pin1','pin2','pin3'].forEach(function(id,i){
-    var el=document.getElementById(id);if(el)el.value=p[i]||'';
+
+function closeModal(){ document.getElementById('modal').classList.remove('on'); }
+
+// ── GUARDAR (solo edición existente) ──────────────────────────────────────
+function guardarUsuario(){
+  if(!_editId){
+    adminToast('Creación de usuarios pendiente para próxima fase.', 'error');
+    return;
+  }
+  var nombre = sv('f-nombre');
+  if(!nombre){ adminToast('El nombre es obligatorio.', 'error'); return; }
+  var rol = sv('f-rol');
+  if(!rol){ adminToast('Selecciona un rol.', 'error'); return; }
+  var modulos = getModulosSeleccionados();
+  if(!modulos.length){ adminToast('Selecciona al menos un módulo.', 'error'); return; }
+
+  var tmpl = ROL_TEMPLATES[rol];
+
+  // Preservar módulos existentes no representados en la grilla (legacy/futuros)
+  var uActual = _admUsuarios.find(function(x){ return String(x.id) === String(_editId); });
+  var modIdsEnGrilla = MODULOS_DISPONIBLES.map(function(m){ return m.id; });
+  var modLegacy = (uActual && uActual.modulos ? uActual.modulos : []).filter(function(id){
+    return modIdsEnGrilla.indexOf(id) === -1;
+  });
+  var modulosFinal = modLegacy.concat(modulos).filter(function(id, i, arr){ return arr.indexOf(id) === i; });
+
+  // Payload sin pin, sin id, sin auth_user_id, sin es_master, sin activo
+  var payload = {
+    nombre:    nombre,
+    iniciales: sv('f-iniciales') || nombre.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase(),
+    rol:       rol,
+    rol_label: tmpl ? tmpl.label : rol,
+    email:     sv('f-email'),
+    wa:        sv('f-wa'),
+    modulos:   modulosFinal
+  };
+
+  adminPatch(_editId, payload).then(function(){
+    closeModal();
+    adminToast('✅ Usuario actualizado correctamente.', 'ok');
+    adminCargar();
+  }).catch(function(e){
+    var msg = 'Error al guardar.';
+    if(e && e.status === 403) msg = 'Sin permiso para editar (HTTP 403). Verifica que tu sesión sea válida.';
+    else if(e && e.status === 401) msg = 'Sesión expirada (HTTP 401). Recarga la página.';
+    else if(e && e.status) msg += ' HTTP ' + e.status;
+    if(e && e.body && e.body.message) msg += ': ' + e.body.message;
+    adminToast(msg, 'error');
   });
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────
-function abrirModalNuevo(){
-  _editId=null;
-  document.getElementById('modalTitle').textContent='Nuevo usuario';
-  document.getElementById('f-nombre').value='';
-  document.getElementById('f-iniciales').value='';
-  document.getElementById('f-rol').value='';
-  document.getElementById('f-email').value='';
-  document.getElementById('f-wa').value='';
-  document.getElementById('f-activo').value='1';
-  var info=document.getElementById('rolPresetInfo');if(info)info.textContent='';
-  setPin('');
-  renderModulosGrid([]);
-  document.getElementById('modal').classList.add('on');
-}
+// ── ACTIVAR / DESACTIVAR ──────────────────────────────────────────────────
+function toggleActivo(id, nuevoActivo){
+  var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
+  if(!u){ adminToast('Usuario no encontrado.', 'error'); return; }
 
-function abrirModalEditar(id){
-  var u=getUsuarios().find(function(x){return x.id===id;});if(!u)return;
-  _editId=id;
-  document.getElementById('modalTitle').textContent='Editar  -  '+u.nombre;
-  document.getElementById('f-nombre').value=u.nombre||'';
-  document.getElementById('f-iniciales').value=u.iniciales||'';
-  document.getElementById('f-rol').value=u.rol||'';
-  document.getElementById('f-email').value=u.email||'';
-  document.getElementById('f-wa').value=u.wa||'';
-  document.getElementById('f-activo').value=u.activo!==false?'1':'0';
-  var info=document.getElementById('rolPresetInfo');
-  if(info&&u.rol){
-    var tmpl=ROL_TEMPLATES[u.rol];
-    if(tmpl) info.textContent='  -  Rol: '+tmpl.label;
-  }
-  setPin(u.pin||'');
-  renderModulosGrid(u.modulos||[]);
-  document.getElementById('modal').classList.add('on');
-}
+  var sesion = getUsuario();
+  var esYo = sesion && sesion.id && String(sesion.id) === String(id);
 
-function closeModal(){document.getElementById('modal').classList.remove('on');}
-
-function guardarUsuario(){
-  var nombre=sv('f-nombre');
-  if(!nombre){alert('El nombre es obligatorio.');return;}
-  var rol=sv('f-rol');
-  if(!rol){alert('Selecciona un rol.');return;}
-  var pin=getPin();
-  if(pin.length!==4){alert('El PIN debe ser de exactamente 4 dígitos.');return;}
-  var modulos=getModulosSeleccionados();
-  if(!modulos.length){alert('Selecciona al menos un módulo.');return;}
-  var arr=getUsuarios();
-  var tmpl=ROL_TEMPLATES[rol];
-  var u={
-    id:_editId||Date.now(),
-    nombre,
-    iniciales:sv('f-iniciales')||nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(),
-    rol:rol,
-    rolLabel:tmpl?tmpl.label:rol,
-    email:sv('f-email'),
-    wa:sv('f-wa'),
-    pin,activo:sv('f-activo')==='1',
-    modulos,esMaster:false,
-    tsCreado:_editId?(getUsuarios().find(function(x){return x.id===_editId;})||{}).tsCreado||new Date().toLocaleString('es-CL'):new Date().toLocaleString('es-CL')
-  };
-  if(_editId){var idx=arr.findIndex(function(x){return x.id===_editId;});if(idx>=0)arr[idx]=u;else arr.push(u);}
-  else arr.push(u);
-  setUsuarios(arr);closeModal();
-}
-
-function eliminarUsuario(id){
-  var u=getUsuarios().find(function(x){return x.id===id;});
-  if(!u||u.esMaster){alert('No puedes eliminar al usuario Master.');return;}
-  if(!confirm('¿Eliminar a '+u.nombre+'? No podrá acceder al sistema.'))return;
-  setUsuarios(getUsuarios().filter(function(x){return x.id!==id;}));
-}
-
-function cambiarPin(id){
-  var u=getUsuarios().find(function(x){return x.id===id;});if(!u)return;
-  var nuevo=prompt('Nuevo PIN de 4 dígitos para '+u.nombre+':');
-  if(!nuevo)return;
-  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 dígitos numéricos.');return;}
-  var arr=getUsuarios();
-  var idx=arr.findIndex(function(x){return x.id===id;});
-  if(idx>=0)arr[idx].pin=nuevo;
-  setUsuarios(arr);
-  alert('PIN actualizado correctamente.');
-}
-
-function cambiarPinMaster(){
-  var nuevo=prompt('Nuevo PIN de 4 dígitos para tu usuario Master:');
-  if(!nuevo)return;
-  if(!/^\d{4}$/.test(nuevo)){alert('El PIN debe ser exactamente 4 dígitos numéricos.');return;}
-  var arr=getUsuarios();
-  var idx=arr.findIndex(function(x){return x.esMaster;});
-  if(idx>=0)arr[idx].pin=nuevo;
-  setUsuarios(arr);
-  alert('PIN master actualizado. Lo necesitarás la próxima vez que entres.');
-}
-
-// Verificar que sea master
-function verificarAcceso(){
-  try{
-    var s=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(!s||!s.esMaster){
-      document.querySelector('.content').innerHTML='<div style="text-align:center;padding:60px;color:#C0392B"><h2>⛔ Acceso denegado</h2><p style="margin-top:8px;color:#5c4a5d">Esta sección es solo para el usuario Master (Luciano).</p><a href="../index.html" style="display:inline-block;margin-top:16px;color:#904891">← Volver al dashboard</a></div>';
+  if(!nuevoActivo){
+    if(esYo){ adminToast('No puedes desactivarte a ti mismo.', 'error'); return; }
+    if(u.es_master){
+      var mastersActivos = _admUsuarios.filter(function(x){ return x.es_master && x.activo; });
+      if(mastersActivos.length <= 1){ adminToast('No puedes desactivar al único usuario Master activo.', 'error'); return; }
     }
-  }catch(e){}
+    if(!confirm('¿Desactivar a ' + u.nombre + '? Su acceso quedará bloqueado al volver a cargar o iniciar sesión. La revocación inmediata de una sesión activa se implementará en la próxima fase.')) return;
+  } else {
+    if(!confirm('¿Reactivar a ' + u.nombre + '?')) return;
+  }
+
+  adminPatch(id, {activo: nuevoActivo}).then(function(){
+    adminToast(nuevoActivo ? '✅ Usuario reactivado.' : '⏸ Usuario desactivado.', 'ok');
+    adminCargar();
+  }).catch(function(e){
+    var msg = nuevoActivo ? 'Error al reactivar.' : 'Error al desactivar.';
+    if(e && e.status === 403) msg = 'Sin permiso (HTTP 403). Solo el Master puede cambiar el estado.';
+    else if(e && e.status === 401) msg = 'Sesión expirada (HTTP 401).';
+    else if(e && e.status) msg += ' HTTP ' + e.status;
+    if(e && e.body && e.body.message) msg += ': ' + e.body.message;
+    adminToast(msg, 'error');
+  });
 }
 
-verificarAcceso();
-cargarUsuariosSupabase();
-renderUsuarios();
+// ── INICIALIZACIÓN ────────────────────────────────────────────────────────
+// sbFetch usa _waitForAuthReady() internamente — espera al JWT antes de la primera petición.
+(function initAdmin(){
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', adminCargar);
+  } else {
+    adminCargar();
+  }
+})();
+
 </script>
 <script src="../supabase.js"></script>
 <script src="../notifications.js"></script>
