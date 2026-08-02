@@ -73,6 +73,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .u-actions{display:flex;gap:6px;flex-wrap:wrap;}
 .u-pin-badge{font-size:10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:5px;padding:3px 8px;color:var(--tm);}
 .master-badge{font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:3px 8px;font-weight:700;}
+.btn-invite{background:rgba(59,130,246,.12);color:#2563eb;border:1px solid rgba(59,130,246,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-invite:hover{background:rgba(59,130,246,.2);}
+.btn-invite:disabled{opacity:.5;cursor:not-allowed;}
 .inactivo-badge{font-size:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:5px;padding:3px 8px;}
 
 /* MÓDULOS CHECKBOXES */
@@ -173,7 +176,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="fgroup">
         <label>Email de contacto</label>
         <input type="email" id="f-email" placeholder="analista@contadoor.cl"/>
-        <span class="hint">Se usa en reportes y comunicaciones. No modifica el correo de acceso a Gestoor.</span>
+        <span class="hint" id="f-email-hint">Se usa en reportes y comunicaciones. No modifica el correo de acceso a Gestoor.</span>
       </div>
       <div class="fgroup">
         <label>WhatsApp</label>
@@ -367,6 +370,10 @@ function renderUsuarios(){
     var acciones = '';
     if(!u.es_master){
       acciones += '<button class="btn-s btn-sm" onclick="abrirModalEditar(\'' + u.id + '\')">✏️ Editar</button>';
+      // Botón de invitación: solo para activos sin cuenta Auth y con email
+      if(u.activo && !u.auth_user_id && u.email){
+        acciones += '<button class="btn-invite btn-sm" id="btn-invite-' + u.id + '" onclick="invitarUsuario(\'' + u.id + '\')">✉️ Enviar invitación</button>';
+      }
       if(!esYo){
         if(u.activo){
           acciones += '<button class="btn-danger btn-sm" onclick="toggleActivo(\'' + u.id + '\',false)">⏸ Desactivar</button>';
@@ -387,7 +394,7 @@ function renderUsuarios(){
       + (esYo ? '<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:3px 8px">👤 Tú</span>' : '')
       + '</div>'
       + (u.email ? '<div style="font-size:10px;color:#9a849b;margin-bottom:2px">✉️ ' + hesc(u.email) + (u.wa ? ' · 💬 +56 ' + hesc(u.wa) : '') + '</div>' : '')
-      + (!u.auth_user_id ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta Supabase Auth vinculada</div>' : '')
+      + (!u.auth_user_id && !u.es_master ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta Supabase Auth vinculada</div>' : '')
       + '<div class="u-modulos" style="margin-bottom:6px">' + modsHTML + '</div>'
       + '<div class="u-actions">' + acciones + '</div>'
       + '</div>'
@@ -454,7 +461,21 @@ function abrirModalEditar(id){
   document.getElementById('f-nombre').value = u.nombre || '';
   document.getElementById('f-iniciales').value = u.iniciales || '';
   document.getElementById('f-rol').value = u.rol || '';
-  document.getElementById('f-email').value = u.email || '';
+  var emailField = document.getElementById('f-email');
+  emailField.value = u.email || '';
+  if(u.auth_user_id){
+    emailField.setAttribute('readonly', 'readonly');
+    emailField.style.background = '#f5f0f5';
+    emailField.style.color      = '#9a849b';
+    document.getElementById('f-email-hint').textContent =
+      'Correo de acceso vinculado. Su modificación se gestionará desde Supabase Auth en una fase posterior.';
+  }else{
+    emailField.removeAttribute('readonly');
+    emailField.style.background = '';
+    emailField.style.color      = '';
+    document.getElementById('f-email-hint').textContent =
+      'Este correo se utilizará para enviar la invitación de acceso.';
+  }
   document.getElementById('f-wa').value = u.wa || '';
   var info = document.getElementById('rolPresetInfo');
   if(info && u.rol){
@@ -496,15 +517,18 @@ function guardarUsuario(){
   var modulosFinal = modLegacy.concat(modulos).filter(function(id, i, arr){ return arr.indexOf(id) === i; });
 
   // Payload sin pin, sin id, sin auth_user_id, sin es_master, sin activo
+  // email solo se incluye si el usuario NO tiene cuenta Auth vinculada
   var payload = {
     nombre:    nombre,
     iniciales: sv('f-iniciales') || nombre.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase(),
     rol:       rol,
     rol_label: tmpl ? tmpl.label : rol,
-    email:     sv('f-email'),
     wa:        sv('f-wa'),
     modulos:   modulosFinal
   };
+  if(!uActual || !uActual.auth_user_id){
+    payload.email = sv('f-email');
+  }
 
   adminPatch(_editId, payload).then(function(){
     closeModal();
@@ -554,6 +578,79 @@ function toggleActivo(id, nuevoActivo){
 
 // ── INICIALIZACIÓN ────────────────────────────────────────────────────────
 // sbFetch usa _waitForAuthReady() internamente — espera al JWT antes de la primera petición.
+// ── INVITAR USUARIO EXISTENTE ────────────────────────────────────────────
+// Invoca la Edge Function gestoor-invite-existing-user vía JWT del cliente central.
+// El navegador SOLO envía { perfil_id }. Email y rol los obtiene la función del servidor.
+function invitarUsuario(id){
+  var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
+  if(!u){ adminToast('Usuario no encontrado.', 'error'); return; }
+  if(!u.email){ adminToast('El perfil no tiene email. Agrégalo antes de invitar.', 'error'); return; }
+  if(u.auth_user_id){ adminToast('Este usuario ya tiene cuenta Auth vinculada.', 'error'); return; }
+
+  // Guard: verificar disponibilidad del cliente autenticado
+  if(
+    !window._sbAuthClient ||
+    !window._sbAuthClient.functions ||
+    typeof window._sbAuthClient.functions.invoke !== 'function'
+  ){
+    adminToast('El cliente autenticado no está disponible. Recarga la página.', 'error');
+    return;
+  }
+
+  if(!confirm(
+    'Se enviará una invitación de acceso a:\n' +
+    u.nombre + ' (' + u.email + ')\n\n' +
+    '¿Confirmar?'
+  )) return;
+
+  var btn = document.getElementById('btn-invite-' + id);
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Enviando…'; }
+
+  function restablecerBtn(){
+    if(btn){ btn.disabled = false; btn.textContent = '✉️ Enviar invitación'; }
+  }
+
+  function leerMensajeError(result){
+    // Leer error desde result.error.context (body de la respuesta HTTP)
+    // si está disponible; de lo contrario usar result.error.message
+    var context = result && result.error && result.error.context;
+    if(context && typeof context.json === 'function'){
+      return context.json().then(function(body){
+        return (body && (body.error || body.message)) || result.error.message || 'Error desconocido.';
+      }).catch(function(){
+        return result.error.message || 'Error desconocido.';
+      });
+    }
+    return Promise.resolve(result.error.message || 'Error desconocido.');
+  }
+
+  // Usar _sbAuthClient.functions.invoke — JWT se agrega automáticamente
+  window._sbAuthClient.functions.invoke('gestoor-invite-existing-user', {
+    body: { perfil_id: u.id }
+  }).then(function(result){
+    if(result.error){
+      leerMensajeError(result).then(function(msg){
+        adminToast('Error: ' + msg, 'error');
+        restablecerBtn();
+      });
+      return;
+    }
+    var data = result.data;
+    if(!data || !data.ok){
+      adminToast('Error inesperado. Intenta de nuevo.', 'error');
+      restablecerBtn();
+      return;
+    }
+    adminToast('✅ Invitación enviada a ' + data.email, 'ok');
+    adminCargar();
+  }).catch(function(e){
+    var msg = 'Error al contactar el servidor.';
+    if(e && e.message) msg += ' ' + e.message;
+    adminToast(msg, 'error');
+    restablecerBtn();
+  });
+}
+
 (function initAdmin(){
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', adminCargar);
