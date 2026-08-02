@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activar cuenta — Gestoor</title>
+<style>
+:root{
+  --p:#904891;--pd:#6D2E6E;--deep:#08040f;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100vh;background:var(--deep);font-family:var(--sans);}
+.page{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;
+}
+.card{
+  background:#fff;border-radius:16px;padding:40px;width:100%;max-width:420px;
+  box-shadow:0 24px 64px rgba(0,0,0,.35);
+}
+.logo-wrap{text-align:center;margin-bottom:28px;}
+.logo-wrap img{height:36px;}
+.card-title{font-size:20px;font-weight:800;color:#1a0a1b;margin-bottom:6px;text-align:center;}
+.card-sub{font-size:13px;color:#5c4a5d;text-align:center;margin-bottom:28px;line-height:1.5;}
+.fgroup{margin-bottom:16px;}
+.fgroup label{display:block;font-size:11px;font-weight:700;color:#5c4a5d;
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.fgroup input{
+  width:100%;padding:11px 14px;border:1.5px solid #e8dde8;border-radius:9px;
+  font-size:14px;font-family:var(--sans);color:#1a0a1b;background:#faf7fa;
+  transition:border-color .15s;
+}
+.fgroup input:focus{outline:none;border-color:var(--p);background:#fff;}
+.hint{font-size:11px;color:#9a849b;margin-top:5px;display:block;}
+.btn-primary{
+  width:100%;padding:13px;background:var(--p);color:#fff;border:none;
+  border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:background .15s;margin-top:8px;
+}
+.btn-primary:hover{background:var(--pd);}
+.btn-primary:disabled{background:#c5a5c7;cursor:not-allowed;}
+.msg{
+  padding:14px 16px;border-radius:9px;font-size:13px;margin-bottom:20px;
+  line-height:1.5;
+}
+.msg-ok{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;}
+.msg-err{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
+.msg-info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+.link-back{
+  display:block;text-align:center;margin-top:20px;font-size:13px;
+  color:var(--p);text-decoration:none;font-weight:600;
+}
+.link-back:hover{text-decoration:underline;}
+.loading{
+  text-align:center;padding:32px 0;color:#5c4a5d;font-size:14px;
+}
+.spinner{
+  display:inline-block;width:28px;height:28px;border:3px solid #e8dde8;
+  border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;
+  margin-bottom:12px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+
+    <div class="logo-wrap">
+      <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png"
+           alt="Contadoor" onerror="this.style.display='none'"/>
+    </div>
+
+    <!-- Estado: verificando enlace -->
+    <div id="estado-verificando">
+      <div class="loading">
+        <div class="spinner"></div><br>
+        Verificando enlace de invitación…
+      </div>
+    </div>
+
+    <!-- Estado: formulario de contraseña -->
+    <div id="estado-form" style="display:none">
+      <div class="card-title">Activar tu cuenta</div>
+      <div class="card-sub" id="bienvenida">
+        Define una contraseña para acceder a Gestoor.
+      </div>
+      <div id="form-error" class="msg msg-err" style="display:none"></div>
+      <div class="fgroup">
+        <label>Nueva contraseña</label>
+        <input type="password" id="f-pwd" placeholder="Mínimo 8 caracteres"
+               autocomplete="new-password"/>
+        <span class="hint">Al menos 8 caracteres.</span>
+      </div>
+      <div class="fgroup">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="f-pwd2" placeholder="Repite la contraseña"
+               autocomplete="new-password"/>
+      </div>
+      <button class="btn-primary" id="btn-guardar" onclick="guardarPassword()">
+        Activar cuenta
+      </button>
+    </div>
+
+    <!-- Estado: éxito -->
+    <div id="estado-ok" style="display:none">
+      <div class="card-title">✅ Cuenta activada</div>
+      <br>
+      <div class="msg msg-ok" id="msg-ok">
+        Tu contraseña ha sido creada. Ahora puedes iniciar sesión en Gestoor.
+      </div>
+      <a href="login.html" class="btn-primary" style="display:block;text-align:center;text-decoration:none;line-height:2.8;">
+        Ir al login →
+      </a>
+    </div>
+
+    <!-- Estado: error de enlace -->
+    <div id="estado-error" style="display:none">
+      <div class="card-title">Enlace no válido</div>
+      <br>
+      <div class="msg msg-err" id="msg-error">
+        El enlace de invitación no es válido o ha expirado.
+      </div>
+      <a href="login.html" class="link-back">← Volver al login</a>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ── Capturar URL ANTES de crear el cliente ────────────────────────────────
+  // detectSessionInUrl procesa la URL al instanciar el cliente y puede
+  // limpiarla. Guardamos los valores originales para validar la invitación.
+  var initialHash   = window.location.hash   || '';
+  var initialSearch = window.location.search || '';
+
+  // ── Variables de estado ───────────────────────────────────────────────────
+  var _resuelto        = false;
+  var _inviteUserId    = null;
+  var _inviteProfileId = null;
+  var timer            = null;
+  var suscripcion      = null;
+
+  // ── Detectar evidencia de invitación en la URL original ──────────────────
+  // Solo dos formatos son válidos. Nada más abre el formulario.
+  function tieneEvidenciaDeInvitacion(){
+    var qParams = new URLSearchParams(initialSearch);
+    if(qParams.get('token_hash') && qParams.get('type') === 'invite'){
+      return 'token_hash';
+    }
+    if(initialHash){
+      var hParams = new URLSearchParams(initialHash.replace(/^#/, ''));
+      if(hParams.get('access_token') && hParams.get('type') === 'invite'){
+        return 'fragment';
+      }
+    }
+    return null;
+  }
+
+  // ── Cliente Supabase — sin persistencia, solo en memoria ─────────────────
+  // persistSession:false   → no lee ni escribe la sesión de Gestoor en localStorage
+  // autoRefreshToken:false → sesión temporal, no se renueva automáticamente
+  // detectSessionInUrl:true → procesa el fragmento #access_token al iniciar
+  var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
+
+  var sbClient = window.supabase.createClient(SB_URL, SB_KEY, {
+    auth: {
+      autoRefreshToken:   false,   // no renovar — la sesión es de un solo uso
+      persistSession:     false,   // CRÍTICO: nunca leer la sesión Master guardada
+      detectSessionInUrl: true,    // procesar #access_token del fragmento
+    },
+  });
+
+  // ── Validar que la sesión sea de una invitación de Gestoor ───────────────
+  // La Edge Function inyecta gestoor_profile_id en user_metadata.
+  // Si falta, la sesión no proviene de una invitación válida.
+  function validarSesionInvitacion(session){
+    if(!session || !session.user)                          return false;
+    if(!session.user.id || !session.user.email)            return false;
+    var meta = session.user.user_metadata;
+    if(!meta)                                              return false;
+    var profileId = meta.gestoor_profile_id;
+    if(!profileId || String(profileId).trim() === '')      return false;
+    return true;
+  }
+
+  // ── Limpieza centralizada ─────────────────────────────────────────────────
+  function limpiar(){
+    if(timer){ clearTimeout(timer); timer = null; }
+    if(suscripcion && suscripcion.data && suscripcion.data.subscription){
+      try{ suscripcion.data.subscription.unsubscribe(); }catch(e){}
+      suscripcion = null;
+    }
+    if(history.replaceState){
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
+  // ── Resolver flujo ────────────────────────────────────────────────────────
+  function resolverCon(session){
+    if(_resuelto) return;
+    if(!validarSesionInvitacion(session)){
+      resolverConError('La sesión recibida no corresponde a una invitación de Gestoor.');
+      return;
+    }
+    _resuelto        = true;
+    _inviteUserId    = session.user.id;
+    _inviteProfileId = String(session.user.user_metadata.gestoor_profile_id);
+    limpiar();
+    mostrarFormulario(session);
+  }
+
+  function resolverConError(msg){
+    if(_resuelto) return;
+    _resuelto = true;
+    limpiar();
+    mostrarError(msg || 'El enlace de invitación no es válido o ha expirado.');
+  }
+
+  // ── Mostrar / ocultar estados ─────────────────────────────────────────────
+  function mostrar(id){
+    ['estado-verificando','estado-form','estado-ok','estado-error'].forEach(function(s){
+      document.getElementById(s).style.display = (s === id) ? '' : 'none';
+    });
+  }
+
+  function mostrarError(msg){
+    document.getElementById('msg-error').textContent =
+      msg || 'El enlace de invitación no es válido o ha expirado.';
+    mostrar('estado-error');
+  }
+
+  function mostrarFormulario(session){
+    var nombre = session.user &&
+      session.user.user_metadata &&
+      session.user.user_metadata.nombre;
+    if(nombre){
+      document.getElementById('bienvenida').textContent =
+        'Hola, ' + nombre + '. Define una contraseña para acceder a Gestoor.';
+    }
+    mostrar('estado-form');
+  }
+
+  // ── Flujo principal ───────────────────────────────────────────────────────
+  function iniciarFlujo(){
+
+    // Paso 1: detectar errores por claves exactas (no includes)
+    var hParams = new URLSearchParams(initialHash.replace(/^#/, ''));
+    var qParams = new URLSearchParams(initialSearch);
+    var errKey  = hParams.get('error') || qParams.get('error');
+
+    if(errKey){
+      var errCode = hParams.get('error_code') || qParams.get('error_code') || '';
+      var errDesc = hParams.get('error_description') || qParams.get('error_description') || '';
+      limpiar();
+      var isExpired = errCode === 'otp_expired' ||
+                      errDesc.toLowerCase().indexOf('expired') >= 0;
+      mostrarError(
+        isExpired
+          ? 'El enlace de invitación expiró. Solicita una nueva invitación al administrador.'
+          : 'El enlace no es válido. Solicita una nueva invitación al administrador.'
+      );
+      return;
+    }
+
+    // Paso 2: exigir evidencia de invitación en la URL original
+    var evidencia = tieneEvidenciaDeInvitacion();
+    if(!evidencia){
+      limpiar();
+      mostrarError(
+        'No se encontró una invitación válida. ' +
+        'Si recibiste un correo, asegúrate de hacer clic en el enlace completo.'
+      );
+      return;
+    }
+
+    // Paso 3: flujo token_hash (PKCE / OTP)
+    if(evidencia === 'token_hash'){
+      sbClient.auth.verifyOtp({
+        token_hash: qParams.get('token_hash'),
+        type: 'invite',
+      }).then(function(result){
+        if(result.error || !result.data || !result.data.session){
+          resolverConError('El enlace no es válido o ha expirado. Solicita una nueva invitación.');
+          return;
+        }
+        resolverCon(result.data.session);
+      });
+      return;
+    }
+
+    // Paso 4: flujo fragmento (#access_token)
+    // onAuthStateChange + getSession para evitar carrera.
+    // IMPORTANT: INITIAL_SESSION por sí solo no abre formulario.
+    //            Solo SIGNED_IN indica que la URL fue procesada por el SDK.
+    //            resolverCon() valida gestoor_profile_id antes de continuar.
+    suscripcion = sbClient.auth.onAuthStateChange(function(event, session){
+      if(event === 'SIGNED_IN' && session){
+        resolverCon(session);
+      }
+      // INITIAL_SESSION ignorado: podría ser sesión Master preexistente.
+      // persistSession:false minimiza esa posibilidad, pero ignoramos
+      // explícitamente para mayor seguridad.
+    });
+
+    // getSession() puede devolver la sesión ya lista (race condition)
+    // Solo acepta si pasa validarSesionInvitacion (gestoor_profile_id presente)
+    sbClient.auth.getSession().then(function(result){
+      if(result.data && result.data.session){
+        resolverCon(result.data.session);
+      }
+    });
+
+    // Timeout de seguridad: la página nunca queda cargando indefinidamente
+    timer = setTimeout(function(){
+      resolverConError(
+        'El enlace no pudo verificarse. Puede haber expirado o ser inválido. ' +
+        'Solicita una nueva invitación al administrador.'
+      );
+    }, 6000);
+  }
+
+  // ── Guardar contraseña ────────────────────────────────────────────────────
+  function guardarPassword(){
+    var pwd  = document.getElementById('f-pwd').value;
+    var pwd2 = document.getElementById('f-pwd2').value;
+    var errEl = document.getElementById('form-error');
+    errEl.style.display = 'none';
+
+    if(!pwd || pwd.length < 8){
+      errEl.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if(pwd !== pwd2){
+      errEl.textContent = 'Las contraseñas no coinciden.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    var btn = document.getElementById('btn-guardar');
+    btn.disabled    = true;
+    btn.textContent = 'Verificando identidad\u2026';
+
+    // Revalidar identidad ANTES de cambiar contraseña
+    sbClient.auth.getUser().then(function(userResult){
+      if(userResult.error || !userResult.data || !userResult.data.user){
+        btn.disabled    = false;
+        btn.textContent = 'Activar cuenta';
+        errEl.textContent = 'La identidad de la invitaci\u00f3n no pudo verificarse.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      var user = userResult.data.user;
+      var meta = user.user_metadata || {};
+
+      // Verificar coincidencia exacta con la invitación procesada
+      if(
+        user.id !== _inviteUserId ||
+        String(meta.gestoor_profile_id || '') !== _inviteProfileId
+      ){
+        btn.disabled    = false;
+        btn.textContent = 'Activar cuenta';
+        errEl.textContent = 'La identidad de la invitaci\u00f3n no pudo verificarse.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      // Identidad verificada — actualizar contraseña
+      btn.textContent = 'Guardando\u2026';
+      sbClient.auth.updateUser({ password: pwd }).then(function(updateResult){
+        if(updateResult.error){
+          btn.disabled    = false;
+          btn.textContent = 'Activar cuenta';
+          errEl.textContent = 'Error al guardar: ' +
+            (updateResult.error.message || 'intenta de nuevo.');
+          errEl.style.display = 'block';
+          return;
+        }
+        mostrar('estado-ok');
+        sbClient.auth.signOut().then(function(){
+          setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
+        }).catch(function(){
+          setTimeout(function(){ window.location.href = 'login.html'; }, 2500);
+        });
+      });
+    });
+  }
+
+  window.guardarPassword = guardarPassword;
+
+  iniciarFlujo();
+
+})();
+</script>
