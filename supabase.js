@@ -662,7 +662,34 @@ function sbRowToReporte(row){
     tieneCont:        row.tiene_cont!==false,
     prioridadRrhh:    row.prioridad_rrhh||'media',
     prioridadContable:row.prioridad_contable||'media',
-    ts:               new Date(row.created_at||Date.now()).getTime()
+    ts:               new Date(row.created_at||Date.now()).getTime(),
+    // ── Corrección 3: Estado contable separado del estado general ─────────
+    estadoContable:   row.estado_contable||null,
+    // ── Corrección 4: Objeto f29 construido desde columnas planas ────────
+    // Compatibilidad con modal F29 y renderTabla del módulo Contable
+    f29:{
+      ivaDebito:      row.debito_iva||0,
+      ivaCredito:     row.credito_iva||0,
+      remanente:      row.remanente||0,
+      ivaApagar:      row.f29||row.total_imp_inmediato||0,
+      ivaPostergado:  row.iva_postergado||0,
+      postergado:     row.postergar_iva||false,
+      ivaFechaVenc:   row.iva_fecha_venc||null,
+      ppmBase:        row.ppm_base||0,
+      ppmTasa:        row.ppm_tasa||0,
+      ppm:            row.ppm||0,
+      retHon:         row.ret_hon||0,
+      imp2cat:        row.iu_sii||row.iu||0,
+      otrosImp:       row.otros_imp||0,
+      retenciones:    (row.ret_hon||0)+(row.iu_sii||row.iu||0)+(row.otros_imp||0),
+      honUF:          row.hon_base_uf||0,
+      honBase:        row.hon_base||0,
+      honVar:         row.hon_var||0,
+      honVarUnitario: row.hon_val_trab||0,
+      honTrab:        row.hon_ntrab||0,
+      honorarios:     row.hon_total||0,
+      obs:            row.obs_cont||''
+    }
   };
 }
 
