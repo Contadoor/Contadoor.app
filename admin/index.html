@@ -579,9 +579,9 @@ function toggleActivo(id, nuevoActivo){
 // ── INICIALIZACIÓN ────────────────────────────────────────────────────────
 // sbFetch usa _waitForAuthReady() internamente — espera al JWT antes de la primera petición.
 // ── INVITAR USUARIO EXISTENTE ────────────────────────────────────────────
-// Invoca la Edge Function gestoor-invite-existing-user vía JWT del cliente central.
+// Invoca la Edge Function gestoor-invite-existing-user con JWT explícito.
 // El navegador SOLO envía { perfil_id }. Email y rol los obtiene la función del servidor.
-function invitarUsuario(id){
+async function invitarUsuario(id){
   var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
   if(!u){ adminToast('Usuario no encontrado.', 'error'); return; }
   if(!u.email){ adminToast('El perfil no tiene email. Agrégalo antes de invitar.', 'error'); return; }
@@ -611,8 +611,6 @@ function invitarUsuario(id){
   }
 
   function leerMensajeError(result){
-    // Leer error desde result.error.context (body de la respuesta HTTP)
-    // si está disponible; de lo contrario usar result.error.message
     var context = result && result.error && result.error.context;
     if(context && typeof context.json === 'function'){
       return context.json().then(function(body){
@@ -624,31 +622,68 @@ function invitarUsuario(id){
     return Promise.resolve(result.error.message || 'Error desconocido.');
   }
 
-  // Usar _sbAuthClient.functions.invoke — JWT se agrega automáticamente
-  window._sbAuthClient.functions.invoke('gestoor-invite-existing-user', {
-    body: { perfil_id: u.id }
-  }).then(function(result){
-    if(result.error){
-      leerMensajeError(result).then(function(msg){
-        adminToast('Error: ' + msg, 'error');
-        restablecerBtn();
-      });
+  try{
+    // Paso 1: obtener sesión explícita — no asumir que functions.invoke la agrega
+    var sessionResult = await window._sbAuthClient.auth.getSession();
+    var session       = sessionResult && sessionResult.data && sessionResult.data.session;
+    var accessToken   = session && session.access_token;
+
+    if(sessionResult.error || !accessToken){
+      adminToast('Tu sesión expiró. Cierra sesión e ingresa nuevamente.', 'error');
+      restablecerBtn();
       return;
     }
+
+    // Paso 2: verificar usuario activo antes de invocar
+    var userResult = await window._sbAuthClient.auth.getUser();
+    if(userResult.error || !userResult.data || !userResult.data.user){
+      adminToast('No fue posible validar tu sesión. Ingresa nuevamente.', 'error');
+      restablecerBtn();
+      return;
+    }
+
+    // Paso 3: invocar Edge Function con JWT explícito en el header
+    var result = await window._sbAuthClient.functions.invoke(
+      'gestoor-invite-existing-user',
+      {
+        headers: {
+          Authorization: 'Bearer ' + accessToken
+        },
+        body: { perfil_id: u.id }
+      }
+    );
+
+    if(result.error){
+      var msg = await leerMensajeError(result);
+      // Mensaje específico para 401
+      if(msg && msg.indexOf('401') >= 0 || (result.error && result.error.status === 401)){
+        adminToast(
+          'Tu sesión no fue aceptada por Supabase. Cierra sesión, vuelve a ingresar y reintenta.',
+          'error'
+        );
+      }else{
+        adminToast('Error: ' + msg, 'error');
+      }
+      restablecerBtn();
+      return;
+    }
+
     var data = result.data;
     if(!data || !data.ok){
       adminToast('Error inesperado. Intenta de nuevo.', 'error');
       restablecerBtn();
       return;
     }
-    adminToast('✅ Invitación enviada a ' + data.email, 'ok');
+
+    adminToast('\u2705 Invitación enviada a ' + data.email, 'ok');
     adminCargar();
-  }).catch(function(e){
+
+  }catch(e){
     var msg = 'Error al contactar el servidor.';
     if(e && e.message) msg += ' ' + e.message;
     adminToast(msg, 'error');
     restablecerBtn();
-  });
+  }
 }
 
 (function initAdmin(){
