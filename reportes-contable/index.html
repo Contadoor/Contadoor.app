@@ -459,6 +459,37 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 // ── CONFIG ────────────────────────────────────────────────────────────────
 var _filtros={estado:'',plan:'',prioridad:''};
 var _periodoActual=null;
+// ── FASE 2A-2C: Variables en memoria ─────────────────────────────────────
+var _clientesContables  = [];   // cargado por sbGetClientes
+var _reportesContables  = [];   // cargado por sbGetReportesPeriodo
+
+function getReportes(){
+  // Fase 2C: fuente de verdad es _reportesContables (cargado por sbGetReportesPeriodo)
+  return _reportesContables;
+}
+function setReportes(arr){
+  // Fase 2C: solo actualiza en memoria — no persiste en localStorage
+  _reportesContables = arr;
+}
+// ── FASE 2C: Remanente en memoria ────────────────────────────────────────────
+// Sin localStorage — usa _reportesContables directamente
+function getRemanente(rut, periodo){
+  var r=_reportesContables.find(function(x){return x.rut===rut&&String(x.periodo)===String(periodo);});
+  if(r){
+    if(r.f29&&r.f29.remanente!=null) return r.f29.remanente;
+    if(r.ivaRemanenteSig!=null)      return r.ivaRemanenteSig;
+  }
+  return 0;
+}
+function setRemanente(rut, periodo, valor){
+  var idx=_reportesContables.findIndex(function(x){return x.rut===rut&&String(x.periodo)===String(periodo);});
+  if(idx>=0){
+    if(!_reportesContables[idx].f29) _reportesContables[idx].f29={};
+    _reportesContables[idx].f29.remanente=valor;
+    _reportesContables[idx].ivaRemanenteSig=valor;
+  }
+}
+
 var _expandidos=new Set();
 var _editRut=null;
 
@@ -502,27 +533,20 @@ function hoy(){return new Date().toISOString().slice(0,10);}
 function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
 function getClientes(){
-  var c=sbCacheGetOrLocal('clientes','clientes_bd');
-  return c||[];
+  // Fase 2B: fuente de verdad es _clientesContables (cargado por sbGetClientes)
+  return _clientesContables;
 }
 function inicializarClientes(cb){
   sbGetClientes(function(rows){
     if(cb)cb(rows);
   });
 }
+// getPeriodos: función de compatibilidad para llamadas síncronas locales (modal F29, etc.)
+// La carga real de períodos ocurre vía sbGetPeriodos en init().
 function getPeriodos(){
-  try{
-    // Leer desde rpt_periodos (legacy) y apertura_periodos (nuevo)
-    var arr=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');
-    var obj=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');
-    // Convertir apertura_periodos (objeto) a array
-    Object.values(obj).forEach(function(p){
-      if(p&&p.periodo&&!arr.find(function(x){return x.periodo===p.periodo;})){
-        arr.push({periodo:p.periodo,uf:p.uf,utm:p.utm,ts:p.ts});
-      }
-    });
-    return arr.sort(function(a,b){return a.periodo>b.periodo?-1:1;});
-  }catch(e){return[];}
+  // Fase 2A: solo leer desde caché de memoria (supabase.js)
+  var cached=window.sbCacheGet && window.sbCacheGet('periodos');
+  return cached||[];
 }
 
 // ── SUPABASE ─────────────────────────────────────────────────────────────
@@ -530,114 +554,7 @@ function getPeriodos(){
 // ── SUPABASE ─────────────────────────────────────────────────────────────
 // [SB_URL definida arriba]
 // [SB_KEY definida arriba]
-function sbFetch(path,opts){
-  // Fase Operativa 1: fail-closed si no hay JWT
-  var headers=sbH((opts||{}).headers||{});
-  if(!headers){
-    window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{reason:'GESTOOR_NO_SESSION',path:path}}));
-    return Promise.reject(new Error('GESTOOR_NO_SESSION'));
-  }
-  var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:headers}));
-}
-function sbGetReportes(periodo){
-  return sbFetch('reportes_mensuales?periodo=eq.'+periodo+'&select=*')
-    .then(function(r){return r.ok?r.json():[];})
-    .catch(function(){return[];});
-}
-function sbUpsertReporte(r){
-  return sbFetch('reportes_mensuales',{
-    method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-    body:JSON.stringify(r)
-  }).then(function(r){return r.ok?r.json():null;})
-  .catch(function(){});
-}
-function sbPatchReporte(rut,periodo,data){
-  return sbFetch('reportes_mensuales?rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+periodo,{
-    method:'PATCH',
-    headers:{'Prefer':'return=representation'},
-    body:JSON.stringify(data)
-  }).then(function(r){return r.ok?r.json():null;})
-  .catch(function(){});
-}
-
-
-// ── SUPABASE ─────────────────────────────────────────────────────────────
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbH(extra){
-  // Fase Operativa 1: JWT cuando existe, sin fallback a anon key como Bearer
-  var token=window._gestoorAccessToken;
-  if(!token){return null;} // fail-closed
-  var h={'apikey':SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};
-  return Object.assign(h,extra||{});
-}
-function sbGet(path){
-  // Usa sbFetch (fail-closed con JWT). Rechaza en 401/403.
-  return sbFetch(path).then(function(r){
-    if(r.status===401||r.status===403){
-      window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{reason:'AUTH_'+r.status,path:path}}));
-      return Promise.reject(new Error('AUTH_'+r.status));
-    }
-    return r.ok?r.json():Promise.reject(new Error('HTTP_'+r.status));
-  });
-}
-function sbPatch(path,data){
-  // Usa sbFetch (fail-closed con JWT). Rechaza en 401/403.
-  return sbFetch(path,{
-    method:'PATCH',
-    headers:{'Prefer':'return=representation'},
-    body:JSON.stringify(data)
-  }).then(function(r){
-    if(r.status===401||r.status===403){
-      window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{reason:'AUTH_'+r.status,path:path}}));
-      return Promise.reject(new Error('AUTH_'+r.status));
-    }
-    return r.ok?r.json():Promise.reject(new Error('HTTP_'+r.status));
-  });
-}
-function sbUpsert(path,data){
-  // Usa sbFetch (fail-closed con JWT). Rechaza en 401/403.
-  return sbFetch(path,{
-    method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-    body:JSON.stringify(data)
-  }).then(function(r){
-    if(r.status===401||r.status===403){
-      window.dispatchEvent(new CustomEvent('gestoor-session-required',{detail:{reason:'AUTH_'+r.status,path:path}}));
-      return Promise.reject(new Error('AUTH_'+r.status));
-    }
-    return r.ok?r.json():Promise.reject(new Error('HTTP_'+r.status));
-  });
-}
-function syncEstado(rut,periodo,data){if(rut&&periodo)sbPatch('reportes_mensuales?rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+periodo,data).catch(function(){});}
-function cargarDesdeSupabase(periodo,callback){
-  sbGet('reportes_mensuales?periodo=eq.'+periodo+'&select=*').then(function(sbData){
-    if(!sbData||!sbData.length){if(callback)callback();return;}
-    var local=getReportes();
-    var updated=false;
-    sbData.forEach(function(sb){
-      var idx=local.findIndex(function(x){return x.rut===sb.rut&&String(x.periodo)===String(sb.periodo);});
-      if(idx>=0){Object.assign(local[idx],sb);updated=true;}
-    });
-    if(updated){localStorage.setItem('reportes_mensuales',JSON.stringify(local));}
-    if(callback)callback();
-  }).catch(function(){if(callback)callback();});
-}
-
-var _reportesCache=null;
-function getReportes(){if(_reportesCache!==null)return _reportesCache;try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
-function setReportesCache(arr){_reportesCache=arr;try{localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}catch(e){}}
-function setReportes(arr){
-  localStorage.setItem('reportes_mensuales',JSON.stringify(arr));
-}
-function setReportesYSync(arr,rut,periodo,data){
-  setReportes(arr);
-  if(rut&&periodo) sbPatchReporte(rut,periodo,data).catch(function(){});
-}
-function getRemanente(rut,periodo){try{var r=JSON.parse(localStorage.getItem('rpt_remanentes')||'{}');return r[rut]&&r[rut][periodo]?r[rut][periodo]:0;}catch(e){return 0;}}
-function setRemanente(rut,periodo,monto){try{var r=JSON.parse(localStorage.getItem('rpt_remanentes')||'{}');if(!r[rut])r[rut]={};r[rut][periodo]=monto;localStorage.setItem('rpt_remanentes',JSON.stringify(r));}catch(e){}}
+// [sbFetch, sbGetReportes, sbUpsertReporte, sbPatchReporte locales eliminados — Fase 2A-2C: usar supabase.js]
 
 // ── SELECCIÓN MASIVA ─────────────────────────────────────────────────────
 var _seleccionados=new Set();
@@ -778,8 +695,11 @@ function renderTabla(){
 
   clientes.forEach(function(c){
     var rep=reportes.find(function(r){return r.rut===c.rut&&r.periodo===_periodoActual;})||{};
-    var estado=rep.estadoContable||'pendiente';
-    var rrhhOk=rep.rrhhOk||false;
+    var rrhhOk=(rep.secciones&&rep.secciones.rrhh&&rep.secciones.rrhh.ok===true)||
+      rep.estado==='completado'||rep.estado==='aviso_enviado'||rep.preReporteEnviado===true;
+    var estadoDefault=rrhhOk?'pendiente':'esperando_rrhh';
+    var estado=rep.estadoContable||estadoDefault;
+    // rrhhOk ya calculado arriba — no redeclarar
     var pagosOk=rep.pagosValidado||false;
 
     if(rrhhOk)stRrhhOk++;
@@ -981,33 +901,106 @@ function setFiltro(k,v){
   renderTabla();
 }
 function init(){
+  // ── Fase 2A-2C: Carga asíncrona secuencial ──────────────────────────────
+  // Secuencia: auth → usuario → períodos → clientes → período → reportes → render
   var u=getUsuario();
   document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Contable';
   document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Contable');
 
   // Calendario
   var d=new Date();
-  var mes=d.toLocaleString('es-CL',{month:'long',year:'numeric'});
   document.getElementById('cal-hoy-label').textContent='Hoy: '+d.getDate()+' '+d.toLocaleString('es-CL',{month:'short'});
 
-  // Períodos
-  var periodos=getPeriodos().filter(function(p){return p.estado==='abierto';});
-  var sel=document.getElementById('selectPeriodo');
-  periodos.forEach(function(p){
-    var o=document.createElement('option');
-    o.value=p.periodo;
-    o.textContent=p.periodo;
-    sel.appendChild(o);
+  // Estado de carga en la tabla
+  var tbody=document.getElementById('tablaBody');
+  if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:32px;color:var(--tm)">⏳ Cargando información contable…</td></tr>';
+
+  // PASO 1: Cargar períodos
+  sbGetPeriodos(function(periodos){
+    var activos=(periodos||[]).filter(function(p){
+      return p.estado==='activo'||p.estado==='abierto';
+    }).sort(function(a,b){return a.periodo>b.periodo?-1:1;});
+
+    var sel=document.getElementById('selectPeriodo');
+    sel.innerHTML='<option value="">— Seleccionar período —</option>';
+
+    if(!activos.length){
+      if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:#C07A1A">No hay períodos activos disponibles.</td></tr>';
+      return;
+    }
+
+    activos.forEach(function(p){
+      var o=document.createElement('option');
+      o.value=p.periodo; o.textContent=p.periodo; sel.appendChild(o);
+    });
+
+    var pMasReciente=activos[0];
+    sel.value=pMasReciente.periodo;
+
+    // Actualizar calendarios desde el período
+    var periodoLabel=document.getElementById('periodo-label');
+    if(periodoLabel) periodoLabel.textContent=pMasReciente.periodo;
+    if(pMasReciente.venc_f29_gestion){
+      var cf29=document.getElementById('cal-f29');
+      if(cf29) cf29.textContent=pMasReciente.venc_f29_gestion;
+    }
+    if(pMasReciente.venc_f29_limite){
+      var cvenc=document.getElementById('cal-venc');
+      if(cvenc) cvenc.textContent=pMasReciente.venc_f29_limite;
+    }
+
+    // PASO 2: Cargar clientes
+    sbGetClientes(function(clientes){
+      if(!clientes||!clientes.length){
+        if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:#C0392B">No fue posible cargar los clientes desde Supabase.</td></tr>';
+        return;
+      }
+
+      // Filtrar: activos + tieneContabilidad !== false
+      var filtrados=clientes.filter(function(c){
+        return c.estado==='activo' && c.tieneContabilidad!==false;
+      });
+
+      // Permisos: master ve todos; contable ve sus asignados
+      var uActual=getUsuario();
+      if(!uActual.esMaster && uActual.rol==='contable'){
+        filtrados=filtrados.filter(function(c){
+          return c.analistaContable===uActual.nombre;
+        });
+      }
+
+      _clientesContables=filtrados;
+
+      // PASO 3: Cargar reportes del período más reciente
+      _periodoActual=pMasReciente.periodo;
+      cargarReportesPeriodo(_periodoActual, function(){
+        renderTabla();
+      });
+    });
   });
-  if(periodos.length){sel.value=periodos[0].periodo;cargarPeriodo();}
+}
+// ── FASE 2C: Cargar reportes desde Supabase ────────────────────────────────
+function cargarReportesPeriodo(periodo, cb){
+  if(!periodo){cb([]);return;}
+  sbGetReportesPeriodo(periodo,function(reportes){
+    _reportesContables=reportes||[];
+    if(cb) cb(_reportesContables);
+  });
 }
 
 function cargarPeriodo(){
-
+  // Fase 2C: cargar reportes desde Supabase al cambiar período
   _periodoActual=sv('selectPeriodo');
-  if(!_periodoActual){document.getElementById('tablaBody').innerHTML='';return;}
+  if(!_periodoActual){
+    document.getElementById('tablaBody').innerHTML='';
+    return;
+  }
   document.getElementById('periodo-label').textContent=_periodoActual;
-  renderTabla();
+  var tbody=document.getElementById('tablaBody');
+  if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:var(--tm)">⏳ Cargando reportes del período…</td></tr>';
+  cargarReportesPeriodo(_periodoActual,function(){
+    renderTabla();
+  });
 }
 
 // ── RENDER TABLA ──────────────────────────────────────────────────────────
@@ -1214,64 +1207,10 @@ function guardarF29(){
   tryInit();
 })();
 </script>
-<!-- SDK oficial Supabase: debe cargarse antes del helper local ../supabase.js -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="../supabase.js"></script>
 <script src="../notifications.js"></script>
 <script>
-/* ── GESTOOR: INICIALIZACIÓN DE AUTENTICACIÓN ────────────────────────────
-   Fase Operativa 1: crear el cliente Supabase y exponer el token de sesión
-   para que auth.js pueda verificar la identidad y proteger el módulo.
-   No usar CDN externo: ../supabase.js ya lo expone vía window.supabase.
-   ─────────────────────────────────────────────────────────────────────── */
 window.GESTOOR_MODULO = 'reportes-contable';
-
-// Crear cliente central solo si no existe ya (evitar doble creación)
-// Fail-closed si supabase.js no cargó
-if(!window.supabase){
-  console.error('[Gestoor] supabase.js no disponible — redirigiendo a login.');
-  // Pequeño delay para que el error sea registrado antes de redirigir
-  setTimeout(function(){
-    window.location.replace('../login.html');
-  }, 500);
-}
-
-if(!window._sbAuthClient && window.supabase){
-  window._sbAuthClient = window.supabase.createClient(
-    SB_URL,
-    SB_KEY,
-    {
-      auth: {
-        autoRefreshToken:   true,
-        persistSession:     true,
-        detectSessionInUrl: true
-      }
-    }
-  );
-  window._gestoorAccessToken = null;
-  window._sbAuthReady        = false;
-
-  window._sbAuthClient.auth.getSession()
-    .then(function(result){
-      var session = result && result.data && result.data.session;
-      window._gestoorAccessToken = (session && session.access_token) || null;
-    })
-    .catch(function(){
-      window._gestoorAccessToken = null;
-    })
-    .finally(function(){
-      window._sbAuthReady = true;
-      window.dispatchEvent(new Event('gestoor-auth-ready'));
-    });
-
-  // Mantener el token actualizado tras refresh automático
-  window._sbAuthClient.auth.onAuthStateChange(function(event, session){
-    window._gestoorAccessToken = (session && session.access_token) || null;
-    if(event === 'SIGNED_OUT'){
-      window._gestoorAccessToken = null;
-    }
-  });
-}
 </script>
 <script src="../auth.js"></script>
 
