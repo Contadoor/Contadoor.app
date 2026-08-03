@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -67,18 +66,13 @@
 <div id="msg"></div>
 <pre id="resultado" style="display:none"></pre>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../supabase.js"></script>
 <script>
 (function(){
   'use strict';
 
   var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
-  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
   var EDGE   = SB_URL + '/functions/v1/simpleapi-rcv-clave-test';
-
-  var sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
-  });
 
   function msg(txt, tipo){
     var el = document.getElementById('msg');
@@ -86,18 +80,52 @@
     el.textContent = txt;
   }
 
+  async function obtenerSesionValida(){
+    if(window._sbAuthReady !== true){
+      await new Promise(function(resolve, reject){
+        var timer = setTimeout(function(){ reject(new Error('GESTOOR_AUTH_TIMEOUT')); }, 10000);
+        window.addEventListener('gestoor-auth-ready', function handler(){
+          clearTimeout(timer);
+          window.removeEventListener('gestoor-auth-ready', handler);
+          resolve();
+        });
+      });
+    }
+
+    if(!window._sbAuthClient){
+      throw new Error('GESTOOR_AUTH_CLIENT_MISSING');
+    }
+
+    var result = await window._sbAuthClient.auth.getSession();
+    var session = result && result.data && result.data.session;
+
+    if(!session || !session.access_token){
+      throw new Error('GESTOOR_NO_SESSION');
+    }
+
+    // Validación real contra Supabase Auth antes de llamar la Edge Function.
+    var userResult = await window._sbAuthClient.auth.getUser();
+    if(userResult.error || !userResult.data || !userResult.data.user){
+      // Intentar renovar una vez si el token persistido quedó vencido.
+      var refreshResult = await window._sbAuthClient.auth.refreshSession();
+      session = refreshResult && refreshResult.data && refreshResult.data.session;
+      if(refreshResult.error || !session || !session.access_token){
+        throw new Error('GESTOOR_INVALID_SESSION');
+      }
+      userResult = await window._sbAuthClient.auth.getUser();
+      if(userResult.error || !userResult.data || !userResult.data.user){
+        throw new Error('GESTOOR_INVALID_SESSION');
+      }
+    }
+
+    return session;
+  }
+
   window.probarSimulacion = async function(){
     var btn = document.getElementById('btn');
     var res = document.getElementById('resultado');
 
-    // Obtener JWT de la sesión activa
-    var { data: { session } } = await sb.auth.getSession();
-    if(!session || !session.access_token){
-      msg('❌ Sin sesión activa. Inicia sesión en Gestoor primero.', 'err');
-      return;
-    }
-
-    var clienteId = parseInt(document.getElementById('clienteId').value);
+    var clienteId = parseInt(document.getElementById('clienteId').value, 10);
     var periodo   = document.getElementById('periodo').value.trim();
     var tipo      = document.getElementById('tipo').value;
 
@@ -110,56 +138,59 @@
       return;
     }
 
-    btn.disabled    = true;
+    btn.disabled = true;
     btn.textContent = '⏳ Probando…';
     res.style.display = 'none';
     document.getElementById('msg').textContent = '';
 
     try{
+      var session = await obtenerSesionValida();
+
       var response = await fetch(EDGE, {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + session.access_token,
-          'Content-Type':  'application/json',
+          'apikey': SB_KEY,
+          'Content-Type': 'application/json'
         },
-        // Solo se envía clienteId, periodo, tipo y modo = simulacion
-        // El RUT y la clave SII los obtiene la Edge Function del servidor
         body: JSON.stringify({
           clienteId: clienteId,
-          periodo:   periodo,
-          tipo:      tipo,
-          modo:      'simulacion',
-        }),
+          periodo: periodo,
+          tipo: tipo,
+          modo: 'simulacion'
+        })
       });
 
-      var data = await response.json();
+      var data;
+      try{ data = await response.json(); }
+      catch(e){ data = { ok:false, code:'INVALID_RESPONSE', message:'La función no devolvió JSON válido.' }; }
 
       if(data.ok){
-        msg(
-          '✅ Simulación OK' +
+        msg('✅ Simulación OK' +
           (data.credencialDisponible
             ? ' · credenciales SII configuradas en el cliente'
-            : ' · ⚠️ El cliente no tiene credenciales SII configuradas'),
-          'ok'
-        );
+            : ' · ⚠️ El cliente no tiene credenciales SII configuradas'), 'ok');
       }else{
-        msg('❌ ' + (data.message || 'Error') + ' [' + (data.code || '?') + ']', 'err');
+        msg('❌ ' + (data.message || 'Error') + ' [' + (data.code || response.status || '?') + ']', 'err');
       }
 
       res.style.display = 'block';
-      res.textContent   = JSON.stringify(data, null, 2);
-
+      res.textContent = JSON.stringify(data, null, 2);
     }catch(e){
-      msg('❌ Error de red: ' + (e.message || e), 'err');
+      var map = {
+        GESTOOR_NO_SESSION: 'Sin sesión activa. Inicia sesión nuevamente en Gestoor.',
+        GESTOOR_INVALID_SESSION: 'La sesión guardada no es válida. Cierra sesión e ingresa nuevamente.',
+        GESTOOR_AUTH_TIMEOUT: 'La autenticación tardó demasiado en cargar.',
+        GESTOOR_AUTH_CLIENT_MISSING: 'No se pudo cargar el cliente de autenticación de Gestoor.'
+      };
+      msg('❌ ' + (map[e.message] || ('Error: ' + (e.message || e))), 'err');
     }finally{
-      btn.disabled    = false;
+      btn.disabled = false;
       btn.textContent = 'Probar simulación';
     }
   };
-
 })();
 </script>
 
 </body>
 </html>
-
