@@ -229,14 +229,24 @@ function sbRowToCliente(row){
     waAnalista:      row.wa_analista,
     prioRrhh:        row.prioridad_rrhh||'media',
     prioCont:        row.prioridad_contable||'media',
-    // Credenciales
-    siiU:    row.usuario_sii,    siiK:  row.clave_sii,
-    prevU:   row.usuario_previred, prevK: row.clave_previred,
-    cuU:     row.usuario_cu,     cuK:   row.clave_cu,
-    factU:   row.usuario_fact,   factK: row.clave_fact,
-    licU:    row.usuario_lic,    licK:  row.clave_lic,
-    credsExtra: row.creds_extra||[],
-    obsAcceso:  row.obs_acceso,
+    // Credenciales de acceso (solo usuario/RUT — las claves NO se traen al navegador)
+    // Las claves son leídas exclusivamente por Edge Functions con service_role.
+    // Corrección 4: clave_sii, clave_previred, clave_cu, clave_fact, clave_lic,
+    //               creds_extra excluidas del SELECT y de este objeto.
+    siiU:    row.usuario_sii,
+    prevU:   row.usuario_previred,
+    cuU:     row.usuario_cu,
+    factU:   row.usuario_fact,
+    licU:    row.usuario_lic,
+    // Indicadores booleanos seguros: informan si la clave está configurada
+    // sin exponer su valor. La columna clave_sii no llega al navegador, por lo
+    // que estos indicadores deben venir de columnas booleanas dedicadas en BD
+    // o de una Edge Function. Por ahora se dejan como null hasta implementar
+    // esas columnas.
+    // TODO: agregar columnas booleanas tiene_clave_sii, tiene_clave_previred, etc.
+    //       en la tabla clientes y mapearlas aquí como:
+    //       tieneClaveSiiConfigurada: row.tiene_clave_sii || false,
+    obsAcceso: row.obs_acceso,
     obs:        row.obs,
     logo:       row.logo_base64,
     socios:     row.socios||[],
@@ -277,12 +287,17 @@ function sbClienteToRow(c){
     wa_analista:       c.waAnalista||null,
     prioridad_rrhh:    c.prioRrhh||'media',
     prioridad_contable:c.prioCont||'media',
-    usuario_sii:       c.siiU||null,   clave_sii:       c.siiK||null,
-    usuario_previred:  c.prevU||null,  clave_previred:  c.prevK||null,
-    usuario_cu:        c.cuU||null,    clave_cu:        c.cuK||null,
-    usuario_fact:      c.factU||null,  clave_fact:      c.factK||null,
-    usuario_lic:       c.licU||null,   clave_lic:       c.licK||null,
-    creds_extra:       c.credsExtra||[],
+    usuario_sii:       c.siiU||null,
+    usuario_previred:  c.prevU||null,
+    usuario_cu:        c.cuU||null,
+    usuario_fact:      c.factU||null,
+    usuario_lic:       c.licU||null,
+    // ── Corrección 1: Claves y creds_extra EXCLUIDAS del objeto base ──────
+    // Una edición general del cliente NUNCA modifica credenciales.
+    // clave_sii, clave_previred, clave_cu, clave_fact, clave_lic, creds_extra
+    // se gestionarán en una Edge Function específica con service_role.
+    // Los campos siiK, prevK, cuK, factK, licK de la ficha de edición
+    // deben canalizarse por separado — no por sbClienteToRow/sbUpsertCliente.
     obs_acceso:        c.obsAcceso||null,
     obs:               c.obs||null,
     logo_base64:       c.logo||null,
@@ -293,13 +308,60 @@ function sbClienteToRow(c){
 }
 
 function sbGetClientes(cb){
-  var cached=sbCacheOrLocal('clientes','clientes_bd');
-  if(cached) cb(cached);  // inmediato con caché
-  sbGet('clientes?select=*&order=razon_social.asc').then(function(rows){
+  // ── Corrección 2: Caché versionada — eliminar clientes_bd y sbc_clientes legacy ──
+  // Las versiones anteriores de sbGetClientes guardaban claves (clave_sii, etc.)
+  // en localStorage. Limpiamos esas entradas una sola vez y usamos caché sanitizada.
+  var MIGRATED_KEY = 'gestoor_clientes_cache_migrated_v2';
+  if(!localStorage.getItem(MIGRATED_KEY)){
+    try{
+      localStorage.removeItem('clientes_bd');
+      localStorage.removeItem('sbc_clientes');
+    }catch(e){}
+    try{localStorage.setItem(MIGRATED_KEY,'1');}catch(e){}
+  }
+
+  // Solo usar caché pública versionada — nunca clientes_bd ni sbc_clientes
+  var CACHE_V2 = 'sbc_clientes_public_v2';
+  var cached = null;
+  try{
+    var raw = localStorage.getItem(CACHE_V2);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && parsed.d && Date.now() - parsed.ts < SB_TTL * 2){
+        cached = parsed.d;
+      }
+    }
+  }catch(e){}
+  // También consultar caché en memoria
+  var memCached = sbCacheGet('clientes_v2');
+  if(memCached) cached = memCached;
+  if(cached) cb(cached);  // inmediato con caché sanitizada
+
+  // ── Columnas explícitas — claves excluidas ────────────────────────────────
+  // Nunca traer clave_sii, clave_previred, clave_cu, clave_fact, clave_lic,
+  // creds_extra al navegador. Las claves solo llegan por Edge Function + service_role.
+  var CLIENTES_COLS=[
+    'id','rut','razon_social','giro','email','contacto','tel','wa','ciudad',
+    'plan','estado','fecha_inicio','regimen','iva_condicion','modalidad_pago',
+    'obs_trib','moneda_plan','moneda_variable','monto_base','trab_incluidos',
+    'valor_por_trab','hon_variable','precio_obs',
+    'analista_contable','analista_rrhh','analista_pagos',
+    'email_analista','wa_analista',
+    'prioridad_rrhh','prioridad_contable',
+    'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
+    'obs_acceso','obs','logo_base64','socios',
+    'tiene_rrhh','tiene_contabilidad'
+  ].join(',');
+
+  sbGet('clientes?select='+CLIENTES_COLS+'&order=razon_social.asc').then(function(rows){
     if(!rows||!rows.length){if(!cached)cb([]);return;}
-    var mapped=rows.map(sbRowToCliente);
-    sbCacheSet('clientes',mapped);
-    try{localStorage.setItem('clientes_bd',JSON.stringify(mapped));}catch(e){}
+    var mapped = rows.map(sbRowToCliente);
+    // Guardar en caché de memoria y en la nueva clave versionada
+    sbCacheSet('clientes_v2', mapped);
+    try{
+      localStorage.setItem(CACHE_V2, JSON.stringify({d:mapped, ts:Date.now()}));
+    }catch(e){}
+    // NO guardar en clientes_bd — ese almacenamiento está deprecado
     cb(mapped);
   }).catch(function(){if(!cached)cb([]);});
 }
@@ -662,34 +724,7 @@ function sbRowToReporte(row){
     tieneCont:        row.tiene_cont!==false,
     prioridadRrhh:    row.prioridad_rrhh||'media',
     prioridadContable:row.prioridad_contable||'media',
-    ts:               new Date(row.created_at||Date.now()).getTime(),
-    // ── Corrección 3: Estado contable separado del estado general ─────────
-    estadoContable:   row.estado_contable||null,
-    // ── Corrección 4: Objeto f29 construido desde columnas planas ────────
-    // Compatibilidad con modal F29 y renderTabla del módulo Contable
-    f29:{
-      ivaDebito:      row.debito_iva||0,
-      ivaCredito:     row.credito_iva||0,
-      remanente:      row.remanente||0,
-      ivaApagar:      row.f29||row.total_imp_inmediato||0,
-      ivaPostergado:  row.iva_postergado||0,
-      postergado:     row.postergar_iva||false,
-      ivaFechaVenc:   row.iva_fecha_venc||null,
-      ppmBase:        row.ppm_base||0,
-      ppmTasa:        row.ppm_tasa||0,
-      ppm:            row.ppm||0,
-      retHon:         row.ret_hon||0,
-      imp2cat:        row.iu_sii||row.iu||0,
-      otrosImp:       row.otros_imp||0,
-      retenciones:    (row.ret_hon||0)+(row.iu_sii||row.iu||0)+(row.otros_imp||0),
-      honUF:          row.hon_base_uf||0,
-      honBase:        row.hon_base||0,
-      honVar:         row.hon_var||0,
-      honVarUnitario: row.hon_val_trab||0,
-      honTrab:        row.hon_ntrab||0,
-      honorarios:     row.hon_total||0,
-      obs:            row.obs_cont||''
-    }
+    ts:               new Date(row.created_at||Date.now()).getTime()
   };
 }
 
@@ -996,4 +1031,37 @@ console.log('✅ supabase.js v3 · Gestoor');
     window.dispatchEvent(new Event('gestoor-auth-ready'));
   };
   document.head.appendChild(s);
+})();
+
+// ── PRUEBA DE PAYLOAD: sbClienteToRow no incluye claves ──────────────────────
+// Esta prueba corre una sola vez cuando se carga supabase.js en modo debug.
+// En producción falla silenciosamente — no bloquea el módulo.
+// Corrección 4: verifica que sbClienteToRow no envíe clave_* aunque el objeto
+// fuente tenga siiK, prevK, etc. populados (caso de versiones de caché antigua).
+(function verifySbClienteToRowPayload(){
+  try{
+    var _testCliente = sbClienteToRow({
+      id:1, rut:'12345678-9', razon:'Prueba', estado:'activo',
+      siiU:'123', siiK:'CLAVE_SECRETA_TEST',
+      prevU:'456', prevK:'CLAVE_PREVIRED_TEST',
+      cuU:'789',  cuK:'CLAVE_CU_TEST',
+      factU:'abc', factK:'CLAVE_FACT_TEST',
+      licU:'def',  licK:'CLAVE_LIC_TEST',
+      credsExtra:[{tipo:'extra',clave:'CLAVE_EXTRA_TEST'}]
+    });
+    var _claves = ['clave_sii','clave_previred','clave_cu','clave_fact','clave_lic','creds_extra'];
+    var _encontradas = _claves.filter(function(k){ return Object.prototype.hasOwnProperty.call(_testCliente, k); });
+    if(_encontradas.length > 0){
+      console.error('[supabase.js] FALLO payload test: sbClienteToRow incluye claves:', _encontradas);
+    }
+    // Verificar también que no haya valores de clave en ninguna propiedad
+    var _valoresSecrets = ['CLAVE_SECRETA_TEST','CLAVE_PREVIRED_TEST','CLAVE_CU_TEST','CLAVE_FACT_TEST','CLAVE_LIC_TEST','CLAVE_EXTRA_TEST'];
+    var _valoresEnviados = Object.values(_testCliente);
+    var _filtracion = _valoresSecrets.filter(function(v){
+      return _valoresEnviados.some(function(pv){ return pv === v; });
+    });
+    if(_filtracion.length > 0){
+      console.error('[supabase.js] FALLO payload test: valor de clave filtrado:', _filtracion);
+    }
+  }catch(e){}
 })();
