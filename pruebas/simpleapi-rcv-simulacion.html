@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>SimpleAPI RCV Clave — Prueba simulación</title>
+<style>
+  body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px;color:#1a0a1b;}
+  h2{color:#904891;margin-bottom:4px;}
+  .sub{color:#5c4a5d;font-size:13px;margin-bottom:24px;}
+  .fgroup{margin-bottom:14px;}
+  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.4px;color:#5c4a5d;margin-bottom:5px;}
+  input,select{width:100%;padding:9px 12px;border:1.5px solid #e8dde8;
+    border-radius:8px;font-size:14px;box-sizing:border-box;font-family:inherit;}
+  button{padding:11px 22px;background:#904891;color:#fff;border:none;
+    border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;
+    padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:20px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;
+    font-weight:700;background:#dbeafe;color:#1e40af;margin-bottom:16px;}
+  pre{background:#f5f0f5;border-radius:8px;padding:14px;font-size:11.5px;
+    overflow:auto;max-height:380px;white-space:pre-wrap;word-break:break-all;
+    border:1px solid #e8dde8;}
+  .msg{padding:10px 14px;border-radius:8px;margin-top:14px;font-size:13px;}
+  .ok{background:#d1fae5;color:#065f46;}
+  .err{background:#fee2e2;color:#991b1b;}
+  .row{display:flex;gap:12px;}
+  .row .fgroup{flex:1;}
+</style>
+</head>
+<body>
+
+<h2>SimpleAPI RCV · Prueba con Clave SII</h2>
+<p class="sub">Modo simulación — No llama a SimpleAPI ni consume consultas reales.</p>
+
+<div class="note">
+  <strong>ℹ️ Solo modo simulación disponible.</strong><br>
+  El modo real está deshabilitado hasta confirmar el endpoint y los parámetros de SimpleAPI.<br>
+  El RUT y la clave SII se leen del servidor — nunca se envían desde esta página.
+</div>
+
+<div class="badge">🔒 modo: simulacion</div>
+
+<div class="fgroup">
+  <label>Cliente ID (número interno de Gestoor)</label>
+  <input id="clienteId" type="number" placeholder="123" min="1"/>
+</div>
+
+<div class="row">
+  <div class="fgroup">
+    <label>Período (AAAA-MM)</label>
+    <input id="periodo" type="text" placeholder="2026-07" maxlength="7"/>
+  </div>
+  <div class="fgroup">
+    <label>Tipo</label>
+    <select id="tipo">
+      <option value="ventas">Ventas</option>
+      <option value="compras">Compras</option>
+    </select>
+  </div>
+</div>
+
+<button id="btn" onclick="probarSimulacion()">Probar simulación</button>
+
+<div id="msg"></div>
+<pre id="resultado" style="display:none"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
+  var EDGE   = SB_URL + '/functions/v1/simpleapi-rcv-clave-test';
+
+  var sb = window.supabase.createClient(SB_URL, SB_KEY, {
+    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
+  });
+
+  function msg(txt, tipo){
+    var el = document.getElementById('msg');
+    el.className = 'msg ' + (tipo === 'ok' ? 'ok' : 'err');
+    el.textContent = txt;
+  }
+
+  window.probarSimulacion = async function(){
+    var btn = document.getElementById('btn');
+    var res = document.getElementById('resultado');
+
+    // Obtener JWT de la sesión activa
+    var { data: { session } } = await sb.auth.getSession();
+    if(!session || !session.access_token){
+      msg('❌ Sin sesión activa. Inicia sesión en Gestoor primero.', 'err');
+      return;
+    }
+
+    var clienteId = parseInt(document.getElementById('clienteId').value);
+    var periodo   = document.getElementById('periodo').value.trim();
+    var tipo      = document.getElementById('tipo').value;
+
+    if(!clienteId || clienteId <= 0){
+      msg('❌ Ingresa un clienteId válido.', 'err');
+      return;
+    }
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)){
+      msg('❌ Período inválido. Usa AAAA-MM (ej: 2026-07).', 'err');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = '⏳ Probando…';
+    res.style.display = 'none';
+    document.getElementById('msg').textContent = '';
+
+    try{
+      var response = await fetch(EDGE, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + session.access_token,
+          'Content-Type':  'application/json',
+        },
+        // Solo se envía clienteId, periodo, tipo y modo = simulacion
+        // El RUT y la clave SII los obtiene la Edge Function del servidor
+        body: JSON.stringify({
+          clienteId: clienteId,
+          periodo:   periodo,
+          tipo:      tipo,
+          modo:      'simulacion',
+        }),
+      });
+
+      var data = await response.json();
+
+      if(data.ok){
+        msg(
+          '✅ Simulación OK' +
+          (data.credencialDisponible
+            ? ' · credenciales SII configuradas en el cliente'
+            : ' · ⚠️ El cliente no tiene credenciales SII configuradas'),
+          'ok'
+        );
+      }else{
+        msg('❌ ' + (data.message || 'Error') + ' [' + (data.code || '?') + ']', 'err');
+      }
+
+      res.style.display = 'block';
+      res.textContent   = JSON.stringify(data, null, 2);
+
+    }catch(e){
+      msg('❌ Error de red: ' + (e.message || e), 'err');
+    }finally{
+      btn.disabled    = false;
+      btn.textContent = 'Probar simulación';
+    }
+  };
+
+})();
+</script>
+
+</body>
+</html>
