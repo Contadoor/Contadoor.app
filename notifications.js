@@ -44,16 +44,24 @@ window.crearNotificacion=function(opts){
 
 // ── ROL DEL USUARIO ─────────────────────────────────────────
 function getRol(){
+  // Fase Operativa 1: leer sesión desde fuentes actualizadas, nunca asumir 'admin'
   try{
-    var u=JSON.parse(localStorage.getItem('usuario_sesion')||'{}');
-    return u.rol||'admin';
-  }catch(e){return'admin';}
+    if(window._contadoorSesion && window._contadoorSesion.rol)
+      return window._contadoorSesion.rol;
+    var ss = JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
+    if(ss && ss.rol) return ss.rol;
+    return ''; // fallback seguro — sin rol asumido
+  }catch(e){return'';}
 }
 function getNombre(){
+  // Fase Operativa 1: leer desde sesión central, luego sessionStorage
   try{
-    var u=JSON.parse(localStorage.getItem('usuario_sesion')||'{}');
-    return u.nombre||'Analista';
-  }catch(e){return'Analista';}
+    if(window._contadoorSesion && window._contadoorSesion.nombre)
+      return window._contadoorSesion.nombre;
+    var ss = JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
+    if(ss && ss.nombre) return ss.nombre;
+    return 'Usuario'; // fallback neutro
+  }catch(e){return'Usuario';}
 }
 
 // Módulos que puede ver cada rol
