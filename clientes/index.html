@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -98,6 +98,7 @@ tr:hover td{background:#faf5ff;}
 .copy-btn{border:1px solid var(--bdr);background:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;color:var(--tm);margin-left:6px;}
 .copy-btn:hover{background:var(--pp);color:var(--pd);}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 
@@ -249,6 +250,35 @@ tr:hover td{background:#faf5ff;}
           </select>
         </div>
         <div class="fgroup"><label>Obs. tributarias</label><input type="text" id="f-obs-trib" placeholder="Pérdidas, fusiones..."></div>
+      </div>
+</div>
+
+      <div class="card-hd">📊 Configuración tributaria — PPM</div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="fgroup">
+          <label>Tasa PPM predeterminada (%)</label>
+          <input type="number" id="f-ppm-tasa-default" placeholder="Ej: 0.25" step="0.0001" min="0" max="100"/>
+          <span class="hint">Ej: 0.125, 0.25, 0.5, 1. Dejar vacío si no aplica PPM.</span>
+        </div>
+        <div class="fgroup">
+          <label>Vigente desde (período)</label>
+          <input type="text" id="f-ppm-vigente-desde" placeholder="YYYY-MM"/>
+        </div>
+      </div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="fgroup">
+          <label>Fuente o fundamento</label>
+          <input type="text" id="f-ppm-fuente" placeholder="Ej: SII, promedio histórico, determinación analista"/>
+        </div>
+        <div class="fgroup">
+          <label>Observación tributaria</label>
+          <input type="text" id="f-ppm-observacion" placeholder="Notas adicionales sobre el PPM"/>
+        </div>
+      </div>
+      <div class="info-box" style="margin-bottom:8px;font-size:11px">
+        Esta tasa se utiliza como sugerencia mensual en el Borrador F29.
+        Debe revisarse según el régimen y antecedentes del contribuyente.
+        No se aplica retroactivamente a reportes históricos.
       </div>
 
       <div class="card-hd">💼 Valor mensual</div>
@@ -634,6 +664,7 @@ function resetForm() {
   // text/number/email/date/textarea
   ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad',
    'f-obs-trib','f-monto','f-trab','f-var','f-precio-obs','f-inicio','f-obs',
+   'f-ppm-tasa-default','f-ppm-vigente-desde','f-ppm-fuente','f-ppm-observacion',
    'f-sii-u','f-sii-k','f-prev-u','f-prev-k','f-cu-u','f-cu-k','f-fact-u','f-fact-k','f-lic-u','f-lic-k','f-obs-acceso'
   ].forEach(function(id){ sv(id, ''); });
   // selects
@@ -675,6 +706,10 @@ function abrirEditar(id) {
   sv('f-plan', c.plan); sv('f-estado', c.estado || 'activo');
   sv('f-reg', c.reg); sv('f-iva', c.iva || 'afecto'); sv('f-modalidad', c.modalidad || 'contadoor');
   sv('f-obs-trib', c.obsTrib);
+  sv('f-ppm-tasa-default', c.ppmTasaDefault!=null?c.ppmTasaDefault:'');
+  sv('f-ppm-vigente-desde', c.ppmTasaVigenteDesde||'');
+  sv('f-ppm-fuente', c.ppmTasaFuente||'');
+  sv('f-ppm-observacion', c.ppmTasaObservacion||'');
   sv('f-moneda', c.moneda || 'UF'); sv('f-moneda-var', c.monedaVar || c.moneda || 'UF');
   sv('f-monto', c.monto || ''); sv('f-trab', c.trab || ''); sv('f-var', c.varTrab || '');
   sv('f-precio-obs', c.precioObs || '');
@@ -734,6 +769,10 @@ function guardarCliente() {
     email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'),
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
     reg:      gv('f-reg'), iva: gv('f-iva'), modalidad: gv('f-modalidad'), obsTrib: gv('f-obs-trib'),
+    ppmTasaDefault: gv('f-ppm-tasa-default')!==''?Number(gv('f-ppm-tasa-default')):null,
+    ppmTasaVigenteDesde: gv('f-ppm-vigente-desde')||null,
+    ppmTasaFuente: gv('f-ppm-fuente')||null,
+    ppmTasaObservacion: gv('f-ppm-observacion')||null,
     moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
     monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
     contador: gv('f-contador'), rrhh: gv('f-rrhh'), prio: gv('f-prio-rrhh') || 'media',
@@ -1045,6 +1084,7 @@ document.getElementById('f-rut').oninput = function(){
   });
 })();
 </script>
+<script src="../supabase.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>
