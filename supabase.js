@@ -252,10 +252,10 @@ function sbRowToCliente(row){
     socios:     row.socios||[],
     // Flags servicio
     tieneRrhh:         row.tiene_rrhh!==false,
-    tieneContabilidad: row.tiene_contabilidad!==false
+    tieneContabilidad: row.tiene_contabilidad!==false,
+    honorariosContables: row.honorarios_contables||'determinar_mensualmente'
   };
 }
-
 function sbClienteToRow(c){
   return {
     rut:               c.rut,
@@ -303,7 +303,8 @@ function sbClienteToRow(c){
     logo_base64:       c.logo||null,
     socios:            c.socios||[],
     tiene_rrhh:        c.tieneRrhh!==false,
-    tiene_contabilidad:c.tieneContabilidad!==false
+    tiene_contabilidad:c.tieneContabilidad!==false,
+    honorarios_contables:c.honorariosContables||'determinar_mensualmente'
   };
 }
 
@@ -350,7 +351,7 @@ function sbGetClientes(cb){
     'prioridad_rrhh','prioridad_contable',
     'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
     'obs_acceso','obs','logo_base64','socios',
-    'tiene_rrhh','tiene_contabilidad'
+    'tiene_rrhh','tiene_contabilidad','honorarios_contables'
   ].join(',');
 
   sbGet('clientes?select='+CLIENTES_COLS+'&order=razon_social.asc').then(function(rows){
@@ -1023,6 +1024,65 @@ function sbFotografiarVersionRrhh(r, revision, motivo, usuario){
   return sbPost('reporte_rrhh_versiones', row, 'return=representation');
 }
 
+// ── LIBROS CONTABLES (MasConta) ─────────────────────────────────────────
+function sbRowToLibroCabecera(row){
+  if(!row) return null;
+  var arch=row.libros_archivos||{};
+  return {
+    id:                      row.id,
+    clienteId:               row.cliente_id,
+    clienteRut:              row.cliente_rut,
+    periodo:                 row.periodo,
+    tipo:                    row.tipo,
+    archivoId:               row.archivo_id,
+    // Metadata del archivo (via join con libros_archivos)
+    nombreOriginal:          arch.nombre_original||null,
+    cargadoAt:               arch.cargado_at||null,
+    cargadoPor:              arch.cargado_por||null,
+    nFilasTotal:             arch.n_filas_total||0,
+    nFilasIncluidas:         arch.n_filas_incluidas||0,
+    nFilasExcluidas:         arch.n_filas_excluidas||0,
+    nFilasError:             arch.n_filas_error||0,
+    // Totales Compras y Ventas
+    totalNeto:               row.total_neto||0,
+    totalExento:             row.total_exento||0,
+    totalIva:                row.total_iva||0,
+    totalOtrosImp:           row.total_otros_imp||0,
+    totalGeneral:            row.total_general||0,
+    totalNc:                 row.total_nc||0,
+    nDocsIncluidos:          row.n_docs_incluidos||0,
+    nDocsExcluidos:          row.n_docs_excluidos||0,
+    nDocsNc:                 row.n_docs_nc||0,
+    // Totales Honorarios
+    totalBruto:              row.total_bruto||0,
+    totalRetencion:          row.total_retencion||0,
+    totalAdicional3pct:      row.total_adicional_3pct||0,
+    totalLiquido:            row.total_liquido||0,
+    nRecibidos:              row.n_recibidos||0,
+    nEmitidos:               row.n_emitidos||0,
+    nPendientesClasificacion:row.n_pendientes_clasificacion||0,
+    // Control
+    estado:                  row.estado||'no_cargado',
+    validadoAt:              row.validado_at||null,
+    validadoPor:             row.validado_por||null,
+    obs:                     row.obs||null,
+    updatedAt:               row.updated_at||null
+  };
+}
+function sbGetLibrosCabeceraByPeriodo(periodo,cb){
+  // Join con libros_archivos!archivo_id para traer metadata del archivo activo
+  sbGet(
+    'libros_cabecera?periodo=eq.'+encodeURIComponent(periodo)+
+    '&select=*,libros_archivos!archivo_id(nombre_original,cargado_at,cargado_por,n_filas_total,n_filas_incluidas,n_filas_excluidas,n_filas_error)'+
+    '&order=cliente_id.asc'
+  ).then(function(rows){
+    cb((rows||[]).map(sbRowToLibroCabecera));
+  }).catch(function(){cb([]);});
+}
+function sbGetReglasHonorarios(clienteId,cb){
+  sbGet('libros_reglas_honorarios?cliente_id=eq.'+encodeURIComponent(clienteId)+'&activo=eq.true&select=*')
+    .then(function(rows){cb(rows||[]);}).catch(function(){cb([]);});
+}
 // ── UTILIDADES ───────────────────────────────────────────────
 function sbNormRut(rut){
   if(!rut) return '';
