@@ -10,12 +10,11 @@
   --p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;
   --sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;
   --green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;
-  --contable:#1e40af;--contable-bg:#eff6ff;--contable-bdr:#bfdbfe;
+  --contable:#904891;--contable-bg:#F5EAF5;--contable-bdr:#d4b0d4;
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;min-height:100vh;}
-
 /* SIDEBAR */
 .sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
 .sb-logo{padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06);}
@@ -28,25 +27,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .sb-item:hover{background:rgba(255,255,255,.07);color:#fff;}
 .sb-item.on{background:rgba(144,72,145,.25);color:#fff;font-weight:600;}
 .sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.35);}
-
 /* LAYOUT */
 .wrap{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
 .main{flex:1;}
-
 /* TOPBAR */
 .topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--contable);position:sticky;top:0;z-index:10;}
 .tb-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
-.tb-analista{background:rgba(30,64,175,.3);color:#93c5fd;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;}
-
+.tb-analista{background:rgba(144,72,145,.25);color:#e8c8e8;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;}
 /* CONTENT */
 .content{padding:18px 20px;max-width:1200px;}
-
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
 .stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
 .sv{font-size:22px;font-weight:700;font-family:monospace;}
 .sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
-
 /* CALENDARIO */
 .cal-bar{background:var(--sur);border:1px solid var(--contable-bdr);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;border-left:3px solid var(--contable);}
 .cal-item{display:flex;align-items:center;gap:6px;font-size:11px;}
@@ -54,19 +48,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .cal-lbl{color:var(--tm);}
 .cal-fecha{font-weight:700;color:var(--t1);}
 .cal-hoy{margin-left:auto;background:var(--contable-bg);color:var(--contable);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;}
-
 /* FILTROS */
 .filtros{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
 .fl{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;}
 .fb{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);}
 .fb.on{background:var(--contable);color:#fff;border-color:var(--contable);}
-
 /* TABLA */
 .tabla-wrap{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
-.tabla-hdr{background:linear-gradient(135deg,#1e3a8a,var(--contable));padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.tabla-hdr{background:linear-gradient(135deg,#6D2E6E,#904891);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
 .tabla-titulo{font-size:13px;font-weight:700;color:#fff;}
 .tabla-meta{font-size:10px;color:rgba(255,255,255,.55);margin-top:2px;}
-
 /* FILA CLIENTE */
 .cliente-row{border-bottom:1px solid var(--bdr);transition:.1s;}
 .cliente-row:last-child{border-bottom:none;}
@@ -76,52 +67,33 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .cr-rut{font-size:10px;color:var(--tm);margin-top:2px;}
 .cr-plan{display:inline-flex;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;}
 .plan-e{background:var(--pp);color:var(--pd);}
-.plan-a{background:#eff6ff;color:#1e40af;}
+.plan-a{background:var(--pp);color:var(--pd);}
 .plan-c{background:#f3f4f6;color:#374151;}
-
-/* CHIPS SECCIÓN */
-.chips{display:flex;gap:4px;flex-wrap:wrap;}
-.chip{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;}
-.chip-ok{background:#ecfdf5;color:#064e3b;}
-.chip-pend{background:#fef3c7;color:#78350f;}
-.chip-na{background:#f3f4f6;color:#9a849b;}
-
-/* PRIORIDAD */
-.prio{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.prio-alta{background:var(--red);}
-.prio-media{background:var(--amber);}
-.prio-baja{background:var(--green);}
-
 /* ESTADO BADGE */
 .estado-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap;}
 .eb-pendiente{background:#fef3c7;color:#78350f;}
 .eb-completado{background:#ecfdf5;color:#064e3b;}
-.eb-enviado{background:#eff6ff;color:#1e40af;}
-.eb-transferido{background:#fef9c3;color:#713f12;}
+.eb-enviado{background:var(--contable-bg);color:var(--contable);}
 .eb-firma{background:#fff7ed;color:#9a3412;}
 .eb-pagado{background:#f0fdf4;color:#166534;}
-
 /* DETALLE EXPANDIDO */
 .cr-detalle{display:none;padding:14px 16px;background:var(--sur2);border-top:1px solid var(--bdr);}
 .cr-detalle.open{display:block;}
-.det-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
 .det-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;}
-.det-card-titulo{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.det-card-titulo{font-size:9.5px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
 .det-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--bdr);}
 .det-row:last-child{border-bottom:none;font-weight:700;}
 .det-total{display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:8px 14px;background:var(--contable-bg);border-radius:8px;color:var(--contable);margin-top:8px;}
-
 /* BOTONES ACCIÓN */
 .acciones{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
 .btn-p{background:var(--contable);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;}
 .btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:7px 12px;font-size:11px;cursor:pointer;}
 .btn-amber{background:var(--amber);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;}
-.btn-green{background:var(--green);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;}
-
 /* MODAL */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.on{display:flex;}
-.modal{background:var(--sur);border-radius:14px;padding:22px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal{background:var(--sur);border-radius:14px;padding:22px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;}
 .modal h2{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--tm);margin-bottom:16px;}
 .card-hd{font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--contable-bdr);}
@@ -129,20 +101,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 .fgroup{display:flex;flex-direction:column;gap:4px;}
 .fgroup label{font-size:11px;font-weight:600;color:var(--t2);}
-.fgroup input,.fgroup select,.fgroup textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;width:100%;}
+.fgroup input,.fgroup select,.fgroup textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;width:100%);}
 .fgroup input:focus,.fgroup select:focus{border-color:var(--contable);}
 .fgroup .hint{font-size:10px;color:var(--tm);}
-.info-box{background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:8px;padding:8px 12px;font-size:11px;color:#1e40af;margin-bottom:8px;}
+.info-box{background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--contable);margin-bottom:8px;}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr);}
-
 /* POSTERGACION IVA */
 .iva-toggle{display:flex;align-items:center;gap:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:10px;}
 .iva-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 .iva-toggle label{font-size:12.5px;font-weight:600;color:#78350f;cursor:pointer;}
 .iva-detalle{background:#fef9e7;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:10px;display:none;}
 .iva-detalle.on{display:block;}
-
-/* PIPELINE ETAPAS */
+/* PIPELINE */
 .pipeline{display:flex;align-items:center;gap:0;margin:4px 0;}
 .pipe-step{display:flex;flex-direction:column;align-items:center;}
 .pipe-step .ps-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--bdr);background:var(--sur2);color:var(--tm);flex-shrink:0;}
@@ -153,8 +123,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .pipe-step.active .pipe-lbl{color:var(--p);font-weight:700;}
 .pipe-line{width:16px;height:2px;background:var(--bdr);margin-bottom:14px;flex-shrink:0;}
 .pipe-line.done{background:var(--green);}
-.bulk-bar{display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;align-items:center;gap:12px;}
-.bulk-bar.on{display:flex;}
+/* MSG GUARDADO */
+.msg-guardado{display:none;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 14px;font-size:12px;color:#064e3b;margin-top:8px;text-align:center;}
+.msg-guardado.on{display:block;}
 </style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
@@ -193,29 +164,25 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
   </nav>
   <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
 </aside>
-
 <div class="wrap">
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">📊 Vista Contable — Reportes Mensuales</div>
+    <div class="tb-title">📊 Vista Contable — Pre-F29 y Declaraciones</div>
     <span class="tb-analista" id="tb-analista-nombre">Analista Contable</span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
       <span style="font-size:18px">🔔</span>
       <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
     </div>
   </div>
-
   <div class="content">
-
     <!-- STATS -->
     <div class="stats">
       <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Mis clientes</div></div>
       <div class="stat"><div class="sv" id="st-rrhh-ok" style="color:var(--blue)">0</div><div class="sl">RRHH OK</div></div>
-      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">F29 completo</div></div>
-      <div class="stat"><div class="sv" id="st-enviado" style="color:var(--amber)">0</div><div class="sl">Enviados</div></div>
+      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">Pre-F29 completado</div></div>
+      <div class="stat"><div class="sv" id="st-enviado" style="color:var(--amber)">0</div><div class="sl">En Panel de Control</div></div>
       <div class="stat"><div class="sv" id="st-atrasado" style="color:var(--red)">0</div><div class="sl">Atrasados</div></div>
     </div>
-
     <!-- CALENDARIO -->
     <div class="cal-bar">
       <span style="font-size:9.5px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.7px">Calendario:</span>
@@ -225,7 +192,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <div class="cal-item"><div class="cal-dot" style="background:var(--p)"></div><span class="cal-lbl">IVA postergado:</span><span class="cal-fecha" id="cal-iva-post">día 20 (+60 días)</span></div>
       <span class="cal-hoy" id="cal-hoy-label"></span>
     </div>
-
     <!-- FILTROS -->
     <div class="filtros">
       <span class="fl">Prioridad:</span>
@@ -237,47 +203,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
       <button class="fb" onclick="setFiltro('estado','esperando_rrhh')">⏳ Esperando RRHH</button>
       <button class="fb" onclick="setFiltro('estado','rrhh_ok')">🔵 RRHH OK</button>
-      <button class="fb" onclick="setFiltro('estado','completado')">✅ F29 completo</button>
-      <button class="fb" onclick="setFiltro('estado','enviado')">📤 Enviados</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">✅ Pre-F29 listo</button>
       <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
       <span class="fl" style="margin-left:12px">Plan:</span>
       <button class="fb on" onclick="setFiltro('plan','')">Todos</button>
       <button class="fb" onclick="setFiltro('plan','estrategico')">⭐ Estratégico</button>
       <button class="fb" onclick="setFiltro('plan','asesoria')">🔵 Asesoría</button>
     </div>
-
-    <!-- BANNER ENVÍO MASIVO -->
-    <div id="bannerMasivo" style="display:none;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:12px;padding:14px 18px;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#064e3b;" id="bannerMasivoTitulo">✅ Reportes listos para enviar</div>
-          <div style="font-size:11.5px;color:#065f46;margin-top:2px;">F29 completo y validado · Selecciona y envía todos de una vez</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button onclick="seleccionarTodos()" style="background:#fff;color:#064e3b;border:1px solid #a7f3d0;border-radius:8px;padding:7px 14px;font-size:11.5px;font-weight:600;cursor:pointer;">☑ Seleccionar todos</button>
-          <button onclick="enviarMasivo()" id="btnEnviarMasivo" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:7px 18px;font-size:11.5px;font-weight:700;cursor:pointer;">📤 Enviar seleccionados (<span id="cntSeleccionados">0</span>)</button>
-        </div>
-      </div>
-      <div id="tagsSeleccionados" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-    </div>
-
-    <!-- BANNER FIRMA PENDIENTE -->
-    <div id="bannerFirma" style="display:none;background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1px solid #fde68a;border-radius:10px;padding:12px 18px;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#92400e;" id="bannerFirmaTitulo">✍️ Reportes esperando firma de Luciano</div>
-          <div style="font-size:11px;color:#78350f;margin-top:2px;" id="bannerFirmaSub"></div>
-        </div>
-        <button onclick="aprobarTodos()" style="background:var(--amber);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:11.5px;font-weight:600;cursor:pointer;">✍️ Aprobar todos</button>
-      </div>
-    </div>
-
+    <!-- BANNER CONSOLIDACIÓN — reemplaza envío masivo -->
+    <!-- Fase Panel de Control: bannerMasivo y bannerFirma trasladados — ocultos aquí -->
+    <div id="bannerMasivo" style="display:none"></div>
+    <div id="bannerFirma" style="display:none"></div>
     <!-- TABLA -->
-    <!-- [bulkBar eliminado — Fase Operativa 1B: flujo masivo antiguo retirado] -->
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">📊 Mis clientes Contable — <span id="periodo-label">Sin período abierto</span></div>
+          <div class="tabla-titulo">📊 Pre-F29 Contable — <span id="periodo-label">Sin período abierto</span></div>
           <div class="tabla-meta" id="tabla-meta">Selecciona un período para ver tu nómina</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -288,22 +229,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       </div>
       <div id="tablaBody"></div>
     </div>
-
-    <!-- CONFIRMACIÓN ENVÍO -->
-    <div id="confirmEnvio" style="display:none;background:#1a0a1b;border-radius:12px;padding:18px 20px;margin-top:12px;">
-      <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;">📤 Resultado del envío masivo</div>
-      <div id="confirmItems"></div>
-      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:10px;">Enviados desde reportes@contadoor.cl · Reply-To: <span id="confirmAnalista"></span></div>
-    </div>
-
   </div>
 </main>
 </div>
 
-<!-- MODAL F29 -->
+<!-- MODAL F29 — Pre-F29 Tributario (sin honorarios comerciales) -->
 <div class="modal-bg" id="modalF29">
   <div class="modal">
-    <h2>📊 Completar F29 — Impuestos</h2>
+    <h2>📊 Pre-F29 — Impuestos Tributarios</h2>
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-rut"/>
     <input type="hidden" id="m-periodo"/>
@@ -323,7 +256,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <div class="fgroup">
         <label>Remanente anterior</label>
         <input type="number" id="f-remanente-ant" placeholder="0" readonly style="background:#f0f0f0"/>
-        <span class="hint">Cargado automáticamente</span>
+        <span class="hint">Desde período anterior</span>
       </div>
     </div>
 
@@ -381,12 +314,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       </div>
     </div>
 
-    <!-- RETENCIONES -->
-    <div class="card-hd">📄 Retenciones y otros</div>
+    <!-- RETENCIONES (separadas por componente) -->
+    <div class="card-hd">📄 Retenciones y otros impuestos</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
         <label>Ret. honorarios (10,75%)</label>
-        <input type="number" id="f-ret-hon" placeholder="0"/>
+        <input type="number" id="f-ret-hon" placeholder="0" oninput="calcTotal()"/>
         <span class="hint">Boletas honorarios recibidas</span>
       </div>
       <div class="fgroup">
@@ -396,50 +329,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       </div>
       <div class="fgroup">
         <label>Otros impuestos</label>
-        <input type="number" id="f-otros-imp" placeholder="0"/>
+        <input type="number" id="f-otros-imp" placeholder="0" oninput="calcTotal()"/>
       </div>
     </div>
 
-    <!-- NUESTROS SERVICIOS -->
-    <div class="card-hd">💼 Nuestros Servicios</div>
-    <div class="fg3" style="margin-bottom:10px">
-      <div class="fgroup">
-        <label>Plan</label>
-        <input type="text" id="f-plan-nombre" readonly style="background:#f0f0f0"/>
-      </div>
-      <div class="fgroup">
-        <label>Base UF</label>
-        <input type="number" id="f-hon-uf" placeholder="0" oninput="calcHonorarios()"/>
-      </div>
-      <div class="fgroup">
-        <label>Valor UF período</label>
-        <input type="number" id="f-uf-valor" placeholder="0" readonly style="background:#f0f0f0"/>
-        <span class="hint">Desde apertura período</span>
-      </div>
-      <div class="fgroup">
-        <label>Variable (por trabajador)</label>
-        <input type="number" id="f-hon-variable" placeholder="0" oninput="calcHonorarios()"/>
-        <span class="hint">Monto por c/trabajador</span>
-      </div>
-      <div class="fgroup">
-        <label>N° trabajadores</label>
-        <input type="number" id="f-hon-trab" placeholder="0" oninput="calcHonorarios()"/>
-      </div>
-      <div class="fgroup">
-        <label>Total Nuestros Servicios</label>
-        <input type="number" id="f-hon-total" readonly style="background:#f0f0f0;font-weight:700;color:var(--contable)"/>
-      </div>
-    </div>
-
-    <!-- RESUMEN TOTAL -->
+    <!-- RESUMEN TRIBUTARIO (sin conceptos comerciales) -->
     <div style="background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Resumen F29 + Servicios</div>
+      <div style="font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Resumen tributario del período</div>
       <div style="display:flex;flex-direction:column;gap:5px;" id="resumen-items">
-        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">IVA a pagar</span><span id="res-iva" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">IVA exigible del período</span><span id="res-iva" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">PPM</span><span id="res-ppm" style="font-weight:600">$0</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Retenciones</span><span id="res-ret" style="font-weight:600">$0</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Nuestros Servicios</span><span id="res-hon" style="font-weight:600">$0</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--contable-bdr);padding-top:8px;margin-top:4px;"><span style="color:var(--contable)">Total período</span><span id="res-total" style="color:var(--contable)">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Ret. honorarios</span><span id="res-ret-hon" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Imp. Único 2ª Cat.</span><span id="res-iu" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Otros impuestos</span><span id="res-otros" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--contable-bdr);padding-top:8px;margin-top:4px;"><span style="color:var(--contable)">Total tributario</span><span id="res-total" style="color:var(--contable)">$0</span></div>
       </div>
     </div>
 
@@ -448,9 +351,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <textarea id="f-obs" rows="2" placeholder="Notas adicionales..."></textarea>
     </div>
 
+    <!-- Mensaje de estado guardado -->
+    <div class="msg-guardado" id="msg-guardado">✅ Pre-F29 guardado correctamente en Supabase.</div>
+
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" onclick="guardarF29()">💾 Guardar F29</button>
+      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">💾 Guardar Pre-F29</button>
     </div>
   </div>
 </div>
@@ -462,7 +368,6 @@ var _periodoActual=null;
 // ── FASE 2A-2C: Variables en memoria ─────────────────────────────────────
 var _clientesContables  = [];   // cargado por sbGetClientes
 var _reportesContables  = [];   // cargado por sbGetReportesPeriodo
-
 function getReportes(){
   // Fase 2C: fuente de verdad es _reportesContables (cargado por sbGetReportesPeriodo)
   return _reportesContables;
@@ -472,7 +377,6 @@ function setReportes(arr){
   _reportesContables = arr;
 }
 // ── FASE 2C: Remanente en memoria ────────────────────────────────────────────
-// Sin localStorage — usa _reportesContables directamente
 function getRemanente(rut, periodo){
   var r=_reportesContables.find(function(x){return x.rut===rut&&String(x.periodo)===String(periodo);});
   if(r){
@@ -489,42 +393,7 @@ function setRemanente(rut, periodo, valor){
     _reportesContables[idx].ivaRemanenteSig=valor;
   }
 }
-
-var _expandidos=new Set();
 var _editRut=null;
-
-
-function renderPipelineCont(r){
-  var sec=r.secciones||{};
-  var rrhhOk  = sec.rrhh&&sec.rrhh.ok;
-  var impOk   = sec.imp&&sec.imp.ok;
-  var honOk   = sec.hon&&sec.hon.ok;
-  var enviado = r.estado==='enviado_total'||r.estado==='enviado'||r.estado==='procesado';
-  var pasos=[
-    {label:'RRHH OK',  done:rrhhOk,              active:!rrhhOk},
-    {label:'F29',      done:impOk,                active:rrhhOk&&!impOk},
-    {label:'Honorarios',done:honOk,               active:impOk&&!honOk},
-    {label:'Enviado',  done:enviado,              active:honOk&&!enviado},
-  ];
-  var html='<div class="pipeline">';
-  pasos.forEach(function(p,i){
-    var cls=p.done?'done':p.active?'active':'';
-    html+='<div class="pipe-step '+cls+'"><div class="ps-dot">'+(p.done?'✓':(p.active?(i+1):' '))+'</div><div class="pipe-lbl">'+p.label+'</div></div>';
-    if(i<pasos.length-1) html+='<div class="pipe-line'+(p.done?' done':'')+'"></div>';
-  });
-  return html+'</div>';
-}
-// [actualizarBulkBar eliminada — flujo masivo antiguo retirado en Fase Operativa 1B]
-
-// [deseleccionarCont eliminada — flujo masivo antiguo retirado en Fase Operativa 1B]
-
-// [enviarMasivoCont eliminada — flujo masivo antiguo retirado en Fase Operativa 1B]
-
-document.addEventListener('DOMContentLoaded',function(){
-  // Flujo masivo: btnEnviarMasivo tiene onclick="enviarMasivo()" en el HTML.
-  // No se requiere enlace adicional — el flujo antiguo (enviarMasivoCont) fue eliminado.
-});
-
 function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');}
 function ff(n){return '$'+Math.round(Math.abs(n)||0).toLocaleString('es-CL');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
@@ -532,131 +401,28 @@ function nv(id){return parseFloat(sv(id))||0;}
 function hoy(){return new Date().toISOString().slice(0,10);}
 function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
-function getClientes(){
-  // Fase 2B: fuente de verdad es _clientesContables (cargado por sbGetClientes)
-  return _clientesContables;
-}
-function inicializarClientes(cb){
-  sbGetClientes(function(rows){
-    if(cb)cb(rows);
-  });
-}
-// getPeriodos: función de compatibilidad para llamadas síncronas locales (modal F29, etc.)
-// La carga real de períodos ocurre vía sbGetPeriodos en init().
+function getClientes(){ return _clientesContables; }
+function inicializarClientes(cb){ sbGetClientes(function(rows){if(cb)cb(rows);}); }
+
+// getPeriodos: compatibilidad síncrona para abrirF29 (lee caché de memoria)
 function getPeriodos(){
-  // Fase 2A: solo leer desde caché de memoria (supabase.js)
   var cached=window.sbCacheGet && window.sbCacheGet('periodos');
   return cached||[];
 }
 
-// ── SUPABASE ─────────────────────────────────────────────────────────────
-
-// ── SUPABASE ─────────────────────────────────────────────────────────────
-// [SB_URL definida arriba]
-// [SB_KEY definida arriba]
-// [sbFetch, sbGetReportes, sbUpsertReporte, sbPatchReporte locales eliminados — Fase 2A-2C: usar supabase.js]
-
-// ── SELECCIÓN MASIVA ─────────────────────────────────────────────────────
+// ── SELECCIÓN — Sin envío masivo (Panel de Control) ──────────────────────
 var _seleccionados=new Set();
 
-function toggleSeleccion(rut){
-  if(_seleccionados.has(rut))_seleccionados.delete(rut);
-  else _seleccionados.add(rut);
-  actualizarBannerMasivo();
-}
-
-function seleccionarTodos(){
-  var completados=getReportes().filter(function(r){
-    return r.periodo===_periodoActual&&r.estadoContable==='completado';
-  });
-  completados.forEach(function(r){_seleccionados.add(r.rut);});
-  renderTabla();
-}
-
+// actualizarBannerMasivo: banners trasladados a Panel de Control — siempre ocultos aquí
 function actualizarBannerMasivo(){
-  var completados=getReportes().filter(function(r){
-    return r.periodo===_periodoActual&&r.estadoContable==='completado';
-  });
-  var firma=getReportes().filter(function(r){
-    return r.periodo===_periodoActual&&r.estadoContable==='firma';
-  });
-  // Banner masivo
   var bm=document.getElementById('bannerMasivo');
-  if(completados.length>0){
-    bm.style.display='block';
-    document.getElementById('bannerMasivoTitulo').textContent='✅ '+completados.length+' reporte'+(completados.length>1?'s':'')+' listo'+(completados.length>1?'s':'')+' para enviar';
-    document.getElementById('cntSeleccionados').textContent=_seleccionados.size;
-    // Tags
-    var tags=document.getElementById('tagsSeleccionados');
-    tags.innerHTML='';
-    _seleccionados.forEach(function(rut){
-      var c=getClientes().find(function(x){return x.rut===rut;})||{};
-      var tag=document.createElement('div');
-      tag.style.cssText='display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #a7f3d0;border-radius:8px;padding:4px 10px;font-size:11px;color:#064e3b;';
-      tag.innerHTML='\u2713 '+hesc(c.razon||rut)+' <span onclick="quitarSel(\''+rut+'\')" style="cursor:pointer;color:#6b7280;margin-left:2px;">\u2715</span>';
-      tags.appendChild(tag);
-    });
-  } else {
-    bm.style.display='none';
-  }
-  // Banner firma
   var bf=document.getElementById('bannerFirma');
-  if(firma.length>0){
-    bf.style.display='block';
-    document.getElementById('bannerFirmaTitulo').textContent='\u270d️ '+firma.length+' reporte'+(firma.length>1?'s':'')+' esperando firma de Luciano';
-    var nombres=firma.map(function(r){
-      var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
-      return c.razon||r.rut;
-    }).join(' · ');
-    document.getElementById('bannerFirmaSub').textContent=nombres;
-  } else {
-    bf.style.display='none';
-  }
+  if(bm) bm.style.display='none';
+  if(bf) bf.style.display='none';
 }
 
-function quitarSel(rut){_seleccionados.delete(rut);actualizarBannerMasivo();renderTabla();}
-
-function enviarMasivo(){
-  if(!_seleccionados.size){alert('Selecciona al menos un reporte.');return;}
-  var u=getUsuario();
-  var reportes=getReportes();
-  var confirmItems=document.getElementById('confirmItems');
-  confirmItems.innerHTML='';
-  var hora=new Date().toLocaleString('es-CL',{hour:'2-digit',minute:'2-digit'});
-  _seleccionados.forEach(function(rut){
-    var c=getClientes().find(function(x){return x.rut===rut;})||{};
-    var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-    if(idx>=0){reportes[idx].estadoContable='enviado';reportes[idx].tsEnvio=ts();}
-    var item=document.createElement('div');
-    item.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;';
-    // TODO FASE OPERATIVA 3: reemplazar por envío real — Edge Function + Resend.
-    item.innerHTML='<span style="color:rgba(255,255,255,.8)">'+hesc(c.razon||rut)+'</span>'
-      +'<span style="color:#C07A1A">⏳ Estado actualizado localmente. El envío real se habilitará en Fase 3.</span>'
-      +'<span style="color:rgba(255,255,255,.35);font-size:10px">'+hora+' hrs</span>';
-    confirmItems.appendChild(item);
-  });
-  document.getElementById('confirmAnalista').textContent=(u.email||u.nombre||'analista')+'@contadoor.cl';
-  setReportes(reportes);
-  _seleccionados.clear();
-  document.getElementById('confirmEnvio').style.display='block';
-  renderTabla();
-  if(window.crearNotificacion) crearNotificacion({
-    modulo:'reportes',tipo:'info',prioridad:'baja',
-    mensaje:'Reportes enviados masivamente por '+( u.nombre||'analista contable'),accion:null
-  });
-}
-
-function aprobarTodos(){
-  var reportes=getReportes();
-  reportes.forEach(function(r){
-    if(r.periodo===_periodoActual&&r.estadoContable==='firma') r.estadoContable='pagado';
-  });
-  setReportes(reportes);renderTabla();
-}
-
-// ── TIMELINE MINI MORADO ──────────────────────────────────────────────────
+// ── TIMELINE MINI MORADO ─────────────────────────────────────────────────
 function tlMini(pasos){
-  // pasos: array de {estado:'done'|'active'|'next', label, icon}
   var html='<div style="display:flex;align-items:center;gap:1px;margin-bottom:4px;">';
   pasos.forEach(function(p,i){
     var bg=p.estado==='done'?'#904891':p.estado==='active'?'#fff':'#faf7fa';
@@ -665,7 +431,8 @@ function tlMini(pasos){
     var shadow=p.estado==='active'?'box-shadow:0 0 0 2px #F5EAF5;':'';
     html+='<div style="width:20px;height:20px;border-radius:50%;background:'+bg+';color:'+color+';border:'+border+';'+shadow+'display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;">'+p.icon+'</div>';
     if(i<pasos.length-1){
-      html+='<div style="width:8px;height:1.5px;background:'+(p.estado==='done'?'#904891':'#e8dde8')+'flex-shrink:0;"></div>';
+      // CORREGIDO: punto y coma antes de flex-shrink
+      html+='<div style="width:8px;height:1.5px;background:'+(p.estado==='done'?'#904891':'#e8dde8')+';flex-shrink:0;"></div>';
     }
   });
   html+='</div>';
@@ -683,11 +450,8 @@ function renderTabla(){
     return true;
   });
   var reportes=getReportes();
-
   var stTotal=clientes.length,stRrhhOk=0,stComp=0,stEnv=0,stAtr=0;
   var html='';
-
-  // Orden: Alta primero, luego media, luego baja
   var PRIO_ORD={alta:0,media:1,baja:2};
   clientes.sort(function(a,b){
     return (PRIO_ORD[a.prioridadContable]||1)-(PRIO_ORD[b.prioridadContable]||1);
@@ -699,7 +463,6 @@ function renderTabla(){
       rep.estado==='completado'||rep.estado==='aviso_enviado'||rep.preReporteEnviado===true;
     var estadoDefault=rrhhOk?'pendiente':'esperando_rrhh';
     var estado=rep.estadoContable||estadoDefault;
-    // rrhhOk ya calculado arriba — no redeclarar
     var pagosOk=rep.pagosValidado||false;
 
     if(rrhhOk)stRrhhOk++;
@@ -707,40 +470,30 @@ function renderTabla(){
     if(estado==='enviado')stEnv++;
     if(estado==='atrasado')stAtr++;
 
-    // Filtro estado
+    // Filtros
     if(_filtros.estado){
       if(_filtros.estado==='esperando_rrhh'&&(rrhhOk||pagosOk)) return;
-      if(_filtros.estado==='val_pagos'&&(!rrhhOk||pagosOk||estado==='completado')) return;
       if(_filtros.estado==='rrhh_ok'&&(!rrhhOk||estado==='completado')) return;
       if(_filtros.estado==='completado'&&estado!=='completado') return;
-      if(_filtros.estado==='enviado'&&estado!=='enviado') return;
-      if(_filtros.estado==='firma'&&estado!=='firma') return;
       if(_filtros.estado==='atrasado'&&estado!=='atrasado') return;
     }
 
     var planCls=c.plan==='estrategico'?'plan-e':c.plan==='asesoria'?'plan-a':'plan-c';
     var planLbl=c.plan==='estrategico'?'⭐ Estratégico':c.plan==='asesoria'?'🔵 Asesoría':'📋 Cumplimiento';
     var prio=c.prioCont||c.prioridadContable||'media';
-    var prioCls='prio-'+prio;
     var prioLbl=prio==='alta'?'🔴':prio==='media'?'🟡':'🟢';
 
-    // TIMELINE  -  7 pasos morados
-    // 1:RRHH 2:Val.Pagos 3:F29 4:Enviar 5:Transferir 6:Ejecutar 7:Luciano
-    var p1=!rrhhOk?'active':(rrhhOk?'done':'next');
-    var p2=!rrhhOk?'next':(!pagosOk?'active':'done');
-    var p3=!pagosOk?'next':(estado==='pendiente'?'active':(estado!=='pendiente'?'done':'next'));
-    var p4=estado==='completado'?'active':(estado==='enviado'||estado==='transferido'||estado==='firma'||estado==='pagado')?'done':'next';
-    var p5=estado==='enviado'?'active':(estado==='transferido'||estado==='firma'||estado==='pagado')?'done':'next';
-    var p6=estado==='transferido'?'active':(estado==='firma'||estado==='pagado')?'done':'next';
-    var p7=estado==='firma'?'active':(estado==='pagado'?'done':'next');
+    // TIMELINE 3 pasos (contable): RRHH → Validación → Pre-F29
+    // Pasos 4-7 pertenecen al Panel de Control
+    var p1=rrhhOk?'done':'active';
+    var p2=!rrhhOk?'next':(pagosOk?'done':'active');
+    var p3=(!rrhhOk||!pagosOk)?'next':(estado==='completado'?'done':'active');
 
     var tl='<div style="display:flex;align-items:center;gap:1px;margin-bottom:4px;">';
     var steps=[
-      {e:p1,i:rrhhOk?'\u2713':'1'},{e:p2,i:pagosOk?'\u2713':'2'},{e:p3,i:estado!=='pendiente'&&pagosOk?'\u2713':'3'},
-      {e:p4,i:estado==='enviado'||estado==='transferido'||estado==='firma'||estado==='pagado'?'\u2713':'4'},
-      {e:p5,i:estado==='transferido'||estado==='firma'||estado==='pagado'?'\u2713':'5'},
-      {e:p6,i:estado==='firma'||estado==='pagado'?'\u2713':'6'},
-      {e:p7,i:estado==='pagado'?'\u2713':'\u270d'}
+      {e:p1,i:rrhhOk?'\u2713':'1'},
+      {e:p2,i:pagosOk?'\u2713':'2'},
+      {e:p3,i:estado==='completado'?'\u2713':'3'}
     ];
     steps.forEach(function(s,i){
       var bg=s.e==='done'?'#904891':s.e==='active'?'#fff':'#faf7fa';
@@ -754,35 +507,31 @@ function renderTabla(){
 
     // Badge estado
     var badgeHtml='';
-    if(!rrhhOk) badgeHtml='<span class="estado-badge eb-pendiente">⏳ Esperando RRHH</span>';
-    else if(!pagosOk) badgeHtml='<span class="estado-badge" style="background:#f5f3ff;color:#6b21a8">\u1f7e3 Val. Pagos</span>';
-    else if(estado==='pendiente') badgeHtml='<span class="estado-badge" style="background:#eff6ff;color:#1e40af">🔵 Completar F29</span>';
-    else if(estado==='completado') badgeHtml='<span class="estado-badge eb-completado">✅ Listo para enviar</span>';
-    else if(estado==='enviado') badgeHtml='<span class="estado-badge eb-enviado">\u1f4e4 Enviado</span>';
-    else if(estado==='transferido') badgeHtml='<span class="estado-badge eb-transferido">💸 Transferido · ejecutar</span>';
-    else if(estado==='firma') badgeHtml='<span class="estado-badge eb-firma">\u270d️ Pend. firma</span>';
-    else if(estado==='pagado') badgeHtml='<span class="estado-badge eb-pagado">✅ Pagado</span>';
-
-    // Chips
-    var chipIVA=rep.f29&&rep.f29.ivaDebito?'<span class="chip chip-ok">IVA \u2713</span>':'<span class="chip chip-pend">IVA</span>';
-    var chipPPM=rep.f29&&rep.f29.ppm?'<span class="chip chip-ok">PPM \u2713</span>':'<span class="chip chip-pend">PPM</span>';
-    var chipHon=rep.f29&&rep.f29.honorarios?'<span class="chip chip-ok">Servicios \u2713</span>':'<span class="chip chip-pend">Servicios</span>';
-
-    var totalF29=rep.f29?(rep.f29.ivaApagar||0)+(rep.f29.ppm||0)+(rep.f29.retenciones||0)+(rep.f29.honorarios||0):0;
-    var esSel=_seleccionados.has(c.rut);
-    var rowBg=estado==='pagado'?'background:#f9fefb;':estado==='firma'?'background:#fffdf5;':esSel?'background:#f0fdf4;':'';
-
-    html+='<div class="cliente-row" id="row-'+c.rut+'" style="'+rowBg+'">';
-
-    // Fila principal
-    html+='<div class="cr-main" style="display:grid;grid-template-columns:28px 200px 1fr 160px 120px auto;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;">';
-    // Checkbox  -  solo si estado completado
-    if(estado==='completado'){
-      html+='<input type="checkbox" '+(esSel?'checked':'')
-        +' onclick="event.stopPropagation();toggleSeleccion(\''+c.rut+'\')" style="width:15px;height:15px;cursor:pointer;accent-color:#904891"/>';
-    } else {
-      html+='<div></div>';
+    if(!rrhhOk){
+      badgeHtml='<span class="estado-badge eb-pendiente">⏳ Esperando RRHH</span>';
+    } else if(!pagosOk){
+      // pagosValidado: semántica pendiente de confirmar (reportes-pagos)
+      badgeHtml='<span class="estado-badge" style="background:#f5f3ff;color:#6b21a8" title="Este control proviene del módulo Pagos. Su significado definitivo está pendiente de validación.">🟣 Validación pendiente</span>';
+    } else if(estado==='pendiente'){
+      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Completar Pre-F29</span>';
+    } else if(estado==='completado'){
+      if(rep.listoPanelControl){
+        badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">📋 Listo para consolidar</span>';
+      } else {
+        badgeHtml='<span class="estado-badge eb-completado">✅ Pre-F29 completado</span>';
+      }
+    } else if(estado==='atrasado'){
+      badgeHtml='<span class="estado-badge" style="background:#fee2e2;color:#991b1b">⚠️ Atrasado</span>';
     }
+
+    // Total tributario (sin honorarios comerciales)
+    var totalTrib=rep.f29
+      ?(rep.f29.ivaApagar||0)+(rep.f29.ppm||0)+(rep.f29.retenciones||0)
+      :0;
+
+    var rowBg=estado==='completado'?'background:#f9fefb;':'';
+    html+='<div class="cliente-row" id="row-'+c.rut+'" style="'+rowBg+'">';
+    html+='<div class="cr-main" style="display:grid;grid-template-columns:200px 1fr 160px 120px auto;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;">';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
       +'<div class="cr-nombre">'+prioLbl+' '+hesc(c.razon)+'</div>'
       +'<div class="cr-rut">'+hesc(c.rut)+'</div>'
@@ -790,18 +539,25 @@ function renderTabla(){
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
       +tl
-      +'<div style="font-size:9px;color:#9a849b">RRHH · Pagos · F29 · Enviar · Transferir · Ejecutar · Luciano</div>'
+      +'<div style="font-size:9px;color:#9a849b">RRHH · Validación · Pre-F29</div>'
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
-    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:#1e40af">'+(totalF29?ff(totalF29):' - ')+'</div>';
+    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(totalTrib?ff(totalTrib):' — ')+'</div>';
+
     // Acción principal
     html+='<div style="display:flex;gap:5px;justify-content:flex-end;">';
-    if(!rrhhOk) html+='<button class="btn-s" disabled style="opacity:.4;font-size:10.5px;">Bloqueado</button>';
-    else if(!pagosOk) html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px;">Esp. Pagos</button>';
-    else if(estado==='pendiente') html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 F29</button>';
-    else if(estado==='completado') html+='<button class="btn-green" onclick="event.stopPropagation();enviarReporte(\''+c.rut+'\')">\u1f4e4 Enviar</button>';
-    else if(estado==='transferido') html+='<button class="btn-p" onclick="event.stopPropagation();ejecutarPago(\''+c.rut+'\')">\u25b6️ Ejecutar</button>';
-    else if(estado==='firma') html+='<button class="btn-amber" onclick="event.stopPropagation();aprobarReporte(\''+c.rut+'\')">\u270d️ Firmar</button>';
+    if(!rrhhOk){
+      html+='<button class="btn-s" disabled style="opacity:.4;font-size:10.5px;">Bloqueado</button>';
+    } else if(!pagosOk){
+      html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px;" title="Validación pendiente desde módulo Pagos">Esp. validación</button>';
+    } else if(estado==='pendiente'){
+      html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-F29</button>';
+    } else if(estado==='completado'){
+      if(!rep.listoPanelControl){
+        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo</button>';
+      }
+      html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">✏️ Editar</button>';
+    }
     html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')">👁</button>';
     html+='</div>';
     html+='</div>'; // cr-main
@@ -810,38 +566,37 @@ function renderTabla(){
     html+='<div class="cr-detalle" id="det-'+c.rut+'">';
     if(rep.f29){
       html+='<div class="det-grid">';
-      html+='<div class="det-card"><div class="det-card-titulo" style="color:#1e40af">IVA</div>';
+      html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
       html+='<div class="det-row"><span>Débito</span><span>'+ff(rep.f29.ivaDebito||0)+'</span></div>';
       html+='<div class="det-row"><span>Crédito</span><span>-'+ff(rep.f29.ivaCredito||0)+'</span></div>';
       if(rep.f29.remanente>0)html+='<div class="det-row"><span>Remanente ant.</span><span>-'+ff(rep.f29.remanente||0)+'</span></div>';
       if(rep.f29.postergado)html+='<div class="det-row"><span style="color:#C07A1A">IVA postergado</span><span style="color:#C07A1A">'+ff(rep.f29.ivaPostergado||0)+'</span></div>';
-      html+='<div class="det-row"><span><strong>IVA a pagar</strong></span><span><strong>'+ff(rep.f29.ivaApagar||0)+'</strong></span></div></div>';
-      html+='<div class="det-card"><div class="det-card-titulo" style="color:#1e40af">PPM + Ret.</div>';
-      html+='<div class="det-row"><span>PPM ('+( rep.f29.ppmTasa||1.5)+'%)</span><span>'+ff(rep.f29.ppm||0)+'</span></div>';
+      html+='<div class="det-row"><span><strong>IVA exigible</strong></span><span><strong>'+ff(rep.f29.ivaApagar||0)+'</strong></span></div></div>';
+      html+='<div class="det-card"><div class="det-card-titulo">PPM + Retenciones</div>';
+      html+='<div class="det-row"><span>PPM ('+(rep.f29.ppmTasa||1.5)+'%)</span><span>'+ff(rep.f29.ppm||0)+'</span></div>';
       html+='<div class="det-row"><span>Ret. honorarios</span><span>'+ff(rep.f29.retHon||0)+'</span></div>';
-      html+='<div class="det-row"><span>Imp. 2\u00aa Cat.</span><span>'+ff(rep.f29.imp2cat||0)+'</span></div>';
-      html+='<div class="det-row"><span><strong>Total</strong></span><span><strong>'+ff(rep.f29.retenciones||0)+'</strong></span></div></div>';
-      html+='<div class="det-card"><div class="det-card-titulo" style="color:#1e40af">Nuestros Servicios</div>';
-      html+='<div class="det-row"><span>Base UF</span><span>'+ff(rep.f29.honBase||0)+'</span></div>';
-      html+='<div class="det-row"><span>Variable</span><span>'+ff(rep.f29.honVar||0)+'</span></div>';
-      html+='<div class="det-row"><span><strong>Total</strong></span><span><strong>'+ff(rep.f29.honorarios||0)+'</strong></span></div></div>';
+      html+='<div class="det-row"><span>Imp. Único 2\u00aa Cat.</span><span>'+ff(rep.f29.imp2cat||0)+'</span></div>';
+      html+='<div class="det-row"><span>Otros imp.</span><span>'+ff(rep.f29.otrosImp||0)+'</span></div>';
+      html+='<div class="det-row"><span><strong>Total retenciones</strong></span><span><strong>'+ff(rep.f29.retenciones||0)+'</strong></span></div></div>';
       html+='</div>';
-      html+='<div class="det-total"><span>Total período</span><span>'+ff(totalF29)+'</span></div>';
+      html+='<div class="det-total"><span>Total tributario del período</span><span>'+ff(totalTrib)+'</span></div>';
     } else {
       html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">';
       if(!rrhhOk) html+='⏳ Esperando que RRHH complete su sección.';
-      else if(!pagosOk) html+='\u1f7e3 Esperando validación de Pagos.';
-      else html+='📊 Listo para completar F29.';
+      else if(!pagosOk) html+='🟣 Esperando validación del módulo Pagos.';
+      else html+='📊 Listo para completar Pre-F29.';
       html+='</div>';
     }
     html+='<div class="acciones" style="margin-top:10px;">';
-    if(pagosOk&&estado==='pendiente') html+='<button class="btn-p" onclick="abrirF29(\''+c.rut+'\')">📊 Completar F29</button>';
+    if(pagosOk&&estado==='pendiente') html+='<button class="btn-p" onclick="abrirF29(\''+c.rut+'\')">📊 Completar Pre-F29</button>';
     if(estado==='completado'){
-      html+='<button class="btn-green" onclick="enviarReporte(\''+c.rut+'\')">\u1f4e4 Enviar reporte</button>';
-      html+='<button class="btn-amber" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar F29</button>';
+      if(!rep.listoPanelControl){
+        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo para consolidar</button>';
+      } else {
+        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">✅ Listo para consolidar en Panel de Control</span>';
+      }
+      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-F29</button>';
     }
-    if(estado==='firma') html+='<button class="btn-amber" onclick="aprobarReporte(\''+c.rut+'\')">\u270d️ Firmar y aprobar</button>';
-    html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">👁 Ver detalle</button>';
     html+='</div>';
     html+='</div></div>';
   });
@@ -853,44 +608,15 @@ function renderTabla(){
   document.getElementById('st-completado').textContent=stComp;
   document.getElementById('st-enviado').textContent=stEnv;
   document.getElementById('st-atrasado').textContent=stAtr;
-  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' listos para enviar · '+stRrhhOk+' con RRHH OK';
+  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' Pre-F29 completados · '+stRrhhOk+' con RRHH OK';
   actualizarBannerMasivo();
 }
 
+// toggleRow — una sola declaración
 function toggleRow(rut){
   var det=document.getElementById('det-'+rut);
-  if(det)det.classList.toggle('open');
-}
-
-function enviarReporte(rut){
-  // TODO FASE OPERATIVA 3: reemplazar por envío real mediante Edge Function + Resend.
-  var reportes=getReportes();
-  var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-  if(idx<0)return;
-  reportes[idx].estadoContable='enviado';
-  reportes[idx].tsEnvio=ts();
-  setReportes(reportes);
-  _seleccionados.delete(rut);
-  renderTabla();
-  alert('Reporte marcado como enviado. El envío real por correo aún no está habilitado en esta fase.');
-}
-
-function ejecutarPago(rut){
-  var reportes=getReportes();
-  var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-  if(idx<0)return;
-  reportes[idx].estadoContable='firma';
-  reportes[idx].tsEjecucion=ts();
-  setReportes(reportes);renderTabla();
-}
-
-function aprobarReporte(rut){
-  var reportes=getReportes();
-  var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-  if(idx<0)return;
-  reportes[idx].estadoContable='pagado';
-  reportes[idx].tsAprobacion=ts();
-  setReportes(reportes);renderTabla();
+  if(!det)return;
+  det.classList.toggle('open');
 }
 
 // ── FILTROS ───────────────────────────────────────────────────────────────
@@ -899,117 +625,6 @@ function setFiltro(k,v){
   document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.remove('on');});
   event.target.classList.add('on');
   renderTabla();
-}
-function init(){
-  // ── Fase 2A-2C: Carga asíncrona secuencial ──────────────────────────────
-  // Secuencia: auth → usuario → períodos → clientes → período → reportes → render
-  var u=getUsuario();
-  document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Contable';
-  document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Contable');
-
-  // Calendario
-  var d=new Date();
-  document.getElementById('cal-hoy-label').textContent='Hoy: '+d.getDate()+' '+d.toLocaleString('es-CL',{month:'short'});
-
-  // Estado de carga en la tabla
-  var tbody=document.getElementById('tablaBody');
-  if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:32px;color:var(--tm)">⏳ Cargando información contable…</td></tr>';
-
-  // PASO 1: Cargar períodos
-  sbGetPeriodos(function(periodos){
-    var activos=(periodos||[]).filter(function(p){
-      return p.estado==='activo'||p.estado==='abierto';
-    }).sort(function(a,b){return a.periodo>b.periodo?-1:1;});
-
-    var sel=document.getElementById('selectPeriodo');
-    sel.innerHTML='<option value="">— Seleccionar período —</option>';
-
-    if(!activos.length){
-      if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:#C07A1A">No hay períodos activos disponibles.</td></tr>';
-      return;
-    }
-
-    activos.forEach(function(p){
-      var o=document.createElement('option');
-      o.value=p.periodo; o.textContent=p.periodo; sel.appendChild(o);
-    });
-
-    var pMasReciente=activos[0];
-    sel.value=pMasReciente.periodo;
-
-    // Actualizar calendarios desde el período
-    var periodoLabel=document.getElementById('periodo-label');
-    if(periodoLabel) periodoLabel.textContent=pMasReciente.periodo;
-    if(pMasReciente.venc_f29_gestion){
-      var cf29=document.getElementById('cal-f29');
-      if(cf29) cf29.textContent=pMasReciente.venc_f29_gestion;
-    }
-    if(pMasReciente.venc_f29_limite){
-      var cvenc=document.getElementById('cal-venc');
-      if(cvenc) cvenc.textContent=pMasReciente.venc_f29_limite;
-    }
-
-    // PASO 2: Cargar clientes
-    sbGetClientes(function(clientes){
-      if(!clientes||!clientes.length){
-        if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:#C0392B">No fue posible cargar los clientes desde Supabase.</td></tr>';
-        return;
-      }
-
-      // Filtrar: activos + tieneContabilidad !== false
-      var filtrados=clientes.filter(function(c){
-        return c.estado==='activo' && c.tieneContabilidad!==false;
-      });
-
-      // Permisos: master ve todos; contable ve sus asignados
-      var uActual=getUsuario();
-      if(!uActual.esMaster && uActual.rol==='contable'){
-        filtrados=filtrados.filter(function(c){
-          return c.analistaContable===uActual.nombre;
-        });
-      }
-
-      _clientesContables=filtrados;
-
-      // PASO 3: Cargar reportes del período más reciente
-      _periodoActual=pMasReciente.periodo;
-      cargarReportesPeriodo(_periodoActual, function(){
-        renderTabla();
-      });
-    });
-  });
-}
-// ── FASE 2C: Cargar reportes desde Supabase ────────────────────────────────
-function cargarReportesPeriodo(periodo, cb){
-  if(!periodo){cb([]);return;}
-  sbGetReportesPeriodo(periodo,function(reportes){
-    _reportesContables=reportes||[];
-    if(cb) cb(_reportesContables);
-  });
-}
-
-function cargarPeriodo(){
-  // Fase 2C: cargar reportes desde Supabase al cambiar período
-  _periodoActual=sv('selectPeriodo');
-  if(!_periodoActual){
-    document.getElementById('tablaBody').innerHTML='';
-    return;
-  }
-  document.getElementById('periodo-label').textContent=_periodoActual;
-  var tbody=document.getElementById('tablaBody');
-  if(tbody) tbody.innerHTML='<tr><td colspan="99" style="text-align:center;padding:24px;color:var(--tm)">⏳ Cargando reportes del período…</td></tr>';
-  cargarReportesPeriodo(_periodoActual,function(){
-    renderTabla();
-  });
-}
-
-// ── RENDER TABLA ──────────────────────────────────────────────────────────
-// [renderTabla duplicada eliminada — Fase Operativa 1]
-
-function toggleRow(rut){
-  var det=document.getElementById('det-'+rut);
-  if(!det)return;
-  det.classList.toggle('open');
 }
 
 // ── MODAL F29 ─────────────────────────────────────────────────────────────
@@ -1026,48 +641,39 @@ function abrirF29(rut){
   document.getElementById('modal-cliente-nombre').textContent=c.razon+'  -  '+_periodoActual;
   document.getElementById('m-rut').value=rut;
   document.getElementById('m-periodo').value=_periodoActual;
-
   // IVA
   document.getElementById('f-debito').value=f29.ivaDebito||'';
   document.getElementById('f-credito').value=f29.ivaCredito||'';
   document.getElementById('f-remanente-ant').value=remanente||'';
-
   // PPM
   document.getElementById('f-ppm-base').value=f29.ppmBase||'';
   document.getElementById('f-ppm-tasa').value=f29.ppmTasa||periodo.ppmTasa||1.5;
   document.getElementById('f-ppm-monto').value=f29.ppm||'';
   document.getElementById('ppm-tasa-hint').textContent='Tasa período: '+(periodo.ppmTasa||1.5)+'%';
-
-  // Retenciones
+  // Retenciones separadas
   document.getElementById('f-ret-hon').value=f29.retHon||'';
-  document.getElementById('f-imp-2cat').value=rep.rrhh&&rep.rrhh.imp2cat||'';
+  document.getElementById('f-imp-2cat').value=rep.iuSii||rep.iu||f29.imp2cat||'';
   document.getElementById('f-otros-imp').value=f29.otrosImp||'';
-
-  // Servicios
-  document.getElementById('f-plan-nombre').value=c.plan||'';
-  document.getElementById('f-hon-uf').value=f29.honUF||c.honUF||'';
-  document.getElementById('f-uf-valor').value=periodo.uf||'';
-  document.getElementById('f-hon-variable').value=f29.honVarUnitario||c.honVariable||'';
-  document.getElementById('f-hon-trab').value=f29.honTrab||(rep.rrhh&&rep.rrhh.totalTrabajadores)||'';
-  document.getElementById('f-hon-total').value=f29.honorarios||'';
-
   // Postergación
   document.getElementById('f-postergar-iva').checked=f29.postergado||false;
   document.getElementById('f-obs').value=f29.obs||'';
-
   // Info RRHH
+  var iuVal=rep.iuSii||rep.iu||f29.imp2cat||0;
   document.getElementById('info-rrhh-imp').textContent=
-    rep.rrhh&&rep.rrhh.imp2cat
-      ?'✅ Imp. \u00danico 2\u00aa Cat. desde RRHH: '+ff(rep.rrhh.imp2cat)
-      :'\u2139️ RRHH completado  -  Imp. \u00danico 2\u00aa Cat. cargado automáticamente.';
+    iuVal
+      ?'✅ Imp. \u00danico 2\u00aa Cat. desde RRHH: '+ff(iuVal)
+      :'\u2139️ Imp. \u00danico 2\u00aa Cat. se carga automáticamente desde RRHH.';
+  // Ocultar mensaje guardado
+  var mg=document.getElementById('msg-guardado');
+  if(mg) mg.className='msg-guardado';
 
-  calcIVA();calcPPM();calcHonorarios();togglePostergacion();
+  calcIVA();calcPPM();calcTotal();togglePostergacion();
   document.getElementById('modalF29').classList.add('on');
 }
 
 function closeModal(){document.getElementById('modalF29').classList.remove('on');}
 
-// ── CÁLCULOS ──────────────────────────────────────────────────────────────
+// ── CÁLCULOS TRIBUTARIOS ──────────────────────────────────────────────────
 function calcIVA(){
   var deb=nv('f-debito'),cred=nv('f-credito'),rem=nv('f-remanente-ant');
   var resultado=deb-cred-rem;
@@ -1079,7 +685,6 @@ function calcIVA(){
     document.getElementById('res-remanente-box').style.display='none';
     ivaToggle.style.display='flex';
     document.getElementById('f-iva-postergado').value=resultado;
-    // Fecha vencimiento postergado
     var h=new Date();h.setDate(h.getDate()+60);
     document.getElementById('f-iva-fecha-venc').value=h.toLocaleDateString('es-CL');
   } else {
@@ -1098,14 +703,7 @@ function calcPPM(){
   calcTotal();
 }
 
-function calcHonorarios(){
-  var uf=nv('f-hon-uf'),valorUF=nv('f-uf-valor'),varUnit=nv('f-hon-variable'),trab=nv('f-hon-trab');
-  var base=Math.round(uf*valorUF);
-  var variable=Math.round(varUnit*trab);
-  var total=base+variable;
-  document.getElementById('f-hon-total').value=total||'';
-  calcTotal();
-}
+// calcHonorarios() ELIMINADA — Nuestros Servicios no pertenece al módulo Contable
 
 function calcTotal(){
   var deb=nv('f-debito'),cred=nv('f-credito'),rem=nv('f-remanente-ant');
@@ -1114,13 +712,16 @@ function calcTotal(){
   var postergado=document.getElementById('f-postergar-iva').checked;
   var ivaPago=postergado?0:ivaApagar;
   var ppm=nv('f-ppm-monto');
-  var ret=nv('f-ret-hon')+nv('f-imp-2cat')+nv('f-otros-imp');
-  var hon=nv('f-hon-total');
-  var total=ivaPago+ppm+ret+hon;
+  var retHon=nv('f-ret-hon');
+  var iu=nv('f-imp-2cat');
+  var otros=nv('f-otros-imp');
+  // Total exclusivamente tributario
+  var total=ivaPago+ppm+retHon+iu+otros;
   document.getElementById('res-iva').textContent=postergado?'Postergado':ff(ivaPago);
   document.getElementById('res-ppm').textContent=ff(ppm);
-  document.getElementById('res-ret').textContent=ff(ret);
-  document.getElementById('res-hon').textContent=ff(hon);
+  document.getElementById('res-ret-hon').textContent=ff(retHon);
+  document.getElementById('res-iu').textContent=ff(iu);
+  document.getElementById('res-otros').textContent=ff(otros);
   document.getElementById('res-total').textContent=ff(total);
 }
 
@@ -1130,103 +731,259 @@ function togglePostergacion(){
   calcTotal();
 }
 
-// ── GUARDAR F29 ───────────────────────────────────────────────────────────
+// ── GUARDAR PRE-F29 — Persistencia real en Supabase ──────────────────────
 function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
+
   var deb=nv('f-debito'),cred=nv('f-credito'),rem=nv('f-remanente-ant');
   var ivaResult=deb-cred-rem;
   var postergado=document.getElementById('f-postergar-iva').checked;
   var ivaApagar=postergado?0:Math.max(0,ivaResult);
   var remanente=ivaResult<0?Math.abs(ivaResult):0;
 
-  var f29={
-    ivaDebito:deb,ivaCredito:cred,remanente:rem,
-    ivaApagar,ivaPostergado:postergado?Math.max(0,ivaResult):0,
-    postergado,ivaFechaVenc:sv('f-iva-fecha-venc'),
-    ppmBase:nv('f-ppm-base'),ppmTasa:nv('f-ppm-tasa'),ppm:nv('f-ppm-monto'),
-    retHon:nv('f-ret-hon'),imp2cat:nv('f-imp-2cat'),otrosImp:nv('f-otros-imp'),
-    retenciones:nv('f-ret-hon')+nv('f-imp-2cat')+nv('f-otros-imp'),
-    honUF:nv('f-hon-uf'),honVarUnitario:nv('f-hon-variable'),honTrab:nv('f-hon-trab'),
-    honBase:Math.round(nv('f-hon-uf')*nv('f-uf-valor')),
-    honVar:Math.round(nv('f-hon-variable')*nv('f-hon-trab')),
-    honorarios:nv('f-hon-total'),
-    obs:sv('f-obs'),tsActualizado:ts(),analistaContable:getUsuario().nombre||''
-  };
-
-  // Guardar remanente para próximo período
-  if(remanente>0) setRemanente(rut,periodo,remanente);
-
+  // Encontrar reporte existente para preservar su id y campos RRHH
   var reportes=getReportes();
-  var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===periodo;});
-  if(idx>=0){
-    reportes[idx].f29=f29;
-    reportes[idx].estadoContable='completado';
-    reportes[idx].tsContable=ts();
-  } else {
-    reportes.push({rut,periodo,f29,estadoContable:'completado',tsContable:ts()});
-  }
-  setReportes(reportes);
+  var repExistente=reportes.find(function(r){return r.rut===rut&&r.periodo===periodo;});
 
-  // Notificar a pagos
-  if(window.crearNotificacion) crearNotificacion({
-    modulo:'reportes',tipo:'pago',prioridad:'media',
-    clienteRut:rut,
-    clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
-    mensaje:'F29 completado  -  reporte listo para enviar al cliente',
-    accion:'ver_reporte'
+  // Construir objeto Gestoor con campos planos (sbReporteToRow los mapea)
+  var r=Object.assign({},repExistente||{},{
+    rut:         rut,
+    periodo:     periodo,
+    // IVA
+    ivaDebito:   deb,
+    ivaCredito:  cred,
+    ivaRemanenteSig: remanente,
+    ivaPostergado:   postergado ? Math.max(0,ivaResult) : 0,
+    postergarIva:    postergado,
+    ivaFechaVenc:    sv('f-iva-fecha-venc')||null,
+    // PPM
+    ppmBase:     nv('f-ppm-base'),
+    ppmTasa:     nv('f-ppm-tasa'),
+    ppm:         nv('f-ppm-monto'),
+    // Retenciones separadas
+    retHon:      nv('f-ret-hon'),
+    iuSii:       nv('f-imp-2cat'),
+    otrosImp:    nv('f-otros-imp'),
+    // Observaciones
+    obsCont:     sv('f-obs')||null,
+    // Estado contable explícito — persiste en columna aprobada
+    estadoContable:   'completado',
+    listoPanelControl: false,
   });
 
-  closeModal();
-  renderTabla();
+  // Deshabilitar botón durante la operación
+  var btnG=document.getElementById('btn-guardar-f29');
+  if(btnG){btnG.disabled=true;btnG.textContent='⏳ Guardando…';}
+  var mg=document.getElementById('msg-guardado');
+  if(mg) mg.className='msg-guardado';
+
+  sbUpsertReporte(r).then(function(filaGuardada){
+    if(btnG){btnG.disabled=false;btnG.textContent='💾 Guardar Pre-F29';}
+
+    // Supabase con Prefer:return=representation devuelve array
+    var fila=Array.isArray(filaGuardada)?filaGuardada[0]:filaGuardada;
+    if(!fila||typeof fila!=='object'||!fila.id){
+      alert('Error al guardar en Supabase. Revisa la conexión e inténtalo de nuevo.\nLos datos ingresados se conservan.');
+      return;
+    }
+
+    // Convertir fila Supabase → objeto Gestoor
+    // estadoContable y listoPanelControl vienen reconstruidos por sbRowToReporte
+    // desde las columnas estado_contable y listo_panel_control. No asignar manualmente.
+    var reporteActualizado=sbRowToReporte(fila);
+
+    // Guardar remanente para referencia dentro de la sesión
+    if(remanente>0) setRemanente(rut,periodo,remanente);
+
+    // Actualizar _reportesContables con el objeto persistido
+    var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
+    if(idx>=0){ reportes[idx]=reporteActualizado; }
+    else { reportes.push(reporteActualizado); }
+    setReportes(reportes);
+
+    // Mostrar confirmación
+    if(mg){mg.className='msg-guardado on';}
+    setTimeout(function(){ closeModal(); renderTabla(); },600);
+
+    if(window.crearNotificacion) crearNotificacion({
+      modulo:'reportes',tipo:'info',prioridad:'media',
+      clienteRut:rut,
+      clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
+      mensaje:'Pre-F29 completado y guardado en Supabase',
+      accion:'ver_reporte'
+    });
+
+  }).catch(function(err){
+    if(btnG){btnG.disabled=false;btnG.textContent='💾 Guardar Pre-F29';}
+    // Mensaje sanitizado — no mostrar tokens ni datos sensibles
+    var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
+    alert('Error al persistir Pre-F29: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
+  });
 }
 
-// [enviarReporte duplicada eliminada — Fase Operativa 1]
+// ── MARCAR LISTO PARA CONSOLIDAR ─────────────────────────────────────────
+// Requiere estado_contable = 'completado'.
+// Persiste listo_panel_control = true en Supabase antes de actualizar memoria.
+// No envía correos, no cambia estados RRHH ni de pagos.
+function marcarListoParaConsolidar(rut){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+  if(!rep||rep.estadoContable!=='completado'){
+    alert('El Pre-F29 debe estar completado antes de marcar como listo para consolidar.');
+    return;
+  }
+  if(!rep.id||!/^\d+$/.test(String(rep.id))){
+    alert('No se puede actualizar: el reporte no tiene un ID válido de Supabase.');
+    return;
+  }
+  if(rep.listoPanelControl){
+    // Ya marcado — no hacer nada
+    return;
+  }
+  sbPatchReporte(rep.id,{
+    listo_panel_control: true
+  }).then(function(res){
+    // sbPatch devuelve array o null
+    var fila=Array.isArray(res)?res[0]:res;
+    if(!fila||typeof fila!=='object'){
+      alert('Error al actualizar en Supabase. Intenta nuevamente.');
+      return;
+    }
+    // Actualizar memoria SOLO después de éxito confirmado.
+    // Usar sbRowToReporte para reconstruir el objeto completo desde la fila
+    // devuelta, igual que en guardarF29. Así f29, estadoContable y
+    // listoPanelControl quedan sincronizados con Supabase.
+    var reporteActualizado=sbRowToReporte(fila);
+    var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+    if(idx>=0){ reportes[idx]=reporteActualizado; }
+    setReportes(reportes);
+    renderTabla();
+    if(window.crearNotificacion) crearNotificacion({
+      modulo:'reportes',tipo:'info',prioridad:'media',
+      clienteRut:rut,
+      clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
+      mensaje:'Reporte contable listo para consolidar en Panel de Control',
+      accion:null
+    });
+  }).catch(function(err){
+    var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
+    alert('Error al marcar listo para consolidar: '+msg+'\nLos datos en Supabase no fueron modificados.');
+  });
+}
+// ── INICIALIZACIÓN ────────────────────────────────────────────────────────
+function init(){
+  var u=getUsuario();
+  document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Contable';
+  document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Contable');
+  var d=new Date();
+  document.getElementById('cal-hoy-label').textContent='Hoy: '+d.getDate()+' '+d.toLocaleString('es-CL',{month:'short'});
 
-// ── INICIO ────────────────────────────────────────────────────────────────
-// ── INICIALIZACIÓN SEGURA ────────────────────────────────────────────────────
-// init() solo se ejecuta cuando auth.js ha confirmado la sesión y creado
-// window._contadoorSesion. Nunca por timeout.
+  var tbody=document.getElementById('tablaBody');
+  if(tbody) tbody.innerHTML='<div style="padding:32px;text-align:center;color:var(--tm)">⏳ Cargando información contable…</div>';
+
+  // PASO 1: Períodos
+  sbGetPeriodos(function(periodos){
+    var activos=(periodos||[]).filter(function(p){
+      return p.estado==='activo'||p.estado==='abierto';
+    }).sort(function(a,b){return a.periodo>b.periodo?-1:1;});
+    var sel=document.getElementById('selectPeriodo');
+    sel.innerHTML='<option value="">— Seleccionar período —</option>';
+    if(!activos.length){
+      if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:#C07A1A">No hay períodos activos.</div>';
+      return;
+    }
+    activos.forEach(function(p){
+      var o=document.createElement('option');
+      o.value=p.periodo; o.textContent=p.periodo; sel.appendChild(o);
+    });
+    var pMasReciente=activos[0];
+    sel.value=pMasReciente.periodo;
+    var pl=document.getElementById('periodo-label');
+    if(pl) pl.textContent=pMasReciente.periodo;
+    if(pMasReciente.venc_f29_gestion){
+      var cf=document.getElementById('cal-f29');
+      if(cf) cf.textContent=pMasReciente.venc_f29_gestion;
+    }
+    if(pMasReciente.venc_f29_limite){
+      var cv=document.getElementById('cal-venc');
+      if(cv) cv.textContent=pMasReciente.venc_f29_limite;
+    }
+    // PASO 2: Clientes
+    sbGetClientes(function(clientes){
+      if(!clientes||!clientes.length){
+        if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:#C0392B">No fue posible cargar los clientes.</div>';
+        return;
+      }
+      var filtrados=clientes.filter(function(c){
+        return c.estado==='activo' && c.tieneContabilidad!==false;
+      });
+      var uActual=getUsuario();
+      if(!uActual.esMaster && uActual.rol==='contable'){
+        filtrados=filtrados.filter(function(c){
+          return c.analistaContable===uActual.nombre;
+        });
+      }
+      _clientesContables=filtrados;
+      // PASO 3: Reportes
+      _periodoActual=pMasReciente.periodo;
+      cargarReportesPeriodo(_periodoActual,function(){ renderTabla(); });
+    });
+  });
+}
+
+function cargarReportesPeriodo(periodo, cb){
+  if(!periodo){cb([]);return;}
+  sbGetReportesPeriodo(periodo,function(reportes){
+    _reportesContables=reportes||[];
+    if(cb) cb(_reportesContables);
+  });
+}
+
+function cargarPeriodo(){
+  _periodoActual=sv('selectPeriodo');
+  if(!_periodoActual){
+    document.getElementById('tablaBody').innerHTML='';
+    return;
+  }
+  document.getElementById('periodo-label').textContent=_periodoActual;
+  var tbody=document.getElementById('tablaBody');
+  if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:var(--tm)">⏳ Cargando reportes…</div>';
+  cargarReportesPeriodo(_periodoActual,function(){ renderTabla(); });
+}
+
+// ── INICIO SEGURO ─────────────────────────────────────────────────────────
 (function(){
-  var _initDone = false;
+  var _initDone=false;
   function tryInit(){
     if(_initDone) return;
     if(window._contadoorSesion && !document.documentElement.classList.contains('auth-pending')){
-      _initDone = true;
+      _initDone=true;
       init();
     }
   }
-  // Observar la remoción de auth-pending (que auth.js hace tras verificar sesión)
-  var obs = new MutationObserver(function(mutations){
-    mutations.forEach(function(m){
-      if(m.attributeName==='class') tryInit();
-    });
+  var obs=new MutationObserver(function(mutations){
+    mutations.forEach(function(m){ if(m.attributeName==='class') tryInit(); });
   });
-  obs.observe(document.documentElement, {attributes:true, attributeFilter:['class']});
-  // Verificar también en caso de que auth.js ya lo haya procesado
+  obs.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
   tryInit();
 })();
 </script>
+
 <script src="../supabase.js"></script>
 <script src="../notifications.js"></script>
 <script>
 window.GESTOOR_MODULO = 'reportes-contable';
 </script>
 <script src="../auth.js"></script>
-
 <script>
-/* ── GESTOOR: SIDEBAR SEGÚN PERMISOS ─────────────────────────────────────
-   Fase Operativa 1: ocultar módulos no incluidos en _contadoorSesion.modulos
-   Se ejecuta cuando auth.js elimina auth-pending y expone _contadoorSesion.
-   ─────────────────────────────────────────────────────────────────────── */
+/* ── GESTOOR: SIDEBAR SEGÚN PERMISOS ───────────────────────────────────── */
 (function(){
   function aplicarPermisosSidebar(){
     var sesion = window._contadoorSesion;
     if(!sesion) return;
-    // Master ve todo
     if(sesion.esMaster || sesion.modulos.indexOf('*') >= 0) return;
     var modulos = sesion.modulos || [];
-    // Mapeo de URLs a identificadores de módulo
     var moduloMap = {
       'reportes-rrhh':     ['rrhh','reportes-rrhh'],
       'reportes-contable': ['contable','reportes-contable'],
@@ -1244,16 +1001,13 @@ window.GESTOOR_MODULO = 'reportes-contable';
     var sidebarLinks = document.querySelectorAll('.sidebar a[href], .side-nav a[href]');
     sidebarLinks.forEach(function(link){
       var href = link.getAttribute('href') || '';
-      // Extraer nombre de módulo del href
-      var parts = href.replace(/\.\.\//g,'').replace(/\/index\.html/,'').split('/');
+      var parts = href.replace(/\.\.\/\//g,'').replace(/\/index\.html/,'').split('/');
       var modId = parts[parts.length-1] || parts[0];
       if(!modId) return;
-      // Admin solo para master/admin
       if(modId === 'admin'){
         link.style.display = (sesion.esMaster || sesion.rol==='admin') ? '' : 'none';
         return;
       }
-      // Verificar si el módulo está en la lista permitida
       var allowed = modulos.some(function(m){
         var aliases = moduloMap[m] || [m];
         return aliases.indexOf(modId) >= 0;
@@ -1261,7 +1015,6 @@ window.GESTOOR_MODULO = 'reportes-contable';
       if(!allowed) link.style.display = 'none';
     });
   }
-  // Observar remoción de auth-pending
   var obs = new MutationObserver(function(mutations){
     mutations.forEach(function(m){
       if(m.attributeName==='class' &&
