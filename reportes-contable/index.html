@@ -1157,10 +1157,25 @@ function parseMontoLib(val){
   return isNaN(n)?0:n;
 }
 
+function procesaIncluido(valor){
+  // Normaliza el campo Procesa: acepta X, x, SI, S, YES, TRUE, 1 con variantes de acento/espacio
+  var v=String(valor==null?'':valor).trim().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return ['X','SI','S','YES','TRUE','1'].indexOf(v)>=0;
+}
+
 function normalizarFilasComprasVentas(rawRows,tipo){
   var hIdx=detectarHeaderRow(rawRows);
   var colMap=buildColMap(rawRows[hIdx]||[]);
+
+  // Diagnóstico: ¿existe la columna Procesa?
+  var tieneColProcesa = colMap.procesa !== undefined;
+  if(!tieneColProcesa){
+    console.warn('[MasConta] Columna Procesa no detectada en el archivo. colMap:', colMap);
+  }
+
   var filas=[], obs=[], nTotalFila=0, nErr=0, nAdv=0;
+  var resumenProcesa={};  // diagnóstico de valores encontrados
 
   for(var i=hIdx+1;i<rawRows.length;i++){
     var raw=rawRows[i];
@@ -1169,6 +1184,10 @@ function normalizarFilasComprasVentas(rawRows,tipo){
 
     var razonRaw=colMap.razon_social!==undefined?String(raw[colMap.razon_social]||'').trim():'';
     var procRaw =colMap.procesa!==undefined?String(raw[colMap.procesa]||'').trim():'';
+
+    // Acumular valores de Procesa para diagnóstico
+    var procKey=procRaw===''?'(vacío)':procRaw;
+    resumenProcesa[procKey]=(resumenProcesa[procKey]||0)+1;
 
     // Detectar fila de totales
     if(/^total/i.test(razonRaw)&&procRaw===''){
@@ -1186,7 +1205,9 @@ function normalizarFilasComprasVentas(rawRows,tipo){
     var ret  = parseMontoLib(colMap.monto_retenciones!==undefined?raw[colMap.monto_retenciones]:0);
     var tot  = parseMontoLib(colMap.monto_total!==undefined?raw[colMap.monto_total]:0);
     var doc  = colMap.tipo_documento!==undefined?String(raw[colMap.tipo_documento]||'').trim():null;
-    var incl = procRaw.toUpperCase()==='X';
+
+    // Normalización segura de Procesa
+    var incl = tieneColProcesa ? procesaIncluido(procRaw) : false;
     var esNC = (doc&&(/nc|nota.de.cr/i.test(doc)))||neto<0;
     var rut  = normRutLib(colMap.rut_contraparte!==undefined?raw[colMap.rut_contraparte]:null);
 
@@ -1206,28 +1227,39 @@ function normalizarFilasComprasVentas(rawRows,tipo){
     };
 
     if(incl){
-      // Cuadratura por fila (tolerancia $1)
       var diff=Math.abs((neto+exen+iva+ret)-tot);
       if(diff>1){
         nAdv++;
         obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',codigo:'CUADRATURA_FILA',
-          mensaje:'Neto+IVA+Ret ≠ Total (diff $'+Math.round(diff)+')',
+          mensaje:'Neto+IVA+Ret \u2260 Total (diff $'+Math.round(diff)+')',
           valor_detectado:String(tot)});
       }
       if(!rut){
         nAdv++;
         obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',codigo:'RUT_INVALIDO',
-          mensaje:'RUT vacío o inválido',valor_detectado:String(raw[colMap.rut_contraparte||0]||'')});
+          mensaje:'RUT vac\u00edo o inv\u00e1lido',
+          valor_detectado:String(raw[colMap.rut_contraparte||0]||'')});
       }
     }
     filas.push(fila);
   }
 
+  // Log diagnóstico
+  console.info('[MasConta] Valores columna Procesa:', resumenProcesa);
+  if(tieneColProcesa){
+    console.info('[MasConta] Columna Procesa detectada en \u00edndice', colMap.procesa);
+  } else {
+    console.warn('[MasConta] Columna Procesa NO encontrada. Columnas detectadas:', Object.keys(colMap));
+  }
+
   var cab=calcularCabeceraCV(filas);
   var tol=Math.min(2000,Math.max(100,Math.round((cab.n_filas_incluidas||1)*0.5)));
 
+  var tieneColTipoDoc=colMap.tipo_documento!==undefined;
   return {tipo:tipo,filas:filas,observaciones:obs,cabeceraCalc:cab,tolerancia:tol,
-          nAdvFront:nAdv,colsDetectadas:Object.keys(colMap)};
+          nAdvFront:nAdv,colsDetectadas:Object.keys(colMap),
+          resumenProcesa:resumenProcesa,tieneColProcesa:tieneColProcesa,
+          tieneColTipoDoc:tieneColTipoDoc};
 }
 
 function calcularCabeceraCV(filas){
@@ -1256,12 +1288,45 @@ function calcularCabeceraCV(filas){
 }
 
 // ── Previsualización ──────────────────────────────────────────────────────
+function agruparPorTipoDocumento(filas){
+  var grupos={};
+  filas.forEach(function(f){
+    if(!f.incluido||f.es_fila_total) return;
+    var tipo=f.tipo_documento||'Sin tipo identificado';
+    if(!grupos[tipo]) grupos[tipo]={tipo:tipo,cantidad:0,neto:0,iva:0,exento:0,total:0};
+    grupos[tipo].cantidad++;
+    grupos[tipo].neto   += Number(f.monto_neto   ||0);
+    grupos[tipo].iva    += Number(f.monto_iva    ||0);
+    grupos[tipo].exento += Number(f.monto_exento ||0);
+    grupos[tipo].total  += Number(f.monto_total  ||0);
+  });
+  return Object.keys(grupos).map(function(k){ return grupos[k]; })
+    .sort(function(a,b){ return Math.abs(b.total)-Math.abs(a.total); });
+}
+
+// ff con signo — preserva negativos (para NC en la tabla de tipos)
+function ffSigned(n){
+  var num=Math.round(n||0);
+  if(num===0) return '$0';
+  return (num<0?'-$':'$')+Math.abs(num).toLocaleString('es-CL');
+}
+
 function mostrarPreviewLibro(data){
   var ctx=_cargaLibroCtx;
   var tipo=ctx.tipo;
   var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
-  document.getElementById('preview-titulo').textContent='📊 Previsualización — Libro de '+label;
-  document.getElementById('preview-sub').textContent=ctx.rut+' · '+ctx.periodo;
+  var cab=data.cabeceraCalc||{};
+  var grupos=agruparPorTipoDocumento(data.filas||[]);
+  var ivLabel=tipo==='ventas'?'IVA débito':'IVA crédito';
+
+  // Cabecera: nombre de archivo + cliente + período + tipo
+  var clienteInfo=_clientesContables.find(function(c){return c.rut===ctx.rut;})||{};
+  var clienteNombre=clienteInfo.razon||ctx.rut;
+  var nombreArchivo=data.file?data.file.name:'(sin archivo)';
+  document.getElementById('preview-titulo').textContent='\uD83D\uDCCA Previsualización — Libro de '+label;
+  var sub=document.getElementById('preview-sub');
+  sub.innerHTML='<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">'+hesc(nombreArchivo)+'</div>'+
+    '<div style="font-size:11px;color:var(--tm)">'+hesc(clienteNombre)+' &middot; '+hesc(ctx.rut)+' &middot; '+hesc(ctx.periodo)+' &middot; '+hesc(label)+'</div>';
 
   var rb=document.getElementById('preview-resumen-box');
   var tb=document.getElementById('preview-totales-box');
@@ -1269,52 +1334,119 @@ function mostrarPreviewLibro(data){
   var pm=document.getElementById('preview-msg');
   if(pm) pm.className='msg-guardado';
 
-  var cab=data.cabeceraCalc||{};
+  var btnC=document.getElementById('btn-confirmar-carga');
 
   if(data.esHonorariosFase1){
     rb.style.display='block';
     rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Honorarios — Fase 1</div>'+
       '<div class="preview-row"><span>Total filas en archivo</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">⚠ El parseo avanzado de Honorarios se habilitará en una fase posterior. En esta fase solo puedes marcar el libro como Sin movimientos o No aplica.</div>';
-    tb.style.display='none';
-    ab.innerHTML='';
-    // Deshabilitar confirmar para honorarios si son fase 1
-    var btnC=document.getElementById('btn-confirmar-carga');
+      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">\u26A0 El parseo avanzado de Honorarios se habilitará en una fase posterior.</div>';
+    tb.style.display='none'; ab.innerHTML='';
     if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='No disponible en Fase 1';}
+    document.getElementById('modalPreviewLibro').classList.add('on');
+    return;
+  }
+
+  // ── Validación multidimensional antes de habilitar Confirmar ────────────
+  var motivos=[];
+  if(!data.tieneColProcesa)
+    motivos.push('La columna Procesa no fue encontrada en el archivo.');
+  if(!data.tieneColTipoDoc)
+    motivos.push('La columna Tipo de documento no fue encontrada.');
+  if((cab.n_filas_incluidas||0)===0)
+    motivos.push('No se detectaron documentos incluidos (Procesa=X o equivalente).');
+  if(grupos.length===0)
+    motivos.push('El resumen agrupado por tipo está vacío.');
+  // Verificar NaN/Infinity en totales
+  var camposNum=[cab.total_neto,cab.total_exento,cab.total_iva,cab.total_otros_imp,cab.total_general];
+  if(camposNum.some(function(v){return !isFinite(Number(v));}))
+    motivos.push('Se detectaron montos inválidos (NaN o Infinity) en los totales.');
+
+  var puedeConfirmar=motivos.length===0;
+
+  // ── 1. Tabla por tipo de documento ──────────────────────────────────────
+  var tablaHTML='';
+  if(grupos.length>0){
+    tablaHTML+='<div style="font-size:11px;font-weight:700;color:var(--contable);margin-bottom:6px">Resumen por tipo de documento (docs incluidos)</div>';
+    tablaHTML+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    tablaHTML+='<thead><tr style="background:var(--contable-bg);color:var(--contable);font-weight:700;">';
+    tablaHTML+='<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Tipo de documento</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Docs</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Neto</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">'+ivLabel+'</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Total</th>';
+    tablaHTML+='</tr></thead><tbody>';
+    grupos.forEach(function(g){
+      var rowColor=g.total<0?'color:#991b1b':'';
+      tablaHTML+='<tr style="border-bottom:.5px solid var(--bdr);'+rowColor+'">';
+      tablaHTML+='<td style="padding:3px 6px;max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+hesc(g.tipo)+'</td>';
+      tablaHTML+='<td style="text-align:right;padding:3px 6px">'+g.cantidad+'</td>';
+      tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ffSigned(g.neto)+'</td>';
+      tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ffSigned(g.iva)+'</td>';
+      tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace;font-weight:700">'+ffSigned(g.total)+'</td>';
+      tablaHTML+='</tr>';
+    });
+    tablaHTML+='</tbody></table>';
   } else {
-    rb.style.display='block';
-    rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Resumen del procesamiento</div>'+
-      '<div class="preview-row"><span>Filas detectadas</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
-      '<div class="preview-row"><span>Incluidas (Procesa=X)</span><span style="color:var(--green)"><b>'+(cab.n_filas_incluidas||0)+'</b></span></div>'+
-      '<div class="preview-row"><span>Excluidas</span><span>'+(cab.n_filas_excluidas||0)+'</span></div>'+
-      '<div class="preview-row"><span>Notas de crédito</span><span>'+(cab.n_docs_nc||0)+'</span></div>'+
-      '<div class="preview-row"><span>Errores</span><span style="color:'+(cab.n_filas_error>0?'var(--red)':'var(--green)')+'"><b>'+(cab.n_filas_error||0)+'</b></span></div>'+
-      '<div class="preview-row"><span>Advertencias</span><span style="color:'+(data.nAdvFront>0?'var(--amber)':'var(--tm)')+'">'+( data.nAdvFront||0)+'</span></div>'+
-      '<div class="preview-row" style="margin-top:6px;font-size:10px;color:var(--tm)"><span>Tolerancia de cuadratura</span><span>$'+(data.tolerancia||100)+'</span></div>';
+    tablaHTML+='<div style="color:var(--tm);font-size:11px;padding:8px 0">Sin documentos incluidos para agrupar.</div>';
+  }
 
-    tb.style.display='block';
-    var ivLabel=tipo==='ventas'?'IVA débito':'IVA crédito';
-    tb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--contable);margin-bottom:6px">Totales calculados en browser</div>'+
-      '<div class="preview-row"><span>Neto</span><span><b>'+ff(cab.total_neto||0)+'</b></span></div>'+
-      '<div class="preview-row"><span>Exento</span><span>'+ff(cab.total_exento||0)+'</span></div>'+
-      '<div class="preview-row"><span>'+ivLabel+'</span><span><b>'+ff(cab.total_iva||0)+'</b></span></div>'+
-      '<div class="preview-row"><span>Otros impuestos</span><span>'+ff(cab.total_otros_imp||0)+'</span></div>'+
-      '<div class="preview-row" style="border-top:1px solid var(--contable-bdr);padding-top:5px;margin-top:4px"><span><b>Total general</b></span><span><b>'+ff(cab.total_general||0)+'</b></span></div>'+
-      (cab.total_nc!==0?'<div class="preview-row"><span>Notas de crédito (neto)</span><span>'+ff(cab.total_nc||0)+'</span></div>':'');
+  // ── 2. Totales generales ─────────────────────────────────────────────────
+  var totalesHTML='<div style="font-size:11px;font-weight:700;color:var(--contable);margin:10px 0 5px">Totales generales</div>';
+  totalesHTML+='<div class="preview-row"><span>Total docs incluidos</span><span><b>'+(cab.n_docs_incluidos||0)+'</b></span></div>';
+  totalesHTML+='<div class="preview-row"><span>Neto</span><span><b>'+ffSigned(cab.total_neto||0)+'</b></span></div>';
+  totalesHTML+='<div class="preview-row"><span>Exento</span><span>'+ffSigned(cab.total_exento||0)+'</span></div>';
+  totalesHTML+='<div class="preview-row"><span>'+ivLabel+'</span><span><b>'+ffSigned(cab.total_iva||0)+'</b></span></div>';
+  totalesHTML+='<div class="preview-row"><span>Otros impuestos</span><span>'+ffSigned(cab.total_otros_imp||0)+'</span></div>';
+  totalesHTML+='<div class="preview-row" style="border-top:1px solid var(--contable-bdr);padding-top:5px;margin-top:4px"><span><b>Total general</b></span><span><b>'+ffSigned(cab.total_general||0)+'</b></span></div>';
+  if((cab.n_docs_nc||0)>0) totalesHTML+='<div class="preview-row"><span>NC incluidas</span><span>'+cab.n_docs_nc+' &middot; '+ffSigned(cab.total_nc||0)+'</span></div>';
 
-    // Advertencias
-    var advs=(data.observaciones||[]).slice(0,20);
-    if(advs.length>0){
-      var aHtml='<div class="preview-adv"><div style="font-weight:600;margin-bottom:4px">⚠ Advertencias ('+advs.length+(data.observaciones.length>20?'+':'')+')</div>';
-      advs.forEach(function(o){ aHtml+='<div>F'+o.n_fila_origen+': '+hesc(o.mensaje)+'</div>'; });
-      aHtml+='</div>';
-      ab.innerHTML=aHtml;
+  // ── 3. Indicadores secundarios ───────────────────────────────────────────
+  var indicHTML='<div style="font-size:10.5px;color:var(--tm);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">';
+  indicHTML+='<span>Filas detectadas: <b>'+(cab.n_filas_total||0)+'</b></span>';
+  indicHTML+='<span style="color:var(--green)">Incluidas: <b>'+(cab.n_filas_incluidas||0)+'</b></span>';
+  indicHTML+='<span>Excluidas: '+(cab.n_filas_excluidas||0)+'</span>';
+  indicHTML+='<span>Tol. cuadratura: $'+(data.tolerancia||100)+'</span>';
+  if((cab.n_filas_error||0)>0) indicHTML+='<span style="color:var(--red)">Errores: <b>'+(cab.n_filas_error||0)+'</b></span>';
+  if((data.nAdvFront||0)>0)    indicHTML+='<span style="color:var(--amber)">Advertencias: '+data.nAdvFront+'</span>';
+  indicHTML+='</div>';
+
+  // ── 4. Alerta de validación (bloquea confirmar) ──────────────────────────
+  var alertaHTML='';
+  if(!puedeConfirmar){
+    var procResumen=data.resumenProcesa||{};
+    var procList=Object.keys(procResumen).map(function(k){return '"'+k+'":'+procResumen[k];}).join(', ');
+    alertaHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 13px;margin-top:10px;font-size:11.5px;color:#991b1b;">';
+    alertaHTML+='<div style="font-weight:700;margin-bottom:5px">\u26D4 No es posible confirmar la carga:</div>';
+    motivos.forEach(function(m){ alertaHTML+='<div style="margin-bottom:2px">\u2022 '+hesc(m)+'</div>'; });
+    if(procList&&(cab.n_filas_incluidas||0)===0)
+      alertaHTML+='<div style="margin-top:5px;font-size:10.5px;font-weight:normal;opacity:.85">Valores detectados en Procesa: '+hesc(procList)+'</div>';
+    alertaHTML+='</div>';
+  }
+
+  // ── 5. Advertencias de cuadratura/RUT ────────────────────────────────────
+  var advHTML='';
+  var advs=(data.observaciones||[]).slice(0,20);
+  if(advs.length>0){
+    advHTML='<div class="preview-adv"><div style="font-weight:600;margin-bottom:4px">\u26A0 Advertencias ('+(data.observaciones.length>20?'20+':advs.length)+')</div>';
+    advs.forEach(function(o){ advHTML+='<div>F'+o.n_fila_origen+': '+hesc(o.mensaje)+'</div>'; });
+    advHTML+='</div>';
+  }
+
+  // ── Ensamblar ─────────────────────────────────────────────────────────────
+  rb.style.display='block';
+  rb.innerHTML=tablaHTML+totalesHTML+indicHTML+alertaHTML;
+  tb.style.display='none';
+  ab.innerHTML=advHTML;
+
+  // Habilitar/deshabilitar Confirmar
+  if(btnC){
+    if(puedeConfirmar){
+      btnC.disabled=false; btnC.style.opacity='1'; btnC.title=''; btnC.textContent='\u2705 Confirmar carga';
     } else {
-      ab.innerHTML='';
+      btnC.disabled=true; btnC.style.opacity='.4';
+      btnC.title=motivos.join(' | ');
     }
-
-    var btnC=document.getElementById('btn-confirmar-carga');
-    if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
   }
 
   document.getElementById('modalPreviewLibro').classList.add('on');
