@@ -354,17 +354,39 @@ function sbGetClientes(cb){
     'tiene_rrhh','tiene_contabilidad','honorarios_contables'
   ].join(',');
 
-  sbGet('clientes?select='+CLIENTES_COLS+'&order=razon_social.asc').then(function(rows){
-    if(!rows||!rows.length){if(!cached)cb([]);return;}
-    var mapped = rows.map(sbRowToCliente);
-    // Guardar en caché de memoria y en la nueva clave versionada
-    sbCacheSet('clientes_v2', mapped);
-    try{
-      localStorage.setItem(CACHE_V2, JSON.stringify({d:mapped, ts:Date.now()}));
-    }catch(e){}
-    // NO guardar en clientes_bd — ese almacenamiento está deprecado
-    cb(mapped);
-  }).catch(function(){if(!cached)cb([]);});
+  var CLIENTES_PATH='clientes?select='+CLIENTES_COLS+'&order=razon_social.asc';
+
+  // Usar sbFetch directamente para capturar el error HTTP completo.
+  // sbGet ya devuelve [] silenciosamente ante r.ok=false — aquí necesitamos el detalle.
+  sbFetch(CLIENTES_PATH).then(function(r){
+    if(!r.ok){
+      // Registrar diagnóstico completo antes de continuar con caché o []
+      return r.text().then(function(body){
+        console.error('[Gestoor clientes] No fue posible cargar clientes',{
+          status:   r.status,
+          statusText: r.statusText,
+          body:     body,
+          path:     CLIENTES_PATH
+        });
+        if(!cached) cb([]);
+      });
+    }
+    return r.json().then(function(rows){
+      if(!rows||!rows.length){if(!cached)cb([]);return;}
+      var mapped=rows.map(sbRowToCliente);
+      sbCacheSet('clientes_v2',mapped);
+      try{localStorage.setItem(CACHE_V2,JSON.stringify({d:mapped,ts:Date.now()}));}catch(e){}
+      cb(mapped);
+    });
+  }).catch(function(e){
+    console.error('[Gestoor clientes] No fue posible cargar clientes',{
+      status:   null,
+      statusText: e&&e.message||'network error',
+      body:     null,
+      path:     CLIENTES_PATH
+    });
+    if(!cached) cb([]);
+  });
 }
 
 function sbUpsertCliente(c){
