@@ -673,6 +673,11 @@ function renderTabla(){
   document.getElementById('st-atrasado').textContent=stAtr;
   document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' Pre-F29 completados · '+stRrhhOk+' con RRHH OK';
   actualizarBannerMasivo();
+  // Restaurar filas que estaban expandidas antes del render
+  _expandidos.forEach(function(r){
+    var det=document.getElementById('det-'+r);
+    if(det) det.classList.add('open');
+  });
 }
 
 // toggleRow — una sola declaración
@@ -867,6 +872,7 @@ function guardarF29(){
 
     // Mostrar confirmación
     if(mg){mg.className='msg-guardado on';}
+    _expandidos.add(rut);
     setTimeout(function(){ closeModal(); renderTabla(); },600);
 
     if(window.crearNotificacion) crearNotificacion({
@@ -1409,6 +1415,7 @@ async function confirmarCargaLibro(){
     // 4. Éxito
     actualizarLibroEnMemoria(ctx.clienteId,ctx.tipo,rpcData);
     if(pm){pm.className='msg-guardado on';pm.textContent='✅ Libro cargado correctamente.';}
+    _expandidos.add(ctx.rut);
     setTimeout(function(){cancelarPreviewLibro();renderTabla();},700);
 
     if(window.crearNotificacion) crearNotificacion({
@@ -1441,7 +1448,7 @@ function marcarSinMovimientosLibro(clienteId, rut, tipo){
     p_archivo:null,p_cabecera:{},p_registros:[],
     p_observaciones:[],p_reglas_honorarios:[],p_obs:null
   })}).then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); }
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); _expandidos.add(rut); renderTabla(); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
@@ -1457,7 +1464,7 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
     p_archivo:null,p_cabecera:{},p_registros:[],
     p_observaciones:[],p_reglas_honorarios:[],p_obs:motivo.trim()
   })}).then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); }
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); _expandidos.add(rut); renderTabla(); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
@@ -1522,6 +1529,7 @@ function marcarListoParaConsolidar(rut){
     var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
     if(idx>=0){ reportes[idx]=reporteActualizado; }
     setReportes(reportes);
+    _expandidos.add(rut);
     renderTabla();
     if(window.crearNotificacion) crearNotificacion({
       modulo:'reportes',tipo:'info',prioridad:'media',
