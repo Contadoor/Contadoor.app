@@ -53,16 +53,18 @@ tr:hover td{background:#faf5ff;}
 /* MODAL */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.on{display:flex;}
-.modal{background:var(--sur);border-radius:14px;max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25);}
+.modal{background:var(--sur);border-radius:14px;width:min(920px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25);}
 .modal-header{padding:16px 22px 12px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
 .modal-header h2{font-size:16px;font-weight:700;color:var(--p);margin:0 0 3px;}
 .modal-header p{font-size:11px;color:var(--tm);margin:0;}
-.modal-body{overflow-y:auto;flex:1;padding:16px 22px;}
-.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 22px;border-top:2px solid var(--bdr);background:var(--sur2);flex-shrink:0;}
+.modal-body{overflow-y:auto;overflow-x:hidden;flex:1 1 auto;min-height:0;padding:16px 22px;}
+.modal-footer{position:static;flex:0 0 auto;width:100%;max-width:100%;box-sizing:border-box;display:flex;justify-content:flex-end;gap:10px;padding:12px 22px;border-top:2px solid var(--bdr);background:var(--sur2);margin:0;left:auto;right:auto;bottom:auto;transform:none;}
+body.modal-open{overflow:hidden;}
+.modal input,.modal select,.modal textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box;}
 .card-hd{font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
-.fg4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+.fg2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:10px;}
+.fg3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:10px;}
+.fg4{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:10px;}
 .fgroup{display:flex;flex-direction:column;gap:4px;}
 .fgroup label{font-size:11px;font-weight:600;color:var(--t2);}
 .fgroup input,.fgroup select,.fgroup textarea{font-family:inherit;font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;width:100%;}
@@ -97,6 +99,12 @@ tr:hover td{background:#faf5ff;}
 .cred-view tr:last-child td{border-bottom:none;}
 .copy-btn{border:1px solid var(--bdr);background:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;color:var(--tm);margin-left:6px;}
 .copy-btn:hover{background:var(--pp);color:var(--pd);}
+.ppm-hint{display:block;font-size:10px!important;font-weight:400!important;line-height:1.25;color:var(--tm);margin-top:2px;white-space:normal;}
+.ppm-info-box{display:block;width:100%;max-width:100%;box-sizing:border-box;background:var(--pp);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;color:var(--t2);font-size:11px;font-weight:400;line-height:1.4;white-space:normal;}
+@media(max-width:760px){
+  .modal{width:calc(100vw - 16px);max-height:calc(100vh - 16px);}
+  .fg2,.fg3,.fg4{grid-template-columns:1fr;}
+}
 </style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
@@ -185,7 +193,7 @@ tr:hover td{background:#faf5ff;}
   <div class="modal">
     <div class="modal-header">
       <h2 id="modalTitle">Nuevo cliente</h2>
-      <p>Campos con * son obligatorios</p>
+      <p>Campos con * son obligatorios &nbsp;<span style="font-size:9px;color:var(--tm);font-weight:400">Versión Clientes: 2026-08-05-vFinal</span></p>
     </div>
     <div class="modal-body" id="modalBody">
 
@@ -251,14 +259,13 @@ tr:hover td{background:#faf5ff;}
         </div>
         <div class="fgroup"><label>Obs. tributarias</label><input type="text" id="f-obs-trib" placeholder="Pérdidas, fusiones..."></div>
       </div>
-</div>
 
       <div class="card-hd">📊 Configuración tributaria — PPM</div>
       <div class="fg2" style="margin-bottom:10px">
         <div class="fgroup">
           <label>Tasa PPM predeterminada (%)</label>
           <input type="number" id="f-ppm-tasa-default" placeholder="Ej: 0.25" step="0.0001" min="0" max="100"/>
-          <span class="hint">Ej: 0.125, 0.25, 0.5, 1. Dejar vacío si no aplica PPM.</span>
+          <span class="ppm-hint">Ej: 0.125, 0.25, 0.5, 1. Dejar vacío si no aplica PPM.</span>
         </div>
         <div class="fgroup">
           <label>Vigente desde (período)</label>
@@ -275,7 +282,7 @@ tr:hover td{background:#faf5ff;}
           <input type="text" id="f-ppm-observacion" placeholder="Notas adicionales sobre el PPM"/>
         </div>
       </div>
-      <div class="info-box" style="margin-bottom:8px;font-size:11px">
+      <div class="ppm-info-box" style="margin-bottom:8px">
         Esta tasa se utiliza como sugerencia mensual en el Borrador F29.
         Debe revisarse según el régimen y antecedentes del contribuyente.
         No se aplica retroactivamente a reportes históricos.
@@ -446,6 +453,7 @@ tr:hover td{background:#faf5ff;}
 <div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
 
 <script>
+console.info('[Clientes] versión 2026-08-05-vFinal');
 // ─────────────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────────────
@@ -536,7 +544,11 @@ function rowToCliente(r) {
     credsExtra: r.creds_extra || [],
     obsAcceso: r.obs_acceso,
     obs: r.obs, logo: r.logo_base64 || '',
-    socios: r.socios || []
+    socios: r.socios || [],
+    ppmTasaDefault:      (r.ppm_tasa_default !== null && r.ppm_tasa_default !== undefined) ? Number(r.ppm_tasa_default) : null,
+    ppmTasaVigenteDesde: r.ppm_tasa_vigente_desde || null,
+    ppmTasaFuente:       r.ppm_tasa_fuente        || null,
+    ppmTasaObservacion:  r.ppm_tasa_observacion   || null
   };
 }
 
@@ -560,7 +572,11 @@ function clienteToRow(c) {
     creds_extra: c.credsExtra || [],
     obs_acceso: c.obsAcceso || null,
     obs: c.obs || null, logo_base64: c.logo || null,
-    socios: c.socios || []
+    socios: c.socios || [],
+    ppm_tasa_default:       (c.ppmTasaDefault === null || c.ppmTasaDefault === undefined || c.ppmTasaDefault === '') ? null : Number(c.ppmTasaDefault),
+    ppm_tasa_vigente_desde: c.ppmTasaVigenteDesde || null,
+    ppm_tasa_fuente:        c.ppmTasaFuente       || null,
+    ppm_tasa_observacion:   c.ppmTasaObservacion  || null
   };
 }
 
@@ -691,6 +707,7 @@ function abrirNuevo() {
   g('modalTitle').textContent = 'Nuevo cliente';
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
+  sincronizarBloqueoModales();
 }
 
 function abrirEditar(id) {
@@ -742,11 +759,15 @@ function abrirEditar(id) {
   g('modalClaves').classList.remove('on');
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
+  sincronizarBloqueoModales();
 }
 
-function cerrarForm()    { g('modalForm').classList.remove('on'); }
-function cerrarDetalle() { g('modalDetalle').classList.remove('on'); }
-function cerrarClaves()  { g('modalClaves').classList.remove('on'); }
+function sincronizarBloqueoModales(){
+  document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-bg.on')));
+}
+function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarDetalle() { g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarClaves()  { g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
 // GUARDAR
@@ -775,7 +796,7 @@ function guardarCliente() {
     ppmTasaObservacion: gv('f-ppm-observacion')||null,
     moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
     monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
-    contador: gv('f-contador'), rrhh: gv('f-rrhh'), prio: gv('f-prio-rrhh') || 'media',
+    contador: gv('f-contador'), rrhh: gv('f-rrhh'), prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
     siiU:  gv('f-sii-u'),  siiK:  gv('f-sii-k'),
     prevU: gv('f-prev-u'), prevK: gv('f-prev-k'),
     cuU:   gv('f-cu-u'),   cuK:   gv('f-cu-k'),
@@ -1068,7 +1089,13 @@ document.getElementById('f-rut').oninput = function(){
 
 // Cerrar modal al clic en fondo
 ['modalForm','modalDetalle','modalClaves'].forEach(function(id){
-  g(id).addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+  var overlay=document.getElementById(id);
+  if(!overlay) return;
+  overlay.addEventListener('click',function(e){
+    if(e.target!==overlay) return;
+    overlay.classList.remove('on');
+    sincronizarBloqueoModales();
+  });
 });
 
 // ─────────────────────────────────────────────────────
