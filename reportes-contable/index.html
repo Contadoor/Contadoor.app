@@ -126,8 +126,32 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 /* MSG GUARDADO */
 .msg-guardado{display:none;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 14px;font-size:12px;color:#064e3b;margin-top:8px;text-align:center;}
 .msg-guardado.on{display:block;}
+/* ── Libros MasConta ────────────────────────────────────────────────── */
+.libros-sec-titulo{font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--contable-bdr);}
+.libros-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+.libro-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:11px 13px;}
+.libro-card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.libro-titulo{font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.5px;}
+.libro-badge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;white-space:nowrap;}
+.lb-no-cargado{background:#f3f4f6;color:#6b7280;}
+.lb-validado{background:#ecfdf5;color:#064e3b;}
+.lb-obs{background:#fef3c7;color:#78350f;}
+.lb-sin-mov{background:var(--pp);color:var(--pd);}
+.lb-no-aplica{background:#f3f4f6;color:#6b7280;}
+.lb-error{background:#fee2e2;color:#991b1b;}
+.libro-meta{font-size:10px;color:var(--tm);margin-bottom:6px;line-height:1.5;}
+.libro-totales{font-size:11px;margin-bottom:8px;}
+.libro-total-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bdr);}
+.libro-total-row:last-child{border-bottom:none;font-weight:700;}
+.libro-actions{display:flex;gap:4px;flex-wrap:wrap;}
+.preview-bloque{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:12px;}
+.preview-row{display:flex;justify-content:space-between;padding:3px 0;}
+.preview-totales{background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:12px;}
+.preview-adv{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:11px;max-height:80px;overflow-y:auto;}
+.libros-gate-msg{background:#fff7ed;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:11px;color:#92400e;margin-bottom:10px;}
 </style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <aside class="sidebar">
@@ -360,9 +384,39 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
   </div>
 </div>
+<!-- Input oculto para carga de archivos MasConta -->
+<input type="file" id="libroFileInput" accept=".xlsx,.xls,.csv"
+       style="display:none" onchange="onLibroFileSelected(this)"/>
+
+<!-- Modal: selector de hoja (archivos con múltiples hojas) -->
+<div class="modal-bg" id="modalHoja">
+  <div class="modal" style="max-width:400px">
+    <h2>📋 Seleccionar hoja</h2>
+    <div class="modal-sub">El archivo tiene múltiples hojas. Selecciona la que contiene los datos del libro.</div>
+    <div id="lista-hojas" style="display:flex;flex-direction:column;gap:6px;margin:12px 0;"></div>
+    <div class="modal-footer">
+      <button class="btn-s" onclick="cancelarSelectorHoja()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: previsualización de libro antes de confirmar -->
+<div class="modal-bg" id="modalPreviewLibro">
+  <div class="modal" style="max-width:660px">
+    <h2 id="preview-titulo">📊 Previsualización</h2>
+    <div class="modal-sub" id="preview-sub"></div>
+    <div id="preview-resumen-box" class="preview-bloque" style="display:none"></div>
+    <div id="preview-adv-box"></div>
+    <div id="preview-totales-box" class="preview-totales" style="display:none"></div>
+    <div class="msg-guardado" id="preview-msg"></div>
+    <div class="modal-footer">
+      <button class="btn-s" onclick="cancelarPreviewLibro()">Cancelar</button>
+      <button class="btn-p" id="btn-confirmar-carga" onclick="confirmarCargaLibro()">✅ Confirmar carga</button>
+    </div>
+  </div>
+</div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────
 var _filtros={estado:'',plan:'',prioridad:''};
 var _periodoActual=null;
 // ── FASE 2A-2C: Variables en memoria ─────────────────────────────────────
@@ -551,7 +605,12 @@ function renderTabla(){
     } else if(!pagosOk){
       html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px;" title="Validación pendiente desde módulo Pagos">Esp. validación</button>';
     } else if(estado==='pendiente'){
-      html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-F29</button>';
+      var libOk=librosListos(rep,c);
+      if(!libOk){
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-F29">📊 Pre-F29</button>';
+      } else {
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-F29</button>';
+      }
     } else if(estado==='completado'){
       if(!rep.listoPanelControl){
         html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo</button>';
@@ -564,6 +623,10 @@ function renderTabla(){
 
     // Detalle expandido
     html+='<div class="cr-detalle" id="det-'+c.rut+'">';
+    // Sección documentos contables (independiente de rrhhOk)
+    if(c.tieneContabilidad!==false){
+      html+=renderSeccionLibros(rep,c);
+    }
     if(rep.f29){
       html+='<div class="det-grid">';
       html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
@@ -822,6 +885,607 @@ function guardarF29(){
   });
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// LIBROS MASCONTA — Fase de Implementación 1
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Variables de estado ───────────────────────────────────────────────────
+var _librosMap    = {};      // { String(clienteId): { compras:cab, ventas:cab, honorarios:cab } }
+var _cargaLibroCtx = null;  // { clienteId, rut, tipo, accion, periodo, workbook }
+var _previewLibro  = null;  // { file, cabeceraCalc, filas, observaciones, sha256 }
+
+// Columnas MasConta para Compras y Ventas
+var _MCOLS_CV = {
+  'Periodo':'\x70eriodo','Período':'\x70eriodo',
+  'RUT':'rut_contraparte','Rut':'rut_contraparte',
+  'Razón Social':'razon_social','Razon Social':'razon_social','Razón social':'razon_social',
+  'Documento':'tipo_documento',
+  'Folio':'folio',
+  'Cuenta':'cuenta_contable',
+  'Detalle':'detalle',
+  'Procesa':'procesa',
+  'Fecha':'fecha_documento',
+  'Exento':'monto_exento',
+  'Neto':'monto_neto',
+  'IVA':'monto_iva',
+  'Retenciones':'monto_retenciones','Retención':'monto_retenciones',
+  'Total':'monto_total'
+};
+
+// ── Gate: libros listos para Pre-F29 ─────────────────────────────────────
+function librosListos(rep, c){
+  var libros = rep.libros || (_librosMap[String(c.id||'')] || null);
+  if(!libros) libros = {};
+  var ESTADOS_OK = ['validado','sin_movimientos'];
+  var comprasOk = ESTADOS_OK.indexOf((libros.compras||{}).estado||'') >= 0;
+  var ventasOk  = ESTADOS_OK.indexOf((libros.ventas||{}).estado||'') >= 0;
+  var configHon = c.honorariosContables || 'determinar_mensualmente';
+  var honOk;
+  if(configHon === 'no_aplica'){
+    honOk = true;
+  } else if(configHon === 'aplica'){
+    honOk = ESTADOS_OK.indexOf((libros.honorarios||{}).estado||'') >= 0;
+  } else {
+    var hEstado = (libros.honorarios||{}).estado || '';
+    honOk = ESTADOS_OK.indexOf(hEstado) >= 0 || hEstado === 'no_aplica';
+  }
+  return comprasOk && ventasOk && honOk;
+}
+
+// ── Render sección libros ─────────────────────────────────────────────────
+function renderSeccionLibros(rep, c){
+  var libros = rep.libros || (_librosMap[String(c.id||'')] || {});
+  var h = '<div style="margin-bottom:14px">';
+  h += '<div class="libros-sec-titulo">📂 Documentos contables del período</div>';
+  h += '<div class="libros-grid">';
+  h += renderTarjetaLibro('compras',   libros.compras,   c);
+  h += renderTarjetaLibro('ventas',    libros.ventas,    c);
+  h += renderTarjetaLibro('honorarios',libros.honorarios,c);
+  h += '</div></div>';
+  return h;
+}
+
+function renderLibroBadge(estado){
+  var map = {
+    'no_cargado':      ['lb-no-cargado','sin cargar'],
+    'validado':        ['lb-validado','✅ validado'],
+    'con_observaciones':['lb-obs','⚠ observaciones'],
+    'sin_movimientos': ['lb-sin-mov','○ sin movimientos'],
+    'no_aplica':       ['lb-no-aplica','— no aplica'],
+    'error':           ['lb-error','✕ error'],
+    'procesando':      ['lb-obs','⏳ procesando'],
+  };
+  var p = map[estado] || ['lb-no-cargado', estado||'—'];
+  return '<span class="libro-badge '+p[0]+'">'+p[1]+'</span>';
+}
+
+function renderTarjetaLibro(tipo, cab, c){
+  var estado  = cab ? cab.estado : 'no_cargado';
+  var etiqueta = tipo==='compras'?'📋 Compras':tipo==='ventas'?'📋 Ventas':'📋 Honorarios';
+  var cid = c.id;
+  var rut = c.rut;
+
+  var h = '<div class="libro-card">';
+  h += '<div class="libro-card-hd"><span class="libro-titulo">'+etiqueta+'</span>'+renderLibroBadge(estado)+'</div>';
+
+  if(estado==='validado'||estado==='con_observaciones'){
+    h += '<div class="libro-meta">';
+    if(cab.nombreOriginal) h += hesc(String(cab.nombreOriginal).slice(0,40))+'<br>';
+    if(cab.validadoAt)     h += ts_lib(cab.validadoAt)+' · '+hesc(cab.validadoPor||'')+'<br>';
+    h += (cab.nDocsIncluidos||0)+' incluidos · '+(cab.nDocsExcluidos||0)+' excluidos';
+    if(cab.nFilasError>0)  h += ' · <span style="color:var(--red)">'+cab.nFilasError+' errores</span>';
+    h += '</div>';
+    if(tipo!=='honorarios'){
+      h += '<div class="libro-totales">';
+      h += '<div class="libro-total-row"><span>Neto</span><span>'+ff(cab.totalNeto)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Exento</span><span>'+ff(cab.totalExento)+'</span></div>';
+      h += '<div class="libro-total-row"><span>'+(tipo==='ventas'?'IVA débito':'IVA crédito')+'</span><span>'+ff(cab.totalIva)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Total</span><span>'+ff(cab.totalGeneral)+'</span></div>';
+      h += '</div>';
+    } else {
+      h += '<div class="libro-totales">';
+      h += '<div class="libro-total-row"><span>Bruto</span><span>'+ff(cab.totalBruto)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Retención</span><span>'+ff(cab.totalRetencion)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Líquido</span><span>'+ff(cab.totalLiquido)+'</span></div>';
+      h += '</div>';
+    }
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Reemplazar</button>';
+    h += '</div>';
+  } else if(estado==='sin_movimientos'){
+    h += '<div class="libro-meta">Sin movimientos en el período.';
+    if(cab&&cab.validadoPor) h += '<br>'+hesc(cab.validadoPor);
+    h += '</div>';
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '</div>';
+  } else if(estado==='no_aplica'){
+    h += '<div class="libro-meta">No aplica este período.';
+    if(cab&&cab.obs) h += '<br><em>'+hesc(cab.obs)+'</em>';
+    h += '</div>';
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '</div>';
+  } else {
+    // no_cargado
+    h += '<div class="libro-meta" style="color:var(--tm);font-size:11px">No cargado para este período.</div>';
+    h += '<div class="libro-actions">';
+    if(tipo!=='honorarios'){
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
+    } else {
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarNoAplicaLibro('+cid+',\''+rut+'\',\''+tipo+'\')">— No aplica</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function ts_lib(isoStr){
+  if(!isoStr) return '';
+  try{
+    var d=new Date(isoStr);
+    return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+
+           d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return String(isoStr).slice(0,16); }
+}
+
+// ── Carga de archivos ─────────────────────────────────────────────────────
+function cargarLibro(clienteId, rut, tipo, accion){
+  if(accion==='reemplazo'){
+    var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
+    if(!confirm('¿Reemplazar el Libro de '+label+'?\nEl archivo anterior quedará en el historial.')) return;
+  }
+  _cargaLibroCtx={clienteId:parseInt(clienteId),rut:rut,tipo:tipo,accion:accion,periodo:_periodoActual,workbook:null};
+  var inp=document.getElementById('libroFileInput');
+  if(inp){ inp.value=''; inp.click(); }
+}
+
+function onLibroFileSelected(inp){
+  var file=inp.files&&inp.files[0];
+  if(!file) return;
+  _cargaLibroCtx.file=file;
+  procesarArchivoLibro(file, null);
+}
+
+async function procesarArchivoLibro(file, sheetName){
+  var ctx=_cargaLibroCtx;
+  if(!ctx) return;
+  var arrayBuffer;
+  try{ arrayBuffer=await file.arrayBuffer(); }
+  catch(e){ alert('No se pudo leer el archivo: '+e.message); return; }
+
+  var wb;
+  try{ wb=XLSX.read(new Uint8Array(arrayBuffer),{type:'array',raw:false,cellDates:false}); }
+  catch(e){ alert('Error al abrir el archivo: '+e.message); return; }
+
+  _cargaLibroCtx.workbook=wb;
+
+  if(!sheetName){
+    if(wb.SheetNames.length>1){ mostrarSelectorHoja(wb); return; }
+    sheetName=wb.SheetNames[0];
+  }
+
+  var sheet=wb.Sheets[sheetName];
+  if(!sheet){ alert('Hoja no encontrada: '+sheetName); return; }
+
+  var rawRows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:''});
+
+  if(ctx.tipo==='compras'||ctx.tipo==='ventas'){
+    var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
+    result.file=file;
+    _previewLibro=result;
+    mostrarPreviewLibro(result);
+  } else {
+    // Honorarios fase 1: solo info básica, no parseo completo
+    _previewLibro={
+      tipo:ctx.tipo, file:file, filas:[], observaciones:[],
+      cabeceraCalc:{n_filas_total:rawRows.length,n_filas_incluidas:0,n_filas_excluidas:0,n_filas_error:0,n_pendientes_clasificacion:0},
+      tolerancia:100, esHonorariosFase1:true
+    };
+    mostrarPreviewLibro(_previewLibro);
+  }
+}
+
+// ── Normalización Compras/Ventas ──────────────────────────────────────────
+function detectarHeaderRow(rawRows){
+  for(var i=0;i<Math.min(rawRows.length,10);i++){
+    var row=rawRows[i];
+    for(var j=0;j<row.length;j++){
+      var c=String(row[j]||'').trim();
+      if(c==='Procesa'||c==='Neto'||c==='RUT'||c==='Rut'||c==='IVA') return i;
+    }
+  }
+  return 0;
+}
+
+function buildColMap(headerRow){
+  var map={};
+  headerRow.forEach(function(cell,j){
+    var k=String(cell||'').trim();
+    if(_MCOLS_CV[k]) map[_MCOLS_CV[k]]=j;
+  });
+  return map;
+}
+
+function normRutLib(val){
+  if(!val) return null;
+  var s=String(val).trim().replace(/[\.\s\-]/g,'').toUpperCase();
+  if(s.length<2) return null;
+  return s.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'-'+s.slice(-1);
+}
+
+function normFechaLib(val){
+  if(!val) return null;
+  var s=String(val).trim();
+  // DD/MM/YYYY
+  var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Excel serial number como string
+  var n=parseFloat(s);
+  if(!isNaN(n)&&n>40000){
+    try{ var d=XLSX.SSF.parse_date_code(n); return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }catch(e){}
+  }
+  return null;
+}
+
+function parseMontoLib(val){
+  if(val===null||val===undefined||val==='') return 0;
+  if(typeof val==='number') return val;
+  var s=String(val).trim().replace(/\$/g,'').replace(/\s/g,'');
+  // Formato chileno: puntos=miles, coma=decimal
+  if(/^\-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)){
+    s=s.replace(/\./g,'').replace(',','.');
+  } else {
+    s=s.replace(/[^\d\-.,]/g,'').replace(',','.');
+  }
+  var n=parseFloat(s);
+  return isNaN(n)?0:n;
+}
+
+function normalizarFilasComprasVentas(rawRows,tipo){
+  var hIdx=detectarHeaderRow(rawRows);
+  var colMap=buildColMap(rawRows[hIdx]||[]);
+  var filas=[], obs=[], nTotalFila=0, nErr=0, nAdv=0;
+
+  for(var i=hIdx+1;i<rawRows.length;i++){
+    var raw=rawRows[i];
+    if(!raw||raw.every(function(c){return String(c||'').trim()==='';}) ) continue;
+    nTotalFila++;
+
+    var razonRaw=colMap.razon_social!==undefined?String(raw[colMap.razon_social]||'').trim():'';
+    var procRaw =colMap.procesa!==undefined?String(raw[colMap.procesa]||'').trim():'';
+
+    // Detectar fila de totales
+    if(/^total/i.test(razonRaw)&&procRaw===''){
+      filas.push({n_fila_origen:i+1,procesa:procRaw,incluido:false,es_fila_total:true,
+        rut_contraparte:null,razon_social:razonRaw,tipo_documento:null,folio:null,
+        cuenta_contable:null,detalle:null,fecha_documento:null,
+        monto_neto:0,monto_exento:0,monto_iva:0,monto_retenciones:0,monto_total:0,
+        es_nota_credito:false,subtipo_honorario:null,clasificacion_fuente:null});
+      continue;
+    }
+
+    var neto = parseMontoLib(colMap.monto_neto!==undefined?raw[colMap.monto_neto]:0);
+    var exen = parseMontoLib(colMap.monto_exento!==undefined?raw[colMap.monto_exento]:0);
+    var iva  = parseMontoLib(colMap.monto_iva!==undefined?raw[colMap.monto_iva]:0);
+    var ret  = parseMontoLib(colMap.monto_retenciones!==undefined?raw[colMap.monto_retenciones]:0);
+    var tot  = parseMontoLib(colMap.monto_total!==undefined?raw[colMap.monto_total]:0);
+    var doc  = colMap.tipo_documento!==undefined?String(raw[colMap.tipo_documento]||'').trim():null;
+    var incl = procRaw.toUpperCase()==='X';
+    var esNC = (doc&&(/nc|nota.de.cr/i.test(doc)))||neto<0;
+    var rut  = normRutLib(colMap.rut_contraparte!==undefined?raw[colMap.rut_contraparte]:null);
+
+    var fila={
+      n_fila_origen:i+1, procesa:procRaw, incluido:incl,
+      es_fila_total:false, es_nota_credito:esNC,
+      rut_contraparte:rut,
+      razon_social:razonRaw||null,
+      tipo_documento:doc||null,
+      folio:colMap.folio!==undefined?String(raw[colMap.folio]||'').trim():null,
+      cuenta_contable:colMap.cuenta_contable!==undefined?String(raw[colMap.cuenta_contable]||'').trim():null,
+      detalle:colMap.detalle!==undefined?String(raw[colMap.detalle]||'').trim():null,
+      fecha_documento:normFechaLib(colMap.fecha_documento!==undefined?raw[colMap.fecha_documento]:null),
+      monto_neto:neto, monto_exento:exen, monto_iva:iva,
+      monto_retenciones:ret, monto_total:tot,
+      subtipo_honorario:null, clasificacion_fuente:null
+    };
+
+    if(incl){
+      // Cuadratura por fila (tolerancia $1)
+      var diff=Math.abs((neto+exen+iva+ret)-tot);
+      if(diff>1){
+        nAdv++;
+        obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',codigo:'CUADRATURA_FILA',
+          mensaje:'Neto+IVA+Ret ≠ Total (diff $'+Math.round(diff)+')',
+          valor_detectado:String(tot)});
+      }
+      if(!rut){
+        nAdv++;
+        obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',codigo:'RUT_INVALIDO',
+          mensaje:'RUT vacío o inválido',valor_detectado:String(raw[colMap.rut_contraparte||0]||'')});
+      }
+    }
+    filas.push(fila);
+  }
+
+  var cab=calcularCabeceraCV(filas);
+  var tol=Math.min(2000,Math.max(100,Math.round((cab.n_filas_incluidas||1)*0.5)));
+
+  return {tipo:tipo,filas:filas,observaciones:obs,cabeceraCalc:cab,tolerancia:tol,
+          nAdvFront:nAdv,colsDetectadas:Object.keys(colMap)};
+}
+
+function calcularCabeceraCV(filas){
+  var c={n_filas_total:filas.length,n_filas_incluidas:0,n_filas_excluidas:0,
+    n_filas_error:0,n_pendientes_clasificacion:0,
+    total_neto:0,total_exento:0,total_iva:0,total_otros_imp:0,
+    total_general:0,total_nc:0,n_docs_incluidos:0,n_docs_excluidos:0,n_docs_nc:0,
+    total_bruto:0,total_retencion:0,total_adicional_3pct:0,total_liquido:0,
+    n_recibidos:0,n_emitidos:0};
+
+  filas.forEach(function(f){
+    if(f.es_fila_total) return;
+    if(f.incluido){
+      c.n_filas_incluidas++; c.n_docs_incluidos++;
+      c.total_neto    +=f.monto_neto;
+      c.total_exento  +=f.monto_exento;
+      c.total_iva     +=f.monto_iva;
+      c.total_otros_imp+=f.monto_retenciones;
+      c.total_general +=f.monto_total;
+      if(f.es_nota_credito){ c.total_nc+=f.monto_neto; c.n_docs_nc++; }
+    } else {
+      c.n_filas_excluidas++; c.n_docs_excluidos++;
+    }
+  });
+  return c;
+}
+
+// ── Previsualización ──────────────────────────────────────────────────────
+function mostrarPreviewLibro(data){
+  var ctx=_cargaLibroCtx;
+  var tipo=ctx.tipo;
+  var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
+  document.getElementById('preview-titulo').textContent='📊 Previsualización — Libro de '+label;
+  document.getElementById('preview-sub').textContent=ctx.rut+' · '+ctx.periodo;
+
+  var rb=document.getElementById('preview-resumen-box');
+  var tb=document.getElementById('preview-totales-box');
+  var ab=document.getElementById('preview-adv-box');
+  var pm=document.getElementById('preview-msg');
+  if(pm) pm.className='msg-guardado';
+
+  var cab=data.cabeceraCalc||{};
+
+  if(data.esHonorariosFase1){
+    rb.style.display='block';
+    rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Honorarios — Fase 1</div>'+
+      '<div class="preview-row"><span>Total filas en archivo</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
+      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">⚠ El parseo avanzado de Honorarios se habilitará en una fase posterior. En esta fase solo puedes marcar el libro como Sin movimientos o No aplica.</div>';
+    tb.style.display='none';
+    ab.innerHTML='';
+    // Deshabilitar confirmar para honorarios si son fase 1
+    var btnC=document.getElementById('btn-confirmar-carga');
+    if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='No disponible en Fase 1';}
+  } else {
+    rb.style.display='block';
+    rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Resumen del procesamiento</div>'+
+      '<div class="preview-row"><span>Filas detectadas</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
+      '<div class="preview-row"><span>Incluidas (Procesa=X)</span><span style="color:var(--green)"><b>'+(cab.n_filas_incluidas||0)+'</b></span></div>'+
+      '<div class="preview-row"><span>Excluidas</span><span>'+(cab.n_filas_excluidas||0)+'</span></div>'+
+      '<div class="preview-row"><span>Notas de crédito</span><span>'+(cab.n_docs_nc||0)+'</span></div>'+
+      '<div class="preview-row"><span>Errores</span><span style="color:'+(cab.n_filas_error>0?'var(--red)':'var(--green)')+'"><b>'+(cab.n_filas_error||0)+'</b></span></div>'+
+      '<div class="preview-row"><span>Advertencias</span><span style="color:'+(data.nAdvFront>0?'var(--amber)':'var(--tm)')+'">'+( data.nAdvFront||0)+'</span></div>'+
+      '<div class="preview-row" style="margin-top:6px;font-size:10px;color:var(--tm)"><span>Tolerancia de cuadratura</span><span>$'+(data.tolerancia||100)+'</span></div>';
+
+    tb.style.display='block';
+    var ivLabel=tipo==='ventas'?'IVA débito':'IVA crédito';
+    tb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--contable);margin-bottom:6px">Totales calculados en browser</div>'+
+      '<div class="preview-row"><span>Neto</span><span><b>'+ff(cab.total_neto||0)+'</b></span></div>'+
+      '<div class="preview-row"><span>Exento</span><span>'+ff(cab.total_exento||0)+'</span></div>'+
+      '<div class="preview-row"><span>'+ivLabel+'</span><span><b>'+ff(cab.total_iva||0)+'</b></span></div>'+
+      '<div class="preview-row"><span>Otros impuestos</span><span>'+ff(cab.total_otros_imp||0)+'</span></div>'+
+      '<div class="preview-row" style="border-top:1px solid var(--contable-bdr);padding-top:5px;margin-top:4px"><span><b>Total general</b></span><span><b>'+ff(cab.total_general||0)+'</b></span></div>'+
+      (cab.total_nc!==0?'<div class="preview-row"><span>Notas de crédito (neto)</span><span>'+ff(cab.total_nc||0)+'</span></div>':'');
+
+    // Advertencias
+    var advs=(data.observaciones||[]).slice(0,20);
+    if(advs.length>0){
+      var aHtml='<div class="preview-adv"><div style="font-weight:600;margin-bottom:4px">⚠ Advertencias ('+advs.length+(data.observaciones.length>20?'+':'')+')</div>';
+      advs.forEach(function(o){ aHtml+='<div>F'+o.n_fila_origen+': '+hesc(o.mensaje)+'</div>'; });
+      aHtml+='</div>';
+      ab.innerHTML=aHtml;
+    } else {
+      ab.innerHTML='';
+    }
+
+    var btnC=document.getElementById('btn-confirmar-carga');
+    if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
+  }
+
+  document.getElementById('modalPreviewLibro').classList.add('on');
+}
+
+function cancelarPreviewLibro(){
+  document.getElementById('modalPreviewLibro').classList.remove('on');
+  _previewLibro=null;
+}
+
+// ── Selector de hoja ──────────────────────────────────────────────────────
+function mostrarSelectorHoja(wb){
+  var lista=document.getElementById('lista-hojas');
+  lista.innerHTML='';
+  wb.SheetNames.forEach(function(name){
+    var btn=document.createElement('button');
+    btn.className='btn-s';
+    btn.style.textAlign='left';
+    btn.textContent='📄 '+name;
+    btn.onclick=function(){ cancelarSelectorHoja(); procesarArchivoLibro(_cargaLibroCtx.file,name); };
+    lista.appendChild(btn);
+  });
+  document.getElementById('modalHoja').classList.add('on');
+}
+function cancelarSelectorHoja(){
+  document.getElementById('modalHoja').classList.remove('on');
+}
+
+// ── Confirmar carga: SHA256 + Storage + RPC ───────────────────────────────
+async function calcSha256Libro(file){
+  try{
+    var buf=await file.arrayBuffer();
+    var hash=await crypto.subtle.digest('SHA-256',buf);
+    return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }catch(e){ return null; }
+}
+
+async function confirmarCargaLibro(){
+  var data=_previewLibro;
+  var ctx=_cargaLibroCtx;
+  if(!data||!ctx) return;
+
+  var btnC=document.getElementById('btn-confirmar-carga');
+  if(btnC){btnC.disabled=true;btnC.textContent='⏳ Calculando…';}
+  var pm=document.getElementById('preview-msg');
+  if(pm) pm.className='msg-guardado';
+
+  var pathConfirmado=null;
+
+  try{
+    // 1. SHA256
+    if(btnC) btnC.textContent='⏳ Subiendo archivo…';
+    var sha256=await calcSha256Libro(data.file);
+
+    // 2. Storage path
+    var ts=new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14);
+    var nombreSan=data.file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,80);
+    var storagePath=ctx.clienteId+'/'+ctx.periodo+'/'+ctx.tipo+'/'+ts+'_'+nombreSan;
+
+    if(!window._sbAuthClient) throw new Error('SDK de Storage no disponible. Recarga la página e intenta de nuevo.');
+
+    var up=await window._sbAuthClient.storage
+      .from('gestoor-libros-contables')
+      .upload(storagePath,data.file,{upsert:false});
+    if(up.error) throw up.error;
+    pathConfirmado=up.data.path||storagePath;
+
+    if(btnC) btnC.textContent='⏳ Guardando en Supabase…';
+
+    // 3. RPC
+    var mime=data.file.type||'application/octet-stream';
+    var rpcPayload={
+      p_cliente_id:   ctx.clienteId,
+      p_periodo:      ctx.periodo,
+      p_tipo:         ctx.tipo,
+      p_accion:       ctx.accion,
+      p_usuario:      getUsuario().nombre||'analista',
+      p_archivo:{
+        storage_bucket:'gestoor-libros-contables',
+        storage_path:   pathConfirmado,
+        nombre_original:data.file.name,
+        mime_type:      mime,
+        tamano_bytes:   data.file.size,
+        sha256:         sha256
+      },
+      p_cabecera:         data.cabeceraCalc||{},
+      p_registros:        data.filas||[],
+      p_observaciones:    data.observaciones||[],
+      p_reglas_honorarios:[],
+      p_obs:              null
+    };
+
+    var rpcRes=await sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify(rpcPayload)});
+    var rpcData=await rpcRes.json();
+
+    if(!rpcData||!rpcData.ok){
+      throw new Error((rpcData&&(rpcData.message||rpcData.error))||'Error en la RPC');
+    }
+
+    // 4. Éxito
+    actualizarLibroEnMemoria(ctx.clienteId,ctx.tipo,rpcData);
+    if(pm){pm.className='msg-guardado on';pm.textContent='✅ Libro cargado correctamente.';}
+    setTimeout(function(){cancelarPreviewLibro();renderTabla();},700);
+
+    if(window.crearNotificacion) crearNotificacion({
+      modulo:'reportes',tipo:'info',prioridad:'baja',
+      mensaje:'Libro de '+ctx.tipo+' cargado · '+ctx.periodo,accion:null
+    });
+
+  }catch(err){
+    // 5. Cleanup archivo huérfano en Storage
+    if(pathConfirmado&&window._sbAuthClient){
+      try{
+        await window._sbAuthClient.storage.from('gestoor-libros-contables').remove([pathConfirmado]);
+        console.info('[MasConta] Archivo huérfano eliminado:',pathConfirmado);
+      }catch(ce){ console.warn('[MasConta] No se pudo eliminar huérfano:',pathConfirmado,ce.message); }
+    }
+    var msg=err.message?String(err.message).replace(/<[^>]+>/g,'').substring(0,300):'Error desconocido';
+    alert('Error al cargar el libro:\n'+msg+(pathConfirmado?'\nEl archivo fue eliminado de Storage.':''));
+    if(btnC){btnC.disabled=false;btnC.textContent='✅ Confirmar carga';}
+  }
+}
+
+// ── Acciones sin archivo ──────────────────────────────────────────────────
+function marcarSinMovimientosLibro(clienteId, rut, tipo){
+  var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
+  if(!confirm('¿Marcar Libro de '+label+' como "Sin movimientos" en el período '+_periodoActual+'?')) return;
+  var u=getUsuario();
+  sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
+    p_cliente_id:parseInt(clienteId),p_periodo:_periodoActual,p_tipo:tipo,
+    p_accion:'sin_movimientos',p_usuario:u.nombre||'analista',
+    p_archivo:null,p_cabecera:{},p_registros:[],
+    p_observaciones:[],p_reglas_honorarios:[],p_obs:null
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); }
+    else alert('Error: '+((d&&d.message)||'Error desconocido'));
+  }).catch(function(e){ alert('Error de conexión: '+e.message); });
+}
+
+function marcarNoAplicaLibro(clienteId, rut, tipo){
+  var motivo=prompt('Motivo obligatorio: ¿Por qué no aplica el Libro de Honorarios en '+_periodoActual+'?');
+  if(motivo===null) return;
+  if(!motivo.trim()){alert('El motivo es obligatorio.');return;}
+  var u=getUsuario();
+  sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
+    p_cliente_id:parseInt(clienteId),p_periodo:_periodoActual,p_tipo:tipo,
+    p_accion:'no_aplica',p_usuario:u.nombre||'analista',
+    p_archivo:null,p_cabecera:{},p_registros:[],
+    p_observaciones:[],p_reglas_honorarios:[],p_obs:motivo.trim()
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); }
+    else alert('Error: '+((d&&d.message)||'Error desconocido'));
+  }).catch(function(e){ alert('Error de conexión: '+e.message); });
+}
+
+// ── Actualizar memoria después del éxito ──────────────────────────────────
+function actualizarLibroEnMemoria(clienteId, tipo, rpcData){
+  var cid=String(clienteId);
+  if(!_librosMap[cid]) _librosMap[cid]={};
+  var cab=rpcData.cabecera?sbRowToLibroCabecera(rpcData.cabecera):null;
+  if(cab&&rpcData.archivo){
+    cab.nombreOriginal=rpcData.archivo.nombre_original||null;
+    cab.cargadoAt=rpcData.archivo.cargado_at||null;
+    cab.cargadoPor=rpcData.archivo.cargado_por||null;
+    cab.nFilasTotal=rpcData.archivo.n_filas_total||0;
+    cab.nFilasIncluidas=rpcData.archivo.n_filas_incluidas||0;
+    cab.nFilasError=rpcData.archivo.n_filas_error||0;
+  }
+  _librosMap[cid][tipo]=cab;
+  var cliente=_clientesContables.find(function(c){return String(c.id)===cid;});
+  if(cliente){
+    var rep=_reportesContables.find(function(r){return r.rut===cliente.rut&&r.periodo===_periodoActual;});
+    if(rep){
+      if(!rep.libros) rep.libros={};
+      rep.libros[tipo]=cab;
+    }
+  }
+}
+
 // ── MARCAR LISTO PARA CONSOLIDAR ─────────────────────────────────────────
 // Requiere estado_contable = 'completado'.
 // Persiste listo_panel_control = true en Supabase antes de actualizar memoria.
@@ -936,7 +1600,24 @@ function cargarReportesPeriodo(periodo, cb){
   if(!periodo){cb([]);return;}
   sbGetReportesPeriodo(periodo,function(reportes){
     _reportesContables=reportes||[];
-    if(cb) cb(_reportesContables);
+    // Cargar libros del período en paralelo y adjuntarlos a cada reporte
+    sbGetLibrosCabeceraByPeriodo(periodo,function(librosArr){
+      // Construir mapa: { String(clienteId): { tipo: cabecera } }
+      _librosMap={};
+      (librosArr||[]).forEach(function(lib){
+        var key=String(lib.clienteId);
+        if(!_librosMap[key]) _librosMap[key]={};
+        _librosMap[key][lib.tipo]=lib;
+      });
+      // Adjuntar libros a cada reporte para que renderTabla los encuentre
+      _reportesContables.forEach(function(rep){
+        var c=_clientesContables.find(function(x){return x.rut===rep.rut;});
+        var cid=c?String(c.id):null;
+        var m=cid?(_librosMap[cid]||{}):{};
+        rep.libros={compras:m.compras||null,ventas:m.ventas||null,honorarios:m.honorarios||null};
+      });
+      if(cb) cb(_reportesContables);
+    });
   });
 }
 
