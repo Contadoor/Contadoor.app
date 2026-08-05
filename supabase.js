@@ -253,7 +253,13 @@ function sbRowToCliente(row){
     // Flags servicio
     tieneRrhh:         row.tiene_rrhh!==false,
     tieneContabilidad: row.tiene_contabilidad!==false,
-    honorariosContables: row.honorarios_contables||'determinar_mensualmente'
+    honorariosContables: row.honorarios_contables||'determinar_mensualmente',
+    // Tasa PPM
+    ppmTasaDefault:      row.ppm_tasa_default!==null&&row.ppm_tasa_default!==undefined
+                           ? Number(row.ppm_tasa_default) : null,
+    ppmTasaVigenteDesde: row.ppm_tasa_vigente_desde||null,
+    ppmTasaFuente:       row.ppm_tasa_fuente||null,
+    ppmTasaObservacion:  row.ppm_tasa_observacion||null
   };
 }
 function sbClienteToRow(c){
@@ -304,7 +310,14 @@ function sbClienteToRow(c){
     socios:            c.socios||[],
     tiene_rrhh:        c.tieneRrhh!==false,
     tiene_contabilidad:c.tieneContabilidad!==false,
-    honorarios_contables:c.honorariosContables||'determinar_mensualmente'
+    honorarios_contables:c.honorariosContables||'determinar_mensualmente',
+    // Tasa PPM — null si no está configurada
+    ppm_tasa_default:
+      (c.ppmTasaDefault===null||c.ppmTasaDefault===undefined||c.ppmTasaDefault==='')
+        ? null : Number(c.ppmTasaDefault),
+    ppm_tasa_vigente_desde: c.ppmTasaVigenteDesde||null,
+    ppm_tasa_fuente:        c.ppmTasaFuente||null,
+    ppm_tasa_observacion:   c.ppmTasaObservacion||null
   };
 }
 
@@ -351,7 +364,8 @@ function sbGetClientes(cb){
     'prioridad_rrhh','prioridad_contable',
     'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
     'obs_acceso','obs','logo_base64','socios',
-    'tiene_rrhh','tiene_contabilidad','honorarios_contables'
+    'tiene_rrhh','tiene_contabilidad','honorarios_contables',
+    'ppm_tasa_default','ppm_tasa_vigente_desde','ppm_tasa_fuente','ppm_tasa_observacion'
   ].join(',');
 
   var CLIENTES_PATH='clientes?select='+CLIENTES_COLS+'&order=razon_social.asc';
@@ -1075,6 +1089,8 @@ function sbRowToLibroCabecera(row){
     nDocsIncluidos:          row.n_docs_incluidos||0,
     nDocsExcluidos:          row.n_docs_excluidos||0,
     nDocsNc:                 row.n_docs_nc||0,
+    // basePpm: derivado de columnas existentes; reconstruible tras recarga
+    basePpm:  Number(row.total_neto||0) + Number(row.total_exento||0),
     // Totales Honorarios
     totalBruto:              row.total_bruto||0,
     totalRetencion:          row.total_retencion||0,
