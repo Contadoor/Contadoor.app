@@ -712,19 +712,58 @@ function abrirF29(rut){
   document.getElementById('modal-cliente-nombre').textContent=c.razon+'  -  '+_periodoActual;
   document.getElementById('m-rut').value=rut;
   document.getElementById('m-periodo').value=_periodoActual;
-  // IVA
-  document.getElementById('f-debito').value=f29.ivaDebito||'';
-  document.getElementById('f-credito').value=f29.ivaCredito||'';
-  document.getElementById('f-remanente-ant').value=remanente||'';
-  // PPM
-  document.getElementById('f-ppm-base').value=f29.ppmBase||'';
-  document.getElementById('f-ppm-tasa').value=f29.ppmTasa||periodo.ppmTasa||1.5;
-  document.getElementById('f-ppm-monto').value=f29.ppm||'';
-  document.getElementById('ppm-tasa-hint').textContent='Tasa período: '+(periodo.ppmTasa||1.5)+'%';
+  // IVA — precargar desde libros SOLO si el Pre-F29 aún no tiene datos propios.
+  // tieneValorGuardado(v): un cero guardado debe conservarse y no ser sobreescrito.
+  function tieneValorGuardado(v){
+    return v !== null && v !== undefined && v !== '';
+  }
+  var libros=rep.libros||{};
+  var libVentas=libros.ventas;
+  var libCompras=libros.compras;
+  var ESTADOS_LIB=['validado','sin_movimientos'];
+  var ventasOk  = ESTADOS_LIB.indexOf((libVentas||{}).estado||'')>=0;
+  var comprasOk = ESTADOS_LIB.indexOf((libCompras||{}).estado||'')>=0;
+
+  // base PPM = total_neto + total_exento (columnas existentes en libros_cabecera)
+  var ppmBaseDesdeVentas = ventasOk
+    ? Number((libVentas||{}).totalNeto||0) + Number((libVentas||{}).totalExento||0)
+    : '';
+
+  // Precargar solo si el campo F29 no tiene valor guardado (incluye cero)
+  var ivaDebitoVal  = tieneValorGuardado(f29.ivaDebito)  ? f29.ivaDebito
+                      : (ventasOk  ? (libVentas.totalIva||0)   : '');
+  var ivaCreditoVal = tieneValorGuardado(f29.ivaCredito) ? f29.ivaCredito
+                      : (comprasOk ? (libCompras.totalIva||0)  : '');
+  var ppmBaseVal    = tieneValorGuardado(f29.ppmBase)    ? f29.ppmBase
+                      : ppmBaseDesdeVentas;
+
+  document.getElementById('f-debito').value       = ivaDebitoVal  !== '' ? ivaDebitoVal  : '';
+  document.getElementById('f-credito').value      = ivaCreditoVal !== '' ? ivaCreditoVal : '';
+  document.getElementById('f-remanente-ant').value= remanente     !== '' ? remanente     : '';
+
+  // PPM tasa: reporte guardado > ficha cliente > vacío con aviso
+  var tasaGuardada  = f29.ppmTasa;
+  var tasaCliente   = c.ppmTasaDefault;
+  var ppmTasaVal, ppmHint;
+  if(tieneValorGuardado(tasaGuardada)){
+    ppmTasaVal=tasaGuardada;
+    ppmHint='Tasa guardada en este reporte: '+tasaGuardada+'%';
+  } else if(tieneValorGuardado(tasaCliente)){
+    ppmTasaVal=tasaCliente;
+    ppmHint='Tasa desde ficha del cliente: '+tasaCliente+'%';
+  } else {
+    ppmTasaVal='';
+    ppmHint='\u26A0 Tasa PPM no configurada en la ficha del cliente.';
+  }
+
+  document.getElementById('f-ppm-base').value=ppmBaseVal!==''?ppmBaseVal:'';
+  document.getElementById('f-ppm-tasa').value=ppmTasaVal;
+  document.getElementById('f-ppm-monto').value    = tieneValorGuardado(f29.ppm)    ? f29.ppm    : '';
+  document.getElementById('ppm-tasa-hint').textContent=ppmHint;
   // Retenciones separadas
-  document.getElementById('f-ret-hon').value=f29.retHon||'';
-  document.getElementById('f-imp-2cat').value=rep.iuSii||rep.iu||f29.imp2cat||'';
-  document.getElementById('f-otros-imp').value=f29.otrosImp||'';
+  document.getElementById('f-ret-hon').value      = tieneValorGuardado(f29.retHon)  ? f29.retHon  : '';
+  document.getElementById('f-imp-2cat').value     = tieneValorGuardado(rep.iuSii||rep.iu||f29.imp2cat) ? (rep.iuSii||rep.iu||f29.imp2cat) : '';
+  document.getElementById('f-otros-imp').value    = tieneValorGuardado(f29.otrosImp)? f29.otrosImp : '';
   // Postergación
   document.getElementById('f-postergar-iva').checked=f29.postergado||false;
   document.getElementById('f-obs').value=f29.obs||'';
@@ -807,6 +846,25 @@ function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
 
+  // Detectar cambio de tasa vs. ficha del cliente
+  var tasaIngresada=nv('f-ppm-tasa');
+  var c=getClientes().find(function(x){return x.rut===rut;})||{};
+  var tasaDefault=c.ppmTasaDefault;
+  var actualizarFichaCliente=false;
+
+  if(tasaIngresada>0 && tasaDefault!=null && Math.abs(tasaIngresada-tasaDefault)>0.0001){
+    var opcion=confirm(
+      'La tasa PPM ingresada ('+tasaIngresada+'%) difiere de la tasa en la ficha del cliente ('+tasaDefault+'%).\n\n'+
+      'Aceptar → Guardar solo este período\n'+
+      'Cancelar → Volver sin guardar (podrás cambiar la tasa)'
+    );
+    if(!opcion){ return; }
+    // Preguntar si además actualiza la ficha
+    if(confirm('¿Actualizar también la tasa predeterminada en la ficha del cliente ('+c.razon+')?')){
+      actualizarFichaCliente=true;
+    }
+  }
+
   var deb=nv('f-debito'),cred=nv('f-credito'),rem=nv('f-remanente-ant');
   var ivaResult=deb-cred-rem;
   var postergado=document.getElementById('f-postergar-iva').checked;
@@ -872,6 +930,41 @@ function guardarF29(){
     if(idx>=0){ reportes[idx]=reporteActualizado; }
     else { reportes.push(reporteActualizado); }
     setReportes(reportes);
+
+    // Actualizar ficha del cliente con la nueva tasa PPM si el analista lo solicitó
+    if(actualizarFichaCliente && c && c.id && tasaIngresada>0){
+      sbPatch('clientes?id=eq.'+c.id,{
+        ppm_tasa_default:       tasaIngresada,
+        ppm_tasa_vigente_desde: periodo
+      }).then(function(res){
+        // Validar que Supabase devolvió una fila válida (array con al menos un item)
+        var filaOk=Array.isArray(res)&&res.length>0&&res[0]&&res[0].id;
+        if(filaOk){
+          var cIdx=_clientesContables.findIndex(function(x){return x.id===c.id;});
+          if(cIdx>=0){
+            _clientesContables[cIdx].ppmTasaDefault=tasaIngresada;
+            _clientesContables[cIdx].ppmTasaVigenteDesde=periodo;
+          }
+          sbCacheInvalidate('clientes_v2');
+          console.info('[Gestoor] Tasa PPM actualizada en ficha del cliente:',tasaIngresada+'%','desde',periodo);
+        } else {
+          // F29 ya fue guardado; solo falló la actualización de ficha
+          console.warn('[Gestoor] sbPatch clientes devolvió respuesta inesperada:',res);
+          if(window.crearNotificacion) crearNotificacion({
+            modulo:'reportes',tipo:'info',prioridad:'baja',
+            mensaje:'Pre-F29 guardado correctamente. Tasa del período guardada en el reporte. La ficha del cliente no pudo actualizarse automáticamente; verifica en la ficha del cliente.',
+            accion:null
+          });
+        }
+      }).catch(function(e){
+        console.warn('[Gestoor] No se pudo actualizar la tasa PPM en la ficha del cliente:',e&&e.message);
+        if(window.crearNotificacion) crearNotificacion({
+          modulo:'reportes',tipo:'info',prioridad:'baja',
+          mensaje:'Pre-F29 guardado. Tasa del período: '+tasaIngresada+'%. La ficha del cliente no se actualizó (error de red).',
+          accion:null
+        });
+      });
+    }
 
     // Mostrar confirmación
     if(mg){mg.className='msg-guardado on';}
@@ -1164,63 +1257,95 @@ function procesaIncluido(valor){
   return ['X','SI','S','YES','TRUE','1'].indexOf(v)>=0;
 }
 
+// ── Normalización de tipo de documento ───────────────────────────────────
+function normTipoDoc(tipo){
+  if(!tipo) return 'Sin tipo identificado';
+  var t = tipo.trim();
+  var u = t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/NOTA.*(CRED)/.test(u))                            return 'Nota de crédito';
+  if(/NOTA.*(DEB)/.test(u))                             return 'Nota de débito';
+  if(/FACTURA.*(EXENT|NO AFECT|NO GRAV)/.test(u))       return 'Factura exenta';
+  if(/FACTURA.*(COMPRA)/.test(u))                       return 'Factura de compra';
+  if(/^FACTURA\s*(ELECTRONICA\s*)?(AFECTA\s*)?$/.test(u)||u==='FACTURA AFECTA') return 'Factura afecta';
+  if(/FACTURA/.test(u))                                 return 'Factura afecta';
+  if(/BOLETA.*(EXENT|NO AFECT|NO GRAV)/.test(u))        return 'Boleta exenta';
+  if(/BOLETA/.test(u))                                  return 'Boleta';
+  if(/LIQUIDACI/.test(u))                               return 'Liquidación';
+  if(/GU[IA]A/.test(u))                                 return 'Guía de despacho';
+  return t;
+}
+
+// ── Determinar si un documento es exento ─────────────────────────────────
+function esDocExento(tipoNorm, monto_neto, monto_exento, monto_iva){
+  if(/exenta|no afect/i.test(tipoNorm)) return true;
+  // Tiene exento y NO tiene neto ni IVA → exento puro
+  if(Number(monto_exento||0)!==0 && Number(monto_neto||0)===0 && Number(monto_iva||0)===0) return true;
+  return false;
+}
+
+// ── Parser principal Compras y Ventas ─────────────────────────────────────
 function normalizarFilasComprasVentas(rawRows,tipo){
   var hIdx=detectarHeaderRow(rawRows);
   var colMap=buildColMap(rawRows[hIdx]||[]);
 
-  // Diagnóstico: ¿existe la columna Procesa?
-  var tieneColProcesa = colMap.procesa !== undefined;
-  if(!tieneColProcesa){
-    console.warn('[MasConta] Columna Procesa no detectada en el archivo. colMap:', colMap);
-  }
+  // Diagnóstico en consola (no bloquea ni muestra error al usuario)
+  var tieneColProcesa   = colMap.procesa!==undefined;
+  var tieneColTipoDoc   = colMap.tipo_documento!==undefined;
+  console.info('[MasConta] colMap detectado:',Object.keys(colMap));
 
-  var filas=[], obs=[], nTotalFila=0, nErr=0, nAdv=0;
-  var resumenProcesa={};  // diagnóstico de valores encontrados
+  var filas=[], obs=[], nAdv=0;
+  var resumenProcesa={};
 
   for(var i=hIdx+1;i<rawRows.length;i++){
     var raw=rawRows[i];
     if(!raw||raw.every(function(c){return String(c||'').trim()==='';}) ) continue;
-    nTotalFila++;
 
-    var razonRaw=colMap.razon_social!==undefined?String(raw[colMap.razon_social]||'').trim():'';
-    var procRaw =colMap.procesa!==undefined?String(raw[colMap.procesa]||'').trim():'';
+    var razonRaw = colMap.razon_social!==undefined ? String(raw[colMap.razon_social]||'').trim() : '';
+    var procRaw  = colMap.procesa!==undefined      ? String(raw[colMap.procesa]||'').trim()      : '';
+    var doc      = colMap.tipo_documento!==undefined ? String(raw[colMap.tipo_documento]||'').trim() : null;
 
-    // Acumular valores de Procesa para diagnóstico
-    var procKey=procRaw===''?'(vacío)':procRaw;
-    resumenProcesa[procKey]=(resumenProcesa[procKey]||0)+1;
+    var neto = parseMontoLib(colMap.monto_neto!==undefined        ? raw[colMap.monto_neto]        : 0);
+    var exen = parseMontoLib(colMap.monto_exento!==undefined      ? raw[colMap.monto_exento]      : 0);
+    var iva  = parseMontoLib(colMap.monto_iva!==undefined         ? raw[colMap.monto_iva]         : 0);
+    var ret  = parseMontoLib(colMap.monto_retenciones!==undefined ? raw[colMap.monto_retenciones] : 0);
+    var tot  = parseMontoLib(colMap.monto_total!==undefined       ? raw[colMap.monto_total]       : 0);
 
-    // Detectar fila de totales
-    if(/^total/i.test(razonRaw)&&procRaw===''){
+    // Diagnóstico Procesa (solo consola)
+    var procKey = procRaw==='' ? '(vacío)' : procRaw;
+    resumenProcesa[procKey] = (resumenProcesa[procKey]||0)+1;
+
+    // Detección de fila de totales
+    var esFillTotal = /^total/i.test(razonRaw) && procRaw==='' && !doc;
+    if(esFillTotal){
       filas.push({n_fila_origen:i+1,procesa:procRaw,incluido:false,es_fila_total:true,
         rut_contraparte:null,razon_social:razonRaw,tipo_documento:null,folio:null,
         cuenta_contable:null,detalle:null,fecha_documento:null,
         monto_neto:0,monto_exento:0,monto_iva:0,monto_retenciones:0,monto_total:0,
-        es_nota_credito:false,subtipo_honorario:null,clasificacion_fuente:null});
+        es_nota_credito:false,esExento:false,tipoNorm:null,
+        subtipo_honorario:null,clasificacion_fuente:null});
       continue;
     }
 
-    var neto = parseMontoLib(colMap.monto_neto!==undefined?raw[colMap.monto_neto]:0);
-    var exen = parseMontoLib(colMap.monto_exento!==undefined?raw[colMap.monto_exento]:0);
-    var iva  = parseMontoLib(colMap.monto_iva!==undefined?raw[colMap.monto_iva]:0);
-    var ret  = parseMontoLib(colMap.monto_retenciones!==undefined?raw[colMap.monto_retenciones]:0);
-    var tot  = parseMontoLib(colMap.monto_total!==undefined?raw[colMap.monto_total]:0);
-    var doc  = colMap.tipo_documento!==undefined?String(raw[colMap.tipo_documento]||'').trim():null;
+    // ── Criterio de inclusión (sin dependencia de Procesa) ────────────────
+    var tieneMontos = neto!==0 || exen!==0 || iva!==0 || tot!==0;
+    var incl = !esFillTotal && Boolean(doc || tieneMontos);
 
-    // Normalización segura de Procesa
-    var incl = tieneColProcesa ? procesaIncluido(procRaw) : false;
-    var esNC = (doc&&(/nc|nota.de.cr/i.test(doc)))||neto<0;
-    var rut  = normRutLib(colMap.rut_contraparte!==undefined?raw[colMap.rut_contraparte]:null);
+    var tipoNorm = incl ? normTipoDoc(doc) : null;
+    var esNC     = (doc && /nc|nota.de.cr/i.test(doc)) || neto<0;
+    var exento   = incl ? esDocExento(tipoNorm||'', neto, exen, iva) : false;
+    var rut      = normRutLib(colMap.rut_contraparte!==undefined ? raw[colMap.rut_contraparte] : null);
 
     var fila={
       n_fila_origen:i+1, procesa:procRaw, incluido:incl,
-      es_fila_total:false, es_nota_credito:esNC,
+      es_fila_total:false, es_nota_credito:esNC, esExento:exento,
+      tipoNorm:tipoNorm,
       rut_contraparte:rut,
       razon_social:razonRaw||null,
       tipo_documento:doc||null,
-      folio:colMap.folio!==undefined?String(raw[colMap.folio]||'').trim():null,
-      cuenta_contable:colMap.cuenta_contable!==undefined?String(raw[colMap.cuenta_contable]||'').trim():null,
-      detalle:colMap.detalle!==undefined?String(raw[colMap.detalle]||'').trim():null,
-      fecha_documento:normFechaLib(colMap.fecha_documento!==undefined?raw[colMap.fecha_documento]:null),
+      folio:          colMap.folio!==undefined           ? String(raw[colMap.folio]||'').trim()          : null,
+      cuenta_contable:colMap.cuenta_contable!==undefined ? String(raw[colMap.cuenta_contable]||'').trim(): null,
+      detalle:        colMap.detalle!==undefined          ? String(raw[colMap.detalle]||'').trim()         : null,
+      fecha_documento:normFechaLib(colMap.fecha_documento!==undefined ? raw[colMap.fecha_documento] : null),
       monto_neto:neto, monto_exento:exen, monto_iva:iva,
       monto_retenciones:ret, monto_total:tot,
       subtipo_honorario:null, clasificacion_fuente:null
@@ -1244,67 +1369,75 @@ function normalizarFilasComprasVentas(rawRows,tipo){
     filas.push(fila);
   }
 
-  // Log diagnóstico
-  console.info('[MasConta] Valores columna Procesa:', resumenProcesa);
-  if(tieneColProcesa){
-    console.info('[MasConta] Columna Procesa detectada en \u00edndice', colMap.procesa);
-  } else {
-    console.warn('[MasConta] Columna Procesa NO encontrada. Columnas detectadas:', Object.keys(colMap));
-  }
+  console.info('[MasConta] Valores columna Procesa:',resumenProcesa);
 
   var cab=calcularCabeceraCV(filas);
   var tol=Math.min(2000,Math.max(100,Math.round((cab.n_filas_incluidas||1)*0.5)));
 
-  var tieneColTipoDoc=colMap.tipo_documento!==undefined;
   return {tipo:tipo,filas:filas,observaciones:obs,cabeceraCalc:cab,tolerancia:tol,
           nAdvFront:nAdv,colsDetectadas:Object.keys(colMap),
-          resumenProcesa:resumenProcesa,tieneColProcesa:tieneColProcesa,
+          resumenProcesa:resumenProcesa,
+          tieneColProcesa:tieneColProcesa,
           tieneColTipoDoc:tieneColTipoDoc};
 }
 
+// ── Cabecera: totales por libro (afecto/exento separados) ─────────────────
 function calcularCabeceraCV(filas){
-  var c={n_filas_total:filas.length,n_filas_incluidas:0,n_filas_excluidas:0,
-    n_filas_error:0,n_pendientes_clasificacion:0,
-    total_neto:0,total_exento:0,total_iva:0,total_otros_imp:0,
-    total_general:0,total_nc:0,n_docs_incluidos:0,n_docs_excluidos:0,n_docs_nc:0,
-    total_bruto:0,total_retencion:0,total_adicional_3pct:0,total_liquido:0,
-    n_recibidos:0,n_emitidos:0};
+  // Documentos mixtos: una fila puede tener monto_neto y monto_exento simultáneamente.
+  // No se fuerza clasificación binaria. Se suman neto y exento por separado.
+  // base_ppm = total_neto + total_exento (reconstruible desde columnas existentes en BD).
+  // total_neto_afecto, total_exento_docs y base_ppm son frontend-only y NO van a la RPC.
+  var c={
+    n_filas_total:filas.length, n_filas_incluidas:0, n_filas_excluidas:0,
+    n_filas_error:0, n_pendientes_clasificacion:0,
+    // Campos compatibles con libros_cabecera (van a la RPC)
+    total_neto:0, total_exento:0, total_iva:0, total_otros_imp:0,
+    total_general:0, total_nc:0,
+    n_docs_incluidos:0, n_docs_excluidos:0, n_docs_nc:0,
+    total_bruto:0, total_retencion:0, total_adicional_3pct:0, total_liquido:0,
+    n_recibidos:0, n_emitidos:0,
+    // Frontend-only (no van a la RPC; se reconstruyen desde total_neto + total_exento)
+    base_ppm:0
+  };
 
   filas.forEach(function(f){
     if(f.es_fila_total) return;
     if(f.incluido){
       c.n_filas_incluidas++; c.n_docs_incluidos++;
-      c.total_neto    +=f.monto_neto;
-      c.total_exento  +=f.monto_exento;
-      c.total_iva     +=f.monto_iva;
-      c.total_otros_imp+=f.monto_retenciones;
-      c.total_general +=f.monto_total;
+      c.total_neto      += f.monto_neto;       // suma todo el neto (afecto y de mixtos)
+      c.total_exento    += f.monto_exento;     // suma todo el exento (exento y de mixtos)
+      c.total_iva       += f.monto_iva;
+      c.total_otros_imp += f.monto_retenciones;
+      c.total_general   += f.monto_total;
       if(f.es_nota_credito){ c.total_nc+=f.monto_neto; c.n_docs_nc++; }
     } else {
       c.n_filas_excluidas++; c.n_docs_excluidos++;
     }
   });
+
+  // base_ppm: neto + exento (ambos influyen en el PPM según tratamiento tributario)
+  // Incluye el efecto de NC (sus montos son negativos, reducen la base)
+  c.base_ppm = c.total_neto + c.total_exento;
   return c;
 }
 
-// ── Previsualización ──────────────────────────────────────────────────────
 function agruparPorTipoDocumento(filas){
   var grupos={};
   filas.forEach(function(f){
     if(!f.incluido||f.es_fila_total) return;
-    var tipo=f.tipo_documento||'Sin tipo identificado';
-    if(!grupos[tipo]) grupos[tipo]={tipo:tipo,cantidad:0,neto:0,iva:0,exento:0,total:0};
+    var tipo=f.tipoNorm||normTipoDoc(f.tipo_documento)||'Sin tipo identificado';
+    if(!grupos[tipo]) grupos[tipo]={tipo:tipo,cantidad:0,neto:0,exento:0,iva:0,otros:0,total:0};
     grupos[tipo].cantidad++;
-    grupos[tipo].neto   += Number(f.monto_neto   ||0);
-    grupos[tipo].iva    += Number(f.monto_iva    ||0);
-    grupos[tipo].exento += Number(f.monto_exento ||0);
-    grupos[tipo].total  += Number(f.monto_total  ||0);
+    grupos[tipo].neto   += Number(f.monto_neto        ||0);
+    grupos[tipo].exento += Number(f.monto_exento      ||0);
+    grupos[tipo].iva    += Number(f.monto_iva         ||0);
+    grupos[tipo].otros  += Number(f.monto_retenciones ||0);
+    grupos[tipo].total  += Number(f.monto_total       ||0);
   });
   return Object.keys(grupos).map(function(k){ return grupos[k]; })
     .sort(function(a,b){ return Math.abs(b.total)-Math.abs(a.total); });
 }
 
-// ff con signo — preserva negativos (para NC en la tabla de tipos)
 function ffSigned(n){
   var num=Math.round(n||0);
   if(num===0) return '$0';
@@ -1319,7 +1452,7 @@ function mostrarPreviewLibro(data){
   var grupos=agruparPorTipoDocumento(data.filas||[]);
   var ivLabel=tipo==='ventas'?'IVA débito':'IVA crédito';
 
-  // Cabecera: nombre de archivo + cliente + período + tipo
+  // Identificación del archivo y cliente
   var clienteInfo=_clientesContables.find(function(c){return c.rut===ctx.rut;})||{};
   var clienteNombre=clienteInfo.razon||ctx.rut;
   var nombreArchivo=data.file?data.file.name:'(sin archivo)';
@@ -1333,73 +1466,76 @@ function mostrarPreviewLibro(data){
   var ab=document.getElementById('preview-adv-box');
   var pm=document.getElementById('preview-msg');
   if(pm) pm.className='msg-guardado';
-
   var btnC=document.getElementById('btn-confirmar-carga');
 
   if(data.esHonorariosFase1){
     rb.style.display='block';
     rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Honorarios — Fase 1</div>'+
       '<div class="preview-row"><span>Total filas en archivo</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">\u26A0 El parseo avanzado de Honorarios se habilitará en una fase posterior.</div>';
+      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">\u26A0 Parseo avanzado de Honorarios en fase posterior.</div>';
     tb.style.display='none'; ab.innerHTML='';
     if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='No disponible en Fase 1';}
     document.getElementById('modalPreviewLibro').classList.add('on');
     return;
   }
 
-  // ── Validación multidimensional antes de habilitar Confirmar ────────────
+  // ── Validación multidimensional ──────────────────────────────────────────
   var motivos=[];
-  if(!data.tieneColProcesa)
-    motivos.push('La columna Procesa no fue encontrada en el archivo.');
-  if(!data.tieneColTipoDoc)
-    motivos.push('La columna Tipo de documento no fue encontrada.');
   if((cab.n_filas_incluidas||0)===0)
-    motivos.push('No se detectaron documentos incluidos (Procesa=X o equivalente).');
+    motivos.push('No se detectaron documentos con montos v\u00e1lidos.');
   if(grupos.length===0)
-    motivos.push('El resumen agrupado por tipo está vacío.');
-  // Verificar NaN/Infinity en totales
-  var camposNum=[cab.total_neto,cab.total_exento,cab.total_iva,cab.total_otros_imp,cab.total_general];
-  if(camposNum.some(function(v){return !isFinite(Number(v));}))
-    motivos.push('Se detectaron montos inválidos (NaN o Infinity) en los totales.');
-
+    motivos.push('El resumen por tipo de documento est\u00e1 vac\u00edo.');
+  var totNum=[cab.total_neto,cab.total_exento,cab.total_iva,cab.total_general];
+  if(totNum.some(function(v){return !isFinite(Number(v));}))
+    motivos.push('Se detectaron montos inv\u00e1lidos (NaN o Infinity).');
   var puedeConfirmar=motivos.length===0;
 
-  // ── 1. Tabla por tipo de documento ──────────────────────────────────────
+  // ── 1. Tabla por tipo de documento (con columna Exento) ──────────────────
   var tablaHTML='';
   if(grupos.length>0){
-    tablaHTML+='<div style="font-size:11px;font-weight:700;color:var(--contable);margin-bottom:6px">Resumen por tipo de documento (docs incluidos)</div>';
-    tablaHTML+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
-    tablaHTML+='<thead><tr style="background:var(--contable-bg);color:var(--contable);font-weight:700;">';
+    tablaHTML+='<div style="font-size:11px;font-weight:700;color:var(--contable);margin-bottom:6px">Resumen por tipo de documento</div>';
+    tablaHTML+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10.5px;min-width:480px">';
+    tablaHTML+='<thead><tr style="background:var(--contable-bg);color:var(--contable);font-weight:700">';
     tablaHTML+='<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Tipo de documento</th>';
     tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Docs</th>';
-    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Neto</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Neto afecto</th>';
+    tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Exento</th>';
     tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">'+ivLabel+'</th>';
     tablaHTML+='<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--contable-bdr)">Total</th>';
     tablaHTML+='</tr></thead><tbody>';
     grupos.forEach(function(g){
       var rowColor=g.total<0?'color:#991b1b':'';
       tablaHTML+='<tr style="border-bottom:.5px solid var(--bdr);'+rowColor+'">';
-      tablaHTML+='<td style="padding:3px 6px;max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+hesc(g.tipo)+'</td>';
+      tablaHTML+='<td style="padding:3px 6px;max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+hesc(g.tipo)+'</td>';
       tablaHTML+='<td style="text-align:right;padding:3px 6px">'+g.cantidad+'</td>';
       tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ffSigned(g.neto)+'</td>';
+      tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ffSigned(g.exento)+'</td>';
       tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ffSigned(g.iva)+'</td>';
       tablaHTML+='<td style="text-align:right;padding:3px 6px;font-family:monospace;font-weight:700">'+ffSigned(g.total)+'</td>';
       tablaHTML+='</tr>';
     });
-    tablaHTML+='</tbody></table>';
+    tablaHTML+='</tbody></table></div>';
   } else {
-    tablaHTML+='<div style="color:var(--tm);font-size:11px;padding:8px 0">Sin documentos incluidos para agrupar.</div>';
+    tablaHTML+='<div style="color:var(--tm);font-size:11px;padding:8px 0">Sin documentos para agrupar.</div>';
   }
 
   // ── 2. Totales generales ─────────────────────────────────────────────────
-  var totalesHTML='<div style="font-size:11px;font-weight:700;color:var(--contable);margin:10px 0 5px">Totales generales</div>';
-  totalesHTML+='<div class="preview-row"><span>Total docs incluidos</span><span><b>'+(cab.n_docs_incluidos||0)+'</b></span></div>';
+  var totalesHTML='<div style="margin-top:10px">';
+  totalesHTML+='<div style="font-size:11px;font-weight:700;color:var(--contable);margin-bottom:5px">Totales generales</div>';
+  totalesHTML+='<div class="preview-row"><span>Docs incluidos</span><span><b>'+(cab.n_docs_incluidos||0)+'</b></span></div>';
   totalesHTML+='<div class="preview-row"><span>Neto</span><span><b>'+ffSigned(cab.total_neto||0)+'</b></span></div>';
   totalesHTML+='<div class="preview-row"><span>Exento</span><span>'+ffSigned(cab.total_exento||0)+'</span></div>';
   totalesHTML+='<div class="preview-row"><span>'+ivLabel+'</span><span><b>'+ffSigned(cab.total_iva||0)+'</b></span></div>';
-  totalesHTML+='<div class="preview-row"><span>Otros impuestos</span><span>'+ffSigned(cab.total_otros_imp||0)+'</span></div>';
-  totalesHTML+='<div class="preview-row" style="border-top:1px solid var(--contable-bdr);padding-top:5px;margin-top:4px"><span><b>Total general</b></span><span><b>'+ffSigned(cab.total_general||0)+'</b></span></div>';
+  if((cab.total_otros_imp||0)!==0) totalesHTML+='<div class="preview-row"><span>Otros impuestos</span><span>'+ffSigned(cab.total_otros_imp||0)+'</span></div>';
+  totalesHTML+='<div class="preview-row" style="border-top:1px solid var(--contable-bdr);padding-top:5px;margin-top:4px"><span><b>Total</b></span><span><b>'+ffSigned(cab.total_general||0)+'</b></span></div>';
   if((cab.n_docs_nc||0)>0) totalesHTML+='<div class="preview-row"><span>NC incluidas</span><span>'+cab.n_docs_nc+' &middot; '+ffSigned(cab.total_nc||0)+'</span></div>';
+  // Base PPM (solo Ventas)
+  if(tipo==='ventas'){
+    totalesHTML+='<div class="preview-row" style="margin-top:5px;background:var(--contable-bg);padding:4px 8px;border-radius:6px">';
+    totalesHTML+='<span style="color:var(--contable);font-weight:600">Base preliminar PPM<br><small style="font-weight:normal">(afecto+exento)</small></span>';
+    totalesHTML+='<span style="color:var(--contable);font-weight:700">'+ffSigned(cab.base_ppm||0)+'</span></div>';
+  }
+  totalesHTML+='</div>';
 
   // ── 3. Indicadores secundarios ───────────────────────────────────────────
   var indicHTML='<div style="font-size:10.5px;color:var(--tm);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">';
@@ -1407,48 +1543,40 @@ function mostrarPreviewLibro(data){
   indicHTML+='<span style="color:var(--green)">Incluidas: <b>'+(cab.n_filas_incluidas||0)+'</b></span>';
   indicHTML+='<span>Excluidas: '+(cab.n_filas_excluidas||0)+'</span>';
   indicHTML+='<span>Tol. cuadratura: $'+(data.tolerancia||100)+'</span>';
-  if((cab.n_filas_error||0)>0) indicHTML+='<span style="color:var(--red)">Errores: <b>'+(cab.n_filas_error||0)+'</b></span>';
-  if((data.nAdvFront||0)>0)    indicHTML+='<span style="color:var(--amber)">Advertencias: '+data.nAdvFront+'</span>';
+  if((data.nAdvFront||0)>0) indicHTML+='<span style="color:var(--amber)">Advertencias: '+data.nAdvFront+'</span>';
   indicHTML+='</div>';
 
-  // ── 4. Alerta de validación (bloquea confirmar) ──────────────────────────
+  // ── 4. Alerta de validación ──────────────────────────────────────────────
   var alertaHTML='';
   if(!puedeConfirmar){
-    var procResumen=data.resumenProcesa||{};
-    var procList=Object.keys(procResumen).map(function(k){return '"'+k+'":'+procResumen[k];}).join(', ');
-    alertaHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 13px;margin-top:10px;font-size:11.5px;color:#991b1b;">';
-    alertaHTML+='<div style="font-weight:700;margin-bottom:5px">\u26D4 No es posible confirmar la carga:</div>';
-    motivos.forEach(function(m){ alertaHTML+='<div style="margin-bottom:2px">\u2022 '+hesc(m)+'</div>'; });
-    if(procList&&(cab.n_filas_incluidas||0)===0)
-      alertaHTML+='<div style="margin-top:5px;font-size:10.5px;font-weight:normal;opacity:.85">Valores detectados en Procesa: '+hesc(procList)+'</div>';
+    alertaHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:9px 12px;margin-top:8px;font-size:11px;color:#991b1b;">';
+    alertaHTML+='<b>\u26D4 No es posible confirmar:</b><br>';
+    motivos.forEach(function(m){alertaHTML+='\u2022 '+hesc(m)+'<br>';});
+    alertaHTML+='<div style="margin-top:4px;opacity:.8">Si no hay movimientos, usa "Sin movimientos" en lugar de cargar el archivo.</div>';
     alertaHTML+='</div>';
   }
 
-  // ── 5. Advertencias de cuadratura/RUT ────────────────────────────────────
+  // ── 5. Advertencias cuadratura/RUT ───────────────────────────────────────
   var advHTML='';
   var advs=(data.observaciones||[]).slice(0,20);
   if(advs.length>0){
     advHTML='<div class="preview-adv"><div style="font-weight:600;margin-bottom:4px">\u26A0 Advertencias ('+(data.observaciones.length>20?'20+':advs.length)+')</div>';
-    advs.forEach(function(o){ advHTML+='<div>F'+o.n_fila_origen+': '+hesc(o.mensaje)+'</div>'; });
+    advs.forEach(function(o){advHTML+='<div>F'+o.n_fila_origen+': '+hesc(o.mensaje)+'</div>';});
     advHTML+='</div>';
   }
 
-  // ── Ensamblar ─────────────────────────────────────────────────────────────
   rb.style.display='block';
   rb.innerHTML=tablaHTML+totalesHTML+indicHTML+alertaHTML;
   tb.style.display='none';
   ab.innerHTML=advHTML;
 
-  // Habilitar/deshabilitar Confirmar
   if(btnC){
     if(puedeConfirmar){
       btnC.disabled=false; btnC.style.opacity='1'; btnC.title=''; btnC.textContent='\u2705 Confirmar carga';
     } else {
-      btnC.disabled=true; btnC.style.opacity='.4';
-      btnC.title=motivos.join(' | ');
+      btnC.disabled=true; btnC.style.opacity='.4'; btnC.title=motivos.join(' | ');
     }
   }
-
   document.getElementById('modalPreviewLibro').classList.add('on');
 }
 
@@ -1482,6 +1610,34 @@ async function calcSha256Libro(file){
     var hash=await crypto.subtle.digest('SHA-256',buf);
     return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
   }catch(e){ return null; }
+}
+
+// cabeceraParaRPC: filtra propiedades que no existen en libros_cabecera
+// (total_neto_afecto, total_exento_docs, base_ppm son solo frontend).
+// La RPC y la BD solo aceptan los campos del modelo original.
+function cabeceraParaRPC(cab){
+  return {
+    n_filas_total:            cab.n_filas_total||0,
+    n_filas_incluidas:        cab.n_filas_incluidas||0,
+    n_filas_excluidas:        cab.n_filas_excluidas||0,
+    n_filas_error:            cab.n_filas_error||0,
+    n_pendientes_clasificacion: cab.n_pendientes_clasificacion||0,
+    total_neto:               cab.total_neto||0,
+    total_exento:             cab.total_exento||0,
+    total_iva:                cab.total_iva||0,
+    total_otros_imp:          cab.total_otros_imp||0,
+    total_general:            cab.total_general||0,
+    total_nc:                 cab.total_nc||0,
+    n_docs_incluidos:         cab.n_docs_incluidos||0,
+    n_docs_excluidos:         cab.n_docs_excluidos||0,
+    n_docs_nc:                cab.n_docs_nc||0,
+    total_bruto:              cab.total_bruto||0,
+    total_retencion:          cab.total_retencion||0,
+    total_adicional_3pct:     cab.total_adicional_3pct||0,
+    total_liquido:            cab.total_liquido||0,
+    n_recibidos:              cab.n_recibidos||0,
+    n_emitidos:               cab.n_emitidos||0
+  };
 }
 
 async function confirmarCargaLibro(){
@@ -1532,7 +1688,7 @@ async function confirmarCargaLibro(){
         tamano_bytes:   data.file.size,
         sha256:         sha256
       },
-      p_cabecera:         data.cabeceraCalc||{},
+      p_cabecera:         cabeceraParaRPC(data.cabeceraCalc||{}),
       p_registros:        data.filas||[],
       p_observaciones:    data.observaciones||[],
       p_reglas_honorarios:[],
