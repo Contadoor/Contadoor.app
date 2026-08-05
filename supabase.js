@@ -580,6 +580,8 @@ function sbReporteToRow(r){
     fecha_pago:           r.fechaPago||null,
     pagado:               r.pagado||false,
     pagos_validado:       r.pagosValidado||false,
+    estado_contable:      r.estadoContable||null,        // columna aprobada 2026-08-04
+    listo_panel_control:  r.listoPanelControl===true,    // columna aprobada 2026-08-04
     decision_cotiz:       r.decisionCotiz||null,
     // ── Analistas ────────────────────────────────────────────
     analista_rrhh:        r.preparado||r.analistaRrhh||null,
@@ -607,6 +609,29 @@ function sbReporteToRow(r){
 
 function sbRowToReporte(row){
   if(!row) return null;
+  // ── tieneF29: determina si construir el objeto de compatibilidad ──────
+  // tieneF29Legacy: registro anterior a la columna estado_contable —
+  //   se considera que tiene F29 si algún valor numérico es no-cero
+  //   o si hay postergación activa. Nunca aplica cuando estado_contable
+  //   ya está presente (ese registro fue guardado por guardarF29 v2).
+  var tieneF29Legacy =
+    !row.estado_contable &&
+    (
+      Number(row.debito_iva||0)!==0 ||
+      Number(row.credito_iva||0)!==0 ||
+      Number(row.ppm||0)!==0 ||
+      Number(row.ppm_base||0)!==0 ||
+      Number(row.ret_hon||0)!==0 ||
+      Number(row.iu_sii||0)!==0 ||
+      Number(row.otros_imp||0)!==0 ||
+      row.postergar_iva===true
+    );
+  // tieneF29: el objeto f29 se construye si el Pre-F29 fue guardado
+  // explícitamente (columna estado_contable) O si es un registro legacy
+  // con valores no-cero. Resuelve el caso Pre-F29 con todos los campos en 0.
+  var tieneF29 =
+    row.estado_contable === 'completado' ||
+    tieneF29Legacy;
   return {
     id:               row.id,
     rut:              row.cliente_rut,
@@ -724,7 +749,38 @@ function sbRowToReporte(row){
     tieneCont:        row.tiene_cont!==false,
     prioridadRrhh:    row.prioridad_rrhh||'media',
     prioridadContable:row.prioridad_contable||'media',
-    ts:               new Date(row.created_at||Date.now()).getTime()
+    ts:               new Date(row.created_at||Date.now()).getTime(),
+    // ── Objeto f29 de compatibilidad ────────────────────────────────────
+    // Reconstruido desde columnas planas de Supabase para que renderTabla
+    // pueda leer rep.f29.ivaDebito, rep.f29.ppm, etc. sin cambios.
+    // ivaApagar se calcula porque no existe como columna separada.
+    // Solo se construye si hay al menos un campo F29 guardado (heurística segura).
+    // No modificar sin actualizar sbReporteToRow en paralelo.
+    f29: tieneF29 ? {
+          ivaDebito:   row.debito_iva||0,
+          ivaCredito:  row.credito_iva||0,
+          remanente:   row.iva_remanente_sig||row.remanente||0,
+          ivaApagar:   row.postergar_iva ? 0
+            : Math.max(0,(row.debito_iva||0)-(row.credito_iva||0)-(row.iva_remanente_sig||row.remanente||0)),
+          ivaPostergado: row.iva_postergado||0,
+          postergado:  row.postergar_iva||false,
+          ivaFechaVenc: row.iva_fecha_venc||null,
+          ppm:         row.ppm||0,
+          ppmTasa:     row.ppm_tasa||0,
+          ppmBase:     row.ppm_base||0,
+          retHon:      row.ret_hon||0,
+          imp2cat:     row.iu_sii||0,
+          otrosImp:    row.otros_imp||0,
+          retenciones: (row.ret_hon||0)+(row.iu_sii||0)+(row.otros_imp||0),
+          obs:         row.obs_cont||null,
+          analistaContable: row.analista_contable||null
+        }
+      : null,
+    // ── Estado contable explícito (columna aprobada 2026-08-04) ────────
+    // Valores: null | 'completado'. La columna es la fuente de verdad.
+    // NUNCA derivar desde valores F29 — resuelve el caso de todos-cero.
+    estadoContable:    row.estado_contable||null,
+    listoPanelControl: row.listo_panel_control===true
   };
 }
 
