@@ -1992,7 +1992,7 @@ function ejecutarConTimeoutContable(etiqueta, ejecutor, timeoutMs, alFinalizar){
         alFinalizar(null,resultado);
       }catch(exFinalizar){
         console.error('[Contable] Excepción en alFinalizar de '+etiqueta+':',exFinalizar);
-        // No relanzar: el flujo ya captó el error
+      mostrarErrorInicio('Error procesando '+etiqueta+': '+(exFinalizar&&exFinalizar.message?exFinalizar.message:'error desconocido'));
       }
     });
   }catch(err){
@@ -2158,7 +2158,7 @@ function cargarReportesPeriodo(periodo, cb){
         // Adjuntar libros a cada reporte (buscar por RUT o por ID)
         _reportesContables.forEach(function(rep){
           var rutNorm=normalizarRutContable(rep.rut||rep.clienteRut||'');
-          var mByRut=rutNorm?(_librosMap[rutNorm]||{}):null;
+          var mByRut=rutNorm?(_librosMap[rutNorm]||null):null;
           // Fallback: buscar por ID del cliente
           var c=_clientesContables.find(function(x){
             return normalizarRutContable(x.rut)===rutNorm;
@@ -2331,6 +2331,191 @@ function init(){
   });
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// FUNCIONES RESTAURADAS — render libros, carga, helpers parser
+// ═══════════════════════════════════════════════════════════════
+
+function ts_lib(isoStr){
+  if(!isoStr) return '';
+  try{
+    var d=new Date(isoStr);
+    return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+
+           d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return String(isoStr).slice(0,16); }
+}
+
+function renderLibroBadge(estado){
+  var map = {
+    'no_cargado':      ['lb-no-cargado','sin cargar'],
+    'validado':        ['lb-validado','✅ validado'],
+    'con_observaciones':['lb-obs','⚠ observaciones'],
+    'sin_movimientos': ['lb-sin-mov','○ sin movimientos'],
+    'no_aplica':       ['lb-no-aplica','— no aplica'],
+    'error':           ['lb-error','✕ error'],
+    'procesando':      ['lb-obs','⏳ procesando'],
+  };
+  var p = map[estado] || ['lb-no-cargado', estado||'—'];
+  return '<span class="libro-badge '+p[0]+'">'+p[1]+'</span>';
+}
+
+function renderTarjetaLibro(tipo, cab, c){
+  var estado  = cab ? cab.estado : 'no_cargado';
+  var etiqueta = tipo==='compras'?'📋 Compras':tipo==='ventas'?'📋 Ventas':'📋 Honorarios';
+  var cid = c.id;
+  var rut = c.rut;
+
+  var h = '<div class="libro-card">';
+  h += '<div class="libro-card-hd"><span class="libro-titulo">'+etiqueta+'</span>'+renderLibroBadge(estado)+'</div>';
+
+  if(estado==='validado'||estado==='con_observaciones'){
+    h += '<div class="libro-meta">';
+    if(cab.nombreOriginal) h += hesc(String(cab.nombreOriginal).slice(0,40))+'<br>';
+    if(cab.validadoAt)     h += ts_lib(cab.validadoAt)+' · '+hesc(cab.validadoPor||'')+'<br>';
+    h += (cab.nDocsIncluidos||0)+' incluidos · '+(cab.nDocsExcluidos||0)+' excluidos';
+    if(cab.nFilasError>0)  h += ' · <span style="color:var(--red)">'+cab.nFilasError+' errores</span>';
+    h += '</div>';
+    if(tipo!=='honorarios'){
+      h += '<div class="libro-totales">';
+      h += '<div class="libro-total-row"><span>Neto</span><span>'+ff(cab.totalNeto)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Exento</span><span>'+ff(cab.totalExento)+'</span></div>';
+      h += '<div class="libro-total-row"><span>'+(tipo==='ventas'?'IVA débito':'IVA crédito')+'</span><span>'+ff(cab.totalIva)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Total</span><span>'+ff(cab.totalGeneral)+'</span></div>';
+      h += '</div>';
+    } else {
+      h += '<div class="libro-totales">';
+      h += '<div class="libro-total-row"><span>Bruto</span><span>'+ff(cab.totalBruto)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Retención</span><span>'+ff(cab.totalRetencion)+'</span></div>';
+      h += '<div class="libro-total-row"><span>Líquido</span><span>'+ff(cab.totalLiquido)+'</span></div>';
+      h += '</div>';
+    }
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Reemplazar</button>';
+    h += '</div>';
+  } else if(estado==='sin_movimientos'){
+    h += '<div class="libro-meta">Sin movimientos en el período.';
+    if(cab&&cab.validadoPor) h += '<br>'+hesc(cab.validadoPor);
+    h += '</div>';
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '</div>';
+  } else if(estado==='no_aplica'){
+    h += '<div class="libro-meta">No aplica este período.';
+    if(cab&&cab.obs) h += '<br><em>'+hesc(cab.obs)+'</em>';
+    h += '</div>';
+    h += '<div class="libro-actions">';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '</div>';
+  } else {
+    // no_cargado
+    h += '<div class="libro-meta" style="color:var(--tm);font-size:11px">No cargado para este período.</div>';
+    h += '<div class="libro-actions">';
+    if(tipo!=='honorarios'){
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
+    } else {
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarNoAplicaLibro('+cid+',\''+rut+'\',\''+tipo+'\')">— No aplica</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderSeccionLibros(rep, c){
+  var libros = rep.libros || (_librosMap[String(c.id||'')] || {});
+  var h = '<div style="margin-bottom:14px">';
+  h += '<div class="libros-sec-titulo">📂 Documentos contables del período</div>';
+  h += '<div class="libros-grid">';
+  h += renderTarjetaLibro('compras',   libros.compras,   c);
+  h += renderTarjetaLibro('ventas',    libros.ventas,    c);
+  h += renderTarjetaLibro('honorarios',libros.honorarios,c);
+  h += '</div></div>';
+  return h;
+}
+
+function cargarLibro(clienteId, rut, tipo, accion){
+  if(accion==='reemplazo'){
+    var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
+    if(!confirm('¿Reemplazar el Libro de '+label+'?\nEl archivo anterior quedará en el historial.')) return;
+  }
+  _cargaLibroCtx={clienteId:parseInt(clienteId),rut:rut,tipo:tipo,accion:accion,periodo:_periodoActual,workbook:null};
+  var inp=document.getElementById('libroFileInput');
+  if(inp){ inp.value=''; inp.click(); }
+}
+
+function onLibroFileSelected(inp){
+  var file=inp.files&&inp.files[0];
+  if(!file) return;
+  _cargaLibroCtx.file=file;
+  procesarArchivoLibro(file, null);
+}
+
+function cargarPeriodo(){
+  var sel=document.getElementById('selectPeriodo');
+  _periodoActual=sel?sel.value:'';
+  if(!_periodoActual){ document.getElementById('tablaBody').innerHTML=''; return; }
+  var pl=document.getElementById('periodo-label');
+  if(pl) pl.textContent=_periodoActual;
+  mostrarEstadoCarga('⏳ Cargando reportes del período…');
+  cargarReportesPeriodo(_periodoActual,function(reportes,errR){
+    if(errR) console.warn('[Contable] Error al recargar período:',errR);
+    try{ renderTabla(); }
+    catch(e){ console.error('[Contable] Error renderTabla tras cambio período:',e); mostrarErrorInicio('Error al mostrar clientes: '+e.message); }
+  });
+}
+
+// ── Helpers parser ──────────────────────────────────────────────────────
+function normTipoDoc(tipo){
+  if(!tipo) return 'Sin tipo identificado';
+  var t = tipo.trim();
+  var u = t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/NOTA.*(CRED)/.test(u))                            return 'Nota de crédito';
+  if(/NOTA.*(DEB)/.test(u))                             return 'Nota de débito';
+  if(/FACTURA.*(EXENT|NO AFECT|NO GRAV)/.test(u))       return 'Factura exenta';
+  if(/FACTURA.*(COMPRA)/.test(u))                       return 'Factura de compra';
+  if(/^FACTURA\s*(ELECTRONICA\s*)?(AFECTA\s*)?$/.test(u)||u==='FACTURA AFECTA') return 'Factura afecta';
+  if(/FACTURA/.test(u))                                 return 'Factura afecta';
+  if(/BOLETA.*(EXENT|NO AFECT|NO GRAV)/.test(u))        return 'Boleta exenta';
+  if(/BOLETA/.test(u))                                  return 'Boleta';
+  if(/LIQUIDACI/.test(u))                               return 'Liquidación';
+  if(/GU[IA]A/.test(u))                                 return 'Guía de despacho';
+  return t;
+}
+
+function esDocExento(tipoNorm, monto_neto, monto_exento, monto_iva){
+  if(/exenta|no afect/i.test(tipoNorm)) return true;
+  // Tiene exento y NO tiene neto ni IVA → exento puro
+  if(Number(monto_exento||0)!==0 && Number(monto_neto||0)===0 && Number(monto_iva||0)===0) return true;
+  return false;
+}
+
+function normRutLib(val){
+  if(!val) return null;
+  var s=String(val).trim().replace(/[\.\s\-]/g,'').toUpperCase();
+  if(s.length<2) return null;
+  return s.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'-'+s.slice(-1);
+}
+
+function normFechaLib(val){
+  if(!val) return null;
+  var s=String(val).trim();
+  // DD/MM/YYYY
+  var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Excel serial number como string
+  var n=parseFloat(s);
+  if(!isNaN(n)&&n>40000){
+    try{ var d=XLSX.SSF.parse_date_code(n); return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }catch(e){}
+  }
+  return null;
+}
+
+
 // ═══════════════════════════════════════════════════════════════
 // INICIO SEGURO — espera dependencias (supabase.js carga después)
 // ═══════════════════════════════════════════════════════════════
@@ -2442,3 +2627,4 @@ window.GESTOOR_MODULO = 'reportes-contable';
 </script>
 </body>
 </html>
+
