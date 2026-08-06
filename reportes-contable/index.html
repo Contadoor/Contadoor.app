@@ -494,6 +494,22 @@ function tlMini(pasos){
 }
 
 // ── RENDER TABLA ──────────────────────────────────────────────────────────
+// ── Gate Pre-F29: comprueba que compras y ventas estén validadas ─────────
+function librosListos(rep, c){
+  var libros=(rep&&rep.libros)||{};
+  var ESTADOS_OK=['validado','sin_movimientos'];
+  var libVentas=libros.ventas||null;
+  var libCompras=libros.compras||null;
+  var ventasOk=ESTADOS_OK.indexOf((libVentas||{}).estado||'')>=0;
+  var comprasOk=ESTADOS_OK.indexOf((libCompras||{}).estado||'')>=0;
+  // Honorarios: depende de la configuración del cliente
+  var honConf=String((c&&c.honorariosContables)||'determinar_mensualmente');
+  var honorariosOk=honConf==='no_aplica'||
+    ESTADOS_OK.indexOf(((libros.honorarios)||{}).estado||'')>=0||
+    honConf==='determinar_mensualmente'; // se ignora si no se ha definido
+  return ventasOk && comprasOk;  // honorarios no bloquean el Pre-F29
+}
+
 function renderTabla(){
   if(!_periodoActual){return;}
   var u=getUsuario();
@@ -1949,6 +1965,7 @@ function dependenciasContablesDisponibles(){
     typeof window.sbGetReportesPeriodo==='function' &&
     typeof window.sbGetLibrosCabeceraByPeriodo==='function' &&
     typeof window.sbRowToReporte==='function' &&
+    typeof window.sbRowToLibroCabecera==='function' &&
     Boolean(window._contadoorSesion) &&
     !document.documentElement.classList.contains('auth-pending')
   );
@@ -1969,13 +1986,20 @@ function ejecutarConTimeoutContable(etiqueta, ejecutor, timeoutMs, alFinalizar){
       if(finalizado) return;
       finalizado=true;
       clearTimeout(timer);
-      alFinalizar(null,resultado);
+      // Envolver alFinalizar en try/catch: el callback es asíncrono y
+      // las excepciones dentro de él se silencian si no se capturan aquí.
+      try{
+        alFinalizar(null,resultado);
+      }catch(exFinalizar){
+        console.error('[Contable] Excepción en alFinalizar de '+etiqueta+':',exFinalizar);
+        // No relanzar: el flujo ya captó el error
+      }
     });
   }catch(err){
     if(finalizado) return;
     finalizado=true;
     clearTimeout(timer);
-    alFinalizar(err,null);
+    try{ alFinalizar(err,null); }catch(ex){ console.error('[Contable] alFinalizar (catch):',ex); }
   }
 }
 
@@ -1999,6 +2023,11 @@ function clienteTieneContabilidad(c){
 // ═══════════════════════════════════════════════════════════════
 // CARGA DE REPORTES Y LIBROS
 // ═══════════════════════════════════════════════════════════════
+
+// Normaliza RUT para cruzar datos (elimina puntos y espacios)
+function normalizarRutContable(v){
+  return String(v||'').replace(/\./g,'').replace(/\s+/g,'').toUpperCase();
+}
 
 function cargarReportesPeriodo(periodo, cb){
   if(!periodo){ if(cb) cb([], null); return; }
@@ -2034,25 +2063,129 @@ function cargarReportesPeriodo(periodo, cb){
     ejecutarConTimeoutContable('sbGetLibrosCabeceraByPeriodo', function(done){
       sbGetLibrosCabeceraByPeriodo(periodo, done);
     }, 15000, function(errL, librosArr){
+      // ── Callback exactamente una vez ──────────────────────────────
+      var cbEjecutado=false;
+      function finalizarCargaReportes(error){
+        if(cbEjecutado) return;
+        cbEjecutado=true;
+        console.info('[Contable] finalizarCargaReportes',{
+          error:error,
+          reportes:_reportesContables.length,
+          libros:Object.keys(_librosMap||{}).length
+        });
+        if(typeof cb==='function') cb(_reportesContables, error||null);
+      }
+
       if(errL){
         console.error('[Contable] Error al cargar libros:',errL);
-        librosArr=[];
-      } else {
-        console.info('[Contable] Cabeceras de libros recibidas:', librosArr);
+        _librosMap={};
+        finalizarCargaReportes(errL);
+        return;
       }
-      _librosMap={};
-      (Array.isArray(librosArr)?librosArr:[]).forEach(function(lib){
-        var key=String(lib.clienteId);
-        if(!_librosMap[key]) _librosMap[key]={};
-        _librosMap[key][lib.tipo]=lib;
-      });
-      _reportesContables.forEach(function(rep){
-        var c=_clientesContables.find(function(x){return x.rut===rep.rut;});
-        var cid=c?String(c.id):null;
-        var m=cid?(_librosMap[cid]||{}):{};
-        rep.libros={compras:m.compras||null,ventas:m.ventas||null,honorarios:m.honorarios||null};
-      });
-      if(cb) cb(_reportesContables, null);
+
+      console.info('[Contable] Cabeceras de libros recibidas:', librosArr);
+      console.info('[Contable] Iniciando construcción de _librosMap');
+
+      // ── Construir _librosMap en try/catch ─────────────────────────
+      try{
+        _librosMap={};
+        var filasLibros=Array.isArray(librosArr)?librosArr:[];
+
+        // Log cabecera original vs convertida para diagnóstico
+        if(filasLibros.length>0){
+          console.info('[Contable] Cabecera original vs convertida:',{
+            original: filasLibros[0],
+            convertida: typeof window.sbRowToLibroCabecera==='function'
+              ? window.sbRowToLibroCabecera(filasLibros[0])
+              : null
+          });
+        }
+
+        filasLibros.forEach(function(row, indice){
+          console.info('[Contable] Procesando cabecera libro:',indice,row);
+          try{
+            // Convertir fila con el mapper oficial si está disponible
+            var libro=typeof window.sbRowToLibroCabecera==='function'
+              ? window.sbRowToLibroCabecera(row)
+              : row;
+
+            if(!libro){
+              console.warn('[Contable] Cabecera omitida (conversión vacía):',row);
+              return;
+            }
+
+            // Extraer RUT normalizado para indexar (camelCase y snake_case)
+            var rutRaw=String(
+              libro.clienteRut||libro.cliente_rut||
+              libro.rut||row.cliente_rut||row.rut||''
+            ).trim();
+            var rutKey=normalizarRutContable(rutRaw);
+
+            // Extraer tipo (compras/ventas/honorarios)
+            var tipo=String(
+              libro.tipo||libro.tipoLibro||libro.tipo_libro||
+              row.tipo||row.tipo_libro||''
+            ).trim().toLowerCase();
+
+            // Fallback: también indexar por clienteId para compatibilidad
+            var cid=String(
+              libro.clienteId||libro.cliente_id||
+              row.clienteId||row.cliente_id||''
+            ).trim();
+
+            if(!tipo){
+              console.warn('[Contable] Cabecera sin tipo:',{rutKey,cid,libro});
+              return;
+            }
+
+            // Guardar por RUT normalizado (clave principal)
+            if(rutKey){
+              if(!_librosMap[rutKey]) _librosMap[rutKey]={};
+              _librosMap[rutKey][tipo]=libro;
+            }
+            // Guardar también por clienteId para cruce con reportes vía ID
+            if(cid && cid!=='undefined' && cid!==''){
+              if(!_librosMap[cid]) _librosMap[cid]={};
+              _librosMap[cid][tipo]=libro;
+            }
+          }catch(exFila){
+            console.error('[Contable] Error procesando fila libro '+indice+':',exFila,row);
+          }
+        });
+
+        console.info('[Contable] _librosMap construido:',_librosMap);
+
+        // Adjuntar libros a cada reporte (buscar por RUT o por ID)
+        _reportesContables.forEach(function(rep){
+          var rutNorm=normalizarRutContable(rep.rut||rep.clienteRut||'');
+          var mByRut=rutNorm?(_librosMap[rutNorm]||{}):null;
+          // Fallback: buscar por ID del cliente
+          var c=_clientesContables.find(function(x){
+            return normalizarRutContable(x.rut)===rutNorm;
+          });
+          var cid=c?String(c.id):null;
+          var mById=(cid && cid!=='null')?(_librosMap[cid]||{}):null;
+          var m=mByRut||mById||{};
+          rep.libros={
+            compras:  m.compras   ||null,
+            ventas:   m.ventas    ||null,
+            honorarios:m.honorarios||null
+          };
+        });
+
+        console.info('[Contable] Antes de finalizar carga de reportes',{
+          clientes:_clientesContables.length,
+          reportes:_reportesContables.length,
+          librosMapKeys:Object.keys(_librosMap).length
+        });
+
+      }catch(exMapa){
+        console.error('[Contable] Error construyendo _librosMap:',exMapa);
+        _librosMap={};
+      }
+
+      // Siempre llegar aquí y llamar cb
+      finalizarCargaReportes(null);
     });
   });
 }
@@ -2176,10 +2309,23 @@ function init(){
       mostrarEstadoCarga('⏳ Cargando reportes del período…');
 
       cargarReportesPeriodo(_periodoActual, function(reportes, errR){
+        console.info('[Contable:init] Callback final recibido',{
+          reportes:reportes?reportes.length:0,
+          error:errR,
+          clientes:_clientesContables.length,
+          librosMapKeys:Object.keys(_librosMap||{}).length
+        });
         if(errR){
           console.warn('[Contable] Renderizando con datos parciales:',errR);
         }
-        renderTabla();
+        try{
+          console.info('[Contable:init] Ejecutando renderTabla()');
+          renderTabla();
+          console.info('[Contable:init] renderTabla() finalizado');
+        }catch(renderError){
+          console.error('[Contable:init] Error en renderTabla():',renderError);
+          mostrarErrorInicio('Error al mostrar los clientes: '+(renderError&&renderError.message?renderError.message:'error desconocido'));
+        }
       });
     });
   });
@@ -2217,8 +2363,9 @@ function init(){
       if(typeof window.sbGetClientes!=='function')               faltantes.push('sbGetClientes');
       if(typeof window.sbGetReportesPeriodo!=='function')        faltantes.push('sbGetReportesPeriodo');
       if(typeof window.sbGetLibrosCabeceraByPeriodo!=='function') faltantes.push('sbGetLibrosCabeceraByPeriodo');
-      if(typeof window.sbRowToReporte!=='function')              faltantes.push('sbRowToReporte');
-      if(!window._contadoorSesion)                               faltantes.push('_contadoorSesion');
+      if(typeof window.sbRowToReporte!=='function')               faltantes.push('sbRowToReporte');
+      if(typeof window.sbRowToLibroCabecera!=='function')         faltantes.push('sbRowToLibroCabecera');
+      if(!window._contadoorSesion)                                faltantes.push('_contadoorSesion');
       console.error('[Contable] Dependencias no disponibles tras '+intentos+' intentos:',faltantes);
       mostrarErrorInicio('Dependencias no disponibles: '+(faltantes.length?faltantes.join(', '):'autenticación pendiente'));
       return;
