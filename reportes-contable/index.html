@@ -885,15 +885,26 @@ function extraerTablasHtmlMasConta(htmlStr){
   }).filter(function(t){ return t.filas.length>0; });
 }
 
+function nombreTipoLibro(tipo){
+  if(tipo==='ventas')     return 'Ventas';
+  if(tipo==='compras')    return 'Compras';
+  if(tipo==='honorarios') return 'Honorarios';
+  if(tipo==='combinado')  return 'Compras y Ventas';
+  return String(tipo||'desconocido');
+}
+
 function detectarTipoLibroEnHtml(tablas){
   var texto=tablas.map(function(t){
     return normalizarEncabezado((t.titulo||'')+' '+t.filas.slice(0,8).flat().join(' '));
   }).join(' ');
-  var tieneVentas=/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto);
-  var tieneCompras=/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto);
-  if(tieneVentas&&!tieneCompras) return 'ventas';
-  if(tieneCompras&&!tieneVentas) return 'compras';
+  var tieneVentas   = /LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto);
+  var tieneCompras  = /LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto);
+  var tieneHonorarios = /LIBRO.*HONORARIOS|HONORARIOS.*LIBRO|BOLETAS.*HONORARIOS|^HONORARIOS$|BHE/.test(texto);
+  if(tieneHonorarios&&!tieneVentas&&!tieneCompras) return 'honorarios';
+  if(tieneVentas&&!tieneCompras&&!tieneHonorarios) return 'ventas';
+  if(tieneCompras&&!tieneVentas&&!tieneHonorarios) return 'compras';
   if(tieneVentas&&tieneCompras)  return 'combinado';
+  if(tieneHonorarios) return 'honorarios';
   return 'desconocido';
 }
 
@@ -928,6 +939,331 @@ function seleccionarTablaHtmlMasConta(tablas, tipo){
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+// PARSER HONORARIOS — detección, selección y normalización
+// ═══════════════════════════════════════════════════════════════
+
+var _HON_ALIASES=[
+  {c:'rut_contraparte', a:['RUT','RUT PRESTADOR','RUT EMISOR','RUT RECEPTOR','RUT CONTRAPARTE']},
+  {c:'razon_social',    a:['NOMBRE','RAZON SOCIAL','PRESTADOR','NOMBRE PRESTADOR','NOMBRE O RAZON SOCIAL']},
+  {c:'folio',           a:['FOLIO','NUMERO','NRO BOLETA','N BOLETA','BOLETA','N DOCUMENTO','NRO']},
+  {c:'fecha_documento', a:['FECHA','FECHA EMISION','FECHA BOLETA','FECHA DOCUMENTO','FECHA EMIS']},
+  {c:'monto_bruto',     a:['BRUTO','MONTO BRUTO','HONORARIO BRUTO','TOTAL BRUTO','MONTO HONORARIO']},
+  {c:'monto_retencion', a:['RETENCION','MONTO RETENCION','RETENIDO','IMPUESTO RETENIDO','MONTO RETENIDO','RETENCION SEGUNDA CATEGORIA']},
+  {c:'monto_liquido',   a:['LIQUIDO','MONTO LIQUIDO','TOTAL LIQUIDO','MONTO LIQUIDO A PAGAR','LIQUIDO A PAGAR']},
+  {c:'tipo_movimiento', a:['TIPO','TIPO BOLETA','EMITIDA RECIBIDA','ORIGEN','TIPO DE BOLETA']},
+  {c:'estado',          a:['ESTADO','ESTADO BOLETA','ESTADO PAGO']},
+];
+
+var _HON_MAP=(function(){
+  var m={};
+  _HON_ALIASES.forEach(function(e){ e.a.forEach(function(a){ if(!m[a]) m[a]=e.c; }); });
+  return m;
+})();
+
+function detectarHeaderRowHonorarios(rawRows){
+  var best={index:-1,score:0,headersOriginales:[],headersNormalizados:[]};
+  for(var i=0;i<Math.min(rawRows.length,80);i++){
+    var row=rawRows[i]||[];
+    var vals=row.map(normalizarEncabezado);
+    // Identificadores
+    var tieneId=vals.some(function(v){
+      return /^RUT$|RUT PRESTADOR|RUT EMISOR|^FOLIO$|NRO BOLETA|^BOLETA$|^NUMERO$/.test(v);
+    });
+    // Campos monetarios de honorarios
+    var mon=0;
+    if(vals.some(function(v){return /^BRUTO$|MONTO BRUTO|HONORARIO BRUTO|TOTAL BRUTO/.test(v);})) mon++;
+    if(vals.some(function(v){return /^RETENCION$|MONTO RETENCION|RETENIDO|IMPUESTO RETENIDO/.test(v);})) mon++;
+    if(vals.some(function(v){return /^LIQUIDO$|MONTO LIQUIDO|TOTAL LIQUIDO/.test(v);})) mon++;
+    if(!tieneId||mon<1) continue;
+    var pts=0;
+    if(tieneId) pts+=4; pts+=mon*3;
+    if(vals.some(function(v){return /^FECHA$|FECHA EMISION|FECHA BOLETA/.test(v);})) pts+=1;
+    if(vals.some(function(v){return /NOMBRE|RAZON SOCIAL|PRESTADOR/.test(v);})) pts+=1;
+    if(vals.some(function(v){return /^ESTADO$|ESTADO BOLETA/.test(v);})) pts+=1;
+    if(pts>=5&&pts>best.score){
+      best={index:i,score:pts,headersOriginales:row.slice(),headersNormalizados:vals.slice()};
+    }
+  }
+  return best;
+}
+
+function buildColMapHonorarios(headerInfo){
+  var map={};
+  (headerInfo.headersNormalizados||[]).forEach(function(k,j){
+    var campo=_HON_MAP[k];
+    if(campo&&map[campo]===undefined) map[campo]=j;
+  });
+  return map;
+}
+
+function puntuarTablaHonorarios(tablaInfo){
+  var titulo=normalizarEncabezado(tablaInfo.titulo||'');
+  var primeras=tablaInfo.filas.slice(0,15).map(function(row){
+    return row.map(normalizarEncabezado).join(' | ');
+  }).join(' ');
+  var texto=titulo+' '+primeras;
+  var puntos=0;
+  if(/LIBRO.*HONORARIOS|HONORARIOS.*LIBRO|BOLETAS.*HONORARIOS/.test(texto)) puntos+=20;
+  if(/LIBRO.*COMPRAS|LIBRO.*VENTAS/.test(titulo)) puntos-=20;
+  var hi=detectarHeaderRowHonorarios(tablaInfo.filas);
+  if(hi&&hi.index>=0) puntos+=(hi.score||5);
+  if(/BRUTO|HONORARIO/.test(texto)) puntos+=3;
+  if(/RETENCION|RETENIDO/.test(texto)) puntos+=3;
+  if(/LIQUIDO/.test(texto)) puntos+=3;
+  if(tablaInfo.filas.length>5) puntos+=2;
+  return {tabla:tablaInfo,puntos:puntos,headerInfo:hi};
+}
+
+function seleccionarTablaHtmlHonorarios(tablas){
+  var puntuadas=tablas.map(puntuarTablaHonorarios);
+  puntuadas.sort(function(a,b){return b.puntos-a.puntos;});
+  console.info('[MasConta Honorarios] Tablas puntuadas:',puntuadas.map(function(p){
+    return {titulo:p.tabla.titulo.slice(0,50),filas:p.tabla.filas.length,puntos:p.puntos,hIdx:p.headerInfo&&p.headerInfo.index};
+  }));
+  var mejor=puntuadas[0];
+  return (mejor&&mejor.puntos>0&&mejor.headerInfo&&mejor.headerInfo.index>=0)?mejor:null;
+}
+
+function normalizarFilasHonorarios(rawRows){
+  console.info('[MasConta Honorarios] Primeras filas:',rawRows.slice(0,10));
+  var hi=detectarHeaderRowHonorarios(rawRows);
+  if(hi.index<0){
+    console.warn('[MasConta Honorarios] Encabezado no detectado.');
+    return {filas:[],hIdx:-1,headerInfo:hi,
+      errorEncabezado:'No se pudo identificar la fila de encabezados del Libro de Honorarios.',
+      primerasFilasPostHeader:rawRows.slice(1,6)};
+  }
+  var colMap=buildColMapHonorarios(hi);
+  console.info('[MasConta Honorarios] Header:',hi.index,'| Cols:',colMap);
+  var get=function(row,campo){ return colMap[campo]!==undefined?row[colMap[campo]]:null; };
+  var filas=[]; var obs=[]; var cnt={vacias:0,totales:0,sinId:0,sinMonto:0,headerRep:0};
+  for(var i=hi.index+1;i<rawRows.length;i++){
+    var raw=rawRows[i]||[];
+    if(raw.every(function(c){return String(c||'').trim()=='';})){cnt.vacias++;continue;}
+    var vNorm=raw.map(normalizarEncabezado);
+    // Cabecera repetida
+    if(vNorm.filter(function(v){return /^BRUTO$|^RETENCION$|^LIQUIDO$|^RUT$/.test(v);}).length>=2){cnt.headerRep++;continue;}
+    var folioRaw  = String(get(raw,'folio')||'').trim();
+    var rutRaw    = String(get(raw,'rut_contraparte')||'').trim();
+    var razon     = String(get(raw,'razon_social')||'').trim();
+    var bruto     = numeroMasConta(get(raw,'monto_bruto'));
+    var ret       = numeroMasConta(get(raw,'monto_retencion'));
+    var liq       = numeroMasConta(get(raw,'monto_liquido'));
+    var tipoMov   = String(get(raw,'tipo_movimiento')||'').trim();
+    var estado    = String(get(raw,'estado')||'').trim();
+    // Total
+    var razonNorm=normalizarEncabezado(razon);
+    if(/^(TOTAL|TOTALES|TOTAL GENERAL|SUBTOTAL|RESUMEN)\b/.test(razonNorm)||
+       /^(TOTAL|TOTALES)\b/.test(normalizarEncabezado(folioRaw))){
+      cnt.totales++;
+      filas.push({n_fila_origen:i+1,incluido:false,es_fila_total:true,
+        tipo_documento:tipoMov||null,folio:folioRaw||null,razon_social:razon||null,
+        rut_contraparte:normRutLib(rutRaw),fecha_documento:null,
+        monto_neto:0,monto_exento:0,monto_iva:0,monto_retenciones:ret,monto_total:liq||bruto,
+        total_bruto:bruto,total_retencion:ret,total_liquido:liq,
+        subtipo_honorario:null,clasificacion_fuente:null});
+      continue;
+    }
+    var tieneId=Boolean(rutRaw||folioRaw);
+    var tieneMonto=bruto!==0||ret!==0||liq!==0;
+    if(!tieneId){cnt.sinId++;
+      filas.push({n_fila_origen:i+1,incluido:false,es_fila_total:false,
+        tipo_documento:tipoMov||null,folio:folioRaw||null,razon_social:razon||null,
+        rut_contraparte:null,fecha_documento:null,
+        monto_neto:0,monto_exento:0,monto_iva:0,monto_retenciones:ret,monto_total:liq||bruto,
+        total_bruto:bruto,total_retencion:ret,total_liquido:liq,
+        subtipo_honorario:null,clasificacion_fuente:null});
+      continue;
+    }
+    if(!tieneMonto){cnt.sinMonto++;
+      filas.push({n_fila_origen:i+1,incluido:false,es_fila_total:false,
+        tipo_documento:tipoMov||null,folio:folioRaw||null,razon_social:razon||null,
+        rut_contraparte:normRutLib(rutRaw),fecha_documento:normFechaLib(get(raw,'fecha_documento')),
+        monto_neto:0,monto_exento:0,monto_iva:0,monto_retenciones:0,monto_total:0,
+        total_bruto:0,total_retencion:0,total_liquido:0,
+        subtipo_honorario:null,clasificacion_fuente:null});
+      continue;
+    }
+    // Detectar emitida/recibida
+    var tipoNorm2=normalizarEncabezado(tipoMov);
+    var subtipoH=(/EMITIDA|PROPIA/.test(tipoNorm2)?'emitida':
+                  /RECIBIDA|TERCERO/.test(tipoNorm2)?'recibida':null);
+    filas.push({
+      n_fila_origen:i+1,incluido:true,es_fila_total:false,
+      tipo_documento:tipoMov||'Boleta de honorarios',
+      folio:folioRaw||null,razon_social:razon||null,
+      rut_contraparte:normRutLib(rutRaw),
+      fecha_documento:normFechaLib(get(raw,'fecha_documento')),
+      monto_neto:0,monto_exento:0,monto_iva:0,
+      monto_retenciones:ret,monto_total:liq||bruto,
+      total_bruto:bruto,total_retencion:ret,total_liquido:liq,
+      subtipo_honorario:subtipoH,clasificacion_fuente:'html'
+    });
+    var dif=Math.abs(bruto-ret-liq);
+    if(dif>100) obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',
+      codigo:'CUADRATURA_HONORARIOS',
+      mensaje:'Bruto - Retenci\u00f3n \u2260 L\u00edquido (diff $'+Math.round(dif)+')',
+      valor_detectado:String(liq)});
+  }
+  console.info('[MasConta Honorarios] Contadores exclusión:',cnt);
+  return {filas:filas,hIdx:hi.index,headerInfo:hi,colMapFinal:Object.assign({},colMap),
+    observaciones:obs,nAdvFront:obs.length,
+    contadoresExclusion:cnt,errorEncabezado:null,
+    primerasFilasPostHeader:rawRows.slice(hi.index+1,hi.index+6)};
+}
+
+function calcularCabeceraHonorarios(filas,tolerancia){
+  var c={n_filas_total:filas.length,n_filas_incluidas:0,n_filas_excluidas:0,
+    n_docs_incluidos:0,n_docs_excluidos:0,
+    total_bruto:0,total_retencion:0,total_liquido:0,
+    n_recibidos:0,n_emitidos:0};
+  var tol=tolerancia||100;
+  filas.forEach(function(f){
+    if(f.es_fila_total){c.n_filas_excluidas++;c.n_docs_excluidos++;return;}
+    if(f.incluido){
+      c.n_filas_incluidas++;c.n_docs_incluidos++;
+      c.total_bruto    +=f.total_bruto    ||0;
+      c.total_retencion+=f.total_retencion||0;
+      c.total_liquido  +=f.total_liquido  ||0;
+      if(f.subtipo_honorario==='recibida') c.n_recibidos++;
+      else if(f.subtipo_honorario==='emitida') c.n_emitidos++;
+    } else {
+      c.n_filas_excluidas++;c.n_docs_excluidos++;
+    }
+  });
+  return c;
+}
+
+function mostrarPreviewHonorarios(data,btnCArg){
+  // ── IDs reales del modal preview ──────────────────────────────────────
+  var rb=document.getElementById('preview-resumen-box');
+  var tb=document.getElementById('preview-totales-box');
+  var ab=document.getElementById('preview-adv-box');
+  if(!rb||!tb||!ab){
+    console.error('[MasConta Honorarios] Elementos del preview no encontrados',
+      {resumen:!!rb,totales:!!tb,advertencias:!!ab});
+    return;
+  }
+  // Resetear display y contenido antes de cualquier rama ──────────────────
+  rb.style.display='block'; rb.innerHTML='';
+  tb.style.display='block'; tb.innerHTML='';
+  ab.style.display='block'; ab.innerHTML='';
+  var btnC=btnCArg||document.getElementById('btn-confirmar-carga');
+
+  // ── Restablecer estado del botón ───────────────────────────────────────
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='\u2705 Confirmar carga';}
+
+  // ── Título y subtítulo del preview ────────────────────────────────────
+  var ctx=_cargaLibroCtx||{};
+  var clienteInfo=_clientesContables.find(function(c){return c.rut===ctx.rut;})||{};
+  var clienteNombre=clienteInfo.razon||ctx.rut||'Cliente';
+  var nombreArchivo=data.file?data.file.name:'(sin archivo)';
+  var titEl=document.getElementById('preview-titulo');
+  if(titEl) titEl.textContent='\ud83d\udcca Previsualizaci\u00f3n — Libro de Honorarios';
+  var subEl=document.getElementById('preview-sub');
+  if(subEl) subEl.innerHTML=
+    '<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">'+hesc(nombreArchivo)+'</div>'+
+    '<div style="font-size:11px;color:var(--tm)">'+hesc(clienteNombre)+' \u00b7 '+hesc(ctx.rut||'')+' \u00b7 '+hesc(ctx.periodo||'')+' \u00b7 Honorarios</div>';
+  var pm=document.getElementById('preview-msg');
+  if(pm){pm.className='msg-guardado';pm.textContent='';}
+
+  // ── Caso: encabezado no detectado ─────────────────────────────────────
+  if(data.errorEncabezado){
+    var pff='';
+    if(data.primerasFilasPostHeader&&data.primerasFilasPostHeader.length){
+      pff='<div style="margin-top:8px;font-size:10px"><b>Primeras filas:</b><br>';
+      data.primerasFilasPostHeader.forEach(function(row,ri){
+        pff+=(ri+1)+': '+hesc((row||[]).filter(function(c){return String(c||'').trim();}).join(' | '))+'<br>';
+      });
+      pff+='</div>';
+    }
+    rb.innerHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;font-size:12px;color:#991b1b">'+
+      '<div style="font-weight:700;margin-bottom:5px">\u26d4 Encabezado no detectado</div>'+
+      '<div>'+hesc(data.errorEncabezado)+'</div>'+pff+'</div>';
+    rb.style.display='block'; tb.style.display='none'; tb.innerHTML=''; ab.style.display='block'; ab.innerHTML='';
+    if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='Encabezado no detectado';}
+    document.getElementById('modalPreviewLibro').classList.add('on');
+    return;
+  }
+
+  var filas=data.filas||[];
+  var cab=data.cabeceraCalc||calcularCabeceraHonorarios(filas,100);
+  var ff2=function(n){return '$'+(Number(n||0)).toLocaleString('es-CL');};
+
+  // ── Resumen por tipo de movimiento ────────────────────────────────────
+  var grupos={};
+  filas.filter(function(f){return f.incluido;}).forEach(function(f){
+    var g=f.subtipo_honorario||f.tipo_documento||'Sin tipo';
+    if(!grupos[g]) grupos[g]={n:0,bruto:0,ret:0,liq:0};
+    grupos[g].n++; grupos[g].bruto+=f.total_bruto||0;
+    grupos[g].ret+=f.total_retencion||0; grupos[g].liq+=f.total_liquido||0;
+  });
+  var keys=Object.keys(grupos);
+  var tablaHTML='';
+  if(keys.length){
+    tablaHTML='<div style="font-size:11px;font-weight:700;color:var(--contable);margin-bottom:6px">Resumen por tipo de movimiento</div>';
+    tablaHTML+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10.5px">';
+    tablaHTML+='<thead><tr style="background:var(--sur2)"><th style="text-align:left;padding:4px 6px">Tipo</th><th style="text-align:right;padding:4px 6px">Docs</th><th style="text-align:right;padding:4px 6px">Bruto</th><th style="text-align:right;padding:4px 6px">Retenci\u00f3n</th><th style="text-align:right;padding:4px 6px">L\u00edquido</th></tr></thead><tbody>';
+    keys.forEach(function(g){
+      var r=grupos[g];
+      tablaHTML+='<tr style="border-top:.5px solid var(--bdr)">'+
+        '<td style="padding:3px 6px">'+hesc(g)+'</td>'+
+        '<td style="text-align:right;padding:3px 6px">'+r.n+'</td>'+
+        '<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ff2(r.bruto)+'</td>'+
+        '<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ff2(r.ret)+'</td>'+
+        '<td style="text-align:right;padding:3px 6px;font-family:monospace">'+ff2(r.liq)+'</td></tr>';
+    });
+    tablaHTML+='</tbody></table></div>';
+  } else {
+    tablaHTML='<div style="color:var(--tm);font-size:11px;padding:8px 0">Sin documentos para agrupar.</div>';
+  }
+
+  var totHTML='<div style="margin-top:10px">'+
+    '<div class="preview-row"><span><b>Docs incluidos</b></span><span><b>'+cab.n_docs_incluidos+'</b></span></div>'+
+    '<div class="preview-row"><span>Bruto</span><span>'+ff2(cab.total_bruto)+'</span></div>'+
+    '<div class="preview-row"><span>Retenci\u00f3n</span><span>'+ff2(cab.total_retencion)+'</span></div>'+
+    '<div class="preview-row"><span><b>L\u00edquido</b></span><span><b>'+ff2(cab.total_liquido)+'</b></span></div>';
+  if(cab.n_recibidos||cab.n_emitidos){
+    totHTML+='<div class="preview-row" style="margin-top:4px"><span style="font-size:10px;color:var(--tm)">Recibidas</span><span>'+cab.n_recibidos+'</span></div>'+
+      '<div class="preview-row"><span style="font-size:10px;color:var(--tm)">Emitidas</span><span>'+cab.n_emitidos+'</span></div>';
+  }
+  totHTML+='</div>';
+
+  var indicHTML='<div class="preview-row" style="margin-top:6px;color:var(--tm);font-size:10.5px"><span>Filas detectadas</span><span>'+cab.n_filas_total+'</span></div>'+
+    '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Incluidas</span><span>'+cab.n_filas_incluidas+'</span></div>'+
+    '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Excluidas</span><span>'+cab.n_filas_excluidas+'</span></div>';
+
+  rb.style.display='block'; tb.style.display='block'; ab.style.display='block';
+  rb.innerHTML=tablaHTML;
+  tb.innerHTML=totHTML+indicHTML;
+
+  // ── Advertencias de cuadratura ────────────────────────────────────────
+  var advs=(data.observaciones||[]).slice(0,20);
+  var advHTML='';
+  if(advs.length){
+    advHTML='<div class="preview-adv"><div style="font-weight:600;margin-bottom:4px">\u26a0 Advertencias ('+(data.observaciones.length>20?'20+':advs.length)+')</div>';
+    advs.forEach(function(o){
+      advHTML+='<div>F'+hesc(String(o.n_fila_origen||''))+': '+hesc(o.mensaje||'')+'</div>';
+    });
+    advHTML+='</div>';
+  }
+  ab.innerHTML=advHTML;
+
+  // ── Habilitar/deshabilitar botón ──────────────────────────────────────
+  var puedeConfirmar=cab.n_docs_incluidos>0;
+  if(btnC){
+    if(puedeConfirmar){
+      btnC.disabled=false;btnC.style.opacity='1';btnC.title='';
+    } else {
+      btnC.disabled=true;btnC.style.opacity='.4';
+      btnC.title='Sin documentos válidos';
+    }
+  }
+  document.getElementById('modalPreviewLibro').classList.add('on');
+}
+
+
 async function procesarArchivoLibro(file, sheetName){
   var ctx=_cargaLibroCtx;
   if(!ctx) return;
@@ -958,8 +1294,8 @@ async function procesarArchivoLibro(file, sheetName){
     // Detectar conflicto de tipo
     var hayConflicto=(tipoDetectado!=='desconocido'&&tipoDetectado!=='combinado'&&tipoDetectado!==ctx.tipo);
     if(hayConflicto){
-      var tipoNombreDetectado=tipoDetectado==='ventas'?'Ventas':'Compras';
-      var tipoNombreSolicitado=ctx.tipo==='ventas'?'Ventas':'Compras';
+      var tipoNombreDetectado=nombreTipoLibro(tipoDetectado);
+      var tipoNombreSolicitado=nombreTipoLibro(ctx.tipo);
       _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
         cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,hIdx:-1,
         hojaUtilizada:'Tabla HTML',formatoDetectado:'html',
@@ -974,6 +1310,36 @@ async function procesarArchivoLibro(file, sheetName){
     }
 
     // Seleccionar la tabla con mayor puntaje
+    // ── Bifurcación por tipo: Honorarios tiene su propio parser ────────────
+    if(ctx.tipo==='honorarios'){
+      var selHon=seleccionarTablaHtmlHonorarios(tablasHtml);
+      var hojaLabelHon=selHon
+        ?'Tabla HTML '+(selHon.tabla.indice+1)+(selHon.tabla.titulo?' — '+selHon.tabla.titulo.slice(0,60):'')
+        :'Tabla HTML (sin candidata)';
+      if(_cargaLibroCtx) _cargaLibroCtx._sheetUsed=hojaLabelHon;
+      if(!selHon){
+        var btnCH=document.getElementById('btn-confirmar-carga');
+        var preH={tipo:'honorarios',file:file,filas:[],cabeceraCalc:calcularCabeceraHonorarios([]),
+          hIdx:-1,hojaUtilizada:hojaLabelHon,formatoDetectado:'html',
+          tablasDetectadas:tablasHtml.length,tipoDetectado:tipoDetectado,
+          errorEncabezado:'El archivo HTML fue reconocido, pero no se encontró una tabla con encabezados de Honorarios válidos.',
+          primerasFilasPostHeader:tablasHtml.length?tablasHtml[0].filas.slice(0,5):[]};
+        _previewLibro=preH;
+        mostrarPreviewHonorarios(preH,btnCH);
+      } else {
+        var honResult=normalizarFilasHonorarios(selHon.tabla.filas);
+        honResult.cabeceraCalc=calcularCabeceraHonorarios(honResult.filas);
+        honResult.file=file; honResult.hojaUtilizada=hojaLabelHon;
+        honResult.formatoDetectado='html'; honResult.tablasDetectadas=tablasHtml.length;
+        honResult.tipoDetectado=tipoDetectado; honResult.tipo='honorarios';
+        _previewLibro=honResult;
+        var btnCH2=document.getElementById('btn-confirmar-carga');
+        mostrarPreviewHonorarios(honResult,btnCH2);
+      }
+      return;
+    }
+
+    // ── Compras / Ventas: flujo existente ────────────────────────────────
     var seleccion=seleccionarTablaHtmlMasConta(tablasHtml,ctx.tipo);
 
     if(!seleccion){
@@ -997,21 +1363,12 @@ async function procesarArchivoLibro(file, sheetName){
 
     if(_cargaLibroCtx) _cargaLibroCtx._sheetUsed=hojaLabel;
 
-    if(ctx.tipo==='compras'||ctx.tipo==='ventas'){
-      var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
-      result.file=file;
-      result.hojaUtilizada=hojaLabel;
-      result.formatoDetectado='html';
-      result.tablasDetectadas=tablasHtml.length;
-      result.tipoDetectado=tipoDetectado;
-      _previewLibro=result;
-      mostrarPreviewLibro(result);
-    } else {
-      _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
-        cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,esHonorariosFase1:true,
-        hojaUtilizada:hojaLabel,formatoDetectado:'html'};
-      mostrarPreviewLibro(_previewLibro);
-    }
+    var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
+    result.file=file; result.hojaUtilizada=hojaLabel;
+    result.formatoDetectado='html'; result.tablasDetectadas=tablasHtml.length;
+    result.tipoDetectado=tipoDetectado;
+    _previewLibro=result;
+    mostrarPreviewLibro(result);
     return;
   }
 
@@ -1050,10 +1407,15 @@ async function procesarArchivoLibro(file, sheetName){
     _previewLibro=result;
     mostrarPreviewLibro(result);
   } else {
-    _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
-      cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,esHonorariosFase1:true,
-      hojaUtilizada:sheetName,formatoDetectado:'xlsx'};
-    mostrarPreviewLibro(_previewLibro);
+    // Honorarios XLSX: usar parser de honorarios
+    var btnCXH=document.getElementById('btn-confirmar-carga');
+    var rawRowsH=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true,defval:'',blankrows:false});
+    var honResXlsx=normalizarFilasHonorarios(rawRowsH);
+    honResXlsx.cabeceraCalc=calcularCabeceraHonorarios(honResXlsx.filas);
+    honResXlsx.file=file; honResXlsx.hojaUtilizada=sheetName;
+    honResXlsx.formatoDetectado='xlsx'; honResXlsx.tipo='honorarios';
+    _previewLibro=honResXlsx;
+    mostrarPreviewHonorarios(honResXlsx,btnCXH);
   }
 }
 
@@ -1692,6 +2054,10 @@ function mostrarPreviewLibro(data){
   var grupos=agruparPorTipoDocumento(data.filas||[]);
   var ivLabel=tipo==='ventas'?'IVA débito':'IVA crédito';
 
+  // Restablecer botón al inicio de cada preview
+  var btnC=document.getElementById('btn-confirmar-carga');
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
+
   // Identificación del archivo y cliente
   var clienteInfo=_clientesContables.find(function(c){return c.rut===ctx.rut;})||{};
   var clienteNombre=clienteInfo.razon||ctx.rut;
@@ -1708,16 +2074,7 @@ function mostrarPreviewLibro(data){
   if(pm) pm.className='msg-guardado';
   var btnC=document.getElementById('btn-confirmar-carga');
 
-  if(data.esHonorariosFase1){
-    rb.style.display='block';
-    rb.innerHTML='<div style="font-size:11.5px;font-weight:600;color:var(--t2);margin-bottom:6px">Honorarios — Fase 1</div>'+
-      '<div class="preview-row"><span>Total filas en archivo</span><span><b>'+(cab.n_filas_total||0)+'</b></span></div>'+
-      '<div style="margin-top:8px;font-size:11px;color:var(--amber)">\u26A0 Parseo avanzado de Honorarios en fase posterior.</div>';
-    tb.style.display='none'; ab.innerHTML='';
-    if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='No disponible en Fase 1';}
-    document.getElementById('modalPreviewLibro').classList.add('on');
-    return;
-  }
+  // Honorarios: manejado por mostrarPreviewHonorarios()
 
   // ── Diagnóstico de encabezado y columnas (siempre visible) ─────────────
   var diagHTML='';
@@ -1951,7 +2308,8 @@ function mostrarPreviewLibro(data){
   }
 
   rb.style.display='block';
-  rb.innerHTML=diagHTML+tablaHTML+totalesHTML+indicHTML+alertaHTML;
+  var MOSTRAR_DIAGNOSTICO_MASCONTA=false; // cambiar a true temporalmente para depuración
+  rb.innerHTML=(MOSTRAR_DIAGNOSTICO_MASCONTA?diagHTML:'') +tablaHTML+totalesHTML+indicHTML+alertaHTML;
   tb.style.display='none';
   ab.innerHTML=advHTML;
 
@@ -1968,6 +2326,14 @@ function mostrarPreviewLibro(data){
 function cancelarPreviewLibro(){
   document.getElementById('modalPreviewLibro').classList.remove('on');
   _previewLibro=null;
+  var rb=document.getElementById('preview-resumen-box');
+  var tb=document.getElementById('preview-totales-box');
+  var ab=document.getElementById('preview-adv-box');
+  if(rb){rb.innerHTML='';rb.style.display='none';}
+  if(tb){tb.innerHTML='';tb.style.display='none';}
+  if(ab){ab.innerHTML='';}
+  var btnC=document.getElementById('btn-confirmar-carga');
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
 }
 
 // ── Selector de hoja ──────────────────────────────────────────────────────
