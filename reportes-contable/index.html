@@ -1923,25 +1923,176 @@ function marcarListoParaConsolidar(rut){
   });
 }
 // ── INICIALIZACIÓN ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// HELPERS DE INICIALIZACIÓN
+// ═══════════════════════════════════════════════════════════════
+
+function mostrarEstadoCarga(msg){
+  var tb=document.getElementById('tablaBody');
+  if(tb) tb.innerHTML='<div style="padding:32px;text-align:center;color:var(--tm)">'+hesc(msg)+'</div>';
+}
+
+function mostrarErrorInicio(mensaje){
+  var tb=document.getElementById('tablaBody');
+  if(tb) tb.innerHTML=
+    '<div style="padding:28px;text-align:center;color:#C0392B">'+
+    '<strong>⚠️ No se pudo iniciar el módulo contable</strong>'+
+    '<div style="margin-top:8px;font-size:12px">'+hesc(mensaje)+'</div>'+
+    '<button type="button" class="btn-s" style="margin-top:12px" onclick="location.reload()">Reintentar</button>'+
+    '</div>';
+}
+
+function dependenciasContablesDisponibles(){
+  return (
+    typeof window.sbGetPeriodos==='function' &&
+    typeof window.sbGetClientes==='function' &&
+    typeof window.sbGetReportesPeriodo==='function' &&
+    typeof window.sbGetLibrosCabeceraByPeriodo==='function' &&
+    typeof window.sbRowToReporte==='function' &&
+    Boolean(window._contadoorSesion) &&
+    !document.documentElement.classList.contains('auth-pending')
+  );
+}
+
+// Timeout de seguridad para callbacks de supabase
+function ejecutarConTimeoutContable(etiqueta, ejecutor, timeoutMs, alFinalizar){
+  var finalizado=false;
+  var timer=setTimeout(function(){
+    if(finalizado) return;
+    finalizado=true;
+    var err=new Error(etiqueta+' excedió el tiempo de espera ('+timeoutMs+'ms).');
+    console.error('[Contable]',err.message);
+    alFinalizar(err,null);
+  }, timeoutMs||15000);
+  try{
+    ejecutor(function(resultado){
+      if(finalizado) return;
+      finalizado=true;
+      clearTimeout(timer);
+      alFinalizar(null,resultado);
+    });
+  }catch(err){
+    if(finalizado) return;
+    finalizado=true;
+    clearTimeout(timer);
+    alFinalizar(err,null);
+  }
+}
+
+// Helpers de filtro de clientes
+function normalizarNombreUsuario(v){
+  return String(v||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function nombreAnalistaContableCliente(c){
+  return String(c.contador||c.analistaContable||c.analista_contable||'').trim();
+}
+
+function clienteTieneContabilidad(c){
+  if(c.tieneContabilidad===false) return false;
+  if(c.tiene_contabilidad===false) return false;
+  if(c.contabilidad===false) return false;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CARGA DE REPORTES Y LIBROS
+// ═══════════════════════════════════════════════════════════════
+
+function cargarReportesPeriodo(periodo, cb){
+  if(!periodo){ if(cb) cb([], null); return; }
+
+  if(typeof sbGetReportesPeriodo!=='function'){
+    console.error('[Contable] sbGetReportesPeriodo no está disponible');
+    if(cb) cb([], new Error('sbGetReportesPeriodo no está disponible'));
+    return;
+  }
+
+  mostrarEstadoCarga('⏳ Cargando reportes del período…');
+
+  ejecutarConTimeoutContable('sbGetReportesPeriodo', function(done){
+    sbGetReportesPeriodo(periodo, done);
+  }, 15000, function(err, reportes){
+    if(err){
+      console.error('[Contable] Error al cargar reportes:',err);
+      _reportesContables=[];
+    } else {
+      console.info('[Contable] Reportes recibidos:', reportes);
+      _reportesContables=Array.isArray(reportes)?reportes:[];
+    }
+
+    if(typeof sbGetLibrosCabeceraByPeriodo!=='function'){
+      console.error('[Contable] sbGetLibrosCabeceraByPeriodo no está disponible');
+      _librosMap={};
+      if(cb) cb(_reportesContables, new Error('sbGetLibrosCabeceraByPeriodo no disponible'));
+      return;
+    }
+
+    mostrarEstadoCarga('⏳ Cargando libros contables…');
+
+    ejecutarConTimeoutContable('sbGetLibrosCabeceraByPeriodo', function(done){
+      sbGetLibrosCabeceraByPeriodo(periodo, done);
+    }, 15000, function(errL, librosArr){
+      if(errL){
+        console.error('[Contable] Error al cargar libros:',errL);
+        librosArr=[];
+      } else {
+        console.info('[Contable] Cabeceras de libros recibidas:', librosArr);
+      }
+      _librosMap={};
+      (Array.isArray(librosArr)?librosArr:[]).forEach(function(lib){
+        var key=String(lib.clienteId);
+        if(!_librosMap[key]) _librosMap[key]={};
+        _librosMap[key][lib.tipo]=lib;
+      });
+      _reportesContables.forEach(function(rep){
+        var c=_clientesContables.find(function(x){return x.rut===rep.rut;});
+        var cid=c?String(c.id):null;
+        var m=cid?(_librosMap[cid]||{}):{};
+        rep.libros={compras:m.compras||null,ventas:m.ventas||null,honorarios:m.honorarios||null};
+      });
+      if(cb) cb(_reportesContables, null);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
 function init(){
+  console.info('[Contable:init] Inicio');
   var u=getUsuario();
   document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Contable';
   document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Contable');
   var d=new Date();
   document.getElementById('cal-hoy-label').textContent='Hoy: '+d.getDate()+' '+d.toLocaleString('es-CL',{month:'short'});
 
-  var tbody=document.getElementById('tablaBody');
-  if(tbody) tbody.innerHTML='<div style="padding:32px;text-align:center;color:var(--tm)">⏳ Cargando información contable…</div>';
+  mostrarEstadoCarga('⏳ Cargando períodos…');
 
   // PASO 1: Períodos
-  sbGetPeriodos(function(periodos){
-    var activos=(periodos||[]).filter(function(p){
+  ejecutarConTimeoutContable('sbGetPeriodos', function(done){
+    sbGetPeriodos(done);
+  }, 15000, function(err, periodos){
+    if(err){
+      console.error('[Contable:init] Error al cargar períodos:',err);
+      mostrarErrorInicio('Error al cargar períodos: '+err.message);
+      return;
+    }
+    console.info('[Contable:init] Períodos recibidos:', periodos);
+    if(!Array.isArray(periodos)){
+      mostrarErrorInicio('Respuesta inválida al cargar períodos.');
+      return;
+    }
+    var activos=periodos.filter(function(p){
       return p.estado==='activo'||p.estado==='abierto';
     }).sort(function(a,b){return a.periodo>b.periodo?-1:1;});
+
     var sel=document.getElementById('selectPeriodo');
     sel.innerHTML='<option value="">— Seleccionar período —</option>';
     if(!activos.length){
-      if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:#C07A1A">No hay períodos activos.</div>';
+      mostrarEstadoCarga('No hay períodos activos o abiertos.');
       return;
     }
     activos.forEach(function(p){
@@ -1960,82 +2111,129 @@ function init(){
       var cv=document.getElementById('cal-venc');
       if(cv) cv.textContent=pMasReciente.venc_f29_limite;
     }
+
     // PASO 2: Clientes
-    sbGetClientes(function(clientes){
-      if(!clientes||!clientes.length){
-        if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:#C0392B">No fue posible cargar los clientes.</div>';
+    mostrarEstadoCarga('⏳ Cargando clientes…');
+
+    ejecutarConTimeoutContable('sbGetClientes', function(done){
+      sbGetClientes(done);
+    }, 15000, function(errC, clientes){
+      if(errC){
+        console.error('[Contable:init] Error al cargar clientes:',errC);
+        mostrarErrorInicio('Error al cargar clientes: '+errC.message);
         return;
       }
-      var filtrados=clientes.filter(function(c){
-        return c.estado==='activo' && c.tieneContabilidad!==false;
+      console.info('[Contable:init] Clientes recibidos:', clientes);
+      if(!Array.isArray(clientes)){
+        mostrarErrorInicio('Respuesta inválida al cargar clientes.');
+        return;
+      }
+
+      // Filtro 1: activos con contabilidad
+      var filtradosAntesAnalista=clientes.filter(function(c){
+        return String(c.estado||'').toLowerCase()==='activo' && clienteTieneContabilidad(c);
       });
+
+      // Filtro 2: por analista (solo si no es master y rol contable)
       var uActual=getUsuario();
-      if(!uActual.esMaster && uActual.rol==='contable'){
-        filtrados=filtrados.filter(function(c){
-          return c.analistaContable===uActual.nombre;
+      var esMaster=uActual.esMaster===true||uActual.es_master===true||uActual.rol==='master';
+      var filtrados=filtradosAntesAnalista;
+
+      if(!esMaster && uActual.rol==='contable' && uActual.nombre){
+        var nombreUsuario=normalizarNombreUsuario(uActual.nombre);
+        filtrados=filtradosAntesAnalista.filter(function(c){
+          return normalizarNombreUsuario(nombreAnalistaContableCliente(c))===nombreUsuario;
         });
       }
+
+      console.info('[Contable:init] Filtro clientes:',{
+        totalRecibidos:clientes.length,
+        activosContables:filtradosAntesAnalista.length,
+        resultadoFinal:filtrados.length,
+        usuario:uActual.nombre,
+        rol:uActual.rol,
+        esMaster:esMaster
+      });
+
+      if(clientes.length>0 && filtrados.length===0){
+        var msg='No hay clientes activos asignados a este módulo para el usuario actual.'+
+          ' (Recibidos: '+clientes.length+
+          ', con contabilidad: '+filtradosAntesAnalista.length+
+          ', asignados a '+hesc(uActual.nombre||'—')+': 0)';
+        mostrarEstadoCarga(msg);
+        // Aun así continuar — puede que master quiera ver vacío
+      }
+
+      if(filtrados.length===0 && clientes.length===0){
+        mostrarEstadoCarga('No hay clientes registrados.');
+        return;
+      }
+
       _clientesContables=filtrados;
+
       // PASO 3: Reportes
       _periodoActual=pMasReciente.periodo;
-      cargarReportesPeriodo(_periodoActual,function(){ renderTabla(); });
+      mostrarEstadoCarga('⏳ Cargando reportes del período…');
+
+      cargarReportesPeriodo(_periodoActual, function(reportes, errR){
+        if(errR){
+          console.warn('[Contable] Renderizando con datos parciales:',errR);
+        }
+        renderTabla();
+      });
     });
   });
 }
 
-function cargarReportesPeriodo(periodo, cb){
-  if(!periodo){cb([]);return;}
-  sbGetReportesPeriodo(periodo,function(reportes){
-    _reportesContables=reportes||[];
-    // Cargar libros del período en paralelo y adjuntarlos a cada reporte
-    sbGetLibrosCabeceraByPeriodo(periodo,function(librosArr){
-      // Construir mapa: { String(clienteId): { tipo: cabecera } }
-      _librosMap={};
-      (librosArr||[]).forEach(function(lib){
-        var key=String(lib.clienteId);
-        if(!_librosMap[key]) _librosMap[key]={};
-        _librosMap[key][lib.tipo]=lib;
-      });
-      // Adjuntar libros a cada reporte para que renderTabla los encuentre
-      _reportesContables.forEach(function(rep){
-        var c=_clientesContables.find(function(x){return x.rut===rep.rut;});
-        var cid=c?String(c.id):null;
-        var m=cid?(_librosMap[cid]||{}):{};
-        rep.libros={compras:m.compras||null,ventas:m.ventas||null,honorarios:m.honorarios||null};
-      });
-      if(cb) cb(_reportesContables);
-    });
-  });
-}
+// ═══════════════════════════════════════════════════════════════
+// INICIO SEGURO — espera dependencias (supabase.js carga después)
+// ═══════════════════════════════════════════════════════════════
+(function iniciarModuloContable(){
+  var iniciado=false;
+  var intentos=0;
+  var maxIntentos=100;   // 100 × 100ms = 10 s máximo
 
-function cargarPeriodo(){
-  _periodoActual=sv('selectPeriodo');
-  if(!_periodoActual){
-    document.getElementById('tablaBody').innerHTML='';
-    return;
-  }
-  document.getElementById('periodo-label').textContent=_periodoActual;
-  var tbody=document.getElementById('tablaBody');
-  if(tbody) tbody.innerHTML='<div style="padding:24px;text-align:center;color:var(--tm)">⏳ Cargando reportes…</div>';
-  cargarReportesPeriodo(_periodoActual,function(){ renderTabla(); });
-}
+  function intentarInicio(){
+    if(iniciado) return;
+    intentos++;
 
-// ── INICIO SEGURO ─────────────────────────────────────────────────────────
-(function(){
-  var _initDone=false;
-  function tryInit(){
-    if(_initDone) return;
-    if(window._contadoorSesion && !document.documentElement.classList.contains('auth-pending')){
-      _initDone=true;
-      init();
+    if(dependenciasContablesDisponibles()){
+      iniciado=true;
+      console.info('[Contable] Dependencias listas. Iniciando módulo.',
+        {sesion:window._contadoorSesion, intento:intentos});
+      try{
+        init();
+      }catch(error){
+        iniciado=false;
+        console.error('[Contable] Error al ejecutar init():',error);
+        mostrarErrorInicio(error&&error.message?error.message:'Error desconocido durante la inicialización.');
+      }
+      return;
     }
+
+    if(intentos>=maxIntentos){
+      var faltantes=[];
+      if(typeof window.sbGetPeriodos!=='function')               faltantes.push('sbGetPeriodos');
+      if(typeof window.sbGetClientes!=='function')               faltantes.push('sbGetClientes');
+      if(typeof window.sbGetReportesPeriodo!=='function')        faltantes.push('sbGetReportesPeriodo');
+      if(typeof window.sbGetLibrosCabeceraByPeriodo!=='function') faltantes.push('sbGetLibrosCabeceraByPeriodo');
+      if(typeof window.sbRowToReporte!=='function')              faltantes.push('sbRowToReporte');
+      if(!window._contadoorSesion)                               faltantes.push('_contadoorSesion');
+      console.error('[Contable] Dependencias no disponibles tras '+intentos+' intentos:',faltantes);
+      mostrarErrorInicio('Dependencias no disponibles: '+(faltantes.length?faltantes.join(', '):'autenticación pendiente'));
+      return;
+    }
+
+    setTimeout(intentarInicio,100);
   }
-  var obs=new MutationObserver(function(mutations){
-    mutations.forEach(function(m){ if(m.attributeName==='class') tryInit(); });
-  });
-  obs.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
-  tryInit();
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', intentarInicio, {once:true});
+  } else {
+    intentarInicio();
+  }
 })();
+
 </script>
 
 <script src="../supabase.js"></script>
