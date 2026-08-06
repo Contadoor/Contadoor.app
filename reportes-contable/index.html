@@ -1087,8 +1087,9 @@ function normalizarFilasHonorarios(rawRows){
     }
     // Detectar emitida/recibida
     var tipoNorm2=normalizarEncabezado(tipoMov);
-    var subtipoH=(/EMITIDA|PROPIA/.test(tipoNorm2)?'emitida':
-                  /RECIBIDA|TERCERO/.test(tipoNorm2)?'recibida':null);
+    var subtipoH=/EMITIDA|PROPIA/.test(tipoNorm2)?'emitido':
+                 /RECIBIDA|TERCERO/.test(tipoNorm2)?'recibido':
+                 'pendiente_clasificacion'; // null → pendiente para que RPC lo cuente con subtipo válido
     filas.push({
       n_fila_origen:i+1,incluido:true,es_fila_total:false,
       tipo_documento:tipoMov||'Boleta de honorarios',
@@ -1098,7 +1099,7 @@ function normalizarFilasHonorarios(rawRows){
       monto_neto:0,monto_exento:0,monto_iva:0,
       monto_retenciones:ret,monto_total:liq||bruto,
       total_bruto:bruto,total_retencion:ret,total_liquido:liq,
-      subtipo_honorario:subtipoH,clasificacion_fuente:'html'
+      subtipo_honorario:subtipoH,clasificacion_fuente:null
     });
     var dif=Math.abs(bruto-ret-liq);
     if(dif>100) obs.push({n_fila_origen:i+1,tipo_obs:'advertencia',
@@ -1117,22 +1118,38 @@ function calcularCabeceraHonorarios(filas,tolerancia){
   var c={n_filas_total:filas.length,n_filas_incluidas:0,n_filas_excluidas:0,
     n_docs_incluidos:0,n_docs_excluidos:0,
     total_bruto:0,total_retencion:0,total_liquido:0,
-    n_recibidos:0,n_emitidos:0};
-  var tol=tolerancia||100;
+    n_recibidos:0,n_emitidos:0,n_pendientes:0};
   filas.forEach(function(f){
     if(f.es_fila_total){c.n_filas_excluidas++;c.n_docs_excluidos++;return;}
     if(f.incluido){
       c.n_filas_incluidas++;c.n_docs_incluidos++;
+      // Totales financieros: TODOS los incluidos sin excepción
       c.total_bruto    +=f.total_bruto    ||0;
       c.total_retencion+=f.total_retencion||0;
       c.total_liquido  +=f.total_liquido  ||0;
-      if(f.subtipo_honorario==='recibida') c.n_recibidos++;
-      else if(f.subtipo_honorario==='emitida') c.n_emitidos++;
+      // Clasificación: solo para conteo, nunca excluye de totales
+      var st=f.subtipo_honorario;
+      if(st==='recibido')               c.n_recibidos++;
+      else if(st==='emitido')            c.n_emitidos++;
+      else                               c.n_pendientes++;
     } else {
       c.n_filas_excluidas++;c.n_docs_excluidos++;
     }
   });
   return c;
+}
+
+function clasificarHonorariosPreview(subtipo){
+  if(subtipo!=='recibido'&&subtipo!=='emitido') return;
+  if(!_previewLibro||!_previewLibro.filas) return;
+  _previewLibro.filas.forEach(function(f){
+    if(f.incluido&&f.subtipo_honorario==='pendiente_clasificacion'){
+      f.subtipo_honorario=subtipo;
+    }
+  });
+  _previewLibro.cabeceraCalc=calcularCabeceraHonorarios(_previewLibro.filas);
+  var btnC=document.getElementById('btn-confirmar-carga');
+  mostrarPreviewHonorarios(_previewLibro,btnC);
 }
 
 function mostrarPreviewHonorarios(data,btnCArg){
@@ -1190,6 +1207,8 @@ function mostrarPreviewHonorarios(data,btnCArg){
   var filas=data.filas||[];
   var cab=data.cabeceraCalc||calcularCabeceraHonorarios(filas,100);
   var ff2=function(n){return '$'+(Number(n||0)).toLocaleString('es-CL');};
+  // Para display usar los totales completos (incluyendo pendientes de clasificación)
+
 
   // ── Resumen por tipo de movimiento ────────────────────────────────────
   var grupos={};
@@ -1234,9 +1253,22 @@ function mostrarPreviewHonorarios(data,btnCArg){
     '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Incluidas</span><span>'+cab.n_filas_incluidas+'</span></div>'+
     '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Excluidas</span><span>'+cab.n_filas_excluidas+'</span></div>';
 
+  // ── Panel de clasificación requerida (cuando hay pendientes) ─────────────
+  var clasifHTML='';
+  if(cab.n_pendientes>0){
+    clasifHTML='<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:8px">'+
+      '<div style="font-weight:700;font-size:12px;margin-bottom:5px">\u26a0\ufe0f Clasificaci\u00f3n requerida</div>'+
+      '<div style="font-size:11px;color:var(--tm);margin-bottom:8px">El archivo contiene '+cab.n_pendientes+' boleta'+(cab.n_pendientes!==1?'s':'')+' sin informaci\u00f3n suficiente para determinar si son recibidas o emitidas.</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button type="button" class="btn-s" onclick="clasificarHonorariosPreview(\'recibido\')" style="font-size:11px">\ud83d\udcec Clasificar todas como recibidas</button>'+
+        '<button type="button" class="btn-s" onclick="clasificarHonorariosPreview(\'emitido\')" style="font-size:11px">\ud83d\udce4 Clasificar todas como emitidas</button>'+
+      '</div>'+
+      '</div>';
+  }
+
   rb.style.display='block'; tb.style.display='block'; ab.style.display='block';
   rb.innerHTML=tablaHTML;
-  tb.innerHTML=totHTML+indicHTML;
+  tb.innerHTML=totHTML+indicHTML+clasifHTML;
 
   // ── Advertencias de cuadratura ────────────────────────────────────────
   var advs=(data.observaciones||[]).slice(0,20);
@@ -1251,13 +1283,15 @@ function mostrarPreviewHonorarios(data,btnCArg){
   ab.innerHTML=advHTML;
 
   // ── Habilitar/deshabilitar botón ──────────────────────────────────────
-  var puedeConfirmar=cab.n_docs_incluidos>0;
+  var puedeConfirmar=cab.n_docs_incluidos>0 && cab.n_pendientes===0;
   if(btnC){
     if(puedeConfirmar){
       btnC.disabled=false;btnC.style.opacity='1';btnC.title='';
     } else {
       btnC.disabled=true;btnC.style.opacity='.4';
-      btnC.title='Sin documentos válidos';
+      btnC.title=cab.n_pendientes>0
+        ?'Clasifica las boletas de honorarios antes de confirmar.'
+        :'Sin documentos válidos';
     }
   }
   document.getElementById('modalPreviewLibro').classList.add('on');
@@ -2336,7 +2370,40 @@ function cancelarPreviewLibro(){
   if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
 }
 
-// ── Selector de hoja ──────────────────────────────────────────────────────
+// ── Mapeo de fila Honorarios al contrato real de p_registros ────────────
+// libros_registros usa: monto_bruto, monto_retencion, monto_liquido (≠ total_*)
+// La RPC filtra subtipo IN ('recibido','emitido') para calcular totales
+function registroHonorarioParaRPC(f){
+  return {
+    n_fila_origen:       f.n_fila_origen,
+    incluido:            f.incluido,
+    es_fila_total:       f.es_fila_total||false,
+    es_nota_credito:     false,
+    tipo_documento:      f.tipo_documento||null,
+    folio:               f.folio||null,
+    razon_social:        f.razon_social||null,
+    rut_contraparte:     f.rut_contraparte||null,
+    fecha_documento:     f.fecha_documento||null,
+    cuenta_contable:     null,
+    detalle:             null,
+    // Campos Compras/Ventas — vacíos para Honorarios
+    monto_neto:          0,
+    monto_exento:        0,
+    monto_iva:           0,
+    monto_retenciones:   0,
+    monto_total:         f.total_liquido||f.total_bruto||0,
+    // Campos específicos Honorarios — columnas reales en libros_registros
+    monto_bruto:         f.total_bruto||0,
+    monto_retencion:     f.total_retencion||0,
+    monto_adicional_3pct:0,
+    monto_liquido:       f.total_liquido||0,
+    // subtipo: 'recibido'|'emitido'|'pendiente_clasificacion' (no 'recibida'/'emitida')
+    subtipo_honorario:   f.subtipo_honorario||'pendiente_clasificacion',
+    clasificacion_fuente:null  // 'html' no es valor aceptado por RPC
+  };
+}
+
+
 function mostrarSelectorHoja(wb){
   var ctx=_cargaLibroCtx;
   var lista=document.getElementById('lista-hojas');
@@ -2448,7 +2515,9 @@ async function confirmarCargaLibro(){
         sha256:         sha256
       },
       p_cabecera:         cabeceraParaRPC(data.cabeceraCalc||{}),
-      p_registros:        data.filas||[],
+      p_registros:        ctx.tipo==='honorarios'
+                            ? (data.filas||[]).map(registroHonorarioParaRPC)
+                            : (data.filas||[]),
       p_observaciones:    data.observaciones||[],
       p_reglas_honorarios:[],
       p_obs:              null
