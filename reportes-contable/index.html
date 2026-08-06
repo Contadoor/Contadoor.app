@@ -797,6 +797,137 @@ function abrirF29(rut){
   document.getElementById('modalF29').classList.add('on');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// HELPERS — DETECCIÓN Y PARSEO DE ARCHIVOS HTML DISFRAZADOS DE XLS
+// ═══════════════════════════════════════════════════════════════
+
+function decodificarArchivoTexto(arrayBuffer){
+  var bytes=new Uint8Array(arrayBuffer);
+  // Intentar detectar charset declarado en los primeros 2000 bytes (texto provisional)
+  var provisional='';
+  try{
+    var dec0=new TextDecoder('utf-8',{fatal:false});
+    provisional=dec0.decode(bytes.slice(0,2000)).toLowerCase();
+  }catch(e){}
+
+  // Detectar charset declarado en el meta del HTML
+  var charsetMatch=provisional.match(/charset\s*=\s*['""]?\s*([\w-]+)/i);
+  var charsetDeclarado=(charsetMatch?charsetMatch[1].toLowerCase().trim():'');
+
+  // Mapear a nombres que TextDecoder entiende
+  var CHARSETS_SOPORTADOS=['utf-8','windows-1252','iso-8859-1','latin1','utf-16le','utf-16be'];
+  var charsetFinal='utf-8';
+  if(charsetDeclarado&&CHARSETS_SOPORTADOS.indexOf(charsetDeclarado)>=0){
+    charsetFinal=charsetDeclarado;
+  }
+
+  function contarReemplazo(s){ return (s.match(/\ufffd/g)||[]).length; }
+
+  function decodificarCon(charset){
+    try{ return new TextDecoder(charset,{fatal:false}).decode(bytes); }
+    catch(e){ return null; }
+  }
+
+  // Intentar con el charset detectado/declarado
+  var textoA=decodificarCon(charsetFinal)||'';
+  var numA=contarReemplazo(textoA);
+
+  // Si tiene muchos caracteres de reemplazo y charset no era explícito, probar windows-1252
+  if(numA>5&&charsetFinal==='utf-8'){
+    var textoB=decodificarCon('windows-1252')||'';
+    var numB=contarReemplazo(textoB);
+    if(numB<numA){ textoA=textoB; }
+  }
+
+  return textoA.replace(/^\uFEFF/,'').trim();
+}
+
+function pareceArchivoHtml(texto){
+  var inicio=String(texto||'').slice(0,5000).toLowerCase();
+  return inicio.indexOf('<html')>=0||inicio.indexOf('<table')>=0||
+    inicio.indexOf('<tr')>=0||inicio.indexOf('<td')>=0;
+}
+
+function extraerTablasHtmlMasConta(htmlStr){
+  var doc=new DOMParser().parseFromString(htmlStr,'text/html');
+  var tablas=Array.from(doc.querySelectorAll('table'));
+  return tablas.map(function(tabla,indice){
+    var filas=Array.from(tabla.querySelectorAll('tr')).map(function(tr){
+      return Array.from(tr.querySelectorAll('th,td')).map(function(td){
+        return String(td.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+      });
+    }).filter(function(fila){ return fila.some(function(c){ return c!==''; }); });
+
+    // Extraer título: caption > previousSibling (hasta 5) > padre > th
+    var titulo='';
+    var cap=tabla.querySelector('caption');
+    if(cap) titulo=String(cap.textContent||'').trim();
+    if(!titulo){
+      var ant=tabla.previousElementSibling; var intentos=0; var partes=[];
+      while(ant&&intentos<5){
+        var t=String(ant.textContent||'').trim();
+        if(t) partes.unshift(t);
+        ant=ant.previousElementSibling; intentos++;
+      }
+      titulo=partes.join(' ').trim();
+    }
+    if(!titulo&&tabla.parentElement){
+      var padreAnt=tabla.parentElement.previousElementSibling;
+      if(padreAnt) titulo=String(padreAnt.textContent||'').trim();
+    }
+    if(!titulo){
+      var th=tabla.querySelector('th');
+      if(th) titulo=String(th.textContent||'').trim();
+    }
+    titulo=titulo.replace(/\s+/g,' ').trim().slice(0,300);
+
+    return {indice:indice,titulo:titulo,filas:filas};
+  }).filter(function(t){ return t.filas.length>0; });
+}
+
+function detectarTipoLibroEnHtml(tablas){
+  var texto=tablas.map(function(t){
+    return normalizarEncabezado((t.titulo||'')+' '+t.filas.slice(0,8).flat().join(' '));
+  }).join(' ');
+  var tieneVentas=/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto);
+  var tieneCompras=/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto);
+  if(tieneVentas&&!tieneCompras) return 'ventas';
+  if(tieneCompras&&!tieneVentas) return 'compras';
+  if(tieneVentas&&tieneCompras)  return 'combinado';
+  return 'desconocido';
+}
+
+function puntuarTablaMasConta(tablaInfo, tipoSolicitado){
+  var titulo=normalizarEncabezado(tablaInfo.titulo||'');
+  var primeras=tablaInfo.filas.slice(0,15).map(function(row){
+    return row.map(normalizarEncabezado).join(' | ');
+  }).join(' ');
+  var texto=titulo+' '+primeras;
+  var puntos=0;
+  if(tipoSolicitado==='ventas'){
+    if(/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto))  puntos+=20;
+    if(/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto)) puntos-=20;
+  } else if(tipoSolicitado==='compras'){
+    if(/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto)) puntos+=20;
+    if(/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto))   puntos-=20;
+  }
+  var headerInfo=detectarHeaderRow(tablaInfo.filas);
+  if(headerInfo&&headerInfo.index>=0) puntos+=(headerInfo.score||8);
+  if(tablaInfo.filas.length>5) puntos+=2;
+  return {tabla:tablaInfo,puntos:puntos,headerInfo:headerInfo};
+}
+
+function seleccionarTablaHtmlMasConta(tablas, tipo){
+  var puntuadas=tablas.map(function(t){ return puntuarTablaMasConta(t,tipo); });
+  puntuadas.sort(function(a,b){ return b.puntos-a.puntos; });
+  console.info('[MasConta HTML] Tablas puntuadas:',puntuadas.map(function(p){
+    return {titulo:p.tabla.titulo.slice(0,60),filas:p.tabla.filas.length,puntos:p.puntos,hIdx:p.headerInfo&&p.headerInfo.index};
+  }));
+  var mejor=puntuadas[0];
+  return (mejor&&mejor.puntos>0&&mejor.headerInfo&&mejor.headerInfo.index>=0)?mejor:null;
+}
+
+
 async function procesarArchivoLibro(file, sheetName){
   var ctx=_cargaLibroCtx;
   if(!ctx) return;
@@ -804,6 +935,87 @@ async function procesarArchivoLibro(file, sheetName){
   try{ arrayBuffer=await file.arrayBuffer(); }
   catch(e){ alert('No se pudo leer el archivo: '+e.message); return; }
 
+  // ── 1. Detectar formato real (puede ser HTML disfrazado de XLS) ───────────
+  var textoArchivo=decodificarArchivoTexto(arrayBuffer);
+  var esHtml=pareceArchivoHtml(textoArchivo);
+  var ext=(file.name.split('.').pop()||'').toLowerCase();
+
+  console.info('[MasConta] Formato detectado:',{
+    nombre:file.name, extension:ext, esHtml:esHtml,
+    inicio:textoArchivo.slice(0,200)
+  });
+
+  // ── 2. RAMA HTML: usar DOMParser ──────────────────────────────────────────
+  if(esHtml){
+    console.info('[MasConta] Archivo es HTML — usando DOMParser');
+    var tablasHtml=extraerTablasHtmlMasConta(textoArchivo);
+    console.info('[MasConta HTML] Tablas detectadas:',tablasHtml.length,
+      tablasHtml.map(function(t){return {titulo:t.titulo.slice(0,60),filas:t.filas.length};}));
+
+    var tipoDetectado=detectarTipoLibroEnHtml(tablasHtml);
+    console.info('[MasConta HTML] Tipo detectado en archivo:',tipoDetectado,'| Solicitado:',ctx.tipo);
+
+    // Detectar conflicto de tipo
+    var hayConflicto=(tipoDetectado!=='desconocido'&&tipoDetectado!=='combinado'&&tipoDetectado!==ctx.tipo);
+    if(hayConflicto){
+      var tipoNombreDetectado=tipoDetectado==='ventas'?'Ventas':'Compras';
+      var tipoNombreSolicitado=ctx.tipo==='ventas'?'Ventas':'Compras';
+      _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
+        cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,hIdx:-1,
+        hojaUtilizada:'Tabla HTML',formatoDetectado:'html',
+        tablasDetectadas:tablasHtml.length,tipoDetectado:tipoDetectado,
+        hayConflictoTipo:true,
+        errorTipoLibro:'Este archivo corresponde a un Libro de '+tipoNombreDetectado+
+          ', pero se intentó cargar en '+tipoNombreSolicitado+'. Carga el archivo en la sección correcta.',
+        primerasFilasPostHeader:tablasHtml.length?tablasHtml[0].filas.slice(0,5):[]
+      };
+      mostrarPreviewLibro(_previewLibro);
+      return;
+    }
+
+    // Seleccionar la tabla con mayor puntaje
+    var seleccion=seleccionarTablaHtmlMasConta(tablasHtml,ctx.tipo);
+
+    if(!seleccion){
+      _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
+        cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,hIdx:-1,
+        hojaUtilizada:'Tabla HTML',formatoDetectado:'html',
+        tablasDetectadas:tablasHtml.length,tipoDetectado:tipoDetectado,
+        errorEncabezado:'El archivo HTML fue reconocido, pero no se encontró una tabla con encabezados contables válidos.',
+        primerasFilasPostHeader:tablasHtml.length?tablasHtml[0].filas.slice(0,5):[]
+      };
+      mostrarPreviewLibro(_previewLibro);
+      return;
+    }
+
+    var rawRows=seleccion.tabla.filas;
+    var hojaLabel='Tabla HTML '+(seleccion.tabla.indice+1)+
+      (seleccion.tabla.titulo?' — '+seleccion.tabla.titulo.slice(0,60):'');
+
+    console.info('[MasConta HTML] Tabla seleccionada:',
+      {indice:seleccion.tabla.indice,titulo:seleccion.tabla.titulo,filas:rawRows.length,puntos:seleccion.puntos});
+
+    if(_cargaLibroCtx) _cargaLibroCtx._sheetUsed=hojaLabel;
+
+    if(ctx.tipo==='compras'||ctx.tipo==='ventas'){
+      var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
+      result.file=file;
+      result.hojaUtilizada=hojaLabel;
+      result.formatoDetectado='html';
+      result.tablasDetectadas=tablasHtml.length;
+      result.tipoDetectado=tipoDetectado;
+      _previewLibro=result;
+      mostrarPreviewLibro(result);
+    } else {
+      _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
+        cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,esHonorariosFase1:true,
+        hojaUtilizada:hojaLabel,formatoDetectado:'html'};
+      mostrarPreviewLibro(_previewLibro);
+    }
+    return;
+  }
+
+  // ── 3. RAMA XLSX/XLS normal ───────────────────────────────────────────────
   var wb;
   try{ wb=XLSX.read(new Uint8Array(arrayBuffer),{type:'array',raw:true,cellDates:false}); }
   catch(e){ alert('Error al abrir el archivo: '+e.message); return; }
@@ -834,16 +1046,17 @@ async function procesarArchivoLibro(file, sheetName){
 
   if(ctx.tipo==='compras'||ctx.tipo==='ventas'){
     var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
-    result.file=file; result.hojaUtilizada=sheetName;
+    result.file=file; result.hojaUtilizada=sheetName; result.formatoDetectado='xlsx';
     _previewLibro=result;
     mostrarPreviewLibro(result);
   } else {
     _previewLibro={tipo:ctx.tipo,file:file,filas:[],observaciones:[],
       cabeceraCalc:calcularCabeceraCV([]),tolerancia:100,esHonorariosFase1:true,
-      hojaUtilizada:sheetName};
+      hojaUtilizada:sheetName,formatoDetectado:'xlsx'};
     mostrarPreviewLibro(_previewLibro);
   }
 }
+
 
 function closeModal(){document.getElementById('modalF29').classList.remove('on');}
 
@@ -873,7 +1086,7 @@ function calcIVA(){
 function calcPPM(){
   var base=nv('f-ppm-base'),tasa=nv('f-ppm-tasa');
   var ppm=Math.round(base*tasa/100);
-  document.getElementById('f-ppm-monto').value=ppm||'';
+  document.getElementById('f-ppm-monto').value=ppm;
   calcTotal();
 }
 
@@ -1083,13 +1296,14 @@ var _CAMPO_ALIASES=[
   {c:'tipo_documento', a:[
     'TIPO DOCUMENTO','TIPO DE DOCUMENTO','TIPO DOC','TIPO DOCTO','TIPO DCTO',
     'DOCUMENTO','DOCUMENTO TRIBUTARIO','DTE','TPO DOC',
-    'DESCRIPCION DOCUMENTO','DESC DOCUMENTO','TIPO DOCUMENTOS']},
+    'DESCRIPCION DOCUMENTO','DESC DOCUMENTO','TIPO DOCUMENTOS',
+    'TIPO']},
   {c:'codigo_documento', a:[
     'CODIGO DOCUMENTO','COD DOCUMENTO','COD DOC','CODIGO DTE',
-    'TIPO DTE','CODIGO TIPO DOCUMENTO']},
+    'TIPO DTE','CODIGO TIPO DOCUMENTO','COD','CODIGO']},
   {c:'folio', a:[
     'FOLIO','N FOLIO','NRO FOLIO','NUMERO FOLIO','NUM DOC',
-    'NRO DOCUMENTO','N DE FOLIO']},
+    'NRO DOCUMENTO','N DE FOLIO','NRO','NUMERO','N DOCUMENTO']},
   {c:'rut_contraparte', a:[
     'RUT','RUT CLIENTE','RUT PROVEEDOR','RUT RECEPTOR',
     'RUT EMISOR','RUT CONTRAPARTE']},
@@ -1098,16 +1312,16 @@ var _CAMPO_ALIASES=[
     'NOMBRE PROVEEDOR','NOMBRE O RAZON SOCIAL']},
   {c:'monto_neto', a:[
     'NETO','MONTO NETO','NETO AFECTO','MONTO NETO AFECTO',
-    'TOTAL NETO','NETO GRAVADO']},
+    'TOTAL NETO','NETO GRAVADO','BASE NETA']},
   {c:'monto_exento', a:[
     'EXENTO','MONTO EXENTO','TOTAL EXENTO','NETO EXENTO',
-    'MONTO NO AFECTO','MONTO NO AFECTO O EXENTO','NO AFECTO']},
+    'MONTO NO AFECTO','MONTO NO AFECTO O EXENTO','NO AFECTO','MONTO EXENTO O NO AFECTO']},
   {c:'monto_iva', a:[
     'IVA','MONTO IVA','IVA DEBITO','IVA CREDITO','IVA RECUPERABLE',
-    'IVA TOTAL','CREDITO FISCAL','DEBITO FISCAL']},
+    'IVA TOTAL','CREDITO FISCAL','DEBITO FISCAL','MONTO IVA DEBITO','MONTO IVA CREDITO']},
   {c:'monto_total', a:[
     'TOTAL','MONTO TOTAL','TOTAL DOCUMENTO','TOTAL DOCTO',
-    'TOTAL COMPROBANTE','TOTAL CON IVA']},
+    'TOTAL COMPROBANTE','TOTAL CON IVA','MONTO TOTAL DOCUMENTO']},
   {c:'monto_retenciones', a:['RETENCIONES','RETENCION','MONTO RETENCIONES']},
   {c:'fecha_documento', a:[
     'FECHA','FECHA DOCUMENTO','FECHA EMISION','FECHA DOCTO','FECHA EMIS']},
@@ -1217,6 +1431,33 @@ function detectarHeaderRow(rawRows){
 }
 
 // ── 7. Construir mapa de columnas ─────────────────────────────
+// Desambiguar columnas con alias en colisión (p.ej. 'TIPO' puede ser tipo_doc o codigo_doc)
+function desambiguarCampos(colMap, rawRows, hIdx){
+  // Si se mapeó 'tipo_documento' pero hay dudas (alias genérico TIPO o COD),
+  // revisar las primeras 10 celdas bajo esa columna
+  ['tipo_documento','codigo_documento'].forEach(function(campo){
+    var j=colMap[campo];
+    if(j===undefined) return;
+    var muestras=[];
+    for(var i=hIdx+1;i<Math.min(rawRows.length,hIdx+12);i++){
+      var v=String((rawRows[i]||[])[j]||'').trim();
+      if(v) muestras.push(v);
+    }
+    if(!muestras.length) return;
+    var numericos=muestras.filter(function(v){return /^\d+$/.test(v);}).length;
+    var pctNum=numericos/muestras.length;
+    // Mayoría numérica → codigo_documento; mayoría textual → tipo_documento
+    if(campo==='tipo_documento'&&pctNum>0.6&&colMap.codigo_documento===undefined){
+      colMap.codigo_documento=j;
+      delete colMap.tipo_documento;
+    } else if(campo==='codigo_documento'&&pctNum<=0.4&&colMap.tipo_documento===undefined){
+      colMap.tipo_documento=j;
+      delete colMap.codigo_documento;
+    }
+  });
+  return colMap;
+}
+
 function buildColMap(headerInfo){
   var map={};
   (headerInfo.headersNormalizados||[]).forEach(function(k,j){
@@ -1245,6 +1486,7 @@ function normalizarFilasComprasVentas(rawRows,tipo){
   }
 
   var colMap=buildColMap(headerInfo);
+  colMap=desambiguarCampos(colMap,rawRows,hIdx);
   console.info('[MasConta] Header row:',hIdx,'score:',headerInfo.score);
   console.info('[MasConta] Header original:',headerInfo.headersOriginales);
   console.info('[MasConta] Column map:',colMap);
@@ -1367,6 +1609,7 @@ function normalizarFilasComprasVentas(rawRows,tipo){
   var tol=Math.min(2000,Math.max(100,Math.round((cab.n_filas_incluidas||1)*0.5)));
   return {tipo:tipo, filas:filas, observaciones:obs, cabeceraCalc:cab, tolerancia:tol,
     nAdvFront:nAdv, colsDetectadas:colsDetectadas, colsFaltantes:colsFaltantes,
+    colMapFinal:Object.assign({},colMap),
     hIdx:hIdx, hScore:headerInfo.score, headersOriginales:headerInfo.headersOriginales,
     hojaUtilizada:_cargaLibroCtx?_cargaLibroCtx._sheetUsed||'':'',
     resumenProcesa:resumenProcesa, contadoresExclusion:cnt, errorEncabezado:null,
@@ -1395,7 +1638,10 @@ function calcularCabeceraCV(filas){
   };
 
   filas.forEach(function(f){
-    if(f.es_fila_total) return;
+    if(f.es_fila_total){
+      c.n_filas_excluidas++; c.n_docs_excluidos++;
+      return;
+    }
     if(f.incluido){
       c.n_filas_incluidas++; c.n_docs_incluidos++;
       c.total_neto      += f.monto_neto;       // suma todo el neto (afecto y de mixtos)
@@ -1475,6 +1721,24 @@ function mostrarPreviewLibro(data){
 
   // ── Diagnóstico de encabezado y columnas (siempre visible) ─────────────
   var diagHTML='';
+  // ── Conflicto tipo de libro (Compras cargado como Ventas o viceversa) ────
+  if(data.errorTipoLibro){
+    rb.style.display='block';
+    rb.innerHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;color:#991b1b">'+
+      '<div style="font-weight:700;margin-bottom:6px">⛔ Tipo de libro incorrecto</div>'+
+      '<div style="margin-bottom:6px">'+hesc(data.errorTipoLibro)+'</div>'+
+      '<div><b>Formato:</b> HTML exportado como XLS</div>'+
+      '<div><b>Tablas detectadas:</b> '+hesc(String(data.tablasDetectadas||0))+'</div>'+
+      '<div><b>Tipo solicitado:</b> '+hesc(data.tipo||'—')+'</div>'+
+      '<div><b>Tipo detectado:</b> '+hesc(data.tipoDetectado||'—')+'</div>'+
+      '</div>';
+    tb.style.display='none'; ab.innerHTML='';
+    if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='El archivo corresponde a otro tipo de libro';}
+    document.getElementById('modalPreviewLibro').classList.add('on');
+    return;
+  }
+
+  // ── Encabezado no detectado ───────────────────────────────────────────────
   if(data.errorEncabezado){
     rb.style.display='block';
     // Mostrar primeras filas para diagnóstico
@@ -1498,6 +1762,19 @@ function mostrarPreviewLibro(data){
   // ── Panel diagnóstico completo (siempre visible) ──────────────────────
   var hoja=hesc(data.hojaUtilizada||'—');
   var hFila=data.hIdx>=0?String(data.hIdx+1):'—';
+  // Formato detectado
+  var fmtLabel=data.formatoDetectado==='html'?'HTML exportado como XLS':'Excel/XLSX';
+  var fmtColor=data.formatoDetectado==='html'?'#c07a1a':'var(--t2)';
+  var fmtExtra='';
+  if(data.formatoDetectado==='html'){
+    fmtExtra='<span style="color:var(--tm)">Tablas HTML: '+hesc(String(data.tablasDetectadas||'?'))+'</span>';
+    if(data.hayConflictoTipo){
+      fmtExtra+=' <span style="color:#C0392B;font-weight:700">⚠️ Tipo solicitado: '+hesc(data.tipo)+
+        ' · Tipo detectado: '+hesc(data.tipoDetectado||'?')+'</span>';
+    } else if(data.tipoDetectado){
+      fmtExtra+=' <span style="color:var(--tm)">Tipo detectado: '+hesc(data.tipoDetectado)+'</span>';
+    }
+  }
   var colOrig=data.headersOriginales||[];
   var cm={}; // índice → campo para mostrar mapeos
   (data.colsDetectadas||[]).forEach(function(campo){});
@@ -1513,13 +1790,21 @@ function mostrarPreviewLibro(data){
     {c:'rut_contraparte',  label:'RUT'},
     {c:'fecha_documento',  label:'Fecha'},
   ];
-  // Reconstruir colMap a partir de data para mostrar los encabezados originales
+  // Usar colMapFinal (post-desambiguación) si está disponible
   var colMapDisplay={};
-  (data.headersOriginales||[]).forEach(function(v,j){
-    var k=normalizarEncabezado(v);
-    var campo=_ALIAS_MAP[k];
-    if(campo&&colMapDisplay[campo]===undefined) colMapDisplay[campo]={j:j,orig:v};
-  });
+  if(data.colMapFinal && Object.keys(data.colMapFinal).length>0){
+    Object.keys(data.colMapFinal).forEach(function(campo){
+      var j=data.colMapFinal[campo];
+      colMapDisplay[campo]={j:j,orig:(data.headersOriginales||[])[j]||''};
+    });
+  } else {
+    // Fallback: reconstruir desde _ALIAS_MAP (sin desambiguación)
+    (data.headersOriginales||[]).forEach(function(v,j){
+      var k=normalizarEncabezado(v);
+      var campo=_ALIAS_MAP[k];
+      if(campo&&colMapDisplay[campo]===undefined) colMapDisplay[campo]={j:j,orig:v};
+    });
+  }
   CAMPOS_SHOW.forEach(function(f){
     var found=colMapDisplay[f.c];
     mapLineas+='<tr><td style="color:var(--tm);padding:1px 8px 1px 0">'+hesc(f.label)+'</td>' +
@@ -1570,6 +1855,8 @@ function mostrarPreviewLibro(data){
   diagHTML='<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px 11px;font-size:11px;margin-bottom:8px">' +
     '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:4px">' +
     '<span style="font-size:9px;color:var(--tm)">Parser: 2026-08-05-vFinal</span>' +
+    '<span style="color:'+fmtColor+';font-weight:600">'+hesc(fmtLabel)+'</span>' +
+    (fmtExtra?' '+fmtExtra:'') +
     '<span><b>Hoja:</b> '+hoja+'</span>' +
     '<span><b>Fila encabezado:</b> '+hFila+'</span>' +
     (colsFalt.length?'<span style="color:#c07a1a;font-weight:600">Faltantes: '+hesc(colsFalt.join(', '))+'</span>':'') +
@@ -2447,10 +2734,16 @@ function cargarLibro(clienteId, rut, tipo, accion){
 }
 
 function onLibroFileSelected(inp){
+  if(!_cargaLibroCtx){
+    alert('No existe un contexto de carga activo.');
+    inp.value='';
+    return;
+  }
   var file=inp.files&&inp.files[0];
   if(!file) return;
   _cargaLibroCtx.file=file;
-  procesarArchivoLibro(file, null);
+  inp.value='';
+  procesarArchivoLibro(file,null);
 }
 
 function cargarPeriodo(){
