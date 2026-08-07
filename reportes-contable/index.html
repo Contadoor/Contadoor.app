@@ -331,6 +331,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
         <label>Tasa PPM (%)</label>
         <input type="number" id="f-ppm-tasa" placeholder="1.5" step="0.1" oninput="calcPPM()"/>
         <span class="hint" id="ppm-tasa-hint">Tasa del período anterior</span>
+        <div style="margin-top:5px">
+          <div class="hint" id="ppm-ficha-default-info"></div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;margin-top:4px;cursor:pointer">
+            <input type="checkbox" id="f-actualizar-tasa-ficha">
+            Actualizar también la tasa predeterminada en la ficha del cliente
+          </label>
+        </div>
       </div>
       <div class="fgroup">
         <label>PPM calculado</label>
@@ -342,7 +349,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="card-hd">📄 Retenciones y otros impuestos</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
-        <label>Ret. honorarios (10,75%)</label>
+        <label>Retención honorarios</label>
         <input type="number" id="f-ret-hon" placeholder="0" oninput="calcTotal()"/>
         <span class="hint">Boletas honorarios recibidas</span>
       </div>
@@ -361,7 +368,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div style="background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:10px;padding:14px 16px;margin-bottom:14px;">
       <div style="font-size:10px;font-weight:700;color:var(--contable);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Resumen tributario del período</div>
       <div style="display:flex;flex-direction:column;gap:5px;" id="resumen-items">
-        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">IVA exigible del período</span><span id="res-iva" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Impuesto determinado</span><span id="res-iva" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">PPM</span><span id="res-ppm" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Ret. honorarios</span><span id="res-ret-hon" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Imp. Único 2ª Cat.</span><span id="res-iu" style="font-weight:600">$0</span></div>
@@ -380,7 +387,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">💾 Guardar Pre-F29</button>
+      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">💾 Validar y cerrar Pre-F29</button>
     </div>
   </div>
 </div>
@@ -452,6 +459,12 @@ function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x2
 function ff(n){return '$'+Math.round(Math.abs(n)||0).toLocaleString('es-CL');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 function nv(id){return parseFloat(sv(id))||0;}
+function valorNumericoOpcional(id){
+  var raw=sv(id);
+  if(raw==='') return null;
+  var n=Number(raw);
+  return Number.isFinite(n)?n:null;
+}
 function hoy(){return new Date().toISOString().slice(0,10);}
 function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
@@ -510,6 +523,94 @@ function librosListos(rep, c){
   return ventasOk && comprasOk;  // honorarios no bloquean el Pre-F29
 }
 
+function periodoAnterior(periodo){
+  var p=String(periodo||'').split('-');
+  var y=parseInt(p[0],10), m=parseInt(p[1],10);
+  m--; if(m===0){m=12;y--;}
+  return y+'-'+String(m).padStart(2,'0');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// buildBorradorF29 — fuente única de cálculo para tarjetas y modal
+// NO persiste. Recalcula en vivo desde libros cargados + f29 guardado.
+// ═══════════════════════════════════════════════════════════════
+function buildBorradorF29(rep, cliente, periodo){
+  var f29   = rep.f29 || {};
+  var libros= rep.libros || {};
+  var libV  = libros.ventas    || null;
+  var libC  = libros.compras   || null;
+  var libH  = libros.honorarios|| null;
+
+  var ESTADOS_OK = ['validado','sin_movimientos'];
+  var ventasOk   = ESTADOS_OK.indexOf((libV||{}).estado||'') >= 0;
+  var comprasOk  = ESTADOS_OK.indexOf((libC||{}).estado||'') >= 0;
+  var honorOk    = libH && ['validado','con_observaciones'].indexOf((libH||{}).estado||'') >= 0;
+
+  function tienePersistido(v){ return v!==null && v!==undefined && v!==''; }
+
+  // IVA — fuente: libros si disponibles; f29 guardado como override
+  var ivaDebito  = tienePersistido(f29.ivaDebito)  ? Number(f29.ivaDebito)
+                   : (ventasOk  ? Number((libV||{}).totalIva||0)   : 0);
+  var ivaCredito = tienePersistido(f29.ivaCredito) ? Number(f29.ivaCredito)
+                   : (comprasOk ? Number((libC||{}).totalIva||0)   : 0);
+
+  // Remanente anterior: del mapa precargado del período anterior (no del mismo período)
+  // f29.remanente representa el remanente SIGUIENTE del período actual — NO usar como anterior
+  var remanenteAnterior = getRemanenteAnterior(rep.rut);
+
+  var saldoIva = ivaDebito - ivaCredito - remanenteAnterior;
+  var impuestoDeterminado   = Math.max(0, saldoIva);
+  var remanenteSiguiente    = saldoIva < 0 ? Math.abs(saldoIva) : 0;
+
+  // PPM — base desde libro Ventas
+  var ppmBase = tienePersistido(f29.ppmBase) ? Number(f29.ppmBase)
+                : (ventasOk ? (Number((libV||{}).totalNeto||0)+Number((libV||{}).totalExento||0)) : 0);
+
+  // Tasa PPM: f29 guardado > ficha cliente > null
+  var ppmTasa = tienePersistido(f29.ppmTasa) ? Number(f29.ppmTasa)
+                : (tienePersistido((cliente||{}).ppmTasaDefault) ? Number(cliente.ppmTasaDefault)
+                : null);
+
+  var ppm = (ppmTasa!==null && ppmBase>0) ? Math.round(ppmBase * ppmTasa / 100) : 0;
+
+  // Retención honorarios — desde libro si está cargado, f29 como override
+  var retHon = tienePersistido(f29.retHon) ? Number(f29.retHon)
+               : (honorOk ? Number((libH||{}).totalRetencion||0) : 0);
+
+  // Imp. Único 2ª Cat. — desde RRHH (rep.iuSii > rep.iu > f29.imp2cat)
+  var imp2cat = Number(rep.iuSii||rep.iu||f29.imp2cat||0);
+
+  // Otros impuestos — solo desde f29 guardado
+  var otrosImp = Number(f29.otrosImp||0);
+
+  var totalRetenciones  = ppm + retHon + imp2cat + otrosImp;
+  var totalTributario   = impuestoDeterminado + totalRetenciones;
+  var postergado        = f29.postergado || false;
+
+  return {
+    ivaDebito:           ivaDebito,
+    ivaCredito:          ivaCredito,
+    remanenteAnterior:   remanenteAnterior,
+    impuestoDeterminado: impuestoDeterminado,
+    remanenteSiguiente:  remanenteSiguiente,
+    postergado:          postergado,
+    ivaPostergado:       postergado ? Math.max(0,saldoIva) : 0,
+    ppmBase:             ppmBase,
+    ppmTasa:             ppmTasa,
+    ppm:                 ppm,
+    retHon:              retHon,
+    imp2cat:             imp2cat,
+    otrosImp:            otrosImp,
+    totalRetenciones:    totalRetenciones,
+    totalTributario:     totalTributario,
+    _ventasOk:  ventasOk,
+    _comprasOk: comprasOk,
+    _honorOk:   honorOk,
+    _ppmTasaFuente: tienePersistido(f29.ppmTasa)?'periodo'
+                    :(tienePersistido((cliente||{}).ppmTasaDefault)?'ficha':'ninguna')
+  };
+}
+
 function renderTabla(){
   if(!_periodoActual){return;}
   var u=getUsuario();
@@ -555,14 +656,15 @@ function renderTabla(){
 
     // TIMELINE 3 pasos (contable): RRHH → Validación → Pre-F29
     // Pasos 4-7 pertenecen al Panel de Control
+    var libOkTl=librosListos(rep,c);
     var p1=rrhhOk?'done':'active';
-    var p2=!rrhhOk?'next':(pagosOk?'done':'active');
-    var p3=(!rrhhOk||!pagosOk)?'next':(estado==='completado'?'done':'active');
+    var p2=!rrhhOk?'next':(libOkTl?'done':'active');
+    var p3=(!rrhhOk||!libOkTl)?'next':(estado==='completado'?'done':'active');
 
     var tl='<div style="display:flex;align-items:center;gap:1px;margin-bottom:4px;">';
     var steps=[
       {e:p1,i:rrhhOk?'\u2713':'1'},
-      {e:p2,i:pagosOk?'\u2713':'2'},
+      {e:p2,i:libOkTl?'\u2713':'2'},
       {e:p3,i:estado==='completado'?'\u2713':'3'}
     ];
     steps.forEach(function(s,i){
@@ -579,9 +681,8 @@ function renderTabla(){
     var badgeHtml='';
     if(!rrhhOk){
       badgeHtml='<span class="estado-badge eb-pendiente">⏳ Esperando RRHH</span>';
-    } else if(!pagosOk){
-      // pagosValidado: semántica pendiente de confirmar (reportes-pagos)
-      badgeHtml='<span class="estado-badge" style="background:#f5f3ff;color:#6b21a8" title="Este control proviene del módulo Pagos. Su significado definitivo está pendiente de validación.">🟣 Validación pendiente</span>';
+    } else if(false){
+      badgeHtml='';
     } else if(estado==='pendiente'){
       badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Completar Pre-F29</span>';
     } else if(estado==='completado'){
@@ -595,9 +696,8 @@ function renderTabla(){
     }
 
     // Total tributario (sin honorarios comerciales)
-    var totalTrib=rep.f29
-      ?(rep.f29.ivaApagar||0)+(rep.f29.ppm||0)+(rep.f29.retenciones||0)
-      :0;
+    var borrador=buildBorradorF29(rep,c,_periodoActual);
+    var totalTrib=borrador.totalTributario;
 
     var rowBg=estado==='completado'?'background:#f9fefb;':'';
     html+='<div class="cliente-row" id="row-'+c.rut+'" style="'+rowBg+'">';
@@ -609,7 +709,7 @@ function renderTabla(){
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
       +tl
-      +'<div style="font-size:9px;color:#9a849b">RRHH · Validación · Pre-F29</div>'
+      +'<div style="font-size:9px;color:#9a849b">RRHH · Libros · Pre-F29</div>'
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(totalTrib?ff(totalTrib):' — ')+'</div>';
@@ -618,8 +718,6 @@ function renderTabla(){
     html+='<div style="display:flex;gap:5px;justify-content:flex-end;">';
     if(!rrhhOk){
       html+='<button class="btn-s" disabled style="opacity:.4;font-size:10.5px;">Bloqueado</button>';
-    } else if(!pagosOk){
-      html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px;" title="Validación pendiente desde módulo Pagos">Esp. validación</button>';
     } else if(estado==='pendiente'){
       var libOk=librosListos(rep,c);
       if(!libOk){
@@ -643,31 +741,44 @@ function renderTabla(){
     if(c.tieneContabilidad!==false){
       html+=renderSeccionLibros(rep,c);
     }
-    if(rep.f29){
+    // Tarjetas IVA + PPM en vivo desde borrador (sin esperar rep.f29 guardado)
+    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2cat>0||rep.f29){
       html+='<div class="det-grid">';
+      // ── Tarjeta IVA ──
       html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
-      html+='<div class="det-row"><span>Débito</span><span>'+ff(rep.f29.ivaDebito||0)+'</span></div>';
-      html+='<div class="det-row"><span>Crédito</span><span>-'+ff(rep.f29.ivaCredito||0)+'</span></div>';
-      if(rep.f29.remanente>0)html+='<div class="det-row"><span>Remanente ant.</span><span>-'+ff(rep.f29.remanente||0)+'</span></div>';
-      if(rep.f29.postergado)html+='<div class="det-row"><span style="color:#C07A1A">IVA postergado</span><span style="color:#C07A1A">'+ff(rep.f29.ivaPostergado||0)+'</span></div>';
-      html+='<div class="det-row"><span><strong>IVA exigible</strong></span><span><strong>'+ff(rep.f29.ivaApagar||0)+'</strong></span></div></div>';
+      html+='<div class="det-row"><span>Débito fiscal</span><span>'+ff(borrador.ivaDebito)+'</span></div>';
+      if(borrador.ivaCredito)html+='<div class="det-row"><span>Crédito fiscal</span><span>-'+ff(borrador.ivaCredito)+'</span></div>';
+      if(borrador.remanenteAnterior>0)html+='<div class="det-row"><span>Remanente per. anterior</span><span>-'+ff(borrador.remanenteAnterior)+'</span></div>';
+      if(borrador.postergado)html+='<div class="det-row"><span style="color:#C07A1A">IVA postergado</span><span style="color:#C07A1A">'+ff(borrador.ivaPostergado)+'</span></div>';
+      html+='<div class="det-sep"></div>';
+      html+='<div class="det-row"><span><strong>Impuesto determinado</strong></span><span><strong>'+ff(borrador.impuestoDeterminado)+'</strong></span></div>';
+      if(borrador.remanenteSiguiente>0)html+='<div class="det-row" style="color:var(--contable)"><span>Remanente per. siguiente</span><span>'+ff(borrador.remanenteSiguiente)+'</span></div>';
+      html+='</div>';
+      // ── Tarjeta PPM + Retenciones ──
       html+='<div class="det-card"><div class="det-card-titulo">PPM + Retenciones</div>';
-      html+='<div class="det-row"><span>PPM ('+(rep.f29.ppmTasa||1.5)+'%)</span><span>'+ff(rep.f29.ppm||0)+'</span></div>';
-      html+='<div class="det-row"><span>Ret. honorarios</span><span>'+ff(rep.f29.retHon||0)+'</span></div>';
-      html+='<div class="det-row"><span>Imp. Único 2\u00aa Cat.</span><span>'+ff(rep.f29.imp2cat||0)+'</span></div>';
-      html+='<div class="det-row"><span>Otros imp.</span><span>'+ff(rep.f29.otrosImp||0)+'</span></div>';
-      html+='<div class="det-row"><span><strong>Total retenciones</strong></span><span><strong>'+ff(rep.f29.retenciones||0)+'</strong></span></div></div>';
+      html+='<div class="det-row"><span style="font-size:10.5px;color:var(--tm)">Base PPM</span><span style="font-size:10.5px">'+ff(borrador.ppmBase)+'</span></div>';
+      html+='<div class="det-row"><span style="font-size:10.5px;color:var(--tm)">Tasa PPM</span><span style="font-size:10.5px">'+(borrador.ppmTasa!==null?borrador.ppmTasa+'%':'no configurada')+'</span></div>';
+      html+='<div class="det-row"><span>PPM determinado</span><span>'+ff(borrador.ppm)+'</span></div>';
+      if(borrador.retHon||borrador._honorOk)html+='<div class="det-row"><span>Retención honorarios</span><span>'+ff(borrador.retHon)+'</span></div>';
+      if(borrador.imp2cat)html+='<div class="det-row"><span>Imp. Único 2\u00aa Cat.</span><span>'+ff(borrador.imp2cat)+'</span></div>';
+      if(borrador.otrosImp)html+='<div class="det-row"><span>Otros impuestos</span><span>'+ff(borrador.otrosImp)+'</span></div>';
+      html+='<div class="det-sep"></div>';
+      html+='<div class="det-row"><span><strong>Total complementario</strong></span><span><strong>'+ff(borrador.totalRetenciones)+'</strong></span></div>';
+      html+='</div>';
       html+='</div>';
       html+='<div class="det-total"><span>Total tributario del período</span><span>'+ff(totalTrib)+'</span></div>';
     } else {
-      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">';
-      if(!rrhhOk) html+='⏳ Esperando que RRHH complete su sección.';
-      else if(!pagosOk) html+='🟣 Esperando validación del módulo Pagos.';
-      else html+='📊 Listo para completar Pre-F29.';
-      html+='</div>';
+      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">📊 Carga Ventas o Compras para ver el Pre-F29.</div>';
     }
     html+='<div class="acciones" style="margin-top:10px;">';
-    if(pagosOk&&estado==='pendiente') html+='<button class="btn-p" onclick="abrirF29(\''+c.rut+'\')">📊 Completar Pre-F29</button>';
+    if(estado==='pendiente'){
+      var libOkDetalle=librosListos(rep,c);
+      if(libOkDetalle){
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Completar Pre-F29</button>';
+      } else {
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-F29">📋 Carga Compras y Ventas</button>';
+      }
+    }
     if(estado==='completado'){
       if(!rep.listoPanelControl){
         html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo para consolidar</button>';
@@ -720,78 +831,63 @@ function abrirF29(rut){
   var c=getClientes().find(function(x){return x.rut===rut;})||{};
   var reportes=getReportes();
   var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;})||{};
-  var periodos=getPeriodos();
-  var periodo=periodos.find(function(p){return p.periodo===_periodoActual;})||{};
   var f29=rep.f29||{};
-  var remanente=getRemanente(rut,_periodoActual);
 
   document.getElementById('modal-cliente-nombre').textContent=c.razon+'  -  '+_periodoActual;
   document.getElementById('m-rut').value=rut;
   document.getElementById('m-periodo').value=_periodoActual;
-  // IVA — precargar desde libros SOLO si el Pre-F29 aún no tiene datos propios.
-  // tieneValorGuardado(v): un cero guardado debe conservarse y no ser sobreescrito.
-  function tieneValorGuardado(v){
-    return v !== null && v !== undefined && v !== '';
-  }
-  var libros=rep.libros||{};
-  var libVentas=libros.ventas;
-  var libCompras=libros.compras;
-  var ESTADOS_LIB=['validado','sin_movimientos'];
-  var ventasOk  = ESTADOS_LIB.indexOf((libVentas||{}).estado||'')>=0;
-  var comprasOk = ESTADOS_LIB.indexOf((libCompras||{}).estado||'')>=0;
 
-  // base PPM = total_neto + total_exento (columnas existentes en libros_cabecera)
-  var ppmBaseDesdeVentas = ventasOk
-    ? Number((libVentas||{}).totalNeto||0) + Number((libVentas||{}).totalExento||0)
-    : '';
+  // Fuente única: mismo borrador que las tarjetas
+  var borrador=buildBorradorF29(rep,c,_periodoActual);
 
-  // Precargar solo si el campo F29 no tiene valor guardado (incluye cero)
-  var ivaDebitoVal  = tieneValorGuardado(f29.ivaDebito)  ? f29.ivaDebito
-                      : (ventasOk  ? (libVentas.totalIva||0)   : '');
-  var ivaCreditoVal = tieneValorGuardado(f29.ivaCredito) ? f29.ivaCredito
-                      : (comprasOk ? (libCompras.totalIva||0)  : '');
-  var ppmBaseVal    = tieneValorGuardado(f29.ppmBase)    ? f29.ppmBase
-                      : ppmBaseDesdeVentas;
+  function tieneValorGuardado(v){ return v!==null&&v!==undefined&&v!==''; }
 
-  document.getElementById('f-debito').value       = ivaDebitoVal  !== '' ? ivaDebitoVal  : '';
-  document.getElementById('f-credito').value      = ivaCreditoVal !== '' ? ivaCreditoVal : '';
-  document.getElementById('f-remanente-ant').value= remanente     !== '' ? remanente     : '';
+  // IVA — precargado desde borrador (incluye remanente del período anterior)
+  document.getElementById('f-debito').value       = borrador.ivaDebito  !==0  ? borrador.ivaDebito  : '';
+  document.getElementById('f-credito').value      = borrador.ivaCredito !==0  ? borrador.ivaCredito : '';
+  document.getElementById('f-remanente-ant').value= borrador.remanenteAnterior>0 ? borrador.remanenteAnterior : '';
 
-  // PPM tasa: reporte guardado > ficha cliente > vacío con aviso
-  var tasaGuardada  = f29.ppmTasa;
-  var tasaCliente   = c.ppmTasaDefault;
-  var ppmTasaVal, ppmHint;
-  if(tieneValorGuardado(tasaGuardada)){
-    ppmTasaVal=tasaGuardada;
-    ppmHint='Tasa guardada en este reporte: '+tasaGuardada+'%';
-  } else if(tieneValorGuardado(tasaCliente)){
-    ppmTasaVal=tasaCliente;
-    ppmHint='Tasa desde ficha del cliente: '+tasaCliente+'%';
-  } else {
-    ppmTasaVal='';
-    ppmHint='\u26A0 Tasa PPM no configurada en la ficha del cliente.';
-  }
+  // PPM tasa
+  var ppmTasaVal=borrador.ppmTasa;
+  var ppmHint=borrador._ppmTasaFuente==='periodo'
+    ?'Tasa guardada en este período: '+borrador.ppmTasa+'%'
+    :borrador._ppmTasaFuente==='ficha'
+      ?'Tasa predeterminada de la ficha: '+borrador.ppmTasa+'%'
+      :'\u26A0 Tasa PPM no configurada.';
 
-  document.getElementById('f-ppm-base').value=ppmBaseVal!==''?ppmBaseVal:'';
-  document.getElementById('f-ppm-tasa').value=ppmTasaVal;
-  document.getElementById('f-ppm-monto').value    = tieneValorGuardado(f29.ppm)    ? f29.ppm    : '';
-  document.getElementById('ppm-tasa-hint').textContent=ppmHint;
-  // Retenciones separadas
-  document.getElementById('f-ret-hon').value      = tieneValorGuardado(f29.retHon)  ? f29.retHon  : '';
-  document.getElementById('f-imp-2cat').value     = tieneValorGuardado(rep.iuSii||rep.iu||f29.imp2cat) ? (rep.iuSii||rep.iu||f29.imp2cat) : '';
-  document.getElementById('f-otros-imp').value    = tieneValorGuardado(f29.otrosImp)? f29.otrosImp : '';
-  // Postergación
-  document.getElementById('f-postergar-iva').checked=f29.postergado||false;
-  document.getElementById('f-obs').value=f29.obs||'';
+  document.getElementById('f-ppm-base').value  = borrador.ppmBase>0 ? borrador.ppmBase : '';
+  document.getElementById('f-ppm-tasa').value  = ppmTasaVal!==null ? ppmTasaVal : '';
+  document.getElementById('f-ppm-monto').value = tieneValorGuardado(f29.ppm) ? f29.ppm : '';
+  if(document.getElementById('ppm-tasa-hint'))
+    document.getElementById('ppm-tasa-hint').textContent=ppmHint;
+
+  // Retenciones
+  document.getElementById('f-ret-hon').value  = borrador.retHon>0 ? borrador.retHon
+    :(tieneValorGuardado(f29.retHon)?f29.retHon:'');
+  document.getElementById('f-imp-2cat').value = tieneValorGuardado(rep.iuSii||rep.iu||f29.imp2cat)
+    ?(rep.iuSii||rep.iu||f29.imp2cat):'';
+  document.getElementById('f-otros-imp').value= tieneValorGuardado(f29.otrosImp)?f29.otrosImp:'';
+
   // Info RRHH
   var iuVal=rep.iuSii||rep.iu||f29.imp2cat||0;
   document.getElementById('info-rrhh-imp').textContent=
     iuVal
-      ?'✅ Imp. \u00danico 2\u00aa Cat. desde RRHH: '+ff(iuVal)
-      :'\u2139️ Imp. \u00danico 2\u00aa Cat. se carga automáticamente desde RRHH.';
-  // Ocultar mensaje guardado
+      ?'✅ Imp. Único 2\u00aa Cat. desde RRHH: '+ff(iuVal)
+      :'\u2139\ufe0f Imp. Único 2\u00aa Cat. se carga automáticamente desde RRHH.';
+
+  // Postergación y obs
+  document.getElementById('f-postergar-iva').checked=f29.postergado||false;
+  document.getElementById('f-obs').value=f29.obs||'';
+
   var mg=document.getElementById('msg-guardado');
   if(mg) mg.className='msg-guardado';
+
+  // Checkbox actualizar tasa ficha — siempre reseteado al abrir
+  var cbFicha=document.getElementById('f-actualizar-tasa-ficha');
+  if(cbFicha) cbFicha.checked=false;
+  var ppmFichaInfo=document.getElementById('ppm-ficha-default-info');
+  if(ppmFichaInfo) ppmFichaInfo.textContent=
+    c.ppmTasaDefault!=null?'Tasa en ficha: '+c.ppmTasaDefault+'%':'No configurada';
 
   calcIVA();calcPPM();calcTotal();togglePostergacion();
   document.getElementById('modalF29').classList.add('on');
@@ -1238,22 +1334,19 @@ function mostrarPreviewHonorarios(data,btnCArg){
     tablaHTML='<div style="color:var(--tm);font-size:11px;padding:8px 0">Sin documentos para agrupar.</div>';
   }
 
-  var totHTML='<div style="margin-top:10px">'+
-    '<div class="preview-row"><span><b>Docs incluidos</b></span><span><b>'+cab.n_docs_incluidos+'</b></span></div>'+
-    '<div class="preview-row"><span>Bruto</span><span>'+ff2(cab.total_bruto)+'</span></div>'+
-    '<div class="preview-row"><span>Retenci\u00f3n</span><span>'+ff2(cab.total_retencion)+'</span></div>'+
-    '<div class="preview-row"><span><b>L\u00edquido</b></span><span><b>'+ff2(cab.total_liquido)+'</b></span></div>';
-  if(cab.n_recibidos||cab.n_emitidos){
-    totHTML+='<div class="preview-row" style="margin-top:4px"><span style="font-size:10px;color:var(--tm)">Recibidas</span><span>'+cab.n_recibidos+'</span></div>'+
-      '<div class="preview-row"><span style="font-size:10px;color:var(--tm)">Emitidas</span><span>'+cab.n_emitidos+'</span></div>';
+  var totHTML='<div style="margin-top:4px"></div>';
+  if(cab.n_recibidos||cab.n_emitidos||cab.n_pendientes){
+    totHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--tm);margin-top:4px">';
+    if(cab.n_recibidos) totHTML+='<span>Recibidas: <b>'+cab.n_recibidos+'</b></span>';
+    if(cab.n_emitidos)  totHTML+='<span>Emitidas: <b>'+cab.n_emitidos+'</b></span>';
+    if(cab.n_pendientes)totHTML+='<span style="color:#c07a1a">Pendientes de clasificar: <b>'+cab.n_pendientes+'</b></span>';
+    totHTML+='</div>';
   }
-  totHTML+='</div>';
 
-  var indicHTML='<div class="preview-row" style="margin-top:6px;color:var(--tm);font-size:10.5px"><span>Filas detectadas</span><span>'+cab.n_filas_total+'</span></div>'+
-    '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Incluidas</span><span>'+cab.n_filas_incluidas+'</span></div>'+
-    '<div class="preview-row" style="color:var(--tm);font-size:10.5px"><span>Excluidas</span><span>'+cab.n_filas_excluidas+'</span></div>';
+  var indicHTML='';  // filas técnicas no se muestran al analista — disponibles en consola
+  console.info('[MasConta Honorarios] Filas: total='+cab.n_filas_total+' incluidas='+cab.n_filas_incluidas+' excluidas='+cab.n_filas_excluidas);
 
-  // ── Panel de clasificación requerida (cuando hay pendientes) ─────────────
+  //  // ── Panel de clasificación requerida (cuando hay pendientes) ─────────────
   var clasifHTML='';
   if(cab.n_pendientes>0){
     clasifHTML='<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:8px">'+
@@ -1262,13 +1355,13 @@ function mostrarPreviewHonorarios(data,btnCArg){
       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
         '<button type="button" class="btn-s" onclick="clasificarHonorariosPreview(\'recibido\')" style="font-size:11px">\ud83d\udcec Clasificar todas como recibidas</button>'+
         '<button type="button" class="btn-s" onclick="clasificarHonorariosPreview(\'emitido\')" style="font-size:11px">\ud83d\udce4 Clasificar todas como emitidas</button>'+
-      '</div>'+
-      '</div>';
+      '</div></div>';
   }
 
-  rb.style.display='block'; tb.style.display='block'; ab.style.display='block';
-  rb.innerHTML=tablaHTML;
-  tb.innerHTML=totHTML+indicHTML+clasifHTML;
+  // Un solo cuadro visible: todo en rb, tb vacío y oculto
+  rb.style.display='block'; ab.style.display='block';
+  tb.style.display='none'; tb.innerHTML='';
+  rb.innerHTML=tablaHTML+totHTML+clasifHTML;
 
   // ── Advertencias de cuadratura ────────────────────────────────────────
   var advs=(data.observaciones||[]).slice(0,20);
@@ -1514,29 +1607,66 @@ function togglePostergacion(){
   calcTotal();
 }
 
+// ── Validación de cierre (más estricta que librosListos para ABRIR) ──────
+function validarCierrePreF29(rep, c){
+  var libros=(rep&&rep.libros)||{};
+  var ESTADOS_OK=['validado','sin_movimientos','no_aplica'];
+  var pendientes=[];
+
+  // Compras y Ventas siempre requeridos
+  if(ESTADOS_OK.indexOf((libros.compras||{}).estado||'')<0)
+    pendientes.push('Libro de Compras pendiente de carga o resolución.');
+  if(ESTADOS_OK.indexOf((libros.ventas||{}).estado||'')<0)
+    pendientes.push('Libro de Ventas pendiente de carga o resolución.');
+
+  // Honorarios según configuración del cliente
+  var honConf=String((c&&c.honorariosContables)||'determinar_mensualmente');
+  if(honConf!=='no_aplica'){
+    var libH=libros.honorarios||null;
+    var estadoH=(libH||{}).estado||'';
+    var ESTADOS_HON=['validado','con_observaciones','sin_movimientos','no_aplica'];
+    if(!libH||ESTADOS_HON.indexOf(estadoH)<0){
+      pendientes.push('Libro de Honorarios pendiente de resolución.');
+    } else if((libH.nPendientesClasificacion||0)>0){
+      pendientes.push('Libro de Honorarios tiene boletas pendientes de clasificación (recibida/emitida).');
+    }
+  }
+  return {ok:pendientes.length===0, pendientes:pendientes};
+}
+
 // ── GUARDAR PRE-F29 — Persistencia real en Supabase ──────────────────────
 function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
 
-  // Detectar cambio de tasa vs. ficha del cliente
-  var tasaIngresada=nv('f-ppm-tasa');
+  // Validar cierre: libros, honorarios y tasa
+  var reportes=getReportes();
+  var repActual=reportes.find(function(r){return r.rut===rut&&r.periodo===periodo;})||{};
   var c=getClientes().find(function(x){return x.rut===rut;})||{};
-  var tasaDefault=c.ppmTasaDefault;
-  var actualizarFichaCliente=false;
+  var cierre=validarCierrePreF29(repActual,c);
 
-  if(tasaIngresada>0 && tasaDefault!=null && Math.abs(tasaIngresada-tasaDefault)>0.0001){
-    var opcion=confirm(
-      'La tasa PPM ingresada ('+tasaIngresada+'%) difiere de la tasa en la ficha del cliente ('+tasaDefault+'%).\n\n'+
-      'Aceptar → Guardar solo este período\n'+
-      'Cancelar → Volver sin guardar (podrás cambiar la tasa)'
-    );
-    if(!opcion){ return; }
-    // Preguntar si además actualiza la ficha
-    if(confirm('¿Actualizar también la tasa predeterminada en la ficha del cliente ('+c.razon+')?')){
-      actualizarFichaCliente=true;
-    }
+  // Detectar si el analista solicitó actualizar la ficha (checkbox en el modal)
+  var tasaIngresada=valorNumericoOpcional('f-ppm-tasa');
+  var ppmBase=nv('f-ppm-base');
+
+  // Tasa PPM vacía cuando hay base → bloquear
+  if(ppmBase>0 && tasaIngresada===null){
+    cierre.pendientes.push('Configura la tasa PPM para este período.');
+    cierre.ok=false;
   }
+  // Tasa negativa no permitida
+  if(tasaIngresada!==null && tasaIngresada<0){
+    cierre.pendientes.push('La tasa PPM no puede ser negativa.');
+    cierre.ok=false;
+  }
+  if(!cierre.ok){
+    alert('No puedes cerrar el Pre-F29:\n\n• '+cierre.pendientes.join('\n• '));
+    return;
+  }
+
+  var actualizarFichaCliente=
+    document.getElementById('f-actualizar-tasa-ficha') &&
+    document.getElementById('f-actualizar-tasa-ficha').checked;
 
   var deb=nv('f-debito'),cred=nv('f-credito'),rem=nv('f-remanente-ant');
   var ivaResult=deb-cred-rem;
@@ -1561,7 +1691,7 @@ function guardarF29(){
     ivaFechaVenc:    sv('f-iva-fecha-venc')||null,
     // PPM
     ppmBase:     nv('f-ppm-base'),
-    ppmTasa:     nv('f-ppm-tasa'),
+    ppmTasa:     tasaIngresada,  // null si campo vacío; 0 es válido
     ppm:         nv('f-ppm-monto'),
     // Retenciones separadas
     retHon:      nv('f-ret-hon'),
@@ -1581,7 +1711,7 @@ function guardarF29(){
   if(mg) mg.className='msg-guardado';
 
   sbUpsertReporte(r).then(function(filaGuardada){
-    if(btnG){btnG.disabled=false;btnG.textContent='💾 Guardar Pre-F29';}
+    if(btnG){btnG.disabled=false;btnG.textContent='💾 Validar y cerrar Pre-F29';}
 
     // Supabase con Prefer:return=representation devuelve array
     var fila=Array.isArray(filaGuardada)?filaGuardada[0]:filaGuardada;
@@ -1605,7 +1735,7 @@ function guardarF29(){
     setReportes(reportes);
 
     // Actualizar ficha del cliente con la nueva tasa PPM si el analista lo solicitó
-    if(actualizarFichaCliente && c && c.id && tasaIngresada>0){
+    if(actualizarFichaCliente && c && c.id && tasaIngresada!==null && tasaIngresada>=0){
       sbPatch('clientes?id=eq.'+c.id,{
         ppm_tasa_default:       tasaIngresada,
         ppm_tasa_vigente_desde: periodo
@@ -1652,7 +1782,7 @@ function guardarF29(){
     });
 
   }).catch(function(err){
-    if(btnG){btnG.disabled=false;btnG.textContent='💾 Guardar Pre-F29';}
+    if(btnG){btnG.disabled=false;btnG.textContent='💾 Validar y cerrar Pre-F29';}
     // Mensaje sanitizado — no mostrar tokens ni datos sensibles
     var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
     alert('Error al persistir Pre-F29: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
@@ -1666,6 +1796,7 @@ function guardarF29(){
 
 // ── Variables de estado ───────────────────────────────────────────────────
 var _librosMap    = {};      // { String(clienteId): { compras:cab, ventas:cab, honorarios:cab } }
+var _remanentesPeriodoAnterior = {}; // { rutNorm: iva_remanente_sig del período anterior }
 var _cargaLibroCtx = null;  // { clienteId, rut, tipo, accion, periodo, workbook }
 var _previewLibro  = null;  // { file, cabeceraCalc, filas, observaciones, sha256 }
 
@@ -2476,6 +2607,14 @@ async function confirmarCargaLibro(){
   var pm=document.getElementById('preview-msg');
   if(pm) pm.className='msg-guardado';
 
+  // Guard rail: carga real con 0 documentos incluidos no es válida
+  var nIncluidas=(data.cabeceraCalc||{}).n_filas_incluidas||(data.cabeceraCalc||{}).n_docs_incluidos||0;
+  if(nIncluidas===0&&(ctx.accion==='carga_inicial'||ctx.accion==='reemplazo')){
+    if(btnC){btnC.disabled=false;btnC.textContent='✅ Confirmar carga';}
+    alert('No se detectaron documentos válidos.\n\nSi no hubo movimientos, utiliza la acción "Sin movimientos" en lugar de cargar un archivo.');
+    return;
+  }
+
   var pathConfirmado=null;
 
   try{
@@ -2762,9 +2901,30 @@ function cargarReportesPeriodo(periodo, cb){
 
   mostrarEstadoCarga('⏳ Cargando reportes del período…');
 
-  ejecutarConTimeoutContable('sbGetReportesPeriodo', function(done){
-    sbGetReportesPeriodo(periodo, done);
-  }, 15000, function(err, reportes){
+  // ── Cargar también el período anterior para obtener remanente IVA ──────
+  var periodoPrev=periodoAnterior(periodo);
+  _remanentesPeriodoAnterior={};
+
+  ejecutarConTimeoutContable('sbGetReportesPeriodo_prev', function(done){
+    sbGetReportesPeriodo(periodoPrev, done);
+  }, 10000, function(errP, reportesPrev){
+    if(!errP && Array.isArray(reportesPrev)){
+      console.info('[Contable] Reportes período anterior ya mapeados:', reportesPrev);
+      reportesPrev.forEach(function(rep){
+        var rutKey=normalizarRutContable(rep.rut||'');
+        if(rutKey){
+          _remanentesPeriodoAnterior[rutKey]=Number(rep.ivaRemanenteSig||0);
+        }
+      });
+      console.info('[Contable] Remanentes período anterior cargados:', periodoPrev, _remanentesPeriodoAnterior);
+    } else {
+      console.warn('[Contable] No se pudo cargar período anterior:',periodoPrev, errP);
+    }
+
+    // ── Ahora cargar el período actual ─────────────────────────────────
+    ejecutarConTimeoutContable('sbGetReportesPeriodo', function(done){
+      sbGetReportesPeriodo(periodo, done);
+    }, 15000, function(err, reportes){
     if(err){
       console.error('[Contable] Error al cargar reportes:',err);
       _reportesContables=[];
@@ -2910,6 +3070,12 @@ function cargarReportesPeriodo(periodo, cb){
       finalizarCargaReportes(null);
     });
   });
+  }); // cierre callback período anterior
+}
+
+// ── getRemanenteAnterior: usa el mapa cargado de _remanentesPeriodoAnterior ──
+function getRemanenteAnterior(rut){
+  return Number(_remanentesPeriodoAnterior[normalizarRutContable(rut||'')]||0);
 }
 
 // ═══════════════════════════════════════════════════════════════
