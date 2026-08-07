@@ -1339,6 +1339,13 @@ function clasificarHonorariosPreview(subtipo){
     }
   });
   _previewLibro.cabeceraCalc=calcularCabeceraHonorarios(_previewLibro.filas);
+  // [TRACE 1] — diagnóstico post-clasificación (remover en producción)
+  console.info('[HON TRACE 1] Después de clasificar',{
+    filas:_previewLibro.filas.filter(function(f){return f.incluido;}).map(function(f){
+      return {fila:f.n_fila_origen,subtipo:f.subtipo_honorario,fuente:f.clasificacion_fuente};
+    }),
+    cabecera:_previewLibro.cabeceraCalc
+  });
   var btnC=document.getElementById('btn-confirmar-carga');
   mostrarPreviewHonorarios(_previewLibro,btnC);
 }
@@ -2799,15 +2806,6 @@ async function confirmarCargaLibro(){
 
     // 3. RPC
     var mime=data.file.type||'application/octet-stream';
-    // Diagnóstico payload Honorarios
-    if(ctx.tipo==='honorarios'){
-      console.info('[Honorarios] Payload clasificación',{
-        filas:(data.filas||[]).filter(function(f){return f.incluido;}).map(function(f){
-          return {fila:f.n_fila_origen,subtipo:f.subtipo_honorario,fuente:f.clasificacion_fuente};
-        }),
-        cabecera:cabeceraParaRPC(data.cabeceraCalc||{})
-      });
-    }
 
     var rpcPayload={
       p_cliente_id:   ctx.clienteId,
@@ -2832,6 +2830,27 @@ async function confirmarCargaLibro(){
       p_obs:              null
     };
 
+    // Diagnóstico Honorarios — después de rpcPayload, antes de RPC
+    if(ctx.tipo==='honorarios'){
+      console.info('[Honorarios] Payload clasificación',{
+        filas:(data.filas||[]).filter(function(f){return f.incluido;}).map(function(f){
+          return {fila:f.n_fila_origen,subtipo:f.subtipo_honorario,fuente:f.clasificacion_fuente};
+        }),
+        cabecera:rpcPayload.p_cabecera  // misma cabecera que se envía
+      });
+      // [TRACE 2] — payload RPC real (remover en producción)
+      console.info('[HON TRACE 2] Payload RPC real',{
+        cabecera:rpcPayload.p_cabecera,
+        registros:(rpcPayload.p_registros||[]).filter(function(f){return f.incluido;}).map(function(f){
+          return {
+            fila:f.n_fila_origen, incluido:f.incluido,
+            subtipo:f.subtipo_honorario, fuente:f.clasificacion_fuente,
+            bruto:f.monto_bruto, retencion:f.monto_retencion, liquido:f.monto_liquido
+          };
+        })
+      });
+    }
+
     var rpcRes=await sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify(rpcPayload)});
     var rpcData=await rpcRes.json();
 
@@ -2849,8 +2868,24 @@ async function confirmarCargaLibro(){
         recibidos:  rpcData.cabecera&&rpcData.cabecera.n_recibidos,
         emitidos:   rpcData.cabecera&&rpcData.cabecera.n_emitidos
       });
+      // [TRACE 3] — respuesta RPC completa (remover en producción)
+      console.info('[HON TRACE 3] Respuesta RPC completa',{
+        cabecera: rpcData.cabecera,
+        archivo:  rpcData.archivo,
+        raw:      rpcData
+      });
     }
     actualizarLibroEnMemoria(ctx.clienteId,ctx.tipo,rpcData);
+    // [TRACE 4] — memoria después de RPC (remover en producción)
+    if(ctx.tipo==='honorarios'){
+      var cidTrace=String(ctx.clienteId);
+      console.info('[HON TRACE 4] Memoria después RPC',{
+        libroMap: _librosMap[cidTrace]&&_librosMap[cidTrace].honorarios,
+        reporte: getReportes().find(function(r){
+          return normalizarRutContable(r.rut)===normalizarRutContable(ctx.rut)&&r.periodo===ctx.periodo;
+        })
+      });
+    }
     if(pm){pm.className='msg-guardado on';pm.textContent='✅ Libro cargado correctamente.';}
     // Invalidar Pre-IVA si ya estaba validado (esperar antes de render)
     var inv=await invalidarPreIvaPorCambioLibro(ctx.rut, ctx.tipo+': '+ctx.accion);
@@ -3191,6 +3226,14 @@ function cargarReportesPeriodo(periodo, cb){
             var libro=typeof window.sbRowToLibroCabecera==='function'
               ? window.sbRowToLibroCabecera(row)
               : row;
+
+            // [TRACE 5] — honorarios leído desde BD (remover en producción)
+            var tipoRaw=String(row.tipo||row.tipo_libro||'').trim().toLowerCase();
+            if(tipoRaw==='honorarios'){
+              console.info('[HON TRACE 5] Honorarios leído desde BD',{
+                raw:row, mapped:libro
+              });
+            }
 
             if(!libro){
               console.warn('[Contable] Cabecera omitida (conversión vacía):',row);
