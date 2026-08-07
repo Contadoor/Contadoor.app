@@ -2645,7 +2645,11 @@ function registroHonorarioParaRPC(f){
     monto_adicional_3pct:0,
     monto_liquido:       f.total_liquido||0,
     // subtipo: 'recibido'|'emitido'|'pendiente_clasificacion' (no 'recibida'/'emitida')
-    subtipo_honorario:   f.subtipo_honorario||'pendiente_clasificacion',
+    // Filas excluidas (incluido=false) no deben recibir 'pendiente_clasificacion'
+    // porque eso infla el contador del servidor aunque no sean documentos válidos
+    subtipo_honorario:   f.incluido
+                           ? (f.subtipo_honorario||'pendiente_clasificacion')
+                           : (f.subtipo_honorario||null),
     clasificacion_fuente: f.clasificacion_fuente==='manual'||f.clasificacion_fuente==='regla'
                             ? f.clasificacion_fuente : null  // 'html' no es valor válido
   };
@@ -2849,6 +2853,15 @@ async function confirmarCargaLibro(){
           };
         })
       });
+      // [TRACE EXCLUIDOS] — todos los registros sin filtro (remover en producción)
+      console.info('[HON TRACE EXCLUIDOS]', rpcPayload.p_registros.map(function(f){
+        return {
+          fila:    f.n_fila_origen,
+          incluido:f.incluido,
+          subtipo: f.subtipo_honorario,
+          fuente:  f.clasificacion_fuente
+        };
+      }));
     }
 
     var rpcRes=await sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify(rpcPayload)});
