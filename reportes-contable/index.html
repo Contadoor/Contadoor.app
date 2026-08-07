@@ -191,7 +191,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 <div class="wrap">
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">📊 Vista Contable — Pre-F29 y Declaraciones</div>
+    <div class="tb-title">📊 Vista Contable — Pre-IVA</div>
     <span class="tb-analista" id="tb-analista-nombre">Analista Contable</span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
       <span style="font-size:18px">🔔</span>
@@ -203,7 +203,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="stats">
       <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Mis clientes</div></div>
       <div class="stat"><div class="sv" id="st-rrhh-ok" style="color:var(--blue)">0</div><div class="sl">RRHH OK</div></div>
-      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">Pre-F29 completado</div></div>
+      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">Pre-IVA validado</div></div>
       <div class="stat"><div class="sv" id="st-enviado" style="color:var(--amber)">0</div><div class="sl">En Panel de Control</div></div>
       <div class="stat"><div class="sv" id="st-atrasado" style="color:var(--red)">0</div><div class="sl">Atrasados</div></div>
     </div>
@@ -227,7 +227,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
       <button class="fb" onclick="setFiltro('estado','esperando_rrhh')">⏳ Esperando RRHH</button>
       <button class="fb" onclick="setFiltro('estado','rrhh_ok')">🔵 RRHH OK</button>
-      <button class="fb" onclick="setFiltro('estado','completado')">✅ Pre-F29 listo</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">✅ Pre-IVA validado</button>
       <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
       <span class="fl" style="margin-left:12px">Plan:</span>
       <button class="fb on" onclick="setFiltro('plan','')">Todos</button>
@@ -242,7 +242,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">📊 Pre-F29 Contable — <span id="periodo-label">Sin período abierto</span></div>
+          <div class="tabla-titulo">📊 Pre-IVA Contable — <span id="periodo-label">Sin período abierto</span></div>
           <div class="tabla-meta" id="tabla-meta">Selecciona un período para ver tu nómina</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -257,10 +257,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 </main>
 </div>
 
-<!-- MODAL F29 — Pre-F29 Tributario (sin honorarios comerciales) -->
+<!-- MODAL F29 — Pre-IVA Tributario (sin honorarios comerciales) -->
 <div class="modal-bg" id="modalF29">
   <div class="modal">
-    <h2>📊 Pre-F29 — Impuestos Tributarios</h2>
+    <h2>📊 Pre-IVA — Impuestos Tributarios</h2>
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-rut"/>
     <input type="hidden" id="m-periodo"/>
@@ -272,10 +272,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <div class="fgroup">
         <label>IVA Débito (ventas) *</label>
         <input type="number" id="f-debito" placeholder="0" oninput="calcIVA()"/>
+        <span class="hint" id="precalc-debito-info"></span>
       </div>
       <div class="fgroup">
         <label>IVA Crédito (compras) *</label>
         <input type="number" id="f-credito" placeholder="0" oninput="calcIVA()"/>
+        <span class="hint" id="precalc-credito-info"></span>
       </div>
       <div class="fgroup">
         <label>Remanente anterior</label>
@@ -324,8 +326,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="card-hd">💰 PPM — Pago Provisional Mensual</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
-        <label>Base imponible (ventas netas) *</label>
+        <label>Base PPM (neto + exento) *</label>
         <input type="number" id="f-ppm-base" placeholder="0" oninput="calcPPM()"/>
+        <span class="hint" id="precalc-ppm-base-info"></span>
       </div>
       <div class="fgroup">
         <label>Tasa PPM (%)</label>
@@ -351,7 +354,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <div class="fgroup">
         <label>Retención honorarios</label>
         <input type="number" id="f-ret-hon" placeholder="0" oninput="calcTotal()"/>
-        <span class="hint">Boletas honorarios recibidas</span>
+        <span class="hint" id="precalc-ret-hon-info">Boletas honorarios recibidas</span>
       </div>
       <div class="fgroup">
         <label>Imp. Único 2ª Cat.</label>
@@ -383,11 +386,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
 
     <!-- Mensaje de estado guardado -->
-    <div class="msg-guardado" id="msg-guardado">✅ Pre-F29 guardado correctamente en Supabase.</div>
+    <div class="msg-guardado" id="msg-guardado">✅ Pre-IVA guardado correctamente en Supabase.</div>
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">💾 Validar y cerrar Pre-F29</button>
+      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">✅ Validar Pre-IVA</button>
     </div>
   </div>
 </div>
@@ -520,7 +523,7 @@ function librosListos(rep, c){
   var honorariosOk=honConf==='no_aplica'||
     ESTADOS_OK.indexOf(((libros.honorarios)||{}).estado||'')>=0||
     honConf==='determinar_mensualmente'; // se ignora si no se ha definido
-  return ventasOk && comprasOk;  // honorarios no bloquean el Pre-F29
+  return ventasOk && comprasOk;  // honorarios no bloquean el Pre-IVA
 }
 
 function periodoAnterior(periodo){
@@ -546,46 +549,96 @@ function buildBorradorF29(rep, cliente, periodo){
   var comprasOk  = ESTADOS_OK.indexOf((libC||{}).estado||'') >= 0;
   var honorOk    = libH && ['validado','con_observaciones'].indexOf((libH||{}).estado||'') >= 0;
 
-  function tienePersistido(v){ return v!==null && v!==undefined && v!==''; }
+  // REGLA DE PRECEDENCIA:
+  // 'completado': el analista ya validó el Pre-IVA → f29 es la fuente de verdad
+  // cualquier otro estado: los libros/ficha mandan — f29 NO es override
+  // (evita que residuos históricos de pruebas bloqueen valores reales de libros)
+  var periodoValidado = rep.estadoContable === 'completado';
 
-  // IVA — fuente: libros si disponibles; f29 guardado como override
-  var ivaDebito  = tienePersistido(f29.ivaDebito)  ? Number(f29.ivaDebito)
-                   : (ventasOk  ? Number((libV||{}).totalIva||0)   : 0);
-  var ivaCredito = tienePersistido(f29.ivaCredito) ? Number(f29.ivaCredito)
-                   : (comprasOk ? Number((libC||{}).totalIva||0)   : 0);
+  // REGLA DE PRECEDENCIA:
+  // COMPLETADO: F29 validado es la fuente de verdad (el analista ya hizo ajustes manuales)
+  // PENDIENTE:  libros/ficha mandan — precálculo automático
 
-  // Remanente anterior: del mapa precargado del período anterior (no del mismo período)
-  // f29.remanente representa el remanente SIGUIENTE del período actual — NO usar como anterior
+  // ── IVA Débito ───────────────────────────────────────────────────────────
+  var ivaDebito;
+  if(periodoValidado){
+    ivaDebito = Number(f29.ivaDebito||0);
+  } else if(ventasOk){
+    ivaDebito = Number((libV||{}).totalIva||0);
+  } else {
+    ivaDebito = 0;
+  }
+
+  // ── IVA Crédito ──────────────────────────────────────────────────────────
+  var ivaCredito;
+  if(periodoValidado){
+    ivaCredito = Number(f29.ivaCredito||0);
+  } else if(comprasOk){
+    ivaCredito = Number((libC||{}).totalIva||0);
+  } else {
+    ivaCredito = 0;
+  }
+
+  // Remanente anterior: del mapa precargado del período anterior
   var remanenteAnterior = getRemanenteAnterior(rep.rut);
 
   var saldoIva = ivaDebito - ivaCredito - remanenteAnterior;
   var impuestoDeterminado   = Math.max(0, saldoIva);
   var remanenteSiguiente    = saldoIva < 0 ? Math.abs(saldoIva) : 0;
 
-  // PPM — base desde libro Ventas
-  var ppmBase = tienePersistido(f29.ppmBase) ? Number(f29.ppmBase)
-                : (ventasOk ? (Number((libV||{}).totalNeto||0)+Number((libV||{}).totalExento||0)) : 0);
+  // ── PPM Base ─────────────────────────────────────────────────────────────
+  var ppmBase;
+  if(periodoValidado){
+    ppmBase = Number(f29.ppmBase||0);
+  } else if(ventasOk){
+    ppmBase = Number((libV||{}).totalNeto||0) + Number((libV||{}).totalExento||0);
+  } else {
+    ppmBase = 0;
+  }
 
-  // Tasa PPM: f29 guardado > ficha cliente > null
-  var ppmTasa = tienePersistido(f29.ppmTasa) ? Number(f29.ppmTasa)
-                : (tienePersistido((cliente||{}).ppmTasaDefault) ? Number(cliente.ppmTasaDefault)
-                : null);
+  // Tasa PPM: para período validado usar f29.ppmTasa; para pendiente usar ficha
+  var ppmTasa, ppmTasaFuente;
+  if(periodoValidado && f29.ppmTasa!=null){
+    ppmTasa = Number(f29.ppmTasa);
+    ppmTasaFuente = 'periodo';
+  } else if((cliente||{}).ppmTasaDefault!=null && (cliente||{}).ppmTasaDefault!==''){
+    ppmTasa = Number(cliente.ppmTasaDefault);
+    ppmTasaFuente = 'ficha';
+  } else {
+    ppmTasa = null;
+    ppmTasaFuente = 'ninguna';
+  }
 
   var ppm = (ppmTasa!==null && ppmBase>0) ? Math.round(ppmBase * ppmTasa / 100) : 0;
 
-  // Retención honorarios — desde libro si está cargado, f29 como override
-  var retHon = tienePersistido(f29.retHon) ? Number(f29.retHon)
-               : (honorOk ? Number((libH||{}).totalRetencion||0) : 0);
+  // ── Retención honorarios ─────────────────────────────────────────────────
+  var retHon;
+  if(periodoValidado){
+    retHon = Number(f29.retHon||0);
+  } else if(honorOk){
+    retHon = Number((libH||{}).totalRetencion||0);
+  } else {
+    retHon = 0;
+  }
 
-  // Imp. Único 2ª Cat. — desde RRHH (rep.iuSii > rep.iu > f29.imp2cat)
-  var imp2cat = Number(rep.iuSii||rep.iu||f29.imp2cat||0);
+  // ── Imp. Único 2ª Cat. — SIEMPRE desde RRHH, nunca desde f29 ───────────
+  // Usar lógica explícita para distinguir 0 válido de "sin dato"
+  var imp2cat;
+  if(rep.iuSii!==null&&rep.iuSii!==undefined&&rep.iuSii!==''){
+    imp2cat=Number(rep.iuSii);
+  } else if(rep.iu!==null&&rep.iu!==undefined&&rep.iu!==''){
+    imp2cat=Number(rep.iu);
+  } else {
+    imp2cat=0;
+  }
 
-  // Otros impuestos — solo desde f29 guardado
-  var otrosImp = Number(f29.otrosImp||0);
+  // Otros impuestos y postergación: solo desde f29 cuando ya validado
+  // (evita que residuos de pruebas contaminen un Pre-IVA pendiente)
+  var otrosImp  = periodoValidado ? Number(f29.otrosImp||0)  : 0;
+  var postergado= periodoValidado ? Boolean(f29.postergado)  : false;
 
   var totalRetenciones  = ppm + retHon + imp2cat + otrosImp;
   var totalTributario   = impuestoDeterminado + totalRetenciones;
-  var postergado        = f29.postergado || false;
 
   return {
     ivaDebito:           ivaDebito,
@@ -603,11 +656,24 @@ function buildBorradorF29(rep, cliente, periodo){
     otrosImp:            otrosImp,
     totalRetenciones:    totalRetenciones,
     totalTributario:     totalTributario,
-    _ventasOk:  ventasOk,
-    _comprasOk: comprasOk,
-    _honorOk:   honorOk,
-    _ppmTasaFuente: tienePersistido(f29.ppmTasa)?'periodo'
-                    :(tienePersistido((cliente||{}).ppmTasaDefault)?'ficha':'ninguna')
+    _ventasOk:           ventasOk,
+    _comprasOk:          comprasOk,
+    _honorOk:            honorOk,
+    _periodoValidado:    periodoValidado,
+    _ppmTasaFuente:      ppmTasaFuente,
+    // Referencia de libros/ficha — para mostrar hints en el modal
+    _precalculado: {
+      ivaDebitoLibro:   ventasOk ? Number((libV||{}).totalIva||0)   : null,
+      ivaCreditoLibro:  comprasOk? Number((libC||{}).totalIva||0)   : null,
+      ppmBaseLibro:     ventasOk ? (Number((libV||{}).totalNeto||0)+Number((libV||{}).totalExento||0)) : null,
+      ppmTasaFicha:     (cliente&&cliente.ppmTasaDefault!=null&&cliente.ppmTasaDefault!=='') ? Number(cliente.ppmTasaDefault) : null,
+      retHonLibro:      honorOk  ? Number((libH||{}).totalRetencion||0) : null,
+      imp2catRrhh:      (rep.iuSii!==null&&rep.iuSii!==undefined&&rep.iuSii!=='')
+                          ? Number(rep.iuSii)
+                          : (rep.iu!==null&&rep.iu!==undefined&&rep.iu!=='')
+                            ? Number(rep.iu)
+                            : null
+    }
   };
 }
 
@@ -684,12 +750,12 @@ function renderTabla(){
     } else if(false){
       badgeHtml='';
     } else if(estado==='pendiente'){
-      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Completar Pre-F29</span>';
+      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Revisar / Validar Pre-IVA</span>';
     } else if(estado==='completado'){
       if(rep.listoPanelControl){
         badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">📋 Listo para consolidar</span>';
       } else {
-        badgeHtml='<span class="estado-badge eb-completado">✅ Pre-F29 completado</span>';
+        badgeHtml='<span class="estado-badge eb-completado">✅ Pre-IVA validado</span>';
       }
     } else if(estado==='atrasado'){
       badgeHtml='<span class="estado-badge" style="background:#fee2e2;color:#991b1b">⚠️ Atrasado</span>';
@@ -709,7 +775,7 @@ function renderTabla(){
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
       +tl
-      +'<div style="font-size:9px;color:#9a849b">RRHH · Libros · Pre-F29</div>'
+      +'<div style="font-size:9px;color:#9a849b">RRHH · Libros · Pre-IVA</div>'
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(totalTrib?ff(totalTrib):' — ')+'</div>';
@@ -721,9 +787,9 @@ function renderTabla(){
     } else if(estado==='pendiente'){
       var libOk=librosListos(rep,c);
       if(!libOk){
-        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-F29">📊 Pre-F29</button>';
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-IVA">📊 Pre-IVA</button>';
       } else {
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-F29</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-IVA</button>';
       }
     } else if(estado==='completado'){
       if(!rep.listoPanelControl){
@@ -768,15 +834,15 @@ function renderTabla(){
       html+='</div>';
       html+='<div class="det-total"><span>Total tributario del período</span><span>'+ff(totalTrib)+'</span></div>';
     } else {
-      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">📊 Carga Ventas o Compras para ver el Pre-F29.</div>';
+      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">📊 Carga Ventas o Compras para ver el Pre-IVA.</div>';
     }
     html+='<div class="acciones" style="margin-top:10px;">';
     if(estado==='pendiente'){
       var libOkDetalle=librosListos(rep,c);
       if(libOkDetalle){
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Completar Pre-F29</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Revisar / Validar Pre-IVA</button>';
       } else {
-        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-F29">📋 Carga Compras y Ventas</button>';
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-IVA">📋 Carga Compras y Ventas</button>';
       }
     }
     if(estado==='completado'){
@@ -785,7 +851,7 @@ function renderTabla(){
       } else {
         html+='<span style="font-size:11px;color:#064e3b;font-weight:600">✅ Listo para consolidar en Panel de Control</span>';
       }
-      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-F29</button>';
+      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-IVA</button>';
     }
     html+='</div>';
     html+='</div></div>';
@@ -798,7 +864,7 @@ function renderTabla(){
   document.getElementById('st-completado').textContent=stComp;
   document.getElementById('st-enviado').textContent=stEnv;
   document.getElementById('st-atrasado').textContent=stAtr;
-  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' Pre-F29 completados · '+stRrhhOk+' con RRHH OK';
+  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' Pre-IVA validados · '+stRrhhOk+' con RRHH OK';
   actualizarBannerMasivo();
 }
 
@@ -847,7 +913,7 @@ function abrirF29(rut){
   document.getElementById('f-credito').value      = borrador.ivaCredito !==0  ? borrador.ivaCredito : '';
   document.getElementById('f-remanente-ant').value= borrador.remanenteAnterior>0 ? borrador.remanenteAnterior : '';
 
-  // PPM tasa
+  // PPM — fuente única: borrador (no volver a consultar f29)
   var ppmTasaVal=borrador.ppmTasa;
   var ppmHint=borrador._ppmTasaFuente==='periodo'
     ?'Tasa guardada en este período: '+borrador.ppmTasa+'%'
@@ -857,26 +923,53 @@ function abrirF29(rut){
 
   document.getElementById('f-ppm-base').value  = borrador.ppmBase>0 ? borrador.ppmBase : '';
   document.getElementById('f-ppm-tasa').value  = ppmTasaVal!==null ? ppmTasaVal : '';
-  document.getElementById('f-ppm-monto').value = tieneValorGuardado(f29.ppm) ? f29.ppm : '';
+  document.getElementById('f-ppm-monto').value = borrador.ppm;  // calcPPM() recalculará si se edita
   if(document.getElementById('ppm-tasa-hint'))
     document.getElementById('ppm-tasa-hint').textContent=ppmHint;
 
-  // Retenciones
-  document.getElementById('f-ret-hon').value  = borrador.retHon>0 ? borrador.retHon
-    :(tieneValorGuardado(f29.retHon)?f29.retHon:'');
-  document.getElementById('f-imp-2cat').value = tieneValorGuardado(rep.iuSii||rep.iu||f29.imp2cat)
-    ?(rep.iuSii||rep.iu||f29.imp2cat):'';
-  document.getElementById('f-otros-imp').value= tieneValorGuardado(f29.otrosImp)?f29.otrosImp:'';
+  // Retenciones — fuente única: borrador (no consultar f29.retHon como fallback)
+  document.getElementById('f-ret-hon').value   = borrador.retHon!==0 ? borrador.retHon : '';
+  document.getElementById('f-imp-2cat').value  = borrador.imp2cat!==0 ? borrador.imp2cat : '';
+  document.getElementById('f-otros-imp').value = borrador.otrosImp!==0 ? borrador.otrosImp : '';
+
+  // ── Hints de precálculo: mostrar referencia de libros/ficha ────────────
+  var pc=borrador._precalculado||{};
+  var ffM=function(n){return n!=null?'$'+Number(n).toLocaleString('es-CL'):null;};
+  function setHint(id,txt){var el=document.getElementById(id);if(el)el.textContent=txt||'';}
+
+  if(borrador._periodoValidado){
+    var ivaLib=pc.ivaDebitoLibro!=null&&pc.ivaDebitoLibro!==borrador.ivaDebito
+      ?'Libro: '+ffM(pc.ivaDebitoLibro)+' · Valor validado: '+ffM(borrador.ivaDebito)
+      :'Valor validado para este período';
+    var creLib=pc.ivaCreditoLibro!=null&&pc.ivaCreditoLibro!==borrador.ivaCredito
+      ?'Libro: '+ffM(pc.ivaCreditoLibro)+' · Valor validado: '+ffM(borrador.ivaCredito)
+      :'Valor validado para este período';
+    var ppmLib=pc.ppmBaseLibro!=null&&pc.ppmBaseLibro!==borrador.ppmBase
+      ?'Libro: '+ffM(pc.ppmBaseLibro)+' · Valor validado: '+ffM(borrador.ppmBase)
+      :'Valor validado para este período';
+    var retLib=pc.retHonLibro!=null&&pc.retHonLibro!==borrador.retHon
+      ?'Libro: '+ffM(pc.retHonLibro)+' · Valor validado: '+ffM(borrador.retHon)
+      :'Valor validado para este período';
+    setHint('precalc-debito-info', ivaLib);
+    setHint('precalc-credito-info', creLib);
+    setHint('precalc-ppm-base-info', ppmLib);
+    setHint('precalc-ret-hon-info', retLib);
+  } else {
+    setHint('precalc-debito-info',   pc.ivaDebitoLibro!=null  ? 'Precalculado según Ventas: '+ffM(pc.ivaDebitoLibro)   : '');
+    setHint('precalc-credito-info',  pc.ivaCreditoLibro!=null ? 'Precalculado según Compras: '+ffM(pc.ivaCreditoLibro)  : '');
+    setHint('precalc-ppm-base-info', pc.ppmBaseLibro!=null    ? 'Precalculada según Ventas: '+ffM(pc.ppmBaseLibro)     : '');
+    setHint('precalc-ret-hon-info',  pc.retHonLibro!=null     ? 'Precalculada según Honorarios: '+ffM(pc.retHonLibro) : 'Boletas honorarios recibidas');
+  }
 
   // Info RRHH
-  var iuVal=rep.iuSii||rep.iu||f29.imp2cat||0;
+  var iuVal=Number(borrador.imp2cat||0);
   document.getElementById('info-rrhh-imp').textContent=
     iuVal
       ?'✅ Imp. Único 2\u00aa Cat. desde RRHH: '+ff(iuVal)
       :'\u2139\ufe0f Imp. Único 2\u00aa Cat. se carga automáticamente desde RRHH.';
 
   // Postergación y obs
-  document.getElementById('f-postergar-iva').checked=f29.postergado||false;
+  document.getElementById('f-postergar-iva').checked=Boolean(borrador.postergado);
   document.getElementById('f-obs').value=f29.obs||'';
 
   var mg=document.getElementById('msg-guardado');
@@ -1214,7 +1307,8 @@ function calcularCabeceraHonorarios(filas,tolerancia){
   var c={n_filas_total:filas.length,n_filas_incluidas:0,n_filas_excluidas:0,
     n_docs_incluidos:0,n_docs_excluidos:0,
     total_bruto:0,total_retencion:0,total_liquido:0,
-    n_recibidos:0,n_emitidos:0,n_pendientes:0};
+    n_recibidos:0,n_emitidos:0,
+    n_pendientes:0,n_pendientes_clasificacion:0};  // ambos nombres para compatibilidad
   filas.forEach(function(f){
     if(f.es_fila_total){c.n_filas_excluidas++;c.n_docs_excluidos++;return;}
     if(f.incluido){
@@ -1227,7 +1321,7 @@ function calcularCabeceraHonorarios(filas,tolerancia){
       var st=f.subtipo_honorario;
       if(st==='recibido')               c.n_recibidos++;
       else if(st==='emitido')            c.n_emitidos++;
-      else                               c.n_pendientes++;
+      else { c.n_pendientes++; c.n_pendientes_clasificacion++; }
     } else {
       c.n_filas_excluidas++;c.n_docs_excluidos++;
     }
@@ -1241,6 +1335,7 @@ function clasificarHonorariosPreview(subtipo){
   _previewLibro.filas.forEach(function(f){
     if(f.incluido&&f.subtipo_honorario==='pendiente_clasificacion'){
       f.subtipo_honorario=subtipo;
+      f.clasificacion_fuente='manual';
     }
   });
   _previewLibro.cabeceraCalc=calcularCabeceraHonorarios(_previewLibro.filas);
@@ -1561,7 +1656,8 @@ function calcIVA(){
     document.getElementById('res-remanente-box').style.display='none';
     ivaToggle.style.display='flex';
     document.getElementById('f-iva-postergado').value=resultado;
-    var h=new Date();h.setDate(h.getDate()+60);
+    var h=fechaPostergacionIva(sv('m-periodo')||_periodoActual||'');
+    if(isNaN(h.getTime())){h=new Date();h.setDate(h.getDate()+60);} // fallback solo si período es inválido
     document.getElementById('f-iva-fecha-venc').value=h.toLocaleDateString('es-CL');
   } else {
     document.getElementById('res-iva-det').textContent=ff(0);
@@ -1627,14 +1723,26 @@ function validarCierrePreF29(rep, c){
     var ESTADOS_HON=['validado','con_observaciones','sin_movimientos','no_aplica'];
     if(!libH||ESTADOS_HON.indexOf(estadoH)<0){
       pendientes.push('Libro de Honorarios pendiente de resolución.');
-    } else if((libH.nPendientesClasificacion||0)>0){
+    } else if((libH.nPendientesClasificacion||(libH.cabeceraCalc||{}).n_pendientes_clasificacion||0)>0){
       pendientes.push('Libro de Honorarios tiene boletas pendientes de clasificación (recibida/emitida).');
     }
   }
   return {ok:pendientes.length===0, pendientes:pendientes};
 }
 
-// ── GUARDAR PRE-F29 — Persistencia real en Supabase ──────────────────────
+// ── Helpers de fechas F29 (deterministas — no dependen de Date() actual) ──
+function fechaVencimientoF29(periodo){
+  // Período tributario YYYY-MM → vence el día 20 del mes siguiente
+  var p=String(periodo||'').split('-');
+  var y=parseInt(p[0],10),m=parseInt(p[1],10);
+  m++; if(m>12){m=1;y++;}
+  return new Date(y,m-1,20,12,0,0);  // día 20 del mes de declaración, mediodía (evita DST)
+}
+function fechaPostergacionIva(periodo){
+  var base=fechaVencimientoF29(periodo);
+  base.setDate(base.getDate()+60);
+  return base;
+}
 function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
@@ -1660,7 +1768,7 @@ function guardarF29(){
     cierre.ok=false;
   }
   if(!cierre.ok){
-    alert('No puedes cerrar el Pre-F29:\n\n• '+cierre.pendientes.join('\n• '));
+    alert('No puedes cerrar el Pre-IVA:\n\n• '+cierre.pendientes.join('\n• '));
     return;
   }
 
@@ -1674,44 +1782,45 @@ function guardarF29(){
   var ivaApagar=postergado?0:Math.max(0,ivaResult);
   var remanente=ivaResult<0?Math.abs(ivaResult):0;
 
-  // Encontrar reporte existente para preservar su id y campos RRHH
+  // Encontrar reporte existente y confirmar ID Supabase válido
   var reportes=getReportes();
   var repExistente=reportes.find(function(r){return r.rut===rut&&r.periodo===periodo;});
 
-  // Construir objeto Gestoor con campos planos (sbReporteToRow los mapea)
-  var r=Object.assign({},repExistente||{},{
-    rut:         rut,
-    periodo:     periodo,
-    // IVA
-    ivaDebito:   deb,
-    ivaCredito:  cred,
-    ivaRemanenteSig: remanente,
-    ivaPostergado:   postergado ? Math.max(0,ivaResult) : 0,
-    postergarIva:    postergado,
-    ivaFechaVenc:    sv('f-iva-fecha-venc')||null,
-    // PPM
-    ppmBase:     nv('f-ppm-base'),
-    ppmTasa:     tasaIngresada,  // null si campo vacío; 0 es válido
-    ppm:         nv('f-ppm-monto'),
-    // Retenciones separadas
-    retHon:      nv('f-ret-hon'),
-    iuSii:       nv('f-imp-2cat'),
-    otrosImp:    nv('f-otros-imp'),
-    // Observaciones
-    obsCont:     sv('f-obs')||null,
-    // Estado contable explícito — persiste en columna aprobada
-    estadoContable:   'completado',
-    listoPanelControl: false,
-  });
+  // Bloquear si no hay reporte con ID — RRHH debe existir primero
+  if(!repExistente||!repExistente.id||!/^\d+$/.test(String(repExistente.id))){
+    alert('No existe un reporte mensual base para este cliente y período.\n\nRecarga el módulo o completa primero el proceso RRHH.');
+    if(btnG){btnG.disabled=false;btnG.textContent='\u2705 Validar Pre-IVA';}
+    return;
+  }
 
-  // Deshabilitar botón durante la operación
+  // PATCH PARCIAL: SOLO columnas propiedad del módulo Contable.
+  // NO incluye iu_sii, iu, n_trabajadores ni ningún campo RRHH.
+  // No pasa por sbReporteToRow — payload directo a sbPatchReporte.
+  var patchContable={
+    debito_iva:          deb,
+    credito_iva:         cred,
+    iva_remanente_sig:   remanente,
+    remanente:           remanente,
+    iva_postergado:      postergado?Math.max(0,ivaResult):0,
+    postergar_iva:       postergado,
+    iva_fecha_venc:      sv('f-iva-fecha-venc')||null,
+    ppm_base:            nv('f-ppm-base'),
+    ppm_tasa:            tasaIngresada,
+    ppm:                 nv('f-ppm-monto'),
+    ret_hon:             nv('f-ret-hon'),
+    otros_imp:           nv('f-otros-imp'),
+    obs_cont:            sv('f-obs')||null,
+    estado_contable:    'completado',
+    listo_panel_control: false
+  };
+
   var btnG=document.getElementById('btn-guardar-f29');
-  if(btnG){btnG.disabled=true;btnG.textContent='⏳ Guardando…';}
+  if(btnG){btnG.disabled=true;btnG.textContent='\u23f3 Guardando\u2026';}
   var mg=document.getElementById('msg-guardado');
   if(mg) mg.className='msg-guardado';
 
-  sbUpsertReporte(r).then(function(filaGuardada){
-    if(btnG){btnG.disabled=false;btnG.textContent='💾 Validar y cerrar Pre-F29';}
+  sbPatchReporte(repExistente.id, patchContable).then(function(filaGuardada){
+    if(btnG){btnG.disabled=false;btnG.textContent='✅ Validar Pre-IVA';}
 
     // Supabase con Prefer:return=representation devuelve array
     var fila=Array.isArray(filaGuardada)?filaGuardada[0]:filaGuardada;
@@ -1730,7 +1839,7 @@ function guardarF29(){
 
     // Actualizar _reportesContables con el objeto persistido
     var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
-    if(idx>=0){ reportes[idx]=reporteActualizado; }
+    if(idx>=0){ Object.assign(reportes[idx], reporteActualizado); }
     else { reportes.push(reporteActualizado); }
     setReportes(reportes);
 
@@ -1755,7 +1864,7 @@ function guardarF29(){
           console.warn('[Gestoor] sbPatch clientes devolvió respuesta inesperada:',res);
           if(window.crearNotificacion) crearNotificacion({
             modulo:'reportes',tipo:'info',prioridad:'baja',
-            mensaje:'Pre-F29 guardado correctamente. Tasa del período guardada en el reporte. La ficha del cliente no pudo actualizarse automáticamente; verifica en la ficha del cliente.',
+            mensaje:'Pre-IVA guardado correctamente. Tasa del período guardada en el reporte. La ficha del cliente no pudo actualizarse automáticamente; verifica en la ficha del cliente.',
             accion:null
           });
         }
@@ -1763,7 +1872,7 @@ function guardarF29(){
         console.warn('[Gestoor] No se pudo actualizar la tasa PPM en la ficha del cliente:',e&&e.message);
         if(window.crearNotificacion) crearNotificacion({
           modulo:'reportes',tipo:'info',prioridad:'baja',
-          mensaje:'Pre-F29 guardado. Tasa del período: '+tasaIngresada+'%. La ficha del cliente no se actualizó (error de red).',
+          mensaje:'Pre-IVA guardado. Tasa del período: '+tasaIngresada+'%. La ficha del cliente no se actualizó (error de red).',
           accion:null
         });
       });
@@ -1777,15 +1886,15 @@ function guardarF29(){
       modulo:'reportes',tipo:'info',prioridad:'media',
       clienteRut:rut,
       clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
-      mensaje:'Pre-F29 completado y guardado en Supabase',
+      mensaje:'Pre-IVA validado y guardado en Supabase',
       accion:'ver_reporte'
     });
 
   }).catch(function(err){
-    if(btnG){btnG.disabled=false;btnG.textContent='💾 Validar y cerrar Pre-F29';}
+    if(btnG){btnG.disabled=false;btnG.textContent='✅ Validar Pre-IVA';}
     // Mensaje sanitizado — no mostrar tokens ni datos sensibles
     var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
-    alert('Error al persistir Pre-F29: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
+    alert('Error al persistir Pre-IVA: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
   });
 }
 
@@ -2530,7 +2639,8 @@ function registroHonorarioParaRPC(f){
     monto_liquido:       f.total_liquido||0,
     // subtipo: 'recibido'|'emitido'|'pendiente_clasificacion' (no 'recibida'/'emitida')
     subtipo_honorario:   f.subtipo_honorario||'pendiente_clasificacion',
-    clasificacion_fuente:null  // 'html' no es valor aceptado por RPC
+    clasificacion_fuente: f.clasificacion_fuente==='manual'||f.clasificacion_fuente==='regla'
+                            ? f.clasificacion_fuente : null  // 'html' no es valor válido
   };
 }
 
@@ -2597,6 +2707,55 @@ function cabeceraParaRPC(cab){
   };
 }
 
+// ── Invalidar Pre-IVA cuando cambia un libro ya validado ─────────────────
+// Solo actúa cuando estadoContable='completado' o listoPanelControl=true.
+// No borra campos F29 históricos — solo cambia el estado a 'pendiente'.
+// buildBorradorF29 ya sabe que pendiente → libros/ficha ganan.
+function invalidarPreIvaPorCambioLibro(rut, motivo){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){
+    return normalizarRutContable(r.rut)===normalizarRutContable(rut) && r.periodo===_periodoActual;
+  });
+  if(!rep||!rep.id) return Promise.resolve({ok:true,invalidado:false});
+
+  var yaValidado = rep.estadoContable==='completado';
+  var yaListo    = rep.listoPanelControl===true;
+
+  if(!yaValidado && !yaListo){
+    return Promise.resolve({ok:true,invalidado:false});
+  }
+
+  var estadoAnterior = rep.estadoContable;
+  var listoAnterior  = rep.listoPanelControl;
+
+  return sbPatchReporte(rep.id, {
+    estado_contable:    'pendiente',
+    listo_panel_control: false
+  }).then(function(filasActualizadas){
+    if(!filasActualizadas||!filasActualizadas[0]){
+      throw new Error('PATCH de invalidacion no devolvio fila actualizada');
+    }
+    var repActualizado=typeof sbRowToReporte==='function'
+      ? sbRowToReporte(filasActualizadas[0])
+      : filasActualizadas[0];
+    var idx=reportes.findIndex(function(r){return r.id===rep.id;});
+    if(idx>=0) Object.assign(reportes[idx], repActualizado);
+    console.info('[Pre-IVA] Invalidado por cambio de libro',{
+      rut:rut, periodo:_periodoActual, motivo:motivo,
+      estadoAnterior:estadoAnterior, listoAnterior:listoAnterior
+    });
+    console.info('[Pre-IVA] Runtime después de invalidar',{
+      estado: reportes[idx]&&reportes[idx].estadoContable,
+      listo:  reportes[idx]&&reportes[idx].listoPanelControl,
+      libros: reportes[idx]&&reportes[idx].libros
+    });
+    return {ok:true,invalidado:true};
+  }).catch(function(err){
+    console.error('[Pre-IVA] Error al invalidar por cambio de libro',err);
+    return {ok:false,error:err};
+  });
+}
+
 async function confirmarCargaLibro(){
   var data=_previewLibro;
   var ctx=_cargaLibroCtx;
@@ -2616,6 +2775,7 @@ async function confirmarCargaLibro(){
   }
 
   var pathConfirmado=null;
+  var rpcConfirmada=false;  // true solo después de rpcData.ok===true
 
   try{
     // 1. SHA256
@@ -2639,6 +2799,16 @@ async function confirmarCargaLibro(){
 
     // 3. RPC
     var mime=data.file.type||'application/octet-stream';
+    // Diagnóstico payload Honorarios
+    if(ctx.tipo==='honorarios'){
+      console.info('[Honorarios] Payload clasificación',{
+        filas:(data.filas||[]).filter(function(f){return f.incluido;}).map(function(f){
+          return {fila:f.n_fila_origen,subtipo:f.subtipo_honorario,fuente:f.clasificacion_fuente};
+        }),
+        cabecera:cabeceraParaRPC(data.cabeceraCalc||{})
+      });
+    }
+
     var rpcPayload={
       p_cliente_id:   ctx.clienteId,
       p_periodo:      ctx.periodo,
@@ -2668,11 +2838,30 @@ async function confirmarCargaLibro(){
     if(!rpcData||!rpcData.ok){
       throw new Error((rpcData&&(rpcData.message||rpcData.error))||'Error en la RPC');
     }
+    rpcConfirmada=true;  // libro ya está en DB — NO borrar Storage aunque falle lo siguiente
 
-    // 4. Éxito
+    // 4. Éxito — log diagnóstico Honorarios
+    if(ctx.tipo==='honorarios'){
+      console.info('[Honorarios] Cabecera devuelta RPC:', rpcData.cabecera);
+      console.info('[Honorarios] Estado devuelto:',{
+        estado:     rpcData.cabecera&&rpcData.cabecera.estado,
+        pendientes: rpcData.cabecera&&rpcData.cabecera.n_pendientes_clasificacion,
+        recibidos:  rpcData.cabecera&&rpcData.cabecera.n_recibidos,
+        emitidos:   rpcData.cabecera&&rpcData.cabecera.n_emitidos
+      });
+    }
     actualizarLibroEnMemoria(ctx.clienteId,ctx.tipo,rpcData);
     if(pm){pm.className='msg-guardado on';pm.textContent='✅ Libro cargado correctamente.';}
-    setTimeout(function(){cancelarPreviewLibro();renderTabla();restaurarFilaAbierta(ctx.rut);},700);
+    // Invalidar Pre-IVA si ya estaba validado (esperar antes de render)
+    var inv=await invalidarPreIvaPorCambioLibro(ctx.rut, ctx.tipo+': '+ctx.accion);
+    if(inv&&!inv.ok){
+      var msg='El libro fue actualizado correctamente, pero el Pre-IVA no pudo reabrirse automáticamente. Recarga antes de continuar.';
+      if(window.crearNotificacion) crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:msg});
+      else alert(msg);
+    }
+    cancelarPreviewLibro();
+    renderTabla();
+    restaurarFilaAbierta(ctx.rut);
 
     if(window.crearNotificacion) crearNotificacion({
       modulo:'reportes',tipo:'info',prioridad:'baja',
@@ -2681,14 +2870,20 @@ async function confirmarCargaLibro(){
 
   }catch(err){
     // 5. Cleanup archivo huérfano en Storage
-    if(pathConfirmado&&window._sbAuthClient){
+    // CRÍTICO: NO borrar si RPC ya confirmó — el libro está en DB apuntando a este archivo
+    if(pathConfirmado&&!rpcConfirmada&&window._sbAuthClient){
       try{
         await window._sbAuthClient.storage.from('gestoor-libros-contables').remove([pathConfirmado]);
         console.info('[MasConta] Archivo huérfano eliminado:',pathConfirmado);
       }catch(ce){ console.warn('[MasConta] No se pudo eliminar huérfano:',pathConfirmado,ce.message); }
     }
     var msg=err.message?String(err.message).replace(/<[^>]+>/g,'').substring(0,300):'Error desconocido';
-    alert('Error al cargar el libro:\n'+msg+(pathConfirmado?'\nEl archivo fue eliminado de Storage.':''));
+    if(rpcConfirmada){
+      // El libro ya está guardado en BD — NO mencionar eliminación de archivo
+      alert('El libro fue guardado correctamente, pero ocurrió un error al actualizar la interfaz o el estado del Pre-IVA.\n\nRecarga el módulo antes de continuar.\n\nDetalle: '+msg);
+    } else {
+      alert('Error al cargar el libro:\n'+msg+(pathConfirmado?'\nEl archivo temporal fue eliminado de Storage.':''));
+    }
     if(btnC){btnC.disabled=false;btnC.textContent='✅ Confirmar carga';}
   }
 }
@@ -2703,8 +2898,11 @@ function marcarSinMovimientosLibro(clienteId, rut, tipo){
     p_accion:'sin_movimientos',p_usuario:u.nombre||'analista',
     p_archivo:null,p_cabecera:{},p_registros:[],
     p_observaciones:[],p_reglas_honorarios:[],p_obs:null
-  })}).then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); restaurarFilaAbierta(rut); }
+  })}).then(function(r){return r.json();}).then(async function(d){
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d);
+        var invS=await invalidarPreIvaPorCambioLibro(rut,tipo+': sin movimientos');
+        if(invS&&!invS.ok){var mS='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mS});else alert(mS);}
+        renderTabla(); restaurarFilaAbierta(rut); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
@@ -2719,8 +2917,11 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
     p_accion:'no_aplica',p_usuario:u.nombre||'analista',
     p_archivo:null,p_cabecera:{},p_registros:[],
     p_observaciones:[],p_reglas_honorarios:[],p_obs:motivo.trim()
-  })}).then(function(r){return r.json();}).then(function(d){
-    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d); renderTabla(); restaurarFilaAbierta(rut); }
+  })}).then(function(r){return r.json();}).then(async function(d){
+    if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d);
+        var invN=await invalidarPreIvaPorCambioLibro(rut,tipo+': no aplica');
+        if(invN&&!invN.ok){var mN='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mN});else alert(mN);}
+        renderTabla(); restaurarFilaAbierta(rut); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
@@ -2757,7 +2958,7 @@ function marcarListoParaConsolidar(rut){
   var reportes=getReportes();
   var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
   if(!rep||rep.estadoContable!=='completado'){
-    alert('El Pre-F29 debe estar completado antes de marcar como listo para consolidar.');
+    alert('El Pre-IVA debe estar validado antes de marcar como listo para consolidar.');
     return;
   }
   if(!rep.id||!/^\d+$/.test(String(rep.id))){
@@ -2783,7 +2984,7 @@ function marcarListoParaConsolidar(rut){
     // listoPanelControl quedan sincronizados con Supabase.
     var reporteActualizado=sbRowToReporte(fila);
     var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-    if(idx>=0){ reportes[idx]=reporteActualizado; }
+    if(idx>=0){ Object.assign(reportes[idx], reporteActualizado); }
     setReportes(reportes);
     renderTabla();
     restaurarFilaAbierta(rut);
