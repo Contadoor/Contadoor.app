@@ -548,7 +548,7 @@ function sbReporteToRow(r){
     // Compat legado (se mantienen para módulos existentes)
     aporte_patronal:      _totalAportes,
     total_cot:            _totalCot,
-    impuesto_unico:       r.iu||r.iuSii||0,
+    impuesto_unico:       r.iu||0,
     total_costo_empresa:  (r.liquidoPagar||0)+_totalAportes,
     obs_rrhh:             r.obsRrhh||null,
     // ── Contadores asistencia ────────────────────────────────
@@ -579,7 +579,7 @@ function sbReporteToRow(r){
     ppm_base:             r.ppmBase||0,
     ret_hon:              r.retHon||0,
     ret2:                 r.ret2||0,
-    iu_sii:               r.iuSii||r.iu||0,
+    // iu_sii: propiedad exclusiva de la RPC actualizar_iu_rrhh — no escribir desde este mapper
     otros_imp:            r.otrosImp||0,
     obs_cont:             r.obsCont||null,
     // ── Honorarios ───────────────────────────────────────────
@@ -729,7 +729,11 @@ function sbRowToReporte(row){
     ppmBase:          row.ppm_base||0,
     retHon:           row.ret_hon||0,
     ret2:             row.ret2||0,
-    iuSii:            row.iu_sii||0,
+    iuSii:            (row.iu_sii !== null && row.iu_sii !== undefined)
+                        ? Number(row.iu_sii)
+                        : null,
+    iuSiiActualizadoAt:  row.iu_sii_actualizado_at  || null,
+    iuSiiActualizadoPor: row.iu_sii_actualizado_por || null,
     otrosImp:         row.otros_imp||0,
     obsCont:          row.obs_cont,
     // ── Honorarios ───────────────────────────────────────────
