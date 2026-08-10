@@ -1823,6 +1823,23 @@ function guardarF29(){
   // PATCH PARCIAL: SOLO columnas propiedad del módulo Contable.
   // NO incluye iu_sii, iu, n_trabajadores ni ningún campo RRHH.
   // No pasa por sbReporteToRow — payload directo a sbPatchReporte.
+
+  // Helper local: Date → 'YYYY-MM-DD' sin problemas de UTC/DST
+  function fechaYmdLocal(d){
+    return d.getFullYear()+'-'
+      +String(d.getMonth()+1).padStart(2,'0')+'-'
+      +String(d.getDate()).padStart(2,'0');
+  }
+
+  // iva_fecha_venc: solo cuando postergado=true; nunca del campo visual localizado
+  var fechaVencPostergado=null;
+  if(postergado){
+    var fechaPost=fechaPostergacionIva(periodo);
+    if(!isNaN(fechaPost.getTime())){
+      fechaVencPostergado=fechaYmdLocal(fechaPost);
+    }
+  }
+
   var patchContable={
     debito_iva:          deb,
     credito_iva:         cred,
@@ -1830,7 +1847,7 @@ function guardarF29(){
     remanente:           remanente,
     iva_postergado:      postergado?Math.max(0,ivaResult):0,
     postergar_iva:       postergado,
-    iva_fecha_venc:      sv('f-iva-fecha-venc')||null,
+    iva_fecha_venc:      fechaVencPostergado,
     ppm_base:            nv('f-ppm-base'),
     ppm_tasa:            tasaIngresada,
     ppm:                 nv('f-ppm-monto'),
