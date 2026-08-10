@@ -370,13 +370,17 @@ function renderPanel(){
     html+='<div style="flex:1;min-width:0">';
     html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">';
     html+='<span style="font-size:10px;font-weight:700;background:'+tCfg.bg+';color:'+tCfg.color+';border-radius:20px;padding:2px 8px">'+tCfg.label+'</span>';
+    if(n.prioridad==='alta')  html+='<span style="font-size:9px;font-weight:700;background:#fee2e2;color:#C0392B;border-radius:20px;padding:1px 7px">● Alta</span>';
+    if(n.prioridad==='media') html+='<span style="font-size:9px;color:#C07A1A;background:#fef3c7;border-radius:20px;padding:1px 7px">● Media</span>';
     html+='<span style="font-size:10px;color:#9a849b">'+timeAgo(n.ts)+'</span>';
     if(n.clienteNombre) html+='<span style="font-size:10px;font-weight:600;color:#5c4a5d">'+hesc(n.clienteNombre)+'</span>';
-    if(n.clienteRut&&!n.clienteNombre) html+='<span style="font-size:10px;color:#9a849b">'+hesc(n.clienteRut)+'</span>';
+    if(n.clienteRut) html+='<span style="font-size:10px;color:#9a849b">'+hesc(n.clienteRut)+'</span>';
+    if(n.periodo) html+='<span style="font-size:9px;background:#f0ebff;color:#5c4a5d;border-radius:20px;padding:1px 7px">'+hesc(n.periodo)+'</span>';
     html+='</div>';
     if(n.titulo&&n.titulo!==n.mensaje)
       html+='<div style="font-size:11px;font-weight:600;color:#5c4a5d;margin-bottom:2px">'+hesc(n.titulo)+'</div>';
-    html+='<div style="font-size:12.5px;color:#1a0a1b;line-height:1.5;margin-bottom:8px">'+hesc(n.mensaje)+'</div>';
+    html+='<div style="font-size:12.5px;color:#1a0a1b;line-height:1.5;margin-bottom:6px">'+hesc(n.mensaje)+'</div>';
+    if(n.creadaPor) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:6px">Creado por '+hesc(n.creadaPor)+'</div>';
     html+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
     if(n.accion){
       html+='<button onclick="ejecutarNotificacion('+nid+')" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">✅ '+hesc(n.accionLabel)+'</button>';
@@ -433,61 +437,62 @@ window.toggleNotPanel=function(e){
 // ── INYECTAR UI EN EL TOPBAR ─────────────────────────────────
 function injectNotUI(){
   var topbar=document.querySelector('.topbar');
-  if(!topbar||document.getElementById('notBtn')) return;
+  if(!topbar) return;
 
-  // Botón campana (sin cambios de CSS/estilo)
-  var btn=document.createElement('div');
-  btn.id='notBtn';
-  btn.onclick=window.toggleNotPanel;
-  btn.style.cssText='position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);transition:.15s;flex-shrink:0;';
-  btn.innerHTML='<i class="ti ti-bell" style="font-size:18px;color:rgba(255,255,255,.75)"></i>'
-    +'<div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>';
+  // ── Campana: reutilizar si ya existe, crear si no ─────────
+  // Módulos como Contable ya tienen #notBtn propio — no crear una segunda campana.
+  var btn=document.getElementById('notBtn');
+  if(btn){
+    // Reutilizar la campana existente: reasignar handler a la Central V2
+    btn.onclick=window.toggleNotPanel;
+  }else{
+    btn=document.createElement('div');
+    btn.id='notBtn';
+    btn.onclick=window.toggleNotPanel;
+    btn.style.cssText='position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);transition:.15s;flex-shrink:0;';
+    btn.innerHTML='<i class="ti ti-bell" style="font-size:18px;color:rgba(255,255,255,.75)"></i>'
+      +'<div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>';
+    var tbTitle=topbar.querySelector('.tb-title');
+    if(tbTitle){topbar.insertBefore(btn,tbTitle.nextSibling);}
+    else{topbar.appendChild(btn);}
+  }
 
-  // Panel (sin cambios de CSS/layout)
-  var panel=document.createElement('div');
-  panel.id='notPanel';
-  panel.style.cssText='display:none;position:absolute;top:54px;right:12px;width:420px;max-height:80vh;overflow-y:auto;background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.15);';
+  // ── Panel: crear solo si no existe ya ────────────────────
+  if(!document.getElementById('notPanelWrap')){
+    var panel=document.createElement('div');
+    panel.style.cssText='display:none;position:absolute;top:54px;right:12px;width:420px;max-height:80vh;overflow-y:auto;background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.15);';
 
-  // Header del panel
-  var panelHdr=document.createElement('div');
-  panelHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8dde8;';
-  panelHdr.innerHTML='<div style="font-size:14px;font-weight:700;color:#1a0a1b"><i class="ti ti-bell" style="font-size:16px;vertical-align:-2px;margin-right:6px;color:#904891"></i>Notificaciones</div>'
-    +'<button onclick="toggleNotPanel(event)" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:18px;line-height:1">✕</button>';
-  panel.appendChild(panelHdr);
+    var panelHdr=document.createElement('div');
+    panelHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8dde8;';
+    panelHdr.innerHTML='<div style="font-size:14px;font-weight:700;color:#1a0a1b"><i class="ti ti-bell" style="font-size:16px;vertical-align:-2px;margin-right:6px;color:#904891"></i>Notificaciones</div>'
+      +'<button onclick="toggleNotPanel(event)" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:18px;line-height:1">✕</button>';
+    panel.appendChild(panelHdr);
 
-  // Cuerpo dinámico
-  var panelBody=document.createElement('div');
-  panelBody.id='notPanel';
-  panel.removeAttribute('id');
-  panel.id='notPanelWrap';
-  panelBody.id='notPanel';
-  panelBody.style.cssText='';
-  panel.appendChild(panelBody);
+    var panelBody=document.createElement('div');
+    panelBody.id='notPanel';
+    panelBody.style.cssText='';
+    panel.id='notPanelWrap';
+    panel.appendChild(panelBody);
 
-  // Estilos tabs (sin cambios)
-  var style=document.createElement('style');
-  style.textContent='.not-tab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;color:#5c4a5d;white-space:nowrap;transition:.15s;}'
-    +'.not-tab:hover{background:rgba(144,72,145,.1);}'
-    +'.not-tab-on{background:#904891;color:#fff;font-weight:600;}'
-    +'#notPanelWrap.on{display:block!important;}';
-  document.head.appendChild(style);
+    var style=document.createElement('style');
+    style.textContent='.not-tab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;color:#5c4a5d;white-space:nowrap;transition:.15s;}'
+      +'.not-tab:hover{background:rgba(144,72,145,.1);}'
+      +'.not-tab-on{background:#904891;color:#fff;font-weight:600;}'
+      +'#notPanelWrap.on{display:block!important;}';
+    document.head.appendChild(style);
 
-  var tbTitle=topbar.querySelector('.tb-title');
-  if(tbTitle){topbar.insertBefore(btn,tbTitle.nextSibling);}
-  else{topbar.appendChild(btn);}
+    var layout=document.querySelector('.layout')||document.body;
+    layout.style.position='relative';
+    layout.appendChild(panel);
 
-  var layout=document.querySelector('.layout')||document.body;
-  layout.style.position='relative';
-  layout.appendChild(panel);
-  panel.classList.remove('on');
-
-  document.addEventListener('click',function(e){
-    var wrap=document.getElementById('notPanelWrap');
-    var b=document.getElementById('notBtn');
-    if(wrap&&b&&!wrap.contains(e.target)&&!b.contains(e.target)){
-      wrap.classList.remove('on');
-    }
-  });
+    document.addEventListener('click',function(e){
+      var wrap=document.getElementById('notPanelWrap');
+      var b=document.getElementById('notBtn');
+      if(wrap&&b&&!wrap.contains(e.target)&&!b.contains(e.target)){
+        wrap.classList.remove('on');
+      }
+    });
+  }
 
   renderBadge();
 }
