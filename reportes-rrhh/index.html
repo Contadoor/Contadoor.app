@@ -1638,6 +1638,51 @@ function _llamarRpcIu(idReal,iuVal,iuRequerido,arr,idx){
     arr[idx].iuSiiActualizadoAt = res.iu_sii_actualizado_at;
     arr[idx].iuSiiActualizadoPor= res.iu_sii_actualizado_por;
     _iuDebeSincronizar=false;
+    // ── Alerta V2 al analista contable (solo si hubo cambio real) ─────────
+    // Backend resuelve destinatario por p_area_destino='contable'.
+    // No se envía destinatario manualmente.
+    if(res.cambio_real===true){
+      var _mod   = res.iu_sii_actualizado_por || '(usuario no identificado)';
+      var _iuAnt = (res.iu_anterior!==null&&res.iu_anterior!==undefined)
+                     ? ff(res.iu_anterior) : '(sin dato previo)';
+      var _iuNvo = (res.iu_nuevo!==null&&res.iu_nuevo!==undefined)
+                     ? ff(res.iu_nuevo) : '\u2014';
+      var _titulo, _tipo, _prio;
+      if(res.preiva_invalidado===true){
+        _titulo = 'Cambio en RRHH \u2014 Pre-IVA requiere nueva revisi\u00f3n';
+        _tipo   = 'accion_requerida';
+        _prio   = 'alta';
+      }else{
+        _titulo = 'IU actualizado desde RRHH';
+        _tipo   = 'info';
+        _prio   = 'media';
+      }
+      var _desc = _mod+' modific\u00f3 el Impuesto \u00danico 2\u00aa Categor\u00eda'
+        +' de '+_iuAnt+' a '+_iuNvo+'.'
+        +' Este cambio puede afectar el F29 del per\u00edodo.'
+        +(res.preiva_invalidado===true?' Revisa nuevamente el Pre-IVA.':'');
+      sbFetch('rpc/crear_alerta_responsable_cliente',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          p_cliente_rut:  arr[idx].rut,
+          p_periodo:      arr[idx].periodo,
+          p_area_destino: 'contable',
+          p_tipo:         _tipo,
+          p_prioridad:    _prio,
+          p_titulo:       _titulo,
+          p_descripcion:  _desc,
+          p_accion:       'ver_preiva',
+          p_accion_url:   '../reportes-contable/index.html'
+        })
+      })
+      .then(function(r){
+        if(!r.ok) console.warn('[RRHH] crear_alerta_responsable_cliente \u2192 HTTP '+r.status);
+      })
+      .catch(function(e){
+        console.warn('[RRHH] crear_alerta_responsable_cliente error:',e);
+      });
+    }
     return {detalleOk:true,iuOk:true,rpc:res};
   })
   .catch(function(e){
