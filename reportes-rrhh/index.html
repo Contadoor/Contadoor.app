@@ -1020,25 +1020,59 @@ function parsearLibro(file){
           if(rs.length>1&&rs[1].querySelectorAll('td').length>=20){tabla=tables[i];break;}
         }
         if(!tabla){reject(new Error('No se encontró tabla de datos.'));return;}
-        // IDX base 0 — columnas exactas del libro MasContable 38 cols
+        // IDX base 0 — 42 cols A:AP — LRemu Mas Remuneraciones (actualizado jun-2026)
         var IDX={
-          periodo:0, rut:1, apPat:2, apMat:3, nombres:4,
-          sueldoBase:5, centroCosto:6,
-          dias:7, atraso:8, vacaciones:9, licencia:10,
-          saludNombre:11, plan:12, afpNombre:13, pctAfp:14,
-          sueldoMensual:15, gratificacion:16, totalImponible:17,
-          cFamiliar:18, colacion:19, movilizacion:20, totalNoImponible:21,
-          // Grupo 6: Descuentos trabajador
-          dctoAfp:22, apv1:23, apv2:24, dctoSalud:25,
-          cesTrab:26, iu:27,
-          totalDescuentos:28, otrosDescuentos:29,
-          // Grupo 7: Resultado trabajador
-          liquido:30,
-          // Grupo 8: Aportes patronales
-          sis:31, mutual:32, cesEmp:33,
-          capInd:34, expVida:35, rentProt:36,
-          // Grupo 9: Tributario
-          tributable:37
+          periodo:0,
+          rut:1,
+          apPat:2,
+          apMat:3,
+          nombres:4,
+
+          sueldoBase:5,
+          contrato:6,
+          centroCosto:7,
+
+          dias:8,
+          atraso:9,
+          vacaciones:10,
+          licencia:11,
+
+          saludNombre:12,
+          plan:13,
+          afpNombre:14,
+          pctAfp:15,
+
+          sueldoMensual:16,
+          gratificacion:17,
+          ajusteSueldoBase:18,
+          bonoResponsabilidad:19,
+          totalImponible:20,
+
+          cFamiliar:21,
+          colacion:22,
+          movilizacion:23,
+          asignacionResponsabilidad:24,
+          totalNoImponible:25,
+
+          dctoAfp:26,
+          apv1:27,
+          apv2:28,
+          dctoSalud:29,
+          cesTrab:30,
+          iu:31,
+
+          totalDescuentos:32,
+          otrosDescuentos:33,
+          liquido:34,
+
+          sis:35,
+          mutual:36,
+          cesEmp:37,
+          capInd:38,
+          expVida:39,
+          rentProt:40,
+
+          tributable:41
         };
         var filas=tabla.querySelectorAll('tr');
         var trabajadores=[];
@@ -1222,7 +1256,10 @@ function llenarCamposDesdeLibro(data){
   setV('m-salud',data.dctoSalud);
   setV('m-apv',data.apv);
   setV('m-ces-trab',data.cesTrab);
-  setV('m-iu',data.iu);
+  var iuEl=document.getElementById('m-iu');
+  if(iuEl){
+    iuEl.value=(data.iu!==null&&data.iu!==undefined)?String(data.iu):'';
+  }
   setV('m-total-desc',data.totalDescuentos);
   setV('m-otros-desc',data.otrosDescuentos||0);
   // Grupo 7: líquido
@@ -1486,7 +1523,7 @@ function actualizarPreviewRpt(){
 // ═══════════════════════════════════════════════════
 // MODAL RRHH
 // ═══════════════════════════════════════════════════
-function abrirModal(id,enviar){
+function abrirModal(id,enviar,limpiar){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   // Si no hay reporte existente (cliente nuevo en período) → crear placeholder
   if(!r && String(id).indexOf('nuevo_')===0){
@@ -1535,6 +1572,32 @@ function abrirModal(id,enviar){
   _iuDebeSincronizar=false;
   document.getElementById('modalRrhh').classList.add('on');
   if(enviar) actualizarPreviewRpt();
+  if(limpiar) _limpiarFormularioReproceso();
+}
+// Limpia el formulario del modal para una nueva revisión (reproceso).
+// Los datos históricos en Supabase NO se tocan — solo se resetea la UI.
+// Editar normal llama abrirModal sin limpiar=true y sigue precargando.
+function _limpiarFormularioReproceso(){
+  // Campos libro/archivo
+  var camposLibro=['m-ntrab','m-timponible','m-tnoimponible','m-liquido',
+    'm-afp','m-salud','m-apv','m-ces-trab','m-iu',
+    'm-total-desc','m-otros-desc',
+    'm-sis','m-mutual','m-ces-emp','m-cap-ind','m-exp-vida','m-rent-prot',
+    'm-total-aportes','m-total-cot','m-obs'];
+  // Campos modo manual
+  var camposManual=['m-ntrab-m','m-cot-m','m-iu-m','m-obs-m'];
+  camposLibro.concat(camposManual).forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value='';
+  });
+  // Ocultar sección libro, mostrar modo manual vacío
+  var dw=document.getElementById('datosLibroWrap');
+  if(dw) dw.style.display='none';
+  var mw=document.getElementById('modoManualWrap');
+  if(mw) mw.style.display='block';
+  // Quitar libro cargado (archivo, preview, flag)
+  limpiarLibro();
+  // _iuDebeSincronizar queda en false (limpiarLibro lo pone en false).
+  // Se activará cuando el usuario cargue el nuevo libro.
 }
 function closeModalRrhh(){
   document.getElementById('modalRrhh').classList.remove('on');
@@ -2261,7 +2324,7 @@ function ejecutarReproceso(id, motivo){
     renderTabla(sv('selectPeriodo'));
     toast('\u2705 Reproceso iniciado. Carga el nuevo libro RRHH para la Revisi\u00f3n '+_revNueva+'.');
     // Abrir modal para cargar nuevo libro
-    setTimeout(function(){abrirModal(id,false);},300);
+    setTimeout(function(){abrirModal(id,false,true);},300);
   }).catch(function(err){
     console.error('[RRHH REPROCESO] Error:',err);
     alert('\u274c Error en el reproceso: '+err.message);
