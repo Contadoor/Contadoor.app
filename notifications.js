@@ -57,7 +57,8 @@ function mapAlertaSupabase(row){
     ts:           row.created_at
                     ? new Date(row.created_at).getTime()
                     : Date.now(),
-    creadaPor:    row.creada_por   || null
+    creadaPor:    row.creada_por   || null,
+    destinatarioNombre: row.asignado_a  || ''
   };
 }
 
@@ -70,7 +71,9 @@ function cargarAlertas(){
   sbGet('alertas?select=*&order=created_at.desc&limit=200')
     .then(function(rows){
       _v2Loading=false;
-      _v2Cache=(Array.isArray(rows)?rows:[]).map(mapAlertaSupabase);
+      _v2Cache=(Array.isArray(rows)?rows:[])
+        .filter(function(row){ return row.estado!=='ignorada'; })
+        .map(mapAlertaSupabase);
       renderBadge();
       var wrap=document.getElementById('notPanelWrap');
       if(wrap&&wrap.classList.contains('on')) renderPanel();
@@ -214,10 +217,17 @@ window.ejecutarNotificacion=function(id){
         resuelta_at:resolvedAt
       })
     })
-    .then(function(r){return r.ok?r.json():null;})
+    .then(function(r){
+      if(!r.ok){
+        console.error('[Notif] PATCH ejecutar alerta id='+id+' → HTTP '+r.status);
+        return null;
+      }
+      return r.json();
+    })
     .then(function(rows){
       if(rows&&rows.length>0){
-        // Supabase confirmó el UPDATE — recién entonces actualizar UI
+        // Supabase confirmó el UPDATE — marcar en caché y re-renderizar
+        // El panel permanece abierto; la alerta pasa al historial
         var idx=_v2Cache.findIndex(function(n){return n.id===id;});
         if(idx>=0){
           _v2Cache[idx].ejecutado=true;
@@ -228,13 +238,13 @@ window.ejecutarNotificacion=function(id){
         renderPanel();
       }else{
         // Sin confirmación — mantener pendiente y mostrar error
-        console.warn('[Notif] PATCH alerta id='+id+' no retornó confirmación');
+        console.warn('[Notif] PATCH ejecutar alerta id='+id+' → respuesta vacía o null');
         if(typeof toast==='function')
           toast('⚠️ No se pudo marcar la alerta. Verifica tu conexión e intenta nuevamente.');
       }
     })
     .catch(function(e){
-      console.error('[Notif] Error al ejecutar alerta V2:',e);
+      console.error('[Notif] Error al ejecutar alerta V2 id='+id+':',e);
       if(typeof toast==='function')
         toast('⚠️ Error al ejecutar la alerta. Intenta nuevamente.');
     });
@@ -262,6 +272,56 @@ window.eliminarNotificacion=function(id){
     return;
   }
   // ── V1: localStorage ───────────────────────────────────
+  setNots(getNots().filter(function(n){return n.id!==id;}));
+};
+
+// ── IGNORAR NOTIFICACIÓN ──────────────────────────────────────
+// V2: PATCH estado='ignorada' → persistente, no reaparece en polling.
+// V1: eliminar permanentemente de localStorage.
+window.ignorarNotificacion=function(id){
+  // ── V2: PATCH persistente ───────────────────────────────
+  var v2=_v2Cache.find(function(n){return n.id===id&&n._src==='v2';});
+  if(v2){
+    if(typeof sbFetch!=='function') return;
+    var resolvedBy=getNombre();
+    var resolvedAt=new Date().toISOString();
+    sbFetch('alertas?id=eq.'+id,{
+      method:'PATCH',
+      headers:{'Prefer':'return=representation'},
+      body:JSON.stringify({
+        estado:'ignorada',
+        resuelta_por:resolvedBy,
+        resuelta_at:resolvedAt
+      })
+    })
+    .then(function(r){
+      if(!r.ok){
+        console.error('[Notif] PATCH ignorar alerta id='+id+' → HTTP '+r.status);
+        return null;
+      }
+      return r.json();
+    })
+    .then(function(rows){
+      if(rows&&rows.length>0){
+        // Confirmado: quitar del caché; badge y panel actualizan; panel sigue abierto
+        var idx=_v2Cache.findIndex(function(n){return n.id===id;});
+        if(idx>=0) _v2Cache.splice(idx,1);
+        renderBadge();
+        renderPanel();
+      }else{
+        console.warn('[Notif] PATCH ignorar alerta id='+id+' → respuesta vacía o null');
+        if(typeof toast==='function')
+          toast('⚠️ No se pudo ignorar la alerta. Verifica tu conexión e intenta nuevamente.');
+      }
+    })
+    .catch(function(e){
+      console.error('[Notif] Error al ignorar alerta V2 id='+id+':',e);
+      if(typeof toast==='function')
+        toast('⚠️ Error al ignorar la alerta. Intenta nuevamente.');
+    });
+    return;
+  }
+  // ── V1: eliminar permanentemente de localStorage ────────
   setNots(getNots().filter(function(n){return n.id!==id;}));
 };
 
@@ -380,18 +440,17 @@ function renderPanel(){
     if(n.titulo&&n.titulo!==n.mensaje)
       html+='<div style="font-size:11px;font-weight:600;color:#5c4a5d;margin-bottom:2px">'+hesc(n.titulo)+'</div>';
     html+='<div style="font-size:12.5px;color:#1a0a1b;line-height:1.5;margin-bottom:6px">'+hesc(n.mensaje)+'</div>';
-    if(n.creadaPor) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:6px">Creado por '+hesc(n.creadaPor)+'</div>';
+    if(n.creadaPor) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:4px">Creado por '+hesc(n.creadaPor)+'</div>';
+    if(n.destinatarioNombre) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:6px">Asignado a: '+hesc(n.destinatarioNombre)+'</div>';
     html+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
-    if(n.accion){
-      html+='<button onclick="ejecutarNotificacion('+nid+')" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">✅ '+hesc(n.accionLabel)+'</button>';
-    }
+    html+='<button onclick="ejecutarNotificacion('+nid+')" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">✅ '+hesc(n.accionLabel)+'</button>';
     if(n.accionUrl){
       // Botón "Ver" usa accion_url directamente (no modifica estado)
       html+='<a href="'+hesc(n.accionUrl)+'" style="background:transparent;color:#904891;border:1px solid #e8dde8;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none">Ver →</a>';
     }
-    html+='<button onclick="ejecutarNotificacion('+nid+')" style="background:transparent;color:#9a849b;border:1px solid #e8dde8;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Ignorar</button>';
+    html+='<button onclick="ignorarNotificacion('+nid+')" style="background:transparent;color:#9a849b;border:1px solid #e8dde8;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Ignorar</button>';
     html+='</div></div>';
-    html+='<button onclick="eliminarNotificacion('+nid+')" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:14px;flex-shrink:0;padding:0">✕</button>';
+    html+='<button onclick="'+(n._src==='v2'?'ignorarNotificacion':'eliminarNotificacion')+'('+nid+')" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:14px;flex-shrink:0;padding:0">✕</button>';
     html+='</div></div>';
   });
 
@@ -484,6 +543,9 @@ function injectNotUI(){
     var layout=document.querySelector('.layout')||document.body;
     layout.style.position='relative';
     layout.appendChild(panel);
+    // Detener propagación de clics internos al documento para que el panel no se cierre
+    // al usar tabs, botones o cualquier elemento dentro del panel.
+    panel.onclick=function(e){ e.stopPropagation(); };
 
     document.addEventListener('click',function(e){
       var wrap=document.getElementById('notPanelWrap');
@@ -493,6 +555,11 @@ function injectNotUI(){
       }
     });
   }
+
+  // stopPropagation idempotente: se aplica al wrap final (nuevo o preexistente)
+  // Evita que clics internos cierren el panel sin duplicar addEventListener
+  var wrapFinal=document.getElementById('notPanelWrap');
+  if(wrapFinal){ wrapFinal.onclick=function(e){e.stopPropagation();}; }
 
   renderBadge();
 }
