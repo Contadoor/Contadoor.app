@@ -623,14 +623,9 @@ function buildBorradorF29(rep, cliente, periodo){
 
   // ── Imp. Único 2ª Cat. — SIEMPRE desde RRHH, nunca desde f29 ───────────
   // Usar lógica explícita para distinguir 0 válido de "sin dato"
-  var imp2cat;
-  if(rep.iuSii!==null&&rep.iuSii!==undefined&&rep.iuSii!==''){
-    imp2cat=Number(rep.iuSii);
-  } else if(rep.iu!==null&&rep.iu!==undefined&&rep.iu!==''){
-    imp2cat=Number(rep.iu);
-  } else {
-    imp2cat=0;
-  }
+  // iu_sii=null → pendiente/no validado | iu_sii=0 → $0 validado | iu_sii>0 → monto validado
+  var imp2catValidado = (rep.iuSii !== null && rep.iuSii !== undefined);
+  var imp2cat = imp2catValidado ? Number(rep.iuSii) : 0;
 
   // Otros impuestos y postergación: solo desde f29 cuando ya validado
   // (evita que residuos de pruebas contaminen un Pre-IVA pendiente)
@@ -653,6 +648,9 @@ function buildBorradorF29(rep, cliente, periodo){
     ppm:                 ppm,
     retHon:              retHon,
     imp2cat:             imp2cat,
+    imp2catValidado:     imp2catValidado,
+    iuSiiActualizadoAt:  rep.iuSiiActualizadoAt  || null,
+    iuSiiActualizadoPor: rep.iuSiiActualizadoPor || null,
     otrosImp:            otrosImp,
     totalRetenciones:    totalRetenciones,
     totalTributario:     totalTributario,
@@ -668,11 +666,9 @@ function buildBorradorF29(rep, cliente, periodo){
       ppmBaseLibro:     ventasOk ? (Number((libV||{}).totalNeto||0)+Number((libV||{}).totalExento||0)) : null,
       ppmTasaFicha:     (cliente&&cliente.ppmTasaDefault!=null&&cliente.ppmTasaDefault!=='') ? Number(cliente.ppmTasaDefault) : null,
       retHonLibro:      honorOk  ? Number((libH||{}).totalRetencion||0) : null,
-      imp2catRrhh:      (rep.iuSii!==null&&rep.iuSii!==undefined&&rep.iuSii!=='')
+      imp2catRrhh:      (rep.iuSii!==null&&rep.iuSii!==undefined)
                           ? Number(rep.iuSii)
-                          : (rep.iu!==null&&rep.iu!==undefined&&rep.iu!=='')
-                            ? Number(rep.iu)
-                            : null
+                          : null
     }
   };
 }
@@ -778,7 +774,7 @@ function renderTabla(){
       +'<div style="font-size:9px;color:#9a849b">RRHH · Libros · Pre-IVA</div>'
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
-    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(totalTrib?ff(totalTrib):' — ')+'</div>';
+    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(rrhhOk?ff(totalTrib):(totalTrib?ff(totalTrib):' — '))+'</div>';
 
     // Acción principal
     html+='<div style="display:flex;gap:5px;justify-content:flex-end;">';
@@ -808,7 +804,7 @@ function renderTabla(){
       html+=renderSeccionLibros(rep,c);
     }
     // Tarjetas IVA + PPM en vivo desde borrador (sin esperar rep.f29 guardado)
-    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2cat>0||rep.f29){
+    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29){
       html+='<div class="det-grid">';
       // ── Tarjeta IVA ──
       html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
@@ -826,7 +822,16 @@ function renderTabla(){
       html+='<div class="det-row"><span style="font-size:10.5px;color:var(--tm)">Tasa PPM</span><span style="font-size:10.5px">'+(borrador.ppmTasa!==null?borrador.ppmTasa+'%':'no configurada')+'</span></div>';
       html+='<div class="det-row"><span>PPM determinado</span><span>'+ff(borrador.ppm)+'</span></div>';
       if(borrador.retHon||borrador._honorOk)html+='<div class="det-row"><span>Retención honorarios</span><span>'+ff(borrador.retHon)+'</span></div>';
-      if(borrador.imp2cat)html+='<div class="det-row"><span>Imp. Único 2\u00aa Cat.</span><span>'+ff(borrador.imp2cat)+'</span></div>';
+      if(borrador.imp2catValidado){
+        html+='<div class="det-row"><span>Imp. Único 2ª Cat.</span><span>'+ff(borrador.imp2cat)+'</span></div>';
+        if(borrador.iuSiiActualizadoAt){
+          var _ats=new Date(borrador.iuSiiActualizadoAt);
+          var _atsStr=_ats.toLocaleDateString('es-CL')+' '+_ats.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+          html+='<div class="det-row" style="opacity:.6;font-size:10px;color:var(--t2);"><span>Validado por RRHH · '+hesc(_atsStr)+'</span><span>'+hesc(borrador.iuSiiActualizadoPor||'')+'</span></div>';
+        }else{
+          html+='<div class="det-row" style="opacity:.5;font-size:10px;color:var(--t2);"><span>IU registrado previamente · trazabilidad no disponible</span><span></span></div>';
+        }
+      }
       if(borrador.otrosImp)html+='<div class="det-row"><span>Otros impuestos</span><span>'+ff(borrador.otrosImp)+'</span></div>';
       html+='<div class="det-sep"></div>';
       html+='<div class="det-row"><span><strong>Total complementario</strong></span><span><strong>'+ff(borrador.totalRetenciones)+'</strong></span></div>';
@@ -929,7 +934,7 @@ function abrirF29(rut){
 
   // Retenciones — fuente única: borrador (no consultar f29.retHon como fallback)
   document.getElementById('f-ret-hon').value   = borrador.retHon!==0 ? borrador.retHon : '';
-  document.getElementById('f-imp-2cat').value  = borrador.imp2cat!==0 ? borrador.imp2cat : '';
+  document.getElementById('f-imp-2cat').value  = borrador.imp2catValidado ? String(borrador.imp2cat) : '';
   document.getElementById('f-otros-imp').value = borrador.otrosImp!==0 ? borrador.otrosImp : '';
 
   // ── Hints de precálculo: mostrar referencia de libros/ficha ────────────
@@ -962,11 +967,26 @@ function abrirF29(rut){
   }
 
   // Info RRHH
-  var iuVal=Number(borrador.imp2cat||0);
-  document.getElementById('info-rrhh-imp').textContent=
-    iuVal
-      ?'✅ Imp. Único 2\u00aa Cat. desde RRHH: '+ff(iuVal)
-      :'\u2139\ufe0f Imp. Único 2\u00aa Cat. se carga automáticamente desde RRHH.';
+  // info-rrhh-imp: tres estados explícitos (A: pendiente / B: validado con trazabilidad / C: validado sin trazabilidad)
+  var _iuInfoEl=document.getElementById('info-rrhh-imp');
+  if(_iuInfoEl){
+    if(!borrador.imp2catValidado){
+      // A: iuSii=null — RRHH aún no ha validado
+      _iuInfoEl.textContent='⏳ Imp. Único 2ª Cat. pendiente de validación en RRHH.';
+    }else if(borrador.iuSiiActualizadoAt){
+      // B: validado con trazabilidad completa
+      var _at2=new Date(borrador.iuSiiActualizadoAt);
+      var _at2Str=_at2.toLocaleDateString('es-CL')+' '+_at2.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+      _iuInfoEl.innerHTML='✅ Imp. Único 2ª Cat. desde RRHH: <strong>'+ff(borrador.imp2cat)+'</strong>'
+        +'<br><span style="font-size:10px;opacity:.8">Última actualización: '+hesc(_at2Str)
+        +(borrador.iuSiiActualizadoPor?' &nbsp;·&nbsp; Por: '+hesc(borrador.iuSiiActualizadoPor):'')
+        +'</span>';
+    }else{
+      // C: validado pero sin metadata de trazabilidad
+      _iuInfoEl.innerHTML='✅ Imp. Único 2ª Cat. registrado desde RRHH: <strong>'+ff(borrador.imp2cat)+'</strong>'
+        +'<br><span style="font-size:10px;opacity:.7">Trazabilidad anterior no disponible.</span>';
+    }
+  }
 
   // Postergación y obs
   document.getElementById('f-postergar-iva').checked=Boolean(borrador.postergado);
