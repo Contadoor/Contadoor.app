@@ -376,7 +376,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Ret. honorarios</span><span id="res-ret-hon" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Imp. Único 2ª Cat.</span><span id="res-iu" style="font-weight:600">$0</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--t2)">Otros impuestos</span><span id="res-otros" style="font-weight:600">$0</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--contable-bdr);padding-top:8px;margin-top:4px;"><span style="color:var(--contable)">Total tributario</span><span id="res-total" style="color:var(--contable)">$0</span></div>
+        <div id="res-iva-post-row" style="display:none;justify-content:space-between;font-size:12px;color:#C07A1A;background:#fef9ec;padding:4px 8px;border-radius:5px;margin-top:2px;"><span>IVA postergado</span><span id="res-iva-postergado" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding-top:6px;"><span style="color:var(--t2)">Total tributario del período</span><span id="res-total-completo" style="font-weight:600;color:var(--contable)">$0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--contable-bdr);padding-top:8px;margin-top:4px;"><span style="color:var(--contable)">Monto a pagar ahora</span><span id="res-total" style="color:var(--contable)">$0</span></div>
       </div>
     </div>
 
@@ -654,6 +656,7 @@ function buildBorradorF29(rep, cliente, periodo){
     otrosImp:            otrosImp,
     totalRetenciones:    totalRetenciones,
     totalTributario:     totalTributario,
+    montoAPagarAhora:    totalTributario - (postergado ? Math.max(0,saldoIva) : 0),
     _ventasOk:           ventasOk,
     _comprasOk:          comprasOk,
     _honorOk:            honorOk,
@@ -838,6 +841,16 @@ function renderTabla(){
       html+='</div>';
       html+='</div>';
       html+='<div class="det-total"><span>Total tributario del período</span><span>'+ff(totalTrib)+'</span></div>';
+      // ── Monto exigible: distingue postergación IVA ────────────────────────
+      if(borrador.postergado){
+        var _fvStr='';
+        if(rep.ivaFechaVenc){
+          var _fvD=new Date(rep.ivaFechaVenc+'T12:00:00');
+          _fvStr=' \u00b7 vence '+_fvD.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+        }
+        html+='<div class="det-row" style="opacity:.85;color:#C07A1A;background:#fef9ec;padding:6px 12px;border-radius:6px;margin:4px 0"><span>IVA postergado'+_fvStr+'</span><span>'+ff(borrador.ivaPostergado)+'</span></div>';
+      }
+      html+='<div class="det-total" style="background:#ecfdf5;border:1px solid #6ee7b7;color:#064e3b;margin-top:4px"><span><strong>MONTO A PAGAR AHORA</strong></span><span><strong>'+ff(borrador.montoAPagarAhora)+'</strong></span></div>';
     } else {
       html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">📊 Carga Ventas o Compras para ver el Pre-IVA.</div>';
     }
@@ -1714,14 +1727,23 @@ function calcTotal(){
   var retHon=nv('f-ret-hon');
   var iu=nv('f-imp-2cat');
   var otros=nv('f-otros-imp');
-  // Total exclusivamente tributario
+  // Monto a pagar ahora (IVA excluido cuando postergado)
   var total=ivaPago+ppm+retHon+iu+otros;
+  // Total tributario completo del período (siempre incluye IVA determinado)
+  var totalCompleto=ivaApagar+ppm+retHon+iu+otros;
   document.getElementById('res-iva').textContent=postergado?'Postergado':ff(ivaPago);
   document.getElementById('res-ppm').textContent=ff(ppm);
   document.getElementById('res-ret-hon').textContent=ff(retHon);
   document.getElementById('res-iu').textContent=ff(iu);
   document.getElementById('res-otros').textContent=ff(otros);
   document.getElementById('res-total').textContent=ff(total);
+  // Nuevos elementos: total completo + fila IVA postergado
+  var elTC=document.getElementById('res-total-completo');
+  if(elTC) elTC.textContent=ff(totalCompleto);
+  var elIvaPost=document.getElementById('res-iva-postergado');
+  if(elIvaPost) elIvaPost.textContent=ff(ivaApagar);
+  var elIvaRow=document.getElementById('res-iva-post-row');
+  if(elIvaRow) elIvaRow.style.display=postergado?'flex':'none';
 }
 
 function togglePostergacion(){
