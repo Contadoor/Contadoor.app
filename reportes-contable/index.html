@@ -814,9 +814,16 @@ function renderTabla(){
       html+='<div class="det-row"><span>Débito fiscal</span><span>'+ff(borrador.ivaDebito)+'</span></div>';
       if(borrador.ivaCredito)html+='<div class="det-row"><span>Crédito fiscal</span><span>-'+ff(borrador.ivaCredito)+'</span></div>';
       if(borrador.remanenteAnterior>0)html+='<div class="det-row"><span>Remanente per. anterior</span><span>-'+ff(borrador.remanenteAnterior)+'</span></div>';
-      if(borrador.postergado)html+='<div class="det-row"><span style="color:#C07A1A">IVA postergado</span><span style="color:#C07A1A">'+ff(borrador.ivaPostergado)+'</span></div>';
       html+='<div class="det-sep"></div>';
       html+='<div class="det-row"><span><strong>Impuesto determinado</strong></span><span><strong>'+ff(borrador.impuestoDeterminado)+'</strong></span></div>';
+      if(borrador.postergado){
+        var _fvLabel='';
+        if(rep.ivaFechaVenc){
+          var _fvP=rep.ivaFechaVenc.split('-');
+          if(_fvP.length===3) _fvLabel=' · vence '+_fvP[2]+'-'+_fvP[1]+'-'+_fvP[0];
+        }
+        html+='<div class="det-row" style="font-size:10.5px;color:#C07A1A;opacity:.9"><span>⏳ IVA postergado'+_fvLabel+'</span><span></span></div>';
+      };
       if(borrador.remanenteSiguiente>0)html+='<div class="det-row" style="color:var(--contable)"><span>Remanente per. siguiente</span><span>'+ff(borrador.remanenteSiguiente)+'</span></div>';
       html+='</div>';
       // ── Tarjeta PPM + Retenciones ──
