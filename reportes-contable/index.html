@@ -749,7 +749,7 @@ function renderTabla(){
       badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Revisar / Validar Pre-IVA</span>';
     } else if(estado==='completado'){
       if(rep.listoPanelControl){
-        badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">📋 Listo para consolidar</span>';
+        badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">✅ Reporte contable OK</span>';
       } else {
         badgeHtml='<span class="estado-badge eb-completado">✅ Pre-IVA validado</span>';
       }
@@ -789,7 +789,7 @@ function renderTabla(){
       }
     } else if(estado==='completado'){
       if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">✅ Marcar reporte OK</button>';
       }
       html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">✏️ Editar</button>';
     }
@@ -852,9 +852,9 @@ function renderTabla(){
     }
     if(estado==='completado'){
       if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">📋 Marcar listo para consolidar</button>';
+        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">✅ Marcar reporte OK</button>';
       } else {
-        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">✅ Listo para consolidar en Panel de Control</span>';
+        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">✅ Reporte contable OK</span>';
       }
       html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-IVA</button>';
     }
@@ -1883,8 +1883,23 @@ function guardarF29(){
 
     // Actualizar _reportesContables con el objeto persistido
     var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
-    if(idx>=0){ Object.assign(reportes[idx], reporteActualizado); }
-    else { reportes.push(reporteActualizado); }
+    if(idx>=0){
+      // Preservar libros ANTES del merge: sbRowToReporte no los incluye
+      // (vienen de libros_cabecera, tabla separada de reportes_mensuales)
+      var _librosGuardados=reportes[idx].libros;
+      Object.assign(reportes[idx], reporteActualizado);
+      // Restaurar explícitamente: Object.assign no borra props ausentes en el source,
+      // pero ser explícitos garantiza que un futuro cambio en sbRowToReporte no los pierda
+      if(_librosGuardados) reportes[idx].libros=_librosGuardados;
+    }else{
+      // reporte nuevo: adjuntar libros desde _librosMap antes de push
+      var _rutNorm=normalizarRutContable(rut);
+      var _cliL=getClientes().find(function(x){return x.rut===rut;});
+      var _cidL=_cliL&&_cliL.id?String(_cliL.id):'';
+      var _mL=_librosMap[_rutNorm]||(_cidL?_librosMap[_cidL]:null)||{};
+      reporteActualizado.libros={compras:_mL.compras||null,ventas:_mL.ventas||null,honorarios:_mL.honorarios||null};
+      reportes.push(reporteActualizado);
+    }
     setReportes(reportes);
 
     // Actualizar ficha del cliente con la nueva tasa PPM si el analista lo solicitó
@@ -3069,7 +3084,11 @@ function marcarListoParaConsolidar(rut){
     // listoPanelControl quedan sincronizados con Supabase.
     var reporteActualizado=sbRowToReporte(fila);
     var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-    if(idx>=0){ Object.assign(reportes[idx], reporteActualizado); }
+    if(idx>=0){
+      var _librosGuardadosLPC=reportes[idx].libros;
+      Object.assign(reportes[idx], reporteActualizado);
+      if(_librosGuardadosLPC) reportes[idx].libros=_librosGuardadosLPC;
+    }
     setReportes(reportes);
     renderTabla();
     restaurarFilaAbierta(rut);
@@ -3077,7 +3096,7 @@ function marcarListoParaConsolidar(rut){
       modulo:'reportes',tipo:'info',prioridad:'media',
       clienteRut:rut,
       clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
-      mensaje:'Reporte contable listo para consolidar en Panel de Control',
+      mensaje:'Reporte contable marcado como OK',
       accion:null
     });
   }).catch(function(err){
@@ -3262,20 +3281,19 @@ function cargarReportesPeriodo(periodo, cb){
         // Log cabecera original vs convertida para diagnóstico
         if(filasLibros.length>0){
           console.info('[Contable] Cabecera original vs convertida:',{
-            original: filasLibros[0],
-            convertida: typeof window.sbRowToLibroCabecera==='function'
-              ? window.sbRowToLibroCabecera(filasLibros[0])
-              : null
+            original: filasLibros[0]
           });
         }
 
         filasLibros.forEach(function(row, indice){
           console.info('[Contable] Procesando cabecera libro:',indice,row);
           try{
-            // Convertir fila con el mapper oficial si está disponible
-            var libro=typeof window.sbRowToLibroCabecera==='function'
-              ? window.sbRowToLibroCabecera(row)
-              : row;
+            // sbGetLibrosCabeceraByPeriodo ya devuelve objetos mapeados (camelCase)
+            // via .map(sbRowToLibroCabecera) en supabase.js.
+            // NO volver a llamar sbRowToLibroCabecera(row): produciría todos los
+            // campos numéricos en 0 (n_docs_incluidos, total_iva, etc. no existen
+            // en el objeto camelCase que ya se recibe como 'row').
+            var libro=row;
 
             // [TRACE 5] — honorarios leído desde BD (remover en producción)
             var tipoRaw=String(row.tipo||row.tipo_libro||'').trim().toLowerCase();
