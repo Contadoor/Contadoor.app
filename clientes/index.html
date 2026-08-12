@@ -340,41 +340,48 @@ body.modal-open{overflow:hidden;}
       </div>
 
       <div class="card-hd">🔑 Credenciales de acceso</div>
+      <!-- SEC1-FIX1A: inputs de contraseña eliminados. Administración de claves deshabilitada
+           hasta implementar módulo seguro de credenciales (FIX2). -->
+      <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:11.5px;color:#3730a3;line-height:1.5">
+        🔒 <strong>Credenciales protegidas.</strong>
+        Las credenciales están protegidas. Su administración estará disponible desde el módulo seguro de credenciales.
+        Los usuarios/RUT de acceso pueden editarse normalmente.
+      </div>
       <table class="cred-table" style="margin-bottom:0">
         <thead>
-          <tr><th style="width:24%">Sistema</th><th>Usuario / RUT</th><th>Clave</th></tr>
+          <tr><th style="width:24%">Sistema</th><th>Usuario / RUT</th><th style="color:var(--tm);font-weight:400;font-size:10px">Contraseña</th></tr>
         </thead>
         <tbody>
           <tr>
             <td class="sys">SII Empresa</td>
             <td><input class="cred-inp" type="text" id="f-sii-u" placeholder="RUT empresa sin puntos"></td>
-            <td><input class="cred-inp" type="text" id="f-sii-k" placeholder="Clave SII empresa" autocomplete="off"></td>
+            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
           </tr>
           <tr>
             <td class="sys">SII Rep. Legal</td>
             <td><input class="cred-inp" type="text" id="f-prev-u" placeholder="RUT representante legal"></td>
-            <td><input class="cred-inp" type="text" id="f-prev-k" placeholder="Clave SII rep. legal" autocomplete="off"></td>
+            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
           </tr>
           <tr>
             <td class="sys">Clave Única</td>
             <td><input class="cred-inp" type="text" id="f-cu-u" placeholder="RUT titular"></td>
-            <td><input class="cred-inp" type="text" id="f-cu-k" placeholder="Clave Única" autocomplete="off"></td>
+            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
           </tr>
           <tr>
             <td class="sys">Facturación</td>
             <td><input class="cred-inp" type="text" id="f-fact-u" placeholder="Usuario plataforma"></td>
-            <td><input class="cred-inp" type="text" id="f-fact-k" placeholder="Clave facturación" autocomplete="off"></td>
+            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
           </tr>
           <tr>
             <td class="sys">Portal Licencias</td>
             <td><input class="cred-inp" type="text" id="f-lic-u" placeholder="Usuario portal"></td>
-            <td><input class="cred-inp" type="text" id="f-lic-k" placeholder="Clave portal" autocomplete="off"></td>
+            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
           </tr>
-          <tbody id="cred-extras"></tbody>
         </tbody>
       </table>
-      <div style="padding:6px 10px;border:1px solid var(--bdr);border-top:none;border-radius:0 0 10px 10px;background:var(--sur2);margin-bottom:10px">
-        <button class="btn-s btn-sm" type="button" id="btn-add-cred">+ Agregar otro sistema</button>
+      <!-- btn-add-cred deshabilitado en SEC1-FIX1A — creds_extra no se persiste -->
+      <div style="padding:6px 10px;border:1px solid var(--bdr);border-top:none;border-radius:0 0 10px 10px;background:var(--sur2);margin-bottom:10px;opacity:.4;pointer-events:none">
+        <button class="btn-s btn-sm" type="button" id="btn-add-cred" disabled>+ Agregar otro sistema</button>
       </div>
       <div class="fgroup" style="margin-bottom:14px">
         <label>Obs. acceso</label>
@@ -452,6 +459,7 @@ body.modal-open{overflow:hidden;}
 
 <div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
 
+<script src="../supabase.js"></script>
 <script>
 console.info('[Clientes] versión 2026-08-05-vFinal');
 // ─────────────────────────────────────────────────────
@@ -477,8 +485,8 @@ var ESTADOS = {
   inactivo:    { l: 'Inactivo',    c: 'badge-inactivo' }
 };
 var REGMAP = { '14D3': 'PYME 14D N°3', '14D8': 'Transparente 14D N°8', presunta: 'Renta Presunta' };
-var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
+// SEC1-FIX1A.1: SB_URL y SB_KEY locales eliminados.
+// sbFetch, sbGet, sbPost, sbPatch provienen de ../supabase.js (JWT autenticado).
 
 // ─────────────────────────────────────────────────────
 // HELPERS
@@ -514,15 +522,8 @@ function getUsuarios() {
 // ─────────────────────────────────────────────────────
 // SUPABASE
 // ─────────────────────────────────────────────────────
-function sbFetch(path, opts) {
-  var base = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
-  var o = opts || {};
-  var req = Object.assign({}, o, { headers: Object.assign({}, base, o.headers || {}) });
-  return fetch(SB_URL + '/rest/v1/' + path, req);
-}
-function sbGet(path)        { return sbFetch(path); }
-function sbPost(path, row)  { return sbFetch(path, { method:'POST',  headers:{'Prefer':'return=representation'}, body:JSON.stringify(row) }); }
-function sbPatch(path, row) { return sbFetch(path, { method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row) }); }
+// sbFetch / sbGet / sbPost / sbPatch — definidos en ../supabase.js (ya cargado)
+// Usan _gestoorAccessToken (JWT del usuario autenticado), nunca anon key.
 
 function rowToCliente(r) {
   return {
@@ -536,12 +537,13 @@ function rowToCliente(r) {
     monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
     contador: r.analista_contable, rrhh: r.analista_rrhh, prioRrhh: r.prioridad_rrhh || 'media',
           prioCont: r.prioridad_contable || 'media',
-    siiU: r.usuario_sii,  siiK: r.clave_sii,
-    prevU: r.usuario_previred, prevK: r.clave_previred,
-    cuU:   r.usuario_cu,   cuK:   r.clave_cu,
-    factU: r.usuario_fact, factK: r.clave_fact,
-    licU:  r.usuario_lic,  licK:  r.clave_lic,
-    credsExtra: r.creds_extra || [],
+    siiU:  r.usuario_sii,
+    prevU: r.usuario_previred,
+    cuU:   r.usuario_cu,
+    factU: r.usuario_fact,
+    licU:  r.usuario_lic,
+    // SEC1-FIX1A.4: siiK, prevK, cuK, factK, licK, credsExtra eliminados del objeto cliente.
+    // No se persisten en localStorage. scrubLegacyCredentialsCache() limpia cachés antiguas.
     obsAcceso: r.obs_acceso,
     obs: r.obs, logo: r.logo_base64 || '',
     socios: r.socios || [],
@@ -564,12 +566,14 @@ function clienteToRow(c) {
     precio_obs: c.precioObs || null,
     analista_contable: c.contador || null, analista_rrhh: c.rrhh || null, prioridad_rrhh: c.prioRrhh || 'media',
     prioridad_contable: c.prioCont || 'media',
-    usuario_sii:  c.siiU  || null, clave_sii:  c.siiK  || null,
-    usuario_previred: c.prevU || c.rut || null, clave_previred: c.prevK || null,
-    usuario_cu:   c.cuU   || null, clave_cu:   c.cuK   || null,
-    usuario_fact: c.factU || null, clave_fact: c.factK || null,
-    usuario_lic:  c.licU  || null, clave_lic:  c.licK  || null,
-    creds_extra: c.credsExtra || [],
+    usuario_sii:      c.siiU  || null,
+    usuario_previred: c.prevU || c.rut || null,
+    usuario_cu:       c.cuU   || null,
+    usuario_fact:     c.factU || null,
+    usuario_lic:      c.licU  || null,
+    // SEC1-FIX1A: clave_sii, clave_previred, clave_cu, clave_fact, clave_lic,
+    // creds_extra EXCLUIDAS del payload. Las claves existentes en DB se conservan intactas.
+    // Gestión de credenciales vía módulo seguro en FIX2.
     obs_acceso: c.obsAcceso || null,
     obs: c.obs || null, logo_base64: c.logo || null,
     socios: c.socios || [],
@@ -580,8 +584,25 @@ function clienteToRow(c) {
   };
 }
 
+// SEC1-FIX1A: columnas explícitas — excluye clave_sii, clave_previred, clave_cu,
+// clave_fact, clave_lic, clave_banco, clave_tgr, creds_extra.
+// Mantener sincronizado con CLIENTES_COLS en supabase.js.
+var _COLS_ADMIN = [
+  'id','rut','razon_social','giro','email','contacto','tel','wa','ciudad',
+  'plan','estado','fecha_inicio','regimen','iva_condicion','modalidad_pago',
+  'obs_trib','moneda_plan','moneda_variable','monto_base','trab_incluidos',
+  'valor_por_trab','hon_variable','precio_obs',
+  'analista_contable','analista_rrhh','analista_pagos',
+  'analista_contable_usuario_id','analista_rrhh_usuario_id','analista_pagos_usuario_id',
+  'email_analista','wa_analista','prioridad_rrhh','prioridad_contable',
+  'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
+  'obs_acceso','obs','logo_base64','socios',
+  'tiene_rrhh','tiene_contabilidad','honorarios_contables',
+  'ppm_tasa_default','ppm_tasa_vigente_desde','ppm_tasa_fuente','ppm_tasa_observacion'
+].join(',');
+
 function cargarSupabase() {
-  return sbFetch('clientes?select=*&order=razon_social.asc')
+  return sbFetch('clientes?select=' + _COLS_ADMIN + '&order=razon_social.asc')
     .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function(data){
       var mapped = data.map(rowToCliente);
@@ -681,7 +702,8 @@ function resetForm() {
   ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad',
    'f-obs-trib','f-monto','f-trab','f-var','f-precio-obs','f-inicio','f-obs',
    'f-ppm-tasa-default','f-ppm-vigente-desde','f-ppm-fuente','f-ppm-observacion',
-   'f-sii-u','f-sii-k','f-prev-u','f-prev-k','f-cu-u','f-cu-k','f-fact-u','f-fact-k','f-lic-u','f-lic-k','f-obs-acceso'
+   'f-sii-u','f-prev-u','f-cu-u','f-fact-u','f-lic-u','f-obs-acceso'
+   // SEC1-FIX1A: f-sii-k, f-prev-k, f-cu-k, f-fact-k, f-lic-k eliminados (inputs no existen)
   ].forEach(function(id){ sv(id, ''); });
   // selects
   sv('f-plan', ''); sv('f-estado', 'activo'); sv('f-reg', '');
@@ -732,16 +754,15 @@ function abrirEditar(id) {
   sv('f-precio-obs', c.precioObs || '');
   sv('f-prio-rrhh', c.prioRrhh || 'media');
   sv('f-prio-cont', c.prioCont || 'media');
-  // Credenciales
-  sv('f-sii-u',  c.siiU  || c.rut); sv('f-sii-k',  c.siiK);
-  sv('f-prev-u', c.prevU);          sv('f-prev-k', c.prevK); // Rep. Legal — no auto-fill RUT empresa
-  sv('f-cu-u',   c.cuU   || c.rut); sv('f-cu-k',   c.cuK);
-  sv('f-fact-u', c.factU);          sv('f-fact-k',  c.factK);
-  sv('f-lic-u',  c.licU);           sv('f-lic-k',   c.licK);
+  // Credenciales — SEC1-FIX1A: solo usuarios (no secretos)
+  sv('f-sii-u',  c.siiU  || c.rut);
+  sv('f-prev-u', c.prevU);          // Rep. Legal — no auto-fill RUT empresa
+  sv('f-cu-u',   c.cuU   || c.rut);
+  sv('f-fact-u', c.factU);
+  sv('f-lic-u',  c.licU);
+  // f-sii-k, f-prev-k, f-cu-k, f-fact-k, f-lic-k eliminados (inputs no existen en FIX1A)
   sv('f-obs-acceso', c.obsAcceso);
-  // Credenciales extra
-  var ce = g('cred-extras'); if (ce) ce.innerHTML = '';
-  (c.credsExtra || []).forEach(function(x){ addCredExtra(x.s, x.u, x.k); });
+  // cred-extras deshabilitado en SEC1-FIX1A
   sv('f-obs', c.obs);
   // Logo
   if (c.logo) {
@@ -797,12 +818,13 @@ function guardarCliente() {
     moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
     monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
     contador: gv('f-contador'), rrhh: gv('f-rrhh'), prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
-    siiU:  gv('f-sii-u'),  siiK:  gv('f-sii-k'),
-    prevU: gv('f-prev-u'), prevK: gv('f-prev-k'),
-    cuU:   gv('f-cu-u'),   cuK:   gv('f-cu-k'),
-    factU: gv('f-fact-u'), factK: gv('f-fact-k'),
-    licU:  gv('f-lic-u'),  licK:  gv('f-lic-k'),
-    credsExtra: getCredsExtra(),
+    siiU:  gv('f-sii-u'),
+    prevU: gv('f-prev-u'),
+    cuU:   gv('f-cu-u'),
+    factU: gv('f-fact-u'),
+    licU:  gv('f-lic-u'),
+    // SEC1-FIX1A: siiK/prevK/cuK/factK/licK/credsExtra eliminados.
+    // Inputs de clave no existen en el formulario. Véase clienteToRow().
     obsAcceso: gv('f-obs-acceso'), obs: gv('f-obs'),
     logo:     g('f-logo-b64').value || '',
     socios:   getSocios()
@@ -820,9 +842,10 @@ function guardarCliente() {
   toast(esEdicion ? '✅ Cliente actualizado' : '✅ Cliente guardado');
 
   guardarSupabase(c, esEdicion)
-    .then(function(r){
-      if (!r.ok) {
-        r.text().then(function(t){ toast('⚠️ Error Supabase: ' + t.substring(0,80)); console.error('Supabase error:', t); });
+    .then(function(result){
+      // sbPost/sbPatch devuelven null en error, Array/Object en éxito (SEC1-FIX1A.2)
+      if (result === null) {
+        toast('⚠️ Error al guardar en Supabase — sin conexión o sin sesión');
       } else {
         cargarSupabase().then(renderClientes);
       }
@@ -872,37 +895,37 @@ function verClaves(id) {
   _detalleId = Number(id);
   g('clavesTitle').textContent = c.razon || '';
   g('clavesRut').textContent = 'RUT ' + (c.rut || '');
+  // SEC1-FIX1A: mostrar solo usuarios (no secretos). Claves = indicador neutro.
+  // p.k siempre null en FIX1A. No inferir existencia de clave desde p.u.
   var pares = [
-    { s: 'SII Empresa',     u: c.siiU  || c.rut, k: c.siiK  },
-    { s: 'SII Rep. Legal',  u: c.prevU,           k: c.prevK },
-    { s: 'Clave Única',     u: c.cuU   || c.rut, k: c.cuK   },
-    { s: 'Facturación',     u: c.factU,           k: c.factK },
-    { s: 'Portal Licencias',u: c.licU,            k: c.licK  }
-  ].filter(function(p){ return p.u || p.k; })
-   .concat((c.credsExtra || []).filter(function(p){ return p.u || p.k; }));
+    { s: 'SII Empresa',     u: c.siiU  || c.rut },
+    { s: 'SII Rep. Legal',  u: c.prevU           },
+    { s: 'Clave Única',     u: c.cuU   || c.rut  },
+    { s: 'Facturación',     u: c.factU           },
+    { s: 'Portal Licencias',u: c.licU            }
+  ].filter(function(p){ return p.u; });
+  // credsExtra deshabilitado en FIX1A
   var tbody = g('clavesBody');
   tbody.innerHTML = '';
   if (!pares.length) {
     var tr = document.createElement('tr');
     var td = document.createElement('td'); td.colSpan = 3; td.style.cssText = 'padding:20px;text-align:center;color:var(--tm)';
-    td.textContent = 'Sin credenciales registradas'; tr.appendChild(td); tbody.appendChild(tr);
+    td.textContent = 'Sin usuarios de acceso registrados'; tr.appendChild(td); tbody.appendChild(tr);
   } else {
     pares.forEach(function(p) {
       var tr = document.createElement('tr');
       // Sistema
       var t1 = document.createElement('td'); t1.style.cssText='padding:10px 14px;font-size:12px;font-weight:700;color:var(--p)'; t1.textContent=p.s; tr.appendChild(t1);
-      // Usuario
+      // Usuario (se puede copiar — no es secreto)
       var t2 = document.createElement('td'); t2.style.padding='10px 14px';
       t2.innerHTML = '<div style="font-size:10px;color:var(--tm);margin-bottom:2px">Usuario</div><div style="font-family:monospace;font-size:12px;font-weight:600">'+esc(p.u||'—')+'</div>';
       var cb1 = document.createElement('button'); cb1.className='copy-btn'; cb1.textContent='📋';
       cb1.onclick = (function(val){ return function(){ navigator.clipboard.writeText(val).then(function(){ toast('📋 Copiado'); }); }; })(p.u||'');
       t2.appendChild(cb1); tr.appendChild(t2);
-      // Clave
-      var t3 = document.createElement('td'); t3.style.padding='10px 14px';
-      t3.innerHTML = '<div style="font-size:10px;color:var(--tm);margin-bottom:2px">Clave</div><div style="font-family:monospace;font-size:12px;font-weight:600">'+esc(p.k||'—')+'</div>';
-      var cb2 = document.createElement('button'); cb2.className='copy-btn'; cb2.textContent='📋';
-      cb2.onclick = (function(val){ return function(){ navigator.clipboard.writeText(val).then(function(){ toast('📋 Copiado'); }); }; })(p.k||'');
-      t3.appendChild(cb2); tr.appendChild(t3);
+      // Clave — indicador neutral, sin valor, sin inferir existencia
+      var t3 = document.createElement('td'); t3.style.cssText='padding:10px 14px;font-size:11px;color:var(--tm)';
+      t3.textContent = 'Credencial protegida';
+      tr.appendChild(t3);
       tbody.appendChild(tr);
     });
   }
@@ -1020,33 +1043,8 @@ function renderClientes() {
   wrap.appendChild(tbl);
 }
 
-// ─────────────────────────────────────────────────────
-// CREDENCIALES EXTRA
-// ─────────────────────────────────────────────────────
-var _credCount = 0;
-function addCredExtra(s, u, k) {
-  _credCount++;
-  var id = _credCount;
-  var tr = document.createElement('tr');
-  tr.id = 'cred-ex-' + id;
-  var makeTd = function(inp) { var td = document.createElement('td'); td.appendChild(inp); return td; };
-  var si = document.createElement('input'); si.type='text'; si.className='cred-inp'; si.placeholder='Sistema'; si.value=s||'';
-  var ui = document.createElement('input'); ui.type='text'; ui.className='cred-inp'; ui.placeholder='Usuario'; ui.value=u||'';
-  var ki = document.createElement('input'); ki.type='text'; ki.className='cred-inp'; ki.placeholder='Clave'; ki.autocomplete='off'; ki.value=k||'';
-  var dt = document.createElement('td');
-  var db = document.createElement('button'); db.type='button'; db.className='btn-danger'; db.textContent='✕';
-  db.onclick = (function(eid){ return function(){ var r=g('cred-ex-'+eid); if(r) r.remove(); }; })(id);
-  dt.appendChild(db);
-  tr.appendChild(makeTd(si)); tr.appendChild(makeTd(ui)); tr.appendChild(makeTd(ki)); tr.appendChild(dt);
-  g('cred-extras').appendChild(tr);
-}
-function getCredsExtra() {
-  var ce = g('cred-extras'); if (!ce) return [];
-  return Array.from(ce.querySelectorAll('tr')).map(function(tr){
-    var ins = tr.querySelectorAll('input');
-    return { s: ins[0]?ins[0].value:'', u: ins[1]?ins[1].value:'', k: ins[2]?ins[2].value:'' };
-  }).filter(function(x){ return x.s || x.u || x.k; });
-}
+// SEC1-FIX1A.1: addCredExtra, getCredsExtra y _credCount eliminados.
+// creds_extra fuera del frontend hasta implementar módulo seguro en FIX2.
 
 // ─────────────────────────────────────────────────────
 // EVENT LISTENERS — todos via JS, nunca onclick en HTML
@@ -1060,7 +1058,7 @@ document.getElementById('btn-det-editar').onclick= function(){ abrirEditar(_deta
 document.getElementById('btn-claves-cerrar').onclick = cerrarClaves;
 document.getElementById('btn-claves-editar').onclick = function(){ abrirEditar(_detalleId); };
 document.getElementById('btn-add-socio').onclick = function(){ addSocio(); };
-document.getElementById('btn-add-cred').onclick  = function(){ addCredExtra(); };
+document.getElementById('btn-add-cred').onclick  = function(){ /* SEC1-FIX1A.1: deshabilitado — creds_extra pendiente FIX2 */ };
 document.getElementById('btn-logo-pick').onclick = function(){ g('f-logo-file').click(); };
 document.getElementById('btn-logo-clear').onclick = function(){
   sv('f-logo-b64',''); g('f-logo-file').value=''; g('logo-preview').innerHTML='🖼️';
@@ -1099,9 +1097,43 @@ document.getElementById('f-rut').oninput = function(){
 });
 
 // ─────────────────────────────────────────────────────
+// SEC1-FIX1A.3 — LIMPIEZA DE CACHÉ LEGACY DE CREDENCIALES
+// Versiones anteriores persistían siiK, prevK, cuK, factK, licK, credsExtra
+// en localStorage('clientes_bd'). Esta función los elimina una sola vez.
+// Solo toca localStorage — no hace PATCH ni modifica Supabase.
+// ─────────────────────────────────────────────────────
+function scrubLegacyCredentialsCache() {
+  var FLAG = 'gestoor_sec1_clientes_cache_scrubbed_v1';
+  var KEYS = ['siiK','prevK','cuK','factK','licK','credsExtra'];
+  try {
+    var raw = localStorage.getItem('clientes_bd');
+    if (!raw) return;
+    var arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+    var scrubbed = false;
+    arr.forEach(function(c) {
+      KEYS.forEach(function(k) {
+        if (Object.prototype.hasOwnProperty.call(c, k)) {
+          delete c[k];
+          scrubbed = true;
+        }
+      });
+    });
+    if (scrubbed) {
+      localStorage.setItem('clientes_bd', JSON.stringify(arr));
+      console.info('[SEC1] caché legacy de credenciales saneada');
+    }
+    localStorage.setItem(FLAG, '1');
+  } catch(e) {
+    console.warn('[SEC1] scrub caché: error ignorado', e && e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────
 (function(){
+  scrubLegacyCredentialsCache(); // SEC1-FIX1A.3 — antes de cualquier render
   try {
     var u = JSON.parse(sessionStorage.getItem('usuario_activo') || '{}');
     g('sb-usuario').textContent = (u.nombre||'Usuario') + ' · ' + (u.rolLabel||'Sistema');
@@ -1111,7 +1143,6 @@ document.getElementById('f-rut').oninput = function(){
   });
 })();
 </script>
-<script src="../supabase.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>
