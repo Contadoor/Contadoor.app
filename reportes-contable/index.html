@@ -839,7 +839,7 @@ function renderPipelineContable(rep,c,oblig){
     {lbl:'Pre-IVA',    done:prevOk&&libOk,     warn:false, err:false},
     {lbl:'Reporte',    done:repOk&&prevOk,     warn:estOb==='requiere_revision', err:false},
     {lbl:'Transferido',done:!sinOb&&o>=1,      warn:estOb==='parcialmente_conciliada', err:false},
-    {lbl:'F29',        done:!sinOb&&o>=2,      warn:false, err:false},
+    {lbl:'Procesar pago',done:!sinOb&&o>=2,      warn:false, err:false},
     {lbl:'Aprobación',done:!sinOb&&o>=4&&estOb!=='rechazada', warn:false, err:estOb==='rechazada'},
     {lbl:'Finalizado', done:estOb==='finalizada', warn:false, err:false}
   ];
