@@ -233,6 +233,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <button class="fb" onclick="setFiltro('estado','rrhh_ok')">🔵 RRHH OK</button>
       <button class="fb" onclick="setFiltro('estado','completado')">✅ Pre-IVA validado</button>
       <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
+      <span class="fl" style="margin-left:14px;border-left:1px solid var(--bdr);padding-left:12px">Flujo de pago:</span>
+      <button class="fb" onclick="setFiltro('estado','pago_espera')">⏳ Esp. transferencia</button>
+      <button class="fb" onclick="setFiltro('estado','pago_parcial')">◐ Parcial</button>
+      <button class="fb" onclick="setFiltro('estado','pago_listo')">💰 Listos para procesar</button>
+      <button class="fb" onclick="setFiltro('estado','pago_proc')">▶ En procesamiento</button>
+      <button class="fb" onclick="setFiltro('estado','pago_aprobando')">⏳ Pend. aprobación</button>
+      <button class="fb" onclick="setFiltro('estado','pago_aprobado')">✅ Aprobados</button>
+      <button class="fb" onclick="setFiltro('estado','pago_final')">✓ Finalizados</button>
+      <button class="fb" onclick="setFiltro('estado','pago_atencion')">⚠️ Atención</button>
       <span class="fl" style="margin-left:12px">Plan:</span>
       <button class="fb on" onclick="setFiltro('plan','')">Todos</button>
       <button class="fb" onclick="setFiltro('plan','estrategico')">⭐ Estratégico</button>
@@ -680,6 +689,61 @@ function buildBorradorF29(rep, cliente, periodo){
   };
 }
 
+// ── B19: Helper único para avanzar estado de obligación vía RPC ─────────────
+// NO hace PATCH directo. Fuente de verdad = Supabase. Re-lee tras éxito.
+window.avanzarObligacionContable = function(rut, accion, confirmMsg){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+  if(!rep){console.warn('[Contable] avanzar: reporte no encontrado');return;}
+  var oblig=_obligacionesF29Map[String(rep.id||'')]
+          ||_obligacionesF29Map[rut+'_'+_periodoActual]||null;
+  if(!oblig||!oblig.id){
+    alert('\u26a0\ufe0f Obligaci\u00f3n no encontrada. Recarga la p\u00e1gina.');
+    return;
+  }
+  if(confirmMsg&&!confirm(confirmMsg)) return;
+  sbFetch('rpc/avanzar_estado_obligacion',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      p_obligacion_id: Number(oblig.id),
+      p_accion:        accion,
+      p_obs:           null
+    })
+  })
+  .then(function(r){
+    if(!r.ok) return r.text().then(function(txt){
+      throw new Error('HTTP '+r.status+': '+txt.substring(0,200));
+    });
+    return r.json();
+  })
+  .then(function(rows){
+    if(!rows||!rows.length){console.warn('[Contable] avanzar: sin respuesta');return;}
+    var row=rows[0];
+    if(row.resultado!=='ok'){
+      alert('\u26a0\ufe0f No se pudo avanzar el estado:\n'+(row.mensaje||''));
+      return;
+    }
+    console.info('[Contable] avanzar_estado:',row.nuevo_estado,'id=',oblig.id);
+    // Re-leer desde Supabase — no asumir que el estado local es correcto
+    sbGetObligaciones({ref_reporte_id:Number(rep.id)},function(obs,err){
+      if(err){console.error('[Contable] re-lectura post-avanzar:',err);return;}
+      if(obs&&obs.length>0){
+        var ob=obs[0];
+        _obligacionesF29Map[String(rep.id)]=ob;
+        _obligacionesF29Map[rut+'_'+_periodoActual]=ob;
+        delete _f29SinObligacion[String(rep.id)];
+      }
+      renderTabla();
+    });
+  })
+  .catch(function(e){
+    console.error('[Contable] avanzar_estado error:',e);
+    alert('\u26a0\ufe0f Error al avanzar estado:\n'+(e&&e.message?e.message:String(e)));
+  });
+};
+
+
 // ── B18.1: helper idempotente para crear/actualizar obligación F29 ────
 // Puede llamarse desde marcarListoParaConsolidar y desde el botón retry.
 // No hace PATCH a listo_panel_control. No crea obligación local.
@@ -932,6 +996,21 @@ function renderTabla(){
       if(_filtros.estado==='rrhh_ok'&&(!rrhhOk||estado==='completado')) return;
       if(_filtros.estado==='completado'&&estado!=='completado') return;
       if(_filtros.estado==='atrasado'&&estado!=='atrasado') return;
+      // ── B19: filtros de flujo de pago ──────────────────────────────────
+      if(_filtros.estado.indexOf('pago_')===0){
+        var _oblFilt=_obligacionesF29Map[String(rep.id||'')]
+                   ||_obligacionesF29Map[c.rut+'_'+_periodoActual]||null;
+        var _ef=_oblFilt?_oblFilt.estado:null;
+        var _fd=_filtros.estado;
+        if(_fd==='pago_espera'    &&_ef!=='pendiente_fondos')          return;
+        if(_fd==='pago_parcial'   &&_ef!=='parcialmente_conciliada')   return;
+        if(_fd==='pago_listo'     &&_ef!=='conciliada')                return;
+        if(_fd==='pago_proc'      &&_ef!=='en_ejecucion')              return;
+        if(_fd==='pago_aprobando' &&_ef!=='pendiente_aprobacion')      return;
+        if(_fd==='pago_aprobado'  &&_ef!=='aprobada')                  return;
+        if(_fd==='pago_final'     &&_ef!=='finalizada')                return;
+        if(_fd==='pago_atencion'  &&_ef!=='requiere_revision'&&_ef!=='rechazada') return;
+      }
     }
 
     var planCls=c.plan==='estrategico'?'plan-e':c.plan==='asesoria'?'plan-a':'plan-c';
@@ -1080,6 +1159,36 @@ function renderTabla(){
       }
       html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-IVA</button>';
     }
+    // ── B19: Acciones financieras (RPC exclusivo, no PATCH directo) ────────
+    if(oblig&&rep.listoPanelControl){
+      var _eOb=oblig.estado;
+      if(_eOb==='pendiente_fondos'){
+        html+='<span style="font-size:10px;color:var(--tm);opacity:.75;margin-left:4px">\u23f3 Esperando transferencia</span>';
+      }else if(_eOb==='parcialmente_conciliada'){
+        var _concil=oblig.monto_conciliado||0;
+        var _pend=(oblig.saldo_pendiente!=null?oblig.saldo_pendiente:(oblig.monto_exigible-_concil));
+        html+='<span style="font-size:10px;color:#C07A1A;margin-left:4px">\u25d0 Transferencia parcial'
+          +(_concil>0?' \u00b7 Conciliado: '+ff(_concil)+' \u00b7 Pendiente: '+ff(_pend):'')
+          +'</span>';
+      }else if(_eOb==='conciliada'){
+        html+='<div style="font-size:10px;color:#065f46;margin:4px 0 4px">\u2705 Fondos conciliados \u00b7 Pago disponible para procesar</div>';
+        html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'iniciar_ejecucion\',null)">\u25b6 Iniciar procesamiento</button>';
+      }else if(_eOb==='en_ejecucion'){
+        html+='<div style="font-size:10px;color:var(--contable);margin:4px 0 4px">Pago en procesamiento</div>';
+        html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'enviar_aprobacion\',\'\u00bfConfirmas que el pago ya fue ingresado y est\u00e1 listo para aprobaci\u00f3n?\')">\U0001f4e4 Enviar a aprobaci\u00f3n</button>';
+      }else if(_eOb==='pendiente_aprobacion'){
+        html+='<span style="font-size:10px;color:#C07A1A;margin-left:4px">\u23f3 Pago enviado \u00b7 Pendiente de aprobaci\u00f3n</span>';
+      }else if(_eOb==='aprobada'){
+        html+='<div style="font-size:10px;color:#065f46;margin:4px 0 4px">\u2705 Pago aprobado \u00b7 Validar ejecuci\u00f3n</div>';
+        html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'finalizar\',\'\u00bfConfirmas que verificaste que el pago fue efectivamente procesado?\')">\u2713 Confirmar pago ejecutado</button>';
+      }else if(_eOb==='finalizada'){
+        html+='<span style="font-size:10px;color:#065f46;font-weight:600;margin-left:4px">\u2705 Pago finalizado</span>';
+      }else if(_eOb==='rechazada'){
+        // LIMITACIÓN B19: avanzar_estado_obligacion no tiene transición desde 'rechazada'.
+        // Solo master puede anular. Sin acción de reproceso disponible actualmente.
+        html+='<span style="font-size:10px;color:#C0392B;margin-left:4px">\u26a0\ufe0f Pago rechazado \u00b7 Requiere correcci\u00f3n (contactar Master)</span>';
+      }
+    }
     html+='</div>';
     html+='</div></div>';
   });
@@ -1113,7 +1222,11 @@ function toggleRow(rut){
 // ── FILTROS ───────────────────────────────────────────────────────────────
 function setFiltro(k,v){
   _filtros[k]=v;
-  document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.remove('on');});
+  // Resetear .on solo del grupo cambiado — preserva otros grupos activos
+  document.querySelectorAll('.filtros .fb').forEach(function(b){
+    var oc=b.getAttribute('onclick')||'';
+    if(oc.indexOf("setFiltro('"+k+"'")>=0) b.classList.remove('on');
+  });
   event.target.classList.add('on');
   renderTabla();
 }
