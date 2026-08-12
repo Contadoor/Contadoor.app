@@ -121,6 +121,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .pipe-lbl{font-size:8px;color:var(--tm);margin-top:3px;white-space:nowrap;text-align:center;}
 .pipe-step.done .pipe-lbl{color:var(--green);font-weight:600;}
 .pipe-step.active .pipe-lbl{color:var(--p);font-weight:700;}
+.pipe-step.warn .ps-dot{background:#fef3c7;border-color:#C07A1A;color:#C07A1A;}
+.pipe-step.warn .pipe-lbl{color:#C07A1A;font-weight:700;}
+.pipe-step.error .ps-dot{background:#fee2e2;border-color:#C0392B;color:#C0392B;}
+.pipe-step.error .pipe-lbl{color:#C0392B;font-weight:700;}
 .pipe-line{width:16px;height:2px;background:var(--bdr);margin-bottom:14px;flex-shrink:0;}
 .pipe-line.done{background:var(--green);}
 /* MSG GUARDADO */
@@ -676,6 +680,222 @@ function buildBorradorF29(rep, cliente, periodo){
   };
 }
 
+// ── B18.1: helper idempotente para crear/actualizar obligación F29 ────
+// Puede llamarse desde marcarListoParaConsolidar y desde el botón retry.
+// No hace PATCH a listo_panel_control. No crea obligación local.
+function crearActualizarObligacionF29(rep, c){
+  if(!rep||!rep.id||!/^\d+$/.test(String(rep.id))) return;
+  var rut=rep.rut||rep.clienteRut||'';
+  var per=_periodoActual;
+  var bor=buildBorradorF29(rep,c,per);
+  var venc=bor.totalTributario>0?fechaYmdLocal(fechaVencimientoF29(per)):null;
+  var ivaVenc=(bor.postergado&&rep.ivaFechaVenc)?rep.ivaFechaVenc:null;
+  var concepto='F29 '+String(per||'').replace('-','/');
+  sbFetch('rpc/crear_obligacion',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      p_cliente_rut:      rut,
+      p_periodo:          per,
+      p_area_origen:      'contable',
+      p_tipo_obligacion:  'f29',
+      p_concepto:         concepto,
+      p_monto_total:      bor.totalTributario,
+      p_monto_exigible:   bor.montoAPagarAhora,
+      p_monto_postergado: bor.ivaPostergado,
+      p_vencimiento:      venc||null,
+      p_iva_fecha_venc:   ivaVenc||null,
+      p_ref_reporte_id:   Number(rep.id),
+      p_ref_factura_id:   null
+    })
+  })
+  .then(function(r){
+    // Leer body en caso de error HTTP [Fix B18.1]
+    if(!r.ok){
+      return r.text().then(function(txt){
+        throw new Error('HTTP '+r.status+': '+txt.substring(0,200));
+      });
+    }
+    return r.json();
+  })
+  .then(function(rows){
+    if(!rows||!rows.length){
+      console.warn('[Contable] crear_obligacion: respuesta vacía');return;
+    }
+    var row=rows[0];
+    console.info('[Contable] crear_obligacion:',row.resultado,row.mensaje);
+    if(row.resultado==='sin_obligacion'){
+      // monto=0 confirmado — marcar para no mostrar retry
+      _f29SinObligacion[String(rep.id)]=true;
+      renderTabla();
+      return;
+    }
+    if(row.resultado==='requiere_revision'){
+      alert('⚠️ Obligación F29 requiere revisión.\n'+row.mensaje);
+    }else if(row.resultado==='bloqueada'){
+      alert('⚠️ Obligación no actualizable: '+(row.mensaje||''));
+    }
+    // Fix B18.1: lookup por ref_reporte_id=rep.id (no row.obligacion_id)
+    if(row.resultado&&row.resultado!=='sin_obligacion'){
+      sbGetObligaciones({ref_reporte_id:Number(rep.id)},function(obs,err){
+        if(err){ console.warn('[Contable] lookup post-RPC error:',err); return; }
+        if(obs&&obs.length>0){
+          var ob=obs[0];
+          _obligacionesF29Map[String(rep.id)]=ob;
+          _obligacionesF29Map[rut+'_'+per]=ob;
+          delete _f29SinObligacion[String(rep.id)]; // obligación real: eliminar flag monto=0
+          renderTabla();restaurarFilaAbierta(rut);
+        }
+      });
+    }
+  })
+  .catch(function(e){
+    console.error('[Contable] crear_obligacion error:',e);
+    alert('⚠️ Error al registrar obligación F29: '+(e&&e.message?e.message:String(e))
+      +'\nEl reporte contable quedó como OK. Puede reintentar desde el pipeline.');
+    renderTabla(); // re-render para mostrar botón retry
+  });
+}
+// Función global para botón retry en el pipeline
+window.sincronizarObligacionF29=function(rut){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+  if(!rep){console.warn('[Contable] sincronizarObligacionF29: reporte no encontrado');return;}
+  var c=getClientes().find(function(x){return x.rut===rut;})||{};
+  crearActualizarObligacionF29(rep,c);
+};
+
+
+// ═══════════════════════════════════════════════════════════════════
+// B18 — MOTOR DE OBLIGACIONES: lectura y pipeline visual Contable
+// ═══════════════════════════════════════════════════════════════════
+
+function cargarObligacionesPeriodo(periodo){
+  if(typeof sbGetObligaciones!=='function') return;
+  _obligacionesF29Map={};
+  _obligacionesF29Loading=true;   // Fix B18.2: evitar falso syncFailed durante carga
+  _obligacionesF29Error=false;
+  sbGetObligaciones({periodo:periodo,area_origen:'contable',tipo_obligacion:'f29'},
+    function(rows,err){
+      _obligacionesF29Loading=false;
+      if(err){
+        _obligacionesF29Error=true;
+        console.warn('[Contable] cargarObligacionesPeriodo error:',err);
+        renderTabla(); // re-render para mostrar error de lectura
+        return;
+      }
+      (rows||[]).forEach(function(ob){
+        if(ob.ref_reporte_id){
+          _obligacionesF29Map[String(ob.ref_reporte_id)]=ob;
+          delete _f29SinObligacion[String(ob.ref_reporte_id)]; // Fix B18.2: obligación real > flag
+        }
+        _obligacionesF29Map[ob.cliente_rut+'_'+ob.periodo]=ob;
+      });
+      console.info('[Contable] obligaciones cargadas:',rows.length);
+      renderTabla();
+    });
+}
+
+function getEstadoContable(rep,c,oblig){
+  var rrhhOk=(rep.secciones&&rep.secciones.rrhh&&rep.secciones.rrhh.ok===true)||
+    rep.estado==='completado'||rep.estado==='aviso_enviado'||rep.preReporteEnviado===true;
+  if(!rrhhOk)              return 'pendiente';
+  if(!librosListos(rep,c)) return 'rrhh_ok';
+  if(rep.estadoContable!=='completado') return 'libros_ok';
+  if(!rep.listoPanelControl)            return 'preiva_ok';
+  if(!oblig)                            return 'reporte_ok_sin_obligacion';
+  var est=oblig.estado||'';
+  if(est==='pendiente_fondos')        return 'reporte_ok';
+  if(est==='requiere_revision')       return 'requiere_revision';
+  if(est==='parcialmente_conciliada') return 'parcialmente_conciliada';
+  if(est==='conciliada')              return 'conciliada';
+  if(est==='en_ejecucion')            return 'en_f29';
+  if(est==='pendiente_aprobacion')    return 'pendiente_aprobacion';
+  if(est==='aprobada')                return 'aprobada';
+  if(est==='rechazada')               return 'rechazada';
+  if(est==='finalizada')              return 'finalizado';
+  return 'reporte_ok';
+}
+
+function renderPipelineContable(rep,c,oblig){
+  var rrhhOk=(rep.secciones&&rep.secciones.rrhh&&rep.secciones.rrhh.ok===true)||
+    rep.estado==='completado'||rep.estado==='aviso_enviado'||rep.preReporteEnviado===true;
+  var libOk=librosListos(rep,c);
+  var prevOk=rep.estadoContable==='completado';
+  var repOk=rep.listoPanelControl===true;
+  var estOb=oblig?oblig.estado:null;
+  var sinOb=repOk&&!!_f29SinObligacion[String(rep.id||'')]; // solo cuando monto=0 confirmado
+  // syncFailed: reporte OK sin obligación conocida, carga completada (no durante loading)
+  var syncFailed=repOk&&!oblig&&!sinOb&&!_obligacionesF29Loading;
+  var ordOb={
+    'pendiente_fondos':0,'requiere_revision':0,'parcialmente_conciliada':0,
+    'conciliada':1,'en_ejecucion':2,'pendiente_aprobacion':3,
+    'aprobada':4,'rechazada':3,'finalizada':5
+  };
+  var o=estOb?(ordOb[estOb]||0):0;
+  var pasos=[
+    {lbl:'RRHH',       done:rrhhOk,            warn:false, err:false},
+    {lbl:'Libros',     done:libOk&&rrhhOk,     warn:false, err:false},
+    {lbl:'Pre-IVA',    done:prevOk&&libOk,     warn:false, err:false},
+    {lbl:'Reporte',    done:repOk&&prevOk,     warn:estOb==='requiere_revision', err:false},
+    {lbl:'Transferido',done:!sinOb&&o>=1,      warn:estOb==='parcialmente_conciliada', err:false},
+    {lbl:'F29',        done:!sinOb&&o>=2,      warn:false, err:false},
+    {lbl:'Aprobación',done:!sinOb&&o>=4&&estOb!=='rechazada', warn:false, err:estOb==='rechazada'},
+    {lbl:'Finalizado', done:estOb==='finalizada', warn:false, err:false}
+  ];
+  var pasoActivo=pasos.findIndex(function(p,i){
+    if(sinOb&&i>=4) return false;
+    if(p.warn||p.err) return true;
+    return !p.done&&(i===0||pasos[i-1].done);
+  });
+  var html='<div class="pipeline">';
+  pasos.forEach(function(p,i){
+    var cls;
+    if(sinOb&&i>=4)        cls='skip';
+    else if(p.err)         cls='error';
+    else if(p.warn)        cls='warn';
+    else if(p.done)        cls='done';
+    else if(i===pasoActivo)cls='active';
+    else                   cls='';
+    var icon;
+    if(sinOb&&i>=4)        icon='–';
+    else if(p.err||p.warn) icon='!';
+    else if(p.done)        icon='✓';
+    else if(i===pasoActivo)icon=(i+1);
+    else                   icon=' ';
+    html+='<div class="pipe-step '+cls+'"><div class="ps-dot">'+icon+'</div>'
+      +'<div class="pipe-lbl">'+p.lbl+'</div></div>';
+    if(i<pasos.length-1)
+      html+='<div class="pipe-line'+((p.done&&!p.warn&&!p.err)&&!(sinOb&&i>=3)?' done':'')+' "></div>';
+  });
+  html+='</div>';
+  if(oblig&&!sinOb){
+    if(oblig.monto_postergado>0){
+      html+='<div style="font-size:9.5px;color:var(--tm);margin-top:2px">'
+        +'Ahora: <strong>'+ff(oblig.monto_exigible)+'</strong>'
+        +'<span style="opacity:.65"> IVA post.: '+ff(oblig.monto_postergado)+'</span></div>';
+    }else{
+      html+='<div style="font-size:9.5px;color:var(--tm);margin-top:2px">'
+        +'A pagar: <strong>'+ff(oblig.monto_exigible)+'</strong></div>';
+    }
+    if(estOb==='parcialmente_conciliada')
+      html+='<div style="font-size:9.5px;color:#C07A1A;margin-top:1px">Parcial: '+ff(oblig.monto_conciliado)+'</div>';
+  }
+  if(sinOb)
+    html+='<div style="font-size:9.5px;color:var(--tm);opacity:.6;margin-top:2px">Sin obligaci\u00f3n de pago</div>';
+  if(syncFailed&&_obligacionesF29Error)
+    html+='<div style="font-size:9.5px;color:#C07A1A;margin-top:2px">\u26a0\ufe0f No se pudo consultar obligaci\u00f3n F29</div>';
+  else if(syncFailed)
+    html+='<div style="font-size:9.5px;color:#C07A1A;margin-top:2px">\u26a0\ufe0f Obligaci\u00f3n F29 pendiente de sincronizaci\u00f3n'
+      +'<button onclick="sincronizarObligacionF29(\''+c.rut+'\')" style="margin-left:6px;background:none;border:1px solid #C07A1A;border-radius:4px;color:#C07A1A;font-size:9px;padding:1px 6px;cursor:pointer">\u21bb Reintentar</button></div>';
+  if(estOb==='requiere_revision')
+    html+='<div style="font-size:9.5px;color:#C07A1A;margin-top:2px">\u26a0 Revalidar Pre-IVA</div>';
+  if(estOb==='rechazada')
+    html+='<div style="font-size:9.5px;color:#C0392B;margin-top:2px">\u274c Aprobaci\u00f3n rechazada</div>';
+  return html;
+}
+
+
 function renderTabla(){
   if(!_periodoActual){return;}
   var u=getUsuario();
@@ -719,28 +939,11 @@ function renderTabla(){
     var prio=c.prioCont||c.prioridadContable||'media';
     var prioLbl=prio==='alta'?'🔴':prio==='media'?'🟡':'🟢';
 
-    // TIMELINE 3 pasos (contable): RRHH → Validación → Pre-F29
-    // Pasos 4-7 pertenecen al Panel de Control
-    var libOkTl=librosListos(rep,c);
-    var p1=rrhhOk?'done':'active';
-    var p2=!rrhhOk?'next':(libOkTl?'done':'active');
-    var p3=(!rrhhOk||!libOkTl)?'next':(estado==='completado'?'done':'active');
-
-    var tl='<div style="display:flex;align-items:center;gap:1px;margin-bottom:4px;">';
-    var steps=[
-      {e:p1,i:rrhhOk?'\u2713':'1'},
-      {e:p2,i:libOkTl?'\u2713':'2'},
-      {e:p3,i:estado==='completado'?'\u2713':'3'}
-    ];
-    steps.forEach(function(s,i){
-      var bg=s.e==='done'?'#904891':s.e==='active'?'#fff':'#faf7fa';
-      var color=s.e==='done'?'#fff':s.e==='active'?'#904891':'#9a849b';
-      var bdr=s.e==='active'?'2px solid #904891':'1.5px solid '+(s.e==='done'?'#904891':'#e8dde8');
-      var shd=s.e==='active'?'box-shadow:0 0 0 2px #F5EAF5;':'';
-      tl+='<div style="width:20px;height:20px;border-radius:50%;background:'+bg+';color:'+color+';border:'+bdr+';'+shd+'display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;">'+s.i+'</div>';
-      if(i<steps.length-1) tl+='<div style="width:8px;height:1.5px;background:'+(s.e==='done'?'#904891':'#e8dde8')+';flex-shrink:0;"></div>';
-    });
-    tl+='</div>';
+    // PIPELINE B18: 8 pasos (RRHH→Libros→PreIVA→Reporte→Transferido→F29→Aprobación→Finalizado)
+    var oblig=_obligacionesF29Map[String(rep.id||'')]
+           ||_obligacionesF29Map[c.rut+'_'+_periodoActual]
+           ||null;
+    var tl=renderPipelineContable(rep,c,oblig);
 
     // Badge estado
     var badgeHtml='';
@@ -774,7 +977,6 @@ function renderTabla(){
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
       +tl
-      +'<div style="font-size:9px;color:#9a849b">RRHH · Libros · Pre-IVA</div>'
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(rrhhOk?ff(totalTrib):(totalTrib?ff(totalTrib):' — '))+'</div>';
@@ -1799,6 +2001,13 @@ function fechaPostergacionIva(periodo){
   base.setDate(base.getDate()+60);
   return base;
 }
+// Helper global: Date → 'YYYY-MM-DD' sin problemas de UTC/DST
+// Usado por guardarF29() y crearActualizarObligacionF29()
+function fechaYmdLocal(d){
+  return d.getFullYear()+'-'
+    +String(d.getMonth()+1).padStart(2,'0')+'-'
+    +String(d.getDate()).padStart(2,'0');
+}
 function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
@@ -1854,13 +2063,7 @@ function guardarF29(){
   // No pasa por sbReporteToRow — payload directo a sbPatchReporte.
 
   // Helper local: Date → 'YYYY-MM-DD' sin problemas de UTC/DST
-  function fechaYmdLocal(d){
-    return d.getFullYear()+'-'
-      +String(d.getMonth()+1).padStart(2,'0')+'-'
-      +String(d.getDate()).padStart(2,'0');
-  }
-
-  // iva_fecha_venc: solo cuando postergado=true; nunca del campo visual localizado
+    // iva_fecha_venc: solo cuando postergado=true; nunca del campo visual localizado
   var fechaVencPostergado=null;
   if(postergado){
     var fechaPost=fechaPostergacionIva(periodo);
@@ -1993,6 +2196,10 @@ function guardarF29(){
 
 // ── Variables de estado ───────────────────────────────────────────────────
 var _librosMap    = {};      // { String(clienteId): { compras:cab, ventas:cab, honorarios:cab } }
+var _obligacionesF29Map = {}; // { String(ref_reporte_id): obligacion } — cargado desde Supabase B18
+var _f29SinObligacion  = {}; // { String(rep.id): true } — reportes con monto=0 confirmado
+var _obligacionesF29Loading = false; // true mientras sbGetObligaciones está en vuelo
+var _obligacionesF29Error   = false; // true si la última carga de obligaciones falló
 var _remanentesPeriodoAnterior = {}; // { rutNorm: iva_remanente_sig del período anterior }
 var _cargaLibroCtx = null;  // { clienteId, rut, tipo, accion, periodo, workbook }
 var _previewLibro  = null;  // { file, cabeceraCalc, filas, observaciones, sha256 }
@@ -3121,13 +3328,10 @@ function marcarListoParaConsolidar(rut){
     setReportes(reportes);
     renderTabla();
     restaurarFilaAbierta(rut);
-    if(window.crearNotificacion) crearNotificacion({
-      modulo:'reportes',tipo:'info',prioridad:'media',
-      clienteRut:rut,
-      clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
-      mensaje:'Reporte contable marcado como OK',
-      accion:null
-    });
+        // ── B18: crear / actualizar obligación F29 (helper idempotente) ──
+    // Solo DESPUÉS del PATCH exitoso. No revertir listo_panel_control si la RPC falla.
+    crearActualizarObligacionF29(rep, getClientes().find(function(x){return x.rut===rut;})||{});
+    // B18: notificación V1 eliminada — Reporte OK queda reflejado en UI/pipeline.
   }).catch(function(err){
     var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
     alert('Error al marcar listo para consolidar: '+msg+'\nLos datos en Supabase no fueron modificados.');
@@ -3408,6 +3612,8 @@ function cargarReportesPeriodo(periodo, cb){
       }
 
       // Siempre llegar aquí y llamar cb
+      // ── B18: lanzar carga de obligaciones F29 en paralelo ─────────
+      cargarObligacionesPeriodo(periodo);
       finalizarCargaReportes(null);
     });
   });
