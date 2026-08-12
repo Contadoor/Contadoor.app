@@ -858,6 +858,26 @@ function sbGetPagos(filtros,cb){
   if(filtros&&filtros.estado)  q+='&estado=eq.'+filtros.estado;
   sbGet(q).then(function(rows){cb(rows||[]);}).catch(function(){cb([]);});
 }
+// ── OBLIGACIONES FINANCIERAS (B17) ────────────────────────────────────
+// Lee public.obligaciones_pago usando JWT y RLS.
+// Escrituras exclusivamente vía RPC (crear_obligacion, avanzar_estado_obligacion, etc.)
+function sbGetObligaciones(filtros,cb){
+  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,'
+    +'concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,'
+    +'saldo_pendiente,vencimiento,iva_fecha_venc,estado,ref_reporte_id,'
+    +'responsable_usuario_id,created_at';
+  if(filtros){
+    if(filtros.periodo)         q+='&periodo=eq.'+encodeURIComponent(filtros.periodo);
+    if(filtros.area_origen)     q+='&area_origen=eq.'+filtros.area_origen;
+    if(filtros.tipo_obligacion) q+='&tipo_obligacion=eq.'+filtros.tipo_obligacion;
+    if(filtros.cliente_rut)     q+='&cliente_rut=eq.'+encodeURIComponent(filtros.cliente_rut);
+    if(filtros.estado)          q+='&estado=eq.'+filtros.estado;
+    if(filtros.ref_reporte_id)  q+='&ref_reporte_id=eq.'+filtros.ref_reporte_id;
+  }
+  q+='&order=created_at.desc';
+  sbGet(q).then(function(rows){if(cb)cb(rows||[],null);})
+           .catch(function(e){if(cb)cb([],e);});
+}
 
 function sbUpsertPago(p){
   var row=Object.assign({},p);
