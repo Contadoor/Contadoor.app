@@ -2249,30 +2249,39 @@ function guardarF29(){
 
     // Actualizar ficha del cliente con la nueva tasa PPM si el analista lo solicitó
     if(actualizarFichaCliente && c && c.id && tasaIngresada!==null && tasaIngresada>=0){
-      sbPatch('clientes?id=eq.'+c.id,{
-        ppm_tasa_default:       tasaIngresada,
-        ppm_tasa_vigente_desde: periodo
-      }).then(function(res){
-        // Validar que Supabase devolvió una fila válida (array con al menos un item)
-        var filaOk=Array.isArray(res)&&res.length>0&&res[0]&&res[0].id;
-        if(filaOk){
-          var cIdx=_clientesContables.findIndex(function(x){return x.id===c.id;});
-          if(cIdx>=0){
-            _clientesContables[cIdx].ppmTasaDefault=tasaIngresada;
-            _clientesContables[cIdx].ppmTasaVigenteDesde=periodo;
-          }
-          sbCacheInvalidate('clientes_v2');
-          console.info('[Gestoor] Tasa PPM actualizada en ficha del cliente:',tasaIngresada+'%','desde',periodo);
-        } else {
+      sbFetch('rpc/actualizar_ppm_cliente', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          p_cliente_id:       c.id,
+          p_ppm_tasa_default: tasaIngresada,
+          p_ppm_tasa_desde:   periodo       // 'YYYY-MM' → la RPC lo almacena como TEXT
+        })
+      })
+      .then(function(r) {
+        if (!r.ok) return r.text().then(function(t) {
           // F29 ya fue guardado; solo falló la actualización de ficha
-          console.warn('[Gestoor] sbPatch clientes devolvió respuesta inesperada:',res);
+          console.warn('[Gestoor] actualizar_ppm_cliente HTTP '+r.status+':', t);
           if(window.crearNotificacion) crearNotificacion({
             modulo:'reportes',tipo:'info',prioridad:'baja',
             mensaje:'Pre-IVA guardado correctamente. Tasa del período guardada en el reporte. La ficha del cliente no pudo actualizarse automáticamente; verifica en la ficha del cliente.',
             accion:null
           });
+          return null;
+        });
+        return r.json();
+      })
+      .then(function(res){
+        if (!res || !res.id) return;
+        var cIdx=_clientesContables.findIndex(function(x){return x.id===c.id;});
+        if(cIdx>=0){
+          _clientesContables[cIdx].ppmTasaDefault=tasaIngresada;
+          _clientesContables[cIdx].ppmTasaVigenteDesde=periodo;
         }
-      }).catch(function(e){
+        sbCacheInvalidate('clientes_v2');
+        console.info('[Gestoor] Tasa PPM actualizada en ficha del cliente:',tasaIngresada+'%','desde',periodo);
+      })
+      .catch(function(e){
         console.warn('[Gestoor] No se pudo actualizar la tasa PPM en la ficha del cliente:',e&&e.message);
         if(window.crearNotificacion) crearNotificacion({
           modulo:'reportes',tipo:'info',prioridad:'baja',
