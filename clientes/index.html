@@ -613,11 +613,23 @@ function cargarSupabase() {
 }
 
 function guardarSupabase(c, esEdicion) {
+  // SEC1-ETAPA-C: escritura vía RPC segura — no sbPost/sbPatch directo a clientes
   var row = clienteToRow(c);
-  if (esEdicion && c.id) {
-    return sbPatch('clientes?id=eq.' + c.id, row);
+  if (esEdicion) {
+    row.id = c.id;    // id necesario para UPDATE en la RPC
+    delete row.rut;   // rut inmutable — la RPC lo rechaza en edición
   }
-  return sbPost('clientes', row);
+  return sbFetch('rpc/guardar_cliente_admin', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ p_cliente: row, p_es_edicion: !!esEdicion })
+  })
+  .then(function(r) {
+    if (!r.ok) return r.text().then(function(t) {
+      throw new Error('HTTP ' + r.status + ': ' + t.substring(0, 200));
+    });
+    return r.json();
+  });
 }
 
 // ─────────────────────────────────────────────────────
@@ -801,12 +813,14 @@ function guardarCliente() {
   var arr = getClientes();
   var esEdicion = !!_editId;
 
+  // Guardia local rápida (UI); la autoridad definitiva es el backend
   if (!esEdicion && arr.find(function(x){ return x.rut === rut; })) {
     alert('Ya existe un cliente con RUT ' + rut); return;
   }
 
+  // Construir objeto cliente — id solo para edición (INSERT no lo usa)
   var c = {
-    id:       _editId || Date.now(),
+    id:       _editId || null,
     razon:    razon, rut: rut, giro: gv('f-giro'),
     email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'),
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
@@ -830,27 +844,22 @@ function guardarCliente() {
     socios:   getSocios()
   };
 
-  if (esEdicion) {
-    var idx = arr.findIndex(function(x){ return Number(x.id) === Number(_editId); });
-    if (idx >= 0) arr[idx] = c; else arr.unshift(c);
-  } else {
-    arr.unshift(c);
-  }
-  setClientes(arr);
-  cerrarForm();
-  renderClientes();
-  toast(esEdicion ? '✅ Cliente actualizado' : '✅ Cliente guardado');
-
+  // SEC1-FIX1B.5-R1: DB-first — NO modificar caché local antes de confirmar RPC.
+  // setClientes/cerrarForm/renderClientes/toast se ejecutan SOLO tras éxito confirmado.
   guardarSupabase(c, esEdicion)
     .then(function(result){
-      // sbPost/sbPatch devuelven null en error, Array/Object en éxito (SEC1-FIX1A.2)
-      if (result === null) {
-        toast('⚠️ Error al guardar en Supabase — sin conexión o sin sesión');
-      } else {
-        cargarSupabase().then(renderClientes);
-      }
+      // RPC confirmó éxito → recargar desde DB y actualizar UI
+      return cargarSupabase().then(function(){
+        renderClientes();
+        cerrarForm();
+        toast(esEdicion ? '✅ Cliente actualizado' : '✅ Cliente guardado');
+      });
     })
-    .catch(function(e){ toast('⚠️ Sin conexión — solo guardado local'); console.warn('Supabase:', e); });
+    .catch(function(e){
+      // Fallo → formulario permanece abierto, caché intacto, mostrar error
+      toast('⚠️ Error al guardar: ' + (e && e.message ? e.message.substring(0,80) : 'sin conexión'));
+      console.error('[Clientes] guardarCliente:', e);
+    });
 }
 
 // ─────────────────────────────────────────────────────
