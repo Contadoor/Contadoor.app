@@ -525,6 +525,29 @@ function getUsuarios() {
 // sbFetch / sbGet / sbPost / sbPatch — definidos en ../supabase.js (ya cargado)
 // Usan _gestoorAccessToken (JWT del usuario autenticado), nunca anon key.
 
+// ─────────────────────────────────────────────────────
+// EDGE FUNCTIONS — helper de lectura segura (FIX2.3A)
+// ─────────────────────────────────────────────────────
+// Llama a /functions/v1/{fn} usando el JWT activo del usuario.
+// SB_URL, SB_KEY y _gestoorAccessToken vienen de ../supabase.js.
+// Nunca usar service_role ni anon key como Bearer en el browser.
+// El caller siempre recibe el Response y verifica res.status explícitamente.
+function edgeFetch(fn, body) {
+  var token = window._gestoorAccessToken;
+  if (!token) {
+    return Promise.reject({ status: 401, message: 'Sin sesión activa' });
+  }
+  return fetch(SB_URL + '/functions/v1/' + fn, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SB_KEY,
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify(body || {})
+  });
+}
+
 function rowToCliente(r) {
   return {
     id: r.id,
@@ -638,6 +661,17 @@ function guardarSupabase(c, esEdicion) {
 var _editId = null;
 var _detalleId = null;
 var _socioCount = 0;
+
+// ── Estado temporal del modal de claves (FIX2.3A) ─────────────────
+// Solo en memoria JS — nunca en localStorage, sessionStorage, data-* ni console.log.
+// Se limpia completamente en cerrarClaves() y al cerrar el modal por clic en fondo.
+var _VER_TIMEOUT_MS = 60000; // ocultar clave automáticamente tras 60 segundos
+var _clavesState = {
+  clienteId:  null,
+  creds:      [],   // metadata de listar-credenciales (sin claves, sin material crypto)
+  revealed:   {},   // credencialId → { timeoutId } — plaintext solo en el DOM
+  requestSeq: 0     // FIX2.3A-R1: incrementado en cada verClaves — invalida respuestas obsoletas
+};
 
 function calcPreview() {
   var base    = nv('f-monto');
@@ -800,7 +834,7 @@ function sincronizarBloqueoModales(){
 }
 function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarDetalle() { g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
-function cerrarClaves()  { g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
 // GUARDAR
@@ -896,53 +930,315 @@ function verDetalle(id) {
 }
 
 // ─────────────────────────────────────────────────────
-// VER CLAVES
+// VER CLAVES — FIX2.3A (lectura segura desde bóveda)
 // ─────────────────────────────────────────────────────
+// Fuente de verdad: listar-credenciales (Edge Function).
+// Nunca infiere existencia de clave desde campos legacy (siiU, prevU, etc.).
+// Seguridad: textContent para plaintext, nunca innerHTML. Sin console.log de claves.
+// ─────────────────────────────────────────────────────
+
+// Orden preferido de slugs (catálogo de migración FIX2.2)
+var _SLUG_ORDER = [
+  'sii_empresa', 'previred', 'clave_unica',
+  'facturacion', 'portal_licencias', 'tesoreria_tgr', 'banco'
+];
+function _slugOrder(slug) {
+  var i = _SLUG_ORDER.indexOf(slug);
+  return i >= 0 ? i : 99;
+}
+
+// Limpiar todo el estado transitorio del modal de claves.
+// Cancela timeouts, borra plaintext del DOM, vacía tbody y resetea _clavesState.
+function _limpiarClavesState() {
+  Object.keys(_clavesState.revealed).forEach(function(credId) {
+    var r = _clavesState.revealed[credId];
+    if (r && r.timeoutId) clearTimeout(r.timeoutId);
+    // Borrar plaintext del DOM (textContent solo)
+    var claveEl = document.getElementById('clave-val-' + credId);
+    if (claveEl) claveEl.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+    var btnVer = document.getElementById('clave-ver-' + credId);
+    if (btnVer) { btnVer.textContent = 'Ver'; btnVer.disabled = false; }
+  });
+  // FIX2.3A-R2: invalidar inmediatamente cualquier operación async pendiente
+  _clavesState.requestSeq++;
+  _clavesState.clienteId = null;
+  _clavesState.creds     = [];
+  _clavesState.revealed  = {};
+  var tbody = g('clavesBody');
+  if (tbody) tbody.innerHTML = '';
+}
+
+// Ocultar la clave de una fila sin cerrar el modal.
+function _ocultarClave(credId) {
+  var r = _clavesState.revealed[credId];
+  if (r && r.timeoutId) clearTimeout(r.timeoutId);
+  delete _clavesState.revealed[credId];
+  var claveEl = document.getElementById('clave-val-' + credId);
+  if (claveEl) claveEl.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+  var btnVer = document.getElementById('clave-ver-' + credId);
+  if (btnVer) { btnVer.textContent = 'Ver'; btnVer.disabled = false; }
+}
+
+// Acción VER: toggle — si ya revelada, ocultar; si no, llamar obtener-credencial.
+// Plaintext vive solo en el DOM (textContent) y se borra con _ocultarClave.
+// Solo almacena timeoutId en _clavesState — nunca el plaintext de la clave.
+function _accionVer(credId) {
+  if (_clavesState.revealed[credId]) { _ocultarClave(credId); return; }
+  // FIX2.3A-R1: capturar contexto antes del fetch — detectar respuestas tardías
+  var mySeq       = _clavesState.requestSeq;
+  var myClienteId = _clavesState.clienteId;
+  var btnVer = document.getElementById('clave-ver-' + credId);
+  if (btnVer) { btnVer.textContent = '...'; btnVer.disabled = true; }
+
+  edgeFetch('obtener-credencial', { credencialId: credId })
+    .then(function(res) {
+      if (res.status === 401) throw { status: 401 };
+      if (res.status === 403) throw { status: 403 };
+      if (res.status === 404) throw { status: 404 };
+      if (!res.ok)            throw { status: res.status };
+      return res.json();
+    })
+    .then(function(data) {
+      // FIX2.3A-R1: descartar si el modal se cerró o cambió de cliente antes de la respuesta.
+      // No poblar _clavesState.revealed ni crear timeout — plaintext se descarta.
+      if (mySeq !== _clavesState.requestSeq ||
+          myClienteId !== _clavesState.clienteId ||
+          !g('modalClaves').classList.contains('on')) { return; }
+      // Mostrar clave en DOM usando textContent — nunca innerHTML
+      var claveEl = document.getElementById('clave-val-' + credId);
+      if (claveEl) claveEl.textContent = data.clave;
+      if (btnVer) { btnVer.textContent = 'Ocultar'; btnVer.disabled = false; }
+      // Auto-ocultar tras _VER_TIMEOUT_MS (60 s)
+      var tid = setTimeout(function() { _ocultarClave(credId); }, _VER_TIMEOUT_MS);
+      // Solo timeoutId en estado — plaintext está solo en el DOM
+      _clavesState.revealed[credId] = { timeoutId: tid };
+    })
+    .catch(function(err) {
+      // FIX2.3A-R1: si el contexto cambió, el botón ya fue removido del DOM — silenciar
+      if (mySeq !== _clavesState.requestSeq || !g('modalClaves').classList.contains('on')) { return; }
+      if (btnVer) { btnVer.textContent = 'Ver'; btnVer.disabled = false; }
+      var msg = (err && err.status === 401) ? 'Sesión no válida'
+              : (err && err.status === 403) ? 'Sin autorización'
+              : (err && err.status === 404) ? 'No disponible'
+              : 'Error al obtener';
+      toast('\u26a0\ufe0f ' + msg);
+    });
+}
+
+// Acción COPIAR: obtiene credencial fresca → clipboard → registrar-copia.
+// Cada copia obtiene su propio accessEventId (nunca reutiliza el de Ver).
+// Si clipboard falla → NO llamar registrar-copia (per spec).
+// Si registrar-copia falla → advertir pero no mostrar la clave.
+function _accionCopiar(credId) {
+  // FIX2.3A-R3: capturar contexto antes del fetch — descartar si el modal
+  // se cierra o cambia de cliente antes de que la respuesta llegue.
+  var mySeq       = _clavesState.requestSeq;
+  var myClienteId = _clavesState.clienteId;
+
+  edgeFetch('obtener-credencial', { credencialId: credId })
+    .then(function(res) {
+      if (res.status === 401) throw { status: 401 };
+      if (res.status === 403) throw { status: 403 };
+      if (res.status === 404) throw { status: 404 };
+      if (!res.ok)            throw { status: res.status };
+      return res.json();
+    })
+    .then(function(data) {
+      // FIX2.3A-R3: descartar si el modal cambió o se cerró antes de la respuesta.
+      // data.clave no llega al portapapeles ni a registrar-copia.
+      if (mySeq !== _clavesState.requestSeq ||
+          myClienteId !== _clavesState.clienteId ||
+          !g('modalClaves').classList.contains('on')) { return; }
+      var clave         = data.clave;
+      var accessEventId = data.accessEventId; // number
+      var clip = (navigator.clipboard && typeof navigator.clipboard.writeText === 'function')
+        ? navigator.clipboard.writeText(clave)
+        : Promise.reject(new Error('clipboard_unavailable'));
+      clip.then(function() {
+        toast('\ud83d\udccb Clave copiada');
+        // Registrar copia — fallo de log no bloquea; advertir sin mostrar clave
+        edgeFetch('registrar-copia', { accessEventId: accessEventId })
+          .then(function(r) {
+            if (!r.ok) toast('\u26a0\ufe0f Copia realizada, pero no pudo registrarse en el log');
+          })
+          .catch(function() { toast('\u26a0\ufe0f Copia realizada, pero no pudo registrarse en el log'); });
+      }).catch(function() {
+        // Clipboard falló — NO llamar registrar-copia
+        toast('\u26a0\ufe0f No se pudo copiar al portapapeles');
+      });
+    })
+    .catch(function(err) {
+      // FIX2.3A-R3: descartar silenciosamente si el contexto ya no es válido
+      if (mySeq !== _clavesState.requestSeq || !g('modalClaves').classList.contains('on')) { return; }
+      var msg = (err && err.status === 401) ? 'Sesi\u00f3n no v\u00e1lida'
+              : (err && err.status === 403) ? 'Sin autorizaci\u00f3n'
+              : (err && err.status === 404) ? 'Credencial no disponible'
+              : 'Error al obtener la credencial';
+      toast('\u26a0\ufe0f ' + msg);
+    });
+}
+
+// Construir una fila de credencial para el tbody del modal.
+// Nunca usa innerHTML para datos de clave. Siempre textContent.
+// credId: number (ID real de private.clientes_credenciales).
+function _construirFilaCred(cred) {
+  var credId = Number(cred.id);
+  var tr = document.createElement('tr');
+
+  // ── Col 1: Sistema ───────────────────────────────────────────────
+  var tdSis = document.createElement('td');
+  tdSis.style.cssText = 'padding:10px 14px;font-size:12px;font-weight:700;color:var(--p)';
+  tdSis.textContent = cred.label || cred.slug;
+  tr.appendChild(tdSis);
+
+  // ── Col 2: Usuario (no es secreto — se puede copiar) ─────────────
+  var tdUsr = document.createElement('td');
+  tdUsr.style.padding = '10px 14px';
+  var usrLbl = document.createElement('div');
+  usrLbl.style.cssText = 'font-size:10px;color:var(--tm);margin-bottom:2px';
+  usrLbl.textContent = 'Usuario';
+  var usrVal = document.createElement('div');
+  usrVal.style.cssText = 'font-family:monospace;font-size:12px;font-weight:600;display:inline';
+  usrVal.textContent = cred.usuario || '\u2014';
+  tdUsr.appendChild(usrLbl);
+  tdUsr.appendChild(usrVal);
+  if (cred.usuario) {
+    var cpUsr = document.createElement('button');
+    cpUsr.className = 'copy-btn';
+    cpUsr.textContent = '\ud83d\udccb';
+    cpUsr.setAttribute('title', 'Copiar usuario');
+    cpUsr.style.marginLeft = '6px';
+    cpUsr.onclick = (function(v) {
+      return function() {
+        navigator.clipboard.writeText(v).then(function() { toast('\ud83d\udccb Usuario copiado'); });
+      };
+    })(cred.usuario);
+    tdUsr.appendChild(cpUsr);
+  }
+  tr.appendChild(tdUsr);
+
+  // ── Col 3: Clave + botones Ver / Copiar ──────────────────────────
+  // textContent siempre — nunca innerHTML para plaintext de clave.
+  var tdCl = document.createElement('td');
+  tdCl.style.cssText = 'padding:10px 14px;vertical-align:middle;white-space:nowrap';
+
+  var claveSpan = document.createElement('span');
+  claveSpan.id = 'clave-val-' + credId;
+  claveSpan.style.cssText = 'font-family:monospace;font-size:13px;letter-spacing:1px;color:var(--t2)';
+  claveSpan.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+  tdCl.appendChild(claveSpan);
+
+  var bVer = document.createElement('button');
+  bVer.id = 'clave-ver-' + credId;
+  bVer.className = 'copy-btn';
+  bVer.textContent = 'Ver';
+  bVer.style.marginLeft = '10px';
+  bVer.onclick = (function(cid) { return function() { _accionVer(cid); }; })(credId);
+  tdCl.appendChild(bVer);
+
+  var bCop = document.createElement('button');
+  bCop.className = 'copy-btn';
+  bCop.textContent = 'Copiar';
+  bCop.style.marginLeft = '4px';
+  bCop.onclick = (function(cid) { return function() { _accionCopiar(cid); }; })(credId);
+  tdCl.appendChild(bCop);
+
+  tr.appendChild(tdCl);
+  return tr;
+}
+
+// verClaves: abre el modal y carga credenciales desde la bóveda.
+// Fuente de verdad: listar-credenciales. No usa ni infiere datos legacy.
+// La Edge Function filtra server-side según rol y asignación — no se replica en frontend.
 function verClaves(id) {
-  var c = getClientes().find(function(x){ return Number(x.id) === Number(id); });
+  var c = getClientes().find(function(x) { return Number(x.id) === Number(id); });
   if (!c) return;
   _detalleId = Number(id);
+
+  // Limpiar estado previo (timeouts, plaintext DOM, tbody)
+  _limpiarClavesState();
+  _clavesState.clienteId = Number(id);
+  _clavesState.requestSeq++;                    // FIX2.3A-R1: invalidar fetch previo
+  var mySeq       = _clavesState.requestSeq;   // capturar para guard en callbacks
+  var myClienteId = _clavesState.clienteId;    // capturar clienteId actual
+
+  // Título y RUT (no sensibles)
   g('clavesTitle').textContent = c.razon || '';
   g('clavesRut').textContent = 'RUT ' + (c.rut || '');
-  // SEC1-FIX1A: mostrar solo usuarios (no secretos). Claves = indicador neutro.
-  // p.k siempre null en FIX1A. No inferir existencia de clave desde p.u.
-  var pares = [
-    { s: 'SII Empresa',     u: c.siiU  || c.rut },
-    { s: 'SII Rep. Legal',  u: c.prevU           },
-    { s: 'Clave Única',     u: c.cuU   || c.rut  },
-    { s: 'Facturación',     u: c.factU           },
-    { s: 'Portal Licencias',u: c.licU            }
-  ].filter(function(p){ return p.u; });
-  // credsExtra deshabilitado en FIX1A
+
+  // Estado de carga en tbody
   var tbody = g('clavesBody');
-  tbody.innerHTML = '';
-  if (!pares.length) {
-    var tr = document.createElement('tr');
-    var td = document.createElement('td'); td.colSpan = 3; td.style.cssText = 'padding:20px;text-align:center;color:var(--tm)';
-    td.textContent = 'Sin usuarios de acceso registrados'; tr.appendChild(td); tbody.appendChild(tr);
-  } else {
-    pares.forEach(function(p) {
-      var tr = document.createElement('tr');
-      // Sistema
-      var t1 = document.createElement('td'); t1.style.cssText='padding:10px 14px;font-size:12px;font-weight:700;color:var(--p)'; t1.textContent=p.s; tr.appendChild(t1);
-      // Usuario (se puede copiar — no es secreto)
-      var t2 = document.createElement('td'); t2.style.padding='10px 14px';
-      t2.innerHTML = '<div style="font-size:10px;color:var(--tm);margin-bottom:2px">Usuario</div><div style="font-family:monospace;font-size:12px;font-weight:600">'+esc(p.u||'—')+'</div>';
-      var cb1 = document.createElement('button'); cb1.className='copy-btn'; cb1.textContent='📋';
-      cb1.onclick = (function(val){ return function(){ navigator.clipboard.writeText(val).then(function(){ toast('📋 Copiado'); }); }; })(p.u||'');
-      t2.appendChild(cb1); tr.appendChild(t2);
-      // Clave — indicador neutral, sin valor, sin inferir existencia
-      var t3 = document.createElement('td'); t3.style.cssText='padding:10px 14px;font-size:11px;color:var(--tm)';
-      t3.textContent = 'Credencial protegida';
-      tr.appendChild(t3);
-      tbody.appendChild(tr);
-    });
-  }
+  var trLoad = document.createElement('tr');
+  var tdLoad = document.createElement('td');
+  tdLoad.colSpan = 3;
+  tdLoad.style.cssText = 'padding:24px;text-align:center;color:var(--tm)';
+  tdLoad.textContent = 'Cargando credenciales...';
+  trLoad.appendChild(tdLoad);
+  tbody.appendChild(trLoad);
+
+  // Obs. acceso (no sensible)
   var obsEl = g('clavesObs');
-  if (c.obsAcceso) { obsEl.style.display='block'; obsEl.textContent='📝 '+c.obsAcceso; }
-  else { obsEl.style.display='none'; }
+  if (c.obsAcceso) { obsEl.style.display = 'block'; obsEl.textContent = '\ud83d\udcdd ' + c.obsAcceso; }
+  else             { obsEl.style.display = 'none'; }
+
+  // Abrir modal
   g('modalDetalle').classList.remove('on');
   g('modalClaves').classList.add('on');
+  sincronizarBloqueoModales();
+
+  // Llamar listar-credenciales — fuente de verdad del modal
+  edgeFetch('listar-credenciales', { clienteId: Number(id) })
+    .then(function(res) {
+      if (res.status === 401) throw { status: 401 };
+      if (res.status === 403) throw { status: 403 };
+      if (!res.ok)            throw { status: res.status };
+      return res.json();
+    })
+    .then(function(data) {
+      // FIX2.3A-R1: descartar respuesta si el modal cambió de cliente o se cerró
+      if (mySeq !== _clavesState.requestSeq ||
+          myClienteId !== _clavesState.clienteId ||
+          !g('modalClaves').classList.contains('on')) { return; }
+      // data = { ok: true, credenciales: [...] }
+      var credenciales = (data && Array.isArray(data.credenciales)) ? data.credenciales : [];
+      tbody.innerHTML = '';
+      if (!credenciales.length) {
+        var trEmpty = document.createElement('tr');
+        var tdEmpty = document.createElement('td');
+        tdEmpty.colSpan = 3;
+        tdEmpty.style.cssText = 'padding:24px;text-align:center;color:var(--tm)';
+        tdEmpty.textContent = 'No hay credenciales disponibles para tu perfil.';
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        return;
+      }
+      // Ordenar por catálogo preferido
+      var sorted = credenciales.slice().sort(function(a, b) {
+        return _slugOrder(a.slug) - _slugOrder(b.slug);
+      });
+      _clavesState.creds = sorted;
+      sorted.forEach(function(cred) {
+        tbody.appendChild(_construirFilaCred(cred));
+      });
+    })
+    .catch(function(err) {
+      // FIX2.3A-R1: descartar si el contexto ya no es válido
+      if (mySeq !== _clavesState.requestSeq ||
+          myClienteId !== _clavesState.clienteId ||
+          !g('modalClaves').classList.contains('on')) { return; }
+      tbody.innerHTML = '';
+      var trErr = document.createElement('tr');
+      var tdErr = document.createElement('td');
+      tdErr.colSpan = 3;
+      tdErr.style.cssText = 'padding:24px;text-align:center;color:var(--red)';
+      var msg = (err && err.status === 401) ? 'Sesi\u00f3n no v\u00e1lida. Inicia sesi\u00f3n nuevamente.'
+              : (err && err.status === 403) ? 'Sin autorizaci\u00f3n para ver las credenciales de este cliente.'
+              : (err && err.status === 404) ? 'La credencial ya no est\u00e1 disponible.'
+              : 'Error al consultar las credenciales.';
+      tdErr.textContent = msg;
+      trErr.appendChild(tdErr);
+      tbody.appendChild(trErr);
+    });
 }
 
 // ─────────────────────────────────────────────────────
@@ -1065,7 +1361,11 @@ document.getElementById('btn-det-cerrar').onclick= cerrarDetalle;
 document.getElementById('btn-det-claves').onclick= function(){ verClaves(_detalleId); };
 document.getElementById('btn-det-editar').onclick= function(){ abrirEditar(_detalleId); };
 document.getElementById('btn-claves-cerrar').onclick = cerrarClaves;
-document.getElementById('btn-claves-editar').onclick = function(){ abrirEditar(_detalleId); };
+document.getElementById('btn-claves-editar').onclick = function(){
+  var id = _detalleId;        // capturar antes de limpiar (defensive)
+  _limpiarClavesState();      // FIX2.3A-R1: cancelar timeouts y borrar plaintext del DOM
+  abrirEditar(id);
+};
 document.getElementById('btn-add-socio').onclick = function(){ addSocio(); };
 document.getElementById('btn-add-cred').onclick  = function(){ /* SEC1-FIX1A.1: deshabilitado — creds_extra pendiente FIX2 */ };
 document.getElementById('btn-logo-pick').onclick = function(){ g('f-logo-file').click(); };
@@ -1095,7 +1395,7 @@ document.getElementById('f-rut').oninput = function(){
 };
 
 // Cerrar modal al clic en fondo
-['modalForm','modalDetalle','modalClaves'].forEach(function(id){
+['modalForm','modalDetalle'].forEach(function(id){
   var overlay=document.getElementById(id);
   if(!overlay) return;
   overlay.addEventListener('click',function(e){
@@ -1104,6 +1404,15 @@ document.getElementById('f-rut').oninput = function(){
     sincronizarBloqueoModales();
   });
 });
+// modalClaves: también limpiar estado de claves al cerrar con clic en fondo
+(function(){
+  var overlay=document.getElementById('modalClaves');
+  if(!overlay) return;
+  overlay.addEventListener('click',function(e){
+    if(e.target!==overlay) return;
+    cerrarClaves(); // incluye _limpiarClavesState()
+  });
+})();
 
 // ─────────────────────────────────────────────────────
 // SEC1-FIX1A.3 — LIMPIEZA DE CACHÉ LEGACY DE CREDENCIALES
