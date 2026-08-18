@@ -701,23 +701,30 @@ function guardarSupabase(c, esEdicion) {
 // Llamado en INIT junto con cargarUF (Promise.all).
 // Si falla: _usuariosSistema queda vacío, selects muestran "Sin asignar".
 function cargarUsuariosSistema() {
-  return sbFetch('usuarios_sistema?select=id,nombre,email,rol,activo&activo=eq.true&order=nombre.asc')
+  // FIX2.3A.2-R1: RPC segura en lugar de GET directo a usuarios_sistema
+  // (la RLS filtraba a la propia fila; la RPC SECURITY DEFINER devuelve todos los activos).
+  return sbFetch('rpc/listar_usuarios_asignables', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    '{}'
+  })
     .then(function(r) {
       if (!r.ok) {
         _usuariosSistemaError = true;
-        console.warn('[Clientes] usuarios_sistema: HTTP ' + r.status + ' \u2014 selects de analistas deshabilitados');
+        console.warn('[Clientes] listar_usuarios_asignables: HTTP ' + r.status + ' \u2014 selects de analistas deshabilitados');
         return;
       }
       return r.json().then(function(rows) {
+        // RPC retorna {id, nombre, rol} — sin email ni columnas internas
         _usuariosSistema = (rows || []).map(function(u) {
-          return { id: Number(u.id), nombre: u.nombre, email: u.email, rol: u.rol };
+          return { id: Number(u.id), nombre: u.nombre, rol: u.rol };
         });
         _usuariosSistemaCargados = true;   // \u00e9xito confirmado
       });
     })
     .catch(function(e) {
       _usuariosSistemaError = true;
-      console.warn('[Clientes] cargarUsuariosSistema: fallo \u2014', e && e.message);
+      console.warn('[Clientes] listar_usuarios_asignables: fallo \u2014', e && e.message);
     });
 }
 
@@ -740,7 +747,7 @@ var _socioCount = 0;
 // ── Usuarios sistema en memoria (FIX2.3A.1) ──────────────────────────
 // Fuente: public.usuarios_sistema — cargado vía sbFetch durante INIT.
 // Nunca usar localStorage.getItem('usuarios_sistema') como fuente para analistas.
-var _usuariosSistema         = [];    // [{id, nombre, email, rol}] cargados desde DB
+var _usuariosSistema         = [];    // [{id, nombre, rol}] — mínimo necesario para selects
 var _usuariosSistemaCargados = false; // true solo con HTTP 200 + JSON válido
 var _usuariosSistemaError    = false; // true con HTTP error o fallo de fetch
 
@@ -877,6 +884,13 @@ function resetForm() {
   var ce = g('cred-extras'); if (ce) ce.innerHTML = '';
   _socioCount = 0;
   updatePct(); calcPreview(); poblarAnalistas();
+  // FIX2.3A.2-R2: garantizar "Sin asignar" al abrir formulario de nuevo cliente.
+  // poblarAnalistas() preserva cur=sel.value — estos sv() limpian cualquier residuo.
+  // No afecta abrirEditar(): asigna los IDs correctos con sus propios sv() después.
+  // Fail-closed: si catálogo no disponible, guardarCliente() usa _existente para
+  // preservar asignaciones, nunca interpreta estos '' como desasignación.
+  sv('f-contador', '');
+  sv('f-rrhh', '');
 }
 
 // ─────────────────────────────────────────────────────
