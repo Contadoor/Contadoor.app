@@ -560,6 +560,10 @@ function rowToCliente(r) {
     monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
     contador: r.analista_contable, rrhh: r.analista_rrhh, prioRrhh: r.prioridad_rrhh || 'media',
           prioCont: r.prioridad_contable || 'media',
+    // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
+    analistaContableUsuarioId: r.analista_contable_usuario_id || null,
+    analistaRrhhUsuarioId:     r.analista_rrhh_usuario_id     || null,
+    analistaPagosUsuarioId:    r.analista_pagos_usuario_id    || null,
     siiU:  r.usuario_sii,
     prevU: r.usuario_previred,
     cuU:   r.usuario_cu,
@@ -578,6 +582,11 @@ function rowToCliente(r) {
 }
 
 function clienteToRow(c) {
+  // FIX2.3A.1: derivar nombres legacy de texto desde IDs.
+  // La autoridad es el ID; el nombre se sincroniza en la columna TEXT de DB
+  // para compatibilidad con módulos que aún leen el campo de texto.
+  var nomContable = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador || null);
+  var nomRrhh     = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh     || null);
   return {
     razon_social: c.razon, rut: c.rut, giro: c.giro || null,
     email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null,
@@ -587,8 +596,22 @@ function clienteToRow(c) {
     moneda_plan: c.moneda || 'UF', moneda_variable: c.monedaVar || c.moneda || 'UF',
     monto_base: c.monto || null, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
     precio_obs: c.precioObs || null,
-    analista_contable: c.contador || null, analista_rrhh: c.rrhh || null, prioridad_rrhh: c.prioRrhh || 'media',
+    // FIX2.3A.1-R1: si el catálogo cargó, sincronizar campo de texto legacy con el nombre derivado del ID.
+    // Si no cargó (undefined) → JSON.stringify omite la clave → RPC preserva valor en DB.
+    // Nunca sobrescribir con '' si no se pudo resolver el usuario.
+    analista_contable: _usuariosSistemaCargados ? (nomContable || null) : undefined,
+    analista_rrhh:     _usuariosSistemaCargados ? (nomRrhh     || null) : undefined,
+    // analista_pagos: NO incluido — RPC CASE WHEN preserva al estar ausente la clave
+    prioridad_rrhh: c.prioRrhh || 'media',
     prioridad_contable: c.prioCont || 'media',
+    // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
+    analista_contable_usuario_id: c.analistaContableUsuarioId || null,
+    analista_rrhh_usuario_id:     c.analistaRrhhUsuarioId     || null,
+    // Pagos: sin selector de UI.
+    // Si undefined → JSON.stringify omite la clave → RPC CASE WHEN preserva valor en DB.
+    // Si null (cliente nuevo) → RPC INSERT establece NULL.
+    // Si número → RPC establece ese número (valor preservado del cliente existente).
+    analista_pagos_usuario_id: c.analistaPagosUsuarioId,
     usuario_sii:      c.siiU  || null,
     usuario_previred: c.prevU || c.rut || null,
     usuario_cu:       c.cuU   || null,
@@ -642,6 +665,21 @@ function guardarSupabase(c, esEdicion) {
     row.id = c.id;    // id necesario para UPDATE en la RPC
     delete row.rut;   // rut inmutable — la RPC lo rechaza en edición
   }
+  // FIX2.3A.1-R2: DB-first para asignaciones de analistas en edición.
+  // La RPC conserva el valor existente cuando la propiedad está ausente del JSONB.
+  if (esEdicion && !_usuariosSistemaCargados) {
+    // Catálogo no disponible → omitir propiedades de asignación de Contable y RRHH.
+    // Más seguro que reenviar IDs del caché, que podría estar incompleto.
+    delete row.analista_contable_usuario_id;
+    delete row.analista_rrhh_usuario_id;
+    delete row.analista_contable;
+    delete row.analista_rrhh;
+  }
+  if (esEdicion) {
+    // Pagos: sin selector de UI → nunca reenviar el ID durante un UPDATE.
+    // La RPC preserva analista_pagos_usuario_id al estar ausente la clave.
+    delete row.analista_pagos_usuario_id;
+  }
   return sbFetch('rpc/guardar_cliente_admin', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -656,11 +694,55 @@ function guardarSupabase(c, esEdicion) {
 }
 
 // ─────────────────────────────────────────────────────
+// USUARIOS SISTEMA (FIX2.3A.1)
+// ─────────────────────────────────────────────────────
+
+// Cargar usuarios activos desde public.usuarios_sistema.
+// Llamado en INIT junto con cargarUF (Promise.all).
+// Si falla: _usuariosSistema queda vacío, selects muestran "Sin asignar".
+function cargarUsuariosSistema() {
+  return sbFetch('usuarios_sistema?select=id,nombre,email,rol,activo&activo=eq.true&order=nombre.asc')
+    .then(function(r) {
+      if (!r.ok) {
+        _usuariosSistemaError = true;
+        console.warn('[Clientes] usuarios_sistema: HTTP ' + r.status + ' \u2014 selects de analistas deshabilitados');
+        return;
+      }
+      return r.json().then(function(rows) {
+        _usuariosSistema = (rows || []).map(function(u) {
+          return { id: Number(u.id), nombre: u.nombre, email: u.email, rol: u.rol };
+        });
+        _usuariosSistemaCargados = true;   // \u00e9xito confirmado
+      });
+    })
+    .catch(function(e) {
+      _usuariosSistemaError = true;
+      console.warn('[Clientes] cargarUsuariosSistema: fallo \u2014', e && e.message);
+    });
+}
+
+// Resolver nombre dado un ID de usuarios_sistema.
+// Fuente primaria: _usuariosSistema (cargado desde DB).
+// Fallback: campo legacy de nombre (puede ser null si la columna TEXT no fue actualizada).
+function nombreUsuarioSistema(id, fallback) {
+  if (id == null) return fallback || '';
+  var u = _usuariosSistema.find(function(x) { return x.id === Number(id); });
+  return u ? u.nombre : (fallback || '');
+}
+
+// ─────────────────────────────────────────────────────
 // FORMULARIO — HELPERS
 // ─────────────────────────────────────────────────────
 var _editId = null;
 var _detalleId = null;
 var _socioCount = 0;
+
+// ── Usuarios sistema en memoria (FIX2.3A.1) ──────────────────────────
+// Fuente: public.usuarios_sistema — cargado vía sbFetch durante INIT.
+// Nunca usar localStorage.getItem('usuarios_sistema') como fuente para analistas.
+var _usuariosSistema         = [];    // [{id, nombre, email, rol}] cargados desde DB
+var _usuariosSistemaCargados = false; // true solo con HTTP 200 + JSON válido
+var _usuariosSistemaError    = false; // true con HTTP error o fallo de fetch
 
 // ── Estado temporal del modal de claves (FIX2.3A) ─────────────────
 // Solo en memoria JS — nunca en localStorage, sessionStorage, data-* ni console.log.
@@ -696,14 +778,45 @@ function calcPreview() {
   pb.innerHTML = txt;
 }
 
-function poblarAnalistas() {
-  var us = getUsuarios();
-  [['f-contador', ['contable','admin','master']], ['f-rrhh', ['rrhh','admin','master']]].forEach(function(p) {
-    var sel = g(p[0]); if (!sel) return;
+function poblarAnalistas(c) {
+  // FIX2.3A.1-R1: fail-closed.
+  // Si el catálogo no cargó, deshabilitar selects para impedir que un select vacío
+  // sea interpretado como "desasignar" al guardar. Mostrar asignación actual si existe.
+  if (!_usuariosSistemaCargados) {
+    var asignaciones = {
+      'f-contador': c && c.analistaContableUsuarioId,
+      'f-rrhh':     c && c.analistaRrhhUsuarioId
+    };
+    Object.keys(asignaciones).forEach(function(selId) {
+      var sel = g(selId); if (!sel) return;
+      var actualId = asignaciones[selId];
+      sel.disabled = true;
+      sel.innerHTML = actualId
+        ? '<option value="' + actualId + '">Asignaci\u00f3n actual (ID ' + actualId + ') \u2014 cat\u00e1logo no disponible</option>'
+        : '<option value="">Sin asignar \u2014 cat\u00e1logo no disponible</option>';
+      if (actualId) sel.value = String(actualId);
+    });
+    return;
+  }
+
+  // Cat\u00e1logo cargado correctamente — poblar y habilitar selects
+  var rolMatriz = {
+    'f-contador': ['contable', 'admin', 'master'],
+    'f-rrhh':     ['rrhh',     'admin', 'master']
+  };
+  Object.keys(rolMatriz).forEach(function(selId) {
+    var sel = g(selId); if (!sel) return;
+    sel.disabled = false;              // restaurar si estaba deshabilitado
     var cur = sel.value;
     sel.innerHTML = '<option value="">Sin asignar</option>';
-    us.filter(function(u){ return p[1].indexOf(u.rol) >= 0; }).forEach(function(u){
-      var o = document.createElement('option'); o.value = u.nombre; o.textContent = u.nombre; sel.appendChild(o);
+    var rolesPermitidos = rolMatriz[selId];
+    _usuariosSistema.filter(function(u) {
+      return rolesPermitidos.indexOf(u.rol) >= 0;
+    }).forEach(function(u) {
+      var o = document.createElement('option');
+      o.value = String(u.id);
+      o.textContent = u.nombre;
+      sel.appendChild(o);
     });
     if (cur) sel.value = cur;
   });
@@ -816,9 +929,13 @@ function abrirEditar(id) {
     var lp = g('logo-preview'); lp.innerHTML = '';
     var img = document.createElement('img'); img.src = c.logo; lp.appendChild(img);
   }
-  // Analistas
-  poblarAnalistas();
-  sv('f-contador', c.contador); sv('f-rrhh', c.rrhh);
+  // Analistas — FIX2.3A.1-R1: pasar c para que poblarAnalistas muestre asignación actual si catálogo falla
+  poblarAnalistas(c);
+  if (_usuariosSistemaError) {
+    toast('\u26a0\ufe0f No fue posible cargar el cat\u00e1logo de usuarios. Las asignaciones actuales se conservar\u00e1n.');
+  }
+  sv('f-contador', c.analistaContableUsuarioId ? String(c.analistaContableUsuarioId) : '');
+  sv('f-rrhh',     c.analistaRrhhUsuarioId     ? String(c.analistaRrhhUsuarioId)     : '');
   // Socios
   (c.socios || []).forEach(function(s){ addSocio(s.nombre, s.rut, s.pct); });
   calcPreview();
@@ -852,6 +969,11 @@ function guardarCliente() {
     alert('Ya existe un cliente con RUT ' + rut); return;
   }
 
+  // FIX2.3A.1: preservar analista_pagos del cliente existente (sin selector de Pagos en formulario)
+  var _existente = esEdicion
+    ? getClientes().find(function(x){ return Number(x.id) === Number(_editId); })
+    : null;
+
   // Construir objeto cliente — id solo para edición (INSERT no lo usa)
   var c = {
     id:       _editId || null,
@@ -865,7 +987,22 @@ function guardarCliente() {
     ppmTasaObservacion: gv('f-ppm-observacion')||null,
     moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
     monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
-    contador: gv('f-contador'), rrhh: gv('f-rrhh'), prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
+    // FIX2.3A.1-R1: fail-closed para asignaciones de analistas.
+    // Si el catálogo no está disponible, los selects pueden estar vacíos/deshabilitados.
+    // Un select vacío NO se interpreta como "desasignar" — se preserva el valor existente.
+    analistaContableUsuarioId: _usuariosSistemaCargados
+      ? (gv('f-contador') ? Number(gv('f-contador')) : null)
+      : (_existente ? _existente.analistaContableUsuarioId : null),
+    analistaRrhhUsuarioId: _usuariosSistemaCargados
+      ? (gv('f-rrhh') ? Number(gv('f-rrhh')) : null)
+      : (_existente ? _existente.analistaRrhhUsuarioId : null),
+    // Pagos: sin selector → preservar del cliente en caché.
+    // undefined → JSON.stringify omite la clave → RPC CASE WHEN preserva valor en DB.
+    // null (cliente nuevo o caché sin dato) → RPC INSERT establece NULL.
+    analistaPagosUsuarioId: (_existente && _existente.analistaPagosUsuarioId != null)
+      ? _existente.analistaPagosUsuarioId
+      : (_editId ? undefined : null),
+    prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
     siiU:  gv('f-sii-u'),
     prevU: gv('f-prev-u'),
     cuU:   gv('f-cu-u'),
@@ -919,8 +1056,11 @@ function verDetalle(id) {
   h += '<div class="det-item"><div class="det-lbl">Contacto</div><div class="det-val">'+esc(c.contacto||'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">WhatsApp</div><div class="det-val">'+(c.wa?'<a href="https://wa.me/56'+esc(c.wa)+'" target="_blank" style="color:#2D9B6F">+56 '+esc(c.wa)+'</a>':'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Ciudad</div><div class="det-val">'+esc(c.ciudad||'—')+'</div></div>';
-  h += '<div class="det-item"><div class="det-lbl">Analista Contable</div><div class="det-val">'+esc(c.contador||'Sin asignar')+'</div></div>';
-  h += '<div class="det-item"><div class="det-lbl">Analista RRHH</div><div class="det-val">'+esc(c.rrhh||'Sin asignar')+'</div></div>';
+  // FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback a campo legacy
+  var _nomCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
+  var _nomRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
+  h += '<div class="det-item"><div class="det-lbl">Analista Contable</div><div class="det-val">'+esc(_nomCont||'Sin asignar')+'</div></div>';
+  h += '<div class="det-item"><div class="det-lbl">Analista RRHH</div><div class="det-val">'+esc(_nomRrhh||'Sin asignar')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Valor mensual</div><div class="det-val">'+(c.monto?c.monto+' '+(c.moneda||'UF')+(mrr?' ≈ '+ff(mrr):''):'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Trabajadores incl.</div><div class="det-val">'+(c.trab||0)+'</div></div>';
   h += '</div>';
@@ -1305,9 +1445,11 @@ function renderClientes() {
       + (c.modalidad ? '<br><span style="font-size:10px;color:var(--tm)">'+(c.modalidad==='contadoor'?'💳 Transfiere':'🏦 Directo')+'</span>' : '');
     tr.appendChild(td2);
 
-    // Analista
+    // Analista — FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback legacy
+    var _nCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
+    var _nRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
     var td3 = document.createElement('td'); td3.style.cssText='font-size:11px;color:var(--t2)';
-    td3.innerHTML = (c.contador?'📊 '+esc(c.contador):c.rrhh?'👥 '+esc(c.rrhh):'<span style="color:var(--tm)">Sin asignar</span>')
+    td3.innerHTML = (_nCont?'📊 '+esc(_nCont):_nRrhh?'👥 '+esc(_nRrhh):'<span style="color:var(--tm)">Sin asignar</span>')
       + '<br><span style="font-size:10px;color:var(--tm)"><span class="prio-dot prio-'+prio+'"></span>R:'+prio.charAt(0).toUpperCase()+prio.slice(1)+' · C:'+prioCont2.charAt(0).toUpperCase()+prioCont2.slice(1)+'</span>';
     tr.appendChild(td3);
 
@@ -1456,7 +1598,8 @@ function scrubLegacyCredentialsCache() {
     var u = JSON.parse(sessionStorage.getItem('usuario_activo') || '{}');
     g('sb-usuario').textContent = (u.nombre||'Usuario') + ' · ' + (u.rolLabel||'Sistema');
   } catch(e) {}
-  cargarUF().then(function(){
+  // FIX2.3A.1: cargar UF y usuarios_sistema en paralelo antes de renderizar clientes
+  Promise.all([cargarUF(), cargarUsuariosSistema()]).then(function(){
     cargarSupabase().then(renderClientes).catch(function(){ renderClientes(); });
   });
 })();
