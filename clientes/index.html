@@ -1459,11 +1459,17 @@ function renderClientes() {
       + (c.modalidad ? '<br><span style="font-size:10px;color:var(--tm)">'+(c.modalidad==='contadoor'?'💳 Transfiere':'🏦 Directo')+'</span>' : '');
     tr.appendChild(td2);
 
-    // Analista — FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback legacy
+    // Analista — FIX2.3A.3: mostrar Contable y RRHH de forma independiente
     var _nCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
     var _nRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
+    var _lineasAnalista = [];
+    if (_nCont) _lineasAnalista.push('\ud83d\udcca ' + esc(_nCont));
+    if (_nRrhh) _lineasAnalista.push('\ud83d\udc65 ' + esc(_nRrhh));
+    var _analistasHtml = _lineasAnalista.length
+      ? _lineasAnalista.join('<br>')
+      : '<span style="color:var(--tm)">Sin asignar</span>';
     var td3 = document.createElement('td'); td3.style.cssText='font-size:11px;color:var(--t2)';
-    td3.innerHTML = (_nCont?'📊 '+esc(_nCont):_nRrhh?'👥 '+esc(_nRrhh):'<span style="color:var(--tm)">Sin asignar</span>')
+    td3.innerHTML = _analistasHtml
       + '<br><span style="font-size:10px;color:var(--tm)"><span class="prio-dot prio-'+prio+'"></span>R:'+prio.charAt(0).toUpperCase()+prio.slice(1)+' · C:'+prioCont2.charAt(0).toUpperCase()+prioCont2.slice(1)+'</span>';
     tr.appendChild(td3);
 
