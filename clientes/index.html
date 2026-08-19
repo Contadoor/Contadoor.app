@@ -174,7 +174,7 @@ body.modal-open{overflow:hidden;}
         <option value="suspendido">Suspendido</option>
         <option value="inactivo">Inactivo</option>
       </select>
-      <button class="btn-p" id="btn-nuevo">+ Nuevo cliente</button>
+      <button class="btn-p" id="btn-nuevo" style="display:none">+ Nuevo cliente</button>
     </div>
 
     <div class="tabla-wrap">
@@ -430,7 +430,7 @@ body.modal-open{overflow:hidden;}
     <div class="modal-footer">
       <button class="btn-s" id="btn-det-cerrar">✕ Cerrar</button>
       <button class="btn-s" id="btn-det-claves">🔑 Ver claves</button>
-      <button class="btn-p" id="btn-det-editar">✏️ Editar</button>
+      <button class="btn-p" id="btn-det-editar" style="display:none">✏️ Editar</button>
     </div>
   </div>
 </div>
@@ -452,7 +452,7 @@ body.modal-open{overflow:hidden;}
     </div>
     <div class="modal-footer">
       <button class="btn-s" id="btn-claves-cerrar">✕ Cerrar</button>
-      <button class="btn-p" id="btn-claves-editar">✏️ Editar cliente</button>
+      <button class="btn-p" id="btn-claves-editar" style="display:none">✏️ Editar cliente</button>
     </div>
   </div>
 </div>
@@ -655,7 +655,14 @@ function cargarSupabase() {
       setClientes(mapped);
       return mapped;
     })
-    .catch(function(e){ console.warn('Supabase:', e); return getClientes(); });
+    .catch(function(e){
+      // FIX2.3B.2-R1: fail-closed — nunca retornar caché de sesión anterior.
+      // localStorage.clientes_bd puede contener filas de otro usuario.
+      // Una falla de red o Supabase → lista vacía, no datos de otro usuario.
+      console.warn('[Clientes] Error cargando desde Supabase:', e);
+      setClientes([]);
+      return [];
+    });
 }
 
 function guardarSupabase(c, esEdicion) {
@@ -1498,9 +1505,16 @@ function renderClientes() {
     b1.onclick = (function(id){ return function(){ verClaves(id); }; })(c.id);
     var b2 = document.createElement('button'); b2.className='btn-s btn-sm'; b2.textContent='👁️ Ver'; b2.style.margin='0 4px';
     b2.onclick = (function(id){ return function(){ verDetalle(id); }; })(c.id);
-    var b3 = document.createElement('button'); b3.className='btn-p btn-sm'; b3.textContent='✏️';
-    b3.onclick = (function(id){ return function(){ abrirEditar(id); }; })(c.id);
-    td6.appendChild(b1); td6.appendChild(b2); td6.appendChild(b3);
+    td6.appendChild(b1); td6.appendChild(b2);
+    // FIX2.3B.2: botón ✏️ solo visible para Master. No renderizar para no-Master.
+    // FIX2.3B.2-R1: === true (fail-closed) — el botón solo existe tras confirmar Master.
+    // undefined (sesión aún no cargada) → NO crear; aplicarPermisosClientesUI()
+    // llamará renderClientes() de nuevo con _esMasterUI=true antes de revelar la página.
+    if (window._esMasterUI === true) {
+      var b3 = document.createElement('button'); b3.className='btn-p btn-sm'; b3.textContent='\u270f\ufe0f';
+      b3.onclick = (function(id){ return function(){ abrirEditar(id); }; })(c.id);
+      td6.appendChild(b3);
+    }
     tr.appendChild(td6);
     tbody.appendChild(tr);
   });
@@ -1613,6 +1627,12 @@ function scrubLegacyCredentialsCache() {
 // INIT
 // ─────────────────────────────────────────────────────
 (function(){
+  // FIX2.3B.2-R2: fail-closed desde el primer tick.
+  // Eliminar dataset de sesión anterior antes de auth, observers o requests async.
+  // Garantiza que renderClientes() nunca lea filas de otro usuario,
+  // incluso si el MutationObserver de auth-pending dispara antes de que
+  // Promise.all([cargarUF, cargarUsuariosSistema]) resuelva.
+  setClientes([]);
   scrubLegacyCredentialsCache(); // SEC1-FIX1A.3 — antes de cualquier render
   try {
     var u = JSON.parse(sessionStorage.getItem('usuario_activo') || '{}');
@@ -1622,6 +1642,54 @@ function scrubLegacyCredentialsCache() {
   Promise.all([cargarUF(), cargarUsuariosSistema()]).then(function(){
     cargarSupabase().then(renderClientes).catch(function(){ renderClientes(); });
   });
+})();
+
+// ─────────────────────────────────────────────────────
+// FIX2.3B.2 — UX de Base de Clientes por rol
+// ─────────────────────────────────────────────────────
+// Oculta controles administrativos para usuarios no-Master.
+// UX solamente — la autorización real está en la RLS (FIX2.3B.1)
+// y en guardar_cliente_admin (que valida rol=master en backend).
+// No duplicar autorización. No usar nombre como criterio de permiso.
+// ─────────────────────────────────────────────────────
+function aplicarPermisosClientesUI() {
+  var sesion = window._contadoorSesion;
+  if (!sesion) return;
+  var esMaster = !!sesion.esMaster;
+
+  // Guardar en variable global para que renderClientes() la lea
+  window._esMasterUI = esMaster;
+
+  // Reconstruir la tabla con o sin botón ✏️ por fila
+  // (renderClientes() lee _esMasterUI al construir cada fila)
+  renderClientes();
+
+  // Botones estáticos en HTML
+  var btnNuevo = document.getElementById('btn-nuevo');
+  if (btnNuevo) btnNuevo.style.display = esMaster ? '' : 'none';
+
+  var btnDetEditar = document.getElementById('btn-det-editar');
+  if (btnDetEditar) btnDetEditar.style.display = esMaster ? '' : 'none';
+
+  var btnClavesEditar = document.getElementById('btn-claves-editar');
+  if (btnClavesEditar) btnClavesEditar.style.display = esMaster ? '' : 'none';
+}
+
+// Detectar cuándo auth.js termina de verificar la identidad.
+// auth.js llama revelarContenido() → classList.remove('auth-pending')
+// → MutationObserver detecta el cambio → _contadoorSesion ya está poblado.
+// Mismo patrón que reportes-contable/index.html.
+(function(){
+  var obs = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.attributeName === 'class' &&
+          !document.documentElement.classList.contains('auth-pending')) {
+        aplicarPermisosClientesUI();
+        obs.disconnect();
+      }
+    });
+  });
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 <script src="../auth.js"></script>
