@@ -4137,57 +4137,6 @@ function normFechaLib(val){
 window.GESTOOR_MODULO = 'reportes-contable';
 </script>
 <script src="../auth.js"></script>
-<script>
-/* ── GESTOOR: SIDEBAR SEGÚN PERMISOS ───────────────────────────────────── */
-(function(){
-  function aplicarPermisosSidebar(){
-    var sesion = window._contadoorSesion;
-    if(!sesion) return;
-    if(sesion.esMaster || sesion.modulos.indexOf('*') >= 0) return;
-    var modulos = sesion.modulos || [];
-    var moduloMap = {
-      'reportes-rrhh':     ['rrhh','reportes-rrhh'],
-      'reportes-contable': ['contable','reportes-contable'],
-      'reportes-pagos':    ['pagos','reportes-pagos'],
-      'panel-de-control':  ['panel-de-control'],
-      'clientes':          ['clientes'],
-      'conciliacion':      ['conciliacion'],
-      'pagos':             ['pagos'],
-      'cobranza':          ['cobranza'],
-      'pir':               ['pir'],
-      'pre-iva':           ['pre-iva'],
-      'planes':            ['planes'],
-      'admin':             ['admin']
-    };
-    var sidebarLinks = document.querySelectorAll('.sidebar a[href], .side-nav a[href]');
-    sidebarLinks.forEach(function(link){
-      var href = link.getAttribute('href') || '';
-      var parts = href.replace(/\.\.\/\//g,'').replace(/\/index\.html/,'').split('/');
-      var modId = parts[parts.length-1] || parts[0];
-      if(!modId) return;
-      if(modId === 'admin'){
-        link.style.display = (sesion.esMaster || sesion.rol==='admin') ? '' : 'none';
-        return;
-      }
-      var allowed = modulos.some(function(m){
-        var aliases = moduloMap[m] || [m];
-        return aliases.indexOf(modId) >= 0;
-      });
-      if(!allowed) link.style.display = 'none';
-    });
-  }
-  var obs = new MutationObserver(function(mutations){
-    mutations.forEach(function(m){
-      if(m.attributeName==='class' &&
-         !document.documentElement.classList.contains('auth-pending')){
-        aplicarPermisosSidebar();
-        obs.disconnect();
-      }
-    });
-  });
-  obs.observe(document.documentElement, {attributes:true, attributeFilter:['class']});
-})();
-</script>
 </body>
 </html>
 
