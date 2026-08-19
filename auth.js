@@ -67,43 +67,104 @@
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
-  // ── NAV1: Navegación lateral por permisos ────────────────────────────────────
-  // Fuente única de verdad para visibilidad del sidebar en todos los módulos.
-  // Reutiliza puedeVerModulo() y MODULOS_POR_ROL — sin duplicar tablas ni lógica.
-  // Preparado para respetar perfil.modulos adicionales asignados individualmente.
-  // Solo UX: los links no autorizados se ocultan antes de revelar el contenido.
-  // La protección real de URL permanece en puedeVerModulo(perfil, MODULO_ACTUAL).
-  // Cobranza excluida: sidebar con diseño intencional diferente (opacity sin pointer-events).
-  function aplicarPermisosNavegacion(sesion){
-    if(!sesion||sesion.esMaster) return;  // master: todos los links visibles
+  // ── NAV1-R3: Navegación lateral por permisos — visual ────────────────────────
+  // Tres estados: AUTORIZADO (normal) | BLOQUEADO (tenue+🔒) | FUTURO (intacto)
+  // Futura única de verdad: reutiliza puedeVerModulo() y MODULOS_POR_ROL.
+  // Solo UX — protección real de URL permanece en puedeVerModulo(perfil,MODULO_ACTUAL).
 
-    // Excluir cobranza hasta homologación de su sidebar
+  // ── CSS de sidebar — inyectado una sola vez en <head> ──────────────────────
+  function inyectarEstilosSidebar(){
+    if(document.getElementById('gestoor-nav-styles')) return;
+    var st=document.createElement('style');
+    st.id='gestoor-nav-styles';
+    st.textContent=
+      // Encabezados de sección reforzados (.sb-section clientes / .sb-sec resto)
+      '.sb-section,.sb-sec{font-size:10px!important;font-weight:800!important;'+
+      'letter-spacing:1.5px!important;color:#C77BC9!important;'+
+      'text-transform:uppercase!important;padding:14px 8px 5px!important;'+
+      'display:flex!important;align-items:center!important;gap:6px!important;}'+
+      // Línea morada decorativa hacia la derecha
+      '.sb-section::after,.sb-sec::after{content:"";flex:1;height:1px;'+
+      'background:linear-gradient(to right,rgba(199,123,201,.4),transparent);margin-left:4px;}'+
+      // Módulo bloqueado por permisos:
+      //   58% opacidad → legible pero diferenciado de autorizado (100%) y futuro (40%)
+      '.sb-item.nav-locked{opacity:.58!important;pointer-events:none!important;cursor:default!important;}'+
+      // Candado al extremo derecho
+      '.sb-item.nav-locked .nav-lock-icon{margin-left:auto;font-size:10px;opacity:.7;flex-shrink:0;}';
+    document.head.appendChild(st);
+  }
+
+  // ── Marcar link como BLOQUEADO por permisos ──────────────────────────────
+  // Futuros (pointer-events:none inline) nunca llegan aquí — filtrados antes.
+  // Idempotente: no duplica candado si ya fue marcado.
+  function marcarModuloBloqueado(link){
+    if(link.classList.contains('nav-locked')) return;  // ya marcado
+    link.classList.add('nav-locked');
+    link.setAttribute('aria-disabled','true');
+    link.setAttribute('tabindex','-1');
+    var lock=document.createElement('span');
+    lock.className='nav-lock-icon';
+    lock.textContent='\uD83D\uDD12';  // 🔒
+    link.appendChild(lock);
+  }
+
+  // ── Restaurar link a AUTORIZADO ──────────────────────────────────────────
+  // Limpia nav-locked, aria-disabled, tabindex y candado.
+  // No toca links futuros (que tienen pointer-events:none inline — nunca tienen nav-locked).
+  function marcarModuloPermitido(link){
+    if(!link.classList.contains('nav-locked')) return;  // nada que limpiar
+    link.classList.remove('nav-locked');
+    link.removeAttribute('aria-disabled');
+    link.removeAttribute('tabindex');
+    var lock=link.querySelector('.nav-lock-icon');
+    if(lock) link.removeChild(lock);
+  }
+
+  // ── Aplicar permisos de navegación ───────────────────────────────────────
+  // Llamada por auth.js en whenReady(), antes de revelarContenido().
+  function aplicarPermisosNavegacion(sesion){
+    // Inyectar CSS de sidebar (idempotente — solo una vez por página)
+    inyectarEstilosSidebar();
+
+    // Master: limpiar cualquier nav-locked previo; todos los existentes clickeables
+    if(!sesion||sesion.esMaster){
+      document.querySelectorAll('.sidebar a.nav-locked').forEach(marcarModuloPermitido);
+      return;
+    }
+
+    // Cobranza: sidebar con diseño diferente — no interferir
     if(typeof MODULO_ACTUAL!=='undefined'&&MODULO_ACTUAL==='cobranza') return;
 
     document.querySelectorAll('.sidebar a[href]').forEach(function(link){
-      // Preservar links futuros deshabilitados (pointer-events:none inline)
+      // FUTUROS: href="#" + pointer-events:none inline → conservar intactos, sin candado
       if(link.style.pointerEvents==='none') return;
 
       var href=link.getAttribute('href')||'';
 
-      // Parser explícito e inequívoco — dos únicos patrones del sidebar
+      // Parser explícito — dos únicos patrones del sidebar
       var modId;
       if(href==='../index.html'){
-        modId='dashboard';                                        // único, sin ambigüedad
+        modId='dashboard';
       }else if(href.startsWith('../')&&href.endsWith('/index.html')){
-        modId=href.slice(3,href.length-'/index.html'.length);    // '../X/index.html' → 'X'
+        modId=href.slice(3,href.length-'/index.html'.length);
       }else{
-        return;  // href='#' u otro formato → no tocar
+        return;  // href='#' sin pointer-events (edge case) → no tocar
       }
 
       // Admin: solo rol admin explícito (master ya devolvió arriba)
+      var autorizado;
       if(modId==='admin'){
-        link.style.display=(sesion.rol==='admin')?'':'none';
-        return;
+        autorizado=(sesion.rol==='admin');
+      }else{
+        // puedeVerModulo: misma semántica que auth.js; sesion equivale a perfil
+        autorizado=puedeVerModulo(sesion,modId);
       }
 
-      // sesion tiene {rol, esMaster, modulos} — equivalente a perfil para puedeVerModulo
-      link.style.display=puedeVerModulo(sesion,modId)?'':'none';
+      if(autorizado){
+        marcarModuloPermitido(link);   // limpiar si estaba bloqueado (cambio de permisos)
+      }else{
+        marcarModuloBloqueado(link);   // visible + 🔒 + no clickeable + aria-disabled
+      }
     });
   }
 
