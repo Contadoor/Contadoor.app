@@ -67,6 +67,46 @@
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
+  // ── NAV1: Navegación lateral por permisos ────────────────────────────────────
+  // Fuente única de verdad para visibilidad del sidebar en todos los módulos.
+  // Reutiliza puedeVerModulo() y MODULOS_POR_ROL — sin duplicar tablas ni lógica.
+  // Preparado para respetar perfil.modulos adicionales asignados individualmente.
+  // Solo UX: los links no autorizados se ocultan antes de revelar el contenido.
+  // La protección real de URL permanece en puedeVerModulo(perfil, MODULO_ACTUAL).
+  // Cobranza excluida: sidebar con diseño intencional diferente (opacity sin pointer-events).
+  function aplicarPermisosNavegacion(sesion){
+    if(!sesion||sesion.esMaster) return;  // master: todos los links visibles
+
+    // Excluir cobranza hasta homologación de su sidebar
+    if(typeof MODULO_ACTUAL!=='undefined'&&MODULO_ACTUAL==='cobranza') return;
+
+    document.querySelectorAll('.sidebar a[href]').forEach(function(link){
+      // Preservar links futuros deshabilitados (pointer-events:none inline)
+      if(link.style.pointerEvents==='none') return;
+
+      var href=link.getAttribute('href')||'';
+
+      // Parser explícito e inequívoco — dos únicos patrones del sidebar
+      var modId;
+      if(href==='../index.html'){
+        modId='dashboard';                                        // único, sin ambigüedad
+      }else if(href.startsWith('../')&&href.endsWith('/index.html')){
+        modId=href.slice(3,href.length-'/index.html'.length);    // '../X/index.html' → 'X'
+      }else{
+        return;  // href='#' u otro formato → no tocar
+      }
+
+      // Admin: solo rol admin explícito (master ya devolvió arriba)
+      if(modId==='admin'){
+        link.style.display=(sesion.rol==='admin')?'':'none';
+        return;
+      }
+
+      // sesion tiene {rol, esMaster, modulos} — equivalente a perfil para puedeVerModulo
+      link.style.display=puedeVerModulo(sesion,modId)?'':'none';
+    });
+  }
+
   // ── Helper: ejecutar cuando el DOM esté listo ────────────────────────────────
   // Soluciona la race condition: cuando auth.js corre de forma asíncrona
   // (después de getUser + consulta BD), DOMContentLoaded ya disparó.
@@ -265,8 +305,13 @@
           }
 
           // ── ACCESO CONCEDIDO ─────────────────────────────────────────────────
-          revelarContenido();   // quitar auth-pending → contenido visible
-          inyectarTopbar(sesion);
+          // NAV1: orden estructuralmente garantizado dentro del mismo whenReady.
+          // aplicarPermisosNavegacion completa ANTES de revelarContenido — sin flash.
+          whenReady(function(){
+            aplicarPermisosNavegacion(sesion);  // 1. ocultar links no autorizados
+            revelarContenido();                  // 2. retirar auth-pending → contenido visible
+            inyectarTopbar(sesion);             // 3. insertar badge de usuario
+          });
 
         }).catch(function(e){
           console.error('[auth.js] Error cargando perfil:',e);
