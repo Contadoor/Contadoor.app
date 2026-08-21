@@ -378,6 +378,17 @@
           sessionStorage.setItem('usuario_activo',JSON.stringify(sesion));
           window._contadoorSesion=sesion;
 
+          // ADMIN-USUARIOS-1: getter read-only de módulos base por rol.
+          // Retorna copia del array (slice) — nunca la referencia interna.
+          // admin/index.html lo consume para separar base de adicionales.
+          // master/admin devuelven [] (acceso total, sin lista fija).
+          window.gestoorGetModulosBaseRol=function(rol){
+            var base=MODULOS_POR_ROL[rol];
+            if(!base) return [];
+            if(base[0]==='*') return [];
+            return base.slice();
+          };
+
           // Auto-redirect analistas desde dashboard
           if(MODULO_ACTUAL==='dashboard'&&!perfil.es_master){
             var redirect=ROL_REDIRECT[perfil.rol];
