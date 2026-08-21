@@ -11,29 +11,22 @@
 body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
 .layout{display:flex;min-height:100vh;}
 .sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
-.sb-logo{padding:16px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);flex-shrink:0;}
-.sb-logo img{width:130px;display:block;}
-.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
-.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
-.sb-nav::-webkit-scrollbar{width:3px;}
-.sb-nav::-webkit-scrollbar-track{background:transparent;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
-.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden;}
-.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
-.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
-.sb-foot{padding:10px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0;}
-.main{margin-left:220px;flex:1;min-height:100vh;}
-.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);}
+.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);flex-shrink:0;}
 .sb-logo img{width:140px;display:block;}
 .sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:5px;}
-.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;overflow-x:hidden;}
+/* Selector doble: <nav> sin clase (admin/) y .sb-nav (otros módulos). min-height:0 es crítico para flex-scroll. */
+.sidebar nav,.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
+.sidebar nav::-webkit-scrollbar,.sb-nav::-webkit-scrollbar{width:3px;}
+.sidebar nav::-webkit-scrollbar-track,.sb-nav::-webkit-scrollbar-track{background:transparent;}
+.sidebar nav::-webkit-scrollbar-thumb,.sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
 .sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;white-space:nowrap;overflow:hidden;}
 .sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
 .sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
 .sb-item svg{width:14px;height:14px;flex-shrink:0;}
-.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);}
+/* flex-shrink:0 mantiene el footer siempre visible sin entrar en el scroll del nav */
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0;}
+.main{margin-left:220px;flex:1;min-height:100vh;}
 .topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
 .tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
 .content{padding:24px;}
@@ -131,9 +124,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">🔐 Administración de Usuarios
+    <div class="tb-title">🔐 Administración de Usuarios</div>
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
-  </div>
     <span id="sessionInfo" style="font-size:11px;color:rgba(255,255,255,.3);margin-right:8px"></span>
     <button class="btn-s btn-sm" onclick="abrirModalNuevo()" title="Disponible en próxima fase" style="opacity:.5;cursor:not-allowed">+ Nuevo usuario</button>
   </div>
@@ -147,9 +139,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <!-- MODAL NUEVO / EDITAR USUARIO -->
 <div class="modal-bg" id="modal">
   <div class="modal">
-    <h2 id="modalTitle">Nuevo usuario</h2>
-    <div class="modal-sub">Define el nombre, rol y módulos habilitados</div>
+    <h2 id="modalTitle">Editar usuario</h2>
+    <div class="modal-sub">Administración de cargo y módulos adicionales</div>
     <input type="hidden" id="f-id"/>
+
+    <!-- Aviso para Diego (admin, es_master=false) — visible solo si no es Master -->
+    <div id="avisoSoloMaster" class="warn-box" style="display:none;margin-bottom:14px">
+      🔐 Solo el usuario Master puede modificar datos de otros usuarios. Puedes consultar la información pero no guardar cambios.
+    </div>
 
     <div class="card-hd">👤 Datos del usuario</div>
     <div class="fg2" style="margin-bottom:12px">
@@ -162,21 +159,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <input type="text" id="f-iniciales" placeholder="Ej: MG" maxlength="2" oninput="this.value=this.value.toUpperCase()"/>
       </div>
       <div class="fgroup">
-        <label>Rol del sistema *</label>
+        <label>Cargo *</label>
         <select id="f-rol" onchange="onRolChange()">
-          <option value="">Seleccionar rol...</option>
+          <option value="">Seleccionar cargo...</option>
+          <!-- hidden por defecto; abrirModalEditar lo muestra solo si u.es_master=true -->
+          <option value="master" style="display:none">👑 Master</option>
           <option value="rrhh">👥 Analista RRHH</option>
           <option value="contable">📊 Analista Contable</option>
           <option value="pagos">💰 Analista Pagos</option>
           <option value="cobranza">🧾 Analista Cobranza</option>
           <option value="admin">🔐 Admin / Supervisor</option>
         </select>
-        <span class="hint">Define la vista de inicio y los permisos base del usuario</span>
+        <span class="hint">Define los permisos base del usuario. Los módulos del cargo no son editables.</span>
       </div>
       <div class="fgroup">
         <label>Email de contacto</label>
         <input type="email" id="f-email" placeholder="analista@contadoor.cl"/>
-        <span class="hint" id="f-email-hint">Se usa en reportes y comunicaciones. No modifica el correo de acceso a Gestoor.</span>
+        <span class="hint" id="f-email-hint">Se usa en reportes y comunicaciones.</span>
       </div>
       <div class="fgroup">
         <label>WhatsApp</label>
@@ -185,16 +184,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       </div>
     </div>
 
-    <div class="card-hd" style="margin-top:16px">📦 Módulos habilitados</div>
-    <div class="info-box" style="margin-bottom:8px">
-      Los módulos se cargan automáticamente al seleccionar el rol. Puedes ajustarlos manualmente.
-      <span id="rolPresetInfo" style="color:var(--p);font-weight:600"></span>
+    <div class="card-hd" style="margin-top:16px">📋 Incluidos por el cargo</div>
+    <div class="info-box" style="margin-bottom:8px;font-size:11px">
+      Estos módulos están incluidos automáticamente por el cargo seleccionado. No es necesario agregarlos manualmente.
     </div>
-    <div id="modulosGrid"></div>
+    <div id="baseGrid" style="margin-bottom:16px;min-height:28px"></div>
+
+    <div class="card-hd">➕ Permisos adicionales</div>
+    <div class="info-box" style="margin-bottom:8px;font-size:11px">
+      Módulos operativos fuera del cargo que pueden habilitarse individualmente. Solo el Master puede modificarlos.
+    </div>
+    <div id="adicionalesGrid"></div>
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" onclick="guardarUsuario()">💾 Guardar usuario</button>
+      <button class="btn-p" onclick="guardarUsuario()">💾 Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -232,35 +236,38 @@ var MODULOS_DISPONIBLES = [
   {id:'admin',             nombre:'Admin',                 icon:'👤', grupo:'Configuración'},
 ];
 
-// ── PLANTILLAS DE ROL ─────────────────────────────────────────────────────
-var ROL_TEMPLATES = {
-  admin: {
-    label:'Admin / Supervisor',
-    modulos:['clientes','reportes','reportes-rrhh','reportes-contable','reportes-pagos',
-             'trabajadores','calendario-rrhh','facturacion','pagos','conciliacion',
-             'cobranza','convenios','pir','performance','admin']
-  },
-  rrhh: {
-    label:'Analista RRHH',
-    modulos:['reportes-rrhh','trabajadores','calendario-rrhh','pagos','convenios']
-  },
-  contable: {
-    label:'Analista Contable',
-    modulos:['clientes','reportes-contable','facturacion','pagos','convenios','cobranza','pir']
-  },
-  pagos: {
-    label:'Analista Pagos',
-    modulos:['reportes-pagos','facturacion','pagos','conciliacion','cobranza','convenios']
-  },
-  cobranza: {
-    label:'Analista Cobranza',
-    modulos:['cobranza','pagos','convenios']
-  }
+// ── LABELS DE ROL (única fuente — sin duplicar MODULOS_POR_ROL de auth.js) ─
+var ROL_LABELS = {
+  master:   'Master',
+  admin:    'Admin / Supervisor',
+  rrhh:     'Analista RRHH',
+  contable: 'Analista Contable',
+  pagos:    'Analista Pagos',
+  cobranza: 'Analista Cobranza'
 };
 
+// ── WHITELIST DE MÓDULOS ADICIONALES ─────────────────────────────────────
+// Solo módulos operativos con link activo en sidebar.
+// Excluidos: dashboard (siempre true), admin (solo por rol/es_master),
+//            reportes (base de contable, no adicional), y todos los futuros.
+var MODULOS_ADICIONALES_PERMITIDOS = [
+  'clientes','planes','panel-de-control',
+  'reportes-rrhh','reportes-contable','reportes-pagos',
+  'pir','pre-iva','pagos','conciliacion'
+];
+
+// ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
+var MODULOS_FUTUROS_IDS = [
+  'gestion-personal','convenios','cobranza','facturacion',
+  'crm','cotizaciones','campanas','comunicaciones','performance'
+];
+
 // ── ESTADO EN MEMORIA ─────────────────────────────────────────────────────
-// Única fuente de verdad para la sesión del módulo.
-// No se escribe ni lee desde localStorage (caché legacy eliminado).
+// _draftModulosAdicionales: selección temporal en el modal (solo adicionales).
+// Se inicializa al abrir edición, sobrevive cambios de cargo, se limpia al cerrar.
+var _draftModulosAdicionales = [];
+
+// ── ESTADO ORIGINAL ───────────────────────────────────────────────────────
 var _editId = null;
 var _admUsuarios = [];
 
@@ -299,28 +306,6 @@ function adminCargar(){
 }
 
 // ── PATCH A public.usuarios (JWT) ─────────────────────────────────────────
-function adminPatch(id, data){
-  return sbFetch('usuarios?id=eq.' + encodeURIComponent(id), {
-    method: 'PATCH',
-    headers: {'Prefer': 'return=representation'},
-    body: JSON.stringify(data)
-  }).then(function(r){
-    if(!r.ok){
-      return r.text().then(function(txt){
-        var body = {};
-        try{ body = JSON.parse(txt); }catch(e){}
-        throw {status:r.status, body:body};
-      });
-    }
-    return r.json().then(function(rows){
-      if(!Array.isArray(rows) || rows.length === 0){
-        throw {status:200, body:{message:'Supabase no actualizó ningún usuario. Verifica que el ID existe y que tienes permiso.'}};
-      }
-      return rows;
-    });
-  });
-}
-
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function getUsuarios(){ return _admUsuarios; }
 
@@ -349,8 +334,10 @@ function renderUsuarios(){
   var cont = document.getElementById('listaUsuarios');
   if(!cont) return;
   var ROL_COLORS = {rrhh:'#1D9E75',contable:'#C07A1A',pagos:'#3B82F6',cobranza:'#904891',admin:'#5c4a5d',master:'#904891'};
-  var sesion = getUsuario();  // desde supabase.js — sessionStorage.usuario_activo
+  var sesion = window._contadoorSesion || getUsuario();  // _contadoorSesion ya confirmada por auth.js; getUsuario() como fallback
   var sesionId = sesion && sesion.id ? String(sesion.id) : null;
+  // Determinar si el usuario actual es Master — controla visibilidad de escritura
+  var esMasterActual = sesion && sesion.esMaster === true;
 
   if(!arr.length){
     cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--tm)">No se encontraron usuarios.</div>';
@@ -365,16 +352,24 @@ function renderUsuarios(){
     var rolColor = ROL_COLORS[u.rol] || '#5c4a5d';
     var rolLabel = u.rol_label || u.rol || '-';
     var esYo = sesionId && String(u.id) === sesionId;
-    var mastersActivos = arr.filter(function(x){ return x.es_master && x.activo; });
 
     var acciones = '';
-    if(!u.es_master){
-      acciones += '<button class="btn-s btn-sm" onclick="abrirModalEditar(\'' + u.id + '\')">✏️ Editar</button>';
-      // Botón de invitación: solo para activos sin cuenta Auth y con email
-      if(u.activo && !u.auth_user_id && u.email){
+    if(u.es_master){
+      // Usuario Master: solo el caller Master puede editar su perfil (nombre, WA)
+      // Sin Desactivar, sin Invitación
+      if(esMasterActual){
+        acciones += '<button class="btn-s btn-sm" onclick="abrirModalEditar(\'' + u.id + '\')">✏️ Editar</button>';
+      }
+    } else {
+      // Usuario no-Master
+      var btnLabel = esMasterActual ? '✏️ Editar' : '👁 Ver';
+      acciones += '<button class="btn-s btn-sm" onclick="abrirModalEditar(\'' + u.id + '\')">' + btnLabel + '</button>';
+      // Invitación: solo Master + sin Auth + con email
+      if(esMasterActual && u.activo && !u.auth_user_id && u.email){
         acciones += '<button class="btn-invite btn-sm" id="btn-invite-' + u.id + '" onclick="invitarUsuario(\'' + u.id + '\')">✉️ Enviar invitación</button>';
       }
-      if(!esYo){
+      // Activar/Desactivar: solo Master, no a sí mismo
+      if(esMasterActual && !esYo){
         if(u.activo){
           acciones += '<button class="btn-danger btn-sm" onclick="toggleActivo(\'' + u.id + '\',false)">⏸ Desactivar</button>';
         } else {
@@ -408,177 +403,247 @@ function renderUsuarios(){
   }catch(e){}
 }
 
+// ── HELPERS BASE / ADICIONALES ────────────────────────────────────────────
+function modulosBaseDelRol(rol){
+  if(typeof window.gestoorGetModulosBaseRol!=='function') return null;
+  return window.gestoorGetModulosBaseRol(rol);
+}
+function modulosAdicionalesDeUsuario(u){
+  var base=modulosBaseDelRol(u.rol)||[];
+  return (u.modulos||[]).filter(function(m){
+    return base.indexOf(m)===-1 && MODULOS_ADICIONALES_PERMITIDOS.indexOf(m)>=0;
+  });
+}
+
 // ── ROL CHANGE ────────────────────────────────────────────────────────────
 function onRolChange(){
-  var rol = document.getElementById('f-rol').value;
+  var rol=document.getElementById('f-rol').value;
   if(!rol) return;
-  var tmpl = ROL_TEMPLATES[rol];
-  if(!tmpl) return;
-  renderModulosGrid(tmpl.modulos);
-  var info = document.getElementById('rolPresetInfo');
-  if(info) info.textContent = '  -  ' + tmpl.modulos.length + ' módulos cargados desde plantilla ' + tmpl.label;
+  if(document.getElementById('adicionalesGrid')) _draftModulosAdicionales=getAdicionalesSeleccionadosDesdeDom();
+  var nuevaBase=modulosBaseDelRol(rol)||[];
+  _draftModulosAdicionales=_draftModulosAdicionales.filter(function(m){ return nuevaBase.indexOf(m)===-1; });
+  renderFormularioModulos(rol);
 }
 
-// ── MÓDULOS GRID ──────────────────────────────────────────────────────────
-function renderModulosGrid(seleccionados){
-  var grid = document.getElementById('modulosGrid');
-  var grupos = {};
-  MODULOS_DISPONIBLES.forEach(function(m){
-    if(!grupos[m.grupo]) grupos[m.grupo] = [];
-    grupos[m.grupo].push(m);
-  });
-  var html = '';
-  Object.keys(grupos).forEach(function(g){
-    html += '<div style="margin-bottom:12px">';
-    html += '<div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8dde8">' + g + '</div>';
-    html += '<div class="modulos-grid">';
-    grupos[g].forEach(function(m){
-      var checked = (seleccionados||[]).includes(m.id);
-      html += '<div class="mod-check-item">'
-        + '<input type="checkbox" id="mod-' + m.id + '" value="' + m.id + '"' + (checked ? ' checked' : '') + '>'
-        + '<span class="mod-icon">' + m.icon + '</span>'
-        + '<label for="mod-' + m.id + '">' + m.nombre + '</label>'
-        + '</div>';
-    });
-    html += '</div></div>';
-  });
-  grid.innerHTML = html;
-}
-
-function getModulosSeleccionados(){
-  return MODULOS_DISPONIBLES.filter(function(m){
-    var el = document.getElementById('mod-' + m.id);
-    return el && el.checked;
-  }).map(function(m){ return m.id; });
-}
-
-// ── MODAL EDITAR ──────────────────────────────────────────────────────────
-function abrirModalEditar(id){
-  var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
-  if(!u) return;
-  _editId = id;
-  document.getElementById('modalTitle').textContent = 'Editar — ' + u.nombre;
-  document.getElementById('f-nombre').value = u.nombre || '';
-  document.getElementById('f-iniciales').value = u.iniciales || '';
-  document.getElementById('f-rol').value = u.rol || '';
-  var emailField = document.getElementById('f-email');
-  emailField.value = u.email || '';
-  if(u.auth_user_id){
-    emailField.setAttribute('readonly', 'readonly');
-    emailField.style.background = '#f5f0f5';
-    emailField.style.color      = '#9a849b';
-    document.getElementById('f-email-hint').textContent =
-      'Correo de acceso vinculado. Su modificación se gestionará desde Supabase Auth en una fase posterior.';
-  }else{
-    emailField.removeAttribute('readonly');
-    emailField.style.background = '';
-    emailField.style.color      = '';
-    document.getElementById('f-email-hint').textContent =
-      'Este correo se utilizará para enviar la invitación de acceso.';
-  }
-  document.getElementById('f-wa').value = u.wa || '';
-  var info = document.getElementById('rolPresetInfo');
-  if(info && u.rol){
-    var tmpl = ROL_TEMPLATES[u.rol];
-    info.textContent = tmpl ? '  -  Rol: ' + tmpl.label : '';
-  }
-  renderModulosGrid(u.modulos || []);
-  document.getElementById('modal').classList.add('on');
-}
-
-// ── MODAL NUEVO — deshabilitado en Fase 2B-A ─────────────────────────────
-function abrirModalNuevo(){
-  adminToast('La invitación de nuevos usuarios estará disponible en la próxima fase.', 'error');
-}
-
-function closeModal(){ document.getElementById('modal').classList.remove('on'); }
-
-// ── GUARDAR (solo edición existente) ──────────────────────────────────────
-function guardarUsuario(){
-  if(!_editId){
-    adminToast('Creación de usuarios pendiente para próxima fase.', 'error');
+// ── FORMULARIO DE MÓDULOS (base | adicionales | futuros) ──────────────────
+function renderFormularioModulos(rol){
+  var base=modulosBaseDelRol(rol);
+  if(base===null){
+    var bgEl=document.getElementById('baseGrid'); if(bgEl) bgEl.innerHTML='<div class="warn-box">⚠️ Error de configuración. Recarga la página.</div>';
+    var agEl=document.getElementById('adicionalesGrid'); if(agEl) agEl.innerHTML='';
+    var btn=document.querySelector('button[onclick="guardarUsuario()"]');
+    if(btn){ btn.disabled=true; btn.setAttribute('data-config-error','1'); }
     return;
   }
-  var nombre = sv('f-nombre');
-  if(!nombre){ adminToast('El nombre es obligatorio.', 'error'); return; }
-  var rol = sv('f-rol');
-  if(!rol){ adminToast('Selecciona un rol.', 'error'); return; }
-  var modulos = getModulosSeleccionados();
-  if(!modulos.length){ adminToast('Selecciona al menos un módulo.', 'error'); return; }
+  var btn=document.querySelector('button[onclick="guardarUsuario()"]');
+  if(btn && !btn.getAttribute('data-master-disabled')){ btn.disabled=false; btn.removeAttribute('data-config-error'); btn.title=''; }
 
-  var tmpl = ROL_TEMPLATES[rol];
-
-  // Preservar módulos existentes no representados en la grilla (legacy/futuros)
-  var uActual = _admUsuarios.find(function(x){ return String(x.id) === String(_editId); });
-  var modIdsEnGrilla = MODULOS_DISPONIBLES.map(function(m){ return m.id; });
-  var modLegacy = (uActual && uActual.modulos ? uActual.modulos : []).filter(function(id){
-    return modIdsEnGrilla.indexOf(id) === -1;
-  });
-  var modulosFinal = modLegacy.concat(modulos).filter(function(id, i, arr){ return arr.indexOf(id) === i; });
-
-  // Payload sin pin, sin id, sin auth_user_id, sin es_master, sin activo
-  // email solo se incluye si el usuario NO tiene cuenta Auth vinculada
-  var payload = {
-    nombre:    nombre,
-    iniciales: sv('f-iniciales') || nombre.split(' ').map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase(),
-    rol:       rol,
-    rol_label: tmpl ? tmpl.label : rol,
-    wa:        sv('f-wa'),
-    modulos:   modulosFinal
-  };
-  if(!uActual || !uActual.auth_user_id){
-    payload.email = sv('f-email');
+  var baseVisible=MODULOS_DISPONIBLES.filter(function(m){ return base.indexOf(m.id)>=0 && m.id!=='dashboard'; });
+  var bgEl=document.getElementById('baseGrid');
+  if(bgEl){
+    bgEl.innerHTML=baseVisible.length
+      ? baseVisible.map(function(m){ return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:12px;background:var(--pp);color:var(--pd);border:1px solid rgba(144,72,145,.2);margin:2px 3px 2px 0">'+m.icon+' '+m.nombre+'</span>'; }).join('')
+      : '<span style="font-size:11px;color:var(--tm)">Acceso total (cargo administrador)</span>';
   }
 
-  adminPatch(_editId, payload).then(function(){
+  var grupos={};
+  MODULOS_DISPONIBLES.filter(function(m){ return MODULOS_ADICIONALES_PERMITIDOS.indexOf(m.id)>=0 && base.indexOf(m.id)===-1; })
+    .forEach(function(m){ if(!grupos[m.grupo]) grupos[m.grupo]=[]; grupos[m.grupo].push(m); });
+  var html='';
+  Object.keys(grupos).forEach(function(g){
+    html+='<div style="margin-bottom:10px"><div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid #e8dde8">'+g+'</div><div class="modulos-grid">';
+    grupos[g].forEach(function(m){
+      var checked=_draftModulosAdicionales.indexOf(m.id)>=0;
+      html+='<div class="mod-check-item"><input type="checkbox" id="mod-'+m.id+'" value="'+m.id+'"'+(checked?' checked':'')+' ><span class="mod-icon">'+m.icon+'</span><label for="mod-'+m.id+'">'+m.nombre+'</label></div>';
+    });
+    html+='</div></div>';
+  });
+  var futuros=MODULOS_DISPONIBLES.filter(function(m){ return MODULOS_FUTUROS_IDS.indexOf(m.id)>=0; });
+  if(futuros.length){
+    html+='<div style="margin-top:8px;padding:8px 10px;background:var(--sur2);border-radius:7px;border:1px dashed var(--bdr)"><div style="font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Próximamente</div><div style="display:flex;flex-wrap:wrap;gap:5px">'+futuros.map(function(m){ return '<span style="font-size:10px;color:var(--tm);padding:2px 7px;border-radius:9px;background:var(--bg);border:1px solid var(--bdr)">'+m.nombre+'</span>'; }).join('')+'</div></div>';
+  }
+  var agEl=document.getElementById('adicionalesGrid'); if(agEl) agEl.innerHTML=html;
+}
+
+function getAdicionalesSeleccionadosDesdeDom(){
+  return MODULOS_ADICIONALES_PERMITIDOS.filter(function(id){ var el=document.getElementById('mod-'+id); return el && el.checked; });
+}
+// ── MODAL EDITAR ──────────────────────────────────────────────────────────
+function abrirModalEditar(id){
+  var u=_admUsuarios.find(function(x){ return String(x.id)===String(id); });
+  if(!u) return;
+  _editId=id;
+
+  // Determinar si el usuario actual (caller) es Master — una sola vez
+  var sesionActual=window._contadoorSesion||getUsuario();
+  var esMasterActual=sesionActual && sesionActual.esMaster===true;
+
+  // Título: Editar para Master, Ver para no-Master
+  document.getElementById('modalTitle').textContent=(esMasterActual?'Editar':'Ver')+' \u2014 '+u.nombre;
+
+  // Datos personales
+  document.getElementById('f-nombre').value=u.nombre||'';
+  document.getElementById('f-iniciales').value=u.iniciales||'';
+  document.getElementById('f-wa').value=u.wa||'';
+
+  // Email
+  var emailField=document.getElementById('f-email');
+  emailField.value=u.email||'';
+  if(u.auth_user_id){
+    emailField.setAttribute('readonly','readonly');
+    emailField.style.background='#f5f0f5'; emailField.style.color='#9a849b';
+    document.getElementById('f-email-hint').textContent='Correo de acceso vinculado. Se gestiona desde Supabase Auth.';
+  }else{
+    emailField.removeAttribute('readonly');
+    emailField.style.background=''; emailField.style.color='';
+    document.getElementById('f-email-hint').textContent='Se usar\u00e1 para enviar la invitaci\u00f3n de acceso.';
+  }
+
+  // Selector de cargo
+  // Mostrar/ocultar la opción Master según si el target es Master
+  var optMaster = document.querySelector('#f-rol option[value="master"]');
+  if(optMaster) optMaster.style.display = u.es_master ? '' : 'none';
+
+  var rolSel=document.getElementById('f-rol');
+  if(u.es_master||!esMasterActual){
+    // Deshabilitado si el target es Master (inmutable) o si el caller no es Master
+    rolSel.value=u.rol||'';
+    rolSel.disabled=true;
+    rolSel.title=u.es_master
+      ? 'El cargo de un usuario Master no puede modificarse desde el Admin.'
+      : 'Solo Master puede cambiar el cargo.';
+  }else{
+    rolSel.disabled=false; rolSel.title='';
+    rolSel.value=u.rol||'';
+  }
+
+  // Inicializar draft con los módulos adicionales actuales del usuario
+  _draftModulosAdicionales=modulosAdicionalesDeUsuario(u);
+
+  // Aviso y botón guardar — controlados por esMaster del caller
+  var aviso=document.getElementById('avisoSoloMaster');
+  var btnGuardar=document.querySelector('button[onclick="guardarUsuario()"]');
+  if(!esMasterActual){
+    if(aviso){ aviso.style.display='block'; }
+    if(btnGuardar){ btnGuardar.disabled=true; btnGuardar.setAttribute('data-master-disabled','1'); btnGuardar.title='Solo Master puede modificar usuarios'; }
+  }else{
+    if(aviso){ aviso.style.display='none'; }
+    if(btnGuardar){ btnGuardar.disabled=false; btnGuardar.removeAttribute('data-master-disabled'); btnGuardar.title=''; }
+  }
+
+  // Modo consulta para no-Master: deshabilitar campos de texto
+  ['f-nombre','f-iniciales','f-wa'].forEach(function(fid){
+    var el=document.getElementById(fid);
+    if(el){ el.disabled=!esMasterActual; }
+  });
+  // Email: editable solo si no-Auth Y caller es Master
+  var ef=document.getElementById('f-email');
+  if(ef){ ef.disabled=!(esMasterActual && !u.auth_user_id); }
+  // Checkboxes de adicionales: pointer-events bloqueados para no-Master
+  // (se aplica tras renderFormularioModulos)
+  window._pendingAdicionalesReadOnly=!esMasterActual;
+
+  renderFormularioModulos(u.rol||'');
+
+  // Aplicar bloqueo a checkboxes si no-Master
+  var agCont=document.getElementById('adicionalesGrid');
+  if(agCont){
+    agCont.style.pointerEvents=esMasterActual?'':'none';
+    agCont.style.opacity=esMasterActual?'':'0.55';
+  }
+
+  document.getElementById('modal').classList.add('on');
+}
+// ── MODAL NUEVO — deshabilitado en Fase 2B-A ─────────────────────────────
+function abrirModalNuevo(){
+  adminToast('La invitaci\u00f3n de nuevos usuarios estar\u00e1 disponible en la pr\u00f3xima fase.', 'error');
+}
+
+// ── CERRAR MODAL ──────────────────────────────────────────────────────────
+function closeModal(){
+  document.getElementById('modal').classList.remove('on');
+  _draftModulosAdicionales=[];
+  _editId=null;
+  // Restaurar botón guardar
+  var btn=document.querySelector('button[onclick="guardarUsuario()"]');
+  if(btn){ btn.disabled=false; btn.removeAttribute('data-master-disabled'); btn.removeAttribute('data-config-error'); btn.title=''; }
+  // Restaurar inputs
+  ['f-nombre','f-iniciales','f-wa','f-email','f-rol'].forEach(function(fid){
+    var el=document.getElementById(fid); if(el){ el.disabled=false; }
+  });
+  // Restaurar contenedor de adicionales
+  var ag=document.getElementById('adicionalesGrid');
+  if(ag){ ag.style.pointerEvents=''; ag.style.opacity=''; ag.innerHTML=''; }
+  // Limpiar zona base
+  var bg=document.getElementById('baseGrid'); if(bg) bg.innerHTML='';
+  // Ocultar aviso
+  var av=document.getElementById('avisoSoloMaster'); if(av) av.style.display='none';
+}
+
+// ── GUARDAR → rpc/admin_actualizar_usuario ────────────────────────────────
+function guardarUsuario(){
+  if(!_editId){ adminToast('Creación de usuarios pendiente para próxima fase.','error'); return; }
+  var nombre=sv('f-nombre');
+  if(!nombre){ adminToast('El nombre es obligatorio.','error'); return; }
+  var rol=sv('f-rol');
+  if(!rol){ adminToast('Selecciona un cargo.','error'); return; }
+  if(typeof window.gestoorGetModulosBaseRol!=='function'){
+    adminToast('❌ Error de configuración: no se puede guardar sin el catálogo de permisos. Recarga la página.','error'); return;
+  }
+  var adicionalesFinal=getAdicionalesSeleccionadosDesdeDom();
+  var uActual=_admUsuarios.find(function(x){ return String(x.id)===String(_editId); });
+
+  sbFetch('rpc/admin_actualizar_usuario',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      p_usuario_id: Number(_editId),
+      p_nombre:     nombre,
+      p_iniciales:  sv('f-iniciales')||nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(),
+      p_rol:        rol,
+      p_wa:         sv('f-wa')||null,
+      p_modulos:    adicionalesFinal,
+      p_email:      (!uActual||!uActual.auth_user_id)?(sv('f-email')||null):null
+    })
+  }).then(function(r){
+    if(!r.ok) return r.json().then(function(b){ throw b; });
+    return r.json();
+  }).then(function(){
+    _draftModulosAdicionales=[];
     closeModal();
-    adminToast('✅ Usuario actualizado correctamente.', 'ok');
+    adminToast('✅ Usuario actualizado correctamente.','ok');
     adminCargar();
   }).catch(function(e){
-    var msg = 'Error al guardar.';
-    if(e && e.status === 403) msg = 'Sin permiso para editar (HTTP 403). Verifica que tu sesión sea válida.';
-    else if(e && e.status === 401) msg = 'Sesión expirada (HTTP 401). Recarga la página.';
-    else if(e && e.status) msg += ' HTTP ' + e.status;
-    if(e && e.body && e.body.message) msg += ': ' + e.body.message;
-    adminToast(msg, 'error');
+    var msg=(e&&(e.message||e.error))||'Error al guardar.';
+    adminToast('❌ '+msg,'error');
   });
 }
 
-// ── ACTIVAR / DESACTIVAR ──────────────────────────────────────────────────
-function toggleActivo(id, nuevoActivo){
-  var u = _admUsuarios.find(function(x){ return String(x.id) === String(id); });
-  if(!u){ adminToast('Usuario no encontrado.', 'error'); return; }
-
-  var sesion = getUsuario();
-  var esYo = sesion && sesion.id && String(sesion.id) === String(id);
-
-  if(!nuevoActivo){
-    if(esYo){ adminToast('No puedes desactivarte a ti mismo.', 'error'); return; }
-    if(u.es_master){
-      var mastersActivos = _admUsuarios.filter(function(x){ return x.es_master && x.activo; });
-      if(mastersActivos.length <= 1){ adminToast('No puedes desactivar al único usuario Master activo.', 'error'); return; }
-    }
-    if(!confirm('¿Desactivar a ' + u.nombre + '? Su acceso quedará bloqueado al volver a cargar o iniciar sesión. La revocación inmediata de una sesión activa se implementará en la próxima fase.')) return;
-  } else {
-    if(!confirm('¿Reactivar a ' + u.nombre + '?')) return;
-  }
-
-  adminPatch(id, {activo: nuevoActivo}).then(function(){
-    adminToast(nuevoActivo ? '✅ Usuario reactivado.' : '⏸ Usuario desactivado.', 'ok');
+// ── ACTIVAR / DESACTIVAR → rpc/admin_toggle_activo ───────────────────────
+function toggleActivo(id,nuevoActivo){
+  var u=_admUsuarios.find(function(x){ return String(x.id)===String(id); });
+  if(!u){ adminToast('Usuario no encontrado.','error'); return; }
+  var confirmMsg=nuevoActivo
+    ? '¿Reactivar a '+u.nombre+'?'
+    : '¿Desactivar a '+u.nombre+'? Su acceso quedará bloqueado en el próximo intento de sesión.';
+  if(!confirm(confirmMsg)) return;
+  sbFetch('rpc/admin_toggle_activo',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({p_usuario_id:Number(id),p_activo:nuevoActivo})
+  }).then(function(r){
+    if(!r.ok) return r.json().then(function(b){ throw b; });
+    return r.json();
+  }).then(function(){
+    adminToast(nuevoActivo?'✅ Usuario reactivado.':'⏸ Usuario desactivado.','ok');
     adminCargar();
   }).catch(function(e){
-    var msg = nuevoActivo ? 'Error al reactivar.' : 'Error al desactivar.';
-    if(e && e.status === 403) msg = 'Sin permiso (HTTP 403). Solo el Master puede cambiar el estado.';
-    else if(e && e.status === 401) msg = 'Sesión expirada (HTTP 401).';
-    else if(e && e.status) msg += ' HTTP ' + e.status;
-    if(e && e.body && e.body.message) msg += ': ' + e.body.message;
-    adminToast(msg, 'error');
+    var msg=(e&&(e.message||e.error))||(nuevoActivo?'Error al reactivar.':'Error al desactivar.');
+    adminToast('❌ '+msg,'error');
   });
 }
 
-// ── INICIALIZACIÓN ────────────────────────────────────────────────────────
-// sbFetch usa _waitForAuthReady() internamente — espera al JWT antes de la primera petición.
-// ── INVITAR USUARIO EXISTENTE ────────────────────────────────────────────
+// ── INVITAR USUARIO EXISTENTE ─────────────────────────────────────────────
 // Invoca la Edge Function gestoor-invite-existing-user con JWT explícito.
 // El navegador SOLO envía { perfil_id }. Email y rol los obtiene la función del servidor.
 async function invitarUsuario(id){
@@ -587,7 +652,6 @@ async function invitarUsuario(id){
   if(!u.email){ adminToast('El perfil no tiene email. Agrégalo antes de invitar.', 'error'); return; }
   if(u.auth_user_id){ adminToast('Este usuario ya tiene cuenta Auth vinculada.', 'error'); return; }
 
-  // Guard: verificar disponibilidad del cliente autenticado
   if(
     !window._sbAuthClient ||
     !window._sbAuthClient.functions ||
@@ -599,85 +663,54 @@ async function invitarUsuario(id){
 
   if(!confirm(
     'Se enviará una invitación de acceso a:\n' +
-    u.nombre + ' (' + u.email + ')\n\n' +
-    '¿Confirmar?'
+    u.nombre + ' (' + u.email + ')\n\n¿Confirmar?'
   )) return;
 
   var btn = document.getElementById('btn-invite-' + id);
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Enviando…'; }
 
-  function restablecerBtn(){
-    if(btn){ btn.disabled = false; btn.textContent = '✉️ Enviar invitación'; }
-  }
+  function restablecerBtn(){ if(btn){ btn.disabled = false; btn.textContent = '✉️ Enviar invitación'; } }
 
   function leerMensajeError(result){
     var context = result && result.error && result.error.context;
     if(context && typeof context.json === 'function'){
       return context.json().then(function(body){
         return (body && (body.error || body.message)) || result.error.message || 'Error desconocido.';
-      }).catch(function(){
-        return result.error.message || 'Error desconocido.';
-      });
+      }).catch(function(){ return result.error.message || 'Error desconocido.'; });
     }
     return Promise.resolve(result.error.message || 'Error desconocido.');
   }
 
   try{
-    // Paso 1: obtener sesión explícita — no asumir que functions.invoke la agrega
     var sessionResult = await window._sbAuthClient.auth.getSession();
     var session       = sessionResult && sessionResult.data && sessionResult.data.session;
     var accessToken   = session && session.access_token;
-
     if(sessionResult.error || !accessToken){
       adminToast('Tu sesión expiró. Cierra sesión e ingresa nuevamente.', 'error');
-      restablecerBtn();
-      return;
+      restablecerBtn(); return;
     }
-
-    // Paso 2: verificar usuario activo antes de invocar
     var userResult = await window._sbAuthClient.auth.getUser();
     if(userResult.error || !userResult.data || !userResult.data.user){
       adminToast('No fue posible validar tu sesión. Ingresa nuevamente.', 'error');
-      restablecerBtn();
-      return;
+      restablecerBtn(); return;
     }
-
-    // Paso 3: invocar Edge Function con JWT explícito en el header
     var result = await window._sbAuthClient.functions.invoke(
       'gestoor-invite-existing-user',
-      {
-        headers: {
-          Authorization: 'Bearer ' + accessToken
-        },
-        body: { perfil_id: u.id }
-      }
+      { headers: { Authorization: 'Bearer ' + accessToken }, body: { perfil_id: u.id } }
     );
-
     if(result.error){
       var msg = await leerMensajeError(result);
-      // Mensaje específico para 401
       if(msg && msg.indexOf('401') >= 0 || (result.error && result.error.status === 401)){
-        adminToast(
-          'Tu sesión no fue aceptada por Supabase. Cierra sesión, vuelve a ingresar y reintenta.',
-          'error'
-        );
+        adminToast('Tu sesión no fue aceptada por Supabase. Cierra sesión, vuelve a ingresar y reintenta.', 'error');
       }else{
         adminToast('Error: ' + msg, 'error');
       }
-      restablecerBtn();
-      return;
+      restablecerBtn(); return;
     }
-
     var data = result.data;
-    if(!data || !data.ok){
-      adminToast('Error inesperado. Intenta de nuevo.', 'error');
-      restablecerBtn();
-      return;
-    }
-
+    if(!data || !data.ok){ adminToast('Error inesperado. Intenta de nuevo.', 'error'); restablecerBtn(); return; }
     adminToast('\u2705 Invitación enviada a ' + data.email, 'ok');
     adminCargar();
-
   }catch(e){
     var msg = 'Error al contactar el servidor.';
     if(e && e.message) msg += ' ' + e.message;
@@ -687,10 +720,33 @@ async function invitarUsuario(id){
 }
 
 (function initAdmin(){
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', adminCargar);
-  } else {
+  // R3.2: adminCargar() se ejecuta UNA SOLA VEZ cuando auth.js confirma la sesión.
+  // auth.js setea window._contadoorSesion y luego llama revelarContenido(),
+  // que hace classList.remove('auth-pending').
+  // El MutationObserver detecta ese momento — _contadoorSesion ya está disponible.
+  // No depender de DOMContentLoaded (dispara antes de que auth resuelva getUser/getProfile)
+  // ni de sessionStorage (puede contener datos de una sesión anterior).
+  var _cargado = false;
+  function ejecutarCarga(){
+    if(_cargado) return;   // garantía de ejecución única
+    _cargado = true;
     adminCargar();
+  }
+
+  if(!document.documentElement.classList.contains('auth-pending')){
+    // auth-pending ya fue retirada (auth.js terminó antes de que corriera initAdmin)
+    ejecutarCarga();
+  } else {
+    var obs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        if(m.attributeName === 'class' &&
+           !document.documentElement.classList.contains('auth-pending')){
+          obs.disconnect();
+          ejecutarCarga();
+        }
+      });
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   }
 })();
 
