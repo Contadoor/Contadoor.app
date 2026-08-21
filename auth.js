@@ -90,7 +90,32 @@
       //   58% opacidad → legible pero diferenciado de autorizado (100%) y futuro (40%)
       '.sb-item.nav-locked{opacity:.58!important;pointer-events:none!important;cursor:default!important;}'+
       // Candado al extremo derecho
-      '.sb-item.nav-locked .nav-lock-icon{margin-left:auto;font-size:10px;opacity:.7;flex-shrink:0;}';
+      '.sb-item.nav-locked .nav-lock-icon{margin-left:auto;font-size:10px;opacity:.7;flex-shrink:0;}'+
+      // NAV1-R4: Scroll global del sidebar — cubre ambas variantes del contenedor de nav:
+      //   <nav> sin clase (clientes)
+      //   <nav class="sb-nav"> (todos los demás módulos)
+      // min-height:0 es imprescindible para que overflow-y:auto funcione en flex:
+      //   sin él, min-height:auto permite que el nav crezca más allá del contenedor.
+      // overflow-x:hidden previene scrollbar horizontal por el ::after de secciones.
+      // flex:1 no se toca — ya está declarado en el CSS embebido de cada módulo
+      //   y la cascade lo preserva correctamente.
+      '.sidebar nav,.sidebar .sb-nav{'+
+      'overflow-y:auto!important;'+
+      'overflow-x:hidden!important;'+
+      'min-height:0!important;}'+
+      // Scrollbar discreto acorde a Gestoor.
+      // width:3px permanentemente delgado en WebKit/Blink.
+      // macOS overlay-scrollbar: thumb visible solo al desplazar.
+      // Windows/Linux clásico: thumb visible cuando hay overflow.
+      // Sin lógica :hover — comportamiento depende del SO/navegador.
+      '.sidebar nav::-webkit-scrollbar,'+
+      '.sidebar .sb-nav::-webkit-scrollbar{width:3px;}'+
+      '.sidebar nav::-webkit-scrollbar-thumb,'+
+      '.sidebar .sb-nav::-webkit-scrollbar-thumb{'+
+      'background:rgba(199,123,201,.4);'+
+      'border-radius:3px;}'+
+      '.sidebar nav::-webkit-scrollbar-track,'+
+      '.sidebar .sb-nav::-webkit-scrollbar-track{background:transparent;}';
     document.head.appendChild(st);
   }
 
