@@ -41,14 +41,6 @@
   }
   var MODULO_ACTUAL=window.GESTOOR_MODULO||detectarModuloDesdePath();
 
-  // ── Tabla de redirección por rol ─────────────────────────────────────────────
-  var ROL_REDIRECT={
-    rrhh:     'reportes-rrhh/index.html',
-    contable: 'reportes-contable/index.html',
-    pagos:    'reportes-pagos/index.html',
-    cobranza: 'cobranza/index.html'
-  };
-
   // ── Permisos por rol ─────────────────────────────────────────────────────────
   var MODULOS_POR_ROL={
     master:   ['*'],
@@ -389,25 +381,54 @@
             return base.slice();
           };
 
-          // Auto-redirect analistas desde dashboard
-          if(MODULO_ACTUAL==='dashboard'&&!perfil.es_master){
-            var redirect=ROL_REDIRECT[perfil.rol];
-            if(redirect){ window.location.replace(redirect); return; }
-          }
-
           // Control de acceso al módulo actual
           if(!puedeVerModulo(perfil,MODULO_ACTUAL)){
             mostrarAccesoDenegado(); // revelar + mensaje (no redirige al login)
             return;
           }
 
+  // ── DASHBOARD-ROL-1: Permisos del Dashboard ──────────────────────────────────
+  // Solo actúa cuando MODULO_ACTUAL === 'dashboard'.
+  // Reutiliza puedeVerModulo() internamente — sin duplicarlo ni exponerlo.
+  // index.html identifica tarjetas con data-gestoor-modulo="X".
+  // Oculta tarjetas no autorizadas antes de revelar el contenido — sin flash.
+  // Sección Admin: solo visible para Master o rol=admin.
+  // Secciones vacías (sin tarjetas activas visibles): ocultar.
+  function aplicarPermisosDashboard(sesion){
+    if(!sesion||MODULO_ACTUAL!=='dashboard') return;
+    var esMaster=sesion.esMaster===true;
+    var esAdmin=sesion.rol==='admin';
+
+    // ── Tarjetas activas: ocultar si no autorizadas ──────────────────────────
+    document.querySelectorAll('[data-gestoor-modulo]').forEach(function(el){
+      var autorizado=puedeVerModulo(sesion,el.getAttribute('data-gestoor-modulo'));
+      el.style.display=autorizado?'':'none';
+    });
+
+    // ── Sección Admin: solo Master o rol=admin ───────────────────────────────
+    var secAdmin=document.querySelector('[data-gestoor-seccion="admin"]');
+    if(secAdmin) secAdmin.style.display=(esMaster||esAdmin)?'':'none';
+
+    // ── Secciones vacías: ocultar si no hay tarjetas activas visibles ────────
+    // Una sección con solo módulos futuros (.disabled) permanece visible.
+    document.querySelectorAll('.section').forEach(function(sec){
+      if(sec.getAttribute('data-gestoor-seccion')==='admin') return;
+      var activas=sec.querySelectorAll('[data-gestoor-modulo]');
+      var algunaVisible=false;
+      activas.forEach(function(t){ if(t.style.display!=='none') algunaVisible=true; });
+      if(!algunaVisible && sec.querySelectorAll('.mod.disabled').length===0){
+        sec.style.display='none';
+      }
+    });
+  }
+
           // ── ACCESO CONCEDIDO ─────────────────────────────────────────────────
-          // NAV1: orden estructuralmente garantizado dentro del mismo whenReady.
-          // aplicarPermisosNavegacion completa ANTES de revelarContenido — sin flash.
+          // NAV1 + DASHBOARD-ROL-1: orden garantizado — permisos ANTES de revelar.
           whenReady(function(){
-            aplicarPermisosNavegacion(sesion);  // 1. ocultar links no autorizados
-            revelarContenido();                  // 2. retirar auth-pending → contenido visible
-            inyectarTopbar(sesion);             // 3. insertar badge de usuario
+            aplicarPermisosNavegacion(sesion);   // 1. sidebar: candados y ocultos
+            aplicarPermisosDashboard(sesion);    // 2. dashboard: tarjetas y secciones
+            revelarContenido();                   // 3. retirar auth-pending
+            inyectarTopbar(sesion);              // 4. badge de usuario
           });
 
         }).catch(function(e){
