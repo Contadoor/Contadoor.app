@@ -1,196 +1,172 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>SimpleAPI RCV Clave — Prueba simulación</title>
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>SimpleAPI RCV — Prueba técnica</title>
 <style>
-  body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px;color:#1a0a1b;}
-  h2{color:#904891;margin-bottom:4px;}
-  .sub{color:#5c4a5d;font-size:13px;margin-bottom:24px;}
+  body{font-family:sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#1a0a1b;}
+  h2{color:#904891;}
   .fgroup{margin-bottom:14px;}
-  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.4px;color:#5c4a5d;margin-bottom:5px;}
-  input,select{width:100%;padding:9px 12px;border:1.5px solid #e8dde8;
-    border-radius:8px;font-size:14px;box-sizing:border-box;font-family:inherit;}
-  button{padding:11px 22px;background:#904891;color:#fff;border:none;
-    border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}
+  label{display:block;font-size:12px;font-weight:700;color:#5c4a5d;margin-bottom:4px;text-transform:uppercase;}
+  input,select{width:100%;padding:9px 12px;border:1.5px solid #e8dde8;border-radius:8px;
+    font-size:14px;box-sizing:border-box;}
+  button{padding:12px 24px;background:#904891;color:#fff;border:none;border-radius:8px;
+    font-size:15px;font-weight:700;cursor:pointer;}
   button:disabled{opacity:.5;cursor:not-allowed;}
-  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;
-    padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:20px;}
-  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;
-    font-weight:700;background:#dbeafe;color:#1e40af;margin-bottom:16px;}
-  pre{background:#f5f0f5;border-radius:8px;padding:14px;font-size:11.5px;
-    overflow:auto;max-height:380px;white-space:pre-wrap;word-break:break-all;
-    border:1px solid #e8dde8;}
-  .msg{padding:10px 14px;border-radius:8px;margin-top:14px;font-size:13px;}
+  pre{background:#f5f0f5;border-radius:8px;padding:16px;font-size:11px;
+    overflow:auto;max-height:400px;white-space:pre-wrap;word-break:break-all;}
+  .msg{padding:10px 14px;border-radius:8px;margin-top:12px;font-size:13px;}
   .ok{background:#d1fae5;color:#065f46;}
   .err{background:#fee2e2;color:#991b1b;}
-  .row{display:flex;gap:12px;}
-  .row .fgroup{flex:1;}
+  .note{background:#eff6ff;color:#1e3a5f;padding:12px;border-radius:8px;font-size:12px;margin-bottom:20px;}
 </style>
 </head>
 <body>
 
-<h2>SimpleAPI RCV · Prueba con Clave SII</h2>
-<p class="sub">Modo simulación — No llama a SimpleAPI ni consume consultas reales.</p>
+<h2>SimpleAPI RCV — Prueba de integración</h2>
 
 <div class="note">
-  <strong>ℹ️ Solo modo simulación disponible.</strong><br>
-  El modo real está deshabilitado hasta confirmar el endpoint y los parámetros de SimpleAPI.<br>
-  El RUT y la clave SII se leen del servidor — nunca se envían desde esta página.
+  <strong>Solo prueba técnica.</strong> No modifica reportes_mensuales ni calcula F29.<br>
+  El JWT se obtiene automáticamente desde la sesión activa de Gestoor.
 </div>
-
-<div class="badge">🔒 modo: simulacion</div>
 
 <div class="fgroup">
-  <label>Cliente ID (número interno de Gestoor)</label>
-  <input id="clienteId" type="number" placeholder="123" min="1"/>
+  <label>Tipo</label>
+  <select id="tipo">
+    <option value="ventas">Ventas</option>
+    <option value="compras">Compras</option>
+  </select>
 </div>
 
-<div class="row">
-  <div class="fgroup">
-    <label>Período (AAAA-MM)</label>
-    <input id="periodo" type="text" placeholder="2026-07" maxlength="7"/>
-  </div>
-  <div class="fgroup">
-    <label>Tipo</label>
-    <select id="tipo">
-      <option value="ventas">Ventas</option>
-      <option value="compras">Compras</option>
-    </select>
-  </div>
+<div class="fgroup">
+  <label>Período (AAAA-MM)</label>
+  <input id="periodo" type="text" placeholder="2026-07" maxlength="7"/>
 </div>
 
-<button id="btn" onclick="probarSimulacion()">Probar simulación</button>
+<div class="fgroup">
+  <label>RUT Empresa</label>
+  <input id="rutEmpresa" type="text" placeholder="12345678-9"/>
+</div>
 
-<div id="msg"></div>
+<div class="fgroup">
+  <label>RUT Certificado</label>
+  <input id="rutCertificado" type="text" placeholder="12345678-9"/>
+</div>
+
+<div class="fgroup">
+  <label>Contraseña del Certificado</label>
+  <input id="passwordCertificado" type="password" placeholder="contraseña del .pfx" autocomplete="off"/>
+</div>
+
+<div class="fgroup">
+  <label>Certificado Digital (.pfx / .p12)</label>
+  <input id="certificado" type="file" accept=".pfx,.p12"/>
+</div>
+
+<button id="btn-consultar" onclick="consultarRCV()">Consultar RCV</button>
+
+<div id="msg-estado"></div>
 <pre id="resultado" style="display:none"></pre>
 
-<script src="../supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 (function(){
   'use strict';
 
+  // ── Conexión al proyecto (anon key pública) ─────────────────────────────
   var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
-  var EDGE   = SB_URL + '/functions/v1/simpleapi-rcv-clave-test';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 
-  function msg(txt, tipo){
-    var el = document.getElementById('msg');
+  var sbClient = window.supabase.createClient(SB_URL, SB_KEY, {
+    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
+  });
+
+  var EDGE_URL = SB_URL + '/functions/v1/simpleapi-rcv-test';
+
+  function mostrarMsg(txt, tipo){
+    var el = document.getElementById('msg-estado');
     el.className = 'msg ' + (tipo === 'ok' ? 'ok' : 'err');
     el.textContent = txt;
   }
 
-  async function obtenerSesionValida(){
-    if(window._sbAuthReady !== true){
-      await new Promise(function(resolve, reject){
-        var timer = setTimeout(function(){ reject(new Error('GESTOOR_AUTH_TIMEOUT')); }, 10000);
-        window.addEventListener('gestoor-auth-ready', function handler(){
-          clearTimeout(timer);
-          window.removeEventListener('gestoor-auth-ready', handler);
-          resolve();
-        });
-      });
-    }
-
-    if(!window._sbAuthClient){
-      throw new Error('GESTOOR_AUTH_CLIENT_MISSING');
-    }
-
-    var result = await window._sbAuthClient.auth.getSession();
-    var session = result && result.data && result.data.session;
-
-    if(!session || !session.access_token){
-      throw new Error('GESTOOR_NO_SESSION');
-    }
-
-    // Validación real contra Supabase Auth antes de llamar la Edge Function.
-    var userResult = await window._sbAuthClient.auth.getUser();
-    if(userResult.error || !userResult.data || !userResult.data.user){
-      // Intentar renovar una vez si el token persistido quedó vencido.
-      var refreshResult = await window._sbAuthClient.auth.refreshSession();
-      session = refreshResult && refreshResult.data && refreshResult.data.session;
-      if(refreshResult.error || !session || !session.access_token){
-        throw new Error('GESTOOR_INVALID_SESSION');
-      }
-      userResult = await window._sbAuthClient.auth.getUser();
-      if(userResult.error || !userResult.data || !userResult.data.user){
-        throw new Error('GESTOOR_INVALID_SESSION');
-      }
-    }
-
-    return session;
-  }
-
-  window.probarSimulacion = async function(){
-    var btn = document.getElementById('btn');
+  window.consultarRCV = async function(){
+    var btn = document.getElementById('btn-consultar');
     var res = document.getElementById('resultado');
 
-    var clienteId = parseInt(document.getElementById('clienteId').value, 10);
-    var periodo   = document.getElementById('periodo').value.trim();
-    var tipo      = document.getElementById('tipo').value;
-
-    if(!clienteId || clienteId <= 0){
-      msg('❌ Ingresa un clienteId válido.', 'err');
+    // 1. Obtener JWT activo
+    var sessionResult = await sbClient.auth.getSession();
+    var session = sessionResult && sessionResult.data && sessionResult.data.session;
+    if(!session || !session.access_token){
+      mostrarMsg('❌ Sin sesión activa. Inicia sesión en Gestoor primero.', 'err');
       return;
     }
-    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)){
-      msg('❌ Período inválido. Usa AAAA-MM (ej: 2026-07).', 'err');
+
+    // 2. Validar archivo
+    var archivoEl = document.getElementById('certificado');
+    if(!archivoEl.files || !archivoEl.files[0]){
+      mostrarMsg('❌ Selecciona el certificado .pfx o .p12.', 'err');
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = '⏳ Probando…';
+    btn.textContent = '⏳ Consultando…';
     res.style.display = 'none';
-    document.getElementById('msg').textContent = '';
+    document.getElementById('msg-estado').textContent = '';
 
-    try{
-      var session = await obtenerSesionValida();
+    try {
+      // 3. Construir FormData — sin Content-Type manual
+      var fd = new FormData();
+      fd.append('tipo',                 document.getElementById('tipo').value);
+      fd.append('periodo',              document.getElementById('periodo').value.trim());
+      fd.append('rutEmpresa',           document.getElementById('rutEmpresa').value.trim());
+      fd.append('rutCertificado',       document.getElementById('rutCertificado').value.trim());
+      fd.append('passwordCertificado',  document.getElementById('passwordCertificado').value);
+      fd.append('certificado',          archivoEl.files[0]);
 
-      var response = await fetch(EDGE, {
+      // 4. Invocar Edge Function con JWT explícito y apikey pública del proyecto
+      var response = await fetch(EDGE_URL, {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + session.access_token,
-          'apikey': SB_KEY,
-          'Content-Type': 'application/json'
+          'apikey':        SB_KEY,
+          // Content-Type NO se incluye: fetch lo calcula con el boundary correcto
         },
-        body: JSON.stringify({
-          clienteId: clienteId,
-          periodo: periodo,
-          tipo: tipo,
-          modo: 'simulacion'
-        })
+        body: fd,
       });
 
-      var data;
-      try{ data = await response.json(); }
-      catch(e){ data = { ok:false, code:'INVALID_RESPONSE', message:'La función no devolvió JSON válido.' }; }
+      var data = await response.json();
 
       if(data.ok){
-        msg('✅ Simulación OK' +
-          (data.credencialDisponible
-            ? ' · credenciales SII configuradas en el cliente'
-            : ' · ⚠️ El cliente no tiene credenciales SII configuradas'), 'ok');
+        mostrarMsg(
+          '✅ Consulta OK — HTTP ' + data.simpleApiStatus +
+          (data.cantidadAproximada !== null
+            ? ' — ~' + data.cantidadAproximada + ' documentos'
+            : ''),
+          'ok'
+        );
       }else{
-        msg('❌ ' + (data.message || 'Error') + ' [' + (data.code || response.status || '?') + ']', 'err');
+        mostrarMsg('❌ ' + (data.message || 'Error desconocido') + ' [' + (data.code||'?') + ']', 'err');
       }
 
       res.style.display = 'block';
       res.textContent = JSON.stringify(data, null, 2);
+
     }catch(e){
-      var map = {
-        GESTOOR_NO_SESSION: 'Sin sesión activa. Inicia sesión nuevamente en Gestoor.',
-        GESTOOR_INVALID_SESSION: 'La sesión guardada no es válida. Cierra sesión e ingresa nuevamente.',
-        GESTOOR_AUTH_TIMEOUT: 'La autenticación tardó demasiado en cargar.',
-        GESTOOR_AUTH_CLIENT_MISSING: 'No se pudo cargar el cliente de autenticación de Gestoor.'
-      };
-      msg('❌ ' + (map[e.message] || ('Error: ' + (e.message || e))), 'err');
+      mostrarMsg('❌ Error de red: ' + (e.message || e), 'err');
     }finally{
+      // Limpiar secretos del formulario — ocurre siempre (éxito, error SimpleAPI, error de red)
+      // No limpiar rutEmpresa, rutCertificado, periodo ni tipo (útiles para diagnóstico/reintento)
+      document.getElementById('passwordCertificado').value = '';
+      document.getElementById('certificado').value = '';
+
       btn.disabled = false;
-      btn.textContent = 'Probar simulación';
+      btn.textContent = 'Consultar RCV';
     }
   };
+
 })();
 </script>
-
 </body>
 </html>
