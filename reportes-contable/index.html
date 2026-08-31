@@ -153,6 +153,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .preview-totales{background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:12px;}
 .preview-adv{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:11px;max-height:80px;overflow-y:auto;}
 .libros-gate-msg{background:#fff7ed;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:11px;color:#92400e;margin-bottom:10px;}
+
+@media print{.no-print{display:none!important;}}
 </style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -277,6 +279,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-rut"/>
     <input type="hidden" id="m-periodo"/>
+
+    <!-- SINCRONIZACIÓN SII — RCV-PROD-4F-B-R1 — READ ONLY en esta versión -->
+    <div id="sii-bloque-f29" class="no-print" style="margin-bottom:14px;border:1px solid var(--bdr,#e2e8f0);border-radius:10px;overflow:hidden">
+      <div style="background:var(--sur2,#f8fafc);padding:9px 14px;border-bottom:1px solid var(--bdr,#e2e8f0);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--contable,#1e40af)">Sincronización SII</div>
+        <div id="sii-f29-auth-msg" style="font-size:10px;color:#b45309"></div>
+      </div>
+      <div id="sii-f29-cuerpo" style="padding:12px 14px">
+        <div style="font-size:12px;color:var(--tm,#64748b)">Cargando estado...</div>
+      </div>
+    </div>
 
     <!-- IVA -->
     <div class="card-hd">📋 IVA — Formulario 29</div>
@@ -1339,6 +1352,13 @@ function abrirF29(rut){
 
   calcIVA();calcPPM();calcTotal();togglePostergacion();
   document.getElementById('modalF29').classList.add('on');
+  // Cargar estado SII F29 — lazy, solo al abrir un Pre-IVA concreto
+  if(c.id){
+    _siiF29CargarEstado(c.id, _periodoActual);
+  }else{
+    var el=document.getElementById('sii-f29-cuerpo');
+    if(el)el.innerHTML='<div style="font-size:12px;color:var(--tm,#64748b)">Cliente sin ID registrado.</div>';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2004,7 +2024,14 @@ async function procesarArchivoLibro(file, sheetName){
 }
 
 
-function closeModal(){document.getElementById('modalF29').classList.remove('on');}
+function closeModal(){
+  document.getElementById('modalF29').classList.remove('on');
+  // Resetear estado SII F29 — invalida cualquier fetch tardío
+  _siiF29ClienteId=null;
+  _siiF29Periodo=null;
+  _siiF29Loading={compras:false,ventas:false};
+  _siiF29MensajePendiente=null;
+}
 
 // ── CÁLCULOS TRIBUTARIOS ──────────────────────────────────────────────────
 function calcIVA(){
@@ -4128,6 +4155,258 @@ function normFechaLib(val){
     intentarInicio();
   }
 })();
+
+// ═══════════════════════════════════════════════════════════════
+// SINCRONIZACIÓN SII — RCV-PROD-4F-B-R1
+// Helpers con prefijo _siiF29* — NO comparten globales con Panel de Control.
+// READ-ONLY en esta versión: visualización + sincronización manual.
+// NO modifica f29.*, rep.*, _librosMap ni buildBorradorF29.
+// ═══════════════════════════════════════════════════════════════
+
+var _siiF29Loading          = {compras:false, ventas:false};
+var _siiF29ClienteId        = null;
+var _siiF29Periodo          = null;  // YYYY-MM nativo — sin conversión en módulo contable
+var _siiF29MensajePendiente = null;
+
+// Helper Edge: POST con JWT real del usuario.
+// Usa _gestoorAccessToken (global de supabase.js vía onAuthStateChange).
+// NO usa sbFetch ni anon key como Authorization.
+function _siiF29CallEdge(fn, body){
+  var tok = window._gestoorAccessToken;
+  if(!tok){
+    // Sin token: devolver respuesta browser-safe UNAUTHORIZED
+    return Promise.resolve({
+      ok:false, status:401,
+      json:function(){return Promise.resolve({ok:false,code:'UNAUTHORIZED'});}
+    });
+  }
+  return fetch(SB_URL+'/functions/v1/'+fn,{
+    method:'POST',
+    headers:{
+      'Authorization':'Bearer '+tok,
+      'apikey':SB_KEY,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify(body)
+  });
+}
+
+// Formato fecha: ISO → "28-08-2026 18:40" en hora local
+function _siiF29FormatoFecha(iso){
+  if(!iso)return null;
+  try{
+    var d=new Date(iso);
+    if(isNaN(d.getTime()))return null;
+    return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})
+      +' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){return null;}
+}
+
+// Renderizar bloque SII en #sii-f29-cuerpo
+function _siiF29Render(data){
+  var el=document.getElementById('sii-f29-cuerpo');
+  var authEl=document.getElementById('sii-f29-auth-msg');
+  if(!el)return;
+
+  var authEstado=data&&data.autorizacionSii?data.autorizacionSii.estado:'no_validado';
+  var authMsgs={
+    'validado':'',
+    'no_validado':'⚠️ Debes validar la autorización SII antes de sincronizar.',
+    'revalidacion_requerida':'⚠️ El certificado cambió. Debes revalidar la autorización SII.',
+    'sin_certificado':'⚠️ No hay certificado digital central configurado.',
+    'certificado_no_vigente':'⚠️ El certificado digital central no está vigente.'
+  };
+  if(authEl)authEl.textContent=authMsgs[authEstado]||'';
+
+  var puedeSync=(authEstado==='validado');
+
+  function _siiF29BloqueRcv(tipo, fuente){
+    var estadoLabel={
+      'nunca':'Nunca sincronizado',
+      'ejecutando':'Actualizando...',
+      'completado':'Actualizado',
+      'error':'Último intento con error'
+    }[fuente.estado]||fuente.estado||'—';
+
+    var _badgeBg={'nunca':'#e5e7eb','ejecutando':'#dbeafe','completado':'#d1fae5','error':'#fee2e2'};
+    var _badgeFg={'nunca':'#6b7280','ejecutando':'#1d4ed8','completado':'#065f46','error':'#991b1b'};
+    var bgColor=_badgeBg[fuente.estado]||'#e5e7eb';
+    var fgColor=_badgeFg[fuente.estado]||'#6b7280';
+
+    var tituloMay=tipo==='compras'?'Compras':'Ventas';
+    var btnId='_siiF29-btn-'+tipo;
+
+    // snapshot con 0 documentos es dato válido — "Sin datos" = sin snapshot actual
+    var tieneDatos=(fuente.esActual===true&&fuente.version!=null);
+    var ultimosDatos=tieneDatos
+      ?((fuente.nDocumentos||0)+' documentos'
+        +(fuente.datosActualizadosAt?' · '+_siiF29FormatoFecha(fuente.datosActualizadosAt):''))
+      :'Sin datos';
+
+    var loadingNow=_siiF29Loading[tipo];
+    var enEjecucion=(fuente.estado==='ejecutando');
+    var btnLabel=(loadingNow||enEjecucion)?'Actualizando...':'Actualizar '+tituloMay;
+    var btnDisabled=(loadingNow||enEjecucion||!puedeSync)?'disabled':'';
+
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--bdr,#e2e8f0)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--t1,#1e293b)">'+tituloMay+'</div>'
+      +'<div style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:9px;background:'+bgColor+';color:'+fgColor+'">'+estadoLabel+'</div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--t2,#475569);margin-bottom:2px">'+ultimosDatos+'</div>'
+      +'<div style="font-size:10px;color:var(--tm,#64748b);margin-bottom:7px">Último intento: '+(fuente.ultimaSincronizacion?_siiF29FormatoFecha(fuente.ultimaSincronizacion):'—')+'</div>'
+      +'<button id="'+btnId+'" '+btnDisabled+' onclick="_siiF29Sincronizar(\''+tipo+'\')" '
+      +'style="font-size:11px;padding:4px 11px;border-radius:5px;border:1px solid var(--contable,#1e40af);'
+      +'background:'+(btnDisabled?'#f3f4f6':'#eff6ff')+';color:'+(btnDisabled?'#9ca3af':'var(--contable,#1e40af)')+';'
+      +'cursor:'+(btnDisabled?'default':'pointer')+';font-family:inherit">'
+      +btnLabel+'</button>'
+      +'</div>';
+  }
+
+  var h='';
+  h+=_siiF29BloqueRcv('compras', data.compras||{estado:'nunca',nDocumentos:0,esActual:false,version:null,ultimaSincronizacion:null,datosActualizadosAt:null});
+  h+=_siiF29BloqueRcv('ventas',  data.ventas ||{estado:'nunca',nDocumentos:0,esActual:false,version:null,ultimaSincronizacion:null,datosActualizadosAt:null});
+
+  // Honorarios — Próximamente
+  h+='<div style="padding:8px 0;display:flex;align-items:center;justify-content:space-between">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--tm,#64748b)">Honorarios</div>'
+    +'<div style="font-size:10px;color:var(--tm,#64748b)">Próximamente</div>'
+    +'</div>';
+
+  h+='<div id="_siiF29-msg" style="font-size:11px;margin-top:5px;display:none"></div>';
+
+  el.innerHTML=h;
+
+  // Mostrar mensaje pendiente de sincronización, si existe
+  if(_siiF29MensajePendiente){
+    _siiF29MostrarMensaje(_siiF29MensajePendiente.tipo, _siiF29MensajePendiente.texto);
+    _siiF29MensajePendiente=null;
+  }
+}
+
+// Cargar estado READ-ONLY desde gestoor-rcv-estado
+function _siiF29CargarEstado(clienteId, periodo){
+  var el=document.getElementById('sii-f29-cuerpo');
+  if(!el)return;
+
+  // Limpiar inmediatamente para evitar datos del cliente anterior
+  el.innerHTML='<div style="font-size:12px;color:var(--tm,#64748b)">Cargando estado...</div>';
+  var authElPre=document.getElementById('sii-f29-auth-msg');
+  if(authElPre)authElPre.textContent='';
+
+  // Validar período estricto YYYY-MM (mes 01..12)
+  if(!periodo||!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(periodo))){
+    el.innerHTML='<div style="font-size:12px;color:var(--tm,#64748b)">Período no disponible.</div>';
+    return;
+  }
+
+  _siiF29ClienteId=clienteId;
+  _siiF29Periodo=periodo;
+  // Captura local para stale guard (cliente + período)
+  var capId=clienteId, capPer=periodo;
+
+  _siiF29CallEdge('gestoor-rcv-estado',{clienteId:clienteId,periodo:periodo})
+  .then(function(res){
+    var okHttp=res.ok;
+    var status=res.status;
+    return res.json().then(function(data){return{okHttp:okHttp,status:status,data:data};});
+  })
+  .then(function(result){
+    // Ignorar respuesta tardía (cliente o período cambiaron)
+    if(_siiF29ClienteId!==capId||_siiF29Periodo!==capPer)return;
+    if(result.okHttp&&result.data&&result.data.ok){
+      _siiF29Render(result.data);
+    }else{
+      _siiF29MensajePendiente=null;  // limpiar stale
+      var msg='No fue posible cargar el estado de sincronización.';
+      if(result.status===401||(result.data&&result.data.code==='UNAUTHORIZED')){
+        msg='Sesión expirada. Recarga la página o vuelve a iniciar sesión.';
+      }
+      // HTTP no-2xx nunca se interpreta como estado 'nunca'
+      if(el)el.innerHTML='<div style="font-size:12px;color:#dc2626">'+msg+'</div>';
+    }
+  })
+  .catch(function(){
+    if(_siiF29ClienteId!==capId||_siiF29Periodo!==capPer)return;
+    _siiF29MensajePendiente=null;  // limpiar stale ante error de red
+    if(el)el.innerHTML='<div style="font-size:12px;color:#dc2626">No fue posible cargar el estado de sincronización.</div>';
+  });
+}
+
+// Sincronizar: POST a gestoor-rcv-consultar → reload de estado
+function _siiF29Sincronizar(tipo){
+  if(_siiF29Loading[tipo])return;
+  if(!_siiF29ClienteId||!_siiF29Periodo)return;
+  _siiF29Loading[tipo]=true;
+  var btn=document.getElementById('_siiF29-btn-'+tipo);
+  if(btn){btn.disabled=true;btn.textContent='Actualizando...';}
+
+  var capturedId=_siiF29ClienteId;
+  var capturedPer=_siiF29Periodo;
+
+  _siiF29CallEdge('gestoor-rcv-consultar',{
+    clienteId:_siiF29ClienteId,
+    periodo:_siiF29Periodo,
+    tipo:tipo
+  })
+  .then(function(res){
+    var okHttp=res.ok;
+    var status=res.status;
+    return res.json().then(function(data){return{okHttp:okHttp,status:status,data:data};});
+  })
+  .then(function(result){
+    _siiF29Loading[tipo]=false;
+    var data=result.data;
+    if(_siiF29ClienteId!==capturedId||_siiF29Periodo!==capturedPer)return;
+    // Guardar mensaje antes de recargar (evita que _siiF29Render lo borre)
+    _siiF29MensajePendiente={
+      tipo:(result.okHttp&&data&&data.ok?'exito':'error'),
+      texto:_siiF29MensajeError(data)
+    };
+    _siiF29CargarEstado(capturedId, capturedPer);
+  })
+  .catch(function(){
+    _siiF29Loading[tipo]=false;
+    if(_siiF29ClienteId!==capturedId||_siiF29Periodo!==capturedPer)return;
+    // No llamar _siiF29MostrarMensaje directamente — el mensaje se mostrará tras reload
+    _siiF29MensajePendiente={tipo:'error',texto:'No fue posible completar la sincronización.'};
+    _siiF29CargarEstado(capturedId, capturedPer);
+  });
+}
+
+// Mapear código de error de la Edge a mensaje UX
+function _siiF29MensajeError(data){
+  if(!data||data.ok)return'Sincronización completada.';
+  var map={
+    'SII_NOT_AUTHORIZED':'Debes validar la autorización SII antes de sincronizar.',
+    'SII_REVALIDATION_REQUIRED':'El certificado cambió. Debes revalidar la autorización SII.',
+    'PROVIDER_TIMEOUT':'El servicio SII no respondió a tiempo.',
+    'PROVIDER_ERROR':'El servicio SII no respondió correctamente.',
+    'PROVIDER_AUTH':'Existe un problema de configuración con el proveedor SII. Contacta a soporte.',
+    'CERT_NOT_CONFIGURED':'No hay certificado digital configurado.',
+    'CRYPTO_ERROR':'No fue posible utilizar el certificado digital. Contacta a soporte.',
+    'NORMALIZATION_ERROR':'La respuesta recibida no pudo procesarse.',
+    'PERSISTENCE_ERROR':'No fue posible guardar la información.',
+    'INTERNAL_STATE_CONFLICT':'Ya existe un proceso en curso.',
+    'CLIENT_NOT_ACCESSIBLE':'No tienes acceso a este cliente.',
+    'CLIENT_INACTIVE':'El cliente no está activo.',
+    'CLIENT_DATA_ERROR':'Los datos tributarios del cliente requieren revisión.',
+    'FORBIDDEN':'No tienes permisos para realizar esta acción.',
+    'INTERNAL_ERROR':'Ocurrió un error interno. Intenta nuevamente o contacta a soporte.',
+    'UNAUTHORIZED':'Sesión expirada. Recarga la página o vuelve a iniciar sesión.'
+  };
+  return map[data.code]||'No fue posible completar la sincronización.';
+}
+
+// Mostrar mensaje inline en #_siiF29-msg
+function _siiF29MostrarMensaje(tipo, texto){
+  var el=document.getElementById('_siiF29-msg');
+  if(!el)return;
+  el.style.color=(tipo==='exito'?'#065f46':'#dc2626');
+  el.style.display='block';
+  el.textContent=texto;
+  setTimeout(function(){if(el)el.style.display='none';},5000);
+}
 
 </script>
 
