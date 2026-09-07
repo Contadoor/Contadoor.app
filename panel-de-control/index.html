@@ -768,8 +768,12 @@ function formatPeriodo(p){
 }
 function formatPer(per){
   if(!per)return '';
-  var y=String(per).slice(0,4),m=parseInt(String(per).slice(4,6));
-  return isNaN(m)?formatPeriodo(per):MESES[m-1]+' '+y;
+  var s=String(per),y,m;
+  if(/^\d{6}$/.test(s)){y=s.slice(0,4);m=parseInt(s.slice(4,6),10);}
+  else if(/^\d{4}-\d{2}$/.test(s)){y=s.slice(0,4);m=parseInt(s.slice(5,7),10);}
+  else{return formatPeriodo(s);}
+  if(m<1||m>12)return formatPeriodo(s);
+  return MESES[m-1]+' '+y;
 }
 function ffPer(n){return Math.round(n||0).toLocaleString('es-CL');}
 function setPeriodoActual(){
@@ -1761,14 +1765,16 @@ function _monitorCargarLote(clienteIds,periodoLocal,forceRefresh){
   var capturedGen={};
   var idsAConsultar=idsFaltantes.filter(function(id){
     var key=periodoApi+':'+id;
+    // Inicializar generation explícitamente — evita que undefined||0 produzca mismatch
+    if(_monGeneration[key]===undefined)_monGeneration[key]=0;
     if(forceRefresh){
       // Incrementar generation: la request vieja queda obsoleta
-      _monGeneration[key]=(_monGeneration[key]||0)+1;
+      _monGeneration[key]=_monGeneration[key]+1;
     }else if(_monInflight[key]!==undefined){
       // Guard: cualquier generation existente bloquea (no solo truthy)
       return false;
     }
-    capturedGen[key]=_monGeneration[key]||0;
+    capturedGen[key]=_monGeneration[key];
     return true;
   });
   if(idsAConsultar.length===0)return;
