@@ -1683,19 +1683,21 @@ function _monPeorEstado(fuente){
 
 function _monTextoEstado(estado){
   var map={
-    OK:                 {label:'● OK',        color:'#065f46'},
-    ATRASADO:           {label:'● Atrasado',  color:'#b45309'},
-    ERROR:              {label:'● Error',     color:'#991b1b'},
-    EJECUTANDO:         {label:'● Sync…',   color:'#1d4ed8'},
-    NUNCA_SINCRONIZADO: {label:'● Sin datos', color:'#64748b'}
+    OK:                 {label:'● Al día',         color:'#065f46'},
+    ATRASADO:           {label:'● Por actualizar', color:'#b45309'},
+    ERROR:              {label:'● Revisar',        color:'#991b1b'},
+    EJECUTANDO:         {label:'● Actualizando…', color:'#1d4ed8'},
+    NUNCA_SINCRONIZADO: {label:'● Sin datos',      color:'#64748b'}
   };
   return map[estado]||{label:'—',color:'#64748b'};
 }
 
 function _monTooltip(fuente){
+  var _ux={OK:'Al día',ATRASADO:'Por actualizar',ERROR:'Revisar',
+    EJECUTANDO:'Actualizando',NUNCA_SINCRONIZADO:'Sin datos'};
   var ec=fuente.compras?fuente.compras.estado:'NUNCA_SINCRONIZADO';
   var ev=fuente.ventas ?fuente.ventas.estado :'NUNCA_SINCRONIZADO';
-  return'Compras: '+ec+' · Ventas: '+ev;
+  return'Compras: '+(_ux[ec]||ec)+' · Ventas: '+(_ux[ev]||ev);
 }
 
 function _monActualizarIndicador(clienteId,fuente){
@@ -1861,8 +1863,9 @@ function _monMostrarEnModal(monDat){
   if(!el)return;
   function _monBloqueModal(tipo,fuente){
     if(!fuente)return'';
-    var estadoLabel={OK:'Actualizado',ATRASADO:'Pendiente de actualización',ERROR:'Último intento con error',
-      EJECUTANDO:'Actualizando...',NUNCA_SINCRONIZADO:'Nunca sincronizado'}[fuente.estado]||fuente.estado;
+    var _monUx={OK:'Al día',ATRASADO:'Por actualizar',ERROR:'Revisar',
+      EJECUTANDO:'Actualizando',NUNCA_SINCRONIZADO:'Sin datos'};
+    var estadoLabel=_monUx[fuente.estado]||fuente.estado;
     var h='<div style="margin-bottom:6px;font-size:11px;color:var(--t2)">'
       +'<strong style="font-size:11px;font-weight:700">'+(tipo==='compras'?'Compras':'Ventas')+'</strong>'
       +' · '+estadoLabel;
@@ -1871,6 +1874,9 @@ function _monMostrarEnModal(monDat){
     if(fuente.nResumenes!=null)h+=' · '+fuente.nResumenes+' res.';
     h+='<br>';
     if(fuente.ultimaSincronizacion)h+='<span style="font-size:10px;color:var(--tm)">'+_monFormatoFecha(fuente.ultimaSincronizacion)+'</span>';
+    // Nota discreta solo para ATRASADO — no obliga al analista a actuar
+    if(fuente.estado==='ATRASADO')h+='<br><span style="font-size:10px;color:var(--tm)">'
+      +'Gestoor la actualizará automáticamente en el próximo ciclo.</span>';
     // C10: errorCode solo si estado ERROR
     if(fuente.estado==='ERROR'&&fuente.errorCode){
       var msg=_monErrorCodeUx(fuente.errorCode);
@@ -1964,7 +1970,7 @@ function _siiRender(data){
     var estadoLabel={
       'nunca':'Nunca sincronizado',
       'ejecutando':'Actualizando...',
-      'completado':'Actualizado',
+      'completado':'Sincronización correcta',
       'error':'Último intento con error'
     }[fuente.estado]||fuente.estado||'—';
 
