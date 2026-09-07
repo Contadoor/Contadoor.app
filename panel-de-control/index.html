@@ -1700,13 +1700,47 @@ function _monTooltip(fuente){
   return'Compras: '+(_ux[ec]||ec)+' · Ventas: '+(_ux[ev]||ev);
 }
 
+// Fecha más antigua entre compras/ventas (el punto más stale del par)
+function _monFechaResumen(fuente){
+  var fc=(fuente.compras&&fuente.compras.ultimaSincronizacion)||null;
+  var fv=(fuente.ventas &&fuente.ventas.ultimaSincronizacion) ||null;
+  if(!fc&&!fv)return null;
+  if(!fc)return fv;
+  if(!fv)return fc;
+  return new Date(fc).getTime()<=new Date(fv).getTime()?fc:fv;
+}
+
+// Fecha del último DATO VÁLIDO (datosAt) — distinto de ultimaSincronizacion (que puede ser un intento fallido)
+function _monFechaDatos(fuente){
+  var fc=(fuente.compras&&fuente.compras.datosAt)||null;
+  var fv=(fuente.ventas &&fuente.ventas.datosAt) ||null;
+  if(!fc&&!fv)return null;
+  if(!fc)return fv;
+  if(!fv)return fc;
+  return new Date(fc).getTime()<=new Date(fv).getTime()?fc:fv;
+}
+
 function _monActualizarIndicador(clienteId,fuente){
   var el=document.getElementById('_mon-ind-'+clienteId);
   if(!el)return;
   var estado=_monPeorEstado(fuente);
   var info=_monTextoEstado(estado);
-  el.textContent=info.label;
-  el.style.color=info.color;
+  var linea2;
+  if(estado==='NUNCA_SINCRONIZADO'){
+    linea2='Nunca sincronizado';
+  }else if(estado==='ERROR'){
+    var fd=_monFechaDatos(fuente);
+    linea2=fd?'Último dato: '+_monFormatoFecha(fd):'Sin datos previos';
+  }else if(estado==='EJECUTANDO'){
+    var fd2=_monFechaDatos(fuente);
+    linea2=fd2?'Último dato: '+_monFormatoFecha(fd2):'Primera sincronización';
+  }else{
+    // OK / ATRASADO: fecha de cobertura más antigua (ultimaSincronizacion)
+    var fr=_monFechaResumen(fuente);
+    linea2=fr?_monFormatoFecha(fr):'Sin datos previos';
+  }
+  el.innerHTML='<div style="font-size:10px;font-weight:500;color:'+info.color+'">'+info.label+'</div>'
+    +'<div style="font-size:9px;color:var(--tm);margin-top:1px;white-space:nowrap">'+linea2+'</div>';
   el.setAttribute('title',_monTooltip(fuente));
 }
 
