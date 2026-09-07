@@ -842,8 +842,17 @@ function setRecordatorios(obj){localStorage.setItem('recordatorios_enviados',JSO
 // ═══════════════════════════════════════════════════════════
 // CARGAR DESDE SUPABASE
 // ═══════════════════════════════════════════════════════════
+// sbGetAuth: fetch autenticado con JWT real del usuario (solo para panel-de-control)
+// fail-closed: si no hay JWT no usa anon como fallback.
+function sbGetAuth(path){
+  var tok=window._gestoorAccessToken;
+  if(!tok)return Promise.resolve([]);
+  return fetch(SB_URL+'/rest/v1/'+path,{
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Content-Type':'application/json'}
+  }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
+}
 function cargarClientesSupabase(){
-  return sbGet('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -1609,8 +1618,28 @@ function popularMpPeriodo(){
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────
+// Espera a que window._gestoorAccessToken esté disponible (lo establece supabase.js).
+// Hace polling cada 100ms hasta timeoutMs. Fail-closed: no usa anon como fallback.
+function _esperarGestoorToken(timeoutMs){
+  timeoutMs=timeoutMs||5000;
+  return new Promise(function(resolve){
+    var inicio=Date.now();
+    function revisar(){
+      if(window._gestoorAccessToken){resolve(true);return;}
+      if(Date.now()-inicio>=timeoutMs){resolve(false);return;}
+      setTimeout(revisar,100);
+    }
+    revisar();
+  });
+}
+
 (function(){
-  cargarClientesSupabase().then(function(){
+  _esperarGestoorToken(5000)
+  .then(function(tokenReady){
+    if(!tokenReady)return[];  // fail-closed — no usar anon
+    return cargarClientesSupabase();
+  })
+  .then(function(){
     var perActivo=getPeriodoActivo();
     if(perActivo){
       var perKey=perActivo.periodo;
