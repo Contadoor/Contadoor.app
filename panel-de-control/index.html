@@ -1169,6 +1169,7 @@ function renderNomina(){
     cont.innerHTML='<div style="text-align:center;padding:48px;color:var(--tm)"><div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-size:14px;font-weight:600;margin-bottom:4px">Sin clientes en este período</div><div style="font-size:12px">Abre un período para generar la nómina.</div></div>';
     return;
   }
+  var _u0=getUsuario();
   var html='<table style="width:100%;border-collapse:collapse;font-size:12px">';
   html+='<thead><tr style="background:var(--sur2)">'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;width:30px"><input type="checkbox" id="chk-all" style="accent-color:var(--p)"></th>'
@@ -1178,6 +1179,7 @@ function renderNomina(){
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Contable</th>'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Pagos</th>'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Total</th>'
+    +((_u0&&(_u0.esMaster===true||_u0.rol==='contable'))?'<th style="padding:8px 10px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">SII</th>':'')
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Acciones</th>'
     +'</tr></thead><tbody id="nomina-tbody">';
   arr.forEach(function(r){
@@ -1206,6 +1208,14 @@ function renderNomina(){
     html+='<td style="padding:8px 14px;text-align:center">'+chip('imp')+'</td>';
     html+='<td style="padding:8px 14px;text-align:center">'+chip('hon')+'</td>';
     html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'+(r.totalGeneral?ff(r.totalGeneral):'—')+'</td>';
+    // Celda SII antes de Acciones — solo para master/contable
+    if(_u0.esMaster===true||_u0.rol==='contable'){
+      var _cSii=getClientes().find(function(c){return c.rut===r.rut;});
+      var _cId=_cSii?_cSii.id:null;
+      html+='<td style="padding:8px 10px;text-align:center">';
+      if(_cId){html+='<div id="_mon-ind-'+_cId+'" title="" style="font-size:10px;color:var(--tm)">···</div>';}
+      html+='</td>';
+    }
     html+='<td style="padding:8px 14px"><div style="display:flex;gap:4px;justify-content:flex-end">';
     html+='<button class="act-ico" data-accion="ver" data-rid="'+rid+'" title="Ver reporte">👁</button>';
     if(enviado){
@@ -1218,6 +1228,19 @@ function renderNomina(){
   });
   html+='</tbody></table>';
   cont.innerHTML=html;
+  // Cargar indicadores SII para master/contable (lazy, no bloquea el render)
+  var _mu2=getUsuario();
+  if(_mu2.esMaster===true||_mu2.rol==='contable'){
+    var _perAct=getPeriodoActivo();
+    if(_perAct&&_perAct.periodo){
+      var _cidsVis=arr.map(function(r){
+        var c=getClientes().find(function(x){return x.rut===r.rut;});
+        return c?c.id:null;
+      }).filter(function(id){return id&&Number.isFinite(id)&&id>0;});
+      _cidsVis=[...new Set(_cidsVis)];
+      if(_cidsVis.length>0)_monitorCargarLote(_cidsVis,_perAct.periodo);
+    }
+  }
   // Listener único en tbody
   var tbody=document.getElementById('nomina-tbody');
   if(tbody){
@@ -1311,7 +1334,16 @@ function verReporte(id){
   if(_u.esMaster===true||_u.rol==='contable'){
     var _cli=getClientes().find(function(c){return c.rut===r.rut;});
     if(_cli&&_cli.id){
-      _siiCargarEstado(_cli.id,r.periodo);
+      // C7: usar cache del monitor si existe (instantáneo); si no, carga puntual
+      var _cliId=_cli.id;
+      var _monDat=_monCache[String(_cliId)];
+      if(_monDat){
+        _monMostrarEnModal(_monDat);
+      }else{
+        _monitorCargarLote([_cliId],r.periodo);
+      }
+      // gestoor-rcv-estado: autorización + botones
+      _siiCargarEstado(_cliId,r.periodo);
     }else{
       var el=document.getElementById('sii-cuerpo');
       if(el)el.innerHTML='<div style="font-size:12px;color:var(--tm)">Cliente sin ID registrado.</div>';
@@ -1597,6 +1629,231 @@ function popularMpPeriodo(){
 })();
 
 // ═══════════════════════════════════════════════════════════
+// MONITOR SII — RCV-PROD-4G-D-C-B
+// Indicadores de salud de sincronización RCV en la nómina.
+// Prefijo _mon* — usa _siiCallEdge (ya existe) y _siiPeriodoApi.
+// READ-ONLY: sin INSERT/UPDATE/DELETE.
+// ═══════════════════════════════════════════════════════════
+
+var _monCache   = {};     // { [clienteId]: { compras, ventas } }
+var _monCachePer = null;  // período del cache (YYYYMM)
+var _monLoading = null;   // ya no se usa — reemplazado por _monInflight
+var _monInflight   = {};   // { 'YYYY-MM:clienteId': true } — requests en curso
+var _monGeneration = {};   // { 'YYYY-MM:clienteId': N } — generación por cliente (evita respuestas viejas)
+
+function _monPeorEstado(fuente){
+  var ord={ERROR:4,EJECUTANDO:3,ATRASADO:2,NUNCA_SINCRONIZADO:1,OK:0};
+  var ec=(fuente.compras&&fuente.compras.estado)||'NUNCA_SINCRONIZADO';
+  var ev=(fuente.ventas &&fuente.ventas.estado) ||'NUNCA_SINCRONIZADO';
+  return(ord[ec]||0)>=(ord[ev]||0)?ec:ev;
+}
+
+function _monTextoEstado(estado){
+  var map={
+    OK:                 {label:'● OK',        color:'#065f46'},
+    ATRASADO:           {label:'● Atrasado',  color:'#b45309'},
+    ERROR:              {label:'● Error',     color:'#991b1b'},
+    EJECUTANDO:         {label:'● Sync…',   color:'#1d4ed8'},
+    NUNCA_SINCRONIZADO: {label:'● Sin datos', color:'#64748b'}
+  };
+  return map[estado]||{label:'—',color:'#64748b'};
+}
+
+function _monTooltip(fuente){
+  var ec=fuente.compras?fuente.compras.estado:'NUNCA_SINCRONIZADO';
+  var ev=fuente.ventas ?fuente.ventas.estado :'NUNCA_SINCRONIZADO';
+  return'Compras: '+ec+' · Ventas: '+ev;
+}
+
+function _monActualizarIndicador(clienteId,fuente){
+  var el=document.getElementById('_mon-ind-'+clienteId);
+  if(!el)return;
+  var estado=_monPeorEstado(fuente);
+  var info=_monTextoEstado(estado);
+  el.textContent=info.label;
+  el.style.color=info.color;
+  el.setAttribute('title',_monTooltip(fuente));
+}
+
+// C9: Formato fecha UX: Hoy/Ayer/DD/MM/AAAA
+function _monFormatoFecha(iso){
+  if(!iso)return'Sin sincronización';
+  try{
+    var d=new Date(iso);
+    if(isNaN(d.getTime()))return'Sin sincronización';
+    var hoy=new Date();var ayer=new Date();
+    ayer.setDate(ayer.getDate()-1);
+    var mismaFecha=function(a,b){return a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear();};
+    var hora=d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+    if(mismaFecha(d,hoy))return'Hoy '+hora;
+    if(mismaFecha(d,ayer))return'Ayer '+hora;
+    return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+hora;
+  }catch(e){return'Sin sincronización';}
+}
+
+// C10: Mapping errorCode → mensaje UX
+function _monErrorCodeUx(code){
+  var map={
+    sii_not_authorized:'Autorización SII pendiente',
+    provider_error:'SII no respondió correctamente',
+    config_error:'Revisar configuración del certificado',
+    normalization_error:'Respuesta SII no pudo procesarse',
+    persistence_error:'No fue posible guardar la información'
+  };
+  return map[code]||null;
+}
+
+// _monitorCargarLote: acepta YYYYMM o YYYY-MM, normaliza a YYYY-MM
+// forceRefresh: ignora cache e inflight — usado por post-sync manual
+function _monitorCargarLote(clienteIds,periodoLocal,forceRefresh){
+  if(!clienteIds||clienteIds.length===0)return;
+  var periodoApi=_siiPeriodoApi(String(periodoLocal||'').replace('-',''));
+  if(!periodoApi)return;
+
+  // Limpiar cache si cambió el período (siempre antes del request)
+  if(_monCachePer!==periodoApi){
+    _monCache={};
+    _monCachePer=periodoApi;
+  }
+  var capturedPeriodo=periodoApi;
+
+  // Reaplicar cacheados; determinar IDs faltantes
+  var idsFaltantes=[];
+  clienteIds.forEach(function(id){
+    if(!forceRefresh&&_monCache[String(id)]){
+      _monActualizarIndicador(id,_monCache[String(id)]);
+    }else{
+      idsFaltantes.push(id);
+    }
+  });
+  if(idsFaltantes.length===0)return;
+
+  // Inflight por generation — forceRefresh incrementa generation, saltándose el guard
+  var capturedGen={};
+  var idsAConsultar=idsFaltantes.filter(function(id){
+    var key=periodoApi+':'+id;
+    if(forceRefresh){
+      // Incrementar generation: la request vieja queda obsoleta
+      _monGeneration[key]=(_monGeneration[key]||0)+1;
+    }else if(_monInflight[key]!==undefined){
+      // Guard: cualquier generation existente bloquea (no solo truthy)
+      return false;
+    }
+    capturedGen[key]=_monGeneration[key]||0;
+    return true;
+  });
+  if(idsAConsultar.length===0)return;
+  // FIX-1: _monInflight guarda la generation (no boolean)
+  // Así una request vieja nunca borra el inflight de una generación más nueva
+  idsAConsultar.forEach(function(id){
+    var key=periodoApi+':'+id;
+    _monInflight[key]=capturedGen[key];  // valor = generation, no true
+  });
+
+  function _monLimpiarInflight(){
+    idsAConsultar.forEach(function(id){
+      var key=periodoApi+':'+id;
+      // Solo limpiar si la generation del inflight coincide con la propia
+      if(_monInflight[key]===capturedGen[key])delete _monInflight[key];
+    });
+  }
+
+  // FIX-2: filtrar IDs con generation vigente para marcar error
+  function _monIdsErrorValidos(){
+    return idsAConsultar.filter(function(id){
+      var key=capturedPeriodo+':'+id;
+      return capturedGen[key]!==undefined&&_monGeneration[key]===capturedGen[key];
+    });
+  }
+
+  _siiCallEdge('gestoor-rcv-monitor',{
+    periodo:periodoApi,
+    clienteIds:idsAConsultar
+  })
+  .then(function(res){
+    var ok=res.ok,st=res.status;
+    return res.json().then(function(d){return{ok:ok,status:st,data:d};}).catch(function(){return{ok:false,status:st,data:null};});
+  })
+  .then(function(result){
+    _monLimpiarInflight();
+    if(_monCachePer!==capturedPeriodo)return;
+    if(!result.ok||!result.data||!result.data.ok){
+      // FIX-2: solo marcar error si esta request sigue siendo la vigente
+      _monMarcarError(_monIdsErrorValidos());return;
+    }
+    var clientes=result.data.clientes||[];
+    clientes.forEach(function(c){
+      if(!c.clienteId)return;
+      var key=periodoApi+':'+c.clienteId;
+      // generation mismatch → request vieja, ignorar
+      if(capturedGen[key]!==undefined&&_monGeneration[key]!==capturedGen[key])return;
+      _monCache[String(c.clienteId)]={compras:c.compras,ventas:c.ventas};
+      _monActualizarIndicador(c.clienteId,_monCache[String(c.clienteId)]);
+      // Actualizar modal si corresponde al cliente abierto
+      if(_siiClienteId===c.clienteId&&_siiPeriodo===capturedPeriodo){
+        _monMostrarEnModal(_monCache[String(c.clienteId)]);
+      }
+    });
+  })
+  .catch(function(){
+    _monLimpiarInflight();
+    if(_monCachePer!==capturedPeriodo)return;
+    // FIX-2: solo marcar error si esta request sigue siendo la vigente
+    _monMarcarError(_monIdsErrorValidos());
+  });
+}
+
+// C6: marcar error para IDs sin datos (no interpretar como NUNCA_SINCRONIZADO)
+function _monMarcarError(clienteIds){
+  (clienteIds||[]).forEach(function(id){
+    var el=document.getElementById('_mon-ind-'+id);
+    if(!el)return;
+    el.textContent='—';
+    el.style.color='var(--tm)';
+    el.setAttribute('title','No fue posible cargar estado SII');
+  });
+}
+
+// Invalidar cache de un cliente tras actualización manual
+function _monInvalidarCliente(clienteId){
+  delete _monCache[String(clienteId)];
+}
+
+// C8: Mostrar datos del monitor en el bloque #sii-cuerpo del modal
+// gestoor-rcv-estado gestiona autorización y botones; esto agrega conteos/versión.
+function _monMostrarEnModal(monDat){
+  var el=document.getElementById('sii-cuerpo');
+  if(!el)return;
+  function _monBloqueModal(tipo,fuente){
+    if(!fuente)return'';
+    var estadoLabel={OK:'Actualizado',ATRASADO:'Pendiente de actualización',ERROR:'Último intento con error',
+      EJECUTANDO:'Actualizando...',NUNCA_SINCRONIZADO:'Nunca sincronizado'}[fuente.estado]||fuente.estado;
+    var h='<div style="margin-bottom:6px;font-size:11px;color:var(--t2)">'
+      +'<strong style="font-size:11px;font-weight:700">'+(tipo==='compras'?'Compras':'Ventas')+'</strong>'
+      +' · '+estadoLabel;
+    if(fuente.version!=null)h+=' · v'+fuente.version;
+    if(fuente.nDocumentos!=null)h+=' · <span style="color:var(--t2)">'+fuente.nDocumentos+' docs</span>';
+    if(fuente.nResumenes!=null)h+=' · '+fuente.nResumenes+' res.';
+    h+='<br>';
+    if(fuente.ultimaSincronizacion)h+='<span style="font-size:10px;color:var(--tm)">'+_monFormatoFecha(fuente.ultimaSincronizacion)+'</span>';
+    // C10: errorCode solo si estado ERROR
+    if(fuente.estado==='ERROR'&&fuente.errorCode){
+      var msg=_monErrorCodeUx(fuente.errorCode);
+      if(msg)h+='<br><span style="font-size:10px;color:var(--red)">'+msg+'</span>';
+    }
+    h+='</div>';
+    return h;
+  }
+  var detalle='<div style="padding:10px 0;font-size:11px">'
+    +_monBloqueModal('compras',monDat.compras)
+    +_monBloqueModal('ventas', monDat.ventas)
+    +'</div>';
+  // FIX-2: escribir SOLO en #_mon-modal-detalle — idempotente
+  var dest=document.getElementById('_mon-modal-detalle');
+  if(dest)dest.innerHTML=detalle;
+}
+
+// ═══════════════════════════════════════════════════════════
 // SINCRONIZACIÓN SII — RCV-PROD-4E-B-R1
 // Prefijo _sii* para evitar colisiones con globales del Panel.
 // READ-ONLY en carga; POST a gestoor-rcv-consultar al hacer click.
@@ -1726,8 +1983,14 @@ function _siiRender(data){
 
   // Mensaje inline SII
   h+='<div id="_sii-msg" style="font-size:11px;margin-top:6px;display:none"></div>';
+  // FIX-2: contenedor dedicado para detalles del monitor — no lo sobrescribe _siiRender
+  h+='<div id="_mon-modal-detalle" style="margin-bottom:10px"></div>';
 
   el.innerHTML=h;
+  // FIX-2: rellenar detalle monitor desde cache si está disponible
+  if(_siiClienteId&&_monCache[String(_siiClienteId)]){
+    _monMostrarEnModal(_monCache[String(_siiClienteId)]);
+  }
   // Mostrar mensaje pendiente de sincronización (si existe) después de re-renderizar
   if(_siiMensajePendiente){
     _siiMostrarMensaje(_siiMensajePendiente.tipo,_siiMensajePendiente.texto);
@@ -1807,6 +2070,9 @@ function _siiSincronizar(tipo){
     if(_siiClienteId!==capturedId||_siiPeriodo!==capturedPer)return;
     // Guardar mensaje antes de recargar estado (evita que render lo borre)
     _siiMensajePendiente={tipo:(result.okHttp&&data&&data.ok?'exito':'error'),texto:_siiMensajeError(data)};
+    // C11: invalidar cache monitor + refresh indicador nómina
+    delete _monCache[String(capturedId)];
+    _monitorCargarLote([capturedId],capturedPer,true);  // forceRefresh: ignora inflight viejo
     // Post-éxito/error: recargar estado desde la fuente read-only oficial
     _siiCargarEstado(capturedId,capturedPer.replace('-',''));
   })
