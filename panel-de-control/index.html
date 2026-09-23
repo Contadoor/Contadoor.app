@@ -708,9 +708,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <button class="btn-s" onclick="closeVista()">Cerrar</button>
       <button class="btn-s" onclick="window.print()">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
-      <button class="btn-s" onclick="enviarEmail()" style="color:var(--blue);border-color:var(--blue)">✉️ Email</button>
+      <button class="btn-p" onclick="enviarEmail()">✉️ Enviar reporte</button>
       <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
-      <button class="btn-wa" onclick="enviarWhatsApp()">💬 WhatsApp</button>
     </div>
 </div>
 <!-- MODAL NUEVO
@@ -749,6 +748,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </div>
 
 <script src="../supabase.js"></script>
+<script src="../reporte-email.js"></script>
 <script>
 
 // ═══════════════════════════════════════════════════════════
@@ -853,7 +853,7 @@ function sbGetAuth(path){
   }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
 }
 function cargarClientesSupabase(){
-  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,contacto,email_analista,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -862,6 +862,7 @@ function cargarClientesSupabase(){
         contador:c.analista_contable,analistaContable:c.analista_contable,
         rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
         analistaContableUsuarioId:c.analista_contable_usuario_id||null,analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null,
+        contacto:c.contacto||'',emailAnalista:c.email_analista||'',
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
         moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
         varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,  // la ficha guarda en hon_variable
@@ -1434,90 +1435,205 @@ function renderNomina(){
 // ═══════════════════════════════════════════════════════════
 // VER REPORTE
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// REPORTE MENSUAL AL CLIENTE — diseño aprobado (reporte-email.js)
+// Datos: ficha del cliente + reporte del período (BD) + convenios activos + últimos 3 meses.
+// Vencimientos desde public.periodos (venc_previred_*, venc_f29_*); por defecto 12/13 y 19/20.
+// ═══════════════════════════════════════════════════════════
+var MESES_CORTOS_R=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function _rpPerDash(per){var s=String(per||'');return s.length===6?s.slice(0,4)+'-'+s.slice(4):s;}
+function _rpMesSig(per){var p=_rpPerDash(per).split('-'),y=+p[0],m=+p[1];return m===12?{y:y+1,m:1}:{y:y,m:m+1};}
+function _rpPerAnt(per,k){var p=_rpPerDash(per).split('-'),y=+p[0],m=+p[1]-k;while(m<1){m+=12;y--;}return y+'-'+(m<10?'0':'')+m;}
+function _rpPeriodoConfig(per){
+  var n=_rpPerDash(per).replace('-','');
+  var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;})||{};
+  return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20};
+}
+function _rpNum(v){return Number(v)||0;}
+function _rpDonde(txt){var t=String(txt||'').toLowerCase();if(/previred|cotiz|afp|salud/.test(t))return 'Previred';if(/tgr|tesorer/.test(t))return 'tgr.cl';return 'sii.cl';}
+function construirDatosReporte(r){
+  var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
+  var per=_rpPerDash(r.periodo), cfg=_rpPeriodoConfig(per), sig=_rpMesSig(per), mc=MESES_CORTOS_R[sig.m-1];
+  var modalidad=c.modalidad||'contadoor', paga=modalidad==='contadoor'?'contadoor':'cliente';
+  var items=[], fechas=[], anexo=[];
+  // Cotizaciones (RRHH)
+  var cot=_rpNum(r.totalCot);
+  if(cot>0){
+    items.push({tipo:'cot',titulo:'Cotizaciones previsionales',detalle:(r.nTrab||0)+' trabajadores · se pagan en Previred (AFP, salud, cesantía y mutual)',monto:cot,vence:'Vence '+cfg.prevL+' '+mc,paga:paga,donde:'Previred',postergable:true,_dia:cfg.prevL});
+    fechas.push({dia:cfg.prevL,mes:mc,que:'Cotizaciones en Previred'});
+    var fc=[{c:'AFP',v:_rpNum(r.afp)},{c:'Salud',v:_rpNum(r.salud)},{c:'Seguro de cesantía (trabajador)',v:_rpNum(r.cesTrab)},{c:'Seguro de cesantía (empleador)',v:_rpNum(r.cesEmp)},{c:'SIS',v:_rpNum(r.sis)},{c:'Mutual',v:_rpNum(r.mutual)},{c:'APV',v:_rpNum(r.apv)},{c:'Cuenta individual (empleador)',v:_rpNum(r.capInd)},{c:'Expectativa de vida',v:_rpNum(r.expVida)},{c:'Rentabilidad protegida',v:_rpNum(r.rentProt)}].filter(function(f){return f.v>0;});
+    fc.push({c:'Total a pagar en Previred',v:cot,total:true});
+    anexo.push({icono:'👥',titulo:'Cotizaciones · Previred',color:'#FFD24D',filas:fc});
+  }
+  // Impuestos F29 (Contable)
+  var imp=_rpNum(r.totalImpInmediato);
+  if(imp>0){
+    var ppm=_rpNum(r.ppm), iu=_rpNum(r.iuSii), ret=_rpNum(r.retHon), otros=_rpNum(r.otrosImp);
+    var iva=Math.max(0,imp-ppm-iu-ret-otros);
+    var partes=[];if(iva)partes.push('IVA '+ff(iva));if(ppm)partes.push('PPM '+ff(ppm));if(iu)partes.push('Impuesto único '+ff(iu));if(ret)partes.push('Retención honorarios '+ff(ret));
+    items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:'Vence '+cfg.f29L+' '+mc,paga:paga,donde:'sii.cl',postergable:true,_dia:cfg.f29L});
+    fechas.push({dia:cfg.f29L,mes:mc,que:'Impuestos F29 en SII'});
+    var fi=[{c:'IVA débito (ventas)',v:_rpNum(r.ivaDebito)},{c:'IVA crédito (compras)',v:_rpNum(r.ivaCredito)},{c:'IVA a pagar',v:iva},{c:'PPM',v:ppm},{c:'Retención boletas de honorarios',v:ret},{c:'Impuesto único trabajadores',v:iu},{c:'Otros impuestos',v:otros},{c:'Remanente de crédito para el mes siguiente',v:_rpNum(r.ivaRemanenteSig)}].filter(function(f){return f.v>0;});
+    if(r.postergarIva&&_rpNum(r.ivaPostergado)>0)fi.push({c:'IVA postergado'+(r.ivaFechaVenc?' (vence '+r.ivaFechaVenc+')':''),v:_rpNum(r.ivaPostergado)});
+    fi.push({c:'Total a pagar en el SII',v:imp,total:true});
+    anexo.push({icono:'🧾',titulo:'Impuestos · F29 del SII',color:'#FF9F43',filas:fi});
+  }
+  // Obligaciones atrasadas (períodos anteriores)
+  (r.atrasos||[]).forEach(function(a){
+    if(!(a.monto>0))return;
+    items.push({tipo:'deuda',titulo:(a.concepto||'Obligación')+(a.periodo?' '+a.periodo:'')+' (atrasado)',detalle:'Obligación de un período anterior pendiente de pago',monto:a.monto,atrasado:'período anterior',paga:paga,donde:_rpDonde(a.concepto)});
+  });
+  // Nuestros servicios
+  var sv=calcularServicios(r);
+  if(sv.ok&&sv.total>0){
+    var det='Plan base '+(sv.moneda==='CLP'?ff(sv.monto):String(sv.monto).replace('.',',')+' UF');
+    if(sv.descTipo)det+=' - dcto '+(sv.descTipo==='porcentaje'?sv.descValor+'%':sv.descValor+(sv.moneda==='CLP'?'':' UF'));
+    if(sv.nCobrados>0)det+=' + '+sv.nCobrados+' trabajadores × '+String(sv.varTrab).replace('.',',')+(sv.monedaVar==='CLP'?'':' UF');
+    if(sv.uf&&(sv.moneda!=='CLP'||sv.nCobrados>0))det+=' · UF '+ff(sv.uf);
+    items.push({tipo:'serv',titulo:'Nuestros servicios',detalle:det+' · factura exenta',monto:sv.total,paga:'contadoor'});
+    var fs=[{c:'Plan base',v:sv.base}];
+    if(sv.descuento>0)fs.push({c:'Descuento',v:'-'+ff(sv.descuento)});
+    if(sv.varTrab>0){fs.push({c:'Trabajadores informados / incluidos / cobrados',v:sv.nTrab+' / '+sv.incluidos+' / '+sv.nCobrados});fs.push({c:'Valor por trabajadores',v:sv.variable});}
+    if(sv.uf)fs.push({c:'UF del período',v:ff(sv.uf)});
+    fs.push({c:'Total nuestros servicios (factura exenta)',v:sv.total,total:true});
+    anexo.push({icono:'💼',titulo:'Nuestros servicios',filas:fs});
+  }
+  var rut=encodeURIComponent(r.rut);
+  var pAnt=[1,2,3].map(function(k){return _rpPerAnt(per,k);});
+  var pConv=sbFetch('convenios?cliente_rut=eq.'+rut+'&estado=eq.activo&select=*').then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
+  var pHist=sbGetReportesPeriodoCliente(r.rut,pAnt);
+  return Promise.all([pConv,pHist]).then(function(res){
+    // Convenios vigentes: próxima cuota pendiente
+    (res[0]||[]).forEach(function(cv){
+      var cs=Array.isArray(cv.cuotas_detalle)?cv.cuotas_detalle:[];
+      var q=cs.find(function(x){return x.estado!=='pagada';});if(!q)return;
+      var pag=cs.filter(function(x){return x.estado==='pagada';}).length;
+      var fv=String(q.vencimiento||'').split('-'), dia=+fv[2]||0, mes=MESES_CORTOS_R[(+fv[1]||1)-1];
+      items.push({tipo:'conv',titulo:'Convenio '+(cv.tipo||'')+' · cuota '+q.numero+' de '+cs.length,detalle:'Deuda de origen: '+(cv.concepto||'')+(cv.periodo_deuda?' · '+cv.periodo_deuda:''),monto:_rpNum(q.monto),vence:'Vence '+dia+' '+mes,paga:paga,donde:_rpDonde(cv.tipo),progreso:{pagadas:pag,total:cs.length},_dia:dia});
+      if(dia)fechas.push({dia:dia,mes:mes,que:'Cuota convenio '+(cv.tipo||'')});
+    });
+    // Historial y comparación con el mes anterior
+    var hist=(res[1]||[]).map(function(h){var s=calcularServicios(h);return{per:_rpPerDash(h.periodo),cot:_rpNum(h.totalCot),imp:_rpNum(h.totalImpInmediato),serv:s.ok?s.total:0};});
+    var ant=hist.find(function(h){return h.per===pAnt[0];});
+    if(ant)items.forEach(function(i){var b=i.tipo==='cot'?ant.cot:i.tipo==='imp'?ant.imp:null;if(b)i.delta=(i.monto-b)/b;});
+    var totalAct=items.reduce(function(s,i){return s+i.monto;},0);
+    var historial=pAnt.slice().reverse().map(function(p){var h=hist.find(function(x){return x.per===p;})||{cot:0,imp:0,serv:0};var m=+p.split('-')[1];return{mes:MESES_CORTOS_R[m-1]+' '+p.slice(2,4),cot:h.cot,imp:h.imp,serv:h.serv,otros:0,total:h.cot+h.imp+h.serv};});
+    var ma=+per.split('-')[1];
+    historial.push({mes:MESES_CORTOS_R[ma-1]+' '+per.slice(2,4),actual:true,cot:cot,imp:imp,serv:(sv.ok?sv.total:0),otros:Math.max(0,totalAct-cot-imp-(sv.ok?sv.total:0)),total:totalAct});
+    // Fechas clave y vencimiento principal
+    var aPagar=items.filter(function(i){return i.tipo!=='serv';});
+    var diaVence;
+    if(modalidad==='contadoor'){
+      diaVence=Math.min.apply(null,[cot>0?cfg.prevG:99,imp>0?cfg.f29G:99].concat(aPagar.map(function(i){return i._dia?i._dia-1:99;})));
+      if(diaVence<99)fechas.unshift({dia:diaVence,mes:mc,que:'Transfiere a Contadoor'});
+    }else diaVence=Math.min.apply(null,aPagar.map(function(i){return i._dia||99;}).concat([99]));
+    if(diaVence>=99)diaVence=cfg.prevL;
+    if(items.some(function(i){return i.atrasado;}))fechas.unshift({dia:'Hoy',mes:'urgente',que:'Obligación atrasada'});
+    var vistos={};fechas=fechas.filter(function(f){var k=f.dia+f.que;if(vistos[k])return false;vistos[k]=1;return true;}).slice(0,4);
+    var fechaV=new Date(sig.y,sig.m-1,diaVence,12);
+    var hoy0=new Date();hoy0.setHours(12,0,0,0);
+    var dias=Math.round((fechaV-hoy0)/864e5);
+    var asesores=[GestoorReporte.persona(c.analistaContable||c.contador),GestoorReporte.persona(c.analistaRrhh||c.rrhh)].filter(Boolean);
+    asesores=asesores.filter(function(a,k){return asesores.findIndex(function(b){return b.nombre===a.nombre;})===k;});
+    var revisor=GestoorReporte.persona('Luciano Duarte');
+    var sinRevisor=asesores.filter(function(a){return a.nombre!==revisor.nombre;});
+    if(sinRevisor.length)asesores=sinRevisor;
+    var u=getUsuario();
+    var emailAsesor=c.emailAnalista||u.email||'info@contadoor.cl';
+    var analista=asesores[0]||GestoorReporte.persona(u.nombre||'Contadoor');
+    analista.email=emailAsesor;
+    var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
+    return {periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,
+      diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
+      items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
+      analista:analista,asesores:asesores,revisor:revisor,
+      _email:c.email||r.clienteEmail||'',_emailAsesor:emailAsesor,_total:totalAct};
+  });
+}
+// Reportes de un cliente para varios períodos (historial)
+function sbGetReportesPeriodoCliente(rut,periodos){
+  var lista=periodos.map(function(p){return '"'+p+'"';}).join(',');
+  return sbFetch('reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=in.('+encodeURIComponent(lista)+')&select=*')
+    .then(function(x){return x.ok?x.json():[];}).then(function(rows){return (rows||[]).map(sbRowToReporte);}).catch(function(){return[];});
+}
 function verReporte(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r){alert('Reporte no encontrado.');return;}
   _vistaId=String(id);
-  var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
-  var totalCot=r.totalCot||0;
-  var totalImp=r.totalImpInmediato||r.totalImp||0;
-  var totalAtrasos=(r.atrasos||[]).reduce(function(s,a){return s+(a.monto||0);},0);
-  var servicios=calcularServicios(r);
-  var totalGeneral=_totalReporte(r);
-  var h='';
-  h+='<div style="background:linear-gradient(135deg,#6D2E6E,#904891);border-radius:12px;padding:24px 28px;margin-bottom:14px;color:#fff">';
-  h+='<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:28px;filter:brightness(0) invert(1);margin-bottom:10px;display:block"/>';
-  h+='<div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1.5px">Reporte Mensual de Gestión</div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">';
-  h+='<div><div style="font-size:20px;font-weight:700">'+hesc(r.clienteNombre||r.rut)+'</div>';
-  h+='<div style="font-size:12px;opacity:.65;margin-top:3px">'+hesc(r.rut)+' · '+formatPeriodo(r.periodo)+'</div></div>';
-  h+='<div style="text-align:right"><div style="font-size:11px;opacity:.5">Total a pagar</div>';
-  h+='<div style="font-size:28px;font-weight:700">'+ff(totalGeneral)+'</div>';
-  h+='<div style="font-size:11px;opacity:.5">Emitido '+hoy+'</div></div></div></div>';
-  // KPIs
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Cotizaciones</div><div style="font-size:20px;font-weight:700;color:var(--green)">'+ff(totalCot)+'</div></div>';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Impuestos SII</div><div style="font-size:20px;font-weight:700;color:var(--red)">'+ff(totalImp)+'</div></div>';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Nuestros servicios</div><div style="font-size:20px;font-weight:700;color:var(--blue)">'+(servicios.ok?ff(servicios.total):'<span style="font-size:12px;color:var(--amber)">Falta: '+hesc(servicios.falta.join(', '))+'</span>')+'</div></div>';
-  h+='</div>';
-  if((r.atrasos||[]).length){
-    h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px">';
-    h+='<div style="background:#fef2f2;padding:10px 14px;border-bottom:1px solid #fecaca;font-size:11px;font-weight:700;color:#C0392B;text-transform:uppercase">⚠️ Pagos períodos anteriores</div>';
-    h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-    (r.atrasos||[]).forEach(function(a){h+='<tr><td style="padding:8px 14px">'+hesc(a.concepto)+'</td><td style="padding:8px 14px;color:var(--tm)">'+hesc(a.periodo)+'</td><td style="padding:8px 14px;text-align:right;font-weight:600;color:#C0392B">'+ff(a.monto)+'</td></tr>';});
-    h+='</table></div>';
-  }
-  h+='<div style="background:var(--pp);border:1px solid rgba(144,72,145,.2);border-radius:10px;padding:14px 16px;margin-bottom:14px">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px">💳 Datos para transferencia</div>';
-  h+='<div style="font-size:12px;color:var(--t2);line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div></div>';
-  if(r.recomendaciones){
-    h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;margin-bottom:14px">';
-    h+='<div style="font-size:11px;font-weight:700;color:var(--p);margin-bottom:6px">💡 Recomendaciones</div>';
-    h+='<div style="font-size:12px;color:var(--t2);line-height:1.7;white-space:pre-wrap">'+hesc(r.recomendaciones)+'</div></div>';
-  }
-  if(r.obsAnalista){
-    h+='<div style="background:#f5f0f8;border-left:3px solid var(--p);border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:14px">';
-    h+='<div style="font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">📝 Nota del analista</div>';
-    h+='<div style="font-size:12px;color:var(--t2);line-height:1.6">'+hesc(r.obsAnalista)+'</div></div>';
-  }
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--tm);padding-top:12px;border-top:1px solid var(--bdr)">';
-  h+='<div>'+(r.preparado?'RRHH: <strong>'+hesc(r.preparado)+'</strong>':'')+(r.revisado?' · Contable: <strong>'+hesc(r.revisado)+'</strong>':'')+'</div>';
-  h+='<div>Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
-  // Inyectar sección SINCRONIZACIÓN SII si el rol lo permite
-  var _u=getUsuario();
-  if(_u.esMaster===true||_u.rol==='contable'){
-    h+='<div id="sii-bloque" class="no-print" style="margin-top:14px;border:1px solid var(--bdr);border-radius:10px;overflow:hidden">'
-     +'<div style="background:var(--sur2);padding:10px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">'
-     +'<div style="font-size:11px;font-weight:700;color:var(--t1);text-transform:uppercase;letter-spacing:.6px">Sincronización SII</div>'
-     +'<div id="sii-auth-msg" style="font-size:10px;color:var(--tm)"></div>'
-     +'</div>'
-     +'<div id="sii-cuerpo" style="padding:14px 16px">'
-     +'<div style="font-size:12px;color:var(--tm)">Cargando estado...</div>'
-     +'</div>'
-     +'</div>';
-  }
-  document.getElementById('vistaContent').innerHTML=h;
+  var cont=document.getElementById('vistaContent');
+  cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--tm)">⏳ Armando el reporte…</div>';
   document.getElementById('modalVista').classList.add('on');
-  // Cargar estado SII después de renderizar (requiere clienteId real)
-  if(_u.esMaster===true||_u.rol==='contable'){
-    var _cli=getClientes().find(function(c){return c.rut===r.rut;});
-    if(_cli&&_cli.id){
-      // C7: usar cache del monitor si existe (instantáneo); si no, carga puntual
-      var _cliId=_cli.id;
-      var _monDat=_monCache[String(_cliId)];
-      if(_monDat){
-        _monMostrarEnModal(_monDat);
-      }else{
-        _monitorCargarLote([_cliId],r.periodo);
-      }
-      // gestoor-rcv-estado: autorización + botones
-      _siiCargarEstado(_cliId,r.periodo);
-    }else{
-      var el=document.getElementById('sii-cuerpo');
-      if(el)el.innerHTML='<div style="font-size:12px;color:var(--tm)">Cliente sin ID registrado.</div>';
-    }
-  }
+  if(typeof GestoorReporte==='undefined'){cont.innerHTML='<div style="padding:24px;color:var(--red)">No se cargó el generador del reporte (reporte-email.js). Recarga la página.</div>';return;}
+  construirDatosReporte(r).then(function(d){
+    var per=_rpPerDash(r.periodo);
+    cont.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--bdr)">'
+      +'<label style="font-size:12px;font-weight:600;color:var(--p)">💡 Tip del mes</label>'
+      +'<input id="rp-tip" value="'+hesc(d.tip)+'" placeholder="Opcional: un consejo breve para todos los clientes de '+hesc(d.periodo)+'" style="flex:1;min-width:220px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:7px">'
+      +'<button class="btn-s btn-sm" id="rp-tip-ok">Aplicar</button>'
+      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+'</span></div>'
+      +'<iframe id="rp-frame" title="Vista previa del reporte" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>';
+    document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+GestoorReporte.render(d)+'</body></html>';
+    document.getElementById('rp-tip-ok').onclick=function(){
+      try{localStorage.setItem('tip_mes_'+per,document.getElementById('rp-tip').value.trim());}catch(e){}
+      verReporte(id);
+    };
+  }).catch(function(e){cont.innerHTML='<div style="padding:24px;color:var(--red)">No se pudo armar el reporte: '+hesc(e&&e.message||e)+'</div>';});
 }
+// Envío: arma el HTML, lo envía y registra el envío en la BD. Devuelve una promesa.
+function enviarReporteCore(r){
+  return construirDatosReporte(r).then(function(d){
+    if(!d._email)throw new Error('El cliente no tiene email registrado (Clientes).');
+    var html=GestoorReporte.render(d);
+    return fetch('https://contafunnel-v2.vercel.app/api/enviar-gestoor',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tipo:'reporte',analistaNombre:d.analista.nombre,replyTo:d._emailAsesor,
+        toEmail:d._email,toNombre:d.contacto,toEmpresa:d.empresa,periodo:d.periodo,
+        asunto:'Tu reporte mensual · '+d.periodo+' · '+d.empresa,htmlReporte:html})
+    }).then(function(res){
+      if(!res.ok)return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+t.slice(0,200));});
+      return res.json();
+    }).then(function(data){
+      if(!(data.ok||data.id||data.messageId))throw new Error(data.error||data.message||'respuesta inesperada del envío');
+      var ahora=new Date().toISOString();
+      var arr=getReportes(), idx=arr.findIndex(function(x){return String(x.id)===String(r.id);});
+      if(idx>=0){arr[idx].estado='enviado_total';arr[idx].fechaEnvio=ahora;setReportesCache(arr);}
+      // Registro en la BD (fuente de verdad del estado de envío)
+      if(/^\d+$/.test(String(r.id)))return sbPatch('reportes_mensuales?id=eq.'+r.id,{estado:'enviado_total',fecha_envio:ahora,total_general:d._total}).then(function(){return d;});
+      return d;
+    });
+  });
+}
+function _rpToast(txt,ok){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(ok?'#E7F8F0':'#FAE8E6')+';border:1px solid '+(ok?'#28865B':'#D34433')+';color:'+(ok?'#28865B':'#D34433')+';padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999;max-width:420px';
+  t.textContent=txt;document.body.appendChild(t);setTimeout(function(){t.remove();},5000);
+}
+function enviarEmail(){
+  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
+  if(!r){alert('Reporte no encontrado.');return;}
+  var est=_estadoSecciones(r);
+  if(!est.completo&&!confirm('Este reporte aún no está completo (RRHH, Contable o Nuestros servicios pendiente). ¿Enviarlo igual?'))return;
+  if(!confirm('¿Enviar el reporte de '+formatPer(r.periodo)+' a '+(r.clienteNombre||r.rut)+'?'))return;
+  enviarReporteCore(r).then(function(d){closeVista();renderAll();_rpToast('✅ Reporte enviado a '+d._email,true);})
+    .catch(function(e){_rpToast('❌ No se envió: '+(e&&e.message||e),false);});
+}
+function enviarSeleccionados(){
+  var ids=Array.from(document.querySelectorAll('.nomina-chk:checked')).map(function(c){return c.getAttribute('data-id');});
+  if(!ids.length){alert('Selecciona al menos un cliente en la nómina.');return;}
+  var reps=getReportes().filter(function(r){return ids.indexOf(String(r.id))>=0;});
+  var listos=reps.filter(function(r){return _estadoSecciones(r).listo;});
+  var noListos=reps.length-listos.length;
+  if(!listos.length){alert('Ninguno de los seleccionados está listo para enviar (o ya fue enviado).');return;}
+  if(!confirm('Se enviarán '+listos.length+' reporte(s).'+(noListos?'\n'+noListos+' seleccionado(s) no están listos o ya se enviaron y se omitirán.':'')+'\n\n¿Continuar?'))return;
+  var ok=0, errores=[];
+  listos.reduce(function(p,r){return p.then(function(){
+    return enviarReporteCore(r).then(function(){ok++;}).catch(function(e){errores.push((r.clienteNombre||r.rut)+': '+(e&&e.message||e));});
+  });},Promise.resolve()).then(function(){
+    renderAll();
+    alert('✅ Enviados: '+ok+(errores.length?'\n\n❌ No enviados ('+errores.length+'):\n• '+errores.join('\n• '):''));
+  });
+}
+
 function closeVista(){
   document.getElementById('modalVista').classList.remove('on');
   // Resetear estado SII para que fetches tardíos sean ignorados
@@ -1568,78 +1684,6 @@ function abrirEditRapido(){
 
 // ═══════════════════════════════════════════════════════════
 // ENVÍO EMAIL
-// ═══════════════════════════════════════════════════════════
-function enviarEmail(){
-  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
-  if(!r){alert('Reporte no encontrado.');return;}
-  var to=r.clienteEmail||'';
-  if(!to){
-    var c=getClientes().find(function(x){return x.rut===r.rut;});
-    if(c&&c.email)to=c.email;
-  }
-  if(!to){alert('El cliente no tiene email registrado. Agrégalo en Clientes.');return;}
-  var u=getUsuario();
-  var periodo=formatPeriodo(r.periodo);
-  if(!confirm('¿Enviar reporte de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+to))return;
-  var htmlRpt='<div style="font-family:-apple-system,sans-serif;max-width:600px">'
-    +'<div style="background:linear-gradient(135deg,#6D2E6E,#904891);padding:18px 24px;display:flex;align-items:center;justify-content:space-between">'
-    +'<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:24px;filter:brightness(0) invert(1)"/>'
-    +'<span style="font-size:11px;color:rgba(255,255,255,.8);background:rgba(0,0,0,.2);padding:3px 10px;border-radius:12px">Reporte Mensual · '+periodo+'</span></div>'
-    +'<div style="padding:20px 24px;border-bottom:1px solid #eee">'
-    +'<p style="font-size:15px;font-weight:600;margin:0 0 4px">Hola '+hesc(r.clienteNombre)+'</p>'
-    +'<p style="font-size:13px;color:#333;margin:0">Le compartimos el resumen de obligaciones del período <strong>'+periodo+'</strong>.</p></div>'
-    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#eee">'
-    +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Cotizaciones</div><div style="font-size:18px;font-weight:700">'+ff(r.totalCot||0)+'</div></div>'
-    +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Impuestos SII</div><div style="font-size:18px;font-weight:700;color:#C0392B">'+ff(r.totalImpInmediato||r.totalImp||0)+'</div></div>'
-    +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Total a pagar</div><div style="font-size:18px;font-weight:700;color:#904891">'+ff(_totalReporte(r))+'</div></div>'
-    +'</div>'
-    +'<div style="padding:14px 24px;background:#f5f0f8">'
-    +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:4px">💳 Datos para transferencia</div>'
-    +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div></div>'
-    +(r.obsAnalista?'<div style="padding:14px 24px"><div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:4px">📝 Nota del analista</div><div style="font-size:12px;color:#5c4a5d">'+hesc(r.obsAnalista)+'</div></div>':'')
-    +'<div style="padding:12px 24px;background:#fafafa;font-size:11px;color:#999">Contadoor Chile · contadoor.cl · +56 9 7988 1891</div>'
-    +'</div>';
-  fetch('https://contafunnel-v2.vercel.app/api/enviar-gestoor',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      tipo:'reporte',
-      analistaNombre:u.nombre||'Contadoor',
-      analistaWa:u.wa||'979881891',
-      toEmail:to,
-      toNombre:r.clienteNombre||r.rut,
-      toEmpresa:r.clienteNombre||r.rut,
-      periodo:periodo,
-      htmlReporte:htmlRpt
-    })
-  })
-  .then(function(res){
-    if(!res.ok)return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+t.slice(0,300));});
-    return res.json();
-  })
-  .then(function(data){
-    if(data.ok||data.id||data.messageId){
-      var arr=getReportes();
-      var idx=arr.findIndex(function(x){return String(x.id)===String(_vistaId);});
-      if(idx>=0){arr[idx].estado='enviado_total';arr[idx].fechaEnvio=new Date().toISOString();setReportes(arr);}
-      closeVista();renderAll();
-      var t=document.createElement('div');
-      t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-      t.textContent='✅ Reporte enviado a '+to;document.body.appendChild(t);
-      setTimeout(function(){t.remove();},4000);
-    }else{
-      console.error('Proxy response:',data);
-      alert('Error: '+(data.error||data.message||JSON.stringify(data).slice(0,200)));
-    }
-  })
-  .catch(function(err){
-    console.error('Email error:',err);
-    alert('Error: '+err.message);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-// WHATSAPP
 // ═══════════════════════════════════════════════════════════
 function enviarWhatsApp(){
   var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
