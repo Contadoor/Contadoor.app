@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -156,6 +156,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .bulk-bar{display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;align-items:center;gap:12px;}
 .bulk-bar.on{display:flex;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <aside class="sidebar">
@@ -458,6 +459,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
   </div>
 </div>
 
+<script src="../supabase.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
 var _filtros={estado:'',plan:'',prioridad:''};
@@ -524,14 +526,6 @@ function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')
 function getPeriodos(){try{return JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){return[];}}
 
 // ── SUPABASE ─────────────────────────────────────────────────────────────
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbFetch(path,opts){
-  var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{
-    headers:Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},o.headers||{})
-  }));
-}
 function sbGetReportes(periodo){
   return sbFetch('reportes_mensuales?periodo=eq.'+periodo+'&select=*')
     .then(function(r){return r.ok?r.json():[];})
@@ -556,12 +550,6 @@ function sbPatchReporte(rut,periodo,data){
 
 
 // ── SUPABASE ─────────────────────────────────────────────────────────────
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbH(){return{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
-function sbGet(path){return fetch(SB_URL+'/rest/v1/'+path,{headers:sbH()}).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});}
-function sbPatch(path,data){return fetch(SB_URL+'/rest/v1/'+path,{method:'PATCH',headers:Object.assign({'Prefer':'return=representation'},sbH()),body:JSON.stringify(data)}).catch(function(){});}
-function sbUpsert(path,data){return fetch(SB_URL+'/rest/v1/'+path,{method:'POST',headers:Object.assign({'Prefer':'resolution=merge-duplicates'},sbH()),body:JSON.stringify(data)}).catch(function(){});}
 function syncEstado(rut,periodo,data){if(rut&&periodo)sbPatch('reportes_mensuales?rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+periodo,data).catch(function(){});}
 function cargarDesdeSupabase(periodo,callback){
   sbGet('reportes_mensuales?periodo=eq.'+periodo+'&select=*').then(function(sbData){

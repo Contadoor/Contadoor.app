@@ -15,7 +15,7 @@
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
-    !path.includes('/pre-iva/');
+    !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
 
   // ── Identificador de módulo ──────────────────────────────────────────────────
@@ -24,6 +24,7 @@
     if(path.includes('/clientes/'))          return 'clientes';
     if(path.includes('/pir/'))               return 'pir';
     if(path.includes('/pre-iva/'))           return 'pre-iva';
+    if(path.includes('/tributario-contable/')) return 'tributario-contable';
     if(path.includes('/reportes-rrhh/'))     return 'reportes-rrhh';
     if(path.includes('/reportes-contable/')) return 'reportes-contable';
     if(path.includes('/reportes-pagos/'))    return 'reportes-pagos';
@@ -46,7 +47,7 @@
     master:   ['*'],
     admin:    ['*'],
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva'],
-    contable: ['dashboard','reportes-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes'],
+    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes'],
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes'],
     cobranza: ['dashboard','cobranza','conciliacion','clientes']
   };

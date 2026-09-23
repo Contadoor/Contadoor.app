@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -115,6 +115,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .match-card.pago{border-color:rgba(144,72,145,.3);background:var(--pp);}
 .match-card.convenio{border-color:#fde68a;background:#fffbeb;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -215,12 +216,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="../supabase.js"></script>
 <script>
 var _view='conciliar', _mcIdx=null, _concCnt=0;
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbH(){return{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
-function sbPatch(path,data){return fetch(SB_URL+'/rest/v1/'+path,{method:'PATCH',headers:Object.assign({'Prefer':'return=representation'},sbH()),body:JSON.stringify(data)}).catch(function(){});}
 function getReportesMensuales(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
 function setReportesMensuales(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
 
