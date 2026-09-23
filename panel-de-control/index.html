@@ -1450,6 +1450,7 @@ function _rpPeriodoConfig(per){
   return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20};
 }
 function _rpNum(v){return Number(v)||0;}
+function _rpDiaHabil(y,m,dia){var f=new Date(y,m-1,dia,12);while(f.getDay()===0||f.getDay()===6)f.setDate(f.getDate()+1);return f;}
 function _rpDonde(txt){var t=String(txt||'').toLowerCase();if(/previred|cotiz|afp|salud/.test(t))return 'Previred';if(/tgr|tesorer/.test(t))return 'tgr.cl';return 'sii.cl';}
 function construirDatosReporte(r){
   var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
@@ -1467,12 +1468,13 @@ function construirDatosReporte(r){
   }
   // Impuestos F29 (Contable)
   var imp=_rpNum(r.totalImpInmediato);
+  var fIva=_rpDiaHabil(sig.y,sig.m,cfg.f29L), diaIva=fIva.getDate(), mcIva=MESES_CORTOS_R[fIva.getMonth()];
   if(imp>0){
     var ppm=_rpNum(r.ppm), iu=_rpNum(r.iuSii), ret=_rpNum(r.retHon), otros=_rpNum(r.otrosImp);
     var iva=Math.max(0,imp-ppm-iu-ret-otros);
     var partes=[];if(iva)partes.push('IVA '+ff(iva));if(ppm)partes.push('PPM '+ff(ppm));if(iu)partes.push('Impuesto único '+ff(iu));if(ret)partes.push('Retención honorarios '+ff(ret));
-    items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:'Vence '+cfg.f29L+' '+mc,paga:paga,donde:'sii.cl',postergable:true,_dia:cfg.f29L});
-    fechas.push({dia:cfg.f29L,mes:mc,que:'Impuestos F29 en SII'});
+    items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:'Vence '+diaIva+' '+mcIva,paga:paga,donde:'sii.cl',postergable:true,_dia:diaIva});
+    fechas.push({dia:diaIva,mes:mcIva,que:'Impuestos F29 en SII'});
     var fi=[{c:'IVA débito (ventas)',v:_rpNum(r.ivaDebito)},{c:'IVA crédito (compras)',v:_rpNum(r.ivaCredito)},{c:'IVA a pagar',v:iva},{c:'PPM',v:ppm},{c:'Retención boletas de honorarios',v:ret},{c:'Impuesto único trabajadores',v:iu},{c:'Otros impuestos',v:otros},{c:'Remanente de crédito para el mes siguiente',v:_rpNum(r.ivaRemanenteSig)}].filter(function(f){return f.v>0;});
     if(r.postergarIva&&_rpNum(r.ivaPostergado)>0)fi.push({c:'IVA postergado'+(r.ivaFechaVenc?' (vence '+r.ivaFechaVenc+')':''),v:_rpNum(r.ivaPostergado)});
     fi.push({c:'Total a pagar en el SII',v:imp,total:true});
@@ -1545,6 +1547,7 @@ function construirDatosReporte(r){
     var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
     return {periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,
       diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
+      aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',diaIva:cfg.f29L},
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
       analista:analista,asesores:asesores,revisor:revisor,
       _email:c.email||r.clienteEmail||'',_emailAsesor:emailAsesor,_total:totalAct};

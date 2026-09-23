@@ -159,12 +159,22 @@ function renderReporteEmail(d){
   h+='<tr><td align="center" style="padding:20px 28px 4px">'
     +(d.modalidad==='contadoor'?boton('✅ Ya transferí',true,mailAnalista(d,'Transferencia realizada','Ya transferí '+$(aContadoor)+' para las obligaciones de '+d.periodo+'. Adjunto el comprobante.'))
                                :boton('📎 Enviar comprobantes',true,mailAnalista(d,'Comprobantes de pago','Adjunto los comprobantes de pago de '+d.periodo+'.')))
-    +boton('✉️ Escribir a mi analista',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mi reporte de '+d.periodo+':'))+'</td></tr>';
+    +boton('✉️ Escribir a mi asesor',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mi reporte de '+d.periodo+':'))+'</td></tr>';
 
   // ── TIP DEL MES ──
   if(d.tip){
     h+='<tr><td style="padding:18px 28px 0"><table role="presentation" width="100%" style="background:'+C.crema+';border:1px dashed '+C.moradoClaro+';border-radius:14px"><tr><td style="padding:14px 16px;font:400 13px/1.55 '+F_B+';color:'+C.tinta+'"><b style="color:'+C.acento+'">💡 Tip del mes</b><br>'+esc(d.tip)+'</td></tr></table></td></tr>';
   }
+
+  // ── PLAZOS Y RESPONSABILIDAD (texto definido por Luciano, 23-sep-2026) ──
+  var av=d.aviso||{};
+  h+='<tr><td style="padding:18px 28px 0"><table role="presentation" width="100%" style="border:1px solid '+C.rojo+';border-radius:14px;background:'+C.rojoSuave+'"><tr><td style="padding:14px 16px;font:400 12px/1.6 '+F_B+';color:'+C.tinta+'">';
+  h+='<b style="font-size:13px;color:#fff">📌 Importante: plazos y responsabilidad</b><br>';
+  h+='Este reporte es nuestro <b>canal formal de entrega de información</b>. Para evitar multas, reajustes e intereses, realiza tus pagos —o tus transferencias a Contadoor— <b>en horario hábil y al menos un día hábil antes de cada vencimiento</b>:<br>';
+  h+='• '+ent('Cotizaciones (Previred)')+': puedes postergarlas hasta el <b>día '+(av.diaPostergar||10)+'</b>; el vencimiento real es el <b>día '+(av.diaCot||13)+' a las '+(av.horaCot||'13:40')+' h</b>.<br>';
+  h+='• '+ent('IVA (F29 del SII)')+': vence el <b>día '+(av.diaIva||20)+'</b>; si cae en fin de semana o festivo, pasa al día hábil siguiente.<br>';
+  h+='<span style="color:'+C.tinta2+'">Contadoor no se hace responsable de multas, reajustes o intereses por pagos o transferencias realizados fuera de estos plazos.</span>';
+  h+='</td></tr></table></td></tr>';
 
   // ── SEGUNDA PARTE: detalle del mes (tablas compactas) ──
   if((d.anexo&&d.anexo.length)||(d.historial&&d.historial.length)){
