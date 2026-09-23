@@ -200,7 +200,7 @@ body.modal-open{overflow:hidden;}
       <div class="card-hd">🏢 Empresa</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fgroup" style="grid-column:1/3"><label>Razón Social *</label><input type="text" id="f-razon" placeholder="Transportes del Sur SpA"></div>
-        <div class="fgroup"><label>RUT *</label><input type="text" id="f-rut" placeholder="77.123.456-7"></div>
+        <div class="fgroup"><label>RUT *</label><input type="text" id="f-rut" placeholder="77123456-7" title="Se guarda sin puntos y con guion"></div>
         <div class="fgroup"><label>Giro</label><input type="text" id="f-giro" placeholder="Transporte de carga terrestre"></div>
       </div>
 
@@ -642,7 +642,7 @@ function clienteToRow(c) {
     // Si número → RPC establece ese número (valor preservado del cliente existente).
     analista_pagos_usuario_id: c.analistaPagosUsuarioId,
     usuario_sii:      c.siiU  || null,
-    usuario_previred: c.prevU || c.rut || null,
+    usuario_previred: c.prevU || null,  // SII Rep. Legal: sin auto-relleno con el RUT de la empresa
     usuario_cu:       c.cuU   || null,
     usuario_fact:     c.factU || null,
     usuario_lic:      c.licU  || null,
@@ -1013,9 +1013,13 @@ function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.rem
 // GUARDAR
 // ─────────────────────────────────────────────────────
 function guardarCliente() {
-  var razon = gv('f-razon'), rut = gv('f-rut');
+  // Respaldo si el navegador aún tiene en caché un supabase.js anterior (sin estas funciones)
+  var gestoorNormalizarRut = window.gestoorNormalizarRut || function(r){ var x=String(r||'').replace(/[^0-9kK]/g,'').toUpperCase(); return x.length<2?x:x.slice(0,-1)+'-'+x.slice(-1); };
+  var gestoorRutValido = window.gestoorRutValido || function(){ return true; };
+  var razon = gv('f-razon'), rut = gestoorNormalizarRut(gv('f-rut'));
   if (!razon) { alert('Razón Social es obligatorio'); return; }
   if (!rut)   { alert('RUT es obligatorio'); return; }
+  if (!_editId && !gestoorRutValido(rut)) { alert('El RUT ' + rut + ' no es válido (revisa el dígito verificador).'); return; }
   var _dT = gv('f-desc-tipo'), _dV = nv('f-desc-valor'), _dD = gv('f-desc-desde'), _dH = gv('f-desc-hasta');
   if (_dT && !_dV) { alert('Indica el valor del descuento o elige "Sin descuento".'); return; }
   if (_dT === 'porcentaje' && _dV > 100) { alert('El descuento en porcentaje no puede superar 100%.'); return; }
@@ -1025,7 +1029,7 @@ function guardarCliente() {
   var esEdicion = !!_editId;
 
   // Guardia local rápida (UI); la autoridad definitiva es el backend
-  if (!esEdicion && arr.find(function(x){ return x.rut === rut; })) {
+  if (!esEdicion && arr.find(function(x){ return gestoorNormalizarRut(x.rut) === rut; })) {
     alert('Ya existe un cliente con RUT ' + rut); return;
   }
 
@@ -1103,7 +1107,7 @@ function verDetalle(id) {
   if (!c) return;
   _detalleId = Number(id);
   var est = ESTADOS[c.estado] || ESTADOS.inactivo;
-  var mrr = Math.round((c.monto||0) * UF);
+  var mrr = Math.round(c.moneda === 'CLP' ? (c.monto||0) : (c.monto||0) * UF);
   var h = '';
   if (c.logo) h += '<img src="'+c.logo+'" style="height:48px;object-fit:contain;margin-bottom:12px;display:block">';
   h += '<h2 style="color:#904891;font-size:18px;margin-bottom:4px">'+esc(c.razon)+'</h2>';

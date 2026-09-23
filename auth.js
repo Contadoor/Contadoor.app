@@ -234,6 +234,12 @@
       sessionStorage.removeItem('usuario_activo');
       localStorage.removeItem('gestoor_sesion');
       localStorage.removeItem('usuario_sesion');
+      // Cachés de datos que se vuelven a leer desde Supabase al iniciar sesión (no borra datos
+      // que hoy solo existen en el navegador, como pagos_bd o concil_movimientos).
+      try{
+        localStorage.removeItem('clientes_bd');
+        Object.keys(localStorage).forEach(function(k){if(k.indexOf('sbc_')===0)localStorage.removeItem(k);});
+      }catch(e){}
       // gestoor_email_guardado se conserva para pre-llenar correo en el próximo login
       window.location.replace(loginUrl);
     };

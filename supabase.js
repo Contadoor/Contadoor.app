@@ -403,6 +403,43 @@ function sbGetClientes(cb){
   });
 }
 
+// ── RUT ────────────────────────────────────────────────────
+// Formato único en Gestoor (y el que exige Tuu): sin puntos, con guion, K mayúscula. Ej: 77166269-2.
+function gestoorNormalizarRut(rut){
+  var s=String(rut||'').replace(/[^0-9kK]/g,'').toUpperCase();
+  if(s.length<2)return s;
+  return s.slice(0,-1)+'-'+s.slice(-1);
+}
+function gestoorRutValido(rut){
+  var r=gestoorNormalizarRut(rut);
+  if(!/^[0-9]{7,8}-[0-9K]$/.test(r))return false;
+  var num=r.split('-')[0], dv=r.split('-')[1], suma=0, mul=2;
+  for(var i=num.length-1;i>=0;i--){suma+=parseInt(num[i],10)*mul;mul=mul===7?2:mul+1;}
+  var res=11-(suma%11);
+  return (res===11?'0':res===10?'K':String(res))===dv;
+}
+
+// ── CACHÉ DE CLIENTES (localStorage 'clientes_bd') ─────────
+// Varios módulos guardan su vista de clientes. Se fusiona por RUT: completa campos sin borrar
+// clientes ni datos que otro módulo necesita (email, wa, plan...). La lista completa y autoritativa
+// la escribe el módulo Clientes. Se limpia al cerrar sesión (auth.js).
+function gestoorCachearClientes(lista){
+  var prev=[];try{prev=JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){}
+  var porRut={};
+  (prev||[]).forEach(function(c){if(c&&c.rut)porRut[c.rut]=c;});
+  (lista||[]).forEach(function(c){
+    if(!c||!c.rut)return;
+    var dst=porRut[c.rut]||{};
+    Object.keys(c).forEach(function(k){if(c[k]!==undefined)dst[k]=c[k];});
+    if(!dst.razon&&dst.razonSocial)dst.razon=dst.razonSocial;
+    if(!dst.razonSocial&&dst.razon)dst.razonSocial=dst.razon;
+    porRut[c.rut]=dst;
+  });
+  var out=Object.keys(porRut).map(function(k){return porRut[k];});
+  try{localStorage.setItem('clientes_bd',JSON.stringify(out));}catch(e){}
+  return out;
+}
+
 // ── ¿QUIÉN PAGA? (informativo) ─────────────────────────────
 // clientes.modalidad_pago: contadoor (transfiere y Contadoor paga) | directo | mixto.
 // Usado por reportes-rrhh y reportes-contable para mostrar la misma etiqueta.
