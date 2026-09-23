@@ -2509,6 +2509,8 @@ function marcarFinalizadoRrhh(id){
 function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
   var periodo=formatPeriodo(r.periodo);
   var u=getUsuario();
+  var _cli=getClientes().find(function(x){return x.rut===r.rut;});
+  var contacto=(_cli&&(_cli.contacto||_cli.contact))||r.clienteNombre||r.rut;
   var partes=String(r.periodo||'').split('-');
   var anio=parseInt(partes[0])||new Date().getFullYear();
   var mes=parseInt(partes[1])||1;
