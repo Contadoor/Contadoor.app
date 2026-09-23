@@ -648,7 +648,8 @@ function _impInst(v){
 function importarPlanillaConvenios(input){
   var file=input.files&&input.files[0];input.value='';
   if(!file)return;
-  if(getUsuario().esMaster!==true){alert('Solo un usuario master puede importar convenios.');return;}
+  var _u=getUsuario();
+  if(!(_u.esMaster===true||_u.rol==='pagos'||_u.rol==='comercial')){alert('Solo Master, Analista Pagos o Analista Comercial pueden importar convenios (puede crear clientes).');return;}
   if(typeof XLSX==='undefined'){alert('No se pudo cargar el lector de Excel. Revisa la conexión.');return;}
   var norm=window.gestoorNormalizarRut||function(r){return _impTxt(r);};
   var valido=window.gestoorRutValido||function(){return true;};

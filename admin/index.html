@@ -168,6 +168,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
           <option value="contable">📊 Analista Contable</option>
           <option value="pagos">💰 Analista Pagos</option>
           <option value="cobranza">🧾 Analista Cobranza</option>
+          <option value="comercial">💼 Analista Comercial</option>
           <option value="admin">🔐 Admin / Supervisor</option>
         </select>
         <span class="hint">Define los permisos base del usuario. Los módulos del cargo no son editables.</span>
@@ -243,7 +244,8 @@ var ROL_LABELS = {
   rrhh:     'Analista RRHH',
   contable: 'Analista Contable',
   pagos:    'Analista Pagos',
-  cobranza: 'Analista Cobranza'
+  cobranza: 'Analista Cobranza',
+  comercial:'Analista Comercial'
 };
 
 // ── WHITELIST DE MÓDULOS ADICIONALES ─────────────────────────────────────
@@ -253,12 +255,12 @@ var ROL_LABELS = {
 var MODULOS_ADICIONALES_PERMITIDOS = [
   'clientes','planes','panel-de-control',
   'reportes-rrhh','reportes-contable','reportes-pagos',
-  'pir','pre-iva','pagos','conciliacion'
+  'pir','pre-iva','pagos','conciliacion','convenios'
 ];
 
 // ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
 var MODULOS_FUTUROS_IDS = [
-  'gestion-personal','convenios','cobranza','facturacion',
+  'gestion-personal','cobranza','facturacion',
   'crm','cotizaciones','campanas','comunicaciones','performance'
 ];
 
@@ -333,7 +335,7 @@ function renderUsuarios(){
   var arr = _admUsuarios;
   var cont = document.getElementById('listaUsuarios');
   if(!cont) return;
-  var ROL_COLORS = {rrhh:'#1D9E75',contable:'#C07A1A',pagos:'#3B82F6',cobranza:'#904891',admin:'#5c4a5d',master:'#904891'};
+  var ROL_COLORS = {rrhh:'#1D9E75',contable:'#C07A1A',pagos:'#3B82F6',cobranza:'#904891',comercial:'#B34DB6',admin:'#5c4a5d',master:'#904891'};
   var sesion = window._contadoorSesion || getUsuario();  // _contadoorSesion ya confirmada por auth.js; getUsuario() como fallback
   var sesionId = sesion && sesion.id ? String(sesion.id) : null;
   // Determinar si el usuario actual es Master — controla visibilidad de escritura

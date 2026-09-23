@@ -1700,9 +1700,12 @@ function aplicarPermisosClientesUI() {
   var sesion = window._contadoorSesion;
   if (!sesion) return;
   var esMaster = !!sesion.esMaster;
+  // Crear y editar la ficha: Master, Analista Pagos y Analista Comercial (decisión de Luciano).
+  // El resto solo consulta. Las claves de acceso siguen siendo solo Master.
+  var puedeEditar = esMaster || sesion.rol === 'master' || sesion.rol === 'pagos' || sesion.rol === 'comercial';
 
-  // Guardar en variable global para que renderClientes() la lea
-  window._esMasterUI = esMaster;
+  // Guardar en variable global para que renderClientes() la lea (controla el botón ✏️)
+  window._esMasterUI = puedeEditar;
 
   // Reconstruir la tabla con o sin botón ✏️ por fila
   // (renderClientes() lee _esMasterUI al construir cada fila)
@@ -1710,10 +1713,10 @@ function aplicarPermisosClientesUI() {
 
   // Botones estáticos en HTML
   var btnNuevo = document.getElementById('btn-nuevo');
-  if (btnNuevo) btnNuevo.style.display = esMaster ? '' : 'none';
+  if (btnNuevo) btnNuevo.style.display = puedeEditar ? '' : 'none';
 
   var btnDetEditar = document.getElementById('btn-det-editar');
-  if (btnDetEditar) btnDetEditar.style.display = esMaster ? '' : 'none';
+  if (btnDetEditar) btnDetEditar.style.display = puedeEditar ? '' : 'none';
 
   var btnClavesEditar = document.getElementById('btn-claves-editar');
   if (btnClavesEditar) btnClavesEditar.style.display = esMaster ? '' : 'none';
