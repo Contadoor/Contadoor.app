@@ -851,7 +851,7 @@ function sbGetAuth(path){
   }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
 }
 function cargarClientesSupabase(){
-  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,tiene_rrhh,tiene_contabilidad&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -861,7 +861,7 @@ function cargarClientesSupabase(){
         rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
         moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
-        varTrab:Number(c.valor_por_trab||c.hon_variable)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
+        varTrab:Number(c.valor_por_trab||c.hon_variable)||0,trabIncl:Number(c.trab_incluidos)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
     localStorage.setItem('clientes_bd',JSON.stringify(mapped));
   }).catch(function(){});
@@ -895,7 +895,8 @@ function generarNominaDesdeClientes(perKey){
 // RRHH: RRHH guardó el período (secciones.rrhh.ok) o el cliente no tiene RRHH.
 // Contable: Contable marcó listo_panel_control o el cliente no tiene contabilidad.
 // Nuestros servicios = fijo (monto base del plan, CLP o UF × UF del período)
-//   + variable (trabajadores informados por RRHH × valor por trabajador, CLP o UF × UF del período).
+//   + variable (trabajadores informados por RRHH que exceden los incluidos en el plan × valor por trabajador,
+//     CLP o UF × UF del período).
 // ═══════════════════════════════════════════════════════════
 function _ufDelPeriodo(periodo){
   var n=String(periodo||'').replace('-','');
@@ -912,15 +913,17 @@ function calcularServicios(r){
   if(!monto)falta.push('monto del plan en la ficha del cliente');
   var usaUf=(c.moneda!=='CLP')||(varTrab>0&&c.monedaVar!=='CLP');
   if(usaUf&&!uf)falta.push('UF del período');
-  var nTrab=0;
+  var nTrab=0, incl=Number(c.trabIncl)||0;
   if(varTrab>0&&r.tieneRrhh!==false){
     if(_rrhhListo(r))nTrab=Number(r.nTrab)||0;
     else falta.push('trabajadores informados por RRHH');
   }
+  var nCobrados=Math.max(0,nTrab-incl);
   var base=c.moneda==='CLP'?monto:monto*uf;
-  var variable=nTrab*varTrab*(c.monedaVar==='CLP'?1:uf);
+  var variable=nCobrados*varTrab*(c.monedaVar==='CLP'?1:uf);
   var ok=!falta.length;
-  return{ok:ok,base:Math.round(base),variable:Math.round(variable),total:ok?Math.round(base+variable):0,nTrab:nTrab,falta:falta};
+  return{ok:ok,base:Math.round(base),variable:Math.round(variable),total:ok?Math.round(base+variable):0,
+    nTrab:nTrab,incluidos:incl,nCobrados:nCobrados,uf:uf,moneda:c.moneda,monto:monto,monedaVar:c.monedaVar,varTrab:varTrab,falta:falta};
 }
 function _estadoSecciones(r){
   var rr=_rrhhListo(r), im=_contableListo(r), sv=calcularServicios(r).ok;
