@@ -851,7 +851,7 @@ function sbGetAuth(path){
   }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
 }
 function cargarClientesSupabase(){
-  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,tiene_rrhh,tiene_contabilidad&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -859,7 +859,9 @@ function cargarClientesSupabase(){
         email:c.email,tel:c.tel,wa:c.wa,plan:c.plan,estado:c.estado||'activo',
         contador:c.analista_contable,analistaContable:c.analista_contable,
         rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
-        prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media'};
+        prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
+        moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
+        varTrab:Number(c.valor_por_trab||c.hon_variable)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
     localStorage.setItem('clientes_bd',JSON.stringify(mapped));
   }).catch(function(){});
@@ -867,40 +869,67 @@ function cargarClientesSupabase(){
 function cargarReportesSupabase(periodo,callback){
   var perNorm=String(periodo).replace('-','');
   var perDash=perNorm.length===6?perNorm.slice(0,4)+'-'+perNorm.slice(4):periodo;
-  sbGet('reportes_mensuales?or=(periodo.eq.'+encodeURIComponent(perDash)+',periodo.eq.'+encodeURIComponent(perNorm)+')&select=*')
-  .then(function(data){
-    if(!data||!data.length){if(callback)callback();return;}
-    var local=getReportes();var updated=false;
-    data.forEach(function(sb){
-      var idx=local.findIndex(function(x){return x.rut===sb.rut&&String(x.periodo||'').replace('-','')===perNorm;});
-      if(idx>=0){Object.assign(local[idx],sb);updated=true;}
-      else{local.push({id:sb.id||Date.now()+Math.random(),rut:sb.rut,periodo:sb.periodo||perDash,
-        clienteNombre:sb.cliente_nombre||sb.rut,clienteEmail:sb.cliente_email||'',clienteWa:sb.cliente_wa||'',
-        estado:sb.estado||'borrador',secciones:sb.secciones||{},prioridadRrhh:sb.prioridad_rrhh||'media',
-        totalGeneral:sb.total_general||0,totalCot:sb.total_cot||0,totalImp:sb.total_imp||0,honTotal:sb.hon_total||0,
-        obsAnalista:sb.obs_analista||'',fechaEnvio:sb.fecha_envio||null,pagado:sb.pagado||false});updated=true;}
-    });
-    if(updated)localStorage.setItem('reportes_mensuales',JSON.stringify(local));
-    if(callback)callback();
-  }).catch(function(){if(callback)callback();});
+  sbGetReportesPeriodo(perDash,function(reportes){
+    var otros=getReportes().filter(function(x){return String(x.periodo||'').replace('-','')!==perNorm;});
+    setReportesCache(otros.concat(reportes||[]));
+    if(callback)callback(reportes||[]);
+  });
+}
+var _nominaConsultada={};
+function generarNominaUI(){
+  var per=getPeriodoActivo();
+  if(!per){alert('No hay período activo.');return;}
+  generarNominaDesdeClientes(per.periodo).then(function(res){
+    alert('✅ Nómina de '+formatPer(per.periodo)+': '+res.total+' clientes ('+res.insertados+' nuevos).');
+  }).catch(function(e){alert('❌ '+_periodoErrorUx(e)+'\n\nLa nómina no se generó.');});
 }
 function generarNominaDesdeClientes(perKey){
-  var clientes=getClientes().filter(function(c){return c.estado==='activo'||c.estado==='onboarding'||c.estado==='suspendido';});
-  if(!clientes.length)return;
-  var arr=getReportes();var nuevos=0;
   var perFmt=String(perKey).length===6?perKey.slice(0,4)+'-'+perKey.slice(4):perKey;
-  clientes.forEach(function(c){
-    var ya=arr.find(function(r){return r.rut===c.rut&&String(r.periodo||'').replace('-','')===String(perKey).replace('-','');});
-    if(!ya){
-      arr.unshift({id:Date.now()+Math.random(),rut:c.rut,
-        clienteNombre:c.razon||c.rut,clienteWa:c.wa||'',clienteEmail:c.email||'',
-        periodo:perFmt,estado:'borrador',
-        secciones:{rrhh:{ok:c.tieneRrhh===false,na:c.tieneRrhh===false},imp:{ok:false,na:false},hon:{ok:false,na:false}},
-        prioridadRrhh:c.prioridadRrhh||'media',totalGeneral:0,ts:Date.now()});
-      nuevos++;
-    }
+  return _periodoRpc('generar_nomina_periodo',{p_periodo:perFmt}).then(function(res){
+    return new Promise(function(resolve){cargarReportesSupabase(perFmt,function(){renderAll();resolve(res);});});
   });
-  if(nuevos>0)localStorage.setItem('reportes_mensuales',JSON.stringify(arr));
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONSOLIDACIÓN — estado real de cada área
+// RRHH: RRHH guardó el período (secciones.rrhh.ok) o el cliente no tiene RRHH.
+// Contable: Contable marcó listo_panel_control o el cliente no tiene contabilidad.
+// Nuestros servicios = fijo (monto base del plan, CLP o UF × UF del período)
+//   + variable (trabajadores informados por RRHH × valor por trabajador, CLP o UF × UF del período).
+// ═══════════════════════════════════════════════════════════
+function _ufDelPeriodo(periodo){
+  var n=String(periodo||'').replace('-','');
+  var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;});
+  return p&&Number(p.uf)||0;
+}
+function _rrhhListo(r){var s=r.secciones||{};return r.tieneRrhh===false||!!(s.rrhh&&(s.rrhh.ok||s.rrhh.na));}
+function _contableListo(r){return r.tieneCont===false||r.listoPanelControl===true;}
+function calcularServicios(r){
+  var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
+  var falta=[];
+  var monto=Number(c.monto)||0, varTrab=Number(c.varTrab)||0;
+  var uf=_ufDelPeriodo(r.periodo);
+  if(!monto)falta.push('monto del plan en la ficha del cliente');
+  var usaUf=(c.moneda!=='CLP')||(varTrab>0&&c.monedaVar!=='CLP');
+  if(usaUf&&!uf)falta.push('UF del período');
+  var nTrab=0;
+  if(varTrab>0&&r.tieneRrhh!==false){
+    if(_rrhhListo(r))nTrab=Number(r.nTrab)||0;
+    else falta.push('trabajadores informados por RRHH');
+  }
+  var base=c.moneda==='CLP'?monto:monto*uf;
+  var variable=nTrab*varTrab*(c.monedaVar==='CLP'?1:uf);
+  var ok=!falta.length;
+  return{ok:ok,base:Math.round(base),variable:Math.round(variable),total:ok?Math.round(base+variable):0,nTrab:nTrab,falta:falta};
+}
+function _estadoSecciones(r){
+  var rr=_rrhhListo(r), im=_contableListo(r), sv=calcularServicios(r).ok;
+  var enviado=r.estado==='enviado_total'||r.estado==='enviado';
+  return{rrhh:rr,imp:im,hon:sv,completo:rr&&im&&sv,listo:rr&&im&&sv&&!enviado,enviado:enviado};
+}
+function _totalReporte(r){
+  var atrasos=(r.atrasos||[]).reduce(function(s,a){return s+(a.monto||0);},0);
+  return (r.totalCot||0)+(r.totalImpInmediato||r.totalImp||0)+calcularServicios(r).total+atrasos;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -988,10 +1017,13 @@ function confirmarApertura(){
   // Primero la BD; si falla, no se abre nada localmente.
   _periodoRpc('abrir_periodo',{p_periodo:periodo,p_uf:ufVal,p_utm:utmVal}).then(function(row){
     _cachearPeriodoActivo(row);
-    generarNominaDesdeClientes(periodo);
     closeApertura();
     renderAll();
-    alert('✅ Período '+formatPeriodo(periodo)+' abierto para todo el equipo. Se generaron reportes para '+clientes.length+' clientes.');
+    generarNominaDesdeClientes(periodo).then(function(res){
+      alert('✅ Período '+formatPeriodo(periodo)+' abierto para todo el equipo.\nNómina: '+res.total+' clientes ('+res.insertados+' nuevos).');
+    }).catch(function(e){
+      alert('⚠️ El período '+formatPeriodo(periodo)+' quedó abierto, pero la nómina no se generó: '+_periodoErrorUx(e)+'\nPuedes generarla desde el Panel.');
+    });
   }).catch(function(e){
     alert('❌ '+_periodoErrorUx(e)+'\n\nEl período no se abrió.');
   });
@@ -1049,13 +1081,10 @@ function renderResumen(){
   var reportes=getReportes().filter(function(r){
     return !perKey||String(r.periodo||'').replace('-','')===String(perKey).replace('-','');
   });
-  var completados=reportes.filter(function(r){
-    var s=r.secciones||{};
-    return(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na));
-  }).length;
+  var completados=reportes.filter(function(r){return _estadoSecciones(r).completo;}).length;
   var enviados=reportes.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';}).length;
   var pendPago=reportes.filter(function(r){return (r.estado==='enviado_total'||r.estado==='enviado')&&!r.pagado;}).length;
-  var totalFacturado=reportes.reduce(function(s,r){return s+(r.totalGeneral||0);},0);
+  var totalFacturado=reportes.reduce(function(s,r){return s+_totalReporte(r);},0);
   var pct=reportes.length>0?Math.round(completados/reportes.length*100):0;
   // Por analista
   var analistas={};
@@ -1063,8 +1092,7 @@ function renderResumen(){
     var c=clientes.find(function(x){return x.rut===r.rut;})||{};
     var an=c.contador||c.analistaContable||'Sin asignar';
     if(!analistas[an])analistas[an]={nombre:an,completados:0,pendientes:0};
-    var s=r.secciones||{};
-    var ok=(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na));
+    var ok=_estadoSecciones(r).completo;
     if(ok)analistas[an].completados++;else analistas[an].pendientes++;
   });
   var h='<div style="padding:14px 16px 0">';
@@ -1169,14 +1197,20 @@ function renderNomina(){
     var perNorm=String(perKey).replace('-','');
     arr=arr.filter(function(r){return String(r.periodo||'').replace('-','')===perNorm;});
   }
-  // Si no hay reportes, cargar desde Supabase o generar
+  // Sin reportes en caché: consultar la BD una vez; si sigue vacío, la nómina no está generada.
   if(perKey&&arr.length===0){
-    cargarReportesSupabase(perKey,function(){
-      var after=getReportes().filter(function(r){return String(r.periodo||'').replace('-','')===String(perKey).replace('-','');});
-      if(after.length>0){renderNomina();}
-      else{generarNominaDesdeClientes(perKey);renderNomina();}
-    });
-    cont.innerHTML='<div style="text-align:center;padding:32px;color:var(--tm)">⏳ Cargando clientes...</div>';
+    var perN=String(perKey).replace('-','');
+    if(!_nominaConsultada[perN]){
+      _nominaConsultada[perN]=true;
+      cargarReportesSupabase(perKey,function(){renderNomina();});
+      cont.innerHTML='<div style="text-align:center;padding:32px;color:var(--tm)">⏳ Cargando clientes...</div>';
+      return;
+    }
+    var _esM=getUsuario().esMaster===true;
+    cont.innerHTML='<div style="text-align:center;padding:48px;color:var(--tm)"><div style="font-size:32px;margin-bottom:8px">📋</div>'
+      +'<div style="font-size:14px;font-weight:600;margin-bottom:6px">La nómina de '+formatPer(perKey)+' aún no está generada</div>'
+      +(_esM?'<button class="btn-p btn-sm" onclick="generarNominaUI()">Generar nómina</button>'
+            :'<div style="font-size:12px">Pídele a un usuario master que la genere desde este Panel.</div>')+'</div>';
     return;
   }
   // Filtros UI
@@ -1185,15 +1219,15 @@ function renderNomina(){
   var fPrio=window._fPrio||'';
   var fEst=window._fEst||'';
   if(fPrio)arr=arr.filter(function(r){return(r.prioridadRrhh||'media')===fPrio;});
-  if(fEst==='listo')arr=arr.filter(function(r){var s=r.secciones||{};return(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na))&&r.estado!=='enviado_total'&&r.estado!=='enviado';});
+  if(fEst==='listo')arr=arr.filter(function(r){return _estadoSecciones(r).listo;});
   if(fEst==='enviado')arr=arr.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';});
-  if(fEst==='proceso')arr=arr.filter(function(r){var s=r.secciones||{};return r.estado!=='enviado_total'&&r.estado!=='enviado'&&!((s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na)));});
+  if(fEst==='proceso')arr=arr.filter(function(r){var e=_estadoSecciones(r);return !e.enviado&&!e.completo;});
   // Ordenar
   var ord={alta:0,media:1,baja:2};
   arr.sort(function(a,b){return(ord[a.prioridadRrhh||'media']||1)-(ord[b.prioridadRrhh||'media']||1);});
   // Stats
   var total=arr.length;
-  var listos=arr.filter(function(r){var s=r.secciones||{};return(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na))&&r.estado!=='enviado_total'&&r.estado!=='enviado';}).length;
+  var listos=arr.filter(function(r){return _estadoSecciones(r).listo;}).length;
   var enviados2=arr.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';}).length;
   var proceso=total-listos-enviados2;
   var sb=document.getElementById('stats-bar');
@@ -1215,23 +1249,24 @@ function renderNomina(){
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Prio.</th>'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">RRHH</th>'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Contable</th>'
-    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Pagos</th>'
+    +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">Servicios</th>'
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Total</th>'
     +((_u0&&(_u0.esMaster===true||_u0.rol==='contable'))?'<th style="padding:8px 10px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:center">SII</th>':'')
     +'<th style="padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.5px;text-align:right">Acciones</th>'
     +'</tr></thead><tbody id="nomina-tbody">';
   arr.forEach(function(r){
-    var s=r.secciones||{};
-    var enviado=r.estado==='enviado_total'||r.estado==='enviado';
-    var listo=(s.rrhh&&(s.rrhh.ok||s.rrhh.na))&&(s.imp&&(s.imp.ok||s.imp.na))&&(s.hon&&(s.hon.ok||s.hon.na))&&!enviado;
+    var est=_estadoSecciones(r);
+    var enviado=est.enviado;
+    var listo=est.listo;
     var prio=r.prioridadRrhh||'media';
     var prioBg={alta:'#fee2e2',media:'#fef3c7',baja:'#ecfdf5'}[prio];
     var prioCol={alta:'#b91c1c',media:'#78350f',baja:'#064e3b'}[prio];
     function chip(sec){
-      if(!s[sec])return'<span style="font-size:11px;color:var(--amber)">⏳</span>';
-      if(s[sec].na)return'<span style="font-size:11px;color:var(--tm)">N/A</span>';
-      if(s[sec].ok)return'<span style="font-size:11px;color:var(--green)">✅</span>';
-      return'<span style="font-size:11px;color:var(--amber)">⏳</span>';
+      if(sec==='rrhh'&&r.tieneRrhh===false)return'<span style="font-size:11px;color:var(--tm)">N/A</span>';
+      if(sec==='imp'&&r.tieneCont===false)return'<span style="font-size:11px;color:var(--tm)">N/A</span>';
+      if(est[sec])return'<span style="font-size:11px;color:var(--green)">✅</span>';
+      var tip=sec==='hon'?' title="Falta: '+hesc(calcularServicios(r).falta.join(', '))+'"':'';
+      return'<span style="font-size:11px;color:var(--amber)"'+tip+'>⏳</span>';
     }
     var rowBg=enviado?'#ecfdf5':listo?'#fefce8':'var(--sur)';
     var rid=String(r.id);
@@ -1245,7 +1280,8 @@ function renderNomina(){
     html+='<td style="padding:8px 14px;text-align:center">'+chip('rrhh')+'</td>';
     html+='<td style="padding:8px 14px;text-align:center">'+chip('imp')+'</td>';
     html+='<td style="padding:8px 14px;text-align:center">'+chip('hon')+'</td>';
-    html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'+(r.totalGeneral?ff(r.totalGeneral):'—')+'</td>';
+    var _tot=_totalReporte(r);
+    html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'+(_tot?ff(_tot):'—')+'</td>';
     // Celda SII antes de Acciones — solo para master/contable
     if(_u0.esMaster===true||_u0.rol==='contable'){
       var _cSii=getClientes().find(function(c){return c.rut===r.rut;});
@@ -1313,7 +1349,8 @@ function verReporte(id){
   var totalCot=r.totalCot||0;
   var totalImp=r.totalImpInmediato||r.totalImp||0;
   var totalAtrasos=(r.atrasos||[]).reduce(function(s,a){return s+(a.monto||0);},0);
-  var totalGeneral=r.totalGeneral||(totalCot+totalImp+(r.honTotal||0)+totalAtrasos);
+  var servicios=calcularServicios(r);
+  var totalGeneral=_totalReporte(r);
   var h='';
   h+='<div style="background:linear-gradient(135deg,#6D2E6E,#904891);border-radius:12px;padding:24px 28px;margin-bottom:14px;color:#fff">';
   h+='<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:28px;filter:brightness(0) invert(1);margin-bottom:10px;display:block"/>';
@@ -1328,7 +1365,7 @@ function verReporte(id){
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">';
   h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Cotizaciones</div><div style="font-size:20px;font-weight:700;color:var(--green)">'+ff(totalCot)+'</div></div>';
   h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Impuestos SII</div><div style="font-size:20px;font-weight:700;color:var(--red)">'+ff(totalImp)+'</div></div>';
-  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Nuestros servicios</div><div style="font-size:20px;font-weight:700;color:var(--blue)">'+ff(r.honTotal||0)+'</div></div>';
+  h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px"><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Nuestros servicios</div><div style="font-size:20px;font-weight:700;color:var(--blue)">'+(servicios.ok?ff(servicios.total):'<span style="font-size:12px;color:var(--amber)">Falta: '+hesc(servicios.falta.join(', '))+'</span>')+'</div></div>';
   h+='</div>';
   if((r.atrasos||[]).length){
     h+='<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px">';
@@ -1461,7 +1498,7 @@ function enviarEmail(){
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#eee">'
     +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Cotizaciones</div><div style="font-size:18px;font-weight:700">'+ff(r.totalCot||0)+'</div></div>'
     +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Impuestos SII</div><div style="font-size:18px;font-weight:700;color:#C0392B">'+ff(r.totalImpInmediato||r.totalImp||0)+'</div></div>'
-    +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Total a pagar</div><div style="font-size:18px;font-weight:700;color:#904891">'+ff(r.totalGeneral||0)+'</div></div>'
+    +'<div style="background:#fff;padding:14px"><div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px">Total a pagar</div><div style="font-size:18px;font-weight:700;color:#904891">'+ff(_totalReporte(r))+'</div></div>'
     +'</div>'
     +'<div style="padding:14px 24px;background:#f5f0f8">'
     +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:4px">💳 Datos para transferencia</div>'
@@ -1524,8 +1561,8 @@ function enviarWhatsApp(){
     +'📊 *RESUMEN:*\n'
     +'👥 Cotizaciones: '+ff(r.totalCot||0)+'\n'
     +'📋 Impuestos SII: '+ff(r.totalImpInmediato||r.totalImp||0)+'\n'
-    +'💼 Honorarios: '+ff(r.honTotal||0)+'\n'
-    +'✅ *TOTAL: '+ff(r.totalGeneral||0)+'*\n\n'
+    +'💼 Nuestros servicios: '+ff(calcularServicios(r).total)+'\n'
+    +'✅ *TOTAL: '+ff(_totalReporte(r))+'*\n\n'
     +'Transferencias a Itaú CC 0220729517 · RUT 77.166.269-2\n'
     +'Saludos, Contadoor.';
   window.open('https://wa.me/56'+wa.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
@@ -1545,7 +1582,7 @@ function buildRecordatorioHTML(r,diasVencido){
     +'<p style="font-size:13px;color:#333;margin:0">Le recordamos que el pago del <strong>Reporte Mensual · '+periodo+'</strong> aún aparece pendiente.</p></div>'
     +'<div style="padding:16px 24px;background:'+(esUrgente?'#fef2f2':'#fef9ec')+'">'
     +'<div style="font-size:13px;font-weight:700;color:'+(esUrgente?'#C0392B':'#C07A1A')+'">'+( esUrgente?'⚠️ Pago con '+diasVencido+' días de atraso':'🔔 Recordatorio de pago')+'</div>'
-    +'<div style="font-size:18px;font-weight:700;color:#904891;margin-top:8px">Total: '+ff(r.totalGeneral||0)+'</div></div>'
+    +'<div style="font-size:18px;font-weight:700;color:#904891;margin-top:8px">Total: '+ff(_totalReporte(r))+'</div></div>'
     +'<div style="padding:14px 24px;background:#f5f0f8">'
     +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:4px">💳 Datos para transferencia</div>'
     +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div></div>'
@@ -1669,12 +1706,13 @@ function _esperarGestoorToken(timeoutMs){
     return Promise.all([cargarClientesSupabase(),sincronizarPeriodoActivo()]);
   })
   .then(function(){
+    // La BD es la fuente de la nómina del período activo.
     var perActivo=getPeriodoActivo();
-    if(perActivo){
-      var perKey=perActivo.periodo;
-      var existentes=getReportes().filter(function(r){return String(r.periodo||'').replace('-','')===String(perKey).replace('-','');});
-      if(!existentes.length)generarNominaDesdeClientes(perKey);
-    }
+    if(!perActivo)return;
+    _nominaConsultada[String(perActivo.periodo).replace('-','')]=true;
+    return new Promise(function(resolve){cargarReportesSupabase(perActivo.periodo,function(){resolve();});});
+  })
+  .then(function(){
     renderAll();
     setPeriodoActual();
     popularMpPeriodo();
