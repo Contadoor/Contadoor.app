@@ -812,6 +812,7 @@ function getClientesFiltrados(){
   var u=getUsuario();
   if(!u.nombre||u.rol==='master'||u.esMaster)return todos;
   return todos.filter(function(c){
+    if(typeof gestoorAsignacion==='function'&&(u.rol==='rrhh'||u.rol==='contable'))return gestoorAsignacion(c,u.rol)==='mio';
     if(u.rol==='rrhh')return c.rrhh===u.nombre||c.analistaRrhh===u.nombre;
     if(u.rol==='contable')return c.contador===u.nombre||c.analistaContable===u.nombre;
     return false;
@@ -852,7 +853,7 @@ function sbGetAuth(path){
   }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
 }
 function cargarClientesSupabase(){
-  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -860,6 +861,7 @@ function cargarClientesSupabase(){
         email:c.email,tel:c.tel,wa:c.wa,plan:c.plan,estado:c.estado||'activo',
         contador:c.analista_contable,analistaContable:c.analista_contable,
         rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
+        analistaContableUsuarioId:c.analista_contable_usuario_id||null,analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null,
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
         moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
         varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,  // la ficha guarda en hon_variable

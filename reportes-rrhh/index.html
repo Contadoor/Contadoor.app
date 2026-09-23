@@ -486,7 +486,7 @@ function getClientes(){
 }
 function cargarClientesDesdeSupabase(cb){
   console.log('[RRHH] Cargando clientes desde Supabase...');
-  sbGet('clientes?select=id,rut,razon_social,giro,email,contacto,tel,wa,ciudad,plan,estado,fecha_inicio,regimen,iva_condicion,modalidad_pago,moneda_plan,moneda_variable,monto_base,trab_incluidos,valor_por_trab,hon_variable,analista_rrhh,analista_contable,analista_pagos,email_analista,wa_analista,prioridad_rrhh,prioridad_contable,tiene_rrhh,tiene_contabilidad,obs,obs_acceso,socios&order=razon_social.asc').then(function(rows){console.log('[RRHH] Clientes recibidos:',rows&&rows.length);
+  sbGet('clientes?select=id,rut,razon_social,giro,email,contacto,tel,wa,ciudad,plan,estado,fecha_inicio,regimen,iva_condicion,modalidad_pago,moneda_plan,moneda_variable,monto_base,trab_incluidos,valor_por_trab,hon_variable,analista_rrhh,analista_contable,analista_rrhh_usuario_id,analista_contable_usuario_id,analista_pagos,email_analista,wa_analista,prioridad_rrhh,prioridad_contable,tiene_rrhh,tiene_contabilidad,obs,obs_acceso,socios&order=razon_social.asc').then(function(rows){console.log('[RRHH] Clientes recibidos:',rows&&rows.length);
     if(rows&&rows.length){
       var mapped=rows.map(function(r){
         return {
@@ -499,6 +499,7 @@ function cargarClientesDesdeSupabase(cb){
           trab:r.trab_incluidos||0, varTrab:(r.hon_variable!=null?r.hon_variable:r.valor_por_trab),
           rrhh:r.analista_rrhh, analistaRrhh:r.analista_rrhh,
           contador:r.analista_contable, analistaContable:r.analista_contable,
+          analistaRrhhUsuarioId:r.analista_rrhh_usuario_id||null, analistaContableUsuarioId:r.analista_contable_usuario_id||null,
           analistaPagos:r.analista_pagos, emailAnalista:r.email_analista,
           waAnalista:r.wa_analista, prioRrhh:r.prioridad_rrhh||'media',
           prioCont:r.prioridad_contable||'media',
@@ -750,7 +751,10 @@ function renderTabla(periodo){
       var _a1=(analistaAsignado||'').trim().toLowerCase();
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&_cli&&(_cli.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
-      if(_a1 && _a1!==_a2 && !_emailMatch) return false;
+      var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(_cli,'rrhh'):null);
+      if(_asig==='mio'||_emailMatch) return true;
+      if(_asig==='otro') return false;
+      if(_a1 && _a1!==_a2) return false;
     }
     return true;
   });
@@ -765,7 +769,9 @@ function renderTabla(periodo){
       var _a1=((c.rrhh||c.analistaRrhh)||'').trim().toLowerCase();
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&(c.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
-      if(_a1 && _a1!==_a2 && !_emailMatch) return;
+      var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(c,'rrhh'):null);
+      if(_asig==='otro'&&!_emailMatch) return;
+      if(_asig===null&&_a1 && _a1!==_a2 && !_emailMatch) return;
     }
     reportes.push({
       id:'nuevo_'+c.rut+'_'+periodo,

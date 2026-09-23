@@ -224,6 +224,8 @@ function sbRowToCliente(row){
     rrhh:            row.analista_rrhh,
     analistaRrhh:    row.analista_rrhh,
     analistaContable:row.analista_contable,
+    analistaContableUsuarioId:row.analista_contable_usuario_id||null,
+    analistaRrhhUsuarioId:row.analista_rrhh_usuario_id||null,
     analistaPagos:   row.analista_pagos,
     emailAnalista:   row.email_analista,
     waAnalista:      row.wa_analista,
@@ -360,6 +362,7 @@ function sbGetClientes(cb){
     'obs_trib','moneda_plan','moneda_variable','monto_base','trab_incluidos',
     'valor_por_trab','hon_variable','precio_obs',
     'analista_contable','analista_rrhh','analista_pagos',
+    'analista_contable_usuario_id','analista_rrhh_usuario_id',
     'email_analista','wa_analista',
     'prioridad_rrhh','prioridad_contable',
     'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
@@ -438,6 +441,39 @@ function gestoorCachearClientes(lista){
   var out=Object.keys(porRut).map(function(k){return porRut[k];});
   try{localStorage.setItem('clientes_bd',JSON.stringify(out));}catch(e){}
   return out;
+}
+
+// ── ASIGNACIÓN DE ANALISTAS ────────────────────────────────
+// La ficha asigna analistas por ID (public.usuarios_sistema.id en clientes.analista_*_usuario_id).
+// gestoorAsignacion(c,'contable'|'rrhh') → 'mio' | 'otro' | 'sin_asignar'. Master/admin → 'mio'.
+// Si el cliente no tiene ID asignado o la identidad aún no cargó, se compara por nombre (respaldo).
+var _gestoorUsId=(function(){try{var v=sessionStorage.getItem('gestoor_us_id');return v?Number(v):null;}catch(e){return null;}})();
+function gestoorMiUsuarioSistemaId(){return _gestoorUsId;}
+function gestoorCargarMiUsuarioSistema(){
+  var c=window._sbAuthClient;
+  if(!c)return Promise.resolve(null);
+  return c.auth.getUser().then(function(res){
+    var email=res&&res.data&&res.data.user&&res.data.user.email;
+    if(!email)return null;
+    return sbGet('usuarios_sistema?select=id&activo=eq.true&email=ilike.'+encodeURIComponent(email)+'&limit=1').then(function(rows){
+      _gestoorUsId=rows&&rows[0]?Number(rows[0].id):null;
+      try{if(_gestoorUsId)sessionStorage.setItem('gestoor_us_id',String(_gestoorUsId));}catch(e){}
+      return _gestoorUsId;
+    });
+  }).catch(function(){return null;});
+}
+window.addEventListener('gestoor-auth-ready',function(){if(_gestoorAccessToken&&!_gestoorUsId)gestoorCargarMiUsuarioSistema();});
+function gestoorAsignacion(c,area){
+  var u=getUsuario();
+  if(u.esMaster||u.rol==='master'||u.rol==='admin')return 'mio';
+  c=c||{};
+  var idAsig=area==='rrhh'?(c.analistaRrhhUsuarioId!=null?c.analistaRrhhUsuarioId:c.analista_rrhh_usuario_id)
+                          :(c.analistaContableUsuarioId!=null?c.analistaContableUsuarioId:c.analista_contable_usuario_id);
+  var nom=area==='rrhh'?(c.rrhh||c.analistaRrhh):(c.contador||c.analistaContable);
+  if(idAsig!=null&&_gestoorUsId!=null)return Number(idAsig)===Number(_gestoorUsId)?'mio':'otro';
+  if(!nom&&idAsig==null)return 'sin_asignar';
+  if(!nom)return 'otro';
+  return String(nom).trim().toLowerCase()===String(u.nombre||'').trim().toLowerCase()?'mio':'otro';
 }
 
 // ── ¿QUIÉN PAGA? (informativo) ─────────────────────────────
