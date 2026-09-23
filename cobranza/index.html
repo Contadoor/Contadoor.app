@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -123,6 +123,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .search-input:focus{border-color:var(--p);}
 .filter-sel{font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;outline:none;background:var(--sur);color:var(--t1);}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -207,6 +208,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="../supabase.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
 var PROXY_URL='https://contafunnel-v2.vercel.app/api/cobranza-email';

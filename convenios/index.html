@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -156,6 +156,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .empty-state h3{font-size:15px;font-weight:600;margin-bottom:5px;color:var(--t2);}
 .alerta-banner{background:linear-gradient(135deg,#922b21,#C0392B);border-radius:10px;padding:12px 18px;margin-bottom:14px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -369,6 +370,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="../supabase.js"></script>
 <script>
 // ── ESTADO ────────────────────────────────────────────────────────────────
 var _view='convenios', _editId=null, _cuotaConvId=null, _cuotaIdx=null;
