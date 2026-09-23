@@ -459,10 +459,6 @@ var ESTADOS = {
 var FLUJO_PASOS = ['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado','finalizado'];
 
 var _editId=null, _accionId=null, _btnIds={}, _viewActual='todas', _seleccionados=new Set();
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
-function sbH(){return{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
-function sbPatch(path,data){return fetch(SB_URL+'/rest/v1/'+path,{method:'PATCH',headers:Object.assign({'Prefer':'return=representation'},sbH()),body:JSON.stringify(data)}).catch(function(){});}
 function getReportesMensuales(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
 function setReportesMensuales(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
 function syncEstadoReporte(ob, nuevoEstado){
