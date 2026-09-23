@@ -862,7 +862,8 @@ function cargarClientesSupabase(){
         rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
         moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
-        varTrab:Number(c.valor_por_trab||c.hon_variable)||0,trabIncl:Number(c.trab_incluidos)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
+        varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,  // la ficha guarda en hon_variable
+        trabIncl:Number(c.trab_incluidos)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
     localStorage.setItem('clientes_bd',JSON.stringify(mapped));
   }).catch(function(){});
