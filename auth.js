@@ -49,7 +49,8 @@
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios'],
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios'],
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios'],
-    cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios']
+    cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
+    comercial:['dashboard','clientes','convenios']
   };
 
   function puedeVerModulo(perfil,modulo){
