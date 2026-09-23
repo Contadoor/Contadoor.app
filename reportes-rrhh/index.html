@@ -486,7 +486,7 @@ function getClientes(){
 }
 function cargarClientesDesdeSupabase(cb){
   console.log('[RRHH] Cargando clientes desde Supabase...');
-  sbGet('clientes?select=*&order=razon_social.asc').then(function(rows){console.log('[RRHH] Clientes recibidos:',rows&&rows.length);
+  sbGet('clientes?select=id,rut,razon_social,giro,email,contacto,tel,wa,ciudad,plan,estado,fecha_inicio,regimen,iva_condicion,modalidad_pago,moneda_plan,moneda_variable,monto_base,trab_incluidos,valor_por_trab,hon_variable,analista_rrhh,analista_contable,analista_pagos,email_analista,wa_analista,prioridad_rrhh,prioridad_contable,tiene_rrhh,tiene_contabilidad,obs,obs_acceso,socios&order=razon_social.asc').then(function(rows){console.log('[RRHH] Clientes recibidos:',rows&&rows.length);
     if(rows&&rows.length){
       var mapped=rows.map(function(r){
         return {
@@ -496,7 +496,7 @@ function cargarClientesDesdeSupabase(cb){
           inicio:r.fecha_inicio, reg:r.regimen, iva:r.iva_condicion,
           modalidad:r.modalidad_pago, moneda:r.moneda_plan,
           monedaVar:r.moneda_variable, monto:r.monto_base,
-          trab:r.trab_incluidos||0, varTrab:r.valor_por_trab||r.hon_variable,
+          trab:r.trab_incluidos||0, varTrab:(r.hon_variable!=null?r.hon_variable:r.valor_por_trab),
           rrhh:r.analista_rrhh, analistaRrhh:r.analista_rrhh,
           contador:r.analista_contable, analistaContable:r.analista_contable,
           analistaPagos:r.analista_pagos, emailAnalista:r.email_analista,
@@ -504,7 +504,7 @@ function cargarClientesDesdeSupabase(cb){
           prioCont:r.prioridad_contable||'media',
           tieneRrhh:r.tiene_rrhh!==false, tieneContabilidad:r.tiene_contabilidad!==false,
           obs:r.obs, obsAcceso:r.obs_acceso, socios:r.socios||[],
-          credsExtra:r.creds_extra||[]
+          credsExtra:[]  // las credenciales no se leen desde clientes (Edge Functions)
         };
       });
       _clientesCache=mapped;
@@ -846,6 +846,7 @@ function renderTabla(periodo){
     html+='<td><div class="cli-nombre">'+hesc(r.clienteNombre||r.rut)+'</div>'
       +'<div class="cli-sub"><span class="cli-rut">'+hesc(r.rut)+'</span>'
       +'<span class="plan '+planCls+'">'+hesc(planLabel)+'</span>'
+      +(typeof gestoorBadgeQuienPaga!=='function'?'':gestoorBadgeQuienPaga((getClientes().find(function(x){return x.rut===r.rut;})||{}).modalidad))
       +(r.clienteWa?'<a href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank" style="font-size:10px;color:#2D9B6F">💬</a>':'')
       +'</div></td>';
     // Pipeline etapas

@@ -852,7 +852,7 @@ function sbGetAuth(path){
   }).then(function(r){return r.ok?r.json():[];}).catch(function(){return[];});
 }
 function cargarClientesSupabase(){
-  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad&order=razon_social.asc')
+  return sbGetAuth('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
   .then(function(data){
     if(!data||!data.length)return;
     var mapped=data.map(function(c){
@@ -863,7 +863,8 @@ function cargarClientesSupabase(){
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
         moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
         varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,  // la ficha guarda en hon_variable
-        trabIncl:Number(c.trab_incluidos)||0,tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
+        trabIncl:Number(c.trab_incluidos)||0,modalidad:c.modalidad_pago||'contadoor',
+        descTipo:c.desc_tipo||'',descValor:Number(c.desc_valor)||0,descDesde:c.desc_desde||'',descHasta:c.desc_hasta||'',tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
     localStorage.setItem('clientes_bd',JSON.stringify(mapped));
   }).catch(function(){});
@@ -899,6 +900,7 @@ function generarNominaDesdeClientes(perKey){
 // Nuestros servicios = fijo (monto base del plan, CLP o UF × UF del período)
 //   + variable (trabajadores informados por RRHH que exceden los incluidos en el plan × valor por trabajador,
 //     CLP o UF × UF del período).
+// Descuento sobre el plan (ficha): % o monto en la moneda del plan, vigente entre desde/hasta (vacío = sin límite).
 // ═══════════════════════════════════════════════════════════
 function _ufDelPeriodo(periodo){
   var n=String(periodo||'').replace('-','');
@@ -922,9 +924,14 @@ function calcularServicios(r){
   }
   var nCobrados=Math.max(0,nTrab-incl);
   var base=c.moneda==='CLP'?monto:monto*uf;
+  var perR=String(r.periodo||'').length===6?String(r.periodo).slice(0,4)+'-'+String(r.periodo).slice(4):String(r.periodo||'');
+  var descVigente=!!(c.descTipo&&c.descValor>0&&(!c.descDesde||perR>=c.descDesde)&&(!c.descHasta||perR<=c.descHasta));
+  var descuento=!descVigente?0:c.descTipo==='porcentaje'?base*Math.min(c.descValor,100)/100:(c.moneda==='CLP'?c.descValor:c.descValor*uf);
+  descuento=Math.min(descuento,base);
   var variable=nCobrados*varTrab*(c.monedaVar==='CLP'?1:uf);
   var ok=!falta.length;
-  return{ok:ok,base:Math.round(base),variable:Math.round(variable),total:ok?Math.round(base+variable):0,
+  return{ok:ok,base:Math.round(base),descuento:Math.round(descuento),variable:Math.round(variable),total:ok?Math.round(base-descuento+variable):0,
+    descTipo:descVigente?c.descTipo:'',descValor:descVigente?c.descValor:0,
     nTrab:nTrab,incluidos:incl,nCobrados:nCobrados,uf:uf,moneda:c.moneda,monto:monto,monedaVar:c.monedaVar,varTrab:varTrab,falta:falta};
 }
 function _estadoSecciones(r){
@@ -946,6 +953,7 @@ function _tuuGlosa(sv,perContable){
   var fy=m===12?y+1:y, fm=m===12?1:m+1;
   var g='Asesorias mensuales_'+(fm<10?'0':'')+fm+'.'+fy+' Periodo contable '+MESES[m-1]+' '+y;
   var det='Plan base '+(sv.moneda==='CLP'?ff(sv.monto):_tuuNum(sv.monto)+' UF');
+  if(sv.descTipo)det+=' - dcto '+(sv.descTipo==='porcentaje'?_tuuNum(sv.descValor)+'%':(sv.moneda==='CLP'?ff(sv.descValor):_tuuNum(sv.descValor)+' UF'));
   if(sv.varTrab>0&&sv.nCobrados>0){
     det+=' + '+sv.nCobrados+' trab. x '+(sv.monedaVar==='CLP'?ff(sv.varTrab):_tuuNum(sv.varTrab)+' UF');
     if(sv.incluidos>0)det+=' ('+sv.nTrab+' informados, '+sv.incluidos+' incl.)';

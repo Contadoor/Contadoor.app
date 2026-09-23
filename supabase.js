@@ -403,6 +403,17 @@ function sbGetClientes(cb){
   });
 }
 
+// ── ¿QUIÉN PAGA? (informativo) ─────────────────────────────
+// clientes.modalidad_pago: contadoor (transfiere y Contadoor paga) | directo | mixto.
+// Usado por reportes-rrhh y reportes-contable para mostrar la misma etiqueta.
+function gestoorBadgeQuienPaga(m){
+  var map={contadoor:['💳 Transfiere a Contadoor','#F5EAF5','#924893'],
+           directo:['🏦 Paga directo','#E7F8F0','#28865B'],
+           mixto:['↔️ Mixto','#FEF3C7','#92400E']};
+  var v=map[m]; if(!v) return '';
+  return '<span title="¿Quién paga las obligaciones?" style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:'+v[1]+';color:'+v[2]+';white-space:nowrap">'+v[0]+'</span>';
+}
+
 function sbUpsertCliente(c){
   var row=sbClienteToRow(c);
   if(c.id) return sbPatch('clientes?id=eq.'+c.id,row);

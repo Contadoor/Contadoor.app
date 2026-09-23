@@ -1063,7 +1063,7 @@ function renderTabla(){
     html+='<div class="cliente-row" id="row-'+c.rut+'" style="'+rowBg+'">';
     html+='<div class="cr-main" style="display:grid;grid-template-columns:200px 1fr 160px 120px auto;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;">';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'
-      +'<div class="cr-nombre">'+prioLbl+' '+hesc(c.razon)+'</div>'
+      +'<div class="cr-nombre">'+prioLbl+' '+hesc(c.razon)+' '+(typeof gestoorBadgeQuienPaga==='function'?gestoorBadgeQuienPaga(c.modalidad):'')+'</div>'
       +'<div class="cr-rut">'+hesc(c.rut)+'</div>'
       +'<span class="cr-plan '+planCls+'">'+planLbl+'</span>'
       +'</div>';

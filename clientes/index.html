@@ -235,6 +235,15 @@ body.modal-open{overflow:hidden;}
         </div>
         <div class="fgroup"><label>Fecha inicio</label><input type="date" id="f-inicio"></div>
       </div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="fgroup"><label>Servicios contratados</label>
+          <div style="display:flex;gap:16px;align-items:center;min-height:36px">
+            <label style="display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" id="f-tiene-cont" checked> Contabilidad</label>
+            <label style="display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" id="f-tiene-rrhh" checked> RRHH / Remuneraciones</label>
+          </div>
+        </div>
+        <div class="fgroup"><label>&nbsp;</label><div style="font-size:11px;color:var(--tm);line-height:1.4">Si un servicio no está contratado, el Panel lo muestra como N/A y no lo exige para enviar el reporte.</div></div>
+      </div>
 
       <div class="card-hd">📋 Tributación</div>
       <div class="fg3">
@@ -253,10 +262,11 @@ body.modal-open{overflow:hidden;}
             <option value="mixto">🟡 Mixto</option>
           </select>
         </div>
-        <div class="fgroup"><label>Modalidad pago</label>
-          <select id="f-modalidad">
+        <div class="fgroup"><label>¿Quién paga las obligaciones?</label>
+          <select id="f-modalidad" title="Informativo: se muestra en RRHH y Contable">
             <option value="contadoor">💳 Transfiere a Contadoor</option>
-            <option value="directo">🏦 Pago directo</option>
+            <option value="directo">🏦 Paga directo</option>
+            <option value="mixto">↔️ Mixto</option>
           </select>
         </div>
         <div class="fgroup"><label>Obs. tributarias</label><input type="text" id="f-obs-trib" placeholder="Pérdidas, fusiones..."></div>
@@ -315,6 +325,18 @@ body.modal-open{overflow:hidden;}
       <div class="fg2" style="margin-bottom:10px">
         <div class="fgroup"><label>Obs. precio</label><input type="text" id="f-precio-obs" placeholder="Precio especial, descuento..."></div>
         <div class="fgroup"><label>Vista previa</label><div class="preview-box" id="preview-val">—</div></div>
+      </div>
+      <div class="fg4" style="margin-bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div class="fgroup"><label>Descuento sobre el plan</label>
+          <select id="f-desc-tipo" onchange="calcPreview()">
+            <option value="">Sin descuento</option>
+            <option value="porcentaje">Porcentaje (%)</option>
+            <option value="monto">Monto (moneda del plan)</option>
+          </select>
+        </div>
+        <div class="fgroup"><label>Valor descuento</label><input type="number" id="f-desc-valor" step="0.01" min="0" placeholder="10" oninput="calcPreview()"></div>
+        <div class="fgroup"><label>Desde (opcional)</label><input type="month" id="f-desc-desde" title="Vacío = desde siempre"></div>
+        <div class="fgroup"><label>Hasta (opcional)</label><input type="month" id="f-desc-hasta" title="Vacío = sin fecha de término"></div>
       </div>
 
       <div class="card-hd">👥 Equipo asignado</div>
@@ -557,6 +579,8 @@ function rowToCliente(r) {
     email: r.email, contacto: r.contacto, tel: r.tel, wa: r.wa, ciudad: r.ciudad, direccion: r.direccion, comuna: r.comuna,
     plan: r.plan, estado: r.estado || 'activo', inicio: r.fecha_inicio,
     reg: r.regimen, iva: r.iva_condicion || 'afecto', modalidad: r.modalidad_pago || 'contadoor',
+    tieneCont: r.tiene_contabilidad !== false, tieneRrhh: r.tiene_rrhh !== false,
+    descTipo: r.desc_tipo || '', descValor: r.desc_valor, descDesde: r.desc_desde || '', descHasta: r.desc_hasta || '',
     obsTrib: r.obs_trib,
     moneda: r.moneda_plan || 'UF', monedaVar: r.moneda_variable || r.moneda_plan || 'UF',
     monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
@@ -594,6 +618,9 @@ function clienteToRow(c) {
     email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null, direccion: c.direccion || null, comuna: c.comuna || null,
     plan: c.plan || null, estado: c.estado || 'activo', fecha_inicio: c.inicio || null,
     regimen: c.reg || null, iva_condicion: c.iva || 'afecto', modalidad_pago: c.modalidad || 'contadoor',
+    tiene_contabilidad: c.tieneCont !== false, tiene_rrhh: c.tieneRrhh !== false,
+    desc_tipo: c.descTipo || null, desc_valor: c.descTipo ? (c.descValor || 0) : null,
+    desc_desde: c.descTipo ? (c.descDesde || null) : null, desc_hasta: c.descTipo ? (c.descHasta || null) : null,
     obs_trib: c.obsTrib || null,
     moneda_plan: c.moneda || 'UF', moneda_variable: c.monedaVar || c.moneda || 'UF',
     monto_base: c.monto || null, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
@@ -645,7 +672,7 @@ var _COLS_ADMIN = [
   'email_analista','wa_analista','prioridad_rrhh','prioridad_contable',
   'usuario_sii','usuario_previred','usuario_cu','usuario_fact','usuario_lic',
   'obs_acceso','obs','logo_base64','socios',
-  'tiene_rrhh','tiene_contabilidad','honorarios_contables',
+  'tiene_rrhh','tiene_contabilidad','honorarios_contables','desc_tipo','desc_valor','desc_desde','desc_hasta',
   'ppm_tasa_default','ppm_tasa_vigente_desde','ppm_tasa_fuente','ppm_tasa_observacion'
 ].join(',');
 
@@ -783,9 +810,12 @@ function calcPreview() {
 
   var esMixto = monBase !== monVar && vTrab;
   var baseClp = monBase === 'UF' ? base * UF : base;
-  var total   = baseClp;  // la parte variable depende de los trabajadores que informe RRHH cada mes
+  var dTipo = gv('f-desc-tipo'), dVal = nv('f-desc-valor');
+  var dClp  = !dTipo || !dVal ? 0 : dTipo === 'porcentaje' ? baseClp * Math.min(dVal, 100) / 100 : (monBase === 'UF' ? dVal * UF : dVal);
+  var total = Math.max(0, baseClp - dClp);  // la parte variable depende de los trabajadores que informe RRHH cada mes
 
   var txt = base + ' ' + monBase + ' base';
+  if (dTipo && dVal) txt += ' − dcto ' + (dTipo === 'porcentaje' ? dVal + '%' : dVal + ' ' + monBase);
   if (vTrab) txt += ' + ' + vTrab + ' ' + monVar + ' por trabajador' + (trab ? ' adicional (incluye ' + trab + ')' : '');
   if (esMixto) txt += ' <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:4px">MIXTO</span>';
   txt += '<br><span style="color:var(--p);font-weight:700">≈ ' + ff(total) + ' / mes</span>';
@@ -881,6 +911,8 @@ function resetForm() {
   // selects
   sv('f-plan', ''); sv('f-estado', 'activo'); sv('f-reg', '');
   sv('f-iva', 'afecto'); sv('f-modalidad', 'contadoor');
+  g('f-tiene-cont').checked = true; g('f-tiene-rrhh').checked = true;
+  sv('f-desc-tipo', ''); sv('f-desc-valor', ''); sv('f-desc-desde', ''); sv('f-desc-hasta', '');
   sv('f-moneda', 'UF'); sv('f-moneda-var', 'UF'); sv('f-prio', 'media');
   // logo
   sv('f-logo-b64', '');
@@ -924,6 +956,9 @@ function abrirEditar(id) {
   sv('f-wa', c.wa); sv('f-ciudad', c.ciudad); sv('f-direccion', c.direccion); sv('f-comuna', c.comuna); sv('f-inicio', c.inicio);
   sv('f-plan', c.plan); sv('f-estado', c.estado || 'activo');
   sv('f-reg', c.reg); sv('f-iva', c.iva || 'afecto'); sv('f-modalidad', c.modalidad || 'contadoor');
+  g('f-tiene-cont').checked = c.tieneCont !== false; g('f-tiene-rrhh').checked = c.tieneRrhh !== false;
+  sv('f-desc-tipo', c.descTipo || ''); sv('f-desc-valor', c.descValor != null ? c.descValor : '');
+  sv('f-desc-desde', c.descDesde || ''); sv('f-desc-hasta', c.descHasta || '');
   sv('f-obs-trib', c.obsTrib);
   sv('f-ppm-tasa-default', c.ppmTasaDefault!=null?c.ppmTasaDefault:'');
   sv('f-ppm-vigente-desde', c.ppmTasaVigenteDesde||'');
@@ -981,6 +1016,10 @@ function guardarCliente() {
   var razon = gv('f-razon'), rut = gv('f-rut');
   if (!razon) { alert('Razón Social es obligatorio'); return; }
   if (!rut)   { alert('RUT es obligatorio'); return; }
+  var _dT = gv('f-desc-tipo'), _dV = nv('f-desc-valor'), _dD = gv('f-desc-desde'), _dH = gv('f-desc-hasta');
+  if (_dT && !_dV) { alert('Indica el valor del descuento o elige "Sin descuento".'); return; }
+  if (_dT === 'porcentaje' && _dV > 100) { alert('El descuento en porcentaje no puede superar 100%.'); return; }
+  if (_dD && _dH && _dD > _dH) { alert('La fecha "Hasta" del descuento es anterior a "Desde".'); return; }
 
   var arr = getClientes();
   var esEdicion = !!_editId;
@@ -1002,6 +1041,8 @@ function guardarCliente() {
     email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'), direccion: gv('f-direccion'), comuna: gv('f-comuna'),
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
     reg:      gv('f-reg'), iva: gv('f-iva'), modalidad: gv('f-modalidad'), obsTrib: gv('f-obs-trib'),
+    tieneCont: g('f-tiene-cont').checked, tieneRrhh: g('f-tiene-rrhh').checked,
+    descTipo: gv('f-desc-tipo'), descValor: nv('f-desc-valor'), descDesde: gv('f-desc-desde'), descHasta: gv('f-desc-hasta'),
     ppmTasaDefault: gv('f-ppm-tasa-default')!==''?Number(gv('f-ppm-tasa-default')):null,
     ppmTasaVigenteDesde: gv('f-ppm-vigente-desde')||null,
     ppmTasaFuente: gv('f-ppm-fuente')||null,
@@ -1463,7 +1504,7 @@ function renderClientes() {
     var td2 = document.createElement('td');
     td2.innerHTML = '<span class="badge '+pb+'">'+(PLANES[c.plan]||esc(c.plan||'')||'—')+'</span>'
       + (c.iva ? '<br><span style="font-size:10px;color:var(--tm)">'+({afecto:'🟢 Afecto',exento:'🔵 Exento',mixto:'🟡 Mixto'}[c.iva]||'')+'</span>' : '')
-      + (c.modalidad ? '<br><span style="font-size:10px;color:var(--tm)">'+(c.modalidad==='contadoor'?'💳 Transfiere':'🏦 Directo')+'</span>' : '');
+      + (c.modalidad ? '<br><span style="font-size:10px;color:var(--tm)">'+(c.modalidad==='contadoor'?'💳 Transfiere':c.modalidad==='mixto'?'↔️ Mixto':'🏦 Directo')+'</span>' : '');
     tr.appendChild(td2);
 
     // Analista — FIX2.3A.3: mostrar Contable y RRHH de forma independiente
