@@ -315,7 +315,7 @@ function cargarUF(){
     }).catch(function(){var el2=g('uf-display');if(el2)el2.textContent='UF: '+ff(UF)+' (ref.)';});
 }
 function cargarClientes(){
-  return sbFetch('clientes?select=*&order=razon_social.asc')
+  return sbFetch('clientes?select=id,razon_social,rut,plan,estado,moneda_plan,monto_base,moneda_variable,hon_variable,trab_incluidos,analista_contable,analista_rrhh&order=razon_social.asc')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(data){
       var mapped=data.map(function(r){return{id:r.id,razon:r.razon_social,rut:r.rut,plan:r.plan,estado:r.estado||'activo',moneda:r.moneda_plan||'UF',monto:r.monto_base||0,monedaVar:r.moneda_variable||r.moneda_plan||'UF',varTrab:r.hon_variable||0,trab:r.trab_incluidos||0,contador:r.analista_contable,rrhh:r.analista_rrhh};});
