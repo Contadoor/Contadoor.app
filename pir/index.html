@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -212,6 +212,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   .rpt-hdr,.rpt-foot{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -483,6 +484,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="../supabase.js"></script>
 <script>
 // ── NAVEGACIÓN PIR INTERNA ────────────────────────────────────────────
 function pirGoView(name){
@@ -1858,9 +1860,7 @@ function resetForm(){
 (function(){
   function boot(){
     // Cargar UF/UTM desde Supabase periodos
-    fetch('https://ulxoxqbuxiuylaolaqxj.supabase.co/rest/v1/periodos?select=uf,utm,periodo&order=periodo.desc&limit=1',
-      {headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA'}})
-      .then(function(r){return r.ok?r.json():[];})
+    sbGet('periodos?select=uf,utm,periodo&order=periodo.desc&limit=1')
       .then(function(rows){
         if(rows&&rows[0]){
           var ufEl=document.getElementById('aj_uf');
