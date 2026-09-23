@@ -211,6 +211,8 @@ body.modal-open{overflow:hidden;}
         <div class="fgroup"><label>Teléfono</label><input type="text" id="f-tel" placeholder="+56 9 1234 5678"></div>
         <div class="fgroup"><label>WhatsApp (sin +56)</label><input type="text" id="f-wa" placeholder="979881891"></div>
         <div class="fgroup"><label>Ciudad</label><input type="text" id="f-ciudad" placeholder="Santiago"></div>
+        <div class="fgroup"><label>Dirección (facturación)</label><input type="text" id="f-direccion" placeholder="Av. Siempre Viva 742, of. 12"></div>
+        <div class="fgroup"><label>Comuna (facturación)</label><input type="text" id="f-comuna" placeholder="Providencia"></div>
       </div>
 
       <div class="card-hd">💰 Plan y estado</div>
@@ -308,7 +310,7 @@ body.modal-open{overflow:hidden;}
           </select>
         </div>
         <div class="fgroup"><label>Valor por trabajador</label><input type="number" id="f-var" placeholder="0.3" step="0.01"></div>
-        <div class="fgroup"><label>N° trabajadores actuales</label><input type="number" id="f-trab" placeholder="5"></div>
+        <div class="fgroup"><label>Trabajadores incluidos en el plan</label><input type="number" id="f-trab" placeholder="0" title="Se cobra por trabajador solo lo que exceda esta cantidad"></div>
       </div>
       <div class="fg2" style="margin-bottom:10px">
         <div class="fgroup"><label>Obs. precio</label><input type="text" id="f-precio-obs" placeholder="Precio especial, descuento..."></div>
@@ -552,7 +554,7 @@ function rowToCliente(r) {
   return {
     id: r.id,
     razon: r.razon_social, rut: r.rut, giro: r.giro,
-    email: r.email, contacto: r.contacto, tel: r.tel, wa: r.wa, ciudad: r.ciudad,
+    email: r.email, contacto: r.contacto, tel: r.tel, wa: r.wa, ciudad: r.ciudad, direccion: r.direccion, comuna: r.comuna,
     plan: r.plan, estado: r.estado || 'activo', inicio: r.fecha_inicio,
     reg: r.regimen, iva: r.iva_condicion || 'afecto', modalidad: r.modalidad_pago || 'contadoor',
     obsTrib: r.obs_trib,
@@ -589,7 +591,7 @@ function clienteToRow(c) {
   var nomRrhh     = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh     || null);
   return {
     razon_social: c.razon, rut: c.rut, giro: c.giro || null,
-    email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null,
+    email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null, direccion: c.direccion || null, comuna: c.comuna || null,
     plan: c.plan || null, estado: c.estado || 'activo', fecha_inicio: c.inicio || null,
     regimen: c.reg || null, iva_condicion: c.iva || 'afecto', modalidad_pago: c.modalidad || 'contadoor',
     obs_trib: c.obsTrib || null,
@@ -634,7 +636,7 @@ function clienteToRow(c) {
 // clave_fact, clave_lic, clave_banco, clave_tgr, creds_extra.
 // Mantener sincronizado con CLIENTES_COLS en supabase.js.
 var _COLS_ADMIN = [
-  'id','rut','razon_social','giro','email','contacto','tel','wa','ciudad',
+  'id','rut','razon_social','giro','email','contacto','tel','wa','ciudad','direccion','comuna',
   'plan','estado','fecha_inicio','regimen','iva_condicion','modalidad_pago',
   'obs_trib','moneda_plan','moneda_variable','monto_base','trab_incluidos',
   'valor_por_trab','hon_variable','precio_obs',
@@ -781,12 +783,10 @@ function calcPreview() {
 
   var esMixto = monBase !== monVar && vTrab;
   var baseClp = monBase === 'UF' ? base * UF : base;
-  var varClp  = trab && vTrab ? trab * vTrab * (monVar === 'UF' ? UF : 1) : 0;
-  var total   = baseClp + varClp;
+  var total   = baseClp;  // la parte variable depende de los trabajadores que informe RRHH cada mes
 
   var txt = base + ' ' + monBase + ' base';
-  if (vTrab) txt += ' + ' + vTrab + ' ' + monVar + '/trab';
-  if (trab)  txt += ' · ' + trab + ' trabajadores';
+  if (vTrab) txt += ' + ' + vTrab + ' ' + monVar + ' por trabajador' + (trab ? ' adicional (incluye ' + trab + ')' : '');
   if (esMixto) txt += ' <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:4px">MIXTO</span>';
   txt += '<br><span style="color:var(--p);font-weight:700">≈ ' + ff(total) + ' / mes</span>';
   pb.innerHTML = txt;
@@ -872,7 +872,7 @@ function updatePct() {
 
 function resetForm() {
   // text/number/email/date/textarea
-  ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad',
+  ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad','f-direccion','f-comuna',
    'f-obs-trib','f-monto','f-trab','f-var','f-precio-obs','f-inicio','f-obs',
    'f-ppm-tasa-default','f-ppm-vigente-desde','f-ppm-fuente','f-ppm-observacion',
    'f-sii-u','f-prev-u','f-cu-u','f-fact-u','f-lic-u','f-obs-acceso'
@@ -921,7 +921,7 @@ function abrirEditar(id) {
   // Campos simples
   sv('f-razon', c.razon); sv('f-rut', c.rut); sv('f-giro', c.giro);
   sv('f-email', c.email); sv('f-contacto', c.contacto); sv('f-tel', c.tel);
-  sv('f-wa', c.wa); sv('f-ciudad', c.ciudad); sv('f-inicio', c.inicio);
+  sv('f-wa', c.wa); sv('f-ciudad', c.ciudad); sv('f-direccion', c.direccion); sv('f-comuna', c.comuna); sv('f-inicio', c.inicio);
   sv('f-plan', c.plan); sv('f-estado', c.estado || 'activo');
   sv('f-reg', c.reg); sv('f-iva', c.iva || 'afecto'); sv('f-modalidad', c.modalidad || 'contadoor');
   sv('f-obs-trib', c.obsTrib);
@@ -999,7 +999,7 @@ function guardarCliente() {
   var c = {
     id:       _editId || null,
     razon:    razon, rut: rut, giro: gv('f-giro'),
-    email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'),
+    email:    gv('f-email'), contacto: gv('f-contacto'), tel: gv('f-tel'), wa: gv('f-wa'), ciudad: gv('f-ciudad'), direccion: gv('f-direccion'), comuna: gv('f-comuna'),
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
     reg:      gv('f-reg'), iva: gv('f-iva'), modalidad: gv('f-modalidad'), obsTrib: gv('f-obs-trib'),
     ppmTasaDefault: gv('f-ppm-tasa-default')!==''?Number(gv('f-ppm-tasa-default')):null,
@@ -1077,6 +1077,7 @@ function verDetalle(id) {
   h += '<div class="det-item"><div class="det-lbl">Contacto</div><div class="det-val">'+esc(c.contacto||'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">WhatsApp</div><div class="det-val">'+(c.wa?'<a href="https://wa.me/56'+esc(c.wa)+'" target="_blank" style="color:#2D9B6F">+56 '+esc(c.wa)+'</a>':'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Ciudad</div><div class="det-val">'+esc(c.ciudad||'—')+'</div></div>';
+  h += '<div class="det-item"><div class="det-lbl">Dirección / Comuna</div><div class="det-val">'+esc(c.direccion||'—')+(c.comuna?', '+esc(c.comuna):'')+'</div></div>';
   // FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback a campo legacy
   var _nomCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
   var _nomRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
@@ -1424,8 +1425,7 @@ function renderClientes() {
   g('st-suspendidos').textContent = all.filter(function(c){ return c.estado==='suspendido'; }).length;
   var mrr = all.filter(function(c){ return c.estado==='activo'; }).reduce(function(s,c){
     var b = (c.moneda==='CLP') ? (c.monto||0) : (c.monto||0)*UF;
-    var v = c.trab&&c.varTrab ? c.trab*c.varTrab*(c.monedaVar==='CLP'?1:UF) : 0;
-    return s + Math.round(b+v);
+    return s + Math.round(b);  // base fija; la variable depende de RRHH cada mes
   }, 0);
   g('st-mrr').textContent = '$' + Math.round(mrr/1000) + 'K';
   g('tabla-meta').textContent = arr.length + ' cliente' + (arr.length!==1?'s':'') + ' encontrado' + (arr.length!==1?'s':'');
@@ -1484,12 +1484,11 @@ function renderClientes() {
     var td4 = document.createElement('td'); td4.style.fontSize='11px';
     var esMixto2 = c.monedaVar && c.monedaVar !== c.moneda && c.varTrab;
     var baseC  = c.moneda==='CLP' ? c.monto||0 : (c.monto||0)*UF;
-    var varC   = c.trab&&c.varTrab ? c.trab*c.varTrab*(c.monedaVar==='CLP'?1:UF) : 0;
-    var totalC = Math.round(baseC+varC);
+    var totalC = Math.round(baseC);
     td4.innerHTML = c.monto
       ? '<span style="font-weight:600">'+c.monto+' '+(c.moneda||'UF')+'</span>'
         +(esMixto2?' <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:3px">MIXTO</span>':'')
-        +(c.trab?'<br><span style="font-size:10px;color:var(--tm)">'+c.trab+' trab · +'+ff(varC)+'</span>':'')
+        +(c.varTrab?'<br><span style="font-size:10px;color:var(--tm)">+ '+c.varTrab+' '+(c.monedaVar||'UF')+'/trab'+(c.trab?' (incl. '+c.trab+')':'')+'</span>':'')
         +(totalC?'<br><span style="color:var(--p);font-weight:700">≈ '+ff(totalC)+'</span>':'')
       : '<span style="color:var(--tm)">Sin valor</span>';
     tr.appendChild(td4);
