@@ -297,7 +297,7 @@ function toast(msg,color){var t=g('toast');t.textContent=msg;t.style.background=
 function getPlanes(){try{return JSON.parse(localStorage.getItem('planes_bd')||'null')||PLANES_DEFAULT;}catch(e){return PLANES_DEFAULT;}}
 function setPlanes(p){localStorage.setItem('planes_bd',JSON.stringify(p));}
 function getClientes(){
-  var c=sbCacheGetOrLocal('clientes','clientes_bd');
+  var c=sbCacheOrLocal('clientes','clientes_bd');
   return c||[];
 }
 function inicializarClientes(cb){
