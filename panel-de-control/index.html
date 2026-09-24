@@ -929,6 +929,50 @@ function generarResumenApertura(){
   return '<div style="background:var(--pp);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--pd);margin-bottom:12px">'+
     '📊 <strong>'+activos+'</strong> clientes activos'+( onb?' + <strong>'+onb+'</strong> onboarding':'')+' recibirán reporte.</div>';
 }
+// ── PERÍODO COMPARTIDO ─────────────────────────────────────────
+// Fuente única: public.periodos (RPC abrir_periodo / actualizar_parametros_periodo).
+// UF = base de facturación y cobro · UTM = reajuste del remanente IVA.
+// apertura_periodos y rpt_periodos quedan solo como caché del período leído de la BD.
+function _periodoRpc(fn,params){
+  return sbFetch('rpc/'+fn,{method:'POST',body:JSON.stringify(params)}).then(function(r){
+    return r.json().catch(function(){return null;}).then(function(j){
+      if(!r.ok){throw new Error((j&&(j.message||j.code))||('HTTP '+r.status));}
+      return j;
+    });
+  });
+}
+function _periodoErrorUx(e){
+  var m=String(e&&e.message||e);
+  if(m.indexOf('SOLO_MASTER')>=0)return 'Solo un usuario master puede abrir o editar períodos.';
+  if(m.indexOf('UF_INVALIDA')>=0)return 'El valor de la UF no es válido.';
+  if(m.indexOf('UTM_INVALIDA')>=0)return 'El valor de la UTM no es válido.';
+  if(m.indexOf('PERIODO_INVALIDO')>=0)return 'El período no es válido.';
+  if(m.indexOf('PERIODO_NO_EXISTE')>=0)return 'El período no existe en la base de datos.';
+  if(m.indexOf('PGRST202')>=0||m.indexOf('Could not find the function')>=0)return 'La base de datos aún no tiene habilitada la apertura de períodos.';
+  return 'No se pudo guardar el período en la base de datos ('+m+').';
+}
+function _cachearPeriodoActivo(row){
+  var ps={};try{ps=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');}catch(e){}
+  Object.keys(ps).forEach(function(k){if(ps[k]&&ps[k].estado==='activo')ps[k].estado='cerrado';});
+  if(row){
+    ps[row.periodo]={periodo:row.periodo,estado:'activo',uf:Number(row.uf),utm:Number(row.utm),
+      fechaApertura:row.fecha_apertura,fechaCorta:row.fecha_corta||'',abiertoPor:row.abierto_por||''};
+    var rpt=[];try{rpt=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
+    var i=rpt.findIndex(function(x){return x.periodo===row.periodo;});
+    var item={periodo:row.periodo,uf:Number(row.uf),utm:Number(row.utm),ts:Date.now()};
+    if(i>=0)rpt[i]=Object.assign(rpt[i],item);else rpt.unshift(item);
+    localStorage.setItem('rpt_periodos',JSON.stringify(rpt));
+  }
+  localStorage.setItem('apertura_periodos',JSON.stringify(ps));
+}
+// Lee el período activo desde la BD y actualiza la caché local.
+// Si la BD no tiene período activo, tampoco queda uno activo en local.
+function sincronizarPeriodoActivo(){
+  return sbFetch('periodos?estado=eq.activo&select=periodo,uf,utm,fecha_apertura,fecha_corta,abierto_por&limit=1')
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){_cachearPeriodoActivo(rows&&rows[0]||null);})
+    .catch(function(e){console.warn('[Panel] No se pudo leer el período activo desde la BD:',e&&e.message||e);});
+}
 function confirmarApertura(){
   var periodo=sv('ap-periodo');
   if(!periodo){alert('Selecciona un período.');return;}
@@ -938,31 +982,19 @@ function confirmarApertura(){
   var utmVal=parseFloat(document.getElementById('ap-utm').value)||0;
   if(!ufVal){alert('Ingresa el valor de la UF.');return;}
   if(!utmVal){alert('Ingresa el valor de la UTM.');return;}
-  var ps=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');
-  if(ps[periodo]){if(!confirm('Ya existe el período '+formatPeriodo(periodo)+'. ¿Regenerar nómina?'))return;}
-  Object.keys(ps).forEach(function(k){if(ps[k]&&ps[k].estado==='activo')ps[k].estado='cerrado';});
-  var hoyAp=new Date();
-  ps[periodo]={periodo:periodo,estado:'activo',uf:ufVal,utm:utmVal,
-    fechaApertura:hoyAp.toISOString(),
-    fechaCorta:hoyAp.getDate()+'/'+(hoyAp.getMonth()+1)+'/'+hoyAp.getFullYear(),
-    abiertoPor:getUsuario().nombre||'Sistema'};
-  localStorage.setItem('apertura_periodos',JSON.stringify(ps));
-  // Sync rpt_periodos
-  var rptPer=[];try{rptPer=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
-  if(!rptPer.find(function(p){return p.periodo===periodo;})){
-    rptPer.unshift({periodo:periodo,uf:ufVal,utm:utmVal,ts:Date.now()});
-    localStorage.setItem('rpt_periodos',JSON.stringify(rptPer));
+  if(getPeriodos().find(function(x){return x.periodo===periodo;})){
+    if(!confirm('Ya existe el período '+formatPeriodo(periodo)+'. ¿Reactivarlo con estos valores y regenerar nómina?'))return;
   }
-  // Supabase
-  fetch(SB_URL+'/rest/v1/periodos',{method:'POST',
-    headers:Object.assign({'Prefer':'resolution=merge-duplicates'},sbH()),
-    body:JSON.stringify({periodo:periodo,uf:ufVal,utm:utmVal,abierto_por:getUsuario().nombre||'Sistema'})
-  }).catch(function(){});
-  // Generar nómina
-  generarNominaDesdeClientes(periodo);
-  closeApertura();
-  renderAll();
-  alert('✅ Período '+formatPeriodo(periodo)+' abierto. Se generaron reportes para '+clientes.length+' clientes.');
+  // Primero la BD; si falla, no se abre nada localmente.
+  _periodoRpc('abrir_periodo',{p_periodo:periodo,p_uf:ufVal,p_utm:utmVal}).then(function(row){
+    _cachearPeriodoActivo(row);
+    generarNominaDesdeClientes(periodo);
+    closeApertura();
+    renderAll();
+    alert('✅ Período '+formatPeriodo(periodo)+' abierto para todo el equipo. Se generaron reportes para '+clientes.length+' clientes.');
+  }).catch(function(e){
+    alert('❌ '+_periodoErrorUx(e)+'\n\nEl período no se abrió.');
+  });
 }
 function editarPeriodo(){
   var per=getPeriodoActivo();
@@ -973,15 +1005,13 @@ function editarPeriodo(){
   if(!utmNew)return;
   var uf=parseFloat(ufNew),utm=parseFloat(utmNew);
   if(!uf||!utm){alert('Valores inválidos.');return;}
-  var ps=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');
-  if(ps[per.periodo]){ps[per.periodo].uf=uf;ps[per.periodo].utm=utm;}
-  localStorage.setItem('apertura_periodos',JSON.stringify(ps));
-  var rptPer=[];try{rptPer=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
-  var idx=rptPer.findIndex(function(p){return p.periodo===per.periodo;});
-  if(idx>=0){rptPer[idx].uf=uf;rptPer[idx].utm=utm;localStorage.setItem('rpt_periodos',JSON.stringify(rptPer));}
-  sbPatch('periodos?periodo=eq.'+per.periodo,{uf:uf,utm:utm});
-  renderAll();
-  alert('✅ Período actualizado. UF: $'+ffPer(uf)+' · UTM: $'+ffPer(utm));
+  _periodoRpc('actualizar_parametros_periodo',{p_periodo:per.periodo,p_uf:uf,p_utm:utm}).then(function(row){
+    _cachearPeriodoActivo(row);
+    renderAll();
+    alert('✅ Período actualizado para todo el equipo. UF: $'+ffPer(uf)+' · UTM: $'+ffPer(utm));
+  }).catch(function(e){
+    alert('❌ '+_periodoErrorUx(e)+'\n\nNo se cambiaron los valores.');
+  });
 }
 function abrirModalPeriodo(){document.getElementById('modal-periodo').style.display='flex';}
 function cerrarModalPeriodo(){document.getElementById('modal-periodo').style.display='none';}
@@ -1636,7 +1666,7 @@ function _esperarGestoorToken(timeoutMs){
   _esperarGestoorToken(5000)
   .then(function(tokenReady){
     if(!tokenReady)return[];  // fail-closed — no usar anon
-    return cargarClientesSupabase();
+    return Promise.all([cargarClientesSupabase(),sincronizarPeriodoActivo()]);
   })
   .then(function(){
     var perActivo=getPeriodoActivo();
