@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -78,6 +78,7 @@ nav{padding:8px;flex:1;overflow-y:auto;min-height:0;}
 .servicio-row label{font-size:12px;color:var(--t2);cursor:pointer;flex:1;}
 .preview-precio{background:var(--pp);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--pd);margin-top:8px;}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <aside class="sidebar">
@@ -241,10 +242,9 @@ nav{padding:8px;flex:1;overflow-y:auto;min-height:0;}
 
 <div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
 
+<script src="../supabase.js"></script>
 <script>
 var UF = 39700;
-var SB_URL = 'https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 var ESTADOS = {
   activo:{l:'Activo',c:'badge-activo'},onboarding:{l:'Onboarding',c:'badge-onboarding'},
   suspendido:{l:'Suspendido',c:'badge-suspendido'},inactivo:{l:'Inactivo',c:'badge-inactivo'}
@@ -294,15 +294,10 @@ function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function toast(msg,color){var t=g('toast');t.textContent=msg;t.style.background=color||'#2D9B6F';t.style.display='block';clearTimeout(t._t);t._t=setTimeout(function(){t.style.display='none';},3000);}
 
-function sbFetch(path,opts){
-  var base={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-  var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:Object.assign({},base,o.headers||{})}));
-}
 function getPlanes(){try{return JSON.parse(localStorage.getItem('planes_bd')||'null')||PLANES_DEFAULT;}catch(e){return PLANES_DEFAULT;}}
 function setPlanes(p){localStorage.setItem('planes_bd',JSON.stringify(p));}
 function getClientes(){
-  var c=sbCacheGetOrLocal('clientes','clientes_bd');
+  var c=sbCacheOrLocal('clientes','clientes_bd');
   return c||[];
 }
 function inicializarClientes(cb){
@@ -320,7 +315,7 @@ function cargarUF(){
     }).catch(function(){var el2=g('uf-display');if(el2)el2.textContent='UF: '+ff(UF)+' (ref.)';});
 }
 function cargarClientes(){
-  return sbFetch('clientes?select=*&order=razon_social.asc')
+  return sbFetch('clientes?select=id,razon_social,rut,plan,estado,moneda_plan,monto_base,moneda_variable,hon_variable,trab_incluidos,analista_contable,analista_rrhh&order=razon_social.asc')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(data){
       var mapped=data.map(function(r){return{id:r.id,razon:r.razon_social,rut:r.rut,plan:r.plan,estado:r.estado||'activo',moneda:r.moneda_plan||'UF',monto:r.monto_base||0,monedaVar:r.moneda_variable||r.moneda_plan||'UF',varTrab:r.hon_variable||0,trab:r.trab_incluidos||0,contador:r.analista_contable,rrhh:r.analista_rrhh};});
@@ -522,7 +517,6 @@ var mSvc=g('modalServicio');if(mSvc)mSvc.addEventListener('click',function(e){if
   }).catch(function(){renderPlanes();});
 })();
 </script>
-<script src="../supabase.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>

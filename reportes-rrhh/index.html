@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -141,6 +141,7 @@ tr:hover td{background:#f9fefb;}
 .bulk-bar.on{display:flex;}
 </style>
 <script src="../supabase.js"></script>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -608,9 +609,7 @@ function popularSelectPeriodos(){
   // Primero renderizar con lo que hay en local
   _renderSelectPeriodos(getPeriodos());
   // Luego sincronizar desde Supabase (períodos abiertos por Luciano)
-  fetch(SB_URL+'/rest/v1/periodos?select=periodo,uf,utm&order=periodo.desc&limit=12',{
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-  }).then(function(r){return r.ok?r.json():[];})
+  sbGet('periodos?select=periodo,uf,utm&order=periodo.desc&limit=12')
   .then(function(rows){
     if(!rows||!rows.length) return;
     // Sincronizar al localStorage
@@ -2510,6 +2509,8 @@ function marcarFinalizadoRrhh(id){
 function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
   var periodo=formatPeriodo(r.periodo);
   var u=getUsuario();
+  var _cli=getClientes().find(function(x){return x.rut===r.rut;});
+  var contacto=(_cli&&(_cli.contacto||_cli.contact))||r.clienteNombre||r.rut;
   var partes=String(r.periodo||'').split('-');
   var anio=parseInt(partes[0])||new Date().getFullYear();
   var mes=parseInt(partes[1])||1;

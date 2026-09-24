@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -75,6 +75,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
 @media(max-width:680px){.grid2{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
 </style>
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body>
 <div class="layout">
@@ -223,10 +224,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </main>
 </div>
+<script src="../supabase.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
-var SB_URL='https://ulxoxqbuxiuylaolaqxj.supabase.co';
-var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseG94cWJ1eGl1eWxhb2xhcXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNDMwNDcsImV4cCI6MjA5OTcxOTA0N30.bN_KeSJFEBKSBzwTixRQs92y6aEhBo-SJs4fGxZgAbA';
 var PROXY='https://contafunnel-v2.vercel.app';
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -237,10 +237,6 @@ function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_acti
 function getPeriodoAnterior(periodo){var p=String(periodo),y=parseInt(p.slice(0,4)),m=parseInt(p.slice(4,6))-1;if(m<1){m=12;y--;}return String(y)+(m<10?'0':'')+m;}
 function formatPeriodo(periodo){var ms=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],p=String(periodo);return ms[parseInt(p.slice(4,6))-1]+' '+p.slice(0,4);}
 // ── SUPABASE ──────────────────────────────────────────────────────────────
-function sbFetch(path,opts){
-  var o=opts||{};
-  return fetch(SB_URL+'/rest/v1/'+path,Object.assign({},o,{headers:Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},o.headers||{})}));
-}
 function setSyncStatus(status){
   var el=document.getElementById('sync-status');if(!el)return;
   var map={ok:{c:'#2D9B6F',t:'Supabase conectado'},syncing:{c:'#904891',t:'Sincronizando...'},error:{c:'#C0392B',t:'Error de conexión'}};
@@ -978,7 +974,6 @@ function limpiarEdicion(){
   Promise.all([cargarUF(), cargarClientes()]).then(function(){setSyncStatus('ok');}).catch(function(){setSyncStatus('error');});
 })();
 </script>
-<script src="../supabase.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>
