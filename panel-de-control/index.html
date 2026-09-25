@@ -951,13 +951,11 @@ function _tuuGlosa(sv,perContable){
   var p=perContable.split('-'), y=parseInt(p[0],10), m=parseInt(p[1],10);
   var fy=m===12?y+1:y, fm=m===12?1:m+1;
   var g='Asesorias mensuales_'+(fm<10?'0':'')+fm+'.'+fy+' Periodo contable '+MESES[m-1]+' '+y;
+  // Glosa resumida (Luciano, 25-sep): "Plan base 5 UF + 7 trabajadores x 0,3 UF"
   var det='Plan base '+(sv.moneda==='CLP'?ff(sv.monto):_tuuNum(sv.monto)+' UF');
   if(sv.varTrab>0&&sv.nCobrados>0){
-    det+=' + '+sv.nCobrados+' trab. x '+(sv.monedaVar==='CLP'?ff(sv.varTrab):_tuuNum(sv.varTrab)+' UF');
-    if(sv.incluidos>0)det+=' ('+sv.nTrab+' informados, '+sv.incluidos+' incl.)';
+    det+=' + '+sv.nCobrados+' trabajador'+(sv.nCobrados===1?'':'es')+' x '+(sv.monedaVar==='CLP'?ff(sv.varTrab):_tuuNum(sv.varTrab)+' UF');
   }
-  var usaUf=sv.moneda!=='CLP'||(sv.varTrab>0&&sv.nCobrados>0&&sv.monedaVar!=='CLP');
-  if(usaUf)det+=' | UF '+ff(sv.uf);
   return g+' | '+det;
 }
 function descargarArchivoTuu(){
