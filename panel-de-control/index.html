@@ -901,8 +901,14 @@ function generarNominaDesdeClientes(perKey){
 // ═══════════════════════════════════════════════════════════
 function _ufDelPeriodo(periodo){
   var n=String(periodo||'').replace('-','');
-  var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;});
-  return p&&Number(p.uf)||0;
+  // 1º el período activo (sincronizado desde la BD al cargar); así una copia antigua
+  //    en caché (p. ej. '202607' con otra UF) nunca gana a la UF vigente.
+  var act=getPeriodoActivo();
+  if(act&&String(act.periodo||'').replace('-','')===n&&Number(act.uf))return Number(act.uf);
+  // 2º períodos anteriores: la copia más reciente de ese período.
+  var cands=getPeriodos().filter(function(x){return String(x.periodo||'').replace('-','')===n;});
+  cands.sort(function(a,b){return (Number(b.ts)||0)-(Number(a.ts)||0);});
+  return cands[0]&&Number(cands[0].uf)||0;
 }
 function _rrhhListo(r){var s=r.secciones||{};return r.tieneRrhh===false||!!(s.rrhh&&(s.rrhh.ok||s.rrhh.na));}
 function _contableListo(r){return r.tieneCont===false||r.listoPanelControl===true;}
@@ -991,6 +997,9 @@ function _cachearPeriodoActivo(row){
     ps[row.periodo]={periodo:row.periodo,estado:'activo',uf:Number(row.uf),utm:Number(row.utm),
       fechaApertura:row.fecha_apertura,fechaCorta:row.fecha_corta||'',abiertoPor:row.abierto_por||''};
     var rpt=[];try{rpt=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
+    var nRow=String(row.periodo).replace('-','');
+    // quita copias del mismo período en otro formato (AAAAMM vs AAAA-MM) antes de guardar la vigente
+    rpt=rpt.filter(function(x){return !(x&&String(x.periodo||'').replace('-','')===nRow&&x.periodo!==row.periodo);});
     var i=rpt.findIndex(function(x){return x.periodo===row.periodo;});
     var item={periodo:row.periodo,uf:Number(row.uf),utm:Number(row.utm),ts:Date.now()};
     if(i>=0)rpt[i]=Object.assign(rpt[i],item);else rpt.unshift(item);
