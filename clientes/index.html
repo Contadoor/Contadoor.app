@@ -335,7 +335,7 @@ body.modal-open{overflow:hidden;}
           </select>
         </div>
         <div class="fgroup"><label>Valor descuento</label><input type="number" id="f-desc-valor" step="0.01" min="0" placeholder="10" oninput="calcPreview()"></div>
-        <div class="fgroup"><label>Desde (opcional)</label><input type="month" id="f-desc-desde" title="Vacío = desde siempre"></div>
+        <div class="fgroup"><label>Desde (opcional)</label><input type="month" id="f-desc-desde" title="Vacío = desde el período activo (no afecta meses anteriores)"></div>
         <div class="fgroup"><label>Hasta (opcional)</label><input type="month" id="f-desc-hasta" title="Vacío = sin fecha de término"></div>
       </div>
 
@@ -490,14 +490,17 @@ console.info('[Clientes] versión 2026-08-05-vFinal');
 // CONSTANTES
 // ─────────────────────────────────────────────────────
 var UF = 39700; // fallback — se actualiza desde periodos
+var PERIODO_ACTIVO = ''; // AAAA-MM; inicio por defecto de un descuento sin "Desde"
 function cargarUF() {
-  return sbFetch('periodos?select=uf,utm,periodo&order=periodo.desc&limit=1')
+  return sbFetch('periodos?select=uf,utm,periodo,estado&order=periodo.desc&limit=12')
     .then(function(r){ return r.ok ? r.json() : []; })
     .then(function(rows){
+      var act = (rows || []).filter(function(p){ return p.estado === 'activo'; })[0] || (rows || [])[0];
       if (rows && rows[0] && rows[0].uf) {
         UF = parseFloat(rows[0].uf);
         console.log('UF cargada desde periodos:', UF);
       }
+      if (act && act.periodo) { var ps = String(act.periodo); PERIODO_ACTIVO = ps.length === 6 ? ps.slice(0,4) + '-' + ps.slice(4) : ps; }
     })
     .catch(function(){ console.warn('UF: usando valor por defecto'); });
 }
@@ -1017,6 +1020,11 @@ function guardarCliente() {
   if (!razon) { alert('Razón Social es obligatorio'); return; }
   if (!rut)   { alert('RUT es obligatorio'); return; }
   var _dT = gv('f-desc-tipo'), _dV = nv('f-desc-valor'), _dD = gv('f-desc-desde'), _dH = gv('f-desc-hasta');
+  // Sin "Desde": el descuento parte en el período activo, así nunca recalcula meses anteriores.
+  if (_dT && !_dD) {
+    if (!PERIODO_ACTIVO) { alert('No se pudo leer el período activo. Indica el mes "Desde" del descuento.'); return; }
+    _dD = PERIODO_ACTIVO; sv('f-desc-desde', _dD);
+  }
   if (_dT && !_dV) { alert('Indica el valor del descuento o elige "Sin descuento".'); return; }
   if (_dT === 'porcentaje' && _dV > 100) { alert('El descuento en porcentaje no puede superar 100%.'); return; }
   if (_dD && _dH && _dD > _dH) { alert('La fecha "Hasta" del descuento es anterior a "Desde".'); return; }
@@ -1042,7 +1050,7 @@ function guardarCliente() {
     plan:     gv('f-plan'), estado: gv('f-estado') || 'activo', inicio: gv('f-inicio'),
     reg:      gv('f-reg'), iva: gv('f-iva'), modalidad: gv('f-modalidad'), obsTrib: gv('f-obs-trib'),
     tieneCont: g('f-tiene-cont').checked, tieneRrhh: g('f-tiene-rrhh').checked,
-    descTipo: gv('f-desc-tipo'), descValor: nv('f-desc-valor'), descDesde: gv('f-desc-desde'), descHasta: gv('f-desc-hasta'),
+    descTipo: _dT, descValor: _dV, descDesde: _dD, descHasta: _dH,
     ppmTasaDefault: gv('f-ppm-tasa-default')!==''?Number(gv('f-ppm-tasa-default')):null,
     ppmTasaVigenteDesde: gv('f-ppm-vigente-desde')||null,
     ppmTasaFuente: gv('f-ppm-fuente')||null,
