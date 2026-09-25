@@ -266,6 +266,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <span id="per-utm" style="font-size:11px;color:rgba(255,255,255,.4);display:none"></span>
     <button class="btn-p btn-sm no-print" onclick="abrirApertura()" style="color:#fff">📅 Abrir Período</button>
     <button class="btn-s btn-sm no-print" onclick="editarPeriodo()" style="color:#fff;border-color:rgba(255,255,255,.3)" title="Editar UF/UTM">✏️ Editar período</button>
+    <button class="btn-s btn-sm no-print" onclick="descargarArchivoTuu()" style="color:#fff;border-color:rgba(255,255,255,.3)" title="Facturas de Nuestros servicios del período, formato carga masiva Tuu">🧾 Archivo Tuu</button>
   </div>
   <div id="resumen-cards" style="border-bottom:1px solid var(--bdr)"></div>
   <!-- Barra filtros -->
@@ -936,6 +937,84 @@ function _estadoSecciones(r){
   var rr=_rrhhListo(r), im=_contableListo(r), sv=calcularServicios(r).ok;
   var enviado=r.estado==='enviado_total'||r.estado==='enviado';
   return{rrhh:rr,imp:im,hon:sv,completo:rr&&im&&sv,listo:rr&&im&&sv&&!enviado,enviado:enviado};
+}
+// ═══════════════════════════════════════════════════════════
+// ARCHIVO TUU — facturas de Nuestros servicios (carga masiva)
+// Se factura en el mes siguiente al período contable: período 2026-08 → emisión 2026-09-01,
+// glosa "Asesorias mensuales_09.2026 Periodo contable Agosto 2026 | detalle".
+// Factura exenta electrónica: Neto 0, IVA 0, Exento = Total. CSV UTF-8 con BOM, ";" y CRLF.
+// ═══════════════════════════════════════════════════════════
+function _tuuTxt(v){return String(v==null?'':v).replace(/[;\r\n]+/g,' ').replace(/\s+/g,' ').trim();}
+function _tuuRut(rut){return String(rut||'').replace(/\./g,'').replace(/\s/g,'').toUpperCase();}
+function _tuuNum(n){return String(n).replace('.',',');}
+function _tuuGlosa(sv,perContable){
+  var p=perContable.split('-'), y=parseInt(p[0],10), m=parseInt(p[1],10);
+  var fy=m===12?y+1:y, fm=m===12?1:m+1;
+  var g='Asesorias mensuales_'+(fm<10?'0':'')+fm+'.'+fy+' Periodo contable '+MESES[m-1]+' '+y;
+  var det='Plan base '+(sv.moneda==='CLP'?ff(sv.monto):_tuuNum(sv.monto)+' UF');
+  if(sv.varTrab>0&&sv.nCobrados>0){
+    det+=' + '+sv.nCobrados+' trab. x '+(sv.monedaVar==='CLP'?ff(sv.varTrab):_tuuNum(sv.varTrab)+' UF');
+    if(sv.incluidos>0)det+=' ('+sv.nTrab+' informados, '+sv.incluidos+' incl.)';
+  }
+  var usaUf=sv.moneda!=='CLP'||(sv.varTrab>0&&sv.nCobrados>0&&sv.monedaVar!=='CLP');
+  if(usaUf)det+=' | UF '+ff(sv.uf);
+  return g+' | '+det;
+}
+function descargarArchivoTuu(){
+  var u=getUsuario();
+  if(u.esMaster!==true){alert('Solo un usuario master puede generar el archivo de facturación.');return;}
+  var per=getPeriodoActivo();
+  if(!per){alert('No hay período activo.');return;}
+  var perC=String(per.periodo).length===6?per.periodo.slice(0,4)+'-'+per.periodo.slice(4):per.periodo;
+  var p=perC.split('-'), y=parseInt(p[0],10), m=parseInt(p[1],10);
+  var fy=m===12?y+1:y, fm=m===12?1:m+1;
+  var fechaEmision=fy+'-'+(fm<10?'0':'')+fm+'-01';
+  var reportes=getReportes().filter(function(r){return String(r.periodo||'').replace('-','')===perC.replace('-','');});
+  if(!reportes.length){alert('La nómina del período está vacía.');return;}
+  // Datos de facturación del cliente (giro, dirección, comuna) al momento de generar.
+  sbFetch('clientes?select=rut,razon_social,giro,direccion,comuna,estado')
+    .then(function(r){
+      if(!r.ok)return r.text().then(function(t){throw new Error(t.indexOf('direccion')>=0||t.indexOf('comuna')>=0?'La base de datos aún no tiene dirección y comuna de clientes.':'HTTP '+r.status);});
+      return r.json();
+    })
+    .then(function(clientes){
+      var porRut={};(clientes||[]).forEach(function(c){porRut[c.rut]=c;});
+      var filas=[], excluidos=[], total=0, largas=0;
+      reportes.forEach(function(r){
+        var c=porRut[r.rut]||{};
+        var nombre=c.razon_social||r.clienteNombre||r.rut;
+        var sv=calcularServicios(r);
+        var falta=sv.falta.slice();
+        if(sv.ok&&!sv.total)falta.push('monto de servicios en $0');
+        if(!c.giro)falta.push('giro');
+        if(!c.direccion)falta.push('dirección');
+        if(!c.comuna)falta.push('comuna');
+        if(c.estado&&c.estado!=='activo'&&c.estado!=='onboarding')falta.push('cliente '+c.estado);
+        if(falta.length){excluidos.push(nombre+': falta '+falta.join(', '));return;}
+        var glosa=_tuuGlosa(sv,perC);
+        if(glosa.length>80)largas++;
+        filas.push(['Factura exenta electrónica',fechaEmision,'Ventas del giro','Crédito','Factura de Servicios',
+          _tuuRut(r.rut),_tuuTxt(nombre),_tuuTxt(c.giro),_tuuTxt(c.direccion),_tuuTxt(c.comuna),
+          _tuuTxt(glosa),1,sv.total,0,sv.total,0,sv.total]);
+        total+=sv.total;
+      });
+      var msg='Período contable: '+MESES[m-1]+' '+y+' · emisión '+fechaEmision.split('-').reverse().join('-')+'\n'
+        +'Facturas en el archivo: '+filas.length+' · total '+ff(total);
+      if(largas)msg+='\n\n⚠️ '+largas+' glosa(s) superan 80 caracteres; si Tuu las corta, avísanos.';
+      if(excluidos.length)msg+='\n\nNo incluidos ('+excluidos.length+'):\n• '+excluidos.join('\n• ');
+      if(!filas.length){alert('❌ No hay facturas listas para el archivo.\n\n'+msg);return;}
+      if(!confirm(msg+'\n\n¿Descargar el archivo para Tuu?'))return;
+      var enc=['generales;;;;;receptor;;;;;detalles;;;totales;;;',
+        'Tipo de documento (*);Fecha de emisión (*);Tipo de venta (*);Forma de pago (*);Tipo de servicio (*);RUT Receptor (*);Razón Social (*);Giro (*);Dirección (*);Comuna (*);Nombre de Item (*);Cantidad (*);Precio (*);Monto Neto (*);Monto Exento (*);Monto IVA (*);Monto Total (*)'];
+      var csv='\uFEFF'+enc.concat(filas.map(function(f){return f.join(';');})).join('\r\n')+'\r\n';
+      var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='Facturacion_Tuu_'+MESES[m-1]+'_'+y+'.csv';
+      document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);
+    })
+    .catch(function(e){alert('❌ No se pudo generar el archivo: '+(e&&e.message||e));});
 }
 function _totalReporte(r){
   var atrasos=(r.atrasos||[]).reduce(function(s,a){return s+(a.monto||0);},0);
