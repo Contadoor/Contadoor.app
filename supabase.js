@@ -426,14 +426,22 @@ function gestoorRutValido(rut){
 function gestoorCachearClientes(lista){
   var prev=[];try{prev=JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){}
   var porRut={};
-  (prev||[]).forEach(function(c){if(c&&c.rut)porRut[c.rut]=c;});
+  // La clave es el RUT normalizado: una copia antigua con otro formato ("77.166.269-2") se fusiona
+  // con la vigente en vez de quedar duplicada; los datos que llegan de la BD siempre ganan.
+  (prev||[]).forEach(function(c){
+    if(!c||!c.rut)return;
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){dst[x]=c[x];});
+    dst.rut=k; porRut[k]=dst;
+  });
   (lista||[]).forEach(function(c){
     if(!c||!c.rut)return;
-    var dst=porRut[c.rut]||{};
-    Object.keys(c).forEach(function(k){if(c[k]!==undefined)dst[k]=c[k];});
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){if(c[x]!==undefined)dst[x]=c[x];});
+    dst.rut=k;
     if(!dst.razon&&dst.razonSocial)dst.razon=dst.razonSocial;
     if(!dst.razonSocial&&dst.razon)dst.razonSocial=dst.razon;
-    porRut[c.rut]=dst;
+    porRut[k]=dst;
   });
   var out=Object.keys(porRut).map(function(k){return porRut[k];});
   try{localStorage.setItem('clientes_bd',JSON.stringify(out));}catch(e){}
