@@ -403,6 +403,51 @@ function sbGetClientes(cb){
   });
 }
 
+// ── RUT ────────────────────────────────────────────────────
+// Formato único en Gestoor (y el que exige Tuu): sin puntos, con guion, K mayúscula. Ej: 77166269-2.
+function gestoorNormalizarRut(rut){
+  var s=String(rut||'').replace(/[^0-9kK]/g,'').toUpperCase();
+  if(s.length<2)return s;
+  return s.slice(0,-1)+'-'+s.slice(-1);
+}
+function gestoorRutValido(rut){
+  var r=gestoorNormalizarRut(rut);
+  if(!/^[0-9]{7,8}-[0-9K]$/.test(r))return false;
+  var num=r.split('-')[0], dv=r.split('-')[1], suma=0, mul=2;
+  for(var i=num.length-1;i>=0;i--){suma+=parseInt(num[i],10)*mul;mul=mul===7?2:mul+1;}
+  var res=11-(suma%11);
+  return (res===11?'0':res===10?'K':String(res))===dv;
+}
+
+// ── CACHÉ DE CLIENTES (localStorage 'clientes_bd') ─────────
+// Varios módulos guardan su vista de clientes. Se fusiona por RUT: completa campos sin borrar
+// clientes ni datos que otro módulo necesita (email, wa, plan...). La lista completa y autoritativa
+// la escribe el módulo Clientes. Se limpia al cerrar sesión (auth.js).
+function gestoorCachearClientes(lista){
+  var prev=[];try{prev=JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){}
+  var porRut={};
+  // La clave es el RUT normalizado: una copia antigua con otro formato ("77.166.269-2") se fusiona
+  // con la vigente en vez de quedar duplicada; los datos que llegan de la BD siempre ganan.
+  (prev||[]).forEach(function(c){
+    if(!c||!c.rut)return;
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){dst[x]=c[x];});
+    dst.rut=k; porRut[k]=dst;
+  });
+  (lista||[]).forEach(function(c){
+    if(!c||!c.rut)return;
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){if(c[x]!==undefined)dst[x]=c[x];});
+    dst.rut=k;
+    if(!dst.razon&&dst.razonSocial)dst.razon=dst.razonSocial;
+    if(!dst.razonSocial&&dst.razon)dst.razonSocial=dst.razon;
+    porRut[k]=dst;
+  });
+  var out=Object.keys(porRut).map(function(k){return porRut[k];});
+  try{localStorage.setItem('clientes_bd',JSON.stringify(out));}catch(e){}
+  return out;
+}
+
 // ── ¿QUIÉN PAGA? (informativo) ─────────────────────────────
 // clientes.modalidad_pago: contadoor (transfiere y Contadoor paga) | directo | mixto.
 // Usado por reportes-rrhh y reportes-contable para mostrar la misma etiqueta.

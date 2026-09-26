@@ -866,7 +866,7 @@ function cargarClientesSupabase(){
         trabIncl:Number(c.trab_incluidos)||0,modalidad:c.modalidad_pago||'contadoor',
         descTipo:c.desc_tipo||'',descValor:Number(c.desc_valor)||0,descDesde:c.desc_desde||'',descHasta:c.desc_hasta||'',tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
-    localStorage.setItem('clientes_bd',JSON.stringify(mapped));
+    (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(mapped):localStorage.setItem('clientes_bd',JSON.stringify(mapped)));
   }).catch(function(){});
 }
 function cargarReportesSupabase(periodo,callback){

@@ -263,7 +263,7 @@ function cargarClientes(){
           analistaContable:c.analista_contable, analistaRrhh:c.analista_rrhh
         };
       });
-      localStorage.setItem('clientes_bd', JSON.stringify(_todosClientes));
+      (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(_todosClientes):localStorage.setItem('clientes_bd',JSON.stringify(_todosClientes)));
       setSyncStatus('ok');
       renderNomina();
       return _todosClientes;

@@ -319,7 +319,7 @@ function cargarClientes(){
     .then(function(r){return r.ok?r.json():[];})
     .then(function(data){
       var mapped=data.map(function(r){return{id:r.id,razon:r.razon_social,rut:r.rut,plan:r.plan,estado:r.estado||'activo',moneda:r.moneda_plan||'UF',monto:r.monto_base||0,monedaVar:r.moneda_variable||r.moneda_plan||'UF',varTrab:r.hon_variable||0,trab:r.trab_incluidos||0,contador:r.analista_contable,rrhh:r.analista_rrhh};});
-      localStorage.setItem('clientes_bd',JSON.stringify(mapped));
+      (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(mapped):localStorage.setItem('clientes_bd',JSON.stringify(mapped)));
       return mapped;
     }).catch(function(){return getClientes();});
 }

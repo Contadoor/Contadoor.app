@@ -508,7 +508,7 @@ function cargarClientesDesdeSupabase(cb){
         };
       });
       _clientesCache=mapped;
-      try{localStorage.setItem('clientes_bd',JSON.stringify(mapped));}catch(e){}
+      try{(typeof gestoorCachearClientes==='function'?gestoorCachearClientes(mapped):localStorage.setItem('clientes_bd',JSON.stringify(mapped)));}catch(e){}
     }
     if(cb)cb();
   }).catch(function(){if(cb)cb();});
