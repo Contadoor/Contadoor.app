@@ -977,7 +977,10 @@ function renderTabla(){
   if(!_periodoActual){return;}
   var u=getUsuario();
   var clientes=getClientes().filter(function(c){
-    if(!u.esMaster&&u.rol==='contable'&&c.analistaContable&&c.analistaContable!==u.nombre) return false;
+    if(!u.esMaster&&u.rol==='contable'){
+      var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(c,'contable'):null);
+      if(_asig==='otro'||(_asig===null&&c.analistaContable&&c.analistaContable!==u.nombre)) return false;
+    }
     if(_filtros.plan&&c.plan!==_filtros.plan) return false;
     if(_filtros.prioridad&&(c.prioCont||c.prioridadContable||'media')!==_filtros.prioridad) return false;
     return true;

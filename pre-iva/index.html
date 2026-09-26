@@ -253,14 +253,15 @@ var _UF=39700;
 var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
 // ── CARGAR CLIENTES DESDE SUPABASE ────────────────────────────────────────
 function cargarClientes(){
-  return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh&order=razon_social.asc')
+  return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id&order=razon_social.asc')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(data){
       _todosClientes=data.filter(function(c){return c.estado==='activo';}).map(function(c){
         return {
           id:c.id, rut:c.rut, razonSocial:c.razon_social,
           email:c.email, plan:c.plan, estado:c.estado,
-          analistaContable:c.analista_contable, analistaRrhh:c.analista_rrhh
+          analistaContable:c.analista_contable, analistaRrhh:c.analista_rrhh,
+          analistaContableUsuarioId:c.analista_contable_usuario_id||null, analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null
         };
       });
       (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(_todosClientes):localStorage.setItem('clientes_bd',JSON.stringify(_todosClientes)));
@@ -714,7 +715,7 @@ function renderNomina(filtro){
   var clientes=_todosClientes.filter(function(c){
     return c.estado==='activo'&&(c.plan==='asesoria'||c.plan==='estrategico');
   });
-  if(!u.esMaster&&u.rol==='contable'){clientes=clientes.filter(function(c){return c.analistaContable===u.nombre;});}
+  if(!u.esMaster&&u.rol==='contable'){clientes=clientes.filter(function(c){var a=(typeof gestoorAsignacion==='function'?gestoorAsignacion(c,'contable'):null);return a!==null?a==='mio':c.analistaContable===u.nombre;});}
   if(filtro){clientes=clientes.filter(function(c){return (c.razonSocial||'').toLowerCase().indexOf(filtro)>=0||(c.rut||'').toLowerCase().indexOf(filtro)>=0;});}
   clientes.sort(function(a,b){var na=a.analistaContable||'',nb=b.analistaContable||'';return na!==nb?na.localeCompare(nb):(a.razonSocial||'').localeCompare(b.razonSocial||'');});
   // Cargar estados desde Supabase

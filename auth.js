@@ -231,7 +231,7 @@
     var client=window._sbAuthClient;
     var doLogout=function(){
       window._contadoorSesion=null;
-      sessionStorage.removeItem('usuario_activo');
+      sessionStorage.removeItem('usuario_activo'); sessionStorage.removeItem('gestoor_us_id');
       localStorage.removeItem('gestoor_sesion');
       localStorage.removeItem('usuario_sesion');
       // Cachés de datos que se vuelven a leer desde Supabase al iniciar sesión (no borra datos
@@ -349,14 +349,14 @@
           // Sin perfil → signOut + fail-closed
           if(err||!perfil){
             console.warn('[auth.js] Perfil no encontrado para UID:',user.id);
-            sessionStorage.removeItem('usuario_activo');
+            sessionStorage.removeItem('usuario_activo'); sessionStorage.removeItem('gestoor_us_id');
             client.auth.signOut().then(redirigirLogin).catch(redirigirLogin);
             return;
           }
           // Perfil inactivo → signOut + fail-closed
           if(!perfil.activo){
             console.warn('[auth.js] Usuario inactivo:',perfil.email);
-            sessionStorage.removeItem('usuario_activo');
+            sessionStorage.removeItem('usuario_activo'); sessionStorage.removeItem('gestoor_us_id');
             client.auth.signOut().then(redirigirLogin).catch(redirigirLogin);
             return;
           }
