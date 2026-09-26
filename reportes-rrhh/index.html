@@ -752,8 +752,9 @@ function renderTabla(periodo){
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&_cli&&(_cli.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
       var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(_cli,'rrhh'):null);
-      if(_asig==='mio'||_emailMatch) return true;
-      if(_asig==='otro') return false;
+      if(_asig==='mio') return true;
+      if(_asig==='otro') return false;   // la asignación por ID manda sobre el email o el nombre
+      if(_emailMatch) return true;
       if(_a1 && _a1!==_a2) return false;
     }
     return true;
@@ -770,7 +771,7 @@ function renderTabla(periodo){
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&(c.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
       var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(c,'rrhh'):null);
-      if(_asig==='otro'&&!_emailMatch) return;
+      if(_asig==='otro') return;   // la asignación por ID manda sobre el email o el nombre
       if(_asig===null&&_a1 && _a1!==_a2 && !_emailMatch) return;
     }
     reportes.push({

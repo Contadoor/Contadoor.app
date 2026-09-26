@@ -455,14 +455,16 @@ function gestoorCargarMiUsuarioSistema(){
   return c.auth.getUser().then(function(res){
     var email=res&&res.data&&res.data.user&&res.data.user.email;
     if(!email)return null;
+    // La RLS de usuarios_sistema (usuarios_sistema_select_propio) solo deja ver la fila propia (email exacto).
     return sbGet('usuarios_sistema?select=id&activo=eq.true&email=ilike.'+encodeURIComponent(email)+'&limit=1').then(function(rows){
       _gestoorUsId=rows&&rows[0]?Number(rows[0].id):null;
-      try{if(_gestoorUsId)sessionStorage.setItem('gestoor_us_id',String(_gestoorUsId));}catch(e){}
+      try{if(_gestoorUsId)sessionStorage.setItem('gestoor_us_id',String(_gestoorUsId));else sessionStorage.removeItem('gestoor_us_id');}catch(e){}
       return _gestoorUsId;
     });
   }).catch(function(){return null;});
 }
-window.addEventListener('gestoor-auth-ready',function(){if(_gestoorAccessToken&&!_gestoorUsId)gestoorCargarMiUsuarioSistema();});
+// Se vuelve a leer en cada inicio de sesión: un ID guardado de otra sesión nunca se reutiliza.
+window.addEventListener('gestoor-auth-ready',function(){if(_gestoorAccessToken)gestoorCargarMiUsuarioSistema();});
 function gestoorAsignacion(c,area){
   var u=getUsuario();
   if(u.esMaster||u.rol==='master'||u.rol==='admin')return 'mio';
