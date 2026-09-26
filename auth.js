@@ -46,10 +46,10 @@
   var MODULOS_POR_ROL={
     master:   ['*'],
     admin:    ['*'],
-    rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva'],
-    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes'],
-    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes'],
-    cobranza: ['dashboard','cobranza','conciliacion','clientes']
+    rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios'],
+    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios'],
+    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios'],
+    cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios']
   };
 
   function puedeVerModulo(perfil,modulo){
