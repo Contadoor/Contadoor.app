@@ -425,6 +425,7 @@ function _convError(e){
   if(m.indexOf('convenios_cliente_rut_fkey')>=0)return 'El cliente no existe en Gestoor (créalo primero en Clientes).';
   if(m.indexOf('n_convenio')>=0||m.indexOf('periodo_deuda')>=0||m.indexOf('analista_responsable')>=0)return 'La base de datos aún no tiene habilitado el módulo de convenios.';
   if(m.indexOf('ck_convenios')>=0)return 'Datos fuera de rango (revisa montos, cuotas y estado).';
+  if(m.indexOf('uq_convenios_numero')>=0)return 'Ya existe un convenio con ese N° para el cliente e institución.';
   return m.slice(0,200);
 }
 function _convGuardarObj(conv){
@@ -627,7 +628,11 @@ function eliminarConvenio(id){
 
 // ── IMPORTAR PLANILLA (Plantilla_Convenios_Gestoor.xlsx) ───────────────────
 // Hoja "Convenios": una fila por convenio. Hoja "Pagos" (opcional): detalle de cuotas pagadas.
-// Si el cliente no existe, se crea con RUT y razón social (RPC guardar_cliente_admin, master).
+// Decisiones de Luciano (26-sep): cualquier asesor puede importar; si el cliente no existe se crea con RUT y
+// razón social (RPC guardar_cliente_admin, hoy solo Master) y entra a la nómina del período activo.
+// Nunca sobrescribe: una fila repetida en el archivo se rechaza y un convenio que ya existe en la base se omite.
+// Clave del convenio: RUT + institución + N° de convenio; sin N°: RUT + institución + 1ª cuota + monto total.
+// Los convenios se guardan en UNA sola inserción (todo o nada).
 function _impTxt(v){return v==null?'':String(v).trim();}
 function _impNum(v){if(typeof v==='number')return v;var t=_impTxt(v).replace(/\$/g,'').replace(/\./g,'').replace(',','.');return parseFloat(t)||0;}
 function _impFecha(v){
@@ -648,7 +653,7 @@ function _impInst(v){
 function importarPlanillaConvenios(input){
   var file=input.files&&input.files[0];input.value='';
   if(!file)return;
-  if(getUsuario().esMaster!==true){alert('Solo un usuario master puede importar convenios.');return;}
+  var _esMaster=getUsuario().esMaster===true;
   if(typeof XLSX==='undefined'){alert('No se pudo cargar el lector de Excel. Revisa la conexión.');return;}
   var norm=window.gestoorNormalizarRut||function(r){return _impTxt(r);};
   var valido=window.gestoorRutValido||function(){return true;};
@@ -661,7 +666,12 @@ function importarPlanillaConvenios(input){
     var pagosWs=wb.Sheets['Pagos'];
     var pagos=pagosWs?XLSX.utils.sheet_to_json(pagosWs,{header:1,raw:true,defval:''}).slice(1):[];
     var clientes=getClientes(), porRut={};clientes.forEach(function(c){porRut[norm(c.rut)]=c;});
-    var convs=[], errores=[], nuevos={};
+    var convs=[], errores=[], nuevos={}, omitidos=[], vistos={};
+    function _clave(rut,inst,numero,inicio,total){return numero?[rut,inst,numero.toLowerCase()].join('|'):[rut,inst,inicio,Math.round(total)].join('|');}
+    var enBd={};getConvenios().forEach(function(c){
+      var ini=c.cuotas&&c.cuotas[0]?c.cuotas[0].vencimiento:'';
+      enBd[_clave(norm(c.rut),c.institucion,_impTxt(c.numero),ini,c.montoTotal)]=true;
+    });
     filas.forEach(function(f,i){
       var n=i+2;
       if(!f.some(function(x){return _impTxt(x)!=='';}))return;
@@ -680,6 +690,11 @@ function importarPlanillaConvenios(input){
       if(!inicio)falta.push('fecha primera cuota');
       if(pagadas>nC)falta.push('cuotas pagadas mayor que N° de cuotas');
       if(falta.length){errores.push('Fila '+n+': falta '+falta.join(', '));return;}
+      var clave=_clave(rut,inst,_impTxt(f[3]),inicio,total);
+      if(vistos[clave]){errores.push('Fila '+n+': repetida en el archivo (igual a la fila '+vistos[clave]+')');return;}
+      vistos[clave]=n;
+      if(enBd[clave]){omitidos.push('Fila '+n+': '+(razon||rut)+' · '+inst+(_impTxt(f[3])?' N° '+_impTxt(f[3]):'')+' ya existe en la base (no se modifica)');return;}
+      if(!porRut[rut]&&!_esMaster){errores.push('Fila '+n+': el cliente '+rut+' no existe en Gestoor y solo un usuario Master puede crearlo');return;}
       if(!porRut[rut])nuevos[rut]=razon;
       var estado=est.indexOf('complet')===0?'completado':est.indexOf('cancel')===0?'cancelado':'activo';
       var fechas=generarFechas(inicio,nC), ult=total-vC*(nC-1), numero=_impTxt(f[3]);
@@ -702,24 +717,37 @@ function importarPlanillaConvenios(input){
         responsable:_impTxt(f[11]),obs:_impTxt(f[13]),estado:estado,cuotas:cuotas});
     });
     var rutsNuevos=Object.keys(nuevos);
-    var msg='Convenios listos para cargar: '+convs.length+'\nClientes nuevos que se crearán: '+rutsNuevos.length
-      +(rutsNuevos.length?'\n• '+rutsNuevos.map(function(r){return nuevos[r]+' ('+r+')';}).join('\n• '):'')
+    var msg='Convenios nuevos que se cargarán: '+convs.length+'\nClientes nuevos que se crearán: '+rutsNuevos.length
+      +(rutsNuevos.length?' (quedarán activos y entrarán a la nómina del período activo)\n• '+rutsNuevos.map(function(r){return nuevos[r]+' ('+r+')';}).join('\n• '):'')
+      +(omitidos.length?'\n\nYa existen en la base, se omiten sin cambios: '+omitidos.length+'\n• '+omitidos.join('\n• '):'')
       +(errores.length?'\n\nFilas con errores (no se cargan): '+errores.length+'\n• '+errores.join('\n• '):'');
     if(!convs.length){alert('❌ No hay convenios válidos para cargar.\n\n'+msg);return;}
     if(!confirm(msg+'\n\n¿Cargar a la base de datos?'))return;
-    var ok=0, fallos=[];
+    var fallosCli=[];
     rutsNuevos.reduce(function(p,r){return p.then(function(){
       return sbFetch('rpc/guardar_cliente_admin',{method:'POST',body:JSON.stringify({p_cliente:{rut:r,razon_social:nuevos[r],estado:'activo'},p_es_edicion:false})})
         .then(function(res){if(!res.ok)return res.text().then(function(t){throw new Error(t);});})
-        .catch(function(err){fallos.push('Cliente '+nuevos[r]+': '+String(err.message||err).slice(0,120));});
+        .catch(function(err){fallosCli.push('Cliente '+nuevos[r]+' ('+r+'): '+String(err.message||err).slice(0,120));});
     });},Promise.resolve())
-    .then(function(){return convs.reduce(function(p,c){return p.then(function(){
-      return _convEscribir('POST','convenios',_convObjToRow(c)).then(function(){ok++;})
-        .catch(function(err){fallos.push((c.clienteNombre||c.rut)+' · '+c.institucion+': '+_convError(err));});
-    });},Promise.resolve());})
     .then(function(){
-      alert('✅ Convenios cargados: '+ok+(rutsNuevos.length?'\nRecuerda completar la ficha de los clientes nuevos en Clientes.':'')
-        +(fallos.length?'\n\nNo cargados ('+fallos.length+'):\n• '+fallos.join('\n• '):''));
+      if(fallosCli.length){
+        alert('❌ No se cargó ningún convenio: no se pudieron crear '+fallosCli.length+' cliente(s).\n• '+fallosCli.join('\n• ')
+          +((rutsNuevos.length-fallosCli.length)>0?'\n\nLos demás clientes nuevos sí quedaron creados; vuelve a importar el archivo cuando se corrija.':''));
+        if(typeof sbCacheInvalidate==='function')sbCacheInvalidate('clientes');
+        return;
+      }
+      // Una sola inserción con todos los convenios: la base la aplica completa o no aplica ninguno.
+      return _convEscribir('POST','convenios',convs.map(_convObjToRow)).then(function(res){
+        alert('✅ Convenios cargados: '+((res&&res.length)||convs.length)
+          +(rutsNuevos.length?'\nClientes creados: '+rutsNuevos.length+' (completa su ficha en Clientes).':'')
+          +(omitidos.length?'\nOmitidos porque ya existían: '+omitidos.length:'')
+          +(errores.length?'\nFilas con errores: '+errores.length:''));
+      }).catch(function(err){
+        alert('❌ No se cargó ningún convenio (la base rechazó la carga completa): '+_convError(err)
+          +(rutsNuevos.length?'\n\nLos clientes nuevos sí quedaron creados.':''));
+      });
+    })
+    .then(function(){
       if(typeof sbCacheInvalidate==='function')sbCacheInvalidate('clientes');
       cargarConvenios();
     });
