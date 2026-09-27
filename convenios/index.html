@@ -197,6 +197,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="tb-title">🤝 Convenios de Pago
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
   </div>
+    <button class="btn-s btn-sm" onclick="document.getElementById('imp-conv-file').click()" title="Plantilla_Convenios_Gestoor.xlsx">⬆ Importar planilla</button>
+    <input type="file" id="imp-conv-file" accept=".xlsx,.xls" style="display:none" onchange="importarPlanillaConvenios(this)">
     <button class="btn-s btn-sm" onclick="exportarCSV()">⬇ CSV</button>
     <button class="btn-p btn-sm" onclick="abrirModalNuevo()">+ Nuevo convenio</button>
   </div>
@@ -370,6 +372,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="../supabase.js"></script>
 <script>
 // ── ESTADO ────────────────────────────────────────────────────────────────
@@ -389,8 +392,77 @@ function nv(id){return parseFloat(sv(id))||0;}
 function hoy(){return new Date().toISOString().slice(0,10);}
 function fmtMes(y,m){return MESES[m]+' '+y;}
 
-function getConvenios(){try{return JSON.parse(localStorage.getItem('convenios_bd')||'[]');}catch(e){return[];}}
-function setConvenios(a){localStorage.setItem('convenios_bd',JSON.stringify(a));renderAll();}
+// ── DATOS ─────────────────────────────────────────────────────────────────
+// Fuente: public.convenios. Cuotas y pagos en cuotas_detalle (jsonb).
+// Cada operación se guarda primero en la BD; si falla, se avisa y no cambia nada.
+// localStorage 'convenios_bd' (versión anterior) solo se lee para ofrecer subirlo.
+var _convenios=[];
+function getConvenios(){return _convenios;}
+function _convRowToObj(r){
+  var cs=Array.isArray(r.cuotas_detalle)?r.cuotas_detalle:[];
+  var cl=getClientes().find(function(x){return x.rut===r.cliente_rut;})||{};
+  return{id:r.id,rut:r.cliente_rut,clienteNombre:r.cliente_nombre||cl.razon||'',clienteWa:cl.wa||'',
+    institucion:r.tipo||'',numero:r.n_convenio||'',conceptos:r.concepto||'',periodoDeuda:r.periodo_deuda||'',
+    montoTotal:Number(r.monto_total)||0,nCuotas:r.n_cuotas||cs.length,valorCuota:Number(r.monto_cuota)||0,
+    valorUltima:cs.length?Number(cs[cs.length-1].monto)||0:0,responsable:r.analista_responsable||'',
+    obs:r.obs||'',estado:r.estado||'activo',cuotas:cs};
+}
+function _convObjToRow(c){
+  var cs=c.cuotas||[];
+  return{cliente_rut:c.rut,cliente_nombre:c.clienteNombre||null,tipo:c.institucion,n_convenio:c.numero||null,
+    concepto:c.conceptos||c.institucion,periodo_deuda:c.periodoDeuda||null,monto_total:c.montoTotal,
+    monto_cuota:c.valorCuota,n_cuotas:c.nCuotas,cuotas_pagadas:cs.filter(function(q){return q.estado==='pagada';}).length,
+    fecha_inicio:cs[0]?cs[0].vencimiento:null,fecha_termino:cs.length?cs[cs.length-1].vencimiento:null,
+    estado:c.estado||'activo',obs:c.obs||null,analista_responsable:c.responsable||null,cuotas_detalle:cs,
+    updated_at:new Date().toISOString()};
+}
+function _convEscribir(method,path,row){
+  return sbFetch(path,{method:method,headers:{'Prefer':'return=representation'},body:row?JSON.stringify(row):undefined})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});return method==='DELETE'?null:r.json();});
+}
+function _convError(e){
+  var m=String(e&&e.message||e);
+  if(m.indexOf('convenios_cliente_rut_fkey')>=0)return 'El cliente no existe en Gestoor (créalo primero en Clientes).';
+  if(m.indexOf('n_convenio')>=0||m.indexOf('periodo_deuda')>=0||m.indexOf('analista_responsable')>=0)return 'La base de datos aún no tiene habilitado el módulo de convenios.';
+  if(m.indexOf('ck_convenios')>=0)return 'Datos fuera de rango (revisa montos, cuotas y estado).';
+  if(m.indexOf('uq_convenios_numero')>=0)return 'Ya existe un convenio con ese N° para el cliente e institución.';
+  return m.slice(0,200);
+}
+function _convGuardarObj(conv){
+  var existe=_convenios.some(function(x){return String(x.id)===String(conv.id);});
+  var p=existe?_convEscribir('PATCH','convenios?id=eq.'+encodeURIComponent(conv.id),_convObjToRow(conv))
+              :_convEscribir('POST','convenios',_convObjToRow(conv));
+  return p.then(function(){return cargarConvenios();});
+}
+function cargarConvenios(){
+  return sbFetch('convenios?select=*&order=created_at.desc')
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
+    .then(function(rows){_convenios=(rows||[]).map(_convRowToObj);renderAll();_avisoConveniosLocales();})
+    .catch(function(e){console.error('[Convenios] No se pudieron cargar:',e);alert('❌ No se pudieron cargar los convenios desde la base de datos: '+_convError(e));});
+}
+function _conveniosLocales(){try{return JSON.parse(localStorage.getItem('convenios_bd')||'[]');}catch(e){return[];}}
+function _avisoConveniosLocales(){
+  var loc=_conveniosLocales(), u=getUsuario?getUsuario():{};
+  var prev=document.getElementById('aviso-conv-locales');if(prev)prev.remove();
+  if(!loc.length||!(u.esMaster===true))return;
+  var d=document.createElement('div');d.id='aviso-conv-locales';
+  d.style.cssText='position:fixed;bottom:16px;right:16px;z-index:999;background:#fff;border:1px solid #E7DEE9;border-left:4px solid #924893;border-radius:10px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:12px;max-width:340px';
+  d.innerHTML='<b>'+loc.length+' convenio(s) guardados solo en este navegador.</b><br>Súbelos a la base para que todo el equipo los vea.<br><button class="btn-p btn-sm" style="margin-top:8px" onclick="subirConveniosLocales()">Subir a la base</button>';
+  document.body.appendChild(d);
+}
+function subirConveniosLocales(){
+  var loc=_conveniosLocales();if(!loc.length)return;
+  if(!confirm('¿Subir '+loc.length+' convenio(s) de este navegador a la base de datos?'))return;
+  var ok=0,err=[];
+  loc.reduce(function(p,c){return p.then(function(){
+    return _convEscribir('POST','convenios',_convObjToRow(c)).then(function(){ok++;})
+      .catch(function(e){err.push((c.clienteNombre||c.rut)+': '+_convError(e));});
+  });},Promise.resolve()).then(function(){
+    if(!err.length){try{localStorage.setItem('convenios_bd_respaldo',localStorage.getItem('convenios_bd'));localStorage.removeItem('convenios_bd');}catch(e){}}
+    alert('Subidos: '+ok+(err.length?'\nNo subidos ('+err.length+'):\n• '+err.join('\n• '):'\n(Se dejó un respaldo en este navegador.)'));
+    cargarConvenios();
+  });
+}
 function getClientes(){try{return JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){return[];}}
 
 // ── HELPERS ESTADO ────────────────────────────────────────────────────────
@@ -513,9 +585,7 @@ function guardarConvenio(){
     cuotas.push({numero:i+1,vencimiento:fechas[i],monto:esU?valorUltima:valorCuota,esUltima:esU,estado:pc?pc.estado:'pendiente',pago:pc?pc.pago:null});
   }
   var conv={id:_editId||Date.now(),rut,clienteNombre:cl?cl.razon:'',clienteWa:cl?cl.wa:'',institucion:inst,numero:sv('f-numero'),conceptos:sv('f-conceptos'),periodoDeuda:sv('f-periodo-deuda'),montoTotal,nCuotas,valorCuota,valorUltima,responsable:sv('f-responsable'),obs:sv('f-obs'),estado:sv('f-estado')||'activo',cuotas,ts:Date.now()};
-  if(_editId){var idx=arr.findIndex(function(x){return x.id===_editId;});if(idx>=0)arr[idx]=conv;else arr.unshift(conv);}
-  else arr.unshift(conv);
-  setConvenios(arr);closeModal();
+  _convGuardarObj(conv).then(closeModal).catch(function(e){alert('❌ No se guardó el convenio: '+_convError(e));});
 }
 
 // ── PAGAR CUOTA ───────────────────────────────────────────────────────────
@@ -535,22 +605,155 @@ function confirmarPago(){
   var fecha=sv('c-fecha'),monto=nv('c-monto'),quien=sv('c-quien');
   if(!fecha||!monto){alert('Fecha y monto son obligatorios.');return;}
   if(!quien){alert('Indica quién registra el pago.');return;}
-  var arr=getConvenios();
-  var idx=arr.findIndex(function(x){return x.id===_cuotaConvId;});if(idx<0)return;
-  arr[idx].cuotas[_cuotaIdx].estado='pagada';
-  arr[idx].cuotas[_cuotaIdx].pago={fecha,monto,forma:sv('c-forma'),comprobante:sv('c-comp'),quien,ts:new Date().toLocaleString('es-CL')};
-  if(arr[idx].cuotas.every(function(c){return c.estado==='pagada';}))arr[idx].estado='completado';
-  setConvenios(arr);closeCuota();
+  var orig=getConvenios().find(function(x){return x.id===_cuotaConvId;});if(!orig)return;
+  var conv=JSON.parse(JSON.stringify(orig));
+  conv.cuotas[_cuotaIdx].estado='pagada';
+  conv.cuotas[_cuotaIdx].pago={fecha,monto,forma:sv('c-forma'),comprobante:sv('c-comp'),quien,ts:new Date().toLocaleString('es-CL')};
+  if(conv.cuotas.every(function(c){return c.estado==='pagada';}))conv.estado='completado';
+  _convGuardarObj(conv).then(closeCuota).catch(function(e){alert('❌ No se registró el pago: '+_convError(e));});
 }
 function deshacerPago(convId,idx){
   if(!confirm('¿Deshacer este pago?'))return;
-  var arr=getConvenios();
-  var i=arr.findIndex(function(x){return x.id===convId;});if(i<0)return;
-  arr[i].cuotas[idx].estado='pendiente';arr[i].cuotas[idx].pago=null;
-  if(arr[i].estado==='completado')arr[i].estado='activo';
-  setConvenios(arr);
+  var orig=getConvenios().find(function(x){return x.id===convId;});if(!orig)return;
+  var conv=JSON.parse(JSON.stringify(orig));
+  conv.cuotas[idx].estado='pendiente';conv.cuotas[idx].pago=null;
+  if(conv.estado==='completado')conv.estado='activo';
+  _convGuardarObj(conv).catch(function(e){alert('❌ No se deshizo el pago: '+_convError(e));});
 }
-function eliminarConvenio(id){if(!confirm('¿Eliminar este convenio?'))return;setConvenios(getConvenios().filter(function(x){return x.id!==id;}));}
+function eliminarConvenio(id){
+  if(!confirm('¿Eliminar este convenio?'))return;
+  _convEscribir('DELETE','convenios?id=eq.'+encodeURIComponent(id)).then(cargarConvenios)
+    .catch(function(e){alert('❌ No se eliminó: '+_convError(e));});
+}
+
+// ── IMPORTAR PLANILLA (Plantilla_Convenios_Gestoor.xlsx) ───────────────────
+// Hoja "Convenios": una fila por convenio. Hoja "Pagos" (opcional): detalle de cuotas pagadas.
+// Decisiones de Luciano (26-sep): cualquier asesor puede importar; si el cliente no existe se crea con RUT y
+// razón social (RPC guardar_cliente_admin, hoy solo Master) y entra a la nómina del período activo.
+// Nunca sobrescribe: una fila repetida en el archivo se rechaza y un convenio que ya existe en la base se omite.
+// Clave del convenio: RUT + institución + N° de convenio; sin N°: RUT + institución + 1ª cuota + monto total.
+// Los convenios se guardan en UNA sola inserción (todo o nada).
+function _impTxt(v){return v==null?'':String(v).trim();}
+function _impNum(v){if(typeof v==='number')return v;var t=_impTxt(v).replace(/\$/g,'').replace(/\./g,'').replace(',','.');return parseFloat(t)||0;}
+function _impFecha(v){
+  if(v instanceof Date&&!isNaN(v))return new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  if(typeof v==='number'){var d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10);}
+  var m=_impTxt(v).match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if(m)return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  m=_impTxt(v).match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:'';
+}
+function _impInst(v){
+  var t=_impTxt(v).toLowerCase();
+  if(t.indexOf('tgr')>=0||t.indexOf('tesorer')>=0)return 'TGR';
+  if(t.indexOf('previred')>=0||t.indexOf('afc')>=0)return 'Previred / AFC';
+  if(t==='sii'||t.indexOf('impuestos')>=0)return 'SII';
+  if(t.indexOf('munic')>=0)return 'Municipalidad';
+  return t?'Otro':'';
+}
+function importarPlanillaConvenios(input){
+  var file=input.files&&input.files[0];input.value='';
+  if(!file)return;
+  var _esMaster=getUsuario().esMaster===true;
+  if(typeof XLSX==='undefined'){alert('No se pudo cargar el lector de Excel. Revisa la conexión.');return;}
+  var norm=window.gestoorNormalizarRut||function(r){return _impTxt(r);};
+  var valido=window.gestoorRutValido||function(){return true;};
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var wb;try{wb=XLSX.read(e.target.result,{type:'array',cellDates:true});}catch(err){alert('No se pudo leer el archivo: '+err.message);return;}
+    var ws=wb.Sheets['Convenios'];
+    if(!ws){alert('El archivo no tiene la hoja «Convenios». Usa la plantilla Plantilla_Convenios_Gestoor.xlsx.');return;}
+    var filas=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}).slice(1);
+    var pagosWs=wb.Sheets['Pagos'];
+    var pagos=pagosWs?XLSX.utils.sheet_to_json(pagosWs,{header:1,raw:true,defval:''}).slice(1):[];
+    var clientes=getClientes(), porRut={};clientes.forEach(function(c){porRut[norm(c.rut)]=c;});
+    var convs=[], errores=[], nuevos={}, omitidos=[], vistos={};
+    function _clave(rut,inst,numero,inicio,total){return numero?[rut,inst,numero.toLowerCase()].join('|'):[rut,inst,inicio,Math.round(total)].join('|');}
+    var enBd={};getConvenios().forEach(function(c){
+      var ini=c.cuotas&&c.cuotas[0]?c.cuotas[0].vencimiento:'';
+      enBd[_clave(norm(c.rut),c.institucion,_impTxt(c.numero),ini,c.montoTotal)]=true;
+    });
+    filas.forEach(function(f,i){
+      var n=i+2;
+      if(!f.some(function(x){return _impTxt(x)!=='';}))return;
+      var rut=norm(f[0]), razon=_impTxt(f[1]);
+      if(rut==='76123456-7'&&razon==='Comercial Ejemplo SpA')return; // fila de ejemplo
+      var inst=_impInst(f[2]), conceptos=_impTxt(f[4]), total=_impNum(f[6]), nC=parseInt(_impNum(f[7]),10), vC=_impNum(f[8]), inicio=_impFecha(f[9]);
+      var pagadas=Math.max(0,parseInt(_impNum(f[10]),10)||0), est=_impTxt(f[12]).toLowerCase();
+      var falta=[];
+      if(!rut||!valido(rut))falta.push('RUT válido');
+      if(!razon&&!porRut[rut])falta.push('razón social');
+      if(!inst)falta.push('institución');
+      if(!conceptos)falta.push('conceptos');
+      if(!total)falta.push('monto total');
+      if(!nC||nC<1)falta.push('N° de cuotas');
+      if(!vC)falta.push('valor cuota');
+      if(!inicio)falta.push('fecha primera cuota');
+      if(pagadas>nC)falta.push('cuotas pagadas mayor que N° de cuotas');
+      if(falta.length){errores.push('Fila '+n+': falta '+falta.join(', '));return;}
+      var clave=_clave(rut,inst,_impTxt(f[3]),inicio,total);
+      if(vistos[clave]){errores.push('Fila '+n+': repetida en el archivo (igual a la fila '+vistos[clave]+')');return;}
+      vistos[clave]=n;
+      if(enBd[clave]){omitidos.push('Fila '+n+': '+(razon||rut)+' · '+inst+(_impTxt(f[3])?' N° '+_impTxt(f[3]):'')+' ya existe en la base (no se modifica)');return;}
+      if(!porRut[rut]&&!_esMaster){errores.push('Fila '+n+': el cliente '+rut+' no existe en Gestoor y solo un usuario Master puede crearlo');return;}
+      if(!porRut[rut])nuevos[rut]=razon;
+      var estado=est.indexOf('complet')===0?'completado':est.indexOf('cancel')===0?'cancelado':'activo';
+      var fechas=generarFechas(inicio,nC), ult=total-vC*(nC-1), numero=_impTxt(f[3]);
+      var cuotas=fechas.map(function(fe,k){
+        var esU=k===nC-1, pagada=k<pagadas||estado==='completado';
+        return{numero:k+1,vencimiento:fe,monto:esU?ult:vC,esUltima:esU,estado:pagada?'pagada':'pendiente',
+               pago:pagada?{fecha:null,monto:esU?ult:vC,forma:'',comprobante:'',quien:'Carga inicial',ts:new Date().toLocaleString('es-CL')}:null};
+      });
+      pagos.forEach(function(p){
+        if(norm(p[0])!==rut)return;
+        var ref=_impTxt(p[1]).toLowerCase();
+        if(ref&&ref!==numero.toLowerCase()&&_impInst(p[1])!==inst)return;
+        var q=cuotas[parseInt(_impNum(p[2]),10)-1];if(!q)return;
+        q.estado='pagada';
+        q.pago={fecha:_impFecha(p[3])||null,monto:_impNum(p[4])||q.monto,forma:_impTxt(p[5]),comprobante:_impTxt(p[6]),quien:'Carga inicial',ts:new Date().toLocaleString('es-CL')};
+      });
+      if(cuotas.every(function(q){return q.estado==='pagada';}))estado='completado';
+      convs.push({id:'imp_'+n,rut:rut,clienteNombre:(porRut[rut]&&porRut[rut].razon)||razon,institucion:inst,numero:numero,
+        conceptos:conceptos,periodoDeuda:_impTxt(f[5]),montoTotal:total,nCuotas:nC,valorCuota:vC,valorUltima:ult,
+        responsable:_impTxt(f[11]),obs:_impTxt(f[13]),estado:estado,cuotas:cuotas});
+    });
+    var rutsNuevos=Object.keys(nuevos);
+    var msg='Convenios nuevos que se cargarán: '+convs.length+'\nClientes nuevos que se crearán: '+rutsNuevos.length
+      +(rutsNuevos.length?' (quedarán activos y entrarán a la nómina del período activo)\n• '+rutsNuevos.map(function(r){return nuevos[r]+' ('+r+')';}).join('\n• '):'')
+      +(omitidos.length?'\n\nYa existen en la base, se omiten sin cambios: '+omitidos.length+'\n• '+omitidos.join('\n• '):'')
+      +(errores.length?'\n\nFilas con errores (no se cargan): '+errores.length+'\n• '+errores.join('\n• '):'');
+    if(!convs.length){alert('❌ No hay convenios válidos para cargar.\n\n'+msg);return;}
+    if(!confirm(msg+'\n\n¿Cargar a la base de datos?'))return;
+    var fallosCli=[];
+    rutsNuevos.reduce(function(p,r){return p.then(function(){
+      return sbFetch('rpc/guardar_cliente_admin',{method:'POST',body:JSON.stringify({p_cliente:{rut:r,razon_social:nuevos[r],estado:'activo'},p_es_edicion:false})})
+        .then(function(res){if(!res.ok)return res.text().then(function(t){throw new Error(t);});})
+        .catch(function(err){fallosCli.push('Cliente '+nuevos[r]+' ('+r+'): '+String(err.message||err).slice(0,120));});
+    });},Promise.resolve())
+    .then(function(){
+      if(fallosCli.length){
+        alert('❌ No se cargó ningún convenio: no se pudieron crear '+fallosCli.length+' cliente(s).\n• '+fallosCli.join('\n• ')
+          +((rutsNuevos.length-fallosCli.length)>0?'\n\nLos demás clientes nuevos sí quedaron creados; vuelve a importar el archivo cuando se corrija.':''));
+        if(typeof sbCacheInvalidate==='function')sbCacheInvalidate('clientes');
+        return;
+      }
+      // Una sola inserción con todos los convenios: la base la aplica completa o no aplica ninguno.
+      return _convEscribir('POST','convenios',convs.map(_convObjToRow)).then(function(res){
+        alert('✅ Convenios cargados: '+((res&&res.length)||convs.length)
+          +(rutsNuevos.length?'\nClientes creados: '+rutsNuevos.length+' (completa su ficha en Clientes).':'')
+          +(omitidos.length?'\nOmitidos porque ya existían: '+omitidos.length:'')
+          +(errores.length?'\nFilas con errores: '+errores.length:''));
+      }).catch(function(err){
+        alert('❌ No se cargó ningún convenio (la base rechazó la carga completa): '+_convError(err)
+          +(rutsNuevos.length?'\n\nLos clientes nuevos sí quedaron creados.':''));
+      });
+    })
+    .then(function(){
+      if(typeof sbCacheInvalidate==='function')sbCacheInvalidate('clientes');
+      cargarConvenios();
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
 
 // ── TABLA DE AMORTIZACIÓN ─────────────────────────────────────────────────
 function verAmortizacion(id){
@@ -876,6 +1079,18 @@ function exportarCSV(){
 }
 
 renderAll();
+// Clientes (para el selector y nombres) y luego convenios desde la BD
+(function(){
+  var cargado=false;
+  function seguir(){if(cargado)return;cargado=true;cargarConvenios();}
+  if(typeof sbGetClientes==='function'){
+    sbGetClientes(function(rows){
+      if(rows&&rows.length&&typeof gestoorCachearClientes==='function')gestoorCachearClientes(rows);
+      seguir();
+    });
+    setTimeout(seguir,6000);
+  }else seguir();
+})();
 </script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
