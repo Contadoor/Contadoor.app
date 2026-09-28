@@ -630,8 +630,9 @@ function eliminarConvenio(id){
 
 // ── IMPORTAR PLANILLA (Plantilla_Convenios_Gestoor.xlsx) ───────────────────
 // Hoja "Convenios": una fila por convenio. Hoja "Pagos" (opcional): detalle de cuotas pagadas.
-// Decisiones de Luciano (26-sep): cualquier asesor puede importar; si el cliente no existe se crea con RUT y
-// razón social (RPC guardar_cliente_admin, hoy solo Master) y entra a la nómina del período activo.
+// Decisiones de Luciano (26 y 28-sep): el importador se usa en la migración. Si el cliente no existe, se crea con RUT y
+// razón social (RPC guardar_cliente_admin) solo si el usuario puede crear fichas (Master, Pagos o Comercial), y entra
+// a la nómina del período activo. Contable y RRHH solo ven su cartera: un RUT fuera de ella es error de fila.
 // Nunca sobrescribe: una fila repetida en el archivo se rechaza y un convenio que ya existe en la base se omite.
 // Clave del convenio: RUT + institución + N° de convenio; sin N°: RUT + institución + 1ª cuota + monto total.
 // Los convenios se guardan en UNA sola inserción (todo o nada).
@@ -655,7 +656,7 @@ function _impInst(v){
 function importarPlanillaConvenios(input){
   var file=input.files&&input.files[0];input.value='';
   if(!file)return;
-  var _esMaster=getUsuario().esMaster===true;
+  var _u=getUsuario(), _puedeCrearCliente=_u.esMaster===true||_u.rol==='pagos'||_u.rol==='comercial';
   if(typeof XLSX==='undefined'){alert('No se pudo cargar el lector de Excel. Revisa la conexión.');return;}
   var norm=window.gestoorNormalizarRut||function(r){return _impTxt(r);};
   var valido=window.gestoorRutValido||function(){return true;};
@@ -696,7 +697,7 @@ function importarPlanillaConvenios(input){
       if(vistos[clave]){errores.push('Fila '+n+': repetida en el archivo (igual a la fila '+vistos[clave]+')');return;}
       vistos[clave]=n;
       if(enBd[clave]){omitidos.push('Fila '+n+': '+(razon||rut)+' · '+inst+(_impTxt(f[3])?' N° '+_impTxt(f[3]):'')+' ya existe en la base (no se modifica)');return;}
-      if(!porRut[rut]&&!_esMaster){errores.push('Fila '+n+': el cliente '+rut+' no existe en Gestoor y solo un usuario Master puede crearlo');return;}
+      if(!porRut[rut]&&!_puedeCrearCliente){errores.push('Fila '+n+': el cliente '+rut+' no existe en Gestoor o no está en tu cartera; pídele a Pagos o Comercial que lo cree');return;}
       if(!porRut[rut])nuevos[rut]=razon;
       var estado=est.indexOf('complet')===0?'completado':est.indexOf('cancel')===0?'cancelado':'activo';
       var fechas=generarFechas(inicio,nC), ult=total-vC*(nC-1), numero=_impTxt(f[3]);
