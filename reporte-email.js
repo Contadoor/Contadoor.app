@@ -126,6 +126,9 @@ function renderReporteEmail(d){
     h+='</tr></table></td></tr>';
   });
 
+  // ── DESGLOSE DEL IMPUESTO ──
+  h+=bloqueIva(d);
+
   // ── DEUDA PENDIENTE ──
   if(d.deuda){
     h+='<tr><td style="padding:12px 28px 0"><table role="presentation" width="100%" style="background:'+C.rojoSuave+';border-radius:14px"><tr><td style="padding:14px 16px;font:400 13px/1.5 '+F_B+';color:'+C.tinta+'">';
@@ -259,6 +262,8 @@ function renderCumplimiento(d){
     h+='</tr></table></td></tr>';
   });
 
+  h+=bloqueIva(d);
+
   // ── CÓMO PAGAR ──
   h+='<tr><td style="padding:20px 28px 0"><div style="font:900 18px/1.3 '+F_T+';color:#fff;margin-bottom:8px">'+kw('Cómo *pagar* 💳')+'</div>';
   if(directo>0){
@@ -315,6 +320,41 @@ function renderCumplimiento(d){
 // Plantilla según el plan de la ficha: Cumplimiento → correo simple; PRO/Estratégico (o sin plan) → reporte completo.
 function esCumplimiento(plan){return String(plan||'').toLowerCase()==='cumplimiento';}
 function render(d){return esCumplimiento(d.plan)?renderCumplimiento(d):renderReporteEmail(d);}
+
+// ── DESGLOSE DEL IMPUESTO (F29): cómo llegamos al monto + PPM acumulado del año (pedido de Luciano, 29-sep-2026) ──
+// d.iva = {ventasNeto, ventasExento, debito, comprasNeto, credito, remAnterior, ivaPagar, remSiguiente,
+//          ppm, ppmTasa, ppmBase, retHon, iu, otros, total, conLibros}; d.ppmAcumulado = {anio, desde, hasta, monto}
+function bloqueIva(d){
+  var v=d.iva; if(!v||!(v.total>0||v.debito>0||v.credito>0))return '';
+  var h='<tr><td style="padding:14px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="'+C.panel+'" style="background:'+C.panel+';border:1px solid '+C.borde+';border-radius:14px;border-left:4px solid '+C.sii+'">';
+  h+='<tr><td colspan="2" style="padding:12px 16px 4px;font:900 15px/1.3 '+F_T+';color:#fff">'+kw('¿Cómo llegamos a tu *impuesto*? 🧮')+'</td></tr>';
+  h+='<tr><td colspan="2" style="padding:0 16px 6px;font:400 11px/1.5 '+F_B+';color:'+C.tinta2+'">'+ent('Formulario 29 del SII')+' · '+(v.conLibros?'según tus libros de ventas y compras del mes':'según la declaración del mes')+'</td></tr>';
+  function fila(txt,val,o){o=o||{};
+    var col=o.total?C.cifra:(o.resta?C.verde:C.tinta);
+    h+='<tr><td style="padding:5px 16px;font:'+(o.fuerte?'700':'400')+' 12px/1.4 '+F_B+';color:'+(o.fuerte?'#fff':C.tinta2)+(o.sep?';border-top:1px solid '+C.borde:'')+'">'+txt+(o.nota?'<br><span style="font-size:11px;opacity:.8">'+o.nota+'</span>':'')+'</td>';
+    h+='<td align="right" style="padding:5px 16px;font:'+(o.fuerte?'800':'600')+' 12px '+F_B+';color:'+col+';white-space:nowrap;font-variant-numeric:tabular-nums'+(o.sep?';border-top:1px solid '+C.borde:'')+'">'+(o.resta?'− ':'')+$(val)+'</td></tr>';
+  }
+  if(v.conLibros&&(v.ventasNeto||v.ventasExento))fila('🛒 Tus ventas del mes',(v.ventasNeto||0)+(v.ventasExento||0),{nota:'Neto '+$(v.ventasNeto||0)+(v.ventasExento?' · exento '+$(v.ventasExento):'')});
+  if(v.debito)fila('IVA de tus ventas (débito fiscal)',v.debito);
+  if(v.conLibros&&v.comprasNeto)fila('🧾 Tus compras del mes (neto)',v.comprasNeto);
+  if(v.credito)fila('IVA de tus compras (crédito fiscal)',v.credito,{resta:true});
+  if(v.remAnterior)fila('Remanente de crédito del mes anterior',v.remAnterior,{resta:true});
+  if(v.ivaPagar>0)fila('IVA a pagar',v.ivaPagar,{fuerte:true,sep:true});
+  else if(v.remSiguiente>0)fila('IVA a pagar',0,{fuerte:true,sep:true,nota:'Te queda un remanente de '+$(v.remSiguiente)+' a favor para el próximo mes'});
+  if(v.ppm)fila('PPM (pago provisional mensual)',v.ppm,{nota:(v.ppmTasa?String(v.ppmTasa).replace('.',',')+'% ':'')+(v.ppmBase?'sobre '+$(v.ppmBase):'')});
+  if(v.retHon)fila('Retención de boletas de honorarios',v.retHon);
+  if(v.iu)fila('Impuesto único de trabajadores',v.iu);
+  if(v.otros)fila('Otros impuestos',v.otros);
+  fila('Total a pagar en el '+ent('SII'),v.total,{fuerte:true,total:true,sep:true});
+  var a=d.ppmAcumulado;
+  if(a&&a.monto>0){
+    h+='<tr><td colspan="2" style="padding:8px 12px 12px"><table role="presentation" width="100%" style="background:'+C.suave+';border-radius:10px"><tr><td style="padding:10px 12px;font:400 12px/1.5 '+F_B+';color:'+C.tinta+'">';
+    h+='📈 <b>PPM acumulado '+esc(a.anio)+'</b> ('+esc(a.desde)+' a '+esc(a.hasta)+'): <b style="color:'+C.cifra+';font-variant-numeric:tabular-nums">'+$(a.monto)+'</b><br><span style="color:'+C.tinta2+';font-size:11px">Son pagos a cuenta de tu impuesto a la renta anual: se descuentan en la declaración de abril.</span>';
+    h+='</td></tr></table></td></tr>';
+  } else h+='<tr><td colspan="2" style="height:8px;font-size:0;line-height:0">&nbsp;</td></tr>';
+  h+='</table></td></tr>';
+  return h;
+}
 
 // ── FIRMA común: equipo a cargo + respaldo del CEO/contador (la usan ambos correos) ──
 function bloqueFirma(d){

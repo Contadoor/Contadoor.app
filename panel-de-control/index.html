@@ -1507,7 +1507,13 @@ function construirDatosReporte(r){
   var pAnt=[1,2,3].map(function(k){return _rpPerAnt(per,k);});
   var pConv=sbFetch('convenios?cliente_rut=eq.'+rut+'&estado=eq.activo&select=*').then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
   var pHist=sbGetReportesPeriodoCliente(r.rut,pAnt);
-  return Promise.all([pConv,pHist]).then(function(res){
+  // Desglose del F29: libros de ventas y compras del período (MásContable) y meses del año para el PPM acumulado.
+  var perRaw=String(r.periodo||''), perSin=per.replace('-','');
+  var pLib=sbFetch('libros_cabecera?cliente_rut=eq.'+rut+'&periodo=in.('+encodeURIComponent('"'+per+'","'+perSin+'"')+')&tipo=in.(ventas,compras)&select=tipo,total_neto,total_exento,total_iva,estado')
+    .then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
+  var mesAct=+per.split('-')[1], pAnio=[];for(var k=1;k<mesAct;k++)pAnio.push(_rpPerAnt(per,k));
+  var pYear=pAnio.length?sbGetReportesPeriodoCliente(r.rut,pAnio):Promise.resolve([]);
+  return Promise.all([pConv,pHist,pLib,pYear]).then(function(res){
     // Convenios vigentes: próxima cuota pendiente
     (res[0]||[]).forEach(function(cv){
       var cs=Array.isArray(cv.cuotas_detalle)?cv.cuotas_detalle:[];
@@ -1549,7 +1555,21 @@ function construirDatosReporte(r){
     var analista=asesores[0]||GestoorReporte.persona(u.nombre||'Contadoor');
     analista.email=emailAsesor;
     var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
-    return {periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
+    // Desglose del impuesto (F29) y PPM acumulado del año (valores GUARDADOS mes a mes en reportes_mensuales)
+    var libs=res[2]||[], libV=libs.find(function(l){return l.tipo==='ventas';}), libC=libs.find(function(l){return l.tipo==='compras';});
+    var repAnt=(res[1]||[]).find(function(h){return _rpPerDash(h.periodo)===pAnt[0];});
+    var ivaInfo=null;
+    if(imp>0||_rpNum(r.ivaDebito)>0||_rpNum(r.ivaCredito)>0){
+      var ppmI=_rpNum(r.ppm), iuI=_rpNum(r.iuSii), retI=_rpNum(r.retHon), otI=_rpNum(r.otrosImp);
+      ivaInfo={conLibros:!!(libV||libC),ventasNeto:libV?_rpNum(libV.total_neto):0,ventasExento:libV?_rpNum(libV.total_exento):0,comprasNeto:libC?_rpNum(libC.total_neto):0,
+        debito:_rpNum(r.ivaDebito),credito:_rpNum(r.ivaCredito),remAnterior:repAnt?_rpNum(repAnt.ivaRemanenteSig):0,
+        ivaPagar:Math.max(0,imp-ppmI-iuI-retI-otI),remSiguiente:_rpNum(r.ivaRemanenteSig),
+        ppm:ppmI,ppmTasa:_rpNum(r.ppmTasa),ppmBase:_rpNum(r.ppmBase),retHon:retI,iu:iuI,otros:otI,total:imp};
+      anexo=anexo.filter(function(a){return a.titulo!=='Impuestos · F29 del SII';}); // el desglose ya va en la primera parte
+    }
+    var ppmAc=(res[3]||[]).reduce(function(sum,h){return sum+_rpNum(h.ppm);},0)+_rpNum(r.ppm);
+    var ppmAcumulado=ppmAc>0?{anio:per.slice(0,4),desde:MESES_CORTOS_R[0],hasta:MESES_CORTOS_R[mesAct-1],monto:ppmAc}:null;
+    return {iva:ivaInfo,ppmAcumulado:ppmAcumulado,periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
       diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
       aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',diaIva:cfg.f29L},
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
