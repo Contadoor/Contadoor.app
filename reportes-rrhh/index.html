@@ -149,26 +149,22 @@ tr:hover td{background:#f9fefb;}
   <nav>
     <div class="sb-sec">Principal</div>
     <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-sec">Gestión</div>
+    <div class="sb-sec">Operación mensual</div>
     <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
     <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <div class="sb-sec">Remuneraciones</div>
-    <a class="sb-item on" href="../reportes-rrhh/index.html">👥 Reporte RRHH</a>
+    <a class="sb-item on" href="../reportes-rrhh/index.html">👥 RRHH</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <div class="sb-sec">Contable</div>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Reporte Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Reporte Pagos</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🤝 Convenios</a>
-    <div class="sb-sec">Tributario</div>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <div class="sb-sec">Financiero</div>
+    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
+    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
     <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
+    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <div class="sb-sec">Gestión interna</div>
+    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
     <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <div class="sb-sec">Comercial</div>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
     <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
@@ -752,8 +748,9 @@ function renderTabla(periodo){
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&_cli&&(_cli.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
       var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(_cli,'rrhh'):null);
-      if(_asig==='mio'||_emailMatch) return true;
-      if(_asig==='otro') return false;
+      if(_asig==='mio') return true;
+      if(_asig==='otro') return false;   // la asignación por ID manda sobre el email o el nombre
+      if(_emailMatch) return true;
       if(_a1 && _a1!==_a2) return false;
     }
     return true;
@@ -770,7 +767,7 @@ function renderTabla(periodo){
       var _a2=(analista||'').trim().toLowerCase();
       var _emailMatch=_u.email&&(c.emailAnalista||'').toLowerCase()===(_u.email||'').toLowerCase();
       var _asig=(typeof gestoorAsignacion==='function'?gestoorAsignacion(c,'rrhh'):null);
-      if(_asig==='otro'&&!_emailMatch) return;
+      if(_asig==='otro') return;   // la asignación por ID manda sobre el email o el nombre
       if(_asig===null&&_a1 && _a1!==_a2 && !_emailMatch) return;
     }
     reportes.push({

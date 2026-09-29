@@ -429,14 +429,22 @@ function gestoorRutValido(rut){
 function gestoorCachearClientes(lista){
   var prev=[];try{prev=JSON.parse(localStorage.getItem('clientes_bd')||'[]');}catch(e){}
   var porRut={};
-  (prev||[]).forEach(function(c){if(c&&c.rut)porRut[c.rut]=c;});
+  // La clave es el RUT normalizado: una copia antigua con otro formato ("77.166.269-2") se fusiona
+  // con la vigente en vez de quedar duplicada; los datos que llegan de la BD siempre ganan.
+  (prev||[]).forEach(function(c){
+    if(!c||!c.rut)return;
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){dst[x]=c[x];});
+    dst.rut=k; porRut[k]=dst;
+  });
   (lista||[]).forEach(function(c){
     if(!c||!c.rut)return;
-    var dst=porRut[c.rut]||{};
-    Object.keys(c).forEach(function(k){if(c[k]!==undefined)dst[k]=c[k];});
+    var k=gestoorNormalizarRut(c.rut), dst=porRut[k]||{};
+    Object.keys(c).forEach(function(x){if(c[x]!==undefined)dst[x]=c[x];});
+    dst.rut=k;
     if(!dst.razon&&dst.razonSocial)dst.razon=dst.razonSocial;
     if(!dst.razonSocial&&dst.razon)dst.razonSocial=dst.razon;
-    porRut[c.rut]=dst;
+    porRut[k]=dst;
   });
   var out=Object.keys(porRut).map(function(k){return porRut[k];});
   try{localStorage.setItem('clientes_bd',JSON.stringify(out));}catch(e){}
@@ -455,14 +463,16 @@ function gestoorCargarMiUsuarioSistema(){
   return c.auth.getUser().then(function(res){
     var email=res&&res.data&&res.data.user&&res.data.user.email;
     if(!email)return null;
+    // La RLS de usuarios_sistema (usuarios_sistema_select_propio) solo deja ver la fila propia (email exacto).
     return sbGet('usuarios_sistema?select=id&activo=eq.true&email=ilike.'+encodeURIComponent(email)+'&limit=1').then(function(rows){
       _gestoorUsId=rows&&rows[0]?Number(rows[0].id):null;
-      try{if(_gestoorUsId)sessionStorage.setItem('gestoor_us_id',String(_gestoorUsId));}catch(e){}
+      try{if(_gestoorUsId)sessionStorage.setItem('gestoor_us_id',String(_gestoorUsId));else sessionStorage.removeItem('gestoor_us_id');}catch(e){}
       return _gestoorUsId;
     });
   }).catch(function(){return null;});
 }
-window.addEventListener('gestoor-auth-ready',function(){if(_gestoorAccessToken&&!_gestoorUsId)gestoorCargarMiUsuarioSistema();});
+// Se vuelve a leer en cada inicio de sesión: un ID guardado de otra sesión nunca se reutiliza.
+window.addEventListener('gestoor-auth-ready',function(){if(_gestoorAccessToken)gestoorCargarMiUsuarioSistema();});
 function gestoorAsignacion(c,area){
   var u=getUsuario();
   if(u.esMaster||u.rol==='master'||u.rol==='admin')return 'mio';
