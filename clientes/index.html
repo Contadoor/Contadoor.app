@@ -337,11 +337,14 @@ body.modal-open{overflow:hidden;}
 
       <div class="card-hd">👥 Equipo asignado</div>
       <div class="fg3">
-        <div class="fgroup"><label>Analista Contable</label>
+        <div class="fgroup"><label>Asesor(a) Contable</label>
           <select id="f-contador"><option value="">Sin asignar</option></select>
         </div>
-        <div class="fgroup"><label>Analista RRHH</label>
+        <div class="fgroup"><label>Asesor(a) de Remuneraciones</label>
           <select id="f-rrhh"><option value="">Sin asignar</option></select>
+        </div>
+        <div class="fgroup"><label>Asesor(a) de Pagos</label>
+          <select id="f-pagos"><option value="">Sin asignar</option></select>
         </div>
         <div class="fgroup"><label>Prioridad RRHH</label>
           <select id="f-prio-rrhh">
@@ -583,7 +586,7 @@ function rowToCliente(r) {
     obsTrib: r.obs_trib,
     moneda: r.moneda_plan || 'UF', monedaVar: r.moneda_variable || r.moneda_plan || 'UF',
     monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
-    contador: r.analista_contable, rrhh: r.analista_rrhh, prioRrhh: r.prioridad_rrhh || 'media',
+    contador: r.analista_contable, rrhh: r.analista_rrhh, pagos: r.analista_pagos, prioRrhh: r.prioridad_rrhh || 'media',
           prioCont: r.prioridad_contable || 'media',
     // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
     analistaContableUsuarioId: r.analista_contable_usuario_id || null,
@@ -612,6 +615,7 @@ function clienteToRow(c) {
   // para compatibilidad con módulos que aún leen el campo de texto.
   var nomContable = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador || null);
   var nomRrhh     = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh     || null);
+  var nomPagos    = nombreUsuarioSistema(c.analistaPagosUsuarioId,    c.pagos    || null);
   return {
     razon_social: c.razon, rut: c.rut, giro: c.giro || null,
     email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null, direccion: c.direccion || null, comuna: c.comuna || null,
@@ -629,17 +633,13 @@ function clienteToRow(c) {
     // Nunca sobrescribir con '' si no se pudo resolver el usuario.
     analista_contable: _usuariosSistemaCargados ? (nomContable || null) : undefined,
     analista_rrhh:     _usuariosSistemaCargados ? (nomRrhh     || null) : undefined,
-    // analista_pagos: NO incluido — RPC CASE WHEN preserva al estar ausente la clave
+    analista_pagos:    _usuariosSistemaCargados ? (nomPagos    || null) : undefined,
     prioridad_rrhh: c.prioRrhh || 'media',
     prioridad_contable: c.prioCont || 'media',
     // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
     analista_contable_usuario_id: c.analistaContableUsuarioId || null,
     analista_rrhh_usuario_id:     c.analistaRrhhUsuarioId     || null,
-    // Pagos: sin selector de UI.
-    // Si undefined → JSON.stringify omite la clave → RPC CASE WHEN preserva valor en DB.
-    // Si null (cliente nuevo) → RPC INSERT establece NULL.
-    // Si número → RPC establece ese número (valor preservado del cliente existente).
-    analista_pagos_usuario_id: c.analistaPagosUsuarioId,
+    analista_pagos_usuario_id:    c.analistaPagosUsuarioId    || null,
     usuario_sii:      c.siiU  || null,
     usuario_previred: c.prevU || null,  // SII Rep. Legal: sin auto-relleno con el RUT de la empresa
     usuario_cu:       c.cuU   || null,
@@ -707,13 +707,10 @@ function guardarSupabase(c, esEdicion) {
     // Más seguro que reenviar IDs del caché, que podría estar incompleto.
     delete row.analista_contable_usuario_id;
     delete row.analista_rrhh_usuario_id;
+    delete row.analista_pagos_usuario_id;
     delete row.analista_contable;
     delete row.analista_rrhh;
-  }
-  if (esEdicion) {
-    // Pagos: sin selector de UI → nunca reenviar el ID durante un UPDATE.
-    // La RPC preserva analista_pagos_usuario_id al estar ausente la clave.
-    delete row.analista_pagos_usuario_id;
+    delete row.analista_pagos;
   }
   return sbFetch('rpc/guardar_cliente_admin', {
     method:  'POST',
@@ -828,7 +825,8 @@ function poblarAnalistas(c) {
   if (!_usuariosSistemaCargados) {
     var asignaciones = {
       'f-contador': c && c.analistaContableUsuarioId,
-      'f-rrhh':     c && c.analistaRrhhUsuarioId
+      'f-rrhh':     c && c.analistaRrhhUsuarioId,
+      'f-pagos':    c && c.analistaPagosUsuarioId
     };
     Object.keys(asignaciones).forEach(function(selId) {
       var sel = g(selId); if (!sel) return;
@@ -845,7 +843,8 @@ function poblarAnalistas(c) {
   // Cat\u00e1logo cargado correctamente — poblar y habilitar selects
   var rolMatriz = {
     'f-contador': ['contable', 'admin', 'master'],
-    'f-rrhh':     ['rrhh',     'admin', 'master']
+    'f-rrhh':     ['rrhh',     'admin', 'master'],
+    'f-pagos':    ['pagos',    'admin', 'master']
   };
   Object.keys(rolMatriz).forEach(function(selId) {
     var sel = g(selId); if (!sel) return;
@@ -991,6 +990,7 @@ function abrirEditar(id) {
   }
   sv('f-contador', c.analistaContableUsuarioId ? String(c.analistaContableUsuarioId) : '');
   sv('f-rrhh',     c.analistaRrhhUsuarioId     ? String(c.analistaRrhhUsuarioId)     : '');
+  sv('f-pagos',    c.analistaPagosUsuarioId    ? String(c.analistaPagosUsuarioId)    : '');
   // Socios
   (c.socios || []).forEach(function(s){ addSocio(s.nombre, s.rut, s.pct); });
   calcPreview();
@@ -1037,7 +1037,7 @@ function guardarCliente() {
     alert('Ya existe un cliente con RUT ' + rut); return;
   }
 
-  // FIX2.3A.1: preservar analista_pagos del cliente existente (sin selector de Pagos en formulario)
+  // Cliente existente: fuente de las asignaciones si el catálogo de usuarios no cargó
   var _existente = esEdicion
     ? getClientes().find(function(x){ return Number(x.id) === Number(_editId); })
     : null;
@@ -1066,12 +1066,9 @@ function guardarCliente() {
     analistaRrhhUsuarioId: _usuariosSistemaCargados
       ? (gv('f-rrhh') ? Number(gv('f-rrhh')) : null)
       : (_existente ? _existente.analistaRrhhUsuarioId : null),
-    // Pagos: sin selector → preservar del cliente en caché.
-    // undefined → JSON.stringify omite la clave → RPC CASE WHEN preserva valor en DB.
-    // null (cliente nuevo o caché sin dato) → RPC INSERT establece NULL.
-    analistaPagosUsuarioId: (_existente && _existente.analistaPagosUsuarioId != null)
-      ? _existente.analistaPagosUsuarioId
-      : (_editId ? undefined : null),
+    analistaPagosUsuarioId: _usuariosSistemaCargados
+      ? (gv('f-pagos') ? Number(gv('f-pagos')) : null)
+      : (_existente ? _existente.analistaPagosUsuarioId : null),
     prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
     siiU:  gv('f-sii-u'),
     prevU: gv('f-prev-u'),
@@ -1130,8 +1127,10 @@ function verDetalle(id) {
   // FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback a campo legacy
   var _nomCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
   var _nomRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
-  h += '<div class="det-item"><div class="det-lbl">Analista Contable</div><div class="det-val">'+esc(_nomCont||'Sin asignar')+'</div></div>';
-  h += '<div class="det-item"><div class="det-lbl">Analista RRHH</div><div class="det-val">'+esc(_nomRrhh||'Sin asignar')+'</div></div>';
+  var _nomPag  = nombreUsuarioSistema(c.analistaPagosUsuarioId,    c.pagos);
+  h += '<div class="det-item"><div class="det-lbl">Asesor(a) Contable</div><div class="det-val">'+esc(_nomCont||'Sin asignar')+'</div></div>';
+  h += '<div class="det-item"><div class="det-lbl">Asesor(a) de Remuneraciones</div><div class="det-val">'+esc(_nomRrhh||'Sin asignar')+'</div></div>';
+  h += '<div class="det-item"><div class="det-lbl">Asesor(a) de Pagos</div><div class="det-val">'+esc(_nomPag||'Sin asignar')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Valor mensual</div><div class="det-val">'+(c.monto?c.monto+' '+(c.moneda||'UF')+(mrr?' ≈ '+ff(mrr):''):'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Trabajadores incl.</div><div class="det-val">'+(c.trab||0)+'</div></div>';
   h += '</div>';
@@ -1704,9 +1703,12 @@ function aplicarPermisosClientesUI() {
   var sesion = window._contadoorSesion;
   if (!sesion) return;
   var esMaster = !!sesion.esMaster;
+  // Crear y editar la ficha: Master, Analista Pagos y Analista Comercial (decisión de Luciano).
+  // El resto solo consulta. Las claves de acceso siguen siendo solo Master.
+  var puedeEditar = esMaster || sesion.rol === 'master' || sesion.rol === 'pagos' || sesion.rol === 'comercial';
 
-  // Guardar en variable global para que renderClientes() la lea
-  window._esMasterUI = esMaster;
+  // Guardar en variable global para que renderClientes() la lea (controla el botón ✏️)
+  window._esMasterUI = puedeEditar;
 
   // Reconstruir la tabla con o sin botón ✏️ por fila
   // (renderClientes() lee _esMasterUI al construir cada fila)
@@ -1714,10 +1716,10 @@ function aplicarPermisosClientesUI() {
 
   // Botones estáticos en HTML
   var btnNuevo = document.getElementById('btn-nuevo');
-  if (btnNuevo) btnNuevo.style.display = esMaster ? '' : 'none';
+  if (btnNuevo) btnNuevo.style.display = puedeEditar ? '' : 'none';
 
   var btnDetEditar = document.getElementById('btn-det-editar');
-  if (btnDetEditar) btnDetEditar.style.display = esMaster ? '' : 'none';
+  if (btnDetEditar) btnDetEditar.style.display = puedeEditar ? '' : 'none';
 
   var btnClavesEditar = document.getElementById('btn-claves-editar');
   if (btnClavesEditar) btnClavesEditar.style.display = esMaster ? '' : 'none';
