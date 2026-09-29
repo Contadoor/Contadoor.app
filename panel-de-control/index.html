@@ -287,7 +287,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   <!-- Barra envío masivo -->
   <div id="barraEnvio" style="display:none;background:var(--p);color:#fff;padding:10px 16px;align-items:center;gap:12px">
     <span id="barraEnvioCount" style="font-size:12px;font-weight:600"></span>
-    <button onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
+    <button onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;opacity:.6">📤 Enviar (pronto) · seleccionados</button>
     <button onclick="deseleccionarTodos()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
   </div>
   <!-- Tabla principal -->
@@ -704,7 +704,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <button class="btn-s" onclick="closeVista()">Cerrar</button>
       <button class="btn-s" onclick="window.print()">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
-      <button class="btn-p" onclick="enviarEmail()">✉️ Enviar reporte</button>
+      <button class="btn-p" onclick="enviarEmail()" style="opacity:.55" title="Se activa con el servicio seguro de correos (PR #10B)">✉️ Enviar reporte (pronto)</button>
       <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
     </div>
 </div>
@@ -1518,7 +1518,8 @@ function construirDatosReporte(r){
       if(dia)fechas.push({dia:dia,mes:mes,que:'Cuota convenio '+(cv.tipo||'')});
     });
     // Historial y comparación con el mes anterior
-    var hist=(res[1]||[]).map(function(h){var s=calcularServicios(h);return{per:_rpPerDash(h.periodo),cot:_rpNum(h.totalCot),imp:_rpNum(h.totalImpInmediato),serv:s.ok?s.total:0};});
+    // Meses pasados: se usa el monto de Nuestros servicios GUARDADO en ese período (hon_total), no se recalcula con la ficha actual.
+    var hist=(res[1]||[]).map(function(h){var guardado=_rpNum(h.honTotal),s=guardado>0?null:calcularServicios(h);return{per:_rpPerDash(h.periodo),cot:_rpNum(h.totalCot),imp:_rpNum(h.totalImpInmediato),serv:guardado>0?guardado:(s.ok?s.total:0)};});
     var ant=hist.find(function(h){return h.per===pAnt[0];});
     if(ant)items.forEach(function(i){var b=i.tipo==='cot'?ant.cot:i.tipo==='imp'?ant.imp:null;if(b)i.delta=(i.monto-b)/b;});
     var totalAct=items.reduce(function(s,i){return s+i.monto;},0);
@@ -1548,7 +1549,7 @@ function construirDatosReporte(r){
     var analista=asesores[0]||GestoorReporte.persona(u.nombre||'Contadoor');
     analista.email=emailAsesor;
     var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
-    return {periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,
+    return {periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
       diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
       aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',diaIva:cfg.f29L},
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
@@ -1576,7 +1577,7 @@ function verReporte(id){
       +'<label style="font-size:12px;font-weight:600;color:var(--p)">💡 Tip del mes</label>'
       +'<input id="rp-tip" value="'+hesc(d.tip)+'" placeholder="Opcional: un consejo breve para todos los clientes de '+hesc(d.periodo)+'" style="flex:1;min-width:220px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:7px">'
       +'<button class="btn-s btn-sm" id="rp-tip-ok">Aplicar</button>'
-      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+'</span></div>'
+      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+' · '+(GestoorReporte.esCumplimiento(d.plan)?'📋 Correo Cumplimiento (simple)':(d.plan?'📊 Reporte mensual completo':'📊 Reporte completo · ⚠️ plan sin definir en la ficha'))+'</span></div>'
       +'<iframe id="rp-frame" title="Vista previa del reporte" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>';
     document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+GestoorReporte.render(d)+'</body></html>';
     document.getElementById('rp-tip-ok').onclick=function(){
@@ -1586,7 +1587,11 @@ function verReporte(id){
   }).catch(function(e){cont.innerHTML='<div style="padding:24px;color:var(--red)">No se pudo armar el reporte: '+hesc(e&&e.message||e)+'</div>';});
 }
 // Envío: arma el HTML, lo envía y registra el envío en la BD. Devuelve una promesa.
+// PR #10A: el envío real está DESACTIVADO hasta el servicio seguro de correos (CORREO-GESTOOR, PR #10B).
+var ENVIO_REPORTE_ACTIVO=false;
+var MSG_ENVIO_PENDIENTE='El envío real del reporte se activa con el servicio seguro de correos (PR #10B). Por ahora solo está disponible la vista previa.';
 function enviarReporteCore(r){
+  if(!ENVIO_REPORTE_ACTIVO)return Promise.reject(new Error(MSG_ENVIO_PENDIENTE));
   return construirDatosReporte(r).then(function(d){
     if(!d._email)throw new Error('El cliente no tiene email registrado (Clientes).');
     var html=GestoorReporte.render(d);
@@ -1615,6 +1620,7 @@ function _rpToast(txt,ok){
   t.textContent=txt;document.body.appendChild(t);setTimeout(function(){t.remove();},5000);
 }
 function enviarEmail(){
+  if(!ENVIO_REPORTE_ACTIVO){alert(MSG_ENVIO_PENDIENTE);return;}
   var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
   if(!r){alert('Reporte no encontrado.');return;}
   var est=_estadoSecciones(r);
@@ -1624,6 +1630,7 @@ function enviarEmail(){
     .catch(function(e){_rpToast('❌ No se envió: '+(e&&e.message||e),false);});
 }
 function enviarSeleccionados(){
+  if(!ENVIO_REPORTE_ACTIVO){alert(MSG_ENVIO_PENDIENTE);return;}
   var ids=Array.from(document.querySelectorAll('.nomina-chk:checked')).map(function(c){return c.getAttribute('data-id');});
   if(!ids.length){alert('Selecciona al menos un cliente en la nómina.');return;}
   var reps=getReportes().filter(function(r){return ids.indexOf(String(r.id))>=0;});
@@ -1732,6 +1739,8 @@ function buildRecordatorioHTML(r,diasVencido){
     +'<div style="padding:12px 24px;background:#fafafa;font-size:11px;color:#999">Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
 }
 function enviarRecordatorio(id,tipo){
+  // Recordatorios desactivados hasta CORREO-GESTOOR (el servicio anterior de Vercel fue retirado por seguridad).
+  if(!ENVIO_REPORTE_ACTIVO){if(tipo==='manual')alert(MSG_ENVIO_PENDIENTE);return;}
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r){alert('Reporte no encontrado.');return;}
   var to=r.clienteEmail||'';
