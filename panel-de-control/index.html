@@ -1648,7 +1648,9 @@ function _construirDatosReporte(r,antPer){
     var aPagar=items.filter(function(i){return i.tipo!=='serv';});
     var diaVence;
     if(modalidad==='contadoor'){
-      diaVence=Math.min.apply(null,[cot>0?cfg.prevG:99,(imp>0&&cfg.f29GOk)?cfg.f29G:99].concat(aPagar.map(function(i){return i._dia?i._dia-1:99;})));
+      // El F29 entra al plazo de transferencia SOLO con su día de gestión configurado (f29GOk); su fecha tributaria
+      // (_dia = límite SII) nunca se convierte en fecha de gestión (no se deriva límite − 1).
+      diaVence=Math.min.apply(null,[cot>0?cfg.prevG:99,(imp>0&&cfg.f29GOk)?cfg.f29G:99].concat(aPagar.filter(function(i){return i.tipo!=='imp';}).map(function(i){return i._dia?i._dia-1:99;})));
       if(diaVence<99)fechas.unshift({dia:diaVence,mes:mc,que:'Transfiere a Contadoor'});
     }else diaVence=Math.min.apply(null,aPagar.map(function(i){return i._dia||99;}).concat([99]));
     // Sin ninguna fecha conocida (p. ej. solo F29 sin calendario del período) no se inventa un vencimiento principal.
