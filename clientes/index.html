@@ -1505,7 +1505,7 @@ function renderClientes() {
     var _nCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
     var _nRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
     var _lineasAnalista = [];
-    // Color por área: Contable = naranjo (SII) · Remuneraciones = amarillo (Previred)
+    // Color por área: Contable = verde · Remuneraciones = celeste · Pagos = amarillo
     if (_nCont) _lineasAnalista.push('<span class="g-asig area-cont">'+gAvatarEquipo(_nCont,'cont')+'<span>'+esc(_nCont)+'<small>Contable</small></span></span>');
     if (_nRrhh) _lineasAnalista.push('<span class="g-asig area-rem">'+gAvatarEquipo(_nRrhh,'rem')+'<span>'+esc(_nRrhh)+'<small>Remuneraciones</small></span></span>');
     var _analistasHtml = _lineasAnalista.length
