@@ -1505,8 +1505,9 @@ function renderClientes() {
     var _nCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
     var _nRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
     var _lineasAnalista = [];
-    if (_nCont) _lineasAnalista.push('<span class="g-asig">'+gAvatarEquipo(_nCont)+'<span>'+esc(_nCont)+'<small>Contable</small></span></span>');
-    if (_nRrhh) _lineasAnalista.push('<span class="g-asig">'+gAvatarEquipo(_nRrhh)+'<span>'+esc(_nRrhh)+'<small>Remuneraciones</small></span></span>');
+    // Color por área: Contable = naranjo (SII) · Remuneraciones = amarillo (Previred)
+    if (_nCont) _lineasAnalista.push('<span class="g-asig area-cont">'+gAvatarEquipo(_nCont,'cont')+'<span>'+esc(_nCont)+'<small>Contable</small></span></span>');
+    if (_nRrhh) _lineasAnalista.push('<span class="g-asig area-rem">'+gAvatarEquipo(_nRrhh,'rem')+'<span>'+esc(_nRrhh)+'<small>Remuneraciones</small></span></span>');
     var _analistasHtml = _lineasAnalista.length
       ? _lineasAnalista.join('')
       : '<span style="color:var(--tm)">Sin asignar</span>';

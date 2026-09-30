@@ -409,3 +409,12 @@ body.g-tema-noche{--p:#C77BC9;--pd:#A4599C;--pp:rgba(199,123,201,.16);--bg:#0C07
 .g-logo-c.con-img{background:#fff;padding:4px}
 .g-logo-c img{width:100%;height:100%;object-fit:contain;display:block}
 .g-asig .g-av-s{width:32px;height:32px}
+/* Colores por área (iguales a los reportes): Contable = naranjo SII · Remuneraciones = amarillo Previred */
+:root{--g-area-cont:#FF9F43;--g-area-rem:#FFD24D}
+.g-av-s.cont{border:2px solid var(--g-area-cont);box-shadow:0 0 0 2px rgba(255,159,67,.18)}
+.g-av-s.rem{border:2px solid var(--g-area-rem);box-shadow:0 0 0 2px rgba(255,210,77,.18)}
+.g-asig.area-cont small{color:var(--g-area-cont);font-weight:700}
+.g-asig.area-rem small{color:var(--g-area-rem);font-weight:700}
+.g-area{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+.g-area.cont{background:rgba(255,159,67,.14);color:var(--g-area-cont)}
+.g-area.rem{background:rgba(255,210,77,.14);color:var(--g-area-rem)}
