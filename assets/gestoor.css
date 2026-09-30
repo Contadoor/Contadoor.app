@@ -656,3 +656,52 @@ body.g-mod-pag{--g-acento:var(--g-area-pag);--pagos:var(--g-area-pag);--pagos-bg
 .g-det-vacio{text-align:center;color:#A98AAE;font-size:12px;padding:8px 0}
 .g-ok-txt{color:#5FE3AE}
 .g-tema-noche .cal-dot{box-shadow:0 0 8px currentColor}
+
+/* ── APROBACIONES (pagos/) · obligaciones de pago ── */
+body.g-mod-aprob{--g-acento:#C77BC9}
+.g-mod-aprob .tb-title span{color:#E39BE5}
+.g-tema-noche .aprobacion-banner{background:linear-gradient(135deg,rgba(255,210,77,.16),rgba(255,160,90,.06));border:1px solid rgba(255,210,77,.4);border-radius:18px;color:#F3E9F4}
+.g-tema-noche .aprobacion-banner .count{font:900 22px var(--g-titulo);color:#FFD24D}
+.g-tema-noche .aprobacion-banner .btn-p{background:linear-gradient(135deg,#FFD24D,#FFB938);color:#1A1204;box-shadow:0 6px 18px rgba(255,210,77,.25)}
+.g-tema-noche .seleccion-bar{background:linear-gradient(135deg,rgba(146,72,147,.35),rgba(146,72,147,.15));border:1px solid #7A4A82;border-radius:16px}
+.g-tema-noche .oblig-row{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px;padding:16px 18px;transition:border-color .2s,transform .2s,box-shadow .2s}
+.g-tema-noche .oblig-row:hover{border-color:#7A4A82;box-shadow:0 14px 32px rgba(0,0,0,.35)}
+.g-tema-noche .oblig-row.seleccionada{border-color:#C77BC9;background:linear-gradient(180deg,rgba(146,72,147,.22),rgba(26,14,31,.94));box-shadow:0 0 0 1px #C77BC9,0 0 24px rgba(199,123,201,.2)}
+.g-tema-noche .oblig-row.vencida-border{border-left:3px solid #FF5A5F}
+.g-tema-noche .g-flujo-ob{display:block;margin:14px 0 6px;overflow-x:auto;padding-bottom:4px}
+.g-tema-noche .g-flujo-ob .pipeline{display:flex;min-width:max-content}
+.g-tema-noche .g-flujo-ob .pipe-step{display:flex;flex-direction:column;align-items:center;min-width:64px}
+.g-tema-noche .g-flujo-ob .pipe-line{flex:1;min-width:18px}
+.g-tema-noche .g-flujo-ob .ps-dot svg{width:12px;height:12px}
+.g-tema-noche .g-flujo-ob .pipe-lbl{white-space:nowrap}
+.g-tema-noche .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;border:1px solid transparent}
+.g-tema-noche .badge svg{width:12px;height:12px}
+.g-tema-noche .b-creada{background:rgba(255,255,255,.06);color:#E3CFE5;border-color:#4A2B50}
+.g-tema-noche .b-aviso{background:rgba(255,160,90,.12);color:#FFB27A;border-color:rgba(255,160,90,.3)}
+.g-tema-noche .b-transferido{background:rgba(142,197,255,.12);color:#8EC5FF;border-color:rgba(142,197,255,.3)}
+.g-tema-noche .b-previred{background:rgba(92,200,255,.12);color:#5CC8FF;border-color:rgba(92,200,255,.3)}
+.g-tema-noche .b-aprobacion{background:rgba(255,210,77,.13);color:#FFD24D;border-color:rgba(255,210,77,.35)}
+.g-tema-noche :is(.b-aprobado,.b-finalizado,.b-procesado){background:rgba(52,211,153,.13);color:#5FE3AE;border-color:rgba(52,211,153,.32)}
+.g-tema-noche .b-rechazado{background:rgba(229,72,77,.14);color:#FF8A8A;border-color:rgba(229,72,77,.4)}
+.g-tema-noche .b-cobrado{background:rgba(199,123,201,.16);color:#E39BE5;border-color:rgba(199,123,201,.3)}
+.g-tema-noche .tipo-tag{background:rgba(255,255,255,.05);border:1px solid #4A2B50;color:#E3CFE5;border-radius:999px;padding:2px 9px}
+.g-tema-noche .vencido-pill{background:rgba(255,90,95,.14);color:#FF8A8A;border:1px solid rgba(255,90,95,.4);border-radius:999px}
+.g-tema-noche .vencido-pill.urgente{background:rgba(255,200,90,.13);color:#FFC85A;border-color:rgba(255,200,90,.4)}
+.g-area.otro{background:rgba(199,123,201,.16);color:#E39BE5}
+.g-en-reporte{padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:700;background:rgba(52,211,153,.12);color:#5FE3AE;border:1px solid rgba(52,211,153,.3)}
+.g-tab-cnt{background:#FFD24D;color:#1A1204;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:800;margin-left:4px}
+.g-ob-meta{font-size:11.5px;color:#A98AAE}
+.g-cobra{color:#E39BE5}
+.g-ob-monto{font:900 21px var(--g-titulo);color:#F3E9F4;font-variant-numeric:tabular-nums}
+.g-ob-obs{font-size:11.5px;color:#A98AAE;margin-top:6px;font-style:italic}
+.g-tema-noche .traza{gap:6px}
+.g-tema-noche .traza-item{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:1px solid #3A2140;border-radius:999px;color:#A98AAE;padding:3px 10px}
+.g-tema-noche .traza-item svg{width:11px;height:11px}
+.g-tema-noche .traza-item strong{color:#E3CFE5}
+.g-tema-noche .traza-item.ok{color:#5FE3AE;border-color:rgba(52,211,153,.3)}
+.g-tema-noche .traza-item.err{color:#FF8A8A;border-color:rgba(229,72,77,.4)}
+.g-cartola{display:flex;align-items:center;gap:6px;background:rgba(142,197,255,.08);border:1px solid rgba(142,197,255,.28);border-radius:12px;padding:8px 12px;font-size:11.5px;color:#B9DAFF;margin-top:8px}
+.g-cartola svg{width:14px;height:14px}
+.g-info-azul{background:rgba(142,197,255,.08)!important;border:1px solid rgba(142,197,255,.28)!important;color:#B9DAFF!important;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px}
+.g-sel-aprob{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#E39BE5;cursor:pointer}
+.g-tema-noche .empty-state{color:#A98AAE}.g-tema-noche .empty-state h3{color:#E3CFE5}
