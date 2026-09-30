@@ -871,10 +871,11 @@ function cargarClientesSupabase(){
 function cargarReportesSupabase(periodo,callback){
   var perNorm=String(periodo).replace('-','');
   var perDash=perNorm.length===6?perNorm.slice(0,4)+'-'+perNorm.slice(4):periodo;
+  var pAnt=_rpCargarAnterior(perDash);   // 1 request del período anterior (remanentes), en paralelo
   sbGetReportesPeriodo(perDash,function(reportes){
     var otros=getReportes().filter(function(x){return String(x.periodo||'').replace('-','')!==perNorm;});
     setReportesCache(otros.concat(reportes||[]));
-    if(callback)callback(reportes||[]);
+    pAnt.then(function(){if(callback)callback(reportes||[]);});
   });
 }
 var _nominaConsultada={};
@@ -1021,10 +1022,14 @@ function descargarArchivoTuu(){
     })
     .catch(function(e){alert('❌ No se pudo generar el archivo: '+(e&&e.message||e));});
 }
-function _totalReporte(r){
+// Total de un reporte. completo=false si el F29 está pendiente/inconsistente: el monto es PARCIAL y nunca se
+// muestra bajo una etiqueta de total definitivo (se rotula "Pendiente" / "parcial").
+function _totalReporteInfo(r){
   var atrasos=(r.atrasos||[]).reduce(function(s,a){return s+(a.monto||0);},0);
-  return (r.totalCot||0)+(r.totalImpInmediato||r.totalImp||0)+calcularServicios(r).total+atrasos;
+  var f=_rpF29Sync(r), completo=(f.estado==='ok'||f.estado==='no_aplica');
+  return {total:(r.totalCot||0)+(f.estado==='ok'?f.aPagarAhora:0)+calcularServicios(r).total+atrasos,completo:completo,motivo:completo?'':f.motivo,f29:f};
 }
+function _totalReporte(r){return _totalReporteInfo(r).total;}
 
 // ═══════════════════════════════════════════════════════════
 // APERTURA DE PERÍODO
@@ -1181,7 +1186,9 @@ function renderResumen(){
   var completados=reportes.filter(function(r){return _estadoSecciones(r).completo;}).length;
   var enviados=reportes.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';}).length;
   var pendPago=reportes.filter(function(r){return (r.estado==='enviado_total'||r.estado==='enviado')&&!r.pagado;}).length;
-  var totalFacturado=reportes.reduce(function(s,r){return s+_totalReporte(r);},0);
+  var _infos=reportes.map(_totalReporteInfo);
+  var totalFacturado=_infos.reduce(function(s,i){return s+i.total;},0);
+  var nIncompletos=_infos.filter(function(i){return !i.completo;}).length;   // con F29 pendiente/inconsistente → total parcial
   var pct=reportes.length>0?Math.round(completados/reportes.length*100):0;
   // Por analista
   var analistas={};
@@ -1199,11 +1206,13 @@ function renderResumen(){
   h+=_card(activos.length,'Clientes activos',clientes.filter(function(c){return c.estado==='onboarding';}).length+' onboarding','var(--t1)');
   h+=_card(completados+'/'+reportes.length,'Reportes completos',pct+'% del período','var(--green)',pct);
   h+=_card(enviados,'Enviados al cliente',Math.round(enviados/(reportes.length||1)*100)+'% del total','var(--blue)');
-  h+=_card(pendPago,'Pendientes de pago',totalFacturado>0?ff(totalFacturado)+' total':'Sin cobros','var(--amber)');
+  h+=_card(pendPago,'Pendientes de pago',totalFacturado>0?ff(totalFacturado)+(nIncompletos?' parcial':' total'):'Sin cobros','var(--amber)');
   h+='</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
   h+=_card(sinAnalista.length>0?sinAnalista.length:'0','Sin analista asignado',sinAnalista.length>0?'Requieren atención':'Todo asignado',sinAnalista.length>0?'var(--red)':'var(--green)');
-  h+=_card(ff(totalFacturado),'Total del período','Suma todos los reportes','#904891');
+  h+=nIncompletos
+    ?_card(ff(totalFacturado),'Total parcial del período','⏳ '+nIncompletos+' cliente(s) con F29 pendiente o por revisar','#904891')
+    :_card(ff(totalFacturado),'Total del período','Suma todos los reportes','#904891');
   var recCount=Object.keys(getRecordatorios()).filter(function(k){return k.endsWith('_count');}).reduce(function(s,k){return s+(getRecordatorios()[k]||0);},0);
   h+=_card(recCount,'Recordatorios enviados','Este período','var(--t2)');
   h+='</div>';
@@ -1377,8 +1386,11 @@ function renderNomina(){
     html+='<td style="padding:8px 14px;text-align:center">'+chip('rrhh')+'</td>';
     html+='<td style="padding:8px 14px;text-align:center">'+chip('imp')+'</td>';
     html+='<td style="padding:8px 14px;text-align:center">'+chip('hon')+'</td>';
-    var _tot=_totalReporte(r);
-    html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'+(_tot?ff(_tot):'—')+'</td>';
+    var _ti=_totalReporteInfo(r), _tot=_ti.total;
+    html+='<td style="padding:8px 14px;text-align:right;font-family:monospace;font-weight:600;color:var(--p)">'
+      +(_ti.completo?(_tot?ff(_tot):'—')
+        :'<span style="color:var(--amber)">'+(_ti.f29.estado==='inconsistente'?'⚠️ Por revisar':'⏳ Pendiente')+'</span><div style="font-family:inherit;font-size:9px;font-weight:600;color:var(--tm)">parcial '+ff(_tot)+' · '+_rpF29Etiqueta(_ti.f29)+'</div>')
+      +'</td>';
     // Celda SII antes de Acciones — solo para master/contable
     if(_u0.esMaster===true||_u0.rol==='contable'){
       var _cSii=getClientes().find(function(c){return c.rut===r.rut;});
@@ -1447,6 +1459,88 @@ var MESES_CORTOS_R=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct',
 function _rpPerDash(per){var s=String(per||'');return s.length===6?s.slice(0,4)+'-'+s.slice(4):s;}
 function _rpMesSig(per){var p=_rpPerDash(per).split('-'),y=+p[0],m=+p[1];return m===12?{y:y+1,m:1}:{y:y,m:m+1};}
 function _rpPerAnt(per,k){var p=_rpPerDash(per).split('-'),y=+p[0],m=+p[1]-k;while(m<1){m+=12;y--;}return y+'-'+(m<10?'0':'')+m;}
+
+// ═══════════════════════════════════════════════════════════
+// F29 — helper ÚNICO del Panel (PR #10A-fix, Opción A aprobada por ChatGPT 30-sep-2026)
+// El Reporte Contable guarda solo las piezas del F29 (nunca el total). El total se DERIVA aquí
+// con la misma semántica de buildBorradorF29() (reportes-contable) para un período validado:
+//   saldo = débito − crédito − remanente del período anterior (iva_remanente_sig del mes previo)
+//   impuestoDeterminado = max(0, saldo) · remanenteSiguiente = max(0, −saldo)
+//   totalTributario = impuestoDeterminado + PPM + retención honorarios + IU (RRHH) + otros
+//   ivaPostergado = postergado ? max(0, saldo) : 0 · aPagarAhora = totalTributario − ivaPostergado
+// estado: 'ok' (0 = cero real) · 'pendiente' (aún no se puede calcular) · 'inconsistente' (piezas no cuadran)
+//         · 'no_aplica' (cliente sin contabilidad). Solo 'ok' se suma o se muestra como monto.
+// Comparaciones exactas (CLP enteros), sin tolerancias.
+// ═══════════════════════════════════════════════════════════
+function _rpRutKey(v){return String(v||'').replace(/\./g,'').replace(/\s+/g,'').toUpperCase();}
+var _rpAnteriores={};      // perDash → Promise<{ok, porRut}>
+var _rpAnterioresSync={};  // perDash → {ok, porRut} ya resuelto (para cálculos síncronos: nómina, totales)
+function _rpCargarAnterior(perDash){
+  perDash=_rpPerDash(perDash);
+  if(_rpAnteriores[perDash])return _rpAnteriores[perDash];
+  var prev=_rpPerAnt(perDash,1);
+  var pr=sbFetch('reportes_mensuales?periodo=eq.'+encodeURIComponent(prev)+'&select=cliente_rut,iva_remanente_sig,remanente')
+    .then(function(x){if(!x.ok)throw new Error('HTTP '+x.status);return x.json();})
+    .then(function(rows){
+      var porRut={};
+      // Misma lectura que sbRowToReporte → ivaRemanenteSig (la que usa el Contable para el remanente anterior)
+      (rows||[]).forEach(function(row){porRut[_rpRutKey(row.cliente_rut)]=(row.iva_remanente_sig!=null?row.iva_remanente_sig:row.remanente);});
+      return {ok:true,porRut:porRut};
+    })
+    .catch(function(){delete _rpAnteriores[perDash];return {ok:false,porRut:{}};});
+  _rpAnteriores[perDash]=pr;
+  pr.then(function(v){_rpAnterioresSync[perDash]=v;});
+  return pr;
+}
+function _rpAntDe(r,cargado){
+  // cargado: {ok, porRut} del período anterior. Sin fila del cliente en un período anterior cargado = remanente 0
+  // (misma regla que getRemanenteAnterior del Contable). Carga fallida o ausente = no se puede calcular.
+  if(!cargado||!cargado.ok)return {ok:false};
+  var v=cargado.porRut[_rpRutKey(r.rut)];
+  return {ok:true,remanente:(v==null?0:v)};
+}
+function _rpMonto(v){
+  // Normalización consciente: null/undefined → 0 (sin dato guardado = 0 en la fila, igual que sbRowToReporte);
+  // cualquier otro valor debe ser un número finito ≥ 0; si no, null (→ inconsistente).
+  if(v===null||v===undefined)return 0;
+  if(typeof v==='string'&&v.trim()==='')return null;
+  var n=Number(v);
+  return (isFinite(n)&&n>=0)?n:null;
+}
+function _rpF29(r,ant){
+  // Si Contabilidad/RRHH aplicaban se decide SOLO con el snapshot del período (reportes_mensuales.tiene_cont / tiene_rrhh),
+  // nunca con la ficha vigente. Registro legacy sin dato (null): sbRowToReporte lo lee como "aplica" → fail-closed
+  // (Contable no validado → pendiente; IU sin validar → pendiente), nunca como $0.
+  var base={estado:'pendiente',impuestoDeterminado:0,remanenteAnterior:0,remanenteSiguiente:0,totalTributario:0,ivaPostergado:0,aPagarAhora:0,
+            debito:0,credito:0,ppm:0,retHon:0,iu:0,otros:0,postergado:false,motivo:''};
+  function fin(estado,motivo){base.estado=estado;base.motivo=motivo||'';return base;}
+  if(r.tieneCont===false)return fin('no_aplica','Sin contabilidad en este período');
+  if(r.estadoContable!=='completado')return fin('pendiente','Pendiente de cierre Contable (Pre-IVA no validado)');
+  var deb=_rpMonto(r.ivaDebito),cred=_rpMonto(r.ivaCredito),remSig=_rpMonto(r.ivaRemanenteSig),post=_rpMonto(r.ivaPostergado),
+      ppm=_rpMonto(r.ppm),ret=_rpMonto(r.retHon),otros=_rpMonto(r.otrosImp);
+  if([deb,cred,remSig,post,ppm,ret,otros].some(function(x){return x===null;}))return fin('inconsistente','Hay montos del F29 guardados no numéricos o negativos');
+  // IU: null = RRHH aún no lo valida. Si el cliente tiene RRHH, no se puede calcular; sin RRHH, IU = 0.
+  var iu;
+  if(r.iuSii===null||r.iuSii===undefined){
+    if(r.tieneRrhh===false)iu=0;
+    else return fin('pendiente','Impuesto único pendiente de validación RRHH');
+  }else{iu=_rpMonto(r.iuSii);if(iu===null)return fin('inconsistente','Impuesto único guardado no numérico o negativo');}
+  if(!ant||!ant.ok)return fin('pendiente','No se pudo leer el período anterior (remanente de IVA)');
+  var remAnt=_rpMonto(ant.remanente);
+  if(remAnt===null)return fin('inconsistente','Remanente del período anterior no numérico o negativo');
+  var saldo=deb-cred-remAnt;
+  var impDet=Math.max(0,saldo), remSigEsp=Math.max(0,-saldo);
+  var postergado=r.postergarIva===true, ivaPostEsp=postergado?Math.max(0,saldo):0;
+  base.debito=deb;base.credito=cred;base.remanenteAnterior=remAnt;base.ppm=ppm;base.retHon=ret;base.iu=iu;base.otros=otros;base.postergado=postergado;
+  if(remSig!==remSigEsp)return fin('inconsistente','El remanente guardado para el mes siguiente ('+ff(remSig)+') no coincide con el calculado ('+ff(remSigEsp)+')');
+  if(post!==ivaPostEsp)return fin('inconsistente','El IVA postergado guardado ('+ff(post)+') no coincide con el calculado ('+ff(ivaPostEsp)+')');
+  var total=impDet+ppm+ret+iu+otros, aPagar=total-ivaPostEsp;
+  if(!(total>=0)||!(aPagar>=0))return fin('inconsistente','El total calculado es negativo');
+  base.impuestoDeterminado=impDet;base.remanenteSiguiente=remSigEsp;base.totalTributario=total;base.ivaPostergado=ivaPostEsp;base.aPagarAhora=aPagar;
+  return fin('ok','');
+}
+function _rpF29Sync(r){return _rpF29(r,_rpAntDe(r,_rpAnterioresSync[_rpPerDash(r.periodo)]));}
+function _rpF29Etiqueta(f){return f.estado==='pendiente'?'⏳ F29 pendiente':f.estado==='inconsistente'?'⚠️ F29 no cuadra':'';}
 function _rpPeriodoConfig(per){
   var n=_rpPerDash(per).replace('-','');
   var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;})||{};
@@ -1456,6 +1550,9 @@ function _rpPeriodoConfig(per){
 function _rpNum(v){return Number(v)||0;}
 function _rpDonde(txt){var t=String(txt||'').toLowerCase();if(/previred|cotiz|afp|salud/.test(t))return 'Previred';if(/tgr|tesorer/.test(t))return 'tgr.cl';return 'sii.cl';}
 function construirDatosReporte(r){
+  return _rpCargarAnterior(_rpPerDash(r.periodo)).then(function(antPer){ return _construirDatosReporte(r,antPer); });
+}
+function _construirDatosReporte(r,antPer){
   var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
   var per=_rpPerDash(r.periodo), cfg=_rpPeriodoConfig(per), sig=_rpMesSig(per), mc=MESES_CORTOS_R[sig.m-1];
   var modalidad=c.modalidad||'contadoor', paga=modalidad==='contadoor'?'contadoor':'cliente';
@@ -1470,17 +1567,18 @@ function construirDatosReporte(r){
     anexo.push({icono:'👥',titulo:'Cotizaciones · Previred',color:'#FFD24D',filas:fc});
   }
   // Impuestos F29 (Contable)
-  var imp=_rpNum(r.totalImpInmediato);
+  var f29=_rpF29(r,_rpAntDe(r,antPer));
+  var imp=f29.estado==='ok'?f29.aPagarAhora:0;   // pendiente / inconsistente: no se muestra ni se suma
   // Vencimiento tal como lo define el calendario del período; el reporte no recalcula días hábiles.
   var diaIva=cfg.f29L, mcIva=MESES_CORTOS_R[sig.m-1];
   if(imp>0){
-    var ppm=_rpNum(r.ppm), iu=_rpNum(r.iuSii), ret=_rpNum(r.retHon), otros=_rpNum(r.otrosImp);
-    var iva=Math.max(0,imp-ppm-iu-ret-otros);
+    var ppm=f29.ppm, iu=f29.iu, ret=f29.retHon, otros=f29.otros;
+    var iva=f29.impuestoDeterminado-f29.ivaPostergado;
     var partes=[];if(iva)partes.push('IVA '+ff(iva));if(ppm)partes.push('PPM '+ff(ppm));if(iu)partes.push('Impuesto único '+ff(iu));if(ret)partes.push('Retención honorarios '+ff(ret));
     items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:'Vence '+diaIva+' '+mcIva,paga:paga,donde:'sii.cl',postergable:true,_dia:diaIva});
     fechas.push({dia:diaIva,mes:mcIva,que:'Impuestos F29 en SII'});
-    var fi=[{c:'IVA débito (ventas)',v:_rpNum(r.ivaDebito)},{c:'IVA crédito (compras)',v:_rpNum(r.ivaCredito)},{c:'IVA a pagar',v:iva},{c:'PPM',v:ppm},{c:'Retención boletas de honorarios',v:ret},{c:'Impuesto único trabajadores',v:iu},{c:'Otros impuestos',v:otros},{c:'Remanente de crédito para el mes siguiente',v:_rpNum(r.ivaRemanenteSig)}].filter(function(f){return f.v>0;});
-    if(r.postergarIva&&_rpNum(r.ivaPostergado)>0)fi.push({c:'IVA postergado'+(r.ivaFechaVenc?' (vence '+r.ivaFechaVenc+')':''),v:_rpNum(r.ivaPostergado)});
+    var fi=[{c:'IVA débito (ventas)',v:_rpNum(r.ivaDebito)},{c:'IVA crédito (compras)',v:_rpNum(r.ivaCredito)},{c:'IVA a pagar',v:iva},{c:'PPM',v:ppm},{c:'Retención boletas de honorarios',v:ret},{c:'Impuesto único trabajadores',v:iu},{c:'Otros impuestos',v:otros},{c:'Remanente de crédito para el mes siguiente',v:f29.remanenteSiguiente}].filter(function(f){return f.v>0;});
+    if(f29.ivaPostergado>0)fi.push({c:'IVA postergado'+(r.ivaFechaVenc?' (vence '+r.ivaFechaVenc+')':''),v:f29.ivaPostergado});
     fi.push({c:'Total a pagar en el SII',v:imp,total:true});
     anexo.push({icono:'🧾',titulo:'Impuestos · F29 del SII',color:'#FF9F43',filas:fi});
   }
@@ -1507,13 +1605,13 @@ function construirDatosReporte(r){
   var rut=encodeURIComponent(r.rut);
   var pAnt=[1,2,3].map(function(k){return _rpPerAnt(per,k);});
   var pConv=sbFetch('convenios?cliente_rut=eq.'+rut+'&estado=eq.activo&select=*').then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
-  var pHist=sbGetReportesPeriodoCliente(r.rut,pAnt);
+  var pHist=_rpGetReportesClienteEstricto(r.rut,pAnt.concat([_rpPerAnt(per,4)]));
   // Desglose del F29: libros de ventas y compras del período (MásContable) y meses del año para el PPM acumulado.
   var perRaw=String(r.periodo||''), perSin=per.replace('-','');
   var pLib=sbFetch('libros_cabecera?cliente_rut=eq.'+rut+'&periodo=in.('+encodeURIComponent('"'+per+'","'+perSin+'"')+')&tipo=in.(ventas,compras)&select=tipo,total_neto,total_exento,total_iva,estado')
     .then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
   var mesAct=+per.split('-')[1], pAnio=[];for(var k=1;k<mesAct;k++)pAnio.push(_rpPerAnt(per,k));
-  var pYear=pAnio.length?sbGetReportesPeriodoCliente(r.rut,pAnio):Promise.resolve([]);
+  var pYear=pAnio.length?_rpGetReportesClienteEstricto(r.rut,pAnio):Promise.resolve([]);
   return Promise.all([pConv,pHist,pLib,pYear]).then(function(res){
     // Convenios vigentes: próxima cuota pendiente
     (res[0]||[]).forEach(function(cv){
@@ -1526,8 +1624,18 @@ function construirDatosReporte(r){
     });
     // Historial y comparación con el mes anterior
     // Meses pasados: se usa el monto de Nuestros servicios GUARDADO en ese período (hon_total), no se recalcula con la ficha actual.
-    var hist=(res[1]||[]).map(function(h){var guardado=_rpNum(h.honTotal),s=guardado>0?null:calcularServicios(h);return{per:_rpPerDash(h.periodo),cot:_rpNum(h.totalCot),imp:_rpNum(h.totalImpInmediato),serv:guardado>0?guardado:(s.ok?s.total:0)};});
-    var ant=hist.find(function(h){return h.per===pAnt[0];});
+    // F29 histórico: derivado de las piezas GUARDADAS de ese mismo período (+ remanente de su mes previo), nunca de la ficha actual.
+    // Mes con F29 pendiente/inconsistente o lectura fallida → el mes queda "sin datos" (no se muestra un total incompleto).
+    var histRows=res[1];
+    var hist=(histRows||[]).filter(function(h){return pAnt.indexOf(_rpPerDash(h.periodo))>=0;}).map(function(h){
+      var hp=_rpPerDash(h.periodo), prevP=_rpPerAnt(hp,1);
+      var prevRow=(histRows||[]).find(function(x){return _rpPerDash(x.periodo)===prevP;});
+      var fh=_rpF29(h,{ok:true,remanente:prevRow?prevRow.ivaRemanenteSig:0});
+      var guardado=_rpNum(h.honTotal),s=guardado>0?null:calcularServicios(h);
+      var okH=fh.estado==='ok'||fh.estado==='no_aplica';
+      return okH?{per:hp,cot:_rpNum(h.totalCot),imp:fh.estado==='ok'?fh.aPagarAhora:0,serv:guardado>0?guardado:(s.ok?s.total:0)}:{per:hp,cot:0,imp:0,serv:0,incompleto:true};
+    });
+    var ant=hist.find(function(h){return h.per===pAnt[0]&&!h.incompleto;});
     if(ant)items.forEach(function(i){var b=i.tipo==='cot'?ant.cot:i.tipo==='imp'?ant.imp:null;if(b)i.delta=(i.monto-b)/b;});
     var totalAct=items.reduce(function(s,i){return s+i.monto;},0);
     var historial=pAnt.slice().reverse().map(function(p){var h=hist.find(function(x){return x.per===p;})||{cot:0,imp:0,serv:0};var m=+p.split('-')[1];return{mes:MESES_CORTOS_R[m-1]+' '+p.slice(2,4),cot:h.cot,imp:h.imp,serv:h.serv,otros:0,total:h.cot+h.imp+h.serv};});
@@ -1558,31 +1666,39 @@ function construirDatosReporte(r){
     var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
     // Desglose del impuesto (F29) y PPM acumulado del año (valores GUARDADOS mes a mes en reportes_mensuales)
     var libs=res[2]||[], libV=libs.find(function(l){return l.tipo==='ventas';}), libC=libs.find(function(l){return l.tipo==='compras';});
-    var repAnt=(res[1]||[]).find(function(h){return _rpPerDash(h.periodo)===pAnt[0];});
     var ivaInfo=null;
-    if(imp>0||_rpNum(r.ivaDebito)>0||_rpNum(r.ivaCredito)>0){
-      var ppmI=_rpNum(r.ppm), iuI=_rpNum(r.iuSii), retI=_rpNum(r.retHon), otI=_rpNum(r.otrosImp);
+    if(f29.estado==='ok'&&(f29.totalTributario>0||f29.debito>0||f29.credito>0)){
       ivaInfo={conLibros:!!(libV||libC),ventasNeto:libV?_rpNum(libV.total_neto):0,ventasExento:libV?_rpNum(libV.total_exento):0,comprasNeto:libC?_rpNum(libC.total_neto):0,
-        debito:_rpNum(r.ivaDebito),credito:_rpNum(r.ivaCredito),remAnterior:repAnt?_rpNum(repAnt.ivaRemanenteSig):0,
-        ivaPagar:Math.max(0,imp-ppmI-iuI-retI-otI),remSiguiente:_rpNum(r.ivaRemanenteSig),
-        ppm:ppmI,ppmTasa:_rpNum(r.ppmTasa),ppmBase:_rpNum(r.ppmBase),retHon:retI,iu:iuI,otros:otI,total:imp};
+        debito:f29.debito,credito:f29.credito,remAnterior:f29.remanenteAnterior,
+        ivaPagar:f29.impuestoDeterminado-f29.ivaPostergado,remSiguiente:f29.remanenteSiguiente,
+        ppm:f29.ppm,ppmTasa:_rpNum(r.ppmTasa),ppmBase:_rpNum(r.ppmBase),retHon:f29.retHon,iu:f29.iu,otros:f29.otros,total:f29.aPagarAhora};
       anexo=anexo.filter(function(a){return a.titulo!=='Impuestos · F29 del SII';}); // el desglose ya va en la primera parte
     }
-    var ppmAc=(res[3]||[]).reduce(function(sum,h){return sum+_rpNum(h.ppm);},0)+_rpNum(r.ppm);
-    var ppmAcumulado=ppmAc>0?{anio:per.slice(0,4),desde:MESES_CORTOS_R[0],hasta:MESES_CORTOS_R[mesAct-1],monto:ppmAc}:null;
+    // PPM acumulado del año: solo meses con Pre-IVA validado (estado_contable='completado'), consecutivos hasta el mes actual.
+    // Si la lectura falla, hay un mes intermedio sin validar o el mes actual no está 'ok', no se muestra.
+    var ppmAcumulado=null;
+    if(f29.estado==='ok'&&res[3]!==null){
+      var mesesVal={};(res[3]||[]).forEach(function(h){if(h.estadoContable==='completado')mesesVal[+_rpPerDash(h.periodo).split('-')[1]]=h;});
+      var desdeM=mesAct, ppmAc=f29.ppm;
+      for(var mm=mesAct-1;mm>=1&&mesesVal[mm];mm--){var pm=_rpMonto(mesesVal[mm].ppm);if(pm===null){ppmAc=-1;break;}ppmAc+=pm;desdeM=mm;}
+      var hueco=false;for(var mq=desdeM-1;mq>=1;mq--){if(mesesVal[mq]){hueco=true;break;}}
+      if(ppmAc>0&&!hueco)ppmAcumulado={anio:per.slice(0,4),desde:MESES_CORTOS_R[desdeM-1],hasta:MESES_CORTOS_R[mesAct-1],monto:ppmAc};
+    }
     return {iva:ivaInfo,ppmAcumulado:ppmAcumulado,periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
       diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
-      aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',fechaIva:cfg.f29Ok?(cfg.f29L+' de '+MESES[sig.m-1].toLowerCase()):''},f29Ok:cfg.f29Ok,
+      aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',fechaIva:cfg.f29Ok?(cfg.f29L+' de '+MESES[sig.m-1].toLowerCase()):''},f29Ok:cfg.f29Ok,f29Estado:f29.estado,f29Motivo:f29.motivo,_completo:(f29.estado==='ok'||f29.estado==='no_aplica'),
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
       analista:analista,asesores:asesores,revisor:revisor,
       _email:c.email||r.clienteEmail||'',_emailAsesor:emailAsesor,_total:totalAct};
   });
 }
-// Reportes de un cliente para varios períodos (historial)
-function sbGetReportesPeriodoCliente(rut,periodos){
+
+// Lectura estricta: devuelve null si la consulta falla (no confundir con "sin reportes").
+function _rpGetReportesClienteEstricto(rut,periodos){
   var lista=periodos.map(function(p){return '"'+p+'"';}).join(',');
   return sbFetch('reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=in.('+encodeURIComponent(lista)+')&select=*')
-    .then(function(x){return x.ok?x.json():[];}).then(function(rows){return (rows||[]).map(sbRowToReporte);}).catch(function(){return[];});
+    .then(function(x){if(!x.ok)throw new Error('HTTP '+x.status);return x.json();})
+    .then(function(rows){return (rows||[]).map(sbRowToReporte);}).catch(function(){return null;});
 }
 function verReporte(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
@@ -1598,8 +1714,9 @@ function verReporte(id){
       +'<label style="font-size:12px;font-weight:600;color:var(--p)">💡 Tip del mes</label>'
       +'<input id="rp-tip" value="'+hesc(d.tip)+'" placeholder="Opcional: un consejo breve para todos los clientes de '+hesc(d.periodo)+'" style="flex:1;min-width:220px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:7px">'
       +'<button class="btn-s btn-sm" id="rp-tip-ok">Aplicar</button>'
-      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+' · '+({cumplimiento:'📋 Correo Cumplimiento (simple)',completa:'📊 Reporte mensual completo'}[GestoorReporte.plantilla(d.plan)]||'⛔ Plan sin plantilla definida')+(d.f29Ok?'':' · ⚠️ vencimiento F29 del período no configurado')+(d.analista&&/@/.test(d.analista.email||'')?'':' · ⚠️ asesor sin email: botones de contacto ocultos')+'</span></div>'
+      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+' · '+({cumplimiento:'📋 Correo Cumplimiento (simple)',completa:'📊 Reporte mensual completo'}[GestoorReporte.plantilla(d.plan)]||'⛔ Plan sin plantilla definida')+(d.f29Estado==='pendiente'?' · ⏳ F29 no incluido: '+hesc(d.f29Motivo):d.f29Estado==='inconsistente'?' · ⚠️ el F29 no cuadra, revisar el Reporte Contable: '+hesc(d.f29Motivo):'')+(d.f29Ok?'':' · ⚠️ vencimiento F29 del período no configurado')+(d.analista&&/@/.test(d.analista.email||'')?'':' · ⚠️ asesor sin email: botones de contacto ocultos')+'</span></div>'
       +'<iframe id="rp-frame" title="Vista previa del reporte" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>';
+    if(!d._completo){document.getElementById('rp-frame').outerHTML='<div style="padding:24px;color:var(--amber)">'+(d.f29Estado==='inconsistente'?'⚠️ El F29 no cuadra':'⏳ El F29 está pendiente')+': '+hesc(d.f29Motivo)+'.<br><br>El reporte no se genera mientras falte el F29, para no mostrar un «Total de tus obligaciones» parcial. Revisa el Reporte Contable.</div>';return;}
     if(!GestoorReporte.plantilla(d.plan)){document.getElementById('rp-frame').outerHTML='<div style="padding:24px;color:var(--red)">⛔ No hay plantilla para el plan «'+hesc(d.plan||'sin plan')+'». Revisa el plan en la ficha del cliente (Cumplimiento, Contadoor PRO o Estratégico).</div>';return;}
     document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+GestoorReporte.render(d)+'</body></html>';
     document.getElementById('rp-tip-ok').onclick=function(){
@@ -1709,10 +1826,12 @@ function enviarWhatsApp(){
     if(c&&c.wa)wa=c.wa;
   }
   if(!wa){alert('Este cliente no tiene WhatsApp registrado.');return;}
+  var fW=_rpF29Sync(r);
+  if(fW.estado==='pendiente'||fW.estado==='inconsistente'){alert('No se puede armar el resumen: '+fW.motivo+'.\nRevisa el Reporte Contable del cliente.');return;}
   var msg='Hola '+hesc(r.clienteNombre)+'! Le enviamos el Reporte Mensual *'+formatPeriodo(r.periodo)+'*\n\n'
     +'📊 *RESUMEN:*\n'
     +'👥 Cotizaciones: '+ff(r.totalCot||0)+'\n'
-    +'📋 Impuestos SII: '+ff(r.totalImpInmediato||r.totalImp||0)+'\n'
+    +'📋 Impuestos SII: '+(function(f){return f.estado==='ok'?ff(f.aPagarAhora):f.estado==='no_aplica'?ff(0):(f.estado==='pendiente'?'pendiente':'en revisión');})(_rpF29Sync(r))+'\n'
     +'💼 Nuestros servicios: '+ff(calcularServicios(r).total)+'\n'
     +'✅ *TOTAL: '+ff(_totalReporte(r))+'*\n\n'
     +'Transferencias a Itaú CC 0220729517 · RUT 77.166.269-2\n'
@@ -1723,23 +1842,6 @@ function enviarWhatsApp(){
 // ═══════════════════════════════════════════════════════════
 // RECORDATORIO
 // ═══════════════════════════════════════════════════════════
-function buildRecordatorioHTML(r,diasVencido){
-  var periodo=formatPeriodo(r.periodo);
-  var esUrgente=diasVencido>=5;
-  return '<div style="font-family:-apple-system,sans-serif;max-width:600px">'
-    +'<div style="background:linear-gradient(135deg,#6D2E6E,#904891);padding:18px 24px">'
-    +'<img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:24px;filter:brightness(0) invert(1)"/></div>'
-    +'<div style="padding:20px 24px;border-bottom:1px solid #eee">'
-    +'<p style="font-size:15px;font-weight:600;margin:0 0 4px">Hola '+hesc(r.clienteNombre)+'</p>'
-    +'<p style="font-size:13px;color:#333;margin:0">Le recordamos que el pago del <strong>Reporte Mensual · '+periodo+'</strong> aún aparece pendiente.</p></div>'
-    +'<div style="padding:16px 24px;background:'+(esUrgente?'#fef2f2':'#fef9ec')+'">'
-    +'<div style="font-size:13px;font-weight:700;color:'+(esUrgente?'#C0392B':'#C07A1A')+'">'+( esUrgente?'⚠️ Pago con '+diasVencido+' días de atraso':'🔔 Recordatorio de pago')+'</div>'
-    +'<div style="font-size:18px;font-weight:700;color:#904891;margin-top:8px">Total: '+ff(_totalReporte(r))+'</div></div>'
-    +'<div style="padding:14px 24px;background:#f5f0f8">'
-    +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:4px">💳 Datos para transferencia</div>'
-    +'<div style="font-size:12px;color:#5c4a5d;line-height:1.8">Asesorías Contadoor Ltda. · RUT 77.166.269-2<br>Banco Itaú · Cuenta Corriente N° 0220729517</div></div>'
-    +'<div style="padding:12px 24px;background:#fafafa;font-size:11px;color:#999">Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
-}
 function enviarRecordatorio(id,tipo){
   // Recordatorios sin transporte hasta CORREO-GESTOOR (PR #10B); el servicio anterior de Vercel fue retirado por seguridad.
   if(tipo==='manual')alert(MSG_ENVIO_PENDIENTE);
