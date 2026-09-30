@@ -608,11 +608,13 @@ function buildBorradorF29(rep, cliente, periodo){
   //         Débito > 0 (en el libro de Ventas o guardado) = "no cuadra" → se avisa y no se puede validar.
   // mixto:  pendiente de definición (proporcionalidad del crédito) → por ahora se calcula igual que afecto.
   // La fórmula no cambia (misma que _rpF29 del Panel): el exento solo fija las entradas débito y crédito en 0.
+  // SOLO para el borrador en trabajo (Pre-IVA no validado). Un período validado se respeta tal como se guardó:
+  // la ficha vigente nunca reinterpreta un período histórico (misma regla que PR #15 en el Panel).
   var ivaCondicion = String((cliente||{}).iva||'afecto').toLowerCase();
-  var esExento = ivaCondicion==='exento';
+  var esExento = !periodoValidado && ivaCondicion==='exento';
   var ivaDebitoLibroExento = libV ? Number(libV.totalIva||0) : 0;
-  var exentoNoCuadra = esExento && (ivaDebitoLibroExento>0 || (periodoValidado && ivaDebito>0));
-  if(esExento && !periodoValidado){ ivaDebito = 0; ivaCredito = 0; }
+  var exentoNoCuadra = esExento && ivaDebitoLibroExento>0;
+  if(esExento){ ivaDebito = 0; ivaCredito = 0; }
 
   // Remanente anterior: del mapa precargado del período anterior
   var remanenteAnterior = getRemanenteAnterior(rep.rut);
@@ -1124,7 +1126,7 @@ function renderTabla(){
       }
       if(borrador._exentoNoCuadra){
         html+='<div class="det-row" style="font-size:10.5px;color:#991b1b;background:#fee2e2;padding:4px 8px;border-radius:6px"><span>⚠️ No cuadra: cliente exento con IVA débito '
-          +ff(Math.max(borrador._ivaDebitoLibroExento, borrador._periodoValidado?borrador.ivaDebito:0))+'. Revisa el libro de Ventas o la condición de IVA de la ficha.</span><span></span></div>';
+          +ff(borrador._ivaDebitoLibroExento)+' en el libro de Ventas. Revisa el libro o la condición de IVA de la ficha.</span><span></span></div>';
       }
       html+='<div class="det-row"><span>Débito fiscal</span><span>'+ff(borrador.ivaDebito)+'</span></div>';
       if(borrador.ivaCredito)html+='<div class="det-row"><span>Crédito fiscal</span><span>-'+ff(borrador.ivaCredito)+'</span></div>';
@@ -1283,7 +1285,7 @@ function abrirF29(rut){
   function tieneValorGuardado(v){ return v!==null&&v!==undefined&&v!==''; }
 
   // IVA — precargado desde borrador (incluye remanente del período anterior)
-  // Exento: débito y crédito fijos en 0 y no editables (también si un período ya validado guardó otro valor).
+  // Exento (solo Pre-IVA no validado): débito y crédito fijos en 0 y no editables.
   var fDeb=document.getElementById('f-debito'), fCred=document.getElementById('f-credito');
   fDeb.readOnly=borrador._esExento; fCred.readOnly=borrador._esExento;
   fDeb.value  = borrador._esExento ? '' : (borrador.ivaDebito  !==0 ? borrador.ivaDebito  : '');
@@ -1339,8 +1341,8 @@ function abrirF29(rut){
   }
   if(borrador._esExento){
     setHint('precalc-debito-info', borrador._exentoNoCuadra
-      ? '⚠️ No cuadra: cliente exento de IVA, pero el libro de Ventas o el valor guardado trae IVA débito '
-        +ffM(Math.max(borrador._ivaDebitoLibroExento, borrador._periodoValidado?borrador.ivaDebito:0))+'. No se puede validar.'
+      ? '⚠️ No cuadra: cliente exento de IVA, pero el libro de Ventas trae IVA débito '
+        +ffM(borrador._ivaDebitoLibroExento)+'. No se puede validar.'
       : 'Cliente exento de IVA: sin débito fiscal (IVA = 0).');
     setHint('precalc-credito-info','Cliente exento de IVA: sin crédito fiscal (el IVA de compras no se recupera).');
   }
@@ -3373,6 +3375,59 @@ function invalidarPreIvaPorCambioLibro(rut, motivo){
   });
 }
 
+// ── Cambiar un libro de un período con Pre-IVA validado: REABRIR PRIMERO (fail-closed) ──
+// Antes: la RPC cambiaba el libro y DESPUÉS el navegador reabría el Pre-IVA (invalidarPreIvaPorCambioLibro);
+// si ese segundo paso fallaba quedaba "libro nuevo + F29 validado viejo". Ahora:
+//   1. se lee el estado ACTUAL del reporte en la BD (no la memoria de la página);
+//   2. listo para el Panel (ya hay obligación F29 / reporte al cliente) → BLOQUEADO, no se toca nada;
+//   3. completado → se reabre (pendiente) con un PATCH condicionado a que siga sin estar listo;
+//      solo si la BD confirma 'pendiente' se sigue con el archivo y la RPC.
+// Si después falla la RPC, el período queda reabierto con el libro anterior: estado seguro (hay que revalidar).
+async function prepararCambioLibro(rut, periodo, descripcion){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){
+    return normalizarRutContable(r.rut)===normalizarRutContable(rut) && r.periodo===periodo;
+  });
+  var porId=!!(rep&&rep.id&&/^\d+$/.test(String(rep.id)));
+  var sel='&select=id,estado_contable,listo_panel_control';
+  var path=porId
+    ? 'reportes_mensuales?id=eq.'+rep.id+sel
+    : 'reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+encodeURIComponent(periodo)+sel;
+  var filas;
+  try{
+    var r=await sbFetch(path);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    filas=await r.json();
+  }catch(e){
+    return {ok:false, mensaje:'No se pudo leer el estado del Pre-IVA de '+periodo+' ('+(e&&e.message||e)+'). No se cambió nada.'};
+  }
+  if(!Array.isArray(filas) || filas.length>1 || (porId && filas.length!==1)){
+    return {ok:false, mensaje:'No se pudo determinar con certeza el estado del Pre-IVA de '+periodo+'. No se cambió nada.'};
+  }
+  if(!filas.length) return {ok:true, reabierto:false};   // sin reporte del período: no hay Pre-IVA que proteger
+  var f=filas[0];
+  if(f.listo_panel_control===true){
+    return {ok:false, mensaje:'El reporte contable de '+periodo+' ya está marcado OK para el Panel (tiene obligación F29 y puede haberse informado al cliente).\n\nNo se pueden cambiar sus libros hasta tener una reapertura controlada. No se cambió nada.'};
+  }
+  if(f.estado_contable!=='completado') return {ok:true, reabierto:false};
+  if(!confirm('El Pre-IVA de '+periodo+' está VALIDADO.\n\nPara '+descripcion+' primero se REABRE el Pre-IVA (vuelve a pendiente) y después tendrás que validarlo de nuevo.\n\n¿Continuar?')){
+    return {ok:false, cancelado:true};
+  }
+  var filasP=await sbPatch('reportes_mensuales?id=eq.'+f.id+'&estado_contable=eq.completado&listo_panel_control=not.is.true',
+    {estado_contable:'pendiente', listo_panel_control:false});
+  var fila=Array.isArray(filasP)?filasP[0]:null;
+  if(!fila || fila.estado_contable!=='pendiente' || fila.listo_panel_control===true){
+    return {ok:false, mensaje:'No se pudo reabrir el Pre-IVA de '+periodo+' (cambió su estado o falló la conexión). No se cambió el libro.'};
+  }
+  if(rep){
+    var librosRep=rep.libros;
+    Object.assign(rep, typeof sbRowToReporte==='function'?sbRowToReporte(fila):fila);
+    if(librosRep) rep.libros=librosRep;
+  }
+  console.info('[Pre-IVA] Reabierto ANTES de cambiar libro',{rut:rut, periodo:periodo, accion:descripcion});
+  return {ok:true, reabierto:true};
+}
+
 async function confirmarCargaLibro(){
   var data=_previewLibro;
   var ctx=_cargaLibroCtx;
@@ -3384,6 +3439,8 @@ async function confirmarCargaLibro(){
     alert('No se puede confirmar: el archivo no fue verificado para este cliente, período y tipo de libro.\n\nCierra la previsualización y vuelve a cargarlo.');
     return;
   }
+  var prepCambio=await prepararCambioLibro(ctx.rut, ctx.periodo, 'cargar este Libro de '+nombreTipoLibro(ctx.tipo));
+  if(!prepCambio.ok){ if(prepCambio.mensaje) alert(prepCambio.mensaje); return; }
 
   var btnC=document.getElementById('btn-confirmar-carga');
   if(btnC){btnC.disabled=true;btnC.textContent='⏳ Calculando…';}
@@ -3554,7 +3611,9 @@ function marcarSinMovimientosLibro(clienteId, rut, tipo){
   var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
   if(!confirm('¿Marcar Libro de '+label+' como "Sin movimientos" en el período '+_periodoActual+'?')) return;
   var u=getUsuario();
-  sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
+  prepararCambioLibro(rut, _periodoActual, 'marcar "Sin movimientos"').then(function(prep){
+  if(!prep.ok){ if(prep.mensaje) alert(prep.mensaje); return; }
+  return sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
     p_cliente_id:parseInt(clienteId),p_periodo:_periodoActual,p_tipo:tipo,
     p_accion:'sin_movimientos',p_usuario:u.nombre||'analista',
     p_archivo:null,p_cabecera:{},p_registros:[],
@@ -3565,6 +3624,7 @@ function marcarSinMovimientosLibro(clienteId, rut, tipo){
         if(invS&&!invS.ok){var mS='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mS});else alert(mS);}
         renderTabla(); restaurarFilaAbierta(rut); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
+  });
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
 
@@ -3573,7 +3633,9 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
   if(motivo===null) return;
   if(!motivo.trim()){alert('El motivo es obligatorio.');return;}
   var u=getUsuario();
-  sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
+  prepararCambioLibro(rut, _periodoActual, 'marcar "No aplica"').then(function(prep){
+  if(!prep.ok){ if(prep.mensaje) alert(prep.mensaje); return; }
+  return sbFetch('rpc/guardar_libro_contable',{method:'POST',body:JSON.stringify({
     p_cliente_id:parseInt(clienteId),p_periodo:_periodoActual,p_tipo:tipo,
     p_accion:'no_aplica',p_usuario:u.nombre||'analista',
     p_archivo:null,p_cabecera:{},p_registros:[],
@@ -3584,6 +3646,7 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
         if(invN&&!invN.ok){var mN='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mN});else alert(mN);}
         renderTabla(); restaurarFilaAbierta(rut); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
+  });
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
 }
 
@@ -3596,7 +3659,10 @@ function preIvaBloqueaQuitar(rep){
 
 function botonQuitarLibro(tipo, c, rep){
   if(preIvaBloqueaQuitar(rep)){
-    return '<button class="btn-s" style="font-size:10px;opacity:.4" disabled title="Pre-IVA validado: para corregir usa Reemplazar (reabre el Pre-IVA)">🗑 Quitar</button>';
+    var motivoQ=rep.listoPanelControl===true
+      ? 'Reporte contable OK para el Panel: cambiar sus libros requiere una reapertura controlada'
+      : 'Pre-IVA validado: para corregir usa Reemplazar (reabre el Pre-IVA antes de cambiar el libro)';
+    return '<button class="btn-s" style="font-size:10px;opacity:.4" disabled title="'+motivoQ+'">🗑 Quitar</button>';
   }
   return '<button class="btn-s" style="font-size:10px;color:var(--red)" onclick="quitarLibro('+c.id+',\''+c.rut+'\',\''+tipo+'\')">🗑 Quitar</button>';
 }
@@ -3608,7 +3674,9 @@ function quitarLibro(clienteId, rut, tipo){
     return normalizarRutContable(r.rut)===normalizarRutContable(rut) && r.periodo===periodo;
   });
   if(preIvaBloqueaQuitar(rep)){
-    alert('El Pre-IVA de '+periodo+' ya está validado: no se puede quitar el libro.\n\nPara corregirlo usa "Reemplazar" (reabre el Pre-IVA).');
+    alert(rep.listoPanelControl===true
+      ? 'El reporte contable de '+periodo+' ya está marcado OK para el Panel: no se puede quitar el libro hasta tener una reapertura controlada.'
+      : 'El Pre-IVA de '+periodo+' ya está validado: no se puede quitar el libro.\n\nPara corregirlo usa "Reemplazar" (reabre el Pre-IVA antes de cambiar el libro).');
     return;
   }
   var motivo=prompt('Quitar el Libro de '+label+' de '+periodo+'.\n\nMotivo obligatorio (queda en la auditoría):');
@@ -4249,6 +4317,13 @@ function renderSeccionLibros(rep, c){
 }
 
 function cargarLibro(clienteId, rut, tipo, accion){
+  var repLib=getReportes().find(function(r){
+    return normalizarRutContable(r.rut)===normalizarRutContable(rut) && r.periodo===_periodoActual;
+  });
+  if(repLib && repLib.listoPanelControl===true){
+    alert('El reporte contable de '+_periodoActual+' ya está marcado OK para el Panel: no se pueden cambiar sus libros hasta tener una reapertura controlada.');
+    return;
+  }
   if(accion==='reemplazo'){
     var label=tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
     if(!confirm('¿Reemplazar el Libro de '+label+'?\nEl archivo anterior quedará en el historial.')) return;
