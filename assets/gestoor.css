@@ -421,3 +421,75 @@ body.g-tema-noche{--p:#C77BC9;--pd:#A4599C;--pp:rgba(199,123,201,.16);--bg:#0C07
 .g-area.cont{background:rgba(52,211,153,.14);color:var(--g-area-cont)}
 .g-area.rem{background:rgba(92,200,255,.14);color:var(--g-area-rem)}
 .g-area.pag{background:rgba(255,210,77,.14);color:var(--g-area-pag)}
+
+/* ── Piezas de módulos operativos (RRHH, Contable, Pagos) en oscuro ── */
+body.g-mod-rem{--g-acento:var(--g-area-rem)}
+body.g-mod-cont{--g-acento:var(--g-area-cont)}
+body.g-mod-pag{--g-acento:var(--g-area-pag)}
+.g-mod-rem .tb-title span,.g-mod-cont .tb-title span,.g-mod-pag .tb-title span{color:var(--g-acento)}
+.g-tema-noche .stat{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;padding:16px 18px;text-align:left;box-shadow:0 12px 34px rgba(0,0,0,.3)}
+.g-tema-noche .filtros{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;padding:12px 16px;gap:8px}
+.g-tema-noche .fl{color:#8F6F94;font:700 10px var(--g-texto);letter-spacing:1.2px}
+.g-tema-noche .fb{background:rgba(255,255,255,.04);border:1px solid #4A2B50;color:#C9A8CC;min-height:32px;padding:0 14px;border-radius:999px;font:600 12px var(--g-texto)}
+.g-tema-noche .fb:hover{border-color:#C77BC9;color:#fff}
+.g-tema-noche .fb.on{background:var(--g-grad);border-color:transparent;color:#fff}
+.g-tema-noche .cal-bar{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;padding:12px 18px}
+.g-tema-noche .cal-bar>span:first-child{color:var(--g-acento,#E39BE5)!important}
+.g-tema-noche .cal-lbl{color:#C9A8CC}.g-tema-noche .cal-fecha{color:#F3E9F4}
+.g-tema-noche .cal-hoy{background:rgba(255,200,90,.12);border-color:rgba(255,200,90,.35);color:#FFC85A}
+.g-tema-noche .bulk-bar{background:var(--g-grad);border-radius:16px}
+.g-tema-noche .cli-nombre{font-size:13.5px;color:#F3E9F4}
+.g-tema-noche .cli-sub{color:#8F6F94}
+.g-tema-noche .plan{padding:2px 8px}
+.g-tema-noche .plan-e{background:var(--g-grad);color:#fff}
+.g-tema-noche .plan-a{background:rgba(199,123,201,.18);color:#E39BE5}
+.g-tema-noche .plan-c{background:rgba(255,255,255,.06);color:#E3CFE5}
+.g-tema-noche .prio-alta{background:rgba(229,72,77,.16);color:#FF8A8A}
+.g-tema-noche .prio-media{background:rgba(255,200,90,.14);color:#FFC85A}
+.g-tema-noche .prio-baja{background:rgba(95,207,156,.14);color:#5FCF9C}
+.g-tema-noche .libro-ok{color:#5FCF9C}.g-tema-noche .libro-no{color:#8F6F94}
+.libro-ok .g-ic,.libro-no .g-ic{width:14px;height:14px}
+.g-tema-noche .g-sub{font-size:10.5px;color:#8F6F94}
+.g-tema-noche .dato-item{color:#C9A8CC}.g-tema-noche .dato-val{color:#F3E9F4;font-family:var(--g-texto);font-variant-numeric:tabular-nums}
+.g-tema-noche .dato-val.g-iu{color:var(--g-area-cont)}
+.g-tema-noche .ec{border:0!important}
+.g-tema-noche .ec-pendiente,.g-tema-noche .ec-aprobacion{background:rgba(255,200,90,.14);color:#FFC85A}
+.g-tema-noche .ec-libro-ok,.g-tema-noche .ec-previred{background:rgba(92,200,255,.14);color:#5CC8FF}
+.g-tema-noche .ec-completado,.g-tema-noche .ec-aprobado,.g-tema-noche .ec-finalizado{background:rgba(95,207,156,.14);color:#5FCF9C}
+.g-tema-noche .ec-enviado,.g-tema-noche .ec-transferido{background:rgba(199,123,201,.18);color:#E39BE5}
+.g-tema-noche .ec-atrasado{background:#E5484D;color:#fff}
+.g-tema-noche .cumpl-bar{background:#33193A}
+.g-tema-noche .cumpl-lbl{color:#8F6F94}
+.g-tema-noche .pipe-lbl{color:#8F6F94}
+.g-tema-noche .pipe-line{background:#4A2B50}
+.g-tema-noche .pipe-line.done{background:var(--g-acento,#5FCF9C)}
+.g-tema-noche .ps-dot{background:rgba(255,255,255,.05);border-color:#4A2B50;color:#8F6F94}
+.g-tema-noche .pipe-step.done .ps-dot{background:var(--g-acento,#5FCF9C);border-color:transparent;color:#0C070E}
+.g-tema-noche .pipe-step.active .ps-dot{border-color:var(--g-acento,#C77BC9);color:#F3E9F4;box-shadow:0 0 0 3px rgba(92,200,255,.16)}
+.g-tema-noche .acciones{gap:6px;flex-wrap:wrap}
+.g-tema-noche .acciones .btn-p,.g-tema-noche .acciones .btn-s{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border-radius:999px;font-size:12px}
+.acciones .g-ic{width:14px;height:14px}
+.g-tema-noche .btn-s.g-warn{border-color:#FFC85A;color:#FFC85A}
+.g-est .g-ic{width:12px;height:12px;vertical-align:-1px}
+.g-wa{color:#5FCF9C;display:inline-flex}.g-wa .g-ic{width:14px;height:14px}
+.g-vacio-ic{display:grid;place-items:center;margin:0 auto 8px;width:52px;height:52px;border-radius:16px;background:rgba(199,123,201,.14);color:#E39BE5}
+/* Modales operativos */
+.g-tema-noche .modal h2{display:flex;align-items:center;gap:8px;font:800 20px var(--g-titulo);color:#F3E9F4}
+.g-tema-noche .modal-sub{color:#C9A8CC}
+.g-tema-noche .sec-box{background:rgba(255,255,255,.03);border:1px solid #4A2B50;border-left:3px solid var(--g-acento,#C77BC9);border-radius:0 16px 16px 0}
+.g-tema-noche .sec-title{display:flex;align-items:center;gap:6px;color:var(--g-acento,#E39BE5)}
+.sec-title .g-ic{width:14px;height:14px}
+.g-tema-noche .upload-zone{background:rgba(255,255,255,.03);border:2px dashed #4A2B50;border-radius:18px;color:#C9A8CC}
+.g-tema-noche .upload-zone:hover{border-color:var(--g-acento,#C77BC9)}
+.g-up-ic{display:grid;place-items:center;margin:0 auto 8px;width:48px;height:48px;border-radius:14px;background:rgba(199,123,201,.14);color:var(--g-acento,#E39BE5)}
+.g-up-ic .g-ic{width:22px;height:22px}
+.g-tema-noche .file-ok{background:rgba(95,207,156,.06);border:1px solid rgba(95,207,156,.3);border-left:3px solid #5FCF9C;border-radius:14px}
+.g-ok-ic{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:rgba(95,207,156,.16);color:#5FCF9C;flex:none}
+.g-tema-noche .info-box{background:rgba(95,207,156,.08);border:1px solid rgba(95,207,156,.25);color:#C8F0DD;border-radius:14px}
+.g-tema-noche .readonly-field{background:rgba(255,255,255,.08)!important;color:#F3E9F4}
+.g-shell .tabla-wrap{overflow-x:auto}
+.g-quienpaga .g-ic{width:11px;height:11px}
+.g-tema-noche .g-quienpaga{background:rgba(255,255,255,.05)!important;color:#C9A8CC!important;border:1px solid #4A2B50}
+.g-tema-noche .g-quienpaga.q-contadoor{color:#E39BE5!important}
+.g-tema-noche .g-quienpaga.q-directo{color:#5FCF9C!important}
+.g-tema-noche .g-quienpaga.q-mixto{color:#FFC85A!important}
