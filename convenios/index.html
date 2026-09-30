@@ -811,17 +811,34 @@ function renderConvenios(){
   var cont=document.getElementById('listaConvenios');
   if(!arr.length){cont.innerHTML='<div class="empty-state"><h3>No hay convenios</h3><p>Crea el primero con "+ Nuevo convenio"</p></div>';return;}
 
-  cont.innerHTML=arr.map(function(conv){
+  // Listado por cliente: cada convenio muestra su avance cuota a cuota (como en el reporte mensual)
+  var grupos=[],porRut={};
+  arr.forEach(function(conv){var k=conv.rut||conv.clienteNombre;if(!porRut[k]){porRut[k]={rut:conv.rut,nombre:conv.clienteNombre,convs:[]};grupos.push(porRut[k]);}porRut[k].convs.push(conv);});
+  var clientesBD=getClientes();
+  cont.innerHTML='<div class="g-cv-lista">'+grupos.map(function(g){
+    var cli=clientesBD.find(function(x){return x.rut===g.rut;})||{};
+    var ini=String(g.nombre||'?').replace(/\b(spa|ltda|sa|eirl|limitada)\b\.?/gi,'').trim().split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
+    var logo=cli.logo?'<span class="g-logo-c con-img"><img src="'+hesc(cli.logo)+'" alt=""></span>':'<span class="g-logo-c">'+hesc(ini)+'</span>';
+    var saldoCli=0,vencCli=0;
+    var filas=g.convs.map(function(conv){
     var est=estadoConvenio(conv);
     var pagadas=conv.cuotas.filter(function(c){return c.estado==='pagada';}).length;
-    var pct=Math.round(pagadas/conv.cuotas.length*100);
+    var total=conv.cuotas.length;
+    var pct=total?Math.round(pagadas/total*100):0;
     var montoPagado=conv.cuotas.filter(function(c){return c.estado==='pagada';}).reduce(function(s,c){return s+(c.pago?c.pago.monto:c.monto);},0);
     var prox=conv.cuotas.find(function(c){return c.estado==='pendiente';});
     var waHref=conv.clienteWa?'https://wa.me/56'+conv.clienteWa.replace(/\D/g,''):'';
-    var ic=INST_COLORS[conv.institucion]||'#5c4a5d';
+    var ic=INST_COLORS[conv.institucion]||'#C9A8CC';
     var isExp=_expandidos.has(conv.id);
-    var badgeEst=est==='activo'?'<span class="badge b-activo">'+gIcon('check')+' Activo</span>':est==='vencido'?'<span class="badge b-vencido">'+gIcon('alerta')+' Cuota vencida</span>':est==='completado'?'<span class="badge b-completado">'+gIcon('check')+' Completado</span>':'<span class="badge b-cancelado">'+gIcon('menos')+' Cancelado</span>';
-
+    var nVenc=conv.cuotas.filter(function(c){return c.estado==='pendiente'&&c.vencimiento<h;}).length;
+    saldoCli+=conv.montoTotal-montoPagado; vencCli+=nVenc;
+    var badgeEst=est==='activo'?'<span class="badge b-activo">'+gIcon('check')+' Al día</span>':est==='vencido'?'<span class="badge b-vencido">'+gIcon('alerta')+' '+nVenc+' cuota'+(nVenc!==1?'s':'')+' sin pagar</span>':est==='completado'?'<span class="badge b-completado">'+gIcon('check')+' Completado</span>':'<span class="badge b-cancelado">'+gIcon('menos')+' Cancelado</span>';
+    // Barra de avance: un segmento por cuota (pagada / vencida sin pagar / siguiente / pendiente)
+    var seg=conv.cuotas.map(function(c){
+      var esVenc=c.estado==='pendiente'&&c.vencimiento<h;
+      var cls=c.estado==='pagada'?'ok':esVenc?'venc':(prox&&c===prox)?'sig':'';
+      return'<i class="'+cls+'" title="Cuota '+c.numero+' · '+c.vencimiento+' · '+ff(c.monto)+(c.estado==='pagada'?' · pagada':esVenc?' · vencida sin pagar':'')+'"></i>';
+    }).join('');
     // Cuotas resumidas
     var cuotasHTML=conv.cuotas.map(function(c,i){
       var esVenc=c.estado==='pendiente'&&c.vencimiento<h;
@@ -838,23 +855,14 @@ function renderConvenios(){
         +'</tr>';
     }).join('');
 
-    return'<div class="convenio-card">'
-      +'<div class="conv-header" onclick="toggleExpand('+conv.id+')">'
-      +'<div class="conv-icon" style="background:'+ic+'22;border:1px solid '+ic+'44">'+gIcon(INST_ICONS[conv.institucion]||'lista')+'</div>'
-      +'<div class="conv-info">'
-      +'<div class="conv-nombre">'+hesc(conv.clienteNombre)+(conv.numero?' <span style="font-size:11px;color:var(--tm)">· N°'+conv.numero+'</span>':'')+'</div>'
-      +'<div class="conv-meta"><span style="font-weight:700;color:'+ic+'">'+hesc(conv.institucion)+'</span>'+(conv.periodoDeuda?' · '+hesc(conv.periodoDeuda):'')+(prox?' · Próx: <strong>'+prox.vencimiento+'</strong> — '+ff(prox.monto):'')+'</div>'
-      +'<div style="margin-top:5px;display:flex;gap:6px;align-items:center">'+badgeEst+(conv.responsable?'<span style="font-size:10px;color:var(--tm)">· '+hesc(conv.responsable)+'</span>':'')+'</div>'
-      +'</div>'
-      +'<div class="conv-right">'
-      +'<div class="conv-monto">'+ff(conv.montoTotal-montoPagado)+'</div>'
-      +'<div style="font-size:10px;color:var(--tm);margin-top:2px">'+ff(montoPagado)+' pagado</div>'
-      +'<div style="font-size:10px;color:var(--tm)">'+pagadas+'/'+conv.cuotas.length+' cuotas · '+pct+'%</div>'
-      +'<div style="font-size:10px;color:var(--tm);margin-top:4px">'+(isExp?'Ocultar cuotas':'Ver cuotas')+'</div>'
-      +'</div></div>'
-      +'<div class="prog-wrap">'
-      +'<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%'+(est==='vencido'?';background:var(--amber)':est==='completado'?';background:var(--green)':'')+'"></div></div>'
-      +'<div class="prog-labels"><span>'+pct+'% completado</span><span>Saldo: '+ff(conv.montoTotal-montoPagado)+'</span></div>'
+    return'<div class="g-cv-conv'+(est==='vencido'?' atraso':'')+'">'
+      +'<div class="g-cv-fila" onclick="toggleExpand('+conv.id+')">'
+      +'<div class="g-cv-inst"><span class="g-cv-ic" style="color:'+ic+';background:'+ic+'1f;border-color:'+ic+'55">'+gIcon(INST_ICONS[conv.institucion]||'lista')+'</span>'
+      +'<div><strong style="color:'+ic+'">'+hesc(conv.institucion)+'</strong><small>'+(conv.numero?'N° '+hesc(conv.numero)+' · ':'')+hesc(conv.periodoDeuda||conv.conceptos||'')+'</small></div></div>'
+      +'<div class="g-cv-avance"><div class="g-cuotas'+(total>24?' muchas':'')+'">'+seg+'</div>'
+      +'<div class="g-cv-txt"><b>'+pagadas+' de '+total+' cuotas pagadas</b> · '+(total-pagadas>0?'quedan '+(total-pagadas):'convenio pagado')+(prox?(prox.vencimiento<h?' · <span class="g-cv-atr">atrasada desde '+prox.vencimiento+'</span>':' · próxima '+prox.vencimiento+' por '+ff(prox.monto)):'')+'</div></div>'
+      +'<div class="g-cv-saldo"><strong>'+ff(conv.montoTotal-montoPagado)+'</strong><small>saldo · '+pct+'%</small></div>'
+      +'<div class="g-cv-est">'+badgeEst+'<span class="g-cv-ver">'+(isExp?'Ocultar':'Ver cuotas')+'</span></div>'
       +'</div>'
       +'<div class="conv-body'+(isExp?' on':'')+'">'
       +(conv.conceptos?'<div style="padding:10px 16px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bdr);background:var(--sur2)"><strong>Origen de la deuda:</strong> '+hesc(conv.conceptos)+'</div>':'')
@@ -865,7 +873,12 @@ function renderConvenios(){
       +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+conv.id+')">'+gIcon('lapiz')+' Editar</button>'
       +'<button class="btn-danger btn-sm" onclick="eliminarConvenio('+conv.id+')" title="Eliminar">'+gIcon('basura')+'</button>'
       +'</div></div></div>';
-  }).join('');
+    }).join('');
+    return'<div class="g-cv-cli">'
+      +'<div class="g-cv-cab"><div class="g-cli-f">'+logo+'<span><strong>'+hesc(g.nombre||g.rut)+'</strong><small>'+hesc(g.rut||'')+' · '+g.convs.length+' convenio'+(g.convs.length!==1?'s':'')+'</small></span></div>'
+      +'<div class="g-cv-res">'+(vencCli?'<span class="badge b-vencido">'+gIcon('alerta')+' '+vencCli+' sin pagar</span>':'')+'<span class="g-cv-saldo-cli">Saldo <b>'+ff(saldoCli)+'</b></span></div></div>'
+      +filas+'</div>';
+  }).join('')+'</div>';
 }
 function toggleExpand(id){if(_expandidos.has(id))_expandidos.delete(id);else _expandidos.add(id);renderConvenios();}
 

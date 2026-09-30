@@ -741,3 +741,33 @@ body.g-mod-conv{--g-acento:#C77BC9}
 .g-aviso-flot{position:fixed;bottom:16px;right:16px;z-index:999;background:#1B0D20;color:#E3CFE5;border:1px solid #4A2B50;border-left:4px solid #C77BC9;border-radius:14px;padding:12px 14px;box-shadow:0 14px 34px rgba(0,0,0,.5);font-size:12px;max-width:340px}
 .g-tema-noche .badge svg,.g-tema-noche .btn-sm svg{width:13px;height:13px}
 .g-tema-noche .card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px}
+
+/* Convenios · listado por cliente con avance cuota a cuota */
+.g-cv-lista{display:flex;flex-direction:column;gap:14px}
+.g-cv-cli{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;overflow:hidden}
+.g-cv-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #3A2140;flex-wrap:wrap}
+.g-cv-res{display:flex;align-items:center;gap:10px}
+.g-cv-saldo-cli{font-size:12px;color:#A98AAE}.g-cv-saldo-cli b{font:900 16px var(--g-titulo);color:#F3E9F4;margin-left:4px;font-variant-numeric:tabular-nums}
+.g-cv-conv{border-bottom:1px solid #2E1834}.g-cv-conv:last-child{border-bottom:0}
+.g-cv-conv.atraso{box-shadow:inset 3px 0 0 #FF5A5F}
+.g-cv-fila{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(220px,2.2fr) minmax(110px,.7fr) minmax(150px,.8fr);gap:18px;align-items:center;padding:14px 18px;cursor:pointer;transition:background .15s}
+.g-cv-fila:hover{background:rgba(255,255,255,.025)}
+.g-cv-inst{display:flex;align-items:center;gap:10px;min-width:0}
+.g-cv-inst strong{display:block;font-size:13px}.g-cv-inst small{display:block;font-size:11px;color:#8F6F94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.g-cv-ic{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;border:1px solid;flex:none}.g-cv-ic svg{width:18px;height:18px}
+.g-cuotas{display:flex;gap:3px;height:12px}
+.g-cuotas i{flex:1;min-width:4px;border-radius:999px;background:#33193A;transition:transform .15s}
+.g-cuotas i:hover{transform:scaleY(1.5)}
+.g-cuotas i.ok{background:linear-gradient(90deg,#34D399,#5FE3AE);box-shadow:0 0 8px rgba(52,211,153,.35)}
+.g-cuotas i.venc{background:#FF5A5F;box-shadow:0 0 10px rgba(255,90,95,.55)}
+.g-cuotas i.sig{background:#33193A;box-shadow:inset 0 0 0 2px #FFD24D;animation:g-pulso-am 2s infinite}
+.g-cuotas.muchas{gap:2px}
+@keyframes g-pulso-am{0%{box-shadow:inset 0 0 0 2px #FFD24D,0 0 0 0 rgba(255,210,77,.5)}70%{box-shadow:inset 0 0 0 2px #FFD24D,0 0 0 6px rgba(255,210,77,0)}100%{box-shadow:inset 0 0 0 2px #FFD24D,0 0 0 0 rgba(255,210,77,0)}}
+.g-cv-txt{font-size:11.5px;color:#A98AAE;margin-top:7px}.g-cv-txt b{color:#5FE3AE;font-weight:700}
+.g-cv-saldo{text-align:right}.g-cv-saldo strong{display:block;font:900 17px var(--g-titulo);color:#F3E9F4;font-variant-numeric:tabular-nums}.g-cv-saldo small{font-size:10.5px;color:#8F6F94}
+.g-cv-est{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.g-cv-ver{font-size:11px;font-weight:700;color:#E39BE5}
+.g-cv-conv .conv-body{background:rgba(0,0,0,.18)}
+@media (prefers-reduced-motion:reduce){.g-cuotas i.sig{animation:none}}
+@media (max-width:860px){.g-cv-fila{grid-template-columns:1fr 1fr;gap:12px}.g-cv-avance{grid-column:1/-1;order:3}.g-cv-est{align-items:flex-start}}
+.g-cv-atr{color:#FF8A8A;font-weight:700}
