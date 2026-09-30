@@ -792,7 +792,7 @@ function verAmortizacion(id){
       +'<td class="num" style="color:'+(intr?'#FFC85A':'var(--tm)')+'">'+(intr===null?(pag?'?':'—'):ff(intr))+'</td>'
       +'<td class="num" style="color:var(--tm)">'+ff(saldoCap)+'</td>'
       +'<td>'+(pag?'<span class="badge b-pagada">'+gIcon('check')+' Pagada</span>':esVenc?'<span class="badge b-vencido">'+gIcon('alerta')+' Vencida</span>':'<span class="badge b-pendiente">'+gIcon('reloj')+' Pendiente</span>')+'</td>'
-      +'<td>'+(c.contab?'<span class="g-contab ok" title="'+hesc(c.contab.quien)+' · '+hesc(c.contab.fecha)+'">'+gIcon('check')+' '+hesc(c.contab.fecha)+'</span>':pag?'<span class="g-contab pend">Por contabilizar</span>':'—')+'</td>'
+      +'<td>'+(c.contab?'<span class="g-contab ok" title="'+hesc(c.contab.quien)+' · '+hesc(c.contab.fecha)+'">Sí · '+hesc(c.contab.fecha)+'</span>':pag?'<span class="g-contab pend">No</span>':'—')+'</td>'
       +'<td style="font-size:11px">'+(c.pago?c.pago.fecha+' · '+hesc(c.pago.forma||'')+(c.pago.comprobante?' · '+hesc(c.pago.comprobante):'')+'<br><span class="pago-ref">'+hesc(c.pago.quien||'')+'</span>':'—')+'</td>'
       +'</tr>';
   }).join('');
@@ -898,7 +898,10 @@ function renderConvenios(){
         ?(c.contab?'':'<button class="btn-s btn-sm" onclick="event.stopPropagation();abrirPagarCuota('+conv.id+','+i+')" title="Corregir desglose">'+gIcon('lapiz')+'</button> <button class="btn-danger btn-sm" onclick="event.stopPropagation();deshacerPago('+conv.id+','+i+')" title="Deshacer pago">'+gIcon('repetir')+'</button>')
         :'<button class="btn-p btn-sm" onclick="event.stopPropagation();abrirPagarCuota('+conv.id+','+i+')">'+gIcon('pagos')+' Pagar</button>';
       var contab=pag
-        ?'<label class="g-chk-contab'+(c.contab?' on':'')+'" title="'+(c.contab?'Contabilizada por '+hesc(c.contab.quien)+' el '+hesc(c.contab.fecha):des?'Marcar como contabilizada':'Falta el desglose de capital e intereses')+'"><input type="checkbox" '+(c.contab?'checked ':'')+(!c.contab&&!des?'disabled ':'')+'onclick="event.stopPropagation()" onchange="toggleContab('+conv.id+','+i+',this)"> '+(c.contab?hesc(c.contab.fecha):des?'Contabilizar':'Falta desglose')+'</label>'
+        ?'<div class="g-sino'+(!c.contab&&!des?' bloq':'')+'" onclick="event.stopPropagation()" title="'+(c.contab?'Contabilizada por '+hesc(c.contab.quien)+' el '+hesc(c.contab.fecha):des?'¿Se contabilizó esta cuota?':'Falta el desglose de capital e intereses')+'">'
+          +'<button type="button" class="si'+(c.contab?' on':'')+'" '+(c.contab||!des?'disabled ':'')+'onclick="toggleContab('+conv.id+','+i+',null)">Sí</button>'
+          +'<button type="button" class="no'+(c.contab?'':' on')+'" '+(c.contab?'':'disabled ')+'onclick="toggleContab('+conv.id+','+i+',null)">No</button>'
+          +'</div>'+(c.contab?'<small class="g-sino-q">'+hesc(c.contab.fecha)+' · '+hesc(c.contab.quien)+'</small>':!des?'<small class="g-sino-q warn">falta desglose</small>':'')
         :'<span style="color:var(--tm)">—</span>';
       return'<tr class="'+trCls+'" onclick="event.stopPropagation()">'
         +'<td style="text-align:center;font-weight:700">'+c.numero+(c.esUltima?' ★':'')+'</td>'
