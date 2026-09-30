@@ -705,3 +705,39 @@ body.g-mod-aprob{--g-acento:#C77BC9}
 .g-info-azul{background:rgba(142,197,255,.08)!important;border:1px solid rgba(142,197,255,.28)!important;color:#B9DAFF!important;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px}
 .g-sel-aprob{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#E39BE5;cursor:pointer}
 .g-tema-noche .empty-state{color:#A98AAE}.g-tema-noche .empty-state h3{color:#E3CFE5}
+
+/* ── CONVENIOS ── */
+body.g-mod-conv{--g-acento:#C77BC9}
+.g-mod-conv .tb-title span{color:#E39BE5}
+.g-tema-noche .b-activo,.g-tema-noche .b-pagada{background:rgba(52,211,153,.13);color:#5FE3AE;border:1px solid rgba(52,211,153,.32)}
+.g-tema-noche .b-completado{background:rgba(199,123,201,.16);color:#E39BE5;border:1px solid rgba(199,123,201,.3)}
+.g-tema-noche .b-vencido{background:rgba(229,72,77,.14);color:#FF8A8A;border:1px solid rgba(229,72,77,.4)}
+.g-tema-noche .b-pendiente{background:rgba(255,210,77,.13);color:#FFD24D;border:1px solid rgba(255,210,77,.35)}
+.g-tema-noche .b-cancelado{background:rgba(255,255,255,.06);color:#C9A8CC;border:1px solid #4A2B50}
+.g-tema-noche .convenio-card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px;transition:border-color .2s,box-shadow .2s}
+.g-tema-noche .convenio-card:hover{border-color:#7A4A82;box-shadow:0 14px 32px rgba(0,0,0,.35)}
+.g-tema-noche .conv-header:hover{background:rgba(255,255,255,.02)}
+.g-tema-noche .conv-icon{border-radius:14px}
+.g-tema-noche .conv-icon svg{width:22px;height:22px;color:#F3E9F4}
+.g-tema-noche .conv-monto{font:900 21px var(--g-titulo);color:#F3E9F4;font-variant-numeric:tabular-nums}
+.g-tema-noche .conv-actions{background:rgba(255,255,255,.02);border-top-color:#3A2140}
+.g-tema-noche .data-table th{background:rgba(255,255,255,.03);color:#C9A8CC;border-bottom-color:#3A2140}
+.g-tema-noche .data-table td{border-bottom-color:#2E1834}
+.g-tema-noche .data-table tr.pagada td,.g-tema-noche .cuota-item.pagada{background:rgba(52,211,153,.05)}
+.g-tema-noche .data-table tr.vencida td,.g-tema-noche .cuota-item.vencida{background:rgba(229,72,77,.07)}
+.g-tema-noche .data-table tr.hoy td{background:rgba(255,210,77,.06)}
+.g-tema-noche .data-table tr.ultima td,.g-tema-noche tr.g-fila-ultima td{background:rgba(199,123,201,.08)}
+.g-tema-noche .data-table tr.total-row td{background:rgba(199,123,201,.14)}
+.g-tema-noche .cuota-item:hover{background:rgba(255,255,255,.03)}
+.g-tema-noche .mes-nav button{background:transparent;border:1px solid #4A2B50;border-radius:999px;color:#E3CFE5}
+.g-tema-noche .mes-nav button:hover{border-color:#C77BC9;color:#fff}
+.g-tema-noche .kpi-card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px}
+.g-tema-noche .kpi-title{display:flex;align-items:center;gap:6px;color:#E39BE5}
+.g-tema-noche .kpi-title svg{width:14px;height:14px}
+.g-tema-noche .bar-track{height:14px;border-radius:999px}
+.g-tema-noche .bar-fill-h{border-radius:999px;animation:g-carga .8s cubic-bezier(.2,.8,.2,1) both;transform-origin:left center}
+.g-tema-noche .amort-header{background:linear-gradient(135deg,#803889,#A4599C);border-radius:18px;box-shadow:0 12px 30px rgba(146,72,147,.3)}
+.g-tema-noche .alerta-banner{background:linear-gradient(135deg,rgba(229,72,77,.2),rgba(229,72,77,.06));border:1px solid rgba(229,72,77,.45);border-radius:18px;color:#F3E9F4}
+.g-aviso-flot{position:fixed;bottom:16px;right:16px;z-index:999;background:#1B0D20;color:#E3CFE5;border:1px solid #4A2B50;border-left:4px solid #C77BC9;border-radius:14px;padding:12px 14px;box-shadow:0 14px 34px rgba(0,0,0,.5);font-size:12px;max-width:340px}
+.g-tema-noche .badge svg,.g-tema-noche .btn-sm svg{width:13px;height:13px}
+.g-tema-noche .card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px}
