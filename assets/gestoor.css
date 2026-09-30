@@ -595,3 +595,20 @@ body.g-mod-pag{--g-acento:var(--g-area-pag)}
 .g-tema-noche .acciones{gap:5px}
 .g-tema-noche .btn-s.g-warn{border-color:rgba(255,200,90,.6);color:#FFC85A}
 .g-tema-noche .btn-s.g-warn:hover{background:rgba(255,200,90,.12);border-color:#FFC85A}
+
+/* ── Recorrido · OPCIÓN B: barra por segmentos con brillo en movimiento ──
+   Se activa con <body class="… g-flujo-b">. Mismo HTML (.pipeline/.pipe-step), solo cambia la forma. */
+@keyframes g-brillo{0%{background-position:-120% 0}100%{background-position:220% 0}}
+.g-flujo-b .pipeline{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;align-items:start;min-width:220px;counter-reset:g-paso;position:relative;padding-bottom:18px}
+.g-flujo-b .pipe-line{display:none}
+.g-flujo-b .pipe-step{counter-increment:g-paso;align-items:stretch;position:static}
+.g-flujo-b .ps-dot{width:auto!important;height:8px!important;border-radius:999px!important;border:0!important;font-size:0!important;color:transparent!important;background:#33193A!important;box-shadow:none!important;animation:none!important}
+.g-flujo-b .pipe-step.done .ps-dot{background:linear-gradient(90deg,var(--g-acento,#5FCF9C),color-mix(in srgb,var(--g-acento,#5FCF9C) 55%,#fff),var(--g-acento,#5FCF9C))!important;background-size:220% 100%!important;animation:g-brillo 2.6s linear infinite!important;box-shadow:0 0 10px color-mix(in srgb,var(--g-acento,#5FCF9C) 40%,transparent)!important}
+.g-flujo-b .pipe-step.active .ps-dot{background:linear-gradient(90deg,var(--g-acento,#C77BC9) 0 45%,#33193A 45%)!important;animation:g-pulso 2s infinite!important}
+.g-flujo-b .pipe-step.warn .ps-dot{background:#FFC85A!important}
+.g-flujo-b .pipe-step.err .ps-dot{background:#E5484D!important}
+.g-flujo-b .pipe-lbl{display:none}
+.g-flujo-b .pipe-step.active .pipe-lbl{display:block;position:absolute;left:0;bottom:0;margin:0;white-space:nowrap;font:800 11px var(--g-texto);color:#F3E9F4}
+.g-flujo-b .pipe-step.active .pipe-lbl::before{content:"Paso " counter(g-paso) " · ";color:var(--g-acento,#C77BC9)}
+.g-flujo-b .pipeline:not(:has(.active)) .pipe-step:last-child .pipe-lbl{display:block;position:absolute;left:0;bottom:0;margin:0;font:800 11px var(--g-texto);color:var(--g-acento,#5FCF9C)}
+.g-flujo-b .pipeline:not(:has(.active)) .pipe-step:last-child .pipe-lbl::before{content:"✓ Completo · "}
