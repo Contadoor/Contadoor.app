@@ -1545,7 +1545,9 @@ function _rpPeriodoConfig(per){
   var n=_rpPerDash(per).replace('-','');
   var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;})||{};
   // f29Ok: el vencimiento del F29 está definido en el calendario del período (Configuración → Períodos).
-  return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20,f29Ok:!!p.venc_f29_limite};
+  // f29GOk: el día de gestión (transferir a Contadoor antes del F29) también está definido en el período.
+  // Sin configuración, los valores por defecto (19/20) NUNCA se muestran ni se usan como fecha real (regla PR #10A).
+  return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20,f29Ok:!!p.venc_f29_limite,f29GOk:!!p.venc_f29_limite&&!!p.venc_f29_gestion};
 }
 function _rpNum(v){return Number(v)||0;}
 function _rpDonde(txt){var t=String(txt||'').toLowerCase();if(/previred|cotiz|afp|salud/.test(t))return 'Previred';if(/tgr|tesorer/.test(t))return 'tgr.cl';return 'sii.cl';}
@@ -1575,8 +1577,9 @@ function _construirDatosReporte(r,antPer){
     var ppm=f29.ppm, iu=f29.iu, ret=f29.retHon, otros=f29.otros;
     var iva=f29.impuestoDeterminado-f29.ivaPostergado;
     var partes=[];if(iva)partes.push('IVA '+ff(iva));if(ppm)partes.push('PPM '+ff(ppm));if(iu)partes.push('Impuesto único '+ff(iu));if(ret)partes.push('Retención honorarios '+ff(ret));
-    items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:'Vence '+diaIva+' '+mcIva,paga:paga,donde:'sii.cl',postergable:true,_dia:diaIva});
-    fechas.push({dia:diaIva,mes:mcIva,que:'Impuestos F29 en SII'});
+    // Fecha del F29 solo si el calendario del período la define; si no, sin día (no se ordena ni se lista como fecha clave).
+    items.push({tipo:'imp',titulo:'Impuestos del mes (F29)',detalle:'Formulario 29 del SII · '+partes.join(' · '),monto:imp,vence:cfg.f29Ok?'Vence '+diaIva+' '+mcIva:'Vence según calendario del SII',paga:paga,donde:'sii.cl',postergable:true,_dia:cfg.f29Ok?diaIva:null});
+    if(cfg.f29Ok)fechas.push({dia:diaIva,mes:mcIva,que:'Impuestos F29 en SII'});
     var fi=[{c:'IVA débito (ventas)',v:_rpNum(r.ivaDebito)},{c:'IVA crédito (compras)',v:_rpNum(r.ivaCredito)},{c:'IVA a pagar',v:iva},{c:'PPM',v:ppm},{c:'Retención boletas de honorarios',v:ret},{c:'Impuesto único trabajadores',v:iu},{c:'Otros impuestos',v:otros},{c:'Remanente de crédito para el mes siguiente',v:f29.remanenteSiguiente}].filter(function(f){return f.v>0;});
     if(f29.ivaPostergado>0)fi.push({c:'IVA postergado'+(r.ivaFechaVenc?' (vence '+r.ivaFechaVenc+')':''),v:f29.ivaPostergado});
     fi.push({c:'Total a pagar en el SII',v:imp,total:true});
@@ -1645,15 +1648,15 @@ function _construirDatosReporte(r,antPer){
     var aPagar=items.filter(function(i){return i.tipo!=='serv';});
     var diaVence;
     if(modalidad==='contadoor'){
-      diaVence=Math.min.apply(null,[cot>0?cfg.prevG:99,imp>0?cfg.f29G:99].concat(aPagar.map(function(i){return i._dia?i._dia-1:99;})));
+      diaVence=Math.min.apply(null,[cot>0?cfg.prevG:99,(imp>0&&cfg.f29GOk)?cfg.f29G:99].concat(aPagar.map(function(i){return i._dia?i._dia-1:99;})));
       if(diaVence<99)fechas.unshift({dia:diaVence,mes:mc,que:'Transfiere a Contadoor'});
     }else diaVence=Math.min.apply(null,aPagar.map(function(i){return i._dia||99;}).concat([99]));
-    if(diaVence>=99)diaVence=cfg.prevL;
+    // Sin ninguna fecha conocida (p. ej. solo F29 sin calendario del período) no se inventa un vencimiento principal.
+    var sinFecha=diaVence>=99;
     if(items.some(function(i){return i.atrasado;}))fechas.unshift({dia:'Hoy',mes:'urgente',que:'Obligación atrasada'});
     var vistos={};fechas=fechas.filter(function(f){var k=f.dia+f.que;if(vistos[k])return false;vistos[k]=1;return true;}).slice(0,4);
-    var fechaV=new Date(sig.y,sig.m-1,diaVence,12);
     var hoy0=new Date();hoy0.setHours(12,0,0,0);
-    var dias=Math.round((fechaV-hoy0)/864e5);
+    var dias=sinFecha?null:Math.round((new Date(sig.y,sig.m-1,diaVence,12)-hoy0)/864e5);
     var asesores=[GestoorReporte.persona(c.analistaContable||c.contador),GestoorReporte.persona(c.analistaRrhh||c.rrhh)].filter(Boolean);
     asesores=asesores.filter(function(a,k){return asesores.findIndex(function(b){return b.nombre===a.nombre;})===k;});
     var revisor=GestoorReporte.persona('Luciano Duarte');
@@ -1685,7 +1688,7 @@ function _construirDatosReporte(r,antPer){
       if(ppmAc>0&&!hueco)ppmAcumulado={anio:per.slice(0,4),desde:MESES_CORTOS_R[desdeM-1],hasta:MESES_CORTOS_R[mesAct-1],monto:ppmAc};
     }
     return {iva:ivaInfo,ppmAcumulado:ppmAcumulado,periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
-      diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
+      diasVence:dias,fechaVence:sinFecha?'':diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
       aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',fechaIva:cfg.f29Ok?(cfg.f29L+' de '+MESES[sig.m-1].toLowerCase()):''},f29Ok:cfg.f29Ok,f29Estado:f29.estado,f29Motivo:f29.motivo,_completo:(f29.estado==='ok'||f29.estado==='no_aplica'),
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
       analista:analista,asesores:asesores,revisor:revisor,
