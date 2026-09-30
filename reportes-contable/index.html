@@ -603,6 +603,17 @@ function buildBorradorF29(rep, cliente, periodo){
     ivaCredito = 0;
   }
 
+  // ── Condición de IVA de la ficha (decisión de Luciano 30-sep-2026) ─────
+  // exento: IVA = 0 (sin débito ni crédito fiscal; el IVA de compras no se recupera) pero SÍ PPM y retenciones.
+  //         Débito > 0 (en el libro de Ventas o guardado) = "no cuadra" → se avisa y no se puede validar.
+  // mixto:  pendiente de definición (proporcionalidad del crédito) → por ahora se calcula igual que afecto.
+  // La fórmula no cambia (misma que _rpF29 del Panel): el exento solo fija las entradas débito y crédito en 0.
+  var ivaCondicion = String((cliente||{}).iva||'afecto').toLowerCase();
+  var esExento = ivaCondicion==='exento';
+  var ivaDebitoLibroExento = libV ? Number(libV.totalIva||0) : 0;
+  var exentoNoCuadra = esExento && (ivaDebitoLibroExento>0 || (periodoValidado && ivaDebito>0));
+  if(esExento && !periodoValidado){ ivaDebito = 0; ivaCredito = 0; }
+
   // Remanente anterior: del mapa precargado del período anterior
   var remanenteAnterior = getRemanenteAnterior(rep.rut);
 
@@ -684,6 +695,10 @@ function buildBorradorF29(rep, cliente, periodo){
     _honorOk:            honorOk,
     _periodoValidado:    periodoValidado,
     _ppmTasaFuente:      ppmTasaFuente,
+    _ivaCondicion:       ivaCondicion,
+    _esExento:           esExento,
+    _exentoNoCuadra:     exentoNoCuadra,
+    _ivaDebitoLibroExento: ivaDebitoLibroExento,
     // Referencia de libros/ficha — para mostrar hints en el modal
     _precalculado: {
       ivaDebitoLibro:   ventasOk ? Number((libV||{}).totalIva||0)   : null,
@@ -1100,10 +1115,17 @@ function renderTabla(){
       html+=renderSeccionLibros(rep,c);
     }
     // Tarjetas IVA + PPM en vivo desde borrador (sin esperar rep.f29 guardado)
-    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29){
+    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29||borrador._exentoNoCuadra){
       html+='<div class="det-grid">';
       // ── Tarjeta IVA ──
       html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
+      if(borrador._esExento){
+        html+='<div class="det-row" style="font-size:10.5px;color:var(--tm)"><span>Cliente exento de IVA: sin débito ni crédito fiscal</span><span></span></div>';
+      }
+      if(borrador._exentoNoCuadra){
+        html+='<div class="det-row" style="font-size:10.5px;color:#991b1b;background:#fee2e2;padding:4px 8px;border-radius:6px"><span>⚠️ No cuadra: cliente exento con IVA débito '
+          +ff(Math.max(borrador._ivaDebitoLibroExento, borrador._periodoValidado?borrador.ivaDebito:0))+'. Revisa el libro de Ventas o la condición de IVA de la ficha.</span><span></span></div>';
+      }
       html+='<div class="det-row"><span>Débito fiscal</span><span>'+ff(borrador.ivaDebito)+'</span></div>';
       if(borrador.ivaCredito)html+='<div class="det-row"><span>Crédito fiscal</span><span>-'+ff(borrador.ivaCredito)+'</span></div>';
       if(borrador.remanenteAnterior>0)html+='<div class="det-row"><span>Remanente per. anterior</span><span>-'+ff(borrador.remanenteAnterior)+'</span></div>';
@@ -1261,8 +1283,11 @@ function abrirF29(rut){
   function tieneValorGuardado(v){ return v!==null&&v!==undefined&&v!==''; }
 
   // IVA — precargado desde borrador (incluye remanente del período anterior)
-  document.getElementById('f-debito').value       = borrador.ivaDebito  !==0  ? borrador.ivaDebito  : '';
-  document.getElementById('f-credito').value      = borrador.ivaCredito !==0  ? borrador.ivaCredito : '';
+  // Exento: débito y crédito fijos en 0 y no editables (también si un período ya validado guardó otro valor).
+  var fDeb=document.getElementById('f-debito'), fCred=document.getElementById('f-credito');
+  fDeb.readOnly=borrador._esExento; fCred.readOnly=borrador._esExento;
+  fDeb.value  = borrador._esExento ? '' : (borrador.ivaDebito  !==0 ? borrador.ivaDebito  : '');
+  fCred.value = borrador._esExento ? '' : (borrador.ivaCredito !==0 ? borrador.ivaCredito : '');
   document.getElementById('f-remanente-ant').value= borrador.remanenteAnterior>0 ? borrador.remanenteAnterior : '';
 
   // PPM — fuente única: borrador (no volver a consultar f29)
@@ -1311,6 +1336,13 @@ function abrirF29(rut){
     setHint('precalc-credito-info',  pc.ivaCreditoLibro!=null ? 'Precalculado según Compras: '+ffM(pc.ivaCreditoLibro)  : '');
     setHint('precalc-ppm-base-info', pc.ppmBaseLibro!=null    ? 'Precalculada según Ventas: '+ffM(pc.ppmBaseLibro)     : '');
     setHint('precalc-ret-hon-info',  pc.retHonLibro!=null     ? 'Precalculada según Honorarios: '+ffM(pc.retHonLibro) : 'Boletas honorarios recibidas');
+  }
+  if(borrador._esExento){
+    setHint('precalc-debito-info', borrador._exentoNoCuadra
+      ? '⚠️ No cuadra: cliente exento de IVA, pero el libro de Ventas o el valor guardado trae IVA débito '
+        +ffM(Math.max(borrador._ivaDebitoLibroExento, borrador._periodoValidado?borrador.ivaDebito:0))+'. No se puede validar.'
+      : 'Cliente exento de IVA: sin débito fiscal (IVA = 0).');
+    setHint('precalc-credito-info','Cliente exento de IVA: sin crédito fiscal (el IVA de compras no se recupera).');
   }
 
   // Info RRHH
@@ -1867,9 +1899,124 @@ function mostrarPreviewHonorarios(data,btnCArg){
 }
 
 
+// ── Identidad del archivo: RUT, período y tipo deben coincidir con lo seleccionado (fail-closed) ──
+// Hallazgo 30-sep-2026: se cargaron libros de otra empresa y de otro mes sin ningún aviso.
+// MasContable pone el RUT de la empresa SOLO en el nombre del archivo (<Prefijo>_<RUT>_<MMM>-<AAAA>.xls);
+// el contenido trae el título "LIBRO DE COMPRAS|VENTAS|HONORARIOS MM-AAAA".
+function identidadNombreArchivoLibro(nombre){
+  // Sufijos de descarga repetida: "archivo (1).xls" o "archivo__5_.xls"
+  var base=String(nombre||'').replace(/\.[A-Za-z0-9]+$/,'').replace(/(?:\s*\(\d+\)|__\d+_)\s*$/,'').trim();
+  var m=base.match(/^([A-Za-z]+)_(\d{7,8}-[\dkK])_(.*)$/);
+  if(!m) return {rut:null,periodo:null,periodoTexto:null};
+  var per=null, pm=m[3].match(/^0?(\d{2})-(\d{4})$/);
+  if(pm){var mes=parseInt(pm[1],10); if(mes>=1&&mes<=12) per=pm[2]+'-'+pm[1];}
+  return {rut:normalizarRutContable(m[2]),periodo:per,periodoTexto:m[3]};
+}
+
+// Títulos "LIBRO DE X MM-AAAA" (mensual) y "LIBRO DE X AAAA" (anual, sin mes)
+function periodosEnTitulosLibro(texto){
+  var t=String(texto||'').toUpperCase(), out={mensual:[],anual:[]}, m;
+  var reMes=/LIBRO\s+DE\s+(?:COMPRAS|VENTAS|HONORARIOS)\s+(\d{1,2})\s*[-\/]\s*(\d{4})/g;
+  var reAnio=/LIBRO\s+DE\s+(?:COMPRAS|VENTAS|HONORARIOS)\s+(\d{4})(?![\d\/-])/g;
+  while((m=reMes.exec(t))){
+    var mes=parseInt(m[1],10);
+    var p=(mes>=1&&mes<=12)?m[2]+'-'+String(mes).padStart(2,'0'):m[2]+'-'+m[1]+' (mes inválido)';
+    if(out.mensual.indexOf(p)<0) out.mensual.push(p);
+  }
+  while((m=reAnio.exec(t))){ if(out.anual.indexOf(m[1])<0) out.anual.push(m[1]); }
+  return out;
+}
+
+// Tipos declarados en títulos explícitos "LIBRO DE X" (más estricto que detectarTipoLibroEnHtml, que une todo
+// el texto y confunde "LIBRO DE COMPRAS … COSTO DE VENTAS" con un libro combinado)
+function tiposEnTitulosLibro(texto){
+  var re=/LIBRO\s+DE\s+(COMPRAS|VENTAS|HONORARIOS)\b/g, out=[], m, t=String(texto||'').toUpperCase();
+  while((m=re.exec(t))){ var k=m[1].toLowerCase(); if(out.indexOf(k)<0) out.push(k); }
+  return out;
+}
+
+function verificarIdentidadLibro(file, textoTitulos, tipoDetectado, ctx){
+  var errores=[];
+  var cliente=_clientesContables.find(function(c){return String(c.id)===String(ctx.clienteId);});
+  var rutCliente=cliente?normalizarRutContable(cliente.rut):'';
+  if(!rutCliente||rutCliente!==normalizarRutContable(ctx.rut)){
+    errores.push('No se pudo confirmar el cliente seleccionado. Recarga el módulo e intenta de nuevo.');
+  }
+  var labelTipo=nombreTipoLibro(ctx.tipo);
+  var nom=identidadNombreArchivoLibro(file&&file.name);
+
+  // RUT — solo está en el nombre del archivo
+  if(!nom.rut){
+    errores.push('No se puede verificar el RUT de la empresa: el nombre del archivo no tiene el formato de MasContable '+
+      '(Libro_RUT_MMM-AAAA). Descárgalo de nuevo desde MasContable sin cambiarle el nombre.');
+  } else if(rutCliente && nom.rut!==rutCliente){
+    errores.push('El archivo es de la empresa RUT '+nom.rut+', pero el cliente seleccionado es RUT '+rutCliente+'.');
+  }
+
+  // Período — nombre del archivo y título del contenido; toda fuente legible debe coincidir y al menos una debe existir
+  var perTit=periodosEnTitulosLibro(textoTitulos), perContenido=perTit.mensual;
+  if(nom.periodo && nom.periodo!==ctx.periodo){
+    errores.push('El nombre del archivo indica el período '+nom.periodo+', pero estás cargando '+ctx.periodo+'.');
+  } else if(!nom.periodo && /^(0-)?\d{4}$/.test(nom.periodoTexto||'')){
+    errores.push('El archivo no es un libro mensual ('+nom.periodoTexto+'); se espera el libro de '+ctx.periodo+'.');
+  }
+  perTit.anual.forEach(function(a){
+    errores.push('El título del archivo es un libro ANUAL ('+a+'), no el mensual de '+ctx.periodo+'.');
+  });
+  perContenido.forEach(function(p){
+    if(p!==ctx.periodo) errores.push('El título del archivo corresponde al período '+p+', pero estás cargando '+ctx.periodo+'.');
+  });
+  if(!nom.periodo && !perContenido.length && !perTit.anual.length){
+    errores.push('No se puede verificar el período: ni el nombre ni el título del archivo indican el mes.');
+  }
+
+  // Tipo — debe reconocerse en el contenido; manda el título explícito "LIBRO DE X" si existe
+  var tiposTitulo=tiposEnTitulosLibro(textoTitulos);
+  var tipoOk=tiposTitulo.length
+    ? tiposTitulo.indexOf(ctx.tipo)>=0
+    : (tipoDetectado===ctx.tipo || (tipoDetectado==='combinado' && ctx.tipo!=='honorarios'));
+  if(!tipoOk){
+    var tipoArchivo=tiposTitulo.length?tiposTitulo.map(nombreTipoLibro).join(' y '):nombreTipoLibro(tipoDetectado);
+    errores.push(!tiposTitulo.length && tipoDetectado==='desconocido'
+      ? 'No se reconoce el tipo de libro: el archivo no dice "Libro de '+labelTipo+'".'
+      : 'El archivo corresponde a un Libro de '+tipoArchivo+', pero se intentó cargar en '+labelTipo+'.');
+  }
+  return {ok:errores.length===0, errores:errores, rutArchivo:nom.rut, periodoArchivo:nom.periodo||perContenido[0]||null};
+}
+
+function mostrarBloqueoIdentidadLibro(file, verif){
+  var ctx=_cargaLibroCtx||{};
+  _previewLibro=null;
+  var cliente=_clientesContables.find(function(c){return String(c.id)===String(ctx.clienteId);})||{};
+  document.getElementById('preview-titulo').textContent='⛔ Archivo no corresponde — Libro de '+nombreTipoLibro(ctx.tipo);
+  document.getElementById('preview-sub').innerHTML=
+    '<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">'+hesc(file?file.name:'(sin archivo)')+'</div>'+
+    '<div style="font-size:11px;color:var(--tm)">'+hesc(cliente.razon||ctx.rut||'')+' &middot; '+hesc(ctx.rut||'')+' &middot; '+hesc(ctx.periodo||'')+'</div>';
+  var rb=document.getElementById('preview-resumen-box');
+  var tb=document.getElementById('preview-totales-box');
+  var ab=document.getElementById('preview-adv-box');
+  rb.style.display='block';
+  rb.innerHTML='<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;color:#991b1b">'+
+    '<div style="font-weight:700;margin-bottom:6px">⛔ No se puede cargar este archivo</div>'+
+    '<ul style="margin:0 0 6px 18px;padding:0">'+verif.errores.map(function(e){return '<li>'+hesc(e)+'</li>';}).join('')+'</ul>'+
+    '<div style="font-size:11px">Verifica que el cliente, el período y el tipo de libro seleccionados coincidan con el archivo.</div>'+
+    '</div>';
+  tb.style.display='none'; tb.innerHTML=''; ab.innerHTML='';
+  var btnC=document.getElementById('btn-confirmar-carga');
+  if(btnC){btnC.disabled=true;btnC.style.opacity='.4';btnC.title='El archivo no corresponde al cliente, período o tipo seleccionado';}
+  document.getElementById('modalPreviewLibro').classList.add('on');
+}
+
+function registrarIdentidadLibro(ctx, file, verif){
+  if(!verif.ok){ mostrarBloqueoIdentidadLibro(file, verif); return false; }
+  ctx.identidad={ok:true, file:file, clave:ctx.clienteId+'|'+ctx.periodo+'|'+ctx.tipo};
+  return true;
+}
+
 async function procesarArchivoLibro(file, sheetName){
   var ctx=_cargaLibroCtx;
   if(!ctx) return;
+  ctx.identidad=null;
   var arrayBuffer;
   try{ arrayBuffer=await file.arrayBuffer(); }
   catch(e){ alert('No se pudo leer el archivo: '+e.message); return; }
@@ -1893,6 +2040,11 @@ async function procesarArchivoLibro(file, sheetName){
 
     var tipoDetectado=detectarTipoLibroEnHtml(tablasHtml);
     console.info('[MasConta HTML] Tipo detectado en archivo:',tipoDetectado,'| Solicitado:',ctx.tipo);
+
+    var textoTitulosHtml=tablasHtml.map(function(t){
+      return (t.titulo||'')+' '+t.filas.slice(0,8).map(function(f){return f.join(' ');}).join(' ');
+    }).join(' ');
+    if(!registrarIdentidadLibro(ctx, file, verificarIdentidadLibro(file, textoTitulosHtml, tipoDetectado, ctx))) return;
 
     // Detectar conflicto de tipo
     var hayConflicto=(tipoDetectado!=='desconocido'&&tipoDetectado!=='combinado'&&tipoDetectado!==ctx.tipo);
@@ -2003,6 +2155,11 @@ async function procesarArchivoLibro(file, sheetName){
 
   var rawRows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true,defval:'',blankrows:false});
   console.info('[MasConta] Hoja:',sheetName,'filas:',rawRows.length,'primeras filas:',rawRows.slice(0,20));
+
+  var primerasXlsx=rawRows.slice(0,12).map(function(f){return (f||[]).map(function(c){return String(c==null?'':c);});});
+  var tipoXlsx=detectarTipoLibroEnHtml([{titulo:'',filas:primerasXlsx}]);
+  var textoTitulosXlsx=primerasXlsx.map(function(f){return f.join(' ');}).join(' ');
+  if(!registrarIdentidadLibro(ctx, file, verificarIdentidadLibro(file, textoTitulosXlsx, tipoXlsx, ctx))) return;
 
   if(ctx.tipo==='compras'||ctx.tipo==='ventas'){
     var result=normalizarFilasComprasVentas(rawRows,ctx.tipo);
@@ -2165,6 +2322,19 @@ function guardarF29(){
   if(ppmBase>0 && tasaIngresada===null){
     cierre.pendientes.push('Configura la tasa PPM para este período.');
     cierre.ok=false;
+  }
+  // Exento de IVA: débito y crédito en 0; si el libro de Ventas trae débito, no cuadra → no se valida
+  var borradorCierre=buildBorradorF29(repActual,c,periodo);
+  if(borradorCierre._esExento){
+    if(nv('f-debito')!==0||nv('f-credito')!==0){
+      cierre.pendientes.push('Cliente exento de IVA: el débito y el crédito fiscal deben ser 0.');
+      cierre.ok=false;
+    }
+    if(borradorCierre._ivaDebitoLibroExento>0){
+      cierre.pendientes.push('No cuadra: el cliente es exento de IVA, pero el libro de Ventas trae IVA débito '+ff(borradorCierre._ivaDebitoLibroExento)+
+        '. Revisa el libro (Reemplazar o Quitar) o la condición de IVA en la ficha del cliente.');
+      cierre.ok=false;
+    }
   }
   // Tasa negativa no permitida
   if(tasaIngresada!==null && tasaIngresada<0){
@@ -3208,6 +3378,13 @@ async function confirmarCargaLibro(){
   var ctx=_cargaLibroCtx;
   if(!data||!ctx) return;
 
+  // Fail-closed: sin identidad verificada para ESTE archivo, cliente, período y tipo no se sube nada
+  var idLib=ctx.identidad;
+  if(!idLib||idLib.ok!==true||idLib.file!==data.file||idLib.clave!==(ctx.clienteId+'|'+ctx.periodo+'|'+ctx.tipo)||ctx.periodo!==_periodoActual){
+    alert('No se puede confirmar: el archivo no fue verificado para este cliente, período y tipo de libro.\n\nCierra la previsualización y vuelve a cargarlo.');
+    return;
+  }
+
   var btnC=document.getElementById('btn-confirmar-carga');
   if(btnC){btnC.disabled=true;btnC.textContent='⏳ Calculando…';}
   var pm=document.getElementById('preview-msg');
@@ -3408,6 +3585,52 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
         renderTabla(); restaurarFilaAbierta(rut); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
+}
+
+// ── Quitar libro (SQL 2200 · anular_libro_contable) ───────────────────────
+// Anulación lógica con auditoría (quién/cuándo/motivo). Solo con el Pre-IVA NO validado:
+// la RPC lo vuelve a comprobar con la fila del reporte bloqueada; aquí solo se evita ofrecerlo.
+function preIvaBloqueaQuitar(rep){
+  return !!rep && (rep.estadoContable==='completado' || rep.listoPanelControl===true);
+}
+
+function botonQuitarLibro(tipo, c, rep){
+  if(preIvaBloqueaQuitar(rep)){
+    return '<button class="btn-s" style="font-size:10px;opacity:.4" disabled title="Pre-IVA validado: para corregir usa Reemplazar (reabre el Pre-IVA)">🗑 Quitar</button>';
+  }
+  return '<button class="btn-s" style="font-size:10px;color:var(--red)" onclick="quitarLibro('+c.id+',\''+c.rut+'\',\''+tipo+'\')">🗑 Quitar</button>';
+}
+
+function quitarLibro(clienteId, rut, tipo){
+  var label=nombreTipoLibro(tipo);
+  var periodo=_periodoActual;
+  var rep=getReportes().find(function(r){
+    return normalizarRutContable(r.rut)===normalizarRutContable(rut) && r.periodo===periodo;
+  });
+  if(preIvaBloqueaQuitar(rep)){
+    alert('El Pre-IVA de '+periodo+' ya está validado: no se puede quitar el libro.\n\nPara corregirlo usa "Reemplazar" (reabre el Pre-IVA).');
+    return;
+  }
+  var motivo=prompt('Quitar el Libro de '+label+' de '+periodo+'.\n\nMotivo obligatorio (queda en la auditoría):');
+  if(motivo===null) return;
+  motivo=motivo.trim();
+  if(motivo.length<5){ alert('El motivo es obligatorio (mínimo 5 caracteres).'); return; }
+  if(!confirm('¿Quitar el Libro de '+label+' de '+periodo+'?\n\nEl período vuelve a "libro pendiente". El archivo queda en el historial y la acción queda registrada con tu nombre, la fecha y el motivo.')) return;
+
+  sbFetch('rpc/anular_libro_contable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    p_cliente_id:parseInt(clienteId,10), p_periodo:periodo, p_tipo:tipo, p_motivo:motivo
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(!d||d.ok!==true){
+      alert('No se pudo quitar el libro:\n'+String((d&&(d.message||d.error))||'Error desconocido').replace(/<[^>]+>/g,'').substring(0,300));
+      return;
+    }
+    actualizarLibroEnMemoria(parseInt(clienteId,10), tipo, {cabecera:d.cabecera||null});
+    renderTabla(); restaurarFilaAbierta(rut);
+    if(window.crearNotificacion) crearNotificacion({
+      modulo:'reportes',tipo:'info',prioridad:'media',
+      mensaje:'Libro de '+label+' quitado · '+periodo+' · '+(d.realizado_por||''),accion:null
+    });
+  }).catch(function(e){ alert('Error de conexión: '+(e&&e.message?e.message:String(e))); });
 }
 
 // ── Actualizar memoria después del éxito ──────────────────────────────────
@@ -3831,8 +4054,10 @@ function init(){
     // PASO 2: Clientes
     mostrarEstadoCarga('⏳ Cargando clientes…');
 
+    // sinCache: la caché local (hasta 10 min) podía traer la ficha ANTES de configurar la tasa PPM y
+    // ejecutarConTimeoutContable solo usa la primera respuesta → "Tasa PPM no configurada" con la ficha al día.
     ejecutarConTimeoutContable('sbGetClientes', function(done){
-      sbGetClientes(done);
+      sbGetClientes(done, {sinCache:true});
     }, 15000, function(errC, clientes){
       if(errC){
         console.error('[Contable:init] Error al cargar clientes:',errC);
@@ -3942,8 +4167,9 @@ function renderLibroBadge(estado){
   return '<span class="libro-badge '+p[0]+'">'+p[1]+'</span>';
 }
 
-function renderTarjetaLibro(tipo, cab, c){
+function renderTarjetaLibro(tipo, cab, c, rep){
   var estado  = cab ? cab.estado : 'no_cargado';
+  var btnQuitar = botonQuitarLibro(tipo, c, rep);
   var etiqueta = tipo==='compras'?'📋 Compras':tipo==='ventas'?'📋 Ventas':'📋 Honorarios';
   var cid = c.id;
   var rut = c.rut;
@@ -3974,6 +4200,7 @@ function renderTarjetaLibro(tipo, cab, c){
     }
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Reemplazar</button>';
+    h += btnQuitar;
     h += '</div>';
   } else if(estado==='sin_movimientos'){
     h += '<div class="libro-meta">Sin movimientos en el período.';
@@ -3981,6 +4208,7 @@ function renderTarjetaLibro(tipo, cab, c){
     h += '</div>';
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += btnQuitar;
     h += '</div>';
   } else if(estado==='no_aplica'){
     h += '<div class="libro-meta">No aplica este período.';
@@ -3988,6 +4216,7 @@ function renderTarjetaLibro(tipo, cab, c){
     h += '</div>';
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += btnQuitar;
     h += '</div>';
   } else {
     // no_cargado
@@ -4012,9 +4241,9 @@ function renderSeccionLibros(rep, c){
   var h = '<div style="margin-bottom:14px">';
   h += '<div class="libros-sec-titulo">📂 Documentos contables del período</div>';
   h += '<div class="libros-grid">';
-  h += renderTarjetaLibro('compras',   libros.compras,   c);
-  h += renderTarjetaLibro('ventas',    libros.ventas,    c);
-  h += renderTarjetaLibro('honorarios',libros.honorarios,c);
+  h += renderTarjetaLibro('compras',   libros.compras,   c, rep);
+  h += renderTarjetaLibro('ventas',    libros.ventas,    c, rep);
+  h += renderTarjetaLibro('honorarios',libros.honorarios,c, rep);
   h += '</div></div>';
   return h;
 }

@@ -323,7 +323,10 @@ function sbClienteToRow(c){
   };
 }
 
-function sbGetClientes(cb){
+function sbGetClientes(cb, opts){
+  // opts.sinCache=true: responde UNA sola vez y solo con datos recién leídos de la BD (sin caché previa);
+  // si la lectura falla responde null (fail-closed). Sin opts, comportamiento de siempre (caché + BD).
+  var sinCache = !!(opts && opts.sinCache);
   // ── Corrección 2: Caché versionada — eliminar clientes_bd y sbc_clientes legacy ──
   // Las versiones anteriores de sbGetClientes guardaban claves (clave_sii, etc.)
   // en localStorage. Limpiamos esas entradas una sola vez y usamos caché sanitizada.
@@ -351,6 +354,7 @@ function sbGetClientes(cb){
   // También consultar caché en memoria
   var memCached = sbCacheGet('clientes_v2');
   if(memCached) cached = memCached;
+  if(sinCache) cached = null;
   if(cached) cb(cached);  // inmediato con caché sanitizada
 
   // ── Columnas explícitas — claves excluidas ────────────────────────────────
@@ -385,11 +389,12 @@ function sbGetClientes(cb){
           body:     body,
           path:     CLIENTES_PATH
         });
-        if(!cached) cb([]);
+        if(sinCache) cb(null);
+        else if(!cached) cb([]);
       });
     }
     return r.json().then(function(rows){
-      if(!rows||!rows.length){if(!cached)cb([]);return;}
+      if(!rows||!rows.length){if(!cached)cb(sinCache&&!Array.isArray(rows)?null:[]);return;}
       var mapped=rows.map(sbRowToCliente);
       sbCacheSet('clientes_v2',mapped);
       try{localStorage.setItem(CACHE_V2,JSON.stringify({d:mapped,ts:Date.now()}));}catch(e){}
@@ -402,7 +407,8 @@ function sbGetClientes(cb){
       body:     null,
       path:     CLIENTES_PATH
     });
-    if(!cached) cb([]);
+    if(sinCache) cb(null);
+    else if(!cached) cb([]);
   });
 }
 
