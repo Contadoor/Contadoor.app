@@ -1706,7 +1706,10 @@ function aplicarPermisosClientesUI() {
   if (!sesion) return;
   var esMaster = !!sesion.esMaster;
   // Crear y editar la ficha: Master, Analista Pagos y Analista Comercial (decisión de Luciano).
-  // El resto solo consulta. Las claves de acceso siguen siendo solo Master.
+  // El resto solo consulta. Claves de acceso: VER/COPIAR (🔑 y "Ver claves") para todos los roles, filtradas
+  // en el servidor (listar-credenciales / obtener-credencial, auditado con cred_log_acceso): Master todo,
+  // Contable/RRHH según asignación, Pagos transversal SII/Previred/TGR. Crear/editar credenciales: solo Master
+  // (guardar-credencial valida es_master en el servidor; no hay UI de edición de claves en este módulo).
   var puedeEditar = esMaster || sesion.rol === 'master' || sesion.rol === 'pagos' || sesion.rol === 'comercial';
 
   // Guardar en variable global para que renderClientes() la lea (controla el botón ✏️)
