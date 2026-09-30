@@ -52,13 +52,18 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function pill(txt,fg,bg){return '<span style="display:inline-block;font:700 11px '+F_B+';color:'+fg+';background:'+bg+';border-radius:999px;padding:4px 10px;white-space:nowrap">'+txt+'</span>';}
 function quienPagaPill(p){return p==='cliente'?pill('🏦 Pagas tú',C.verde,C.verdeSuave):pill('💳 Lo pagamos por ti',C.acento,C.suave);}
 function delta(d){ if(d==null)return ''; var up=d>0; return '<span style="font:600 11px '+F_B+';color:'+(up?C.rojo:C.verde)+'">'+(up?'▲':'▼')+' '+Math.abs(Math.round(d*100))+'% vs mes anterior</span>'; }
-function boton(txt,prim,href){return '<a href="'+(href||'#')+'" style="display:inline-block;min-height:44px;padding:0 22px;border-radius:999px;margin:4px;font:700 14px '+F_B+';line-height:44px;text-decoration:none;'+(prim?'background:'+C.morado+';background-image:linear-gradient(160deg,'+C.moradoClaro+','+C.moradoOsc+');color:#fff':'background:transparent;color:'+C.acento+';border:1px solid '+C.acento+';line-height:42px')+'">'+txt+'</a>';}
+function boton(txt,prim,href){if(href===null)return '';return '<a href="'+(href||'#')+'" style="display:inline-block;min-height:44px;padding:0 22px;border-radius:999px;margin:4px;font:700 14px '+F_B+';line-height:44px;text-decoration:none;'+(prim?'background:'+C.morado+';background-image:linear-gradient(160deg,'+C.moradoClaro+','+C.moradoOsc+');color:#fff':'background:transparent;color:'+C.acento+';border:1px solid '+C.acento+';line-height:42px')+'">'+txt+'</a>';}
 
 // Acciones del cliente → correo al analista asignado (sin WhatsApp).
+// Sin asesor o sin email válido: no se construye el enlace (null) y los botones no se muestran;
+// nunca 'mailto:' vacío ni un email genérico inventado.
+function emailAsesorValido(d){var e=String((d&&d.analista&&d.analista.email)||'').trim();return /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(e)?e:'';}
 function mailAnalista(d,asunto,cuerpo){
-  return 'mailto:'+(d.analista.email||'')+'?subject='+encodeURIComponent(asunto+' · '+d.empresa+' · '+d.periodo)
-    +'&body='+encodeURIComponent('Hola '+d.analista.nombre.split(' ')[0]+',\n\n'+cuerpo+'\n\n'+d.empresa);
+  var e=emailAsesorValido(d);if(!e)return null;
+  return 'mailto:'+e+'?subject='+encodeURIComponent(asunto+' · '+d.empresa+' · '+d.periodo)
+    +'&body='+encodeURIComponent('Hola '+String(d.analista.nombre||'').split(' ')[0]+',\n\n'+cuerpo+'\n\n'+d.empresa);
 }
+function sinContacto(d){return emailAsesorValido(d)?'':'<p style="margin:6px 0 0;font:400 13px/1.5 '+F_B+';color:'+C.tinta2+'">Para consultas o comprobantes, contacta a tu asesor(a) de Contadoor.</p>';}
 function linkPostergar(d,que){return mailAnalista(d,'Solicitud de postergación','Quiero postergar '+que+' de '+d.periodo+'. ¿Me confirmas cómo seguimos?');}
 function renderReporteEmail(d){
   var items=d.items.filter(function(i){return i.monto>0;});
@@ -118,7 +123,7 @@ function renderReporteEmail(d){
     h+='<div style="font:400 12px/1.5 '+F_B+';color:'+C.tinta2+';margin:2px 0 6px">'+ent(i.detalle)+'</div>';
     if(i.tipo!=='serv')h+=quienPagaPill(i.paga)+' ';
     if(i.vence)h+=pill('⏰ '+esc(i.vence),C.tinta2,C.crema);
-    if(i.postergable)h+='<div style="margin-top:10px"><a href="'+linkPostergar(d,i.titulo)+'" style="display:inline-block;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid '+C.acento+';font:700 12px '+F_B+';line-height:42px;color:'+C.acento+';text-decoration:none;background:transparent">⏸ Quiero postergar</a></div>';
+    if(i.postergable&&emailAsesorValido(d))h+='<div style="margin-top:10px"><a href="'+linkPostergar(d,i.titulo)+'" style="display:inline-block;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid '+C.acento+';font:700 12px '+F_B+';line-height:42px;color:'+C.acento+';text-decoration:none;background:transparent">⏸ Quiero postergar</a></div>';
     if(i.progreso){var p=Math.round(i.progreso.pagadas/i.progreso.total*100);
       h+='<table role="presentation" width="100%" style="margin-top:10px"><tr><td style="background:'+C.fondo+';border-radius:999px;height:8px;font-size:0;line-height:0"><div style="width:'+p+'%;height:8px;background:'+C.verde+';border-radius:999px"></div></td></tr></table>';
       h+='<div style="font:600 11px '+F_B+';color:'+C.verde+';margin-top:4px">✅ '+i.progreso.pagadas+' de '+i.progreso.total+' cuotas pagadas · te quedan '+(i.progreso.total-i.progreso.pagadas)+'</div>';}
@@ -154,7 +159,7 @@ function renderReporteEmail(d){
   if(items.some(function(i){return i.postergable;})){
     h+='<tr><td style="padding:16px 28px 0"><table role="presentation" width="100%" bgcolor="'+C.panel+'" style="background:'+C.panel+';border:1px solid '+C.borde+';border-radius:14px"><tr><td style="padding:14px 16px;font:400 13px/1.55 '+F_B+';color:'+C.tinta+'">';
     h+='<b>⏸ ¿Necesitas postergar algo?</b><br><span style="color:'+C.tinta2+'">Algunas obligaciones se pueden postergar. Cuéntanos cuál y revisamos contigo la mejor opción antes del vencimiento.</span>';
-    h+='<div style="margin-top:10px"><a href="'+linkPostergar(d,'mis obligaciones')+'" style="display:inline-block;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid '+C.acento+';font:700 13px '+F_B+';line-height:42px;color:'+C.acento+';text-decoration:none">Solicitar postergación</a></div>';
+    if(emailAsesorValido(d))h+='<div style="margin-top:10px"><a href="'+linkPostergar(d,'mis obligaciones')+'" style="display:inline-block;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid '+C.acento+';font:700 13px '+F_B+';line-height:42px;color:'+C.acento+';text-decoration:none">Solicitar postergación</a></div>';
     h+='</td></tr></table></td></tr>';
   }
 
@@ -162,7 +167,7 @@ function renderReporteEmail(d){
   h+='<tr><td align="center" style="padding:20px 28px 4px">'
     +(d.modalidad==='contadoor'?boton('✅ Ya transferí',true,mailAnalista(d,'Transferencia realizada','Ya transferí '+$(aContadoor)+' para las obligaciones de '+d.periodo+'. Adjunto el comprobante.'))
                                :boton('📎 Enviar comprobantes',true,mailAnalista(d,'Comprobantes de pago','Adjunto los comprobantes de pago de '+d.periodo+'.')))
-    +boton('✉️ Escribir a mi asesor',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mi reporte de '+d.periodo+':'))+'</td></tr>';
+    +boton('✉️ Escribir a mi asesor',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mi reporte de '+d.periodo+':'))+sinContacto(d)+'</td></tr>';
 
   // ── TIP DEL MES ──
   if(d.tip){
@@ -175,7 +180,7 @@ function renderReporteEmail(d){
   h+='<b style="font-size:13px;color:#fff">📌 Importante: plazos y responsabilidad</b><br>';
   h+='Este reporte es nuestro <b>canal formal de entrega de información</b>. Para evitar multas, reajustes e intereses, realiza tus pagos —o tus transferencias a Contadoor— <b>en horario hábil y al menos un día hábil antes de cada vencimiento</b>:<br>';
   h+='• '+ent('Cotizaciones (Previred)')+': puedes postergarlas hasta el <b>día '+(av.diaPostergar||10)+'</b>; el vencimiento real es el <b>día '+(av.diaCot||13)+' a las '+(av.horaCot||'13:40')+' h</b>.<br>';
-  h+='• '+ent('IVA (F29 del SII)')+': vence el <b>día '+(av.diaIva||20)+'</b>; si cae en fin de semana o festivo, pasa al día hábil siguiente.<br>';
+  h+='• '+ent('IVA (F29 del SII)')+': '+(av.fechaIva?'vence el <b>'+esc(av.fechaIva)+'</b>.':'vence según el calendario del SII del período; tu asesor(a) te confirma la fecha.')+'<br>';
   h+='<span style="color:'+C.tinta2+'">Contadoor no se hace responsable de multas, reajustes o intereses por pagos o transferencias realizados fuera de estos plazos.</span>';
   h+='</td></tr></table></td></tr>';
 
@@ -293,7 +298,7 @@ function renderCumplimiento(d){
   // ── BOTONES ──
   h+='<tr><td align="center" style="padding:20px 28px 4px">'
     +boton('📎 Enviar comprobante',true,mailAnalista(d,'Comprobante de pago','Adjunto el comprobante de pago de '+d.periodo+'.'))
-    +boton('✉️ Escribir a mi asesor',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mis pagos de '+d.periodo+':'))+'</td></tr>';
+    +boton('✉️ Escribir a mi asesor',false,mailAnalista(d,'Consulta','Tengo una consulta sobre mis pagos de '+d.periodo+':'))+sinContacto(d)+'</td></tr>';
 
   // ── CONTADOOR PRO: lo que podrías recibir (venta sutil; solo prestaciones del plan PRO) ──
   h+='<tr><td style="padding:22px 28px 0"><table role="presentation" width="100%" style="background:'+C.suave+';border:1px solid '+C.moradoClaro+';border-radius:16px"><tr><td style="padding:16px 18px;font:400 13px/1.6 '+F_B+';color:'+C.tinta+'">';
@@ -309,7 +314,7 @@ function renderCumplimiento(d){
   var av=d.aviso||{};
   h+='<tr><td style="padding:18px 28px 0"><table role="presentation" width="100%" style="border:1px solid '+C.rojo+';border-radius:14px;background:'+C.rojoSuave+'"><tr><td style="padding:14px 16px;font:400 12px/1.6 '+F_B+';color:'+C.tinta+'">';
   h+='<b style="font-size:13px;color:#fff">📌 Importante: plazos y responsabilidad</b><br>';
-  h+='Este correo es nuestro <b>canal formal de entrega de información</b>. Realiza tus pagos <b>en horario hábil y al menos un día hábil antes del vencimiento</b>: el '+ent('IVA (F29 del SII)')+' vence el <b>día '+(av.diaIva||20)+'</b>; si cae en fin de semana o festivo, pasa al día hábil siguiente.<br>';
+  h+='Este correo es nuestro <b>canal formal de entrega de información</b>. Realiza tus pagos <b>en horario hábil y al menos un día hábil antes del vencimiento</b>: el '+ent('IVA (F29 del SII)')+' '+(av.fechaIva?'vence el <b>'+esc(av.fechaIva)+'</b>.':'vence según el calendario del SII del período; tu asesor(a) te confirma la fecha.')+'<br>';
   h+='<span style="color:'+C.tinta2+'">Contadoor no se hace responsable de multas, reajustes o intereses por pagos realizados fuera de plazo.</span>';
   h+='</td></tr></table></td></tr>';
 
@@ -318,8 +323,17 @@ function renderCumplimiento(d){
   return h;
 }
 // Plantilla según el plan de la ficha: Cumplimiento → correo simple; PRO/Estratégico (o sin plan) → reporte completo.
-function esCumplimiento(plan){return String(plan||'').toLowerCase()==='cumplimiento';}
-function render(d){return esCumplimiento(d.plan)?renderCumplimiento(d):renderReporteEmail(d);}
+// Plantilla por plan, explícita y fail-closed. 'asesoria' es el valor guardado de Contadoor PRO
+// (el rótulo se renombra aparte); 'pro' se acepta para ese renombre. Plan vacío o desconocido → null.
+var PLANTILLA_POR_PLAN={cumplimiento:'cumplimiento',asesoria:'completa',pro:'completa',estrategico:'completa'};
+function plantilla(plan){var k=String(plan||'').trim().toLowerCase();return Object.prototype.hasOwnProperty.call(PLANTILLA_POR_PLAN,k)?PLANTILLA_POR_PLAN[k]:null;}
+function esCumplimiento(plan){return plantilla(plan)==='cumplimiento';}
+function render(d){
+  var t=plantilla(d.plan);
+  if(t==='cumplimiento')return renderCumplimiento(d);
+  if(t==='completa')return renderReporteEmail(d);
+  throw new Error('Plantilla no definida para el plan "'+String(d.plan||'')+'". Revisa el plan en la ficha del cliente.');
+}
 
 // ── DESGLOSE DEL IMPUESTO (F29): cómo llegamos al monto + PPM acumulado del año (pedido de Luciano, 29-sep-2026) ──
 // d.iva = {ventasNeto, ventasExento, debito, comprasNeto, credito, remAnterior, ivaPagar, remSiguiente,
@@ -349,7 +363,7 @@ function bloqueIva(d){
   var a=d.ppmAcumulado;
   if(a&&a.monto>0){
     h+='<tr><td colspan="2" style="padding:8px 12px 12px"><table role="presentation" width="100%" style="background:'+C.suave+';border-radius:10px"><tr><td style="padding:10px 12px;font:400 12px/1.5 '+F_B+';color:'+C.tinta+'">';
-    h+='📈 <b>PPM acumulado '+esc(a.anio)+'</b> ('+esc(a.desde)+' a '+esc(a.hasta)+'): <b style="color:'+C.cifra+';font-variant-numeric:tabular-nums">'+$(a.monto)+'</b><br><span style="color:'+C.tinta2+';font-size:11px">Son pagos a cuenta de tu impuesto a la renta anual: se descuentan en la declaración de abril.</span>';
+    h+='📈 <b>PPM acumulado '+esc(a.anio)+'</b> ('+esc(a.desde)+' a '+esc(a.hasta)+'): <b style="color:'+C.cifra+';font-variant-numeric:tabular-nums">'+$(a.monto)+'</b><br><span style="color:'+C.tinta2+';font-size:11px">Antecedente para tu Operación Renta: son pagos provisionales a cuenta del impuesto anual. El resultado final depende de la declaración de renta; esto no es una proyección de impuesto.</span>';
     h+='</td></tr></table></td></tr>';
   } else h+='<tr><td colspan="2" style="height:8px;font-size:0;line-height:0">&nbsp;</td></tr>';
   h+='</table></td></tr>';
@@ -407,5 +421,5 @@ function persona(nombre,cargoRespaldo,email){
   return {nombre:nombre,cargo:e.cargo||cargoRespaldo||'Asesor(a) Contadoor',iniciales:ini,email:email||'',foto:e.slug?BASE+'assets/equipo/'+e.slug+'.jpg':''};
 }
 
-window.GestoorReporte={render:render,renderCompleto:renderReporteEmail,renderCumplimiento:renderCumplimiento,esCumplimiento:esCumplimiento,persona:persona};
+window.GestoorReporte={render:render,renderCompleto:renderReporteEmail,renderCumplimiento:renderCumplimiento,esCumplimiento:esCumplimiento,plantilla:plantilla,persona:persona};
 })();

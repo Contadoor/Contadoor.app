@@ -1450,10 +1450,10 @@ function _rpPerAnt(per,k){var p=_rpPerDash(per).split('-'),y=+p[0],m=+p[1]-k;whi
 function _rpPeriodoConfig(per){
   var n=_rpPerDash(per).replace('-','');
   var p=getPeriodos().find(function(x){return String(x.periodo||'').replace('-','')===n;})||{};
-  return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20};
+  // f29Ok: el vencimiento del F29 está definido en el calendario del período (Configuración → Períodos).
+  return {prevG:p.venc_previred_gestion||12,prevL:p.venc_previred_limite||13,f29G:p.venc_f29_gestion||19,f29L:p.venc_f29_limite||20,f29Ok:!!p.venc_f29_limite};
 }
 function _rpNum(v){return Number(v)||0;}
-function _rpDiaHabil(y,m,dia){var f=new Date(y,m-1,dia,12);while(f.getDay()===0||f.getDay()===6)f.setDate(f.getDate()+1);return f;}
 function _rpDonde(txt){var t=String(txt||'').toLowerCase();if(/previred|cotiz|afp|salud/.test(t))return 'Previred';if(/tgr|tesorer/.test(t))return 'tgr.cl';return 'sii.cl';}
 function construirDatosReporte(r){
   var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
@@ -1471,7 +1471,8 @@ function construirDatosReporte(r){
   }
   // Impuestos F29 (Contable)
   var imp=_rpNum(r.totalImpInmediato);
-  var fIva=_rpDiaHabil(sig.y,sig.m,cfg.f29L), diaIva=fIva.getDate(), mcIva=MESES_CORTOS_R[fIva.getMonth()];
+  // Vencimiento tal como lo define el calendario del período; el reporte no recalcula días hábiles.
+  var diaIva=cfg.f29L, mcIva=MESES_CORTOS_R[sig.m-1];
   if(imp>0){
     var ppm=_rpNum(r.ppm), iu=_rpNum(r.iuSii), ret=_rpNum(r.retHon), otros=_rpNum(r.otrosImp);
     var iva=Math.max(0,imp-ppm-iu-ret-otros);
@@ -1551,7 +1552,7 @@ function construirDatosReporte(r){
     var sinRevisor=asesores.filter(function(a){return a.nombre!==revisor.nombre;});
     if(sinRevisor.length)asesores=sinRevisor;
     var u=getUsuario();
-    var emailAsesor=c.emailAnalista||u.email||'info@contadoor.cl';
+    var emailAsesor=String(c.emailAnalista||'').trim();  // sin email en la ficha → los botones de contacto no se muestran
     var analista=asesores[0]||GestoorReporte.persona(u.nombre||'Contadoor');
     analista.email=emailAsesor;
     var tip='';try{tip=localStorage.getItem('tip_mes_'+per)||'';}catch(e){}
@@ -1571,7 +1572,7 @@ function construirDatosReporte(r){
     var ppmAcumulado=ppmAc>0?{anio:per.slice(0,4),desde:MESES_CORTOS_R[0],hasta:MESES_CORTOS_R[mesAct-1],monto:ppmAc}:null;
     return {iva:ivaInfo,ppmAcumulado:ppmAcumulado,periodo:formatPer(per),contacto:(c.contacto||'').split(' ')[0]||'equipo',empresa:c.razon||r.clienteNombre||r.rut,modalidad:modalidad,plan:c.plan||'',
       diasVence:dias,fechaVence:diaVence+' de '+MESES[sig.m-1].toLowerCase(),fechas:fechas,
-      aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',diaIva:cfg.f29L},
+      aviso:{diaPostergar:10,diaCot:cfg.prevL,horaCot:'13:40',fechaIva:cfg.f29Ok?(cfg.f29L+' de '+MESES[sig.m-1].toLowerCase()):''},f29Ok:cfg.f29Ok,
       items:items.filter(function(i){return i.monto>0;}),deuda:null,tip:tip,anexo:anexo,historial:historial,
       analista:analista,asesores:asesores,revisor:revisor,
       _email:c.email||r.clienteEmail||'',_emailAsesor:emailAsesor,_total:totalAct};
@@ -1597,8 +1598,9 @@ function verReporte(id){
       +'<label style="font-size:12px;font-weight:600;color:var(--p)">💡 Tip del mes</label>'
       +'<input id="rp-tip" value="'+hesc(d.tip)+'" placeholder="Opcional: un consejo breve para todos los clientes de '+hesc(d.periodo)+'" style="flex:1;min-width:220px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:7px">'
       +'<button class="btn-s btn-sm" id="rp-tip-ok">Aplicar</button>'
-      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+' · '+(GestoorReporte.esCumplimiento(d.plan)?'📋 Correo Cumplimiento (simple)':(d.plan?'📊 Reporte mensual completo':'📊 Reporte completo · ⚠️ plan sin definir en la ficha'))+'</span></div>'
+      +'<span style="font-size:11px;color:var(--tm)">Para: '+hesc(d._email||'sin email')+' · '+({cumplimiento:'📋 Correo Cumplimiento (simple)',completa:'📊 Reporte mensual completo'}[GestoorReporte.plantilla(d.plan)]||'⛔ Plan sin plantilla definida')+(d.f29Ok?'':' · ⚠️ vencimiento F29 del período no configurado')+(d.analista&&/@/.test(d.analista.email||'')?'':' · ⚠️ asesor sin email: botones de contacto ocultos')+'</span></div>'
       +'<iframe id="rp-frame" title="Vista previa del reporte" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>';
+    if(!GestoorReporte.plantilla(d.plan)){document.getElementById('rp-frame').outerHTML='<div style="padding:24px;color:var(--red)">⛔ No hay plantilla para el plan «'+hesc(d.plan||'sin plan')+'». Revisa el plan en la ficha del cliente (Cumplimiento, Contadoor PRO o Estratégico).</div>';return;}
     document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+GestoorReporte.render(d)+'</body></html>';
     document.getElementById('rp-tip-ok').onclick=function(){
       try{localStorage.setItem('tip_mes_'+per,document.getElementById('rp-tip').value.trim());}catch(e){}
@@ -1611,28 +1613,8 @@ function verReporte(id){
 var ENVIO_REPORTE_ACTIVO=false;
 var MSG_ENVIO_PENDIENTE='El envío real del reporte se activa con el servicio seguro de correos (PR #10B). Por ahora solo está disponible la vista previa.';
 function enviarReporteCore(r){
-  if(!ENVIO_REPORTE_ACTIVO)return Promise.reject(new Error(MSG_ENVIO_PENDIENTE));
-  return construirDatosReporte(r).then(function(d){
-    if(!d._email)throw new Error('El cliente no tiene email registrado (Clientes).');
-    var html=GestoorReporte.render(d);
-    return fetch('https://contafunnel-v2.vercel.app/api/enviar-gestoor',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({tipo:'reporte',analistaNombre:d.analista.nombre,replyTo:d._emailAsesor,
-        toEmail:d._email,toNombre:d.contacto,toEmpresa:d.empresa,periodo:d.periodo,
-        asunto:'Tu reporte mensual · '+d.periodo+' · '+d.empresa,htmlReporte:html})
-    }).then(function(res){
-      if(!res.ok)return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+t.slice(0,200));});
-      return res.json();
-    }).then(function(data){
-      if(!(data.ok||data.id||data.messageId))throw new Error(data.error||data.message||'respuesta inesperada del envío');
-      var ahora=new Date().toISOString();
-      var arr=getReportes(), idx=arr.findIndex(function(x){return String(x.id)===String(r.id);});
-      if(idx>=0){arr[idx].estado='enviado_total';arr[idx].fechaEnvio=ahora;setReportesCache(arr);}
-      // Registro en la BD (fuente de verdad del estado de envío)
-      if(/^\d+$/.test(String(r.id)))return sbPatch('reportes_mensuales?id=eq.'+r.id,{estado:'enviado_total',fecha_envio:ahora,total_general:d._total}).then(function(){return d;});
-      return d;
-    });
-  });
+  // PR #10A no tiene transporte de correo. PR #10B agrega el único transporte válido: CORREO-GESTOOR.
+  return Promise.reject(new Error(MSG_ENVIO_PENDIENTE));
 }
 function _rpToast(txt,ok){
   var t=document.createElement('div');
@@ -1759,44 +1741,8 @@ function buildRecordatorioHTML(r,diasVencido){
     +'<div style="padding:12px 24px;background:#fafafa;font-size:11px;color:#999">Contadoor Chile · contadoor.cl · +56 9 7988 1891</div></div>';
 }
 function enviarRecordatorio(id,tipo){
-  // Recordatorios desactivados hasta CORREO-GESTOOR (el servicio anterior de Vercel fue retirado por seguridad).
-  if(!ENVIO_REPORTE_ACTIVO){if(tipo==='manual')alert(MSG_ENVIO_PENDIENTE);return;}
-  var r=getReportes().find(function(x){return String(x.id)===String(id);});
-  if(!r){alert('Reporte no encontrado.');return;}
-  var to=r.clienteEmail||'';
-  if(!to){
-    var c=getClientes().find(function(x){return x.rut===r.rut;});
-    if(c&&c.email)to=c.email;
-  }
-  if(!to){alert('El cliente no tiene email registrado.');return;}
-  var u=getUsuario();
-  var rec=getRecordatorios();
-  var keyRec=String(id)+'_rec';
-  var ultimoEnvio=rec[keyRec]?new Date(rec[keyRec]):null;
-  if(tipo==='auto'&&ultimoEnvio&&(new Date()-ultimoEnvio)<7*24*60*60*1000)return;
-  var diasVencido=r.fechaEnvio?Math.floor((new Date()-new Date(r.fechaEnvio))/(1000*60*60*24)):0;
-  if(tipo==='manual'&&!confirm('¿Enviar recordatorio de pago a '+hesc(r.clienteNombre)+'?\nEmail: '+to))return;
-  var htmlRec=buildRecordatorioHTML(r,diasVencido);
-  fetch('https://contafunnel-v2.vercel.app/api/enviar-gestoor',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({tipo:'recordatorio',analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',toEmail:to,toNombre:r.clienteNombre,toEmpresa:r.clienteNombre,periodo:formatPeriodo(r.periodo),htmlReporte:htmlRec})
-  })
-  .then(function(res){return res.ok?res.json():res.text().then(function(t){throw new Error(t);});})
-  .then(function(data){
-    if(data.ok||data.id){
-      rec[keyRec]=new Date().toISOString();
-      rec[String(id)+'_count']=(rec[String(id)+'_count']||0)+1;
-      setRecordatorios(rec);
-      if(tipo==='manual'){
-        var t=document.createElement('div');
-        t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-        t.textContent='🔔 Recordatorio enviado a '+to;document.body.appendChild(t);
-        setTimeout(function(){t.remove();},4000);
-      }
-    }
-  })
-  .catch(function(err){if(tipo==='manual')alert('Error: '+err.message);});
+  // Recordatorios sin transporte hasta CORREO-GESTOOR (PR #10B); el servicio anterior de Vercel fue retirado por seguridad.
+  if(tipo==='manual')alert(MSG_ENVIO_PENDIENTE);
 }
 function verificarRecordatoriosAutomaticos(){
   var arr=getReportes();var hoy=new Date();
