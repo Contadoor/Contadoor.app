@@ -494,3 +494,96 @@ body.g-mod-pag{--g-acento:var(--g-area-pag)}
 .g-tema-noche .g-quienpaga.q-directo{color:#5FCF9C!important}
 .g-tema-noche .g-quienpaga.q-mixto{color:#FFC85A!important}
 .g-tema-noche .tb-analista{background:rgba(255,255,255,.05);border:1px solid #4A2B50;color:#C9A8CC;border-radius:999px;padding:4px 12px}
+
+/* ============================================================
+   SISTEMA DE COMPONENTES MODERNOS (transversal · 30-sep-2026)
+   Botones, recorridos, barras/gráficos, pestañas y prioridades
+   para todos los módulos con el tema Todo oscuro.
+   ============================================================ */
+@keyframes g-pulso{0%{box-shadow:0 0 0 0 rgba(199,123,201,.55)}70%{box-shadow:0 0 0 8px rgba(199,123,201,0)}100%{box-shadow:0 0 0 0 rgba(199,123,201,0)}}
+@keyframes g-carga{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* ── Botones ── */
+.g-tema-noche :is(.btn-p,.btn-s,.btn-green,.btn-amber,.btn-approve,.btn-reject,.btn-wa,.btn-mail,.btn-calcular,.btn-danger,.btn-invite,.g-btn){
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 16px;border-radius:999px;
+  font:700 13px var(--g-texto);letter-spacing:.1px;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;
+  transition:transform .15s ease,box-shadow .2s ease,background .2s ease,border-color .2s ease,filter .2s ease}
+.g-tema-noche :is(.btn-p,.btn-s,.btn-green,.btn-amber,.btn-approve,.btn-reject,.btn-wa,.btn-mail,.btn-calcular,.btn-danger,.btn-invite,.g-btn):hover{transform:translateY(-1px)}
+.g-tema-noche :is(.btn-p,.btn-s,.btn-green,.btn-amber,.btn-approve,.btn-reject,.btn-wa,.btn-mail,.btn-calcular,.btn-danger,.btn-invite,.g-btn):active{transform:translateY(0) scale(.97)}
+.g-tema-noche :is(.btn-p,.btn-s,.btn-green,.btn-amber,.btn-approve,.btn-reject,.btn-wa,.btn-mail,.btn-calcular,.btn-danger,.btn-invite,.g-btn):focus-visible{outline:none;box-shadow:0 0 0 3px rgba(199,123,201,.45)}
+.g-tema-noche :is(.btn-p,.btn-s,.btn-green,.btn-amber,.btn-approve,.btn-reject,.btn-wa,.btn-mail,.btn-calcular,.btn-danger,.btn-invite,.g-btn):disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;filter:grayscale(.3)}
+.g-tema-noche :is(.btn-p,.g-btn.pri){background:linear-gradient(135deg,#B566B6 0%,#924893 50%,#7A3380 100%);color:#fff;box-shadow:0 6px 18px rgba(146,72,147,.35),inset 0 1px 0 rgba(255,255,255,.18)}
+.g-tema-noche :is(.btn-p,.g-btn.pri):hover{box-shadow:0 10px 26px rgba(164,89,156,.5),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
+.g-tema-noche :is(.btn-s,.g-btn:not(.pri),.btn-calcular){background:rgba(255,255,255,.03);border-color:rgba(199,123,201,.55);color:#F3E9F4}
+.g-tema-noche :is(.btn-s,.g-btn:not(.pri),.btn-calcular):hover{background:rgba(199,123,201,.14);border-color:#C77BC9}
+.g-tema-noche :is(.btn-green,.btn-approve){background:linear-gradient(135deg,#46D69A,#22A870);color:#04150D;box-shadow:0 6px 18px rgba(52,211,153,.28)}
+.g-tema-noche .btn-amber{background:linear-gradient(135deg,#FFD877,#F5A524);color:#1F1300;box-shadow:0 6px 18px rgba(255,200,90,.25)}
+.g-tema-noche :is(.btn-reject,.btn-danger){background:rgba(229,72,77,.14);border-color:rgba(229,72,77,.55);color:#FF8A8A}
+.g-tema-noche :is(.btn-reject,.btn-danger):hover{background:#E5484D;color:#fff}
+.g-tema-noche .btn-wa{background:rgba(37,211,102,.12);border-color:rgba(37,211,102,.5);color:#5BE59A}
+.g-tema-noche .btn-mail{background:rgba(92,200,255,.12);border-color:rgba(92,200,255,.5);color:#8EDBFF}
+.g-tema-noche .btn-invite{background:rgba(199,123,201,.16);color:#E39BE5}
+.g-tema-noche :is(.btn-sm,.g-btn.sm){min-height:32px;padding:0 12px;font-size:12px}
+.g-tema-noche :is(.btn-p,.btn-s,.g-btn) .g-ic{width:15px;height:15px}
+
+/* ── Recorridos (pipeline de etapas) ── */
+.g-tema-noche .pipeline{align-items:flex-start;gap:0}
+.g-tema-noche .ps-dot{width:24px;height:24px;border-radius:50%;border:2px solid #4A2B50;background:#1B0D20;color:#8F6F94;font:800 10px var(--g-texto);display:grid;place-items:center;transition:.25s}
+.g-tema-noche .pipe-step.done .ps-dot{background:linear-gradient(135deg,var(--g-acento,#5FCF9C),color-mix(in srgb,var(--g-acento,#5FCF9C) 70%,#fff));border-color:transparent;color:#0C070E;box-shadow:0 0 12px color-mix(in srgb,var(--g-acento,#5FCF9C) 45%,transparent)}
+.g-tema-noche .pipe-step.active .ps-dot{background:#1B0D20;border-color:var(--g-acento,#C77BC9);color:#fff;animation:g-pulso 2s infinite}
+.g-tema-noche .pipe-step.warn .ps-dot{background:rgba(255,200,90,.14);border-color:#FFC85A;color:#FFC85A}
+.g-tema-noche .pipe-step.err .ps-dot{background:rgba(229,72,77,.16);border-color:#E5484D;color:#FF8A8A}
+.g-tema-noche .pipe-step.skip .ps-dot{background:transparent;border-style:dashed;color:#5E4463}
+.g-tema-noche .pipe-line{height:3px;width:22px;border-radius:999px;background:#33193A;margin-top:11px;margin-bottom:0}
+.g-tema-noche .pipe-line.done{background:linear-gradient(90deg,var(--g-acento,#5FCF9C),color-mix(in srgb,var(--g-acento,#5FCF9C) 60%,#C77BC9))}
+.g-tema-noche .pipe-lbl{font:600 9.5px var(--g-texto);color:#8F6F94;margin-top:5px}
+.g-tema-noche .pipe-step.done .pipe-lbl{color:var(--g-acento,#5FCF9C)}
+.g-tema-noche .pipe-step.active .pipe-lbl{color:#F3E9F4;font-weight:800}
+
+/* ── Recorrido segmentado (flujo de pagos) ── */
+.g-tema-noche .flujo{gap:6px}
+.g-tema-noche .flujo-paso{border-radius:999px;background:rgba(255,255,255,.04);border:1px solid #4A2B50;color:#8F6F94;font:700 10px var(--g-texto);padding:7px 6px}
+.g-tema-noche .flujo-paso.hecho{background:rgba(95,207,156,.14);border-color:rgba(95,207,156,.45);color:#5FCF9C}
+.g-tema-noche .flujo-paso.hecho::before{content:"✓ "}
+.g-tema-noche .flujo-paso.activo{background:var(--g-grad);border-color:transparent;color:#fff;animation:g-pulso 2s infinite}
+.g-tema-noche .flujo-paso.rechazado{background:rgba(229,72,77,.16);border-color:rgba(229,72,77,.5);color:#FF8A8A}
+
+/* ── Pasos numerados (PIR) ── */
+.g-tema-noche .igc-step-num{border-radius:10px;font:800 12px var(--g-titulo)}
+.g-tema-noche .igc-step-num.normal,.g-tema-noche .igc-step-num.result{background:rgba(255,255,255,.05);border:1px solid #4A2B50;color:#F3E9F4}
+.g-tema-noche .igc-step-num.total{background:var(--g-grad);color:#fff;border:0}
+.g-tema-noche .igc-step-num.plus{background:rgba(255,200,90,.14);border:1px solid rgba(255,200,90,.4);color:#FFC85A}
+.g-tema-noche .igc-step-num.minus{background:rgba(95,207,156,.14);border:1px solid rgba(95,207,156,.4);color:#5FCF9C}
+
+/* ── Barras de avance y gráficos de barras ── */
+.g-tema-noche :is(.g-prog,.cumpl-bar,.prog-bar,.bar-track){background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.g-tema-noche :is(.g-prog i,.cumpl-fill,.prog-fill,.bar-track .bar-fill){border-radius:999px;transform-origin:left center;animation:g-carga .8s cubic-bezier(.2,.8,.2,1) both;
+  background-image:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.22))}
+.g-tema-noche :is(.g-prog i,.prog-fill){background-color:transparent;background-image:linear-gradient(90deg,#924893,#C77BC9 70%,#E39BE5)}
+.g-tema-noche .bar-fill:not(.bar-track .bar-fill){border-radius:8px 8px 3px 3px;background-image:linear-gradient(180deg,rgba(255,255,255,.25),rgba(255,255,255,0))}
+
+/* ── Pestañas (selector segmentado) ── */
+.g-tema-noche .tab-bar{background:rgba(255,255,255,.04);border:1px solid #4A2B50;border-radius:999px;padding:4px;gap:4px}
+.g-tema-noche .tab{border-radius:999px;padding:8px 16px;color:#C9A8CC;font:600 13px var(--g-texto)}
+.g-tema-noche .tab:hover{color:#fff;background:rgba(199,123,201,.1)}
+.g-tema-noche .tab.on{background:var(--g-grad);color:#fff;box-shadow:0 6px 16px rgba(146,72,147,.35)}
+
+/* ── Prioridades: Alta = rojo · Media = amarillo · Baja = verde (regla de Luciano) ── */
+:root{--g-prio-alta:#FF5A5F;--g-prio-media:#FFC85A;--g-prio-baja:#46D69A}
+.g-tema-noche :is(.prio-alta,.g-prio.alta){background:rgba(255,90,95,.16)!important;color:var(--g-prio-alta)!important}
+.g-tema-noche :is(.prio-media,.g-prio.media){background:rgba(255,200,90,.14)!important;color:var(--g-prio-media)!important}
+.g-tema-noche :is(.prio-baja,.g-prio.baja){background:rgba(70,214,154,.14)!important;color:var(--g-prio-baja)!important}
+.g-tema-noche .prio-dot.prio-alta{background:var(--g-prio-alta)!important}.g-tema-noche .prio-dot.prio-media{background:var(--g-prio-media)!important}.g-tema-noche .prio-dot.prio-baja{background:var(--g-prio-baja)!important}
+.g-tema-noche .fb[onclick*="'alta'"]::before,.g-tema-noche .fb[onclick*="'media'"]::before,.g-tema-noche .fb[onclick*="'baja'"]::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:0}
+.g-tema-noche .fb[onclick*="'alta'"]::before{background:var(--g-prio-alta)}.g-tema-noche .fb[onclick*="'alta'"].on{background:rgba(255,90,95,.2);color:#FFB3B5;border-color:var(--g-prio-alta)}
+.g-tema-noche .fb[onclick*="'media'"]::before{background:var(--g-prio-media)}.g-tema-noche .fb[onclick*="'media'"].on{background:rgba(255,200,90,.18);color:#FFE2A3;border-color:var(--g-prio-media)}
+.g-tema-noche .fb[onclick*="'baja'"]::before{background:var(--g-prio-baja)}.g-tema-noche .fb[onclick*="'baja'"].on{background:rgba(70,214,154,.18);color:#B5F2D6;border-color:var(--g-prio-baja)}
+
+/* ── Tarjetas de estadística: brillo sutil al pasar el mouse ── */
+.g-tema-noche :is(.stat,.stat-box,.g-card,.i-kpi,.est,.f-age){transition:border-color .2s,transform .2s,box-shadow .2s}
+.g-tema-noche :is(.stat,.stat-box,.i-kpi,.est):hover{border-color:#7A4A82;transform:translateY(-2px);box-shadow:0 16px 36px rgba(0,0,0,.4)}
+
+@media (prefers-reduced-motion:reduce){
+  .g-tema-noche *{animation:none!important;transition:none!important}
+}
+.g-tema-noche input[type=checkbox],.g-tema-noche input[type=radio]{accent-color:#C77BC9;width:16px;height:16px;cursor:pointer}
