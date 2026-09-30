@@ -493,3 +493,4 @@ body.g-mod-pag{--g-acento:var(--g-area-pag)}
 .g-tema-noche .g-quienpaga.q-contadoor{color:#E39BE5!important}
 .g-tema-noche .g-quienpaga.q-directo{color:#5FCF9C!important}
 .g-tema-noche .g-quienpaga.q-mixto{color:#FFC85A!important}
+.g-tema-noche .tb-analista{background:rgba(255,255,255,.05);border:1px solid #4A2B50;color:#C9A8CC;border-radius:999px;padding:4px 12px}
