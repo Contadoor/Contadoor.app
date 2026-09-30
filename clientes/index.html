@@ -343,8 +343,8 @@ body.modal-open{overflow:hidden;}
         <div class="fgroup"><label>Asesor(a) de Remuneraciones</label>
           <select id="f-rrhh"><option value="">Sin asignar</option></select>
         </div>
-        <div class="fgroup"><label>Asesor(a) de Pagos</label>
-          <select id="f-pagos"><option value="">Sin asignar</option></select>
+        <div class="fgroup"><label>Área de Pagos</label>
+          <input id="f-pagos-resp" readonly tabindex="-1" title="Pagos es transversal: atiende a todos los clientes (no se asigna por ficha)" style="background:#f6f2f8;color:#5c4a5d">
         </div>
         <div class="fgroup"><label>Prioridad RRHH</label>
           <select id="f-prio-rrhh">
@@ -615,7 +615,6 @@ function clienteToRow(c) {
   // para compatibilidad con módulos que aún leen el campo de texto.
   var nomContable = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador || null);
   var nomRrhh     = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh     || null);
-  var nomPagos    = nombreUsuarioSistema(c.analistaPagosUsuarioId,    c.pagos    || null);
   return {
     razon_social: c.razon, rut: c.rut, giro: c.giro || null,
     email: c.email || null, contacto: c.contacto || null, tel: c.tel || null, wa: c.wa || null, ciudad: c.ciudad || null, direccion: c.direccion || null, comuna: c.comuna || null,
@@ -633,13 +632,11 @@ function clienteToRow(c) {
     // Nunca sobrescribir con '' si no se pudo resolver el usuario.
     analista_contable: _usuariosSistemaCargados ? (nomContable || null) : undefined,
     analista_rrhh:     _usuariosSistemaCargados ? (nomRrhh     || null) : undefined,
-    analista_pagos:    _usuariosSistemaCargados ? (nomPagos    || null) : undefined,
     prioridad_rrhh: c.prioRrhh || 'media',
     prioridad_contable: c.prioCont || 'media',
     // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
     analista_contable_usuario_id: c.analistaContableUsuarioId || null,
     analista_rrhh_usuario_id:     c.analistaRrhhUsuarioId     || null,
-    analista_pagos_usuario_id:    c.analistaPagosUsuarioId    || null,
     usuario_sii:      c.siiU  || null,
     usuario_previred: c.prevU || null,  // SII Rep. Legal: sin auto-relleno con el RUT de la empresa
     usuario_cu:       c.cuU   || null,
@@ -707,10 +704,8 @@ function guardarSupabase(c, esEdicion) {
     // Más seguro que reenviar IDs del caché, que podría estar incompleto.
     delete row.analista_contable_usuario_id;
     delete row.analista_rrhh_usuario_id;
-    delete row.analista_pagos_usuario_id;
     delete row.analista_contable;
     delete row.analista_rrhh;
-    delete row.analista_pagos;
   }
   return sbFetch('rpc/guardar_cliente_admin', {
     method:  'POST',
@@ -758,6 +753,17 @@ function cargarUsuariosSistema() {
       _usuariosSistemaError = true;
       console.warn('[Clientes] listar_usuarios_asignables: fallo \u2014', e && e.message);
     });
+}
+
+// Pagos transversal (decisión de Luciano 30-sep-2026): una sola persona de Pagos atiende a TODOS los clientes;
+// no se asigna por ficha. Responsable = el único usuario activo con rol 'pagos'. 0 o más de 1 → no se elige a nadie.
+// El campo legacy clientes.analista_pagos_usuario_id se conserva sin uso (no se lee ni se escribe desde aquí).
+function responsablePagosTexto() {
+  if (!_usuariosSistemaCargados) return 'No disponible (catálogo del equipo no cargó)';
+  var p = _usuariosSistema.filter(function(u) { return u.rol === 'pagos'; });
+  if (p.length === 1) return p[0].nombre;
+  if (p.length === 0) return 'Por definir (nadie con rol Pagos)';
+  return '⚠️ Hay ' + p.length + ' personas con rol Pagos: revisar en Admin';
 }
 
 // Resolver nombre dado un ID de usuarios_sistema.
@@ -826,7 +832,6 @@ function poblarAnalistas(c) {
     var asignaciones = {
       'f-contador': c && c.analistaContableUsuarioId,
       'f-rrhh':     c && c.analistaRrhhUsuarioId,
-      'f-pagos':    c && c.analistaPagosUsuarioId
     };
     Object.keys(asignaciones).forEach(function(selId) {
       var sel = g(selId); if (!sel) return;
@@ -844,7 +849,6 @@ function poblarAnalistas(c) {
   var rolMatriz = {
     'f-contador': ['contable', 'admin', 'master'],
     'f-rrhh':     ['rrhh',     'admin', 'master'],
-    'f-pagos':    ['pagos',    'admin', 'master']
   };
   Object.keys(rolMatriz).forEach(function(selId) {
     var sel = g(selId); if (!sel) return;
@@ -908,7 +912,7 @@ function resetForm() {
   ].forEach(function(id){ sv(id, ''); });
   // selects
   sv('f-plan', ''); sv('f-estado', 'activo'); sv('f-reg', '');
-  sv('f-iva', 'afecto'); sv('f-modalidad', 'contadoor');
+  sv('f-iva', 'afecto'); sv('f-modalidad', 'contadoor'); sv('f-pagos-resp', responsablePagosTexto());
   g('f-tiene-cont').checked = true; g('f-tiene-rrhh').checked = true;
   sv('f-desc-tipo', ''); sv('f-desc-valor', ''); sv('f-desc-desde', ''); sv('f-desc-hasta', '');
   sv('f-moneda', 'UF'); sv('f-moneda-var', 'UF'); sv('f-prio', 'media');
@@ -990,7 +994,7 @@ function abrirEditar(id) {
   }
   sv('f-contador', c.analistaContableUsuarioId ? String(c.analistaContableUsuarioId) : '');
   sv('f-rrhh',     c.analistaRrhhUsuarioId     ? String(c.analistaRrhhUsuarioId)     : '');
-  sv('f-pagos',    c.analistaPagosUsuarioId    ? String(c.analistaPagosUsuarioId)    : '');
+  sv('f-pagos-resp', responsablePagosTexto());
   // Socios
   (c.socios || []).forEach(function(s){ addSocio(s.nombre, s.rut, s.pct); });
   calcPreview();
@@ -1066,9 +1070,8 @@ function guardarCliente() {
     analistaRrhhUsuarioId: _usuariosSistemaCargados
       ? (gv('f-rrhh') ? Number(gv('f-rrhh')) : null)
       : (_existente ? _existente.analistaRrhhUsuarioId : null),
-    analistaPagosUsuarioId: _usuariosSistemaCargados
-      ? (gv('f-pagos') ? Number(gv('f-pagos')) : null)
-      : (_existente ? _existente.analistaPagosUsuarioId : null),
+    // Pagos transversal: sin selector; el valor legacy solo se conserva en memoria y no se envía a la BD.
+    analistaPagosUsuarioId: _existente ? _existente.analistaPagosUsuarioId : null,
     prioRrhh: gv('f-prio-rrhh') || 'media', prioCont: gv('f-prio-cont') || 'media',
     siiU:  gv('f-sii-u'),
     prevU: gv('f-prev-u'),
@@ -1127,10 +1130,9 @@ function verDetalle(id) {
   // FIX2.3A.1: resolver nombre por ID (fuente primaria), fallback a campo legacy
   var _nomCont = nombreUsuarioSistema(c.analistaContableUsuarioId, c.contador);
   var _nomRrhh = nombreUsuarioSistema(c.analistaRrhhUsuarioId,     c.rrhh);
-  var _nomPag  = nombreUsuarioSistema(c.analistaPagosUsuarioId,    c.pagos);
   h += '<div class="det-item"><div class="det-lbl">Asesor(a) Contable</div><div class="det-val">'+esc(_nomCont||'Sin asignar')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Asesor(a) de Remuneraciones</div><div class="det-val">'+esc(_nomRrhh||'Sin asignar')+'</div></div>';
-  h += '<div class="det-item"><div class="det-lbl">Asesor(a) de Pagos</div><div class="det-val">'+esc(_nomPag||'Sin asignar')+'</div></div>';
+  h += '<div class="det-item"><div class="det-lbl">Área de Pagos</div><div class="det-val">'+esc(responsablePagosTexto())+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Valor mensual</div><div class="det-val">'+(c.monto?c.monto+' '+(c.moneda||'UF')+(mrr?' ≈ '+ff(mrr):''):'—')+'</div></div>';
   h += '<div class="det-item"><div class="det-lbl">Trabajadores incl.</div><div class="det-val">'+(c.trab||0)+'</div></div>';
   h += '</div>';
