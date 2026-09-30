@@ -58,6 +58,12 @@ function boton(txt,prim,href){if(href===null)return '';return '<a href="'+(href|
 // Sin asesor o sin email válido: no se construye el enlace (null) y los botones no se muestran;
 // nunca 'mailto:' vacío ni un email genérico inventado.
 function emailAsesorValido(d){var e=String((d&&d.analista&&d.analista.email)||'').trim();return /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(e)?e:'';}
+// Vencimiento principal: sin fecha conocida (fechaVence vacío) no se muestra ninguna (no se inventa un día).
+function pillVencimiento(d){
+  if(!d.fechaVence||d.diasVence==null)return '';
+  return d.diasVence<0?pill('⚠️ Venció el '+esc(d.fechaVence),C.carbon,C.rojo)
+     :pill('⏰ '+(d.diasVence===0?'Vence hoy':d.diasVence===1?'Vence mañana':'Vence en '+d.diasVence+' días')+' · '+esc(d.fechaVence),'#fff',C.morado);
+}
 function mailAnalista(d,asunto,cuerpo){
   var e=emailAsesorValido(d);if(!e)return null;
   return 'mailto:'+e+'?subject='+encodeURIComponent(asunto+' · '+d.empresa+' · '+d.periodo)
@@ -85,8 +91,7 @@ function renderReporteEmail(d){
   h+='<table role="presentation" width="100%" bgcolor="'+C.panel+'" style="background:'+C.panel+';border:1px solid '+C.borde+';border-radius:16px"><tr><td style="padding:18px 20px">';
   h+='<div style="font:700 11px '+F_B+';color:'+C.acento+';text-transform:uppercase;letter-spacing:1.4px">'+etiqueta+'</div>';
   h+='<div style="font:900 42px '+F_T+';color:'+C.cifra+';margin:2px 0 10px;font-variant-numeric:tabular-nums">'+$(total)+'</div>';
-  h+=d.diasVence<0?pill('⚠️ Venció el '+esc(d.fechaVence),C.carbon,C.rojo)
-     :pill('⏰ '+(d.diasVence===0?'Vence hoy':d.diasVence===1?'Vence mañana':'Vence en '+d.diasVence+' días')+' · '+esc(d.fechaVence),'#fff',C.morado);
+  h+=pillVencimiento(d);
   h+='</td></tr></table>';
   if(d.modalidad!=='contadoor'){
     h+='<table role="presentation" width="100%" style="margin-top:16px"><tr>';
@@ -248,8 +253,7 @@ function renderCumplimiento(d){
   h+='<table role="presentation" width="100%" bgcolor="'+C.panel+'" style="background:'+C.panel+';border:1px solid '+C.borde+';border-radius:16px"><tr><td style="padding:18px 20px">';
   h+='<div style="font:700 11px '+F_B+';color:'+C.acento+';text-transform:uppercase;letter-spacing:1.4px">Total a pagar este mes</div>';
   h+='<div style="font:900 42px '+F_T+';color:'+C.cifra+';margin:2px 0 10px;font-variant-numeric:tabular-nums">'+$(total)+'</div>';
-  h+=d.diasVence<0?pill('⚠️ Venció el '+esc(d.fechaVence),C.carbon,C.rojo)
-     :pill('⏰ '+(d.diasVence===0?'Vence hoy':d.diasVence===1?'Vence mañana':'Vence en '+d.diasVence+' días')+' · '+esc(d.fechaVence),'#fff',C.morado);
+  h+=pillVencimiento(d);
   if(d.f29Presentado)h+=' '+pill('✔ F29 presentado',C.carbon,C.verde);
   h+='</td></tr></table></td></tr>';
 
