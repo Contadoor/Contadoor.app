@@ -91,7 +91,7 @@
           return;
         }
         var href=it[2]===''?'../index.html':'../'+it[2]+'/index.html';
-        var on=it[2]===activo&&activo!=='';
+        var on=(it[2]===activo&&activo!=='')||(activo==='inicio'&&it[2]==='');  // Inicio (raíz) marca Dashboard
         h+='<a class="sb-item'+(on?' on':'')+'" href="'+href+'"'+(on?' aria-current="page"':'')+'>'+ic+esc(it[1])+'</a>';
       });
     });
