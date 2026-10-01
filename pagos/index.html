@@ -131,35 +131,59 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 /* CHECKBOX */
 .ob-check{width:18px;height:18px;cursor:pointer;flex-shrink:0;}
 </style>
-<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body class="g-shell g-tema-noche g-mod-aprob">
+<body>
 <div class="layout">
-<aside class="sidebar" data-gestoor-activo="pagos"></aside>
-<script src="../assets/gestoor-menu.js"></script>
+<aside class="sidebar">
+  <nav>
+    <div class="sb-section">Principal</div>
+    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
+    <div class="sb-section">Operación mensual</div>
+    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
+    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
+    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
+    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
+    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
+    <a class="sb-item on" href="../pagos/index.html">✅ Aprobaciones</a>
+    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
+    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
+    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
+    <div class="sb-section">Gestión interna</div>
+    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
+    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
+    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
+    <div class="sb-section">Configuración</div>
+    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
+  </nav>
+  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
+</aside>
 
 <main class="main">
   <div class="topbar">
-    <h1 class="tb-title">Aprobaciones <span>de pagos</span></h1>
-    <div class="g-espacio"></div>
-    <button class="btn-s btn-sm" onclick="exportarCSV()"><span data-g-ic="descargar"></span> CSV</button>
+    <div class="tb-title">Control de Pagos y Obligaciones
+    <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
+  </div>
+    <button class="btn-s btn-sm" onclick="exportarCSV()">⬇ CSV</button>
     <button class="btn-p btn-sm" onclick="abrirModalNuevo()">+ Nueva obligación</button>
-    <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"><span data-g-ic="campana"></span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
   </div>
   <div class="content">
 
     <!-- BANNER APROBACIONES PENDIENTES -->
     <div id="aprobBanner" class="aprobacion-banner" style="display:none">
       <div>
-        <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Pendiente de tu aprobación</div>
+        <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">⚠️ Pendiente de tu aprobación</div>
         <div class="count" id="aprobCount">0 pagos esperan aprobación</div>
         <div style="font-size:12px;opacity:.7;margin-top:2px" id="aprobMonto"></div>
       </div>
-      <button class="btn-p" onclick="setView('aprobar')" >Ver y aprobar</button>
+      <button class="btn-p" onclick="setView('aprobar')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3)">Ver y aprobar →</button>
     </div>
 
     <div class="stats-row" id="statsRow"></div>
@@ -169,27 +193,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="sel-count" id="selCount">0 seleccionados</div>
       <div class="sel-monto" id="selMonto"></div>
       <div style="flex:1"></div>
-      <button class="btn-s btn-sm" onclick="deseleccionarTodo()">Quitar selección</button>
-      <button class="btn-approve btn-sm" onclick="solicitarAprobacion()"><span data-g-ic="enviar"></span> Solicitar aprobación</button>
+      <button class="btn-s btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="deseleccionarTodo()">✕ Limpiar</button>
+      <button class="btn-approve btn-sm" onclick="solicitarAprobacion()">📧 Solicitar aprobación</button>
     </div>
 
     <div class="tab-bar">
-      <div class="tab on" onclick="setView('todas')"><span data-g-ic="lista"></span> Todas</div>
-      <div class="tab" onclick="setView('creadas')"><span data-g-ic="lapiz"></span> Creadas</div>
-      <div class="tab" onclick="setView('transferido')"><span data-g-ic="transferir"></span> Transferidas</div>
-      <div class="tab" onclick="setView('aprobacion')"><span data-g-ic="reloj"></span> En aprobación</div>
-      <div class="tab" onclick="setView('aprobar')"><span data-g-ic="aprobar"></span> Aprobar <span id="tabAprobBadge" class="g-tab-cnt" style="display:none">0</span></div>
-      <div class="tab" onclick="setView('historial')"><span data-g-ic="repetir"></span> Historial</div>
+      <div class="tab on" onclick="setView('todas')">📋 Todas</div>
+      <div class="tab" onclick="setView('creadas')">✏️ Creadas</div>
+      <div class="tab" onclick="setView('transferido')">💳 Transferidas</div>
+      <div class="tab" onclick="setView('aprobacion')">⏳ En aprobación</div>
+      <div class="tab" onclick="setView('aprobar')">✅ Aprobar <span id="tabAprobBadge" style="display:none;background:#C07A1A;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;margin-left:3px">0</span></div>
+      <div class="tab" onclick="setView('historial')">📁 Historial</div>
     </div>
 
     <div class="search-bar">
       <input class="search-input" type="text" id="searchQ" placeholder="Buscar cliente, concepto, tipo..." oninput="renderObligaciones()"/>
       <select class="filter-sel" id="filterArea" onchange="renderObligaciones()">
         <option value="">Todas las áreas</option>
-        <option value="rrhh">RRHH</option>
-        <option value="contable">Contable</option>
-        <option value="pagos">Aprobaciones</option>
-        <option value="cobranza">Cobranza</option>
+        <option value="rrhh">👥 RRHH</option>
+        <option value="contable">📊 Contable</option>
+        <option value="pagos">✅ Aprobaciones</option>
+        <option value="cobranza">🧾 Cobranza</option>
       </select>
       <select class="filter-sel" id="filterTipo" onchange="renderObligaciones()">
         <option value="">Todos los tipos</option>
@@ -232,7 +256,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="modal-sub">Registra la obligación — quedará pendiente de aprobación de Luciano</div>
     <input type="hidden" id="f-id"/>
 
-    <div class="card-hd"><span data-g-ic="lista"></span> Datos de la obligación</div>
+    <div class="card-hd">📋 Datos de la obligación</div>
     <div class="fg2" style="margin-bottom:12px">
       <div class="fgroup" style="grid-column:1/3">
         <label>Cliente *</label>
@@ -242,10 +266,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <label>Área *</label>
         <select id="f-area" onchange="onAreaChange()">
           <option value="">Seleccionar área...</option>
-          <option value="rrhh">RRHH</option>
-          <option value="contable">Contable</option>
-          <option value="pagos">Aprobaciones</option>
-          <option value="cobranza">Cobranza</option>
+          <option value="rrhh">👥 RRHH</option>
+          <option value="contable">📊 Contable</option>
+          <option value="pagos">✅ Aprobaciones</option>
+          <option value="cobranza">🧾 Cobranza</option>
         </select>
         <span class="hint">Define el área responsable del pago</span>
       </div>
@@ -277,19 +301,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       </div>
       <div class="fgroup">
         <label>Creado por *</label>
-        <input type="text" id="f-creado-por" placeholder="Auto desde sesión" readonly/>
+        <input type="text" id="f-creado-por" placeholder="Auto desde sesión" readonly style="background:#f0f0f0"/>
       </div>
       <div class="fgroup">
         <label>Prioridad</label>
         <select id="f-prioridad">
           <option value="normal">Normal</option>
-          <option value="urgente">Urgente</option>
+          <option value="urgente">🔴 Urgente</option>
         </select>
       </div>
       <div class="fgroup">
         <label>¿Incluir en reporte mensual?</label>
         <select id="f-cobrar">
-          <option value="si">Sí, incluir en reporte</option>
+          <option value="si">✅ Sí — incluir en reporte</option>
           <option value="no">No — uso interno</option>
         </select>
       </div>
@@ -309,7 +333,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" onclick="guardarObligacion()">Guardar</button>
+      <button class="btn-p" onclick="guardarObligacion()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -320,7 +344,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <h2>Registrar Transferencia</h2>
     <div class="modal-sub" id="concilSub"></div>
     <input type="hidden" id="c-id"/>
-    <div class="info-box g-info-azul">
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af">
       El analista de pagos carga los datos de la cartola bancaria y hace el match con esta obligación.
     </div>
     <div class="fg2" style="margin-bottom:12px">
@@ -351,7 +375,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     </div>
     <div class="modal-footer">
       <button class="btn-s" onclick="closeConciliar()">Cancelar</button>
-      <button class="btn-p" onclick="confirmarConciliacion()"><span data-g-ic="transferir"></span> Marcar como Transferido</button>
+      <button class="btn-p" onclick="confirmarConciliacion()">💳 Marcar como Transferido</button>
     </div>
   </div>
 </div>
@@ -369,8 +393,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     </div>
     <div class="modal-footer">
       <button class="btn-s" onclick="closeAprobar()">Cancelar</button>
-      <button class="btn-reject" onclick="rechazarPago()">Rechazar</button>
-      <button class="btn-approve" onclick="aprobarPago()"><span data-g-ic="check"></span> Aprobar pago</button>
+      <button class="btn-reject" onclick="rechazarPago()">❌ Rechazar</button>
+      <button class="btn-approve" onclick="aprobarPago()">✅ Aprobar pago</button>
     </div>
   </div>
 </div>
@@ -415,19 +439,19 @@ var TIPOS_POR_AREA = {
 };
 
 var AREA_LABELS = {
-  rrhh:'RRHH', contable:'Contable',
-  pagos:'Pagos', cobranza:'Cobranza'
+  rrhh:'👥 RRHH', contable:'📊 Contable',
+  pagos:'💰 Pagos', cobranza:'🧾 Cobranza'
 };
 
 var ESTADOS = {
-  creada:              {label:'Creada',           cls:'b-creada',      icon:'lapiz',  orden:0},
-  aviso_enviado:       {label:'Aviso enviado',    cls:'b-aviso',       icon:'correo',  orden:1},
-  transferido:         {label:'Transferido',      cls:'b-transferido', icon:'transferir',  orden:2},
-  en_previred:         {label:'En Previred',      cls:'b-previred',    icon:'admin',  orden:3},
-  aprobacion:          {label:'En aprobacion',    cls:'b-aprobacion',  icon:'reloj',  orden:4},
-  aprobado:            {label:'Aprobado',         cls:'b-aprobado',    icon:'check',  orden:5},
-  finalizado:          {label:'Finalizado',       cls:'b-finalizado',  icon:'candado',  orden:6},
-  rechazado:           {label:'Rechazado',        cls:'b-rechazado',   icon:'alerta',  orden:1}
+  creada:              {label:'Creada',           cls:'b-creada',      icon:'✏️',  orden:0},
+  aviso_enviado:       {label:'Aviso enviado',    cls:'b-aviso',       icon:'📨',  orden:1},
+  transferido:         {label:'Transferido',      cls:'b-transferido', icon:'💳',  orden:2},
+  en_previred:         {label:'En Previred',      cls:'b-previred',    icon:'⚙️',  orden:3},
+  aprobacion:          {label:'En aprobacion',    cls:'b-aprobacion',  icon:'⏳',  orden:4},
+  aprobado:            {label:'Aprobado',         cls:'b-aprobado',    icon:'✅',  orden:5},
+  finalizado:          {label:'Finalizado',       cls:'b-finalizado',  icon:'🔒',  orden:6},
+  rechazado:           {label:'Rechazado',        cls:'b-rechazado',   icon:'❌',  orden:1}
 };
 var FLUJO_PASOS = ['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado','finalizado'];
 
@@ -770,9 +794,9 @@ function renderStats(){
 
   document.getElementById('statsRow').innerHTML=[
     {val:creadas.length,lbl:'Creadas'},
-    {val:vencidos.length,lbl:'Vencidas',color:vencidos.length?'#FF6B6B':null},
+    {val:vencidos.length,lbl:'Vencidas',color:vencidos.length?'#C0392B':null},
     {val:xConciliar.length,lbl:'Por conciliar'},
-    {val:xAprobar.length,lbl:'En aprobación',color:xAprobar.length?'#FFD24D':null},
+    {val:xAprobar.length,lbl:'En aprobación',color:xAprobar.length?'#C07A1A':null},
     {val:ff(totalPend),lbl:'Monto pendiente'}
   ].map(function(s){return'<div class="stat-box"><div class="sv"'+(s.color?' style="color:'+s.color+'"':'')+'>'+s.val+'</div><div class="sl">'+s.lbl+'</div></div>';}).join('');
 
@@ -842,27 +866,26 @@ function renderObligaciones(){
     var puedeSeleccionar=ob.estado==='transferido';
 
     // BARRA FLUJO
-    var flujoHTML=FLUJO_PASOS.map(function(p,i){
+    var flujoHTML=FLUJO_PASOS.map(function(p){
       var ordenActual=ESTADOS[ob.estado]?ESTADOS[ob.estado].orden:0;
       var ordenPaso=ESTADOS[p].orden;
       var cls=ob.estado==='rechazado'&&p==='transferido'?'rechazado':ordenPaso<ordenActual?'hecho':ordenPaso===ordenActual?'activo':'';
-      var pc={rechazado:'err',hecho:'done',activo:'active'}[cls]||'';
-      return(i?'<div class="pipe-line'+(cls==='hecho'?' done':'')+'"></div>':'')+'<div class="pipe-step '+pc+'"><div class="ps-dot">'+(cls==='hecho'?'\u2713':gIcon(ESTADOS[p].icon))+'</div><div class="pipe-lbl">'+ESTADOS[p].label+'</div></div>';
+      return'<div class="flujo-paso '+cls+'">'+ESTADOS[p].icon+' '+ESTADOS[p].label+'</div>';
     }).join('');
 
     // TRAZABILIDAD
     var trazaHTML='<div class="traza">'
-      +'<div class="traza-item">'+gIcon('lapiz')+' Creado por <strong>'+hesc(ob.creadoPor||' - ')+'</strong>'+(ob.tsCreado?' · '+ob.tsCreado:'')+'</div>'
-      +(ob.conciliacion?'<div class="traza-item">'+gIcon('transferir')+' Conciliado por <strong>'+hesc(ob.conciliacion.quien)+'</strong> · '+ob.conciliacion.ts+'</div>':'')
-      +(ob.aprobacion?'<div class="traza-item ok">'+gIcon('check')+' Aprobado por <strong>'+hesc(ob.aprobacion.quien)+'</strong> · '+ob.aprobacion.ts+'</div>':'')
-      +(ob.rechazo?'<div class="traza-item err">'+gIcon('alerta')+' Rechazado por <strong>'+hesc(ob.rechazo.quien)+'</strong>: '+hesc(ob.rechazo.obs)+'</div>':'')
+      +'<div class="traza-item">✏️ Creado por <strong>'+hesc(ob.creadoPor||' - ')+'</strong>'+(ob.tsCreado?' · '+ob.tsCreado:'')+'</div>'
+      +(ob.conciliacion?'<div class="traza-item">💳 Conciliado por <strong>'+hesc(ob.conciliacion.quien)+'</strong> · '+ob.conciliacion.ts+'</div>':'')
+      +(ob.aprobacion?'<div class="traza-item">✅ Aprobado por <strong>'+hesc(ob.aprobacion.quien)+'</strong> · '+ob.aprobacion.ts+'</div>':'')
+      +(ob.rechazo?'<div class="traza-item" style="color:#C0392B">❌ Rechazado por <strong>'+hesc(ob.rechazo.quien)+'</strong>: '+hesc(ob.rechazo.obs)+'</div>':'')
       +'</div>';
 
     // DETALLE CARTOLA
     var cartolaHTML='';
     if(ob.conciliacion){
-      cartolaHTML='<div class="g-cartola">'
-        +gIcon('banco')+' Cartola: '+ob.conciliacion.fecha+' · '+ff(ob.conciliacion.monto)
+      cartolaHTML='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#1e40af;margin-top:8px">'
+        +'🏦 Cartola: '+ob.conciliacion.fecha+' · '+ff(ob.conciliacion.monto)
         +(ob.conciliacion.ref?' · Ref: '+hesc(ob.conciliacion.ref):'')
         +(ob.conciliacion.cuenta?' · '+hesc(ob.conciliacion.cuenta):'')
         +'</div>';
@@ -871,48 +894,48 @@ function renderObligaciones(){
     // ACCIONES
     var accionesHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">';
     if(puedeSeleccionar){
-      accionesHTML+='<label class="g-sel-aprob">'
+      accionesHTML+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#904891;font-weight:600">'
         +'<input type="checkbox" class="ob-check" '+(esSel?'checked':'')+' onchange="toggleSeleccion('+ob.id+')" onclick="event.stopPropagation()"/>'
         +'Seleccionar para aprobación</label>';
     }
-    if(waHref) accionesHTML+='<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank" title="WhatsApp">'+gIcon('chat')+'</a>';
-    if(ob.estado==='creada') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">'+gIcon('lapiz')+' Editar</button>';
-    if(ob.estado==='creada') accionesHTML+='<button class="btn-p btn-sm" onclick="abrirConciliar('+ob.id+')">'+gIcon('transferir')+' Registrar transferencia</button>';
+    if(waHref) accionesHTML+='<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">💬</a>';
+    if(ob.estado==='creada') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">✏️ Editar</button>';
+    if(ob.estado==='creada') accionesHTML+='<button class="btn-p btn-sm" onclick="abrirConciliar('+ob.id+')">💳 Registrar transferencia</button>';
     if(ob.estado==='en_previred') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarEnPrevired(_btnIds['+_k+'])" style="font-size:11px">Ingresar a Previred</button>';
     if(ob.estado==='en_previred') accionesHTML+='<button class="btn-s btn-sm" onclick="solicitarAprobacionUno(_btnIds['+_k+'])" style="font-size:11px">Enviar a aprobacion</button>';
     if(ob.estado==='aprobacion'&&_viewActual==='aprobar') accionesHTML+='<button class="btn-approve btn-sm" onclick="abrirAprobar(_btnIds['+_k+'])">Revisar y aprobar</button>';
-    if(ob.estado==='aprobado') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado(_btnIds['+_k+'])" style="font-size:11px">'+gIcon('check')+' Marcar finalizado</button>';
-    if(ob.estado==='rechazado') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">'+gIcon('repetir')+' Corregir y reenviar</button>';
-    accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')" title="Eliminar">'+gIcon('basura')+'</button>';
+    if(ob.estado==='aprobado') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado(_btnIds['+_k+'])" style="background:var(--green);font-size:11px">Marcar finalizado</button>';
+    if(ob.estado==='rechazado') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">🔄 Corregir y reenviar</button>';
+    accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
     accionesHTML+='</div>';
 
     return'<div class="oblig-row'+(esSel?' seleccionada':'')+(venc?' vencida-border':'')+'">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
       +'<div style="flex:1">'
       +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'
-      +(ob.area?'<span class="g-area '+({rrhh:'rem',contable:'cont',pagos:'pag'}[ob.area]||'otro')+'">'+hesc(AREA_LABELS[ob.area]||ob.area)+'</span>':'')
+      +(ob.area?'<span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:#F5EAF5;color:#6D2E6E">'+hesc(AREA_LABELS[ob.area]||ob.area)+'</span>':'')
       +'<span class="tipo-tag">'+hesc(ob.tipo)+'</span>'
       +(venc?'<span class="vencido-pill">VENCIDO</span>':'')
-      +(ob.prioridad==='urgente'?'<span class="vencido-pill urgente">URGENTE</span>':'')
-      +(ob.cobrar==='si'?'<span class="g-en-reporte">En reporte</span>':'')
+      +(ob.prioridad==='urgente'?'<span class="vencido-pill" style="background:#fef3c7;color:#78350f;border-color:#fde68a">URGENTE</span>':'')
+      +(ob.cobrar==='si'?'<span style="padding:2px 7px;border-radius:20px;font-size:9.5px;font-weight:600;background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0">En reporte</span>':'')
       +'</div>'
       +'<div style="font-size:14px;font-weight:700;margin-bottom:3px">'+hesc(ob.concepto)+'</div>'
-      +'<div class="g-ob-meta">'
+      +'<div style="font-size:11.5px;color:#9a849b">'
       +hesc(ob.clienteNombre||ob.rut)
       +(ob.periodo?' · '+ob.periodo:'')
       +(ob.fechaLimite?' · Límite: '+ob.fechaLimite:'')
-      +(ob.cobrar==='si'?' · <strong class="g-cobra">Se cobra al cliente</strong>':'')
+      +(ob.cobrar==='si'?' · <strong style="color:#904891">Se cobra al cliente</strong>':'')
       +'</div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0">'
-      +'<div class="g-ob-monto">'+ff(ob.monto)+'</div>'
-      +'<span class="badge '+est.cls+'" style="margin-top:6px">'+gIcon(est.icon)+' '+est.label+'</span>'
+      +'<div style="font-size:19px;font-weight:700;color:#904891">'+ff(ob.monto)+'</div>'
+      +'<span class="badge '+est.cls+'" style="margin-top:4px;display:block;text-align:center">'+est.icon+' '+est.label+'</span>'
       +'</div>'
       +'</div>'
-      +'<div class="flujo g-flujo-ob"><div class="pipeline">'+flujoHTML+'</div></div>'
+      +'<div class="flujo">'+flujoHTML+'</div>'
       +cartolaHTML
       +trazaHTML
-      +(ob.obs?'<div class="g-ob-obs">'+hesc(ob.obs)+'</div>':'')
+      +(ob.obs?'<div style="font-size:11.5px;color:#9a849b;margin-top:6px;font-style:italic">'+hesc(ob.obs)+'</div>':'')
       +accionesHTML
       +'</div>';
   }).join('');
