@@ -72,7 +72,7 @@
 .in-modal li small{color:#8F6F94}
 .in-cer{float:right;background:#2A1430;border:0;color:#E3CFE5;width:34px;height:34px;border-radius:10px;cursor:pointer}
 @media(max-width:1100px){.in-grid2{grid-template-columns:1fr}}
-@media(max-width:560px){.in-est,.in-pr{grid-template-columns:1fr}.in-bars{height:170px;gap:6px}.in-bar .v{font-size:10px}}
+@media(max-width:560px){.in-aprob{flex-wrap:wrap;padding-top:46px}.in-est,.in-pr{grid-template-columns:1fr}.in-bars{height:170px;gap:6px}.in-bar .v{font-size:10px}}
 </style>
 </head>
 <body class="g-shell g-tema-noche g-mod-inicio">
@@ -147,12 +147,15 @@ function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
 function ffc(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toLocaleString('es-CL',{maximumFractionDigits:1})+'M':n>=1e3?'$'+Math.round(n/1e3)+'K':'$'+n;}
 var MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 var MES_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-function perTxt(p){var a=String(p).split('-');return MES_L[(+a[1])-1]+' '+a[0];}
+// Acepta 'YYYY-MM' y 'YYYYMM' (mismo criterio que _rpPerDash del Panel).
+function perDash(p){var s=String(p||'');return s.length===6?s.slice(0,4)+'-'+s.slice(4):s;}
+function perTxt(p){var a=perDash(p).split('-');return MES_L[(+a[1])-1]+' '+a[0];}
 function err(m){var e=document.getElementById('in-err');e.textContent=m;e.style.display='block';}
 // Mismo contrato que el Panel: getClientes() entrega los clientes mapeados.
 function getClientes(){return _cli;}
 // UF del período desde la tabla periodos (fuente única de UF/UTM).
-function _ufDelPeriodo(periodo){var n=String(periodo||'').replace('-','');var p=_per.find(function(x){return String(x.periodo).replace('-','')===n;});return p&&Number(p.uf)||0;}
+// 1º el período activo (igual que el Panel); 2º el período pedido.
+function _ufDelPeriodo(periodo){var n=String(periodo||'').replace('-','');if(_perAct&&String(_perAct.periodo||'').replace('-','')===n&&Number(_perAct.uf))return Number(_perAct.uf);var p=_per.find(function(x){return String(x.periodo).replace('-','')===n;});return p&&Number(p.uf)||0;}
 // ── IDÉNTICAS AL PANEL ──
 function _rrhhListo(r){var s=r.secciones||{};return r.tieneRrhh===false||!!(s.rrhh&&(s.rrhh.ok||s.rrhh.na));}
 function _contableListo(r){return r.tieneCont===false||r.listoPanelControl===true;}
@@ -188,7 +191,29 @@ function _estadoSecciones(r){
 }
 // ── Carga (fail-closed: si una consulta falla se muestra el error, nunca ceros inventados) ──
 function q(path){return sbFetch(path).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
-function mesesAtras(per,n){var a=String(per).split('-').map(Number),out=[];for(var i=n-1;i>=0;i--){var d=new Date(a[0],a[1]-1-i,1);out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}return out;}
+function mesesAtras(per,n){var a=perDash(per).split('-').map(Number),out=[];for(var i=n-1;i>=0;i--){var d=new Date(a[0],a[1]-1-i,1);out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}return out;}
+// Inicio = vista Master. Otros roles van a su módulo (mismo destino que el login).
+// Es solo navegación: el acceso a los datos lo controla la RLS del servidor.
+var DESTINO_ROL={rrhh:'reportes-rrhh/index.html',contable:'reportes-contable/index.html',pagos:'reportes-pagos/index.html',cobranza:'cobranza/index.html',comercial:'clientes/index.html'};
+function esperarSesion(){return new Promise(function(ok,no){var t0=Date.now();(function mirar(){var s=window._contadoorSesion;if(s&&s.rol)return ok(s);if(Date.now()-t0>15000)return no(new Error('sin sesión'));setTimeout(mirar,100);})();});}
+function iniciar(){
+  esperarSesion().then(function(s){
+    if(s.rol==='master'||s.rol==='admin'||s.esMaster===true){cargar();return;}
+    var d=DESTINO_ROL[s.rol];
+    if(d){window.location.replace(d);return;}
+    err('Tu rol no tiene una vista de Inicio. Usa el menú para ir a tu módulo.');
+  }).catch(function(){err('Sesión no disponible. Vuelve a iniciar sesión.');});
+}
+function hoyChile(){return new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'});}
+// Meta de reportes: venc_reportes_meta es un DÍA (entero, 15 por defecto) del mes
+// siguiente al período, igual que Previred y F29 (_rpMesSig del Panel).
+function fechaMetaReportes(per){
+  if(!per||!per.periodo)return '';
+  var dia=parseInt(per.venc_reportes_meta,10);if(!(dia>=1&&dia<=31))dia=15;
+  var a=perDash(per.periodo).split('-'),y=+a[0],m=+a[1]+1;if(m>12){m=1;y++;}
+  var ult=new Date(y,m,0).getDate();if(dia>ult)dia=ult;
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
+}
 function cargar(){
   Promise.all([
     q('periodos?select=periodo,estado,uf,utm,venc_reportes_meta&order=periodo.desc&limit=24'),
@@ -210,8 +235,11 @@ function cargar(){
         descTipo:c.desc_tipo||'',descValor:Number(c.desc_valor)||0,descDesde:c.desc_desde||'',descHasta:c.desc_hasta||'',tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
     });
     _perAct=_per.find(function(p){return p.estado==='activo';})||null;
-    var meses=mesesAtras(_perAct?_perAct.periodo:new Date().toISOString().slice(0,7),6);
-    return q('reportes_mensuales?select=*&periodo=in.('+meses.join(',')+')').then(function(rows){_rep=(rows||[]).map(sbRowToReporte);pintar(meses);});
+    var meses=mesesAtras(_perAct?_perAct.periodo:hoyChile().slice(0,7),6);
+    return q('reportes_mensuales?select=*&periodo=in.('+meses.join(',')+')').then(function(rows){_rep=(rows||[]).map(sbRowToReporte);
+      // Fail-closed: con reportes pero sin clientes visibles, los montos saldrían en cero.
+      if(_rep.length&&!_cli.length){err('No se pudo leer la cartera de clientes (0 visibles). No se muestran cifras para no informar montos incorrectos.');return;}
+      pintar(meses);});
   }).catch(function(e){
     err('No se pudieron cargar los datos del Inicio. Recarga la página; si persiste, avísanos. ('+String(e.message||e).slice(0,40)+')');
   });
@@ -220,14 +248,14 @@ function cargar(){
 function pintar(meses){
   var u=getUsuario()||{}, nombre=String(u.nombre||'').split(' ')[0];
   var hr=new Date().getHours(), saludo=hr<12?'Buenos días':hr<20?'Buenas tardes':'Buenas noches';
-  var pa=_perAct?_perAct.periodo:null;
+  var pa=_perAct?perDash(_perAct.periodo):null;
   var repAct=_rep.filter(function(r){return pa&&String(r.periodo).replace('-','')===pa.replace('-','');});
   var serv=0,parcial=0;repAct.forEach(function(r){var s=calcularServicios(r);serv+=s.total;if(!s.ok)parcial++;});
   var completos=repAct.filter(function(r){return _estadoSecciones(r).completo;}).length;
   var enviados=repAct.filter(function(r){return _estadoSecciones(r).enviado;}).length;
   var activos=_cli.filter(function(c){return c.estado==='activo';}).length, onb=_cli.filter(function(c){return c.estado==='onboarding';}).length;
   var chip=document.getElementById('in-per');
-  if(_perAct){chip.innerHTML=gIcon('calendario')+' '+hesc(perTxt(pa))+' <em>· UF $'+Number(_perAct.uf||0).toLocaleString('es-CL')+'</em>';chip.style.display='';}
+  if(_perAct){chip.innerHTML=gIcon('calendario')+' '+hesc(perTxt(pa))+(_ufDelPeriodo(pa)?' <em>· UF $'+_ufDelPeriodo(pa).toLocaleString('es-CL')+'</em>':' <em>· sin UF</em>');chip.style.display='';}
   var kpi=function(v,l,s,cls){return '<div class="'+(cls||'')+'"><b class="cifra">'+v+'</b><span>'+l+(s?'<em>'+s+'</em>':'')+'</span></div>';};
   document.getElementById('in-hero').innerHTML='<section class="g-hero"><small>'+(pa?hesc(perTxt(pa))+' · período activo':'Sin período activo')+'</small>'
     +'<h2>'+saludo+(nombre?', '+hesc(nombre):'')+' 👋</h2><p>'+(!pa?'Abre un período en el Panel de Control para ver el avance.':'Así va Contadoor este mes.')+'</p>'
@@ -245,9 +273,8 @@ function pintar(meses){
     var cls='in-bar'+(!d.n?' vacio':d.inc?' parcial':'')+(d.m===pa?' actual':'');
     return '<div class="'+cls+'" title="'+hesc(perTxt(d.m))+': '+(d.n?ff(d.t)+(d.inc?' (parcial)':''):'sin nómina')+'"><span class="v">'+(d.n?ffc(d.t):'—')+'</span><span class="b" style="height:'+(d.n?Math.max(3,d.t/max*150):3)+'px"></span><span class="m">'+MES[mm-1]+'</span></div>';}).join('');
   // Avance del equipo (período activo): cada cliente cuenta para su asesor contable y su asesor de remuneraciones.
-  var meta=_perAct&&_perAct.venc_reportes_meta?String(_perAct.venc_reportes_meta).slice(0,10):'';
-  var hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
-  var vencida=!!(meta&&hoy>meta);
+  var meta=fechaMetaReportes(_perAct);
+  var vencida=!!(meta&&hoyChile()>meta);
   var as={};
   repAct.forEach(function(r){var c=_cli.find(function(x){return x.rut===r.rut;})||{};var e=_estadoSecciones(r);
     [[c.contador||c.analistaContable,'Contable',r.tieneCont!==false,_contableListo(r)],[c.rrhh||c.analistaRrhh,'Remuneraciones',r.tieneRrhh!==false,_rrhhListo(r)]].forEach(function(a){
@@ -276,7 +303,7 @@ function verCuales(est,tit){
 function cerrarVer(){document.getElementById('in-velo').classList.remove('on');}
 document.getElementById('in-velo').addEventListener('click',function(e){if(e.target.id==='in-velo')cerrarVer();});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarVer();});
-_waitForAuthReady().then(cargar).catch(function(){err('Sesión no disponible. Vuelve a iniciar sesión.');});
+iniciar();
 </script>
 <script src="notifications.js"></script>
 <script src="auth.js"></script>
