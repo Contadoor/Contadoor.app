@@ -818,7 +818,7 @@ function renderConvenios(){
   cont.innerHTML='<div class="g-cv-lista">'+grupos.map(function(g){
     var cli=clientesBD.find(function(x){return x.rut===g.rut;})||{};
     var ini=String(g.nombre||'?').replace(/\b(spa|ltda|sa|eirl|limitada)\b\.?/gi,'').trim().split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
-    var logo=cli.logo?'<span class="g-logo-c con-img"><img src="'+hesc(cli.logo)+'" alt=""></span>':'<span class="g-logo-c">'+hesc(ini)+'</span>';
+    var logo=cli.logo?'<span class="g-logo-c con-img"><img src="'+hesc(cli.logo).replace(/"/g,'&quot;').replace(/'/g,'&#39;')+'" alt=""></span>':'<span class="g-logo-c">'+hesc(ini)+'</span>';
     var saldoCli=0,vencCli=0;
     var filas=g.convs.map(function(conv){
     var est=estadoConvenio(conv);

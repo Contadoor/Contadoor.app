@@ -169,8 +169,10 @@ body.g-shell{background:var(--g-fondo);color:var(--g-tinta);font:400 14px/1.5 va
 
 /* ── Tablet y celular ── */
 @media (max-width:1366px){
-  .g-item,.g-item.con-sii{grid-template-columns:28px minmax(160px,1.6fr) repeat(3,minmax(0,1fr)) 110px 150px}
-  .g-item .g-avs,.g-item .g-sii,.g-item.cab .h-av,.g-item.cab .h-sii{display:none}
+  .g-item{grid-template-columns:28px minmax(160px,1.6fr) repeat(3,minmax(0,1fr)) 110px 150px}
+  .g-item.con-sii{grid-template-columns:28px minmax(160px,1.6fr) repeat(3,minmax(0,1fr)) 110px 44px 150px}
+  /* Solo se ocultan las fotos (decorativas); el estado SII sigue visible (revisión independiente 30-sep) */
+  .g-item .g-avs,.g-item.cab .h-av{display:none}
 }
 @media (max-width:980px){
   .g-shell .layout{flex-direction:column}
@@ -188,7 +190,8 @@ body.g-shell{background:var(--g-fondo);color:var(--g-tinta);font:400 14px/1.5 va
   .g-hero{padding:20px}.g-hk{gap:22px}.g-hk b{font-size:21px}
   .g-item,.g-item.con-sii{grid-template-columns:28px minmax(0,1fr);row-gap:8px}
   .g-item.cab{display:none}
-  .g-item .g-col,.g-item .g-total,.g-item .g-acc{grid-column:2}
+  .g-item .g-col,.g-item .g-total,.g-item .g-acc,.g-item .g-sii{grid-column:2}
+  .g-item .g-sii{text-align:left}
   .g-item .g-col{display:flex;align-items:center;gap:8px}
   .g-col small{display:inline;min-width:74px;font:700 10px var(--g-texto);letter-spacing:1px;text-transform:uppercase;color:var(--g-tinta-3)}
   .g-item .g-total{text-align:left}
@@ -199,7 +202,6 @@ body.g-shell{background:var(--g-fondo);color:var(--g-tinta);font:400 14px/1.5 va
   .g-shell .tb-title{font-size:19px}
   .g-hero h2{font-size:22px}
   .g-filtros{padding:4px 14px 10px}.g-lista{padding:0 10px 14px}
-  .g-item .g-acc .g-ico.opc{display:none}
 }
 
 /* ============================================================
@@ -771,3 +773,8 @@ body.g-mod-conv{--g-acento:#C77BC9}
 @media (prefers-reduced-motion:reduce){.g-cuotas i.sig{animation:none}}
 @media (max-width:860px){.g-cv-fila{grid-template-columns:1fr 1fr;gap:12px}.g-cv-avance{grid-column:1/-1;order:3}.g-cv-est{align-items:flex-start}}
 .g-cv-atr{color:#FF8A8A;font-weight:700}
+/* Panel · resumen con los mismos indicadores de main (revisión independiente 30-sep) */
+.g-hk span em{display:block;font-style:normal;font-size:11px;opacity:.75;margin-top:2px}
+.g-hk2{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)}
+.g-hk2 b{font-size:20px}
+.g-hk .alerta b{color:#FF8A8A}

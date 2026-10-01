@@ -490,13 +490,16 @@ function gestoorAsignacion(c,area){
 // clientes.modalidad_pago: contadoor (transfiere y Contadoor paga) | directo | mixto.
 // Usado por reportes-rrhh y reportes-contable para mostrar la misma etiqueta.
 function gestoorBadgeQuienPaga(m){
-  // Solo presentación: ícono de línea (si el módulo carga gestoor-menu.js) y clase para el tema oscuro.
-  var map={contadoor:['Transfiere a Contadoor','#F5EAF5','#924893','transferir'],
-           directo:['Paga directo','#E7F8F0','#28865B','banco'],
-           mixto:['Mixto','#FEF3C7','#92400E','mixto']};
+  var map={contadoor:['💳 Transfiere a Contadoor','#F5EAF5','#924893'],
+           directo:['🏦 Paga directo','#E7F8F0','#28865B'],
+           mixto:['↔️ Mixto','#FEF3C7','#92400E']};
   var v=map[m]; if(!v) return '';
-  var ic=(typeof gIcon==='function')?gIcon(v[3]):'';
-  return '<span class="g-quienpaga q-'+m+'" title="¿Quién paga las obligaciones?" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:'+v[1]+';color:'+v[2]+';white-space:nowrap">'+ic+v[0]+'</span>';
+  // Módulos sin el rediseño (sin gestoor-menu.js, p. ej. reportes-contable): salida idéntica a main.
+  if(typeof gIcon!=='function')
+    return '<span title="¿Quién paga las obligaciones?" style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:'+v[1]+';color:'+v[2]+';white-space:nowrap">'+v[0]+'</span>';
+  // Módulos con el rediseño: ícono de línea en vez de emoji y clase para el tema oscuro (solo presentación).
+  var ic={contadoor:'transferir',directo:'banco',mixto:'mixto'}[m];
+  return '<span class="g-quienpaga q-'+m+'" title="¿Quién paga las obligaciones?" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:'+v[1]+';color:'+v[2]+';white-space:nowrap">'+gIcon(ic)+v[0].replace(/^\S+\s/,'')+'</span>';
 }
 
 function sbUpsertCliente(c){

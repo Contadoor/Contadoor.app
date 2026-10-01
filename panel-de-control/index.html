@@ -241,6 +241,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="g-mas-menu">
         <button type="button" onclick="this.closest('details').open=false;editarPeriodo()"><span data-g-ic="lapiz"></span> Editar período (UF y UTM)</button>
         <button type="button" onclick="this.closest('details').open=false;descargarArchivoTuu()"><span data-g-ic="descargar"></span> Archivo Tuu (facturas del período)</button>
+        <span hidden></span><!-- auth.js inserta el badge antes de topbar.querySelector('button:last-child'): ningún botón de este menú puede ser :last-child -->
       </div>
     </details>
     <button class="g-btn pri sm no-print" onclick="abrirApertura()"><span data-g-ic="calendario"></span> Abrir período</button>
@@ -256,6 +257,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
           <button class="fb" data-est="listo" onclick="setFiltroNomina('estado','listo',this)"><span data-g-ic="check"></span> Listos <b id="cnt-listos">0</b></button>
           <button class="fb" data-est="proceso" onclick="setFiltroNomina('estado','proceso',this)"><span data-g-ic="reloj"></span> En proceso <b id="cnt-proceso">0</b></button>
           <button class="fb" data-est="enviado" onclick="setFiltroNomina('estado','enviado',this)"><span data-g-ic="enviar"></span> Enviados <b id="cnt-enviados">0</b></button>
+        </div>
+        <div class="g-seg" id="seg-prio" role="group" aria-label="Filtrar por prioridad">
+          <button class="fb on" onclick="setFiltroNomina('prioridad','',this)">Todas</button>
+          <button class="fb" onclick="setFiltroNomina('prioridad','alta',this)">Alta</button>
+          <button class="fb" onclick="setFiltroNomina('prioridad','media',this)">Media</button>
+          <button class="fb" onclick="setFiltroNomina('prioridad','baja',this)">Baja</button>
         </div>
         <span id="barraEnvio" style="display:none;align-items:center;gap:8px">
           <span id="barraEnvioCount" style="font-size:12px;color:var(--g-tinta-2)"></span>
@@ -1156,19 +1163,15 @@ function _gIni(n){return String(n||'?').trim().split(/\s+/).map(function(w){retu
 // Foto del equipo (assets/equipo/<slug>.jpg); si no existe, iniciales.
 function _gAvatar(nombre){
   if(!nombre)return '';
-  var ini=hesc(_gIni(nombre));
-  return '<img class="g-av" src="../assets/equipo/'+_gSlug(nombre)+'.jpg" alt="'+hesc(nombre)+'" title="'+hesc(nombre)+'" '
-    +'onerror="this.outerHTML=\'<span class=&quot;g-av&quot; title=&quot;'+hesc(hesc(nombre))+'&quot;>'+ini+'</span>\'">';
+  // Atributos escapados (incluidas comillas); el onerror no contiene datos del usuario.
+  var at=function(v){return hesc(v).replace(/"/g,'&quot;').replace(/'/g,'&#39;');};
+  return '<img class="g-av" src="../assets/equipo/'+_gSlug(nombre)+'.jpg" alt="'+at(nombre)+'" title="'+at(nombre)+'" data-ini="'+at(_gIni(nombre))+'" '
+    +'onerror="var s=document.createElement(\'span\');s.className=\'g-av\';s.title=this.title;s.textContent=this.getAttribute(\'data-ini\');this.replaceWith(s);">';
 }
 function _gReportesPeriodo(){
+  // Mismo alcance que renderResumen en main: todos los reportes del período (sin filtrar por asignación).
   var per=getPeriodoActivo();var perKey=per?per.periodo:'';
-  var arr=getReportes().filter(function(r){return !perKey||String(r.periodo||'').replace('-','')===String(perKey).replace('-','');});
-  var u=getUsuario();
-  if(u.nombre&&u.rol!=='master'&&!u.esMaster){
-    var ruts=getClientesFiltrados().map(function(c){return c.rut;});
-    arr=arr.filter(function(r){return ruts.indexOf(r.rut)>=0;});
-  }
-  return arr;
+  return getReportes().filter(function(r){return !perKey||String(r.periodo||'').replace('-','')===String(perKey).replace('-','');});
 }
 // Vencimientos del mes siguiente al período (mismas reglas del reporte al cliente).
 function _gVencimientos(perKey){
@@ -1176,7 +1179,6 @@ function _gVencimientos(perKey){
   var sig=_rpMesSig(perKey), cfg=_rpPeriodoConfig(perKey);
   var hoy=new Date();hoy.setHours(0,0,0,0);
   var v=[
-    {f:new Date(sig.y,sig.m-1,10,12),t:'Postergación de cotizaciones',s:'Último día para postergar el pago'},
     {f:new Date(sig.y,sig.m-1,cfg.prevL,12),t:'Cotizaciones · <span style="color:var(--g-previred);font-weight:700">Previred</span>',s:'Vencimiento real a las 13:40 h'}
   ];
   // F29: solo la fecha del calendario del período, sin recalcular días hábiles (regla PR #10A).
@@ -1186,20 +1188,23 @@ function _gVencimientos(perKey){
 function renderResumen(){
   var el=document.getElementById('resumen-cards');
   if(!el)return;
+  // Mismos datos y cálculos que renderResumen de main (dbaf6bf); solo cambia la presentación.
+  var clientes=getClientes();
+  var activos=clientes.filter(function(c){return c.estado==='activo';});
+  var sinAnalista=activos.filter(function(c){return !(c.contador||c.analistaContable)&&!(c.rrhh||c.analistaRrhh);});
   var per=getPeriodoActivo();
   var perKey=per?per.periodo:'';
-  var clientes=getClientes();
   var reportes=_gReportesPeriodo();
-  var listos=0,enviados=0,total=0,servicios=0,nIncompletos=0;
-  reportes.forEach(function(r){
-    var e=_estadoSecciones(r);
-    if(e.listo)listos++;
-    if(e.enviado)enviados++;
-    var ti=_totalReporteInfo(r);                    // F29 pendiente/inconsistente → total parcial (PR #15)
-    total+=ti.total; if(!ti.completo)nIncompletos++;
-    servicios+=calcularServicios(r).total||0;
-  });
-  var porHacer=reportes.length-listos-enviados;
+  var completados=reportes.filter(function(r){return _estadoSecciones(r).completo;}).length;
+  var enviados=reportes.filter(function(r){return r.estado==='enviado_total'||r.estado==='enviado';}).length;
+  var pendPago=reportes.filter(function(r){return (r.estado==='enviado_total'||r.estado==='enviado')&&!r.pagado;}).length;
+  var _infos=reportes.map(_totalReporteInfo);
+  var totalFacturado=_infos.reduce(function(s,i){return s+i.total;},0);
+  var nIncompletos=_infos.filter(function(i){return !i.completo;}).length;   // F29 pendiente/inconsistente → total parcial
+  var pct=reportes.length>0?Math.round(completados/reportes.length*100):0;
+  var recCount=Object.keys(getRecordatorios()).filter(function(k){return k.endsWith('_count');}).reduce(function(s,k){return s+(getRecordatorios()[k]||0);},0);
+  var nOnb=clientes.filter(function(c){return c.estado==='onboarding';}).length;
+  var porHacer=reportes.length-completados;
   var venc=_gVencimientos(perKey);
   var prox=venc.filter(function(v){return !v.pasado;})[0];
   var u=getUsuario();
@@ -1207,39 +1212,41 @@ function renderResumen(){
   var hr=new Date().getHours();
   var saludo=hr<12?'Buenos días':hr<20?'Buenas tardes':'Buenas noches';
   var mesTxt=per?formatPer(per.periodo):'Sin período activo';
+  var kpi=function(v,l,s,cls){return '<div class="'+(cls||'')+'"><b class="cifra">'+v+'</b><span>'+l+(s?'<em>'+s+'</em>':'')+'</span></div>';};
   var h='<section class="g-hero">'
     +'<small>'+hesc(mesTxt)+(per?' · período activo':'')+'</small>'
     +'<h2>'+saludo+(nombre?', '+hesc(nombre):'')+' 👋</h2>'
     +'<p>'+(!per?'Abre un período para comenzar.'
         :!reportes.length?'La nómina del período aún no tiene clientes.'
-        :porHacer>0?'Te quedan <b>'+porHacer+' cliente'+(porHacer>1?'s':'')+'</b> por dejar listos.'
-        :'Todos los clientes del período están listos o enviados.')
+        :porHacer>0?'Hay <b>'+porHacer+' reporte'+(porHacer>1?'s':'')+'</b> por completar.'
+        :'Todos los reportes del período están completos.')
       +(prox?' Próximo vencimiento: <b>'+prox.f.getDate()+' de '+MESES_CORTOS_R[prox.f.getMonth()]+'</b>.':'')+'</p>'
     +'<div class="g-hk">'
-      +'<div><b class="cifra">'+ff(total)+'</b><span>'+(nIncompletos?'Total parcial del período · ⏳ '+nIncompletos+' con F29 pendiente o por revisar':'Total del período')+'</span></div>'
-      +'<div><b class="cifra">'+listos+' / '+reportes.length+'</b><span>Listos para enviar</span></div>'
-      +'<div><b class="cifra">'+enviados+'</b><span>Reportes enviados</span></div>'
-      +'<div><b class="cifra">'+ff(servicios)+'</b><span>Nuestros servicios</span></div>'
+      +kpi(ff(totalFacturado),nIncompletos?'Total parcial del período':'Total del período',nIncompletos?'⏳ '+nIncompletos+' cliente(s) con F29 pendiente o por revisar':'Suma todos los reportes')
+      +kpi(completados+' / '+reportes.length,'Reportes completos',pct+'% del período')
+      +kpi(enviados,'Enviados al cliente',Math.round(enviados/(reportes.length||1)*100)+'% del total')
+      +kpi(pendPago,'Pendientes de pago',totalFacturado>0?ff(totalFacturado)+(nIncompletos?' parcial':' total'):'Sin cobros')
+    +'</div>'
+    +'<div class="g-hk g-hk2">'
+      +kpi(activos.length,'Clientes activos',nOnb+' onboarding')
+      +kpi(sinAnalista.length,'Sin analista asignado',sinAnalista.length>0?'Requieren atención':'Todo asignado',sinAnalista.length>0?'alerta':'')
+      +kpi(recCount,'Recordatorios enviados','Este período')
     +'</div></section>';
-  // Avance por asesor: cada cliente cuenta para su asesor contable y su asesor de remuneraciones.
-  var ases={};
+  // Por analista: mismo cálculo que main (asesor contable; completo vs pendiente)
+  var analistas={};
   reportes.forEach(function(r){
     var c=clientes.find(function(x){return x.rut===r.rut;})||{};
-    var e=_estadoSecciones(r);
-    [[c.contador||c.analistaContable,'Contable',r.tieneCont!==false,e.imp],[c.rrhh||c.analistaRrhh,'Remuneraciones',r.tieneRrhh!==false,e.rrhh]].forEach(function(a){
-      if(!a[0]||!a[2])return;
-      var k=a[0];
-      if(!ases[k])ases[k]={nombre:a[0],area:a[1],ok:0,tot:0};
-      ases[k].tot++; if(a[3]||e.enviado)ases[k].ok++;
-    });
+    var an=c.contador||c.analistaContable||'Sin asignar';
+    if(!analistas[an])analistas[an]={nombre:an,completados:0,pendientes:0};
+    if(_estadoSecciones(r).completo)analistas[an].completados++;else analistas[an].pendientes++;
   });
-  var arrA=Object.values(ases).sort(function(a,b){return b.tot-a.tot;});
-  h+='<section class="g-fila2"><div class="g-card"><div class="g-sec-h"><h2>Avance por <span>asesor</span></h2><small>Clientes listos / total</small></div>';
-  if(!arrA.length)h+='<div class="g-vacio">Aún no hay clientes con asesor asignado en este período.</div>';
+  var arrA=Object.values(analistas).sort(function(a,b){return(b.completados+b.pendientes)-(a.completados+a.pendientes);});
+  h+='<section class="g-fila2"><div class="g-card"><div class="g-sec-h"><h2>Por <span>analista</span></h2><small>Reportes completos / total</small></div>';
+  if(!arrA.length)h+='<div class="g-vacio">Aún no hay reportes en este período.</div>';
   arrA.forEach(function(a){
-    var pct=a.tot?Math.round(a.ok/a.tot*100):0;
-    h+='<div class="g-asesor">'+_gAvatar(a.nombre)+'<div class="n"><b>'+hesc(a.nombre)+'</b></div>'
-      +'<div class="pct"><span>'+a.ok+' / '+a.tot+' · '+a.area+'</span><div class="g-prog"><i style="width:'+pct+'%"></i></div></div></div>';
+    var tot=a.completados+a.pendientes, p2=tot?Math.round(a.completados/tot*100):0;
+    h+='<div class="g-asesor">'+(a.nombre==='Sin asignar'?'<span class="g-av">?</span>':_gAvatar(a.nombre))+'<div class="n"><b>'+hesc(a.nombre)+'</b></div>'
+      +'<div class="pct"><span>'+a.completados+' completos · '+a.pendientes+' pendientes</span><div class="g-prog"><i style="width:'+p2+'%"></i></div></div></div>';
   });
   h+='</div><div class="g-card"><div class="g-sec-h"><h2>Próximos <span>vencimientos</span></h2><small>'+(venc.length?hesc(MESES_R_LARGOS[venc[0].f.getMonth()]+' '+venc[0].f.getFullYear()):'')+'</small></div>';
   if(!venc.length)h+='<div class="g-vacio">Sin período activo.</div>';
@@ -1374,7 +1381,7 @@ function renderNomina(){
     html+='<div class="'+cls+(est.listo?' listo':'')+(est.enviado?' enviado':'')+'">';
     html+='<input type="checkbox" class="nomina-chk" data-id="'+rid+'" aria-label="Seleccionar '+hesc(r.clienteNombre||r.rut)+'">';
     html+='<div class="g-cli"><b title="'+hesc(r.clienteNombre||r.rut)+'">'+hesc(r.clienteNombre||r.rut)
-      +((r.prioridadRrhh||'media')==='alta'?'<span class="g-prio">Alta</span>':'')+'</b>'
+      +(function(pr){return '<span class="g-prio '+pr+'">'+({alta:'Alta',media:'Media',baja:'Baja'}[pr]||'Media')+'</span>';})(r.prioridadRrhh||'media')+'</b>'
       +'<span>'+hesc(r.rut)+'</span>'+(quien?'<span class="g-quien">'+quien+'</span>':'')+'</div>';
     html+='<div class="g-avs">'+_gAvatar(c.contador||c.analistaContable)+_gAvatar(c.rrhh||c.analistaRrhh)+'</div>';
     html+='<div class="g-col"><small>RRHH</small>'+chip('rrhh')+'</div>';
