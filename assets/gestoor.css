@@ -779,7 +779,8 @@ body.g-mod-conv{--g-acento:#C77BC9}
 .g-hk2 b{font-size:20px}
 .g-hk .alerta b{color:#FF8A8A}
 
-/* =====================================================   ARMONÍA ENTRE MÓDULOS (1-oct, pedido de Luciano)
+/* ============================================================
+   ARMONÍA ENTRE MÓDULOS (1-oct, pedido de Luciano)
    Misma escala en todos los módulos rediseñados: ancho, letras de tabla,
    botones de la barra superior y filtros. Solo presentación.
    Alcance: tablas principales (.tabla-wrap); no toca ventanas emergentes ni el reporte impreso.
@@ -805,6 +806,6 @@ body.g-mod-conv{--g-acento:#C77BC9}
 .g-tema-noche td .pipe-lbl{font-size:9px}
 /* Notebooks (981–1500 px): márgenes laterales de 20 px; el celular conserva sus 16 px */
 @media (min-width:981px) and (max-width:1500px){.g-shell :is(.content,.g-contenido),.g-shell .topbar{padding-left:20px;padding-right:20px}}
-=======
+/* Prospectos (control comercial) */
 body.g-mod-pros{--g-acento:#C77BC9}
 .g-mod-pros .tb-title span{color:#E39BE5}
