@@ -141,47 +141,24 @@ tr:hover td{background:#f9fefb;}
 .bulk-bar.on{display:flex;}
 </style>
 <script src="../supabase.js"></script>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body>
+<body class="g-shell g-tema-noche g-mod-rem">
 <div class="layout">
-<aside class="sidebar">
-  <nav>
-    <div class="sb-sec">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-sec">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item on" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-sec">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-sec">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<aside class="sidebar" data-gestoor-activo="reportes-rrhh"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">Reportes RRHH — Remuneraciones</div>
-    <span id="tb-periodo-badge" style="font-size:11px;background:rgba(144,72,145,.3);color:#e9d5ff;border:1px solid rgba(144,72,145,.4);border-radius:20px;padding:3px 12px;white-space:nowrap"></span>
+    <h1 class="tb-title">Reportes de <span>Remuneraciones</span></h1>
+    <span id="tb-periodo-badge" class="g-chip-per"></span>
+    <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre">Analista RRHH</span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;">
-      <span style="font-size:18px">🔔</span>
+      <span data-g-ic="campana"></span>
       <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
     </div>
   </div>
@@ -203,25 +180,25 @@ tr:hover td{background:#f9fefb;}
     <div class="filtros">
       <span class="fl">Prioridad:</span>
       <button class="fb on" onclick="setFiltro('prioridad','')">Todas</button>
-      <button class="fb" onclick="setFiltro('prioridad','alta')">🔴 Alta</button>
-      <button class="fb" onclick="setFiltro('prioridad','media')">🟡 Media</button>
-      <button class="fb" onclick="setFiltro('prioridad','baja')">🟢 Baja</button>
+      <button class="fb" onclick="setFiltro('prioridad','alta')">Alta</button>
+      <button class="fb" onclick="setFiltro('prioridad','media')">Media</button>
+      <button class="fb" onclick="setFiltro('prioridad','baja')">Baja</button>
       <span class="fl" style="margin-left:12px">Estado:</span>
       <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
-      <button class="fb" onclick="setFiltro('estado','pendiente')">⏳ Pendientes</button>
-      <button class="fb" onclick="setFiltro('estado','completado')">✅ Completados</button>
-      <button class="fb" onclick="setFiltro('estado','enviado')">📤 Enviados</button>
-      <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
+      <button class="fb" onclick="setFiltro('estado','pendiente')">Pendientes</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">Completados</button>
+      <button class="fb" onclick="setFiltro('estado','enviado')">Enviados</button>
+      <button class="fb" onclick="setFiltro('estado','atrasado')">Atrasados</button>
     </div>
     <div class="bulk-bar" id="bulkBar">
       <span id="bulkCount" style="font-size:12px;font-weight:600"></span>
       <button id="btnEnviarMasivo" onclick="enviarSeleccionados()" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
-      <button id="btnDeseleccionar" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
+      <button id="btnDeseleccionar" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Quitar selección</button>
     </div>
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">👥 Mis clientes RRHH — <span id="periodo-label">Sin período abierto</span></div>
+          <div class="tabla-titulo">Mis clientes · <span id="periodo-label">Sin período abierto</span></div>
           <div class="tabla-meta" id="tabla-meta">Selecciona un período abierto para ver tu nómina</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -238,21 +215,21 @@ tr:hover td{background:#f9fefb;}
 <!-- MODAL COMPLETAR RRHH -->
 <div class="modal-bg" id="modalRrhh">
   <div class="modal">
-    <h2>👥 Completar sección RRHH</h2>
+    <h2><span data-g-ic="rrhh"></span> Completar sección RRHH</h2>
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-reporte-id"/>
     <input type="hidden" id="m-cliente-rut"/>
     <!-- CARGA LIBRO -->
     <div class="sec-box">
-      <div class="sec-title">📊 Libro de Remuneraciones — Mas Remuneraciones (.xls)</div>
+      <div class="sec-title"><span data-g-ic="contable"></span> Libro de Remuneraciones · Mas Remuneraciones (.xls)</div>
       <div class="upload-zone" id="uzLibro">
         <input type="file" id="fileLibro" accept=".xls,.xlsx"/>
-        <div style="font-size:28px;margin-bottom:6px">📊</div>
+        <div class="g-up-ic"><span data-g-ic="subir"></span></div>
         <div style="font-size:13px;font-weight:600;margin-bottom:3px">Cargar libro .xls</div>
         <div style="font-size:11px;color:var(--tm)">Arrastra o haz clic · Mas Remuneraciones · Mastecno</div>
       </div>
       <div class="file-ok" id="libroOk">
-        <span style="font-size:20px">✅</span>
+        <span class="g-ok-ic"><span data-g-ic="check"></span></span>
         <div>
           <div style="font-size:13px;font-weight:600" id="libroFileName"></div>
           <div style="font-size:11px;color:var(--tm)" id="libroMeta"></div>
@@ -269,7 +246,7 @@ tr:hover td{background:#f9fefb;}
     </div>
     <!-- DATOS CARGADOS -->
     <div id="datosLibroWrap" style="display:none">
-      <div class="info-box">✅ Datos cargados automáticamente desde el libro. Revisa y ajusta si es necesario.</div>
+      <div class="info-box">Datos cargados automáticamente desde el libro. Revisa y ajusta si es necesario.</div>
       <div class="sec-box">
         <div class="sec-title">Resumen general</div>
         <div class="fg3" style="margin-bottom:10px">
@@ -815,7 +792,7 @@ function renderTabla(periodo){
   document.getElementById('st-atrasado').textContent=atr;
   document.getElementById('tabla-meta').textContent=filtrados.length+' clientes RRHH · '+comp+' completados · '+pend+' pendientes';
   if(!filtrados.length){
-    document.getElementById('tablaBody').innerHTML='<div style="text-align:center;padding:40px;color:#9a849b"><div style="font-size:32px;margin-bottom:8px">👥</div><div style="font-size:14px;font-weight:600;color:#5c4a5d">Sin clientes RRHH asignados</div><div style="font-size:12px;margin-top:4px">Verifica que el período esté abierto y tengas clientes asignados</div></div>';
+    document.getElementById('tablaBody').innerHTML='<div style="text-align:center;padding:40px;color:#9a849b"><div class="g-vacio-ic">'+gIcon('rrhh')+'</div><div style="font-size:14px;font-weight:600">Sin clientes RRHH asignados</div><div style="font-size:12px;margin-top:4px">Verifica que el período esté abierto y tengas clientes asignados</div></div>';
     return;
   }
   var html='<table><thead><tr>'
@@ -835,7 +812,7 @@ function renderTabla(periodo){
     var pctColor=pct>=100?'#2D9B6F':pct>=60?'#C07A1A':'#C0392B';
     var c=getClientes().find(function(x){return x.rut===r.rut;});
     var planCls=c&&c.plan?{estrategico:'plan-e',asesoria:'plan-a',cumplimiento:'plan-c'}[c.plan.toLowerCase()]||'plan-c':'plan-c';
-    var planLabel=c&&c.plan?c.plan:' - ';
+    var planLabel=c&&c.plan?({cumplimiento:'Cumplimiento',asesoria:'Contadoor PRO',pro:'Contadoor PRO',estrategico:'Contadoor Estratégico'}[c.plan.toLowerCase()]||c.plan):' - ';
     var est_r=getEstadoRrhh(r);
     var _chkOk=(est_r==='completado'); // solo RRHH OK puede iniciar nuevo aviso
     html+='<tr>'
@@ -850,45 +827,45 @@ function renderTabla(periodo){
       +'<div class="cli-sub"><span class="cli-rut">'+hesc(r.rut)+'</span>'
       +'<span class="plan '+planCls+'">'+hesc(planLabel)+'</span>'
       +(typeof gestoorBadgeQuienPaga!=='function'?'':gestoorBadgeQuienPaga((getClientes().find(function(x){return x.rut===r.rut;})||{}).modalidad))
-      +(r.clienteWa?'<a href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank" style="font-size:10px;color:#2D9B6F">💬</a>':'')
+      +(r.clienteWa?'<a href="https://wa.me/56'+r.clienteWa.replace(/\D/g,'')+'" target="_blank" class="g-wa" title="WhatsApp">'+gIcon('chat')+'</a>':'')
       +'</div></td>';
     // Pipeline etapas
     html+='<td>'+renderPipeline(r)+'</td>';
     // Prioridad
     html+='<td><span class="prio prio-'+(r.prioridadRrhh||'media')+'">'
-      +{alta:'🔴 Alta',media:'🟡 Media',baja:'🟢 Baja'}[r.prioridadRrhh||'media']
+      +{alta:'Alta',media:'Media',baja:'Baja'}[r.prioridadRrhh||'media']
       +'</span></td>';
     // Libro
     var tieneLibro=r.usaArchivo||r.afp>0||r.nTrab>0;
     html+='<td><div class="libro-status">'
       +(tieneLibro
-        ?'<span class="libro-ok">✅ Cargado</span><span style="font-size:10px;color:#9a849b">'+(r.nTrab||0)+' trabajadores</span>'
-        :'<span class="libro-no">📂 Sin cargar</span>'
+        ?'<span class="libro-ok">'+gIcon('check')+' Cargado</span><span class="g-sub">'+(r.nTrab||0)+' trabajadores</span>'
+        :'<span class="libro-no">'+gIcon('subir')+' Sin cargar</span>'
       )+'</div></td>';
     // Datos
     html+='<td><div class="datos-rrhh">';
     if(tieneLibro){
       html+='<div class="dato-item">Liq: <span class="dato-val">'+ff(r.liquidoPagar||0)+'</span></div>';
       html+='<div class="dato-item">Cotiz: <span class="dato-val">'+ff(r.totalCot||0)+'</span></div>';
-      if(r.iu>0) html+='<div class="dato-item">I.U.: <span class="dato-val" style="color:#C07A1A">'+ff(r.iu)+'</span> →SII</div>';
+      if(r.iu>0) html+='<div class="dato-item">I.U.: <span class="dato-val g-iu">'+ff(r.iu)+'</span> →SII</div>';
     }else{
       html+='<div class="dato-pending">Sin datos aún</div>';
     }
     html+='</div></td>';
     // Estado
     var ecMap={
-      pendiente:            {cls:'ec-pendiente',  label:'⏳ Pendiente'},
-      libro_ok:             {cls:'ec-libro-ok',   label:'📊 Libro cargado'},
-      completado:           {cls:'ec-completado', label:'✅ RRHH OK'},
-      aviso_enviado:        {cls:'ec-enviado',    label:'📨 Aviso enviado'},
-      enviado:              {cls:'ec-enviado',    label:'📨 Aviso enviado'},
-      transferido:          {cls:'ec-transferido',label:'💳 Transferido'},
-      en_previred:          {cls:'ec-previred',   label:'⚙️ En Previred'},
-      pendiente_aprobacion: {cls:'ec-aprobacion', label:'⏳ En aprobación'},
-      aprobacion:           {cls:'ec-aprobacion', label:'⏳ En aprobación'},
-      aprobado:             {cls:'ec-aprobado',   label:'✅ Aprobado'},
-      finalizado:           {cls:'ec-finalizado', label:'🔒 Finalizado'},
-      atrasado:             {cls:'ec-atrasado',   label:'⚠️ Atrasado'}
+      pendiente:            {cls:'ec-pendiente',  label:'Pendiente'},
+      libro_ok:             {cls:'ec-libro-ok',   label:'Libro cargado'},
+      completado:           {cls:'ec-completado', label:'RRHH OK'},
+      aviso_enviado:        {cls:'ec-enviado',    label:'Aviso enviado'},
+      enviado:              {cls:'ec-enviado',    label:'Aviso enviado'},
+      transferido:          {cls:'ec-transferido',label:'Transferido'},
+      en_previred:          {cls:'ec-previred',   label:'En Previred'},
+      pendiente_aprobacion: {cls:'ec-aprobacion', label:'En aprobación'},
+      aprobacion:           {cls:'ec-aprobacion', label:'En aprobación'},
+      aprobado:             {cls:'ec-aprobado',   label:'Aprobado'},
+      finalizado:           {cls:'ec-finalizado', label:'Finalizado'},
+      atrasado:             {cls:'ec-atrasado',   label:'Atrasado'}
     };
     var ecInfo=ecMap[est]||ecMap.pendiente;
     html+='<td><span class="ec '+ecInfo.cls+'">'+ecInfo.label+'</span></td>';
@@ -901,35 +878,35 @@ function renderTabla(periodo){
     var _k=Object.keys(_btnIds).length;
     _btnIds[_k]=r.id;
     if(est==='pendiente'||est==='libro_ok'||!est){
-      html+='<button class="btn-p" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Completar</button>';
+      html+='<button class="btn-p" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Completar</button>';
     }else if(est==='completado'){
-      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
-      html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" style="background:#904891;font-size:11px">📨 Aviso Cotizaciones</button>';
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Editar</button>';
+      html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" >'+gIcon('correo')+' Aviso de cotizaciones</button>';
     }else if(est==='aviso_enviado'||est==='enviado'){
-      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
-      html+='<button onclick="reenviarAviso(_btnIds['+_k+'])" style="font-size:11px;background:#fff;color:#904891;border:1px solid #904891;border-radius:6px;padding:5px 9px;cursor:pointer">📨 Reenviar aviso</button>';
-      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" style="font-size:11px;background:#fff;color:#C07A1A;border:1px solid #C07A1A;border-radius:6px;padding:5px 9px;cursor:pointer">🔄 Reprocesar</button>';
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Editar</button>';
+      html+='<button onclick="reenviarAviso(_btnIds['+_k+'])" class="btn-s">'+gIcon('correo')+' Reenviar aviso</button>';
+      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" class="btn-s g-warn">'+gIcon('repetir')+' Reprocesar</button>';
       if(!r.haPostergado){
-        html+='<span style="font-size:10px;background:#fef9ec;color:#854F0B;border:1px solid #fde68a;padding:2px 8px;border-radius:20px">⏳ Esperando pago</span>';
+        html+='<span class="g-est pend">'+gIcon('reloj')+' Esperando pago</span>';
       }else{
-        html+='<span style="font-size:10px;background:#f5f0f8;color:#904891;border:1px solid #e8dde8;padding:2px 8px;border-radius:20px">📅 Postergó</span>';
+        html+='<span class="g-est env">'+gIcon('calendario')+' Postergó</span>';
       }
     }else if(est==='transferido'){
       html+='<div style="display:flex;flex-direction:column;gap:4px">';
-      html+='<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:20px;text-align:center">💳 Cliente transfirió</span>';
-      html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" style="background:#0c4a6e;font-size:11px">⚙️ Ingresar Previred</button>';
-      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" style="font-size:10px;background:#fff;color:#C07A1A;border:1px solid #C07A1A;border-radius:6px;padding:3px 8px;cursor:pointer">🔄 Reprocesar RRHH</button>';
+      html+='<span class="g-est inf">'+gIcon('transferir')+' Cliente transfirió</span>';
+      html+='<button class="btn-p" onclick="marcarEnPreviredRrhh(_btnIds['+_k+'])" >'+gIcon('enviar')+' Ingresar a Previred</button>';
+      html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" class="btn-s g-warn">'+gIcon('repetir')+' Reprocesar RRHH</button>';
       html+='</div>';
     }else if(est==='en_previred'){
-      html+='<button class="btn-p" onclick="enviarAprobacionRrhh(_btnIds['+_k+'])" style="background:#854F0B;font-size:11px">⏳ A aprobación</button>';
+      html+='<button class="btn-p" onclick="enviarAprobacionRrhh(_btnIds['+_k+'])" >'+gIcon('aprobar')+' Enviar a aprobación</button>';
     }else if(est==='pendiente_aprobacion'||est==='aprobacion'){
-      html+='<span style="font-size:11px;color:var(--tm);padding:4px">⏳ En aprobación</span>';
+      html+='<span class="g-est pend">'+gIcon('reloj')+' En aprobación</span>';
     }else if(est==='aprobado'){
-      html+='<button class="btn-p" onclick="marcarFinalizadoRrhh(_btnIds['+_k+'])" style="background:#064e3b;font-size:11px">🔒 Finalizar</button>';
+      html+='<button class="btn-p" onclick="marcarFinalizadoRrhh(_btnIds['+_k+'])" >'+gIcon('candado')+' Finalizar</button>';
     }else if(est==='finalizado'){
-      html+='<span style="font-size:11px;color:var(--green);padding:4px">🔒 Finalizado</span>';
+      html+='<span class="g-est ok">'+gIcon('candado')+' Finalizado</span>';
     }else{
-      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">✏️ Editar</button>';
+      html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Editar</button>';
     }
     html+='</div></td>';
     html+='</tr>';

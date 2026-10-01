@@ -164,47 +164,24 @@ tr:hover td{background:#f0fdff;}
 .bulk-bar{display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;align-items:center;gap:12px;}
 .bulk-bar.on{display:flex;}
 </style>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body>
-<aside class="sidebar">
-  <nav>
-    <div class="sb-section">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-section">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item on" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-section">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-section">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<body class="g-shell g-tema-noche g-mod-pag">
+<aside class="sidebar" data-gestoor-activo="reportes-pagos"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 
 <div class="wrap">
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">💰 Vista Pagos — Conciliación de Reportes</div>
+    <h1 class="tb-title">Vista <span>Pagos</span> · conciliación de reportes</h1>
+    <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre">Analista Pagos</span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
-      <span style="font-size:18px">🔔</span>
+      <span data-g-ic="campana"></span>
       <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
     </div>
   </div>
@@ -216,7 +193,7 @@ tr:hover td{background:#f0fdff;}
       <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Clientes</div></div>
       <div class="stat"><div class="sv" id="st-enviado" style="color:var(--blue)">0</div><div class="sl">Enviados</div></div>
       <div class="stat"><div class="sv" id="st-transferido" style="color:var(--amber)">0</div><div class="sl">Transfirieron</div></div>
-      <div class="stat"><div class="sv" id="st-conciliado" style="color:var(--pagos)">0</div><div class="sl">Conciliados</div></div>
+      <div class="stat"><div class="sv" id="st-conciliado" style="color:#8FDBFF">0</div><div class="sl">Conciliados</div></div>
       <div class="stat"><div class="sv" id="st-firma" style="color:var(--amber)">0</div><div class="sl">Pend. firma</div></div>
       <div class="stat"><div class="sv" id="st-pagado" style="color:var(--green)">0</div><div class="sl">Pagados</div></div>
     </div>
@@ -233,22 +210,22 @@ tr:hover td{background:#f0fdff;}
     <!-- BANNER TRANSFERIDOS -->
     <div id="bannerTransferidos" style="display:none;" class="banner-transferidos">
       <div>
-        <strong style="font-size:14px;color:#92400e;display:block;margin-bottom:2px;" id="bannerTransfTitulo">💸 Clientes que han transferido</strong>
+        <strong style="font-size:14px;color:#92400e;display:block;margin-bottom:2px;" id="bannerTransfTitulo">Clientes que han transferido</strong>
         <span style="font-size:11.5px;color:#78350f;" id="bannerTransfSub">Entra a Conciliación para asignar los montos por concepto</span>
       </div>
-      <button class="btn-conciliar" onclick="window.location.href='../conciliacion/index.html'">🏦 Ir a Conciliación</button>
+      <button class="btn-conciliar" onclick="window.location.href='../conciliacion/index.html'"><span data-g-ic="banco"></span> Ir a Conciliación</button>
     </div>
 
     <!-- FILTROS -->
     <div class="filtros">
       <span class="fl">Estado:</span>
       <button class="fb on" onclick="setFiltro('')">Todos</button>
-      <button class="fb" onclick="setFiltro('enviado')">📤 Enviados <span class="cnt" id="cnt-enviado">0</span></button>
-      <button class="fb" onclick="setFiltro('sin_transf')">⏳ Sin transferencia <span class="cnt" id="cnt-sin">0</span></button>
-      <button class="fb" onclick="setFiltro('transferido')">💸 Transfirieron <span class="cnt" id="cnt-transf">0</span></button>
-      <button class="fb" onclick="setFiltro('conciliado')">🏦 Conciliados <span class="cnt" id="cnt-conc">0</span></button>
-      <button class="fb" onclick="setFiltro('firma')">✍️ Pend. firma <span class="cnt" id="cnt-firma">0</span></button>
-      <button class="fb" onclick="setFiltro('pagado')">✅ Pagados <span class="cnt" id="cnt-pag">0</span></button>
+      <button class="fb" onclick="setFiltro('enviado')">Enviados <span class="cnt" id="cnt-enviado">0</span></button>
+      <button class="fb" onclick="setFiltro('sin_transf')">Sin transferencia <span class="cnt" id="cnt-sin">0</span></button>
+      <button class="fb" onclick="setFiltro('transferido')">Transfirieron <span class="cnt" id="cnt-transf">0</span></button>
+      <button class="fb" onclick="setFiltro('conciliado')">Conciliados <span class="cnt" id="cnt-conc">0</span></button>
+      <button class="fb" onclick="setFiltro('firma')">Pend. firma <span class="cnt" id="cnt-firma">0</span></button>
+      <button class="fb" onclick="setFiltro('pagado')">Pagados <span class="cnt" id="cnt-pag">0</span></button>
       <span class="fl" style="margin-left:12px">Período:</span>
       <select id="selectPeriodo" onchange="cargarPeriodo()" style="padding:4px 10px;border-radius:20px;font-size:11px;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);">
         <option value="">Seleccionar...</option>
@@ -258,13 +235,13 @@ tr:hover td{background:#f0fdff;}
     <!-- TABLA -->
     <div class="bulk-bar" id="bulkBar">
       <span id="bulkCount" style="font-size:12px;font-weight:600"></span>
-      <button id="btnEnviarMasivo" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">📤 Enviar seleccionados</button>
-      <button id="btnDeseleccionar" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">✕ Deseleccionar</button>
+      <button id="btnEnviarMasivo" style="background:#fff;color:var(--p);border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">Enviar seleccionados</button>
+      <button id="btnDeseleccionar" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Quitar selección</button>
     </div>
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">💰 Cola de conciliación — <span id="periodo-label">Sin período</span></div>
+          <div class="tabla-titulo">Cola de conciliación · <span id="periodo-label">Sin período</span></div>
           <div class="tabla-meta" id="tabla-meta">Selecciona un período</div>
         </div>
         <input type="text" id="searchQ" placeholder="Buscar cliente..." oninput="renderTabla()"
@@ -416,7 +393,7 @@ function renderTabla(){
   var bt=document.getElementById('bannerTransferidos');
   if(cntTransf>0){
     bt.style.display='flex';
-    document.getElementById('bannerTransfTitulo').textContent='💸 '+cntTransf+' cliente'+(cntTransf>1?'s han':'  ha')+' transferido';
+    document.getElementById('bannerTransfTitulo').textContent=cntTransf+' cliente'+(cntTransf>1?'s han':'  ha')+' transferido';
     document.getElementById('bannerTransfSub').textContent='Entra a Conciliación para asignar los montos por concepto y notificar a los analistas';
   }else bt.style.display='none';
 
@@ -426,42 +403,38 @@ function renderTabla(){
     var est=rep.estadoContable||'enviado';
     var f29=rep.f29||{};
     var planCls=c.plan==='estrategico'?'plan-e':'plan-a';
-    var planLbl=c.plan==='estrategico'?'⭐ Estratégico':'🔵 Asesoría';
+    var planLbl=c.plan==='estrategico'?'Contadoor Estratégico':'Contadoor PRO';
     var transf=rep.transferencia||null;
 
     // TIMELINE 7 pasos morados
     var steps=[
       {e:'done',i:'\u2713'},{e:'done',i:'\u2713'},{e:'done',i:'\u2713'},
       {e:'done',i:'\u2713'},
-      {e:est==='enviado'?'active':est==='transferido'?'active':(est==='conciliado'||est==='firma'||est==='pagado'?'done':'next'),i:est==='transferido'?'💸':'5'},
-      {e:est==='conciliado'?'active':(est==='firma'||est==='pagado'?'done':'next'),i:est==='conciliado'?'🏦':'6'},
-      {e:est==='firma'?'active':(est==='pagado'?'done':'next'),i:est==='pagado'?'\u2713':'\u270d'}
+      {e:est==='enviado'?'active':est==='transferido'?'active':(est==='conciliado'||est==='firma'||est==='pagado'?'done':'next'),i:est==='transferido'?gIcon('transferir'):'5'},
+      {e:est==='conciliado'?'active':(est==='firma'||est==='pagado'?'done':'next'),i:est==='conciliado'?gIcon('banco'):'6'},
+      {e:est==='firma'?'active':(est==='pagado'?'done':'next'),i:est==='pagado'?'\u2713':gIcon('lapiz')}
     ];
     var tl='<div class="tl-mini">';
     steps.forEach(function(s,i){
-      var bg=s.e==='done'?'#904891':s.e==='active'?'#fff':'#faf7fa';
-      var color=s.e==='done'?'#fff':s.e==='active'?'#904891':'#9a849b';
-      var bdr=s.e==='active'?'2px solid #904891':'1.5px solid '+(s.e==='done'?'#904891':'#e8dde8');
-      var shd=s.e==='active'?'box-shadow:0 0 0 2px #F5EAF5;':'';
-      tl+='<div class="tls" style="background:'+bg+';color:'+color+';border:'+bdr+';'+shd+'">'+s.i+'</div>';
+      tl+='<div class="tls '+s.e+'">'+s.i+'</div>';
       if(i<steps.length-1)tl+='<div class="tll '+(s.e==='done'?'done':'next')+'"></div>';
     });
     tl+='</div>';
 
     // Badge estado
     var badge='';
-    if(est==='enviado'&&!transf) badge='<span class="eb eb-sin-transf">⏳ Sin transferencia</span>';
-    else if(est==='transferido'||transf) badge='<span class="eb eb-transferido">💸 Transferido · conciliar</span>';
-    else if(est==='conciliado') badge='<span class="eb eb-conciliado">🏦 Conciliado</span>';
-    else if(est==='firma') badge='<span class="eb eb-firma">\u270d️ Pend. firma</span>';
-    else if(est==='pagado') badge='<span class="eb eb-pagado">✅ Pagado</span>';
+    if(est==='enviado'&&!transf) badge='<span class="eb eb-sin-transf">'+gIcon('reloj')+' Sin transferencia</span>';
+    else if(est==='transferido'||transf) badge='<span class="eb eb-transferido">'+gIcon('transferir')+' Transferido · conciliar</span>';
+    else if(est==='conciliado') badge='<span class="eb eb-conciliado">'+gIcon('banco')+' Conciliado</span>';
+    else if(est==='firma') badge='<span class="eb eb-firma">'+gIcon('lapiz')+' Pend. firma</span>';
+    else if(est==='pagado') badge='<span class="eb eb-pagado">'+gIcon('check')+' Pagado</span>';
 
     // Montos F29
     var totalF29=(f29.ivaApagar||0)+(f29.ppm||0)+(f29.retenciones||0)+(f29.honorarios||0);
     var transfMonto=transf?transf.monto:0;
     var diff=transfMonto-totalF29;
 
-    html+='<tr style="'+(est==='pagado'?'background:#f9fefb;':transf?'background:#fffbeb;':'')+'" onclick="toggleDet(\''+c.rut+'\')">';
+    html+='<tr class="'+(est==='pagado'?'g-fila-ok':transf?'g-fila-atn':'')+'" onclick="toggleDet(\''+c.rut+'\')">';
     html+='<td><div class="cli-nombre">'+hesc(c.razon)+'</div><div class="cli-rut">'+hesc(c.rut)+'</div><span class="plan-badge '+planCls+'">'+planLbl+'</span></td>';
     html+='<td><div class="montos">';
     if(f29.ivaApagar) html+='<div class="monto-item"><span class="monto-lbl">SII F29</span><span class="monto-val">'+ff(f29.ivaApagar)+'</span></div>';
@@ -472,45 +445,45 @@ function renderTabla(){
     html+='<div class="monto-total">'+ff(totalF29)+'</div></div></td>';
     html+='<td>';
     if(transf){
-      html+='<div style="font-size:13px;font-weight:700;font-family:monospace;color:#2D9B6F;">'+ff(transfMonto)+'</div>';
-      html+='<div style="font-size:10px;color:#9a849b;margin-top:2px;">'+hesc(transf.fecha||'')+'</div>';
-      if(diff!==0) html+='<div style="font-size:10px;margin-top:2px;color:'+(diff>0?'#2D9B6F':'#C0392B')+';">'+(diff>0?'Excedente +':'Faltante ')+ff(Math.abs(diff))+'</div>';
+      html+='<div class="g-transf-monto">'+ff(transfMonto)+'</div>';
+      html+='<div class="g-transf-sub">'+hesc(transf.fecha||'')+'</div>';
+      if(diff!==0) html+='<div class="g-transf-dif '+(diff>0?'mas':'menos')+'">'+(diff>0?'Excedente +':'Faltante ')+ff(Math.abs(diff))+'</div>';
       // Barra de progreso conciliación
       var concPct=rep.conciliacion?Math.min(100,Math.round((rep.conciliacion.asignado/transfMonto)*100)):0;
       html+='<div class="prog-bar"><div class="prog-fill" style="width:'+concPct+'%"></div></div>';
-      html+='<div style="font-size:9.5px;color:#0e7490;margin-top:2px;">'+concPct+'% conciliado</div>';
+      html+='<div class="g-transf-pct">'+concPct+'% conciliado</div>';
     } else {
-      html+='<div style="font-size:11px;color:#9a849b;">Sin transferencia aún</div>';
+      html+='<div class="g-transf-sub">Sin transferencia aún</div>';
     }
     html+='</td>';
     html+='<td>'+tl+badge+'</td>';
     html+='<td style="text-align:right;">';
-    if(transf&&est!=='pagado') html+='<button class="btn-p" onclick="event.stopPropagation();irAConciliacion(\''+c.rut+'\')">🏦 Conciliar</button> ';
-    html+='<button class="btn-s" onclick="event.stopPropagation();toggleDet(\''+c.rut+'\')">👁</button>';
+    if(transf&&est!=='pagado') html+='<button class="btn-p" onclick="event.stopPropagation();irAConciliacion(\''+c.rut+'\')">'+gIcon('banco')+' Conciliar</button> ';
+    html+='<button class="btn-s g-ico" title="Ver detalle" onclick="event.stopPropagation();toggleDet(\''+c.rut+'\')">'+gIcon('ver')+'</button>';
     html+='</td></tr>';
 
     // Detalle expandido
-    html+='<tr><td colspan="5" style="padding:0;border-bottom:1px solid #e8dde8;"><div class="cr-detalle" id="det-'+c.rut+'">';
+    html+='<tr><td colspan="5" class="g-det-td"><div class="cr-detalle" id="det-'+c.rut+'">';
     if(rep.conciliacion&&rep.conciliacion.items){
-      html+='<div style="font-size:10px;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">Distribución de la transferencia</div>';
+      html+='<div class="g-det-tit">Distribución de la transferencia</div>';
       html+='<div class="det-grid">';
       rep.conciliacion.items.forEach(function(it){
         html+='<div class="det-card"><div class="det-titulo">'+hesc(it.concepto)+'</div>';
         html+='<div class="det-row"><span>Monto asignado</span><span>'+ff(it.monto)+'</span></div>';
-        html+='<div class="det-row"><span>Estado</span><span style="color:#2D9B6F">'+hesc(it.estado||'Asignado')+'</span></div>';
+        html+='<div class="det-row"><span>Estado</span><span class="g-ok-txt">'+hesc(it.estado||'Asignado')+'</span></div>';
         html+='</div>';
       });
       html+='</div>';
     } else {
-      html+='<div style="text-align:center;color:#9a849b;font-size:12px;padding:8px 0;">'+
-        (transf?'💸 Transferencia recibida  -  pendiente de distribuir por concepto':'⏳ Esperando transferencia del cliente')+'</div>';
+      html+='<div class="g-det-vacio">'+
+        (transf?'Transferencia recibida · pendiente de distribuir por concepto':'Esperando transferencia del cliente')+'</div>';
     }
     html+='</div></td></tr>';
   });
 
   document.getElementById('tablaBody').innerHTML=
     '<table><thead><tr><th>Cliente</th><th>Obligaciones del período</th><th>Transferencia</th><th>Estado · Flujo</th><th style="text-align:right">Acción</th></tr></thead><tbody>'
-    +(html||'<tr><td colspan="5" style="padding:24px;text-align:center;color:#9a849b">Sin clientes para este período</td></tr>')
+    +(html||'<tr><td colspan="5" class="g-vacio">Sin clientes para este período</td></tr>')
     +'</tbody></table>';
 }
 

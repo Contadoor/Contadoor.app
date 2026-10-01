@@ -282,6 +282,7 @@
       if(!topbar) return;
 
       var badge=document.createElement('div');
+      badge.className='g-badge';  // solo estilo: gestoor.css lo adapta al diseño (sin efecto en módulos sin gestoor.css)
       badge.style.cssText='display:flex;align-items:center;gap:8px;margin-right:8px;flex-shrink:0';
       badge.innerHTML=
         '<div style="width:28px;height:28px;border-radius:50%;background:rgba(144,72,145,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">'
@@ -304,6 +305,7 @@
         topbar.insertBefore(badge,btnEnTopbar);
       }else{
         var btnNuevo=document.createElement('button');
+        btnNuevo.className='g-salir';  // solo estilo
         btnNuevo.textContent='Salir';
         btnNuevo.style.cssText='background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0';
         btnNuevo.onclick=function(){
