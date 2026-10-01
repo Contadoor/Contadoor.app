@@ -632,6 +632,10 @@ function confirmarPago(){
   if(capital<0||interes<0){alert('Capital e intereses no pueden ser negativos.');return;}
   if(!quien){alert('Indica quién registra el pago.');return;}
   var orig=getConvenios().find(function(x){return x.id===_cuotaConvId;});if(!orig)return;
+  // Anti-subpago (fail-closed): capital + intereses debe cubrir al menos el valor pactado de la cuota.
+  // Se aceptan montos mayores (recargos, reajustes, multas). Si es menor, no se modifica nada.
+  var pactado=Number(orig.cuotas[_cuotaIdx]&&orig.cuotas[_cuotaIdx].monto)||0;
+  if(monto<pactado){alert('El pago ('+ff(monto)+') es menor que el valor pactado de la cuota ('+ff(pactado)+'). No se registró ningún cambio.');return;}
   var conv=JSON.parse(JSON.stringify(orig));
   conv.cuotas[_cuotaIdx].estado='pagada';
   if(conv.cuotas[_cuotaIdx].contab){alert('Esta cuota ya está contabilizada.');return;}
