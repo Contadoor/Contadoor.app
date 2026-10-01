@@ -5,69 +5,91 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestoor · Acceso</title>
+<link rel="icon" type="image/svg+xml" href="assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--p:#904891;--pd:#6D2E6E;--deep:#08040f;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.lcard{width:100%;max-width:380px;}
-.logo-z{text-align:center;margin-bottom:28px;}
-.logo-z img{height:36px;display:block;margin:0 auto 10px;}
-.app-n{font-size:13px;font-weight:500;}
-.app-n .g{color:#c9a6e8;}
-.app-n .d{color:rgba(240,235,255,.3);}
-.app-s{font-size:10px;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:1.8px;margin-top:3px;}
-.card{background:rgba(144,72,145,.06);border:1px solid rgba(144,72,145,.25);border-radius:16px;padding:26px;}
-.step-lbl{font-size:11px;font-weight:600;color:rgba(201,166,232,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;}
-.inp-wrap{position:relative;margin-bottom:12px;}
-.inp-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(201,166,232,.3);font-size:16px;pointer-events:none;}
-.inp-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(201,166,232,.3);font-size:14px;cursor:pointer;background:none;border:none;padding:4px;line-height:1;}
-.inp-eye:hover{color:rgba(201,166,232,.7);}
-.inp{width:100%;background:rgba(144,72,145,.08);border:1px solid rgba(144,72,145,.2);border-radius:9px;padding:11px 38px 11px 38px;font-size:13px;color:#f0ebff;font-family:var(--sans);outline:none;transition:.15s;}
-.inp::placeholder{color:rgba(240,235,255,.2);}
-.inp:focus{border-color:rgba(144,72,145,.6);}
-.inp.err{border-color:rgba(248,113,113,.5);}
-.inp-single{padding-right:12px;}
-.check-row{display:flex;align-items:center;gap:8px;margin:10px 0 14px;}
-.check-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--p);cursor:pointer;flex-shrink:0;}
-.check-row label{font-size:12px;color:rgba(240,235,255,.4);cursor:pointer;}
-.btn-p{width:100%;background:var(--p);border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--sans);transition:.15s;}
-.btn-p:hover{background:var(--pd);}
-.btn-p:disabled{opacity:.4;cursor:not-allowed;}
-.err-msg{font-size:12px;color:#f87171;margin-top:8px;min-height:16px;text-align:center;}
-.olvide{display:block;text-align:center;margin-top:12px;font-size:12px;color:rgba(201,166,232,.35);text-decoration:none;cursor:pointer;background:none;border:none;font-family:var(--sans);width:100%;}
-.olvide:hover{color:rgba(201,166,232,.65);}
-.footer{text-align:center;margin-top:16px;}
-.footer-line{font-size:10px;color:rgba(255,255,255,.1);letter-spacing:.5px;}
-.divider{width:40px;height:1px;background:rgba(144,72,145,.2);margin:8px auto;}
-.slogan{font-size:10px;color:rgba(201,166,232,.2);font-style:italic;}
-.loading-dots{display:inline-flex;gap:4px;margin-left:6px;}
-.loading-dots span{width:4px;height:4px;border-radius:50%;background:#fff;animation:ld .8s infinite both;}
-.loading-dots span:nth-child(2){animation-delay:.15s;}
-.loading-dots span:nth-child(3){animation-delay:.3s;}
+/* Acceso a Gestoor · tema "Todo oscuro" (solo apariencia; IDs y lógica sin cambio) */
+:root{--p:#924893;--pd:#803889;--acento:#C77BC9;--cifra:#E39BE5;--tinta:#F3E9F4;--tinta2:#C9A8CC;--tinta3:#8F6F94;--borde:#4A2B50;
+  --grad:linear-gradient(135deg,#A4599C,#924893 55%,#803889);--titulo:Montserrat,system-ui,sans-serif;--texto:Inter,system-ui,sans-serif;--sans:var(--texto)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{font-family:var(--texto);color:var(--tinta);background:#0C070E;background-image:radial-gradient(120% 80% at 20% 0%,#2A1235 0%,#17091A 50%,#0C070E 100%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;position:relative;overflow-x:hidden}
+/* barritas diagonales de la marca (estilo reels) */
+body::before,body::after{content:"";position:fixed;z-index:0;border-radius:40px;transform:rotate(20deg);pointer-events:none}
+body::before{right:-40px;top:-80px;width:46px;height:420px;background:linear-gradient(160deg,#A4599C,#803889);opacity:.35;
+  box-shadow:-80px 60px 0 -6px rgba(164,89,156,.22),-160px 120px 0 -12px rgba(164,89,156,.12)}
+body::after{left:-60px;bottom:-120px;width:40px;height:360px;background:linear-gradient(160deg,#A4599C,#803889);opacity:.22;
+  box-shadow:90px -40px 0 -6px rgba(164,89,156,.14)}
+.lcard{width:100%;max-width:400px;position:relative;z-index:1}
+.logo-z{text-align:center;margin-bottom:22px}
+.g-marca{display:inline-flex;align-items:center;gap:12px}
+.g-marca .ic{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.12);display:grid;place-items:center;box-shadow:0 10px 30px rgba(146,72,147,.35)}
+.g-marca .ic img{width:44px;height:44px;display:block}
+.g-marca .nom{font:900 30px var(--titulo);letter-spacing:-.01em;color:#fff}
+.g-marca .nom span{color:#F6D3F7}
+.app-s{font:600 11px var(--texto);color:var(--tinta3);text-transform:uppercase;letter-spacing:1.8px;margin-top:8px}
+.app-s b{color:var(--acento);font-weight:700}
+.card{background:linear-gradient(180deg,rgba(34,16,39,.92),rgba(23,9,26,.92));border:1px solid var(--borde);border-radius:24px;padding:28px 26px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);backdrop-filter:blur(6px)}
+.step-lbl{font:800 20px var(--titulo);color:var(--tinta);margin-bottom:4px}
+.step-sub{font-size:13px;color:var(--tinta2);margin-bottom:18px}
+.inp-wrap{position:relative;margin-bottom:12px}
+.inp-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--tinta3);pointer-events:none;display:grid}
+.inp-ico svg,.inp-eye svg{width:18px;height:18px}
+.inp-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--tinta3);cursor:pointer;background:none;border:none;padding:8px;line-height:0;border-radius:10px}
+.inp-eye:hover{color:var(--tinta);background:rgba(255,255,255,.05)}
+.inp{width:100%;min-height:50px;background:#12080f;border:1px solid var(--borde);border-radius:14px;padding:0 44px;font:500 15px var(--texto);color:var(--tinta);outline:none;transition:border-color .15s,box-shadow .15s}
+.inp::placeholder{color:var(--tinta3)}
+.inp:focus{border-color:var(--acento);box-shadow:0 0 0 3px rgba(199,123,201,.2)}
+.inp.err{border-color:#FF6B6B;box-shadow:0 0 0 3px rgba(255,107,107,.15)}
+.check-row{display:flex;align-items:center;gap:9px;margin:6px 0 18px}
+.check-row input[type=checkbox]{width:17px;height:17px;accent-color:var(--acento);cursor:pointer;flex-shrink:0}
+.check-row label{font-size:13px;color:var(--tinta2);cursor:pointer}
+.btn-p{width:100%;min-height:50px;background:var(--grad);border:none;border-radius:999px;font:700 15px var(--texto);color:#fff;cursor:pointer;
+  box-shadow:0 10px 26px rgba(146,72,147,.4);transition:transform .15s,box-shadow .15s}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(146,72,147,.5)}
+.btn-p:focus-visible,.olvide:focus-visible,.inp-eye:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
+.btn-p:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.err-msg{font-size:13px;color:#FF8A8A;margin-top:10px;min-height:18px;text-align:center}
+.olvide{display:block;text-align:center;margin-top:10px;font:600 13px var(--texto);color:var(--acento);cursor:pointer;background:none;border:none;width:100%;padding:8px}
+.olvide:hover{color:var(--cifra)}
+.footer{text-align:center;margin-top:18px}
+.footer-line{font-size:11px;color:var(--tinta3);letter-spacing:.3px}
+.divider{width:40px;height:2px;border-radius:2px;background:var(--grad);margin:10px auto;opacity:.6}
+.slogan{font-size:12px;color:var(--tinta2);font-style:italic}
+.loading-dots{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}
+.loading-dots span{width:5px;height:5px;border-radius:50%;background:#fff;animation:ld .8s infinite both}
+.loading-dots span:nth-child(2){animation-delay:.15s}
+.loading-dots span:nth-child(3){animation-delay:.3s}
 @keyframes ld{0%,80%,100%{opacity:.2}40%{opacity:1}}
-/* Panel de éxito recuperación */
-.ok-msg{font-size:13px;color:#6ee7b7;text-align:center;margin-top:10px;line-height:1.6;display:none;}
+.ok-msg{font-size:14px;color:#5FE3AE;text-align:center;margin-top:12px;line-height:1.6;display:none}
+@media (prefers-reduced-motion:reduce){.loading-dots span{animation:none}.btn-p{transition:none}}
 </style>
 </head>
 <body>
 <div class="lcard">
   <div class="logo-z">
-    <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
-    <div class="app-n"><span class="g">Gestoor</span> <span class="d">· Contadoor</span></div>
-    <div class="app-s">Sistema de gestión interno</div>
+    <div class="g-marca" role="img" aria-label="Gestoor">
+      <span class="ic"><img src="assets/gestoor-icono.svg" alt=""></span>
+      <span class="nom">Gest<span>oor</span></span>
+    </div>
+    <div class="app-s">Sistema de gestión interno · <b>by Contadoor</b></div>
   </div>
   <div class="card" id="cardLogin">
     <!-- INICIO DE SESIÓN -->
     <div id="panelLogin">
       <div class="step-lbl">Iniciar sesión</div>
+      <div class="step-sub">Bienvenido de vuelta 👋</div>
       <div class="inp-wrap">
-        <span class="inp-ico">✉</span>
+        <span class="inp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
         <input class="inp" type="email" id="inp-email" placeholder="Correo electrónico" autocomplete="email"/>
       </div>
       <div class="inp-wrap">
-        <span class="inp-ico">🔒</span>
+        <span class="inp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
         <input class="inp" type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password"/>
-        <button type="button" class="inp-eye" id="btn-eye" title="Mostrar/ocultar contraseña">👁</button>
+        <button type="button" class="inp-eye" id="btn-eye" title="Mostrar/ocultar contraseña" aria-label="Mostrar u ocultar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
       </div>
       <div class="check-row">
         <input type="checkbox" id="chk-recordar" checked>
@@ -80,14 +102,15 @@ body{font-family:var(--sans);background:var(--deep);min-height:100vh;display:fle
     <!-- RECUPERAR CONTRASEÑA -->
     <div id="panelRecuperar" style="display:none">
       <div class="step-lbl">Recuperar contraseña</div>
+      <div class="step-sub">Te enviaremos un enlace a tu correo.</div>
       <div class="inp-wrap">
-        <span class="inp-ico">✉</span>
+        <span class="inp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
         <input class="inp" type="email" id="inp-email-rec" placeholder="Tu correo electrónico" autocomplete="email"/>
       </div>
       <button class="btn-p" id="btn-enviar-rec">Enviar instrucciones</button>
       <div class="err-msg" id="err-rec"></div>
       <div class="ok-msg" id="ok-rec">
-        ✅ Revisa tu correo.<br>Recibirás un link para restablecer tu contraseña.
+        Revisa tu correo.<br>Recibirás un enlace para restablecer tu contraseña.
       </div>
       <button type="button" class="olvide" id="btn-volver-login">← Volver al inicio de sesión</button>
     </div>
