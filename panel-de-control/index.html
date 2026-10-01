@@ -1381,7 +1381,7 @@ function renderNomina(){
     html+='<div class="'+cls+(est.listo?' listo':'')+(est.enviado?' enviado':'')+'">';
     html+='<input type="checkbox" class="nomina-chk" data-id="'+rid+'" aria-label="Seleccionar '+hesc(r.clienteNombre||r.rut)+'">';
     html+='<div class="g-cli"><b title="'+hesc(r.clienteNombre||r.rut)+'">'+hesc(r.clienteNombre||r.rut)
-      +(function(pr){return '<span class="g-prio '+pr+'">'+({alta:'Alta',media:'Media',baja:'Baja'}[pr]||'Media')+'</span>';})(r.prioridadRrhh||'media')+'</b>'
+      +(function(pr){pr=({alta:1,media:1,baja:1})[pr]?pr:'media';return '<span class="g-prio '+pr+'">'+{alta:'Alta',media:'Media',baja:'Baja'}[pr]+'</span>';})(r.prioridadRrhh||'media')+'</b>'
       +'<span>'+hesc(r.rut)+'</span>'+(quien?'<span class="g-quien">'+quien+'</span>':'')+'</div>';
     html+='<div class="g-avs">'+_gAvatar(c.contador||c.analistaContable)+_gAvatar(c.rrhh||c.analistaRrhh)+'</div>';
     html+='<div class="g-col"><small>RRHH</small>'+chip('rrhh')+'</div>';
