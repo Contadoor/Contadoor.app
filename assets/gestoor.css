@@ -812,3 +812,35 @@ body.g-mod-pros{--g-acento:#C77BC9}
 /* Barras de avance (.g-prog i / .prog-fill): el degradado morado debe ganarle al brillo genérico de arriba
    (la regla de brillo tenía más especificidad y dejaba la barra transparente, p. ej. "Por analista" del Panel). */
 .g-shell.g-tema-noche :is(.g-prog i,.prog-fill){background-color:transparent;background-image:linear-gradient(90deg,#924893,#C77BC9 70%,#E39BE5)}
+
+/* Convenios · capital, intereses y contabilización */
+.g-cuotas i.okp{background:rgba(52,211,153,.18);box-shadow:inset 0 0 0 2px #34D399}
+.g-cv-fin{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px;font-size:11px;color:#8F6F94}
+.g-cv-fin b{color:#E3CFE5;font-weight:700;font-variant-numeric:tabular-nums}
+.g-cv-fin b.int,.g-cv-saldo-cli b.int{color:#FFC85A}
+.g-cv-fin b.pend{color:#FFD24D}
+.g-sin-des{color:#FFC85A;font-style:normal;font-weight:800;font-size:10px;margin-left:3px;cursor:help}
+.g-chk-contab{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#FFD24D;cursor:pointer;white-space:nowrap}
+.g-chk-contab.on{color:#5FE3AE}
+.g-chk-contab input:disabled{cursor:not-allowed}.g-chk-contab:has(input:disabled){color:#8F6F94;cursor:not-allowed}
+.g-contab{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700}
+.g-contab.ok{color:#5FE3AE}.g-contab.pend{color:#FFD24D}.g-contab svg{width:12px;height:12px}
+/* Impresión de la tabla de amortización: solo el modal, en blanco */
+@media print{
+  body.g-mod-conv *{visibility:hidden!important}
+  body.g-mod-conv #modalAmort,body.g-mod-conv #modalAmort *{visibility:visible!important;color:#1A121C!important;background:transparent!important;box-shadow:none!important;animation:none!important}
+  body.g-mod-conv #modalAmort{position:absolute!important;inset:0!important;display:block!important;background:#fff!important}
+  body.g-mod-conv #modalAmort .modal{max-width:none!important;border:0!important;padding:0!important}
+  body.g-mod-conv #modalAmort .modal-footer{display:none!important}
+  body.g-mod-conv #modalAmort .amort-header{border:1px solid #ccc!important}
+  body.g-mod-conv #modalAmort td,body.g-mod-conv #modalAmort th{border-bottom:1px solid #ddd!important}
+}
+/* Contabilizada: selector Sí / No */
+.g-sino{display:inline-flex;padding:3px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid #4A2B50;gap:2px}
+.g-sino button{border:0;background:transparent;color:#8F6F94;font:800 11px var(--g-texto);padding:4px 12px;border-radius:999px;cursor:pointer;min-height:24px;transition:.15s}
+.g-sino button:not(:disabled):hover{color:#fff;background:rgba(255,255,255,.06)}
+.g-sino button:disabled{cursor:default}
+.g-sino .si.on{background:linear-gradient(135deg,#46D69A,#22A870);color:#04150D;box-shadow:0 0 10px rgba(52,211,153,.35)}
+.g-sino .no.on{background:rgba(255,210,77,.16);color:#FFD24D;box-shadow:inset 0 0 0 1px rgba(255,210,77,.45)}
+.g-sino.bloq .si{opacity:.35}
+.g-sino-q{display:block;font-size:10px;color:#8F6F94;margin-top:3px;white-space:nowrap}.g-sino-q.warn{color:#FFC85A}
