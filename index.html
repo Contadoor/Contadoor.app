@@ -1,333 +1,284 @@
-
 <!DOCTYPE html>
 <html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestoor — Sistema de Gestión Contadoor</title>
-<style>
-html,body{background:#08040f;margin:0;padding:0;}
-:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--sans);background:var(--deep);color:#f0ebff;min-height:100vh;}
-.header{padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(144,72,145,.2);position:sticky;top:0;z-index:10;background:var(--deep);}
-.header-left{display:flex;align-items:center;gap:14px;}
-.header-left img{height:34px;}
-.divider{width:1px;height:24px;background:rgba(255,255,255,.1);}
-.app-name{font-size:15px;font-weight:700;color:#fff;}
-.app-ver{font-size:10px;color:rgba(255,255,255,.2);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
-.header-right{display:flex;align-items:center;gap:10px;}
-#sessionBadge{font-size:11px;color:rgba(255,255,255,.5);}
-#btnLogout{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;display:none;font-family:inherit;}
-#btnLogout:hover{background:rgba(192,0,0,.2);color:#f87171;border-color:rgba(192,0,0,.3);}
-.hero{padding:22px 40px 18px;text-align:center;border-bottom:1px solid rgba(144,72,145,.15);background:linear-gradient(135deg,#08040f 0%,#2d0a3e 50%,#08040f 100%);position:relative;overflow:hidden;}
-.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(144,72,145,.18) 0%,transparent 65%);pointer-events:none;}
-.hero-eye{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(144,72,145,.55);margin-bottom:6px;}
-.hero-title{font-size:26px;font-weight:800;color:rgba(240,235,255,.92);line-height:1.2;margin-bottom:5px;letter-spacing:1px;}
-.hero-title span{color:#c9a6e8;letter-spacing:-.5px;}
-.hero-sub{font-size:12px;color:rgba(240,235,255,.28);margin-bottom:16px;letter-spacing:.2px;}
-.hero-stats{display:inline-flex;gap:0;background:rgba(144,72,145,.07);border:1px solid rgba(144,72,145,.15);border-radius:10px;overflow:hidden;}
-.hstat{text-align:center;padding:10px 22px;border-right:1px solid rgba(144,72,145,.12);}
-.hstat:last-child{border-right:none;}
-.hstat-v{font-size:19px;font-weight:700;color:#fff;}
-.hstat-l{font-size:10px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
-.main{max-width:1100px;margin:0 auto;padding:32px 20px 60px;background:#08040f;}
-.section{margin-bottom:32px;}
-.sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-.sec-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
-.sec-title{font-size:14px;font-weight:700;color:#fff;}
-.sec-desc{font-size:11px;color:rgba(255,255,255,.3);margin-top:1px;}
-.sec-line{height:1px;background:rgba(144,72,145,.12);margin-bottom:14px;}
-.mod-grid{display:grid;gap:10px;}
-.g2{grid-template-columns:1fr 1fr;}
-.g3{grid-template-columns:1fr 1fr 1fr;}
-.g4{grid-template-columns:1fr 1fr 1fr 1fr;}
-.mod{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:16px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;}
-.mod::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--mc,var(--p));opacity:.6;}
-.mod:hover{background:rgba(144,72,145,.09);border-color:rgba(144,72,145,.3);transform:translateY(-2px);}
-.mod.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
-.mod-top{display:flex;justify-content:space-between;align-items:flex-start;}
-.mod-icon{width:36px;height:36px;border-radius:8px;background:rgba(144,72,145,.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-.mod-badges{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
-.badge{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;}
-.b-activo{background:rgba(45,155,111,.2);color:#6ee7b7;border:1px solid rgba(45,155,111,.3);}
-.b-nuevo{background:rgba(144,72,145,.2);color:#d8b4fe;border:1px solid rgba(144,72,145,.3);}
-.b-dev{background:rgba(192,122,26,.2);color:#fcd34d;border:1px solid rgba(192,122,26,.3);}
-.b-plan{background:rgba(255,255,255,.06);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);}
-.mod-name{font-size:12px;font-weight:700;color:#fff;line-height:1.3;}
-.mod-desc{font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;}
-.mod-footer{display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(255,255,255,.05);}
-.mod-cta{font-size:11px;font-weight:600;color:var(--mc,var(--p));}
-.footer{border-top:1px solid rgba(144,72,145,.1);padding:16px 40px;text-align:center;font-size:10px;color:rgba(255,255,255,.15);}
-.footer span{color:var(--p);}
-@media(max-width:900px){.g3{grid-template-columns:1fr 1fr;}.g4{grid-template-columns:1fr 1fr;}.hero{padding:28px 16px 20px;}.main{padding:20px 12px 40px;}.header{padding:0 16px;}}
-@media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr;}.hero-stats{gap:16px;padding:10px 16px;}}
-
-.page-wrap{margin-left:220px;}
-</style>
+<title>Inicio · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<style>
+/* Estructura base (igual que los demás módulos): menú fijo a la izquierda */
+*{box-sizing:border-box;margin:0;padding:0}
+.layout{display:flex;min-height:100vh}
+.sidebar{display:flex;flex-direction:column;position:fixed;height:100vh;top:0;left:0;z-index:20}
+.main{flex:1;min-width:0;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+/* Inicio (vista Master) · tema Todo oscuro. Datos reales; lo que aún no tiene datos en la base va como "Próximamente". */
+.in-err{display:none;background:rgba(229,72,77,.14);border:1px solid rgba(229,72,77,.4);color:#FF8A8A;border-radius:14px;padding:12px 16px;margin-bottom:14px}
+.in-card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;padding:18px 20px}
+.in-card h2{display:flex;align-items:center;gap:8px;font:800 17px var(--g-titulo);color:#F3E9F4;margin-bottom:4px}
+.in-card h2 .g-ic{width:17px;height:17px;color:#E39BE5}
+.in-card .sub{font-size:12px;color:#8F6F94;margin-bottom:14px}
+.in-grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-top:16px}
+.in-pronto{position:relative;border-style:dashed;border-color:#4A2B50;opacity:.92}
+.in-pronto .tag{position:absolute;right:16px;top:16px;font:800 10px var(--g-texto);letter-spacing:1px;text-transform:uppercase;color:#FFD24D;background:rgba(255,210,77,.12);border:1px solid rgba(255,210,77,.35);border-radius:999px;padding:3px 9px}
+.in-pronto p{font-size:13px;color:#A98AAE;line-height:1.55}
+.in-aprob{display:flex;align-items:center;gap:14px;margin-top:16px}
+.in-aprob .ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(255,210,77,.12);color:#FFD24D;flex:none}
+.in-aprob .ic .g-ic{width:22px;height:22px}
+/* Gráfico de barras: facturación 6 meses */
+.in-bars{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;height:200px;padding-top:24px}
+.in-bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+.in-bar .v{font:800 11px var(--g-texto);color:#E3CFE5;white-space:nowrap}
+.in-bar .b{width:70%;max-width:48px;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#C77BC9,#924893);min-height:3px;animation:g-carga .8s cubic-bezier(.2,.8,.2,1) both;transform-origin:bottom center}
+.in-bar.vacio .b{background:#2A1430}
+.in-bar.parcial .b{background:repeating-linear-gradient(135deg,#924893 0 6px,#6D2E6E 6px 12px)}
+.in-bar .m{font:700 11px var(--g-texto);color:#8F6F94;text-transform:capitalize}
+.in-bar.actual .m{color:#F3E9F4}
+.in-ley{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#8F6F94;margin-top:12px}
+.in-ley i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+/* Avance del equipo */
+.in-as{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid #2E1834}
+.in-as:first-of-type{border-top:0}
+.in-as strong{display:block;font-size:13.5px;color:#F3E9F4}.in-as small{font-size:11px;color:#8F6F94}
+.in-as .n{text-align:right;font:800 13px var(--g-texto);color:#E3CFE5;white-space:nowrap}
+.in-as .g-prog{margin-top:6px;height:6px}
+.in-as.atr strong,.in-as.atr .n{color:#FF8A8A}
+.in-as.atr .g-prog i{background-image:linear-gradient(90deg,#E5484D,#FF8A8A)!important}
+.in-as:not(.atr) .g-prog i[style*="100%"]{background-image:linear-gradient(90deg,#22A870,#5FE3AE)!important}
+.in-av{width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--g-grad,#924893);color:#fff;font:800 12px var(--g-titulo)}
+.in-av img{width:100%;height:100%;object-fit:cover}
+/* Clientes por estado */
+.in-est{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.in-est button{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.03);border:1px solid #3A2140;border-radius:14px;padding:12px 14px;color:#E3CFE5;font:600 13px var(--g-texto);cursor:pointer;text-align:left}
+.in-est button:hover{border-color:#7A4A82}
+.in-est button b{font:900 22px var(--g-titulo)}
+.in-est .activo b{color:#5FE3AE}.in-est .onboarding b{color:#8EC5FF}.in-est .suspendido b{color:#FFD24D}.in-est .inactivo b{color:#C9A8CC}
+.in-est button small{display:block;font-size:11px;color:#8F6F94;font-weight:500}
+.in-pr{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.in-pr .in-card{padding:16px}
+.in-pr h3{font:800 14px var(--g-titulo);color:#F3E9F4;margin-bottom:6px;display:flex;gap:7px;align-items:center}
+.in-pr .in-pronto .tag{position:static;display:inline-block;margin-bottom:8px}
+.in-pr h3 .g-ic{width:15px;height:15px;color:#E39BE5}
+/* Modal "Ver cuáles" */
+.in-velo{position:fixed;inset:0;background:rgba(5,2,8,.6);z-index:40;display:none;align-items:center;justify-content:center;padding:16px}
+.in-velo.on{display:flex}
+.in-modal{width:min(520px,100%);max-height:80vh;overflow:auto;background:#170B1B;border:1px solid #4A2B50;border-radius:20px;padding:20px}
+.in-modal h3{font:800 18px var(--g-titulo);margin-bottom:12px;color:#F3E9F4}
+.in-modal li{list-style:none;padding:9px 0;border-top:1px solid #2E1834;font-size:13.5px;color:#E3CFE5;display:flex;justify-content:space-between;gap:10px}
+.in-modal li small{color:#8F6F94}
+.in-cer{float:right;background:#2A1430;border:0;color:#E3CFE5;width:34px;height:34px;border-radius:10px;cursor:pointer}
+@media(max-width:1100px){.in-grid2{grid-template-columns:1fr}}
+@media(max-width:560px){.in-est,.in-pr{grid-template-columns:1fr}.in-bars{height:170px;gap:6px}.in-bar .v{font-size:10px}}
+</style>
 </head>
-<body>
-<header class="header">
-  <div class="header-left">
-    <img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" alt="Contadoor"/>
-    <div class="divider"></div>
-    <div>
-      <div class="app-name">Gestoor</div>
-      <div class="app-ver">Sistema interno · Contadoor</div>
-    </div>
+<body class="g-shell g-tema-noche g-mod-inicio">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="inicio"></aside>
+<script src="assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar">
+    <h1 class="tb-title">Ini<span>cio</span></h1>
+    <span class="g-chip-per" id="in-per" style="display:none"></span>
+    <div class="g-espacio"></div>
   </div>
-  <div class="header-right">
-    <div id="sessionBadge">Cargando...</div>
-    <button id="btnLogout">Salir</button>
-  </div>
-</header>
+  <div class="g-contenido">
+    <div class="in-err" id="in-err" role="alert"></div>
+    <div id="in-hero"></div>
 
-<div class="hero">
-  <div class="hero-eye">Centro de Operaciones</div>
-  <div class="hero-title">GESTOOR</div>
-  <div class="hero-sub">Gesti&#243;n, control y seguimiento en tiempo real</div>
-  <div class="hero-stats">
-    <div class="hstat"><div class="hstat-v" id="stat-clientes">&#8212;</div><div class="hstat-l">Clientes activos</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-periodo">&#8212;</div><div class="hstat-l">Per&#237;odo actual</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-pendientes">&#8212;</div><div class="hstat-l">Procesos pendientes</div></div>
-    <div class="hstat"><div class="hstat-v" id="stat-alertas">&#8212;</div><div class="hstat-l">Alertas</div></div>
-  </div>
-</div>
+    <section class="in-card in-pronto in-aprob">
+      <span class="tag">Próximamente</span>
+      <span class="ic"><span data-g-ic="aprobar"></span></span>
+      <div><h2 style="margin:0">Pagos por aprobar</h2><p>Aquí verás los pagos que el equipo envía a tu aprobación. Se activa cuando Aprobaciones guarde sus datos en la base de Gestoor (hoy los guarda en el navegador).</p></div>
+    </section>
 
-<div class="main">
+    <div class="in-grid2">
+      <section class="in-card">
+        <h2><span data-g-ic="grafico"></span> Facturación de Nuestros servicios</h2>
+        <div class="sub">Últimos 6 meses · calculada igual que el Panel de Control (plan + trabajadores − descuento)</div>
+        <div class="in-bars" id="in-bars"></div>
+        <div class="in-ley"><span><i style="background:linear-gradient(180deg,#C77BC9,#924893)"></i>Completa</span><span><i style="background:repeating-linear-gradient(135deg,#924893 0 3px,#6D2E6E 3px 6px)"></i>Parcial (faltan datos en algún cliente)</span><span><i style="background:#2A1430"></i>Sin nómina</span></div>
+      </section>
+      <section class="in-card">
+        <h2><span data-g-ic="personal"></span> Avance del equipo</h2>
+        <div class="sub" id="in-eq-sub">Período activo · clientes listos por asesor</div>
+        <div id="in-equipo"></div>
+      </section>
+    </div>
 
-  <!-- GESTIÓN -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(144,72,145,.2)">🗂️</div>
-      <div><div class="sec-title">Gestión</div><div class="sec-desc">Base de datos, clientes y planes</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g2">
-      <a class="mod" href="clientes/index.html" data-gestoor-modulo="clientes" style="--mc:#904891">
-        <div class="mod-top"><div class="mod-icon">👥</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Clientes</div><div class="mod-desc">Ficha completa, credenciales SII, socios, planes asignados y condición IVA.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="planes/index.html" data-gestoor-modulo="planes" style="--mc:#904891">
-        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Planes y Servicios</div><div class="mod-desc">📋 Cumplimiento · 📊 Asesoría · ⭐ Estratégico. Planes custom y catálogo de servicios.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- TRIBUTARIO -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(59,130,246,.15)">🏛️</div>
-      <div><div class="sec-title">Tributario</div><div class="sec-desc">Proyecciones y análisis de impuestos</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g2">
-      <a class="mod" href="pir/index.html" data-gestoor-modulo="pir" style="--mc:#3B82F6">
-        <div class="mod-top"><div class="mod-icon">📊</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">PIR — Proyección Impuesto a la Renta</div><div class="mod-desc">Carga libro diario CSV, calcula RLI, IDPC, PPM anual, RAI y F22 por socio.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="pre-iva/index.html" data-gestoor-modulo="pre-iva" style="--mc:#904891">
-        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-nuevo">🆕 Nuevo</span></div></div>
-        <div><div class="mod-name">Pre-IVA — Proyección mensual</div><div class="mod-desc">Carga libros MasContable, proyecta F29 con PPM, envía proyección al cliente días 20–25.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- REMUNERACIONES -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(45,155,111,.15)">👷</div>
-      <div><div class="sec-title">Remuneraciones</div><div class="sec-desc">Reportes y gestión de personal</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g3">
-      <a class="mod" href="panel-de-control/index.html" data-gestoor-modulo="panel-de-control" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Panel de Control</div><div class="mod-desc">Flujo mensual de 7 pasos. Estado de todos los clientes RRHH, F29 y honorarios.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="reportes-rrhh/index.html" data-gestoor-modulo="reportes-rrhh" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">👥</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Reporte RRHH</div><div class="mod-desc">Vista RRHH por cliente. Liquidaciones, cotizaciones y declaración previsional.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">👷</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Gestión de Personal</div><div class="mod-desc">Contratos, vencimientos, ciclo de vida del trabajador y gestión documental.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- CONTABLE -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(192,122,26,.15)">📊</div>
-      <div><div class="sec-title">Contable</div><div class="sec-desc">Declaraciones, pagos y convenios</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g3">
-      <a class="mod" href="reportes-contable/index.html" data-gestoor-modulo="reportes-contable" style="--mc:#C07A1A">
-        <div class="mod-top"><div class="mod-icon">🏛️</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Reporte Contable</div><div class="mod-desc">Vista contable por cliente. F29, remanentes, PPM y estado de declaraciones.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="reportes-pagos/index.html" data-gestoor-modulo="reportes-pagos" style="--mc:#C07A1A">
-        <div class="mod-top"><div class="mod-icon">💰</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Reporte Pagos</div><div class="mod-desc">Control de pagos y transferencias recibidas por cliente en el período.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="convenios/index.html" style="--mc:#C07A1A">
-        <div class="mod-top"><div class="mod-icon">🤝</div><div class="mod-badges"></div></div>
-        <div><div class="mod-name">Convenios</div><div class="mod-desc">Convenios de pago por cliente: deuda que originó el convenio, cuotas y tabla de amortización.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- FINANCIERO -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(59,130,246,.15)">🏦</div>
-      <div><div class="sec-title">Financiero</div><div class="sec-desc">Pagos, conciliación bancaria y cobranza</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g3">
-      <a class="mod" href="pagos/index.html" data-gestoor-modulo="pagos" style="--mc:#3B82F6">
-        <div class="mod-top"><div class="mod-icon">💰</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">✅ Aprobaciones</div><div class="mod-desc">Revisión y aprobación de pagos preparados por los analistas.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod" href="conciliacion/index.html" data-gestoor-modulo="conciliacion" style="--mc:#3B82F6">
-        <div class="mod-top"><div class="mod-icon">🏦</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Conciliación Bancaria</div><div class="mod-desc">Carga transferencias Itaú, auto-match por RUT y monto contra CxC.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#3B82F6">
-        <div class="mod-top"><div class="mod-icon">📋</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">CxC / Cobranza</div><div class="mod-desc">Cuentas por cobrar, gestión de mora y seguimiento de deuda.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#904891">
-        <div class="mod-top"><div class="mod-icon">🧾</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Facturación</div><div class="mod-desc">Emisión de facturas, notas de crédito y seguimiento de cobros.</div></div>
-        <div class="mod-footer"><span class="mod-cta" style="color:var(--tm)">Próximamente</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- COMERCIAL -->
-  <div class="section">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(45,155,111,.15)">📈</div>
-      <div><div class="sec-title">Comercial</div><div class="sec-desc">CRM, cotizaciones y comunicaciones con clientes</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g4">
-      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">📈</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">CRM</div><div class="mod-desc">Gestión de leads y seguimiento comercial de prospectos.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">📝</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Cotizaciones</div><div class="mod-desc">Genera cotizaciones desde catálogo de planes y servicios adicionales.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">✉️</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Comunicaciones</div><div class="mod-desc">Newsletter, tips tributarios y calendario de vencimientos masivo.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-      <a class="mod disabled" href="#" style="--mc:#2D9B6F">
-        <div class="mod-top"><div class="mod-icon">📊</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Performance</div><div class="mod-desc">Métricas y análisis de rendimiento del negocio Contadoor.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Próximamente</span></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- CONFIGURACIÓN -->
-  <div class="section" data-gestoor-seccion="admin">
-    <div class="sec-hd">
-      <div class="sec-icon" style="background:rgba(255,255,255,.08)">⚙️</div>
-      <div><div class="sec-title">Configuración</div><div class="sec-desc">Usuarios y administración del sistema</div></div>
-    </div>
-    <div class="sec-line"></div>
-    <div class="mod-grid g2">
-      <a class="mod" href="admin/index.html" style="--mc:#9A849B">
-        <div class="mod-top"><div class="mod-icon">👤</div><div class="mod-badges"><span class="badge b-activo">✅ Activo</span></div></div>
-        <div><div class="mod-name">Admin — Usuarios</div><div class="mod-desc">Gestión de usuarios, roles, PINs, módulos asignados y WhatsApp por analista.</div></div>
-        <div class="mod-footer"><span class="mod-cta">Abrir →</span></div>
-      </a>
-      <div class="mod" style="--mc:#9A849B;cursor:default">
-        <div class="mod-top"><div class="mod-icon">🌐</div><div class="mod-badges"><span class="badge b-dev">🔧 Próximo</span></div></div>
-        <div><div class="mod-name">Mi Contadoor — Portal cliente</div><div class="mod-desc">Portal externo donde cada cliente verá sus reportes, F29, liquidaciones y estado de pagos.</div></div>
-        <div class="mod-footer"><span class="mod-cta" style="color:rgba(255,255,255,.2)">Próximamente</span></div>
+    <div class="in-grid2">
+      <section class="in-card">
+        <h2><span data-g-ic="clientes"></span> Clientes por estado</h2>
+        <div class="sub">Toca un estado para ver cuáles son</div>
+        <div class="in-est" id="in-est"></div>
+      </section>
+      <div class="in-pr">
+        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="banco"></span> Recaudación diaria</h3><p>Pagos recibidos día a día, de Nuestros servicios y adicionales.</p></section>
+        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="cobranza"></span> Cuentas por cobrar</h3><p>Antigüedad de la deuda y principales deudores.</p></section>
+        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="grafico"></span> Ingresos vs facturación</h3><p>Cuánto de lo facturado se ha recaudado, mes a mes.</p></section>
+        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="factura"></span> Servicios adicionales</h3><p>Operación Renta, regularizaciones, informes y otros.</p></section>
       </div>
     </div>
+
+    <section class="in-card in-pronto" style="margin-top:16px">
+      <span class="tag">Próximamente</span>
+      <h2><span data-g-ic="repetir"></span> Tus tareas de gestión</h2>
+      <p>Tareas recurrentes solo tuyas (arriendo, sueldos, Previred y F29 de Contadoor…), con su frecuencia y recordatorio.</p>
+    </section>
   </div>
-
+</main>
 </div>
 
-<div class="footer">
-  <span>Gestoor</span> · Asesorías Contadoor Ltda. · RUT 77.166.269-2 · Sistema de uso interno exclusivo
-</div>
+<div class="in-velo" id="in-velo" role="dialog" aria-modal="true"><div class="in-modal" id="in-modal"></div></div>
 
+<script src="supabase.js"></script>
 <script>
-(function(){
-  try{
-    // Período actual — lógica puramente visual, sin sesión ni identidad
-    var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    var hoy=new Date();
-    var statP=document.getElementById('stat-periodo');
-    if(statP) statP.textContent=meses[hoy.getMonth()]+' '+hoy.getFullYear();
-    // stat-pendientes y stat-alertas: pendiente conexión a Panel de Control
-  }catch(e){}
-})();
-
-// DASHBOARD-ROL-1: stat-clientes desde Supabase (RLS filtra según usuario)
-// Nunca usar localStorage — puede contener datos de otra sesión.
-// Se ejecuta UNA SOLA VEZ cuando auth.js confirma la sesión
-// (mismo patrón MutationObserver sobre auth-pending ya probado en otros módulos).
-function cargarStatClientes(){
-  sbFetch('clientes?select=id&estado=eq.activo')
-    .then(function(r){ return r.ok?r.json():Promise.reject(r.status); })
-    .then(function(rows){
-      var el=document.getElementById('stat-clientes');
-      if(el) el.textContent=rows.length;
-    })
-    .catch(function(){
-      var el=document.getElementById('stat-clientes');
-      if(el) el.textContent='\u2014';  // '—' si falla — nunca localStorage
-    });
-}
-(function(){
-  var _cargado=false;
-  function ejecutar(){ if(_cargado) return; _cargado=true; cargarStatClientes(); }
-  if(!document.documentElement.classList.contains('auth-pending')){
-    ejecutar();
-  }else{
-    var obs=new MutationObserver(function(m){
-      m.forEach(function(mut){
-        if(mut.attributeName==='class'&&
-           !document.documentElement.classList.contains('auth-pending')){
-          obs.disconnect(); ejecutar();
-        }
-      });
-    });
-    obs.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
+// ═══════════════════════════════════════════════════════════
+// INICIO · vista Master (Etapa 1): solo datos reales de la base.
+// Las funciones marcadas "IDÉNTICA AL PANEL" son copia exacta de panel-de-control/index.html
+// (prueba: descargas/pruebas-rediseno/inicio_vs_panel_test.mjs). No duplicar con cambios.
+// ═══════════════════════════════════════════════════════════
+var _cli=[], _rep=[], _per=[], _perAct=null;
+function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
+function ffc(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toLocaleString('es-CL',{maximumFractionDigits:1})+'M':n>=1e3?'$'+Math.round(n/1e3)+'K':'$'+n;}
+var MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+var MES_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function perTxt(p){var a=String(p).split('-');return MES_L[(+a[1])-1]+' '+a[0];}
+function err(m){var e=document.getElementById('in-err');e.textContent=m;e.style.display='block';}
+// Mismo contrato que el Panel: getClientes() entrega los clientes mapeados.
+function getClientes(){return _cli;}
+// UF del período desde la tabla periodos (fuente única de UF/UTM).
+function _ufDelPeriodo(periodo){var n=String(periodo||'').replace('-','');var p=_per.find(function(x){return String(x.periodo).replace('-','')===n;});return p&&Number(p.uf)||0;}
+// ── IDÉNTICAS AL PANEL ──
+function _rrhhListo(r){var s=r.secciones||{};return r.tieneRrhh===false||!!(s.rrhh&&(s.rrhh.ok||s.rrhh.na));}
+function _contableListo(r){return r.tieneCont===false||r.listoPanelControl===true;}
+function calcularServicios(r){
+  var c=getClientes().find(function(x){return x.rut===r.rut;})||{};
+  var falta=[];
+  var monto=Number(c.monto)||0, varTrab=Number(c.varTrab)||0;
+  var uf=_ufDelPeriodo(r.periodo);
+  if(!monto)falta.push('monto del plan en la ficha del cliente');
+  var usaUf=(c.moneda!=='CLP')||(varTrab>0&&c.monedaVar!=='CLP');
+  if(usaUf&&!uf)falta.push('UF del período');
+  var nTrab=0, incl=Number(c.trabIncl)||0;
+  if(varTrab>0&&r.tieneRrhh!==false){
+    if(_rrhhListo(r))nTrab=Number(r.nTrab)||0;
+    else falta.push('trabajadores informados por RRHH');
   }
-})();
+  var nCobrados=Math.max(0,nTrab-incl);
+  var base=c.moneda==='CLP'?monto:monto*uf;
+  var perR=String(r.periodo||'').length===6?String(r.periodo).slice(0,4)+'-'+String(r.periodo).slice(4):String(r.periodo||'');
+  var descVigente=!!(c.descTipo&&c.descValor>0&&(!c.descDesde||perR>=c.descDesde)&&(!c.descHasta||perR<=c.descHasta));
+  var descuento=!descVigente?0:c.descTipo==='porcentaje'?base*Math.min(c.descValor,100)/100:(c.moneda==='CLP'?c.descValor:c.descValor*uf);
+  descuento=Math.min(descuento,base);
+  var variable=nCobrados*varTrab*(c.monedaVar==='CLP'?1:uf);
+  var ok=!falta.length;
+  return{ok:ok,base:Math.round(base),descuento:Math.round(descuento),variable:Math.round(variable),total:ok?Math.round(base-descuento+variable):0,
+    descTipo:descVigente?c.descTipo:'',descValor:descVigente?c.descValor:0,
+    nTrab:nTrab,incluidos:incl,nCobrados:nCobrados,uf:uf,moneda:c.moneda,monto:monto,monedaVar:c.monedaVar,varTrab:varTrab,falta:falta};
+}
+function _estadoSecciones(r){
+  var rr=_rrhhListo(r), im=_contableListo(r), sv=calcularServicios(r).ok;
+  var enviado=r.estado==='enviado_total'||r.estado==='enviado';
+  return{rrhh:rr,imp:im,hon:sv,completo:rr&&im&&sv,listo:rr&&im&&sv&&!enviado,enviado:enviado};
+}
+// ── Carga (fail-closed: si una consulta falla se muestra el error, nunca ceros inventados) ──
+function q(path){return sbFetch(path).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+function mesesAtras(per,n){var a=String(per).split('-').map(Number),out=[];for(var i=n-1;i>=0;i--){var d=new Date(a[0],a[1]-1-i,1);out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}return out;}
+function cargar(){
+  Promise.all([
+    q('periodos?select=periodo,estado,uf,utm,venc_reportes_meta&order=periodo.desc&limit=24'),
+    q('clientes?select=id,rut,razon_social,email,tel,wa,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,contacto,email_analista,prioridad_rrhh,prioridad_contable,moneda_plan,monto_base,moneda_variable,valor_por_trab,hon_variable,trab_incluidos,tiene_rrhh,tiene_contabilidad,modalidad_pago,desc_tipo,desc_valor,desc_desde,desc_hasta&order=razon_social.asc')
+  ]).then(function(r){
+    _per=r[0]||[];
+    // Mismo mapeo que cargarClientesSupabase del Panel.
+    _cli=(r[1]||[]).map(function(c){
+      return{id:c.id,rut:c.rut,razon:c.razon_social,razonSocial:c.razon_social,
+        email:c.email,tel:c.tel,wa:c.wa,plan:c.plan,estado:c.estado||'activo',
+        contador:c.analista_contable,analistaContable:c.analista_contable,
+        rrhh:c.analista_rrhh,analistaRrhh:c.analista_rrhh,
+        analistaContableUsuarioId:c.analista_contable_usuario_id||null,analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null,
+        contacto:c.contacto||'',emailAnalista:c.email_analista||'',
+        prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
+        moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
+        varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,
+        trabIncl:Number(c.trab_incluidos)||0,modalidad:c.modalidad_pago||'contadoor',
+        descTipo:c.desc_tipo||'',descValor:Number(c.desc_valor)||0,descDesde:c.desc_desde||'',descHasta:c.desc_hasta||'',tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
+    });
+    _perAct=_per.find(function(p){return p.estado==='activo';})||null;
+    var meses=mesesAtras(_perAct?_perAct.periodo:new Date().toISOString().slice(0,7),6);
+    return q('reportes_mensuales?select=*&periodo=in.('+meses.join(',')+')').then(function(rows){_rep=(rows||[]).map(sbRowToReporte);pintar(meses);});
+  }).catch(function(e){
+    err('No se pudieron cargar los datos del Inicio. Recarga la página; si persiste, avísanos. ('+String(e.message||e).slice(0,40)+')');
+  });
+}
+
+function pintar(meses){
+  var u=getUsuario()||{}, nombre=String(u.nombre||'').split(' ')[0];
+  var hr=new Date().getHours(), saludo=hr<12?'Buenos días':hr<20?'Buenas tardes':'Buenas noches';
+  var pa=_perAct?_perAct.periodo:null;
+  var repAct=_rep.filter(function(r){return pa&&String(r.periodo).replace('-','')===pa.replace('-','');});
+  var serv=0,parcial=0;repAct.forEach(function(r){var s=calcularServicios(r);serv+=s.total;if(!s.ok)parcial++;});
+  var completos=repAct.filter(function(r){return _estadoSecciones(r).completo;}).length;
+  var enviados=repAct.filter(function(r){return _estadoSecciones(r).enviado;}).length;
+  var activos=_cli.filter(function(c){return c.estado==='activo';}).length, onb=_cli.filter(function(c){return c.estado==='onboarding';}).length;
+  var chip=document.getElementById('in-per');
+  if(_perAct){chip.innerHTML=gIcon('calendario')+' '+hesc(perTxt(pa))+' <em>· UF $'+Number(_perAct.uf||0).toLocaleString('es-CL')+'</em>';chip.style.display='';}
+  var kpi=function(v,l,s,cls){return '<div class="'+(cls||'')+'"><b class="cifra">'+v+'</b><span>'+l+(s?'<em>'+s+'</em>':'')+'</span></div>';};
+  document.getElementById('in-hero').innerHTML='<section class="g-hero"><small>'+(pa?hesc(perTxt(pa))+' · período activo':'Sin período activo')+'</small>'
+    +'<h2>'+saludo+(nombre?', '+hesc(nombre):'')+' 👋</h2><p>'+(!pa?'Abre un período en el Panel de Control para ver el avance.':'Así va Contadoor este mes.')+'</p>'
+    +'<div class="g-hk">'
+      +kpi(ff(serv),parcial?'Nuestros servicios (parcial)':'Nuestros servicios del período',parcial?parcial+' cliente(s) con datos incompletos en la ficha o RRHH':'Plan + trabajadores − descuento')
+      +kpi(completos+' / '+repAct.length,'Reportes completos',repAct.length?Math.round(completos/repAct.length*100)+'% del período':'')
+      +kpi(enviados,'Enviados al cliente','')
+      +kpi(activos,'Clientes activos',onb+' en onboarding')
+    +'</div></section>';
+  // Facturación 6 meses
+  var datos=meses.map(function(m){var rs=_rep.filter(function(r){return String(r.periodo).replace('-','')===m.replace('-','');});
+    var t=0,inc=0;rs.forEach(function(r){var s=calcularServicios(r);t+=s.total;if(!s.ok)inc++;});return{m:m,n:rs.length,t:t,inc:inc};});
+  var max=Math.max.apply(null,datos.map(function(d){return d.t;}).concat([1]));
+  document.getElementById('in-bars').innerHTML=datos.map(function(d){var mm=+d.m.split('-')[1];
+    var cls='in-bar'+(!d.n?' vacio':d.inc?' parcial':'')+(d.m===pa?' actual':'');
+    return '<div class="'+cls+'" title="'+hesc(perTxt(d.m))+': '+(d.n?ff(d.t)+(d.inc?' (parcial)':''):'sin nómina')+'"><span class="v">'+(d.n?ffc(d.t):'—')+'</span><span class="b" style="height:'+(d.n?Math.max(3,d.t/max*150):3)+'px"></span><span class="m">'+MES[mm-1]+'</span></div>';}).join('');
+  // Avance del equipo (período activo): cada cliente cuenta para su asesor contable y su asesor de remuneraciones.
+  var meta=_perAct&&_perAct.venc_reportes_meta?String(_perAct.venc_reportes_meta).slice(0,10):'';
+  var hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
+  var vencida=!!(meta&&hoy>meta);
+  var as={};
+  repAct.forEach(function(r){var c=_cli.find(function(x){return x.rut===r.rut;})||{};var e=_estadoSecciones(r);
+    [[c.contador||c.analistaContable,'Contable',r.tieneCont!==false,_contableListo(r)],[c.rrhh||c.analistaRrhh,'Remuneraciones',r.tieneRrhh!==false,_rrhhListo(r)]].forEach(function(a){
+      if(!a[2])return;var k=(a[0]||'Sin asignar')+'|'+a[1];if(!as[k])as[k]={n:a[0]||'Sin asignar',area:a[1],ok:0,t:0};as[k].t++;if(a[3]||e.enviado)as[k].ok++;});});
+  var arr=Object.values(as).sort(function(a,b){return (a.ok/a.t)-(b.ok/b.t);});
+  document.getElementById('in-eq-sub').textContent=pa?('Período '+perTxt(pa)+(meta?' · meta de reportes: '+meta.split('-').reverse().join('-')+(vencida?' (vencida: pendientes en rojo)':''):' · sin fecha meta configurada')):'Sin período activo';
+  document.getElementById('in-equipo').innerHTML=arr.length?arr.map(function(a){var pct=Math.round(a.ok/a.t*100),pend=a.t-a.ok,atr=vencida&&pend>0;
+    var ini=a.n.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+    var slug=a.n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    var foto=a.n==='Sin asignar'?'<span class="in-av">?</span>':'<span class="in-av"><img src="assets/equipo/'+slug+'.jpg" alt="" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-i\')"></span>';
+    foto=foto.replace('<span class="in-av">','<span class="in-av" data-i="'+hesc(ini)+'">');
+    return '<div class="in-as'+(atr?' atr':'')+'">'+foto+'<div><strong>'+hesc(a.n)+'</strong><small>'+a.area+(pend?' · '+pend+' pendiente'+(pend>1?'s':''):' · al día')+'</small><div class="g-prog"><i style="width:'+pct+'%"></i></div></div><span class="n">'+a.ok+' / '+a.t+'</span></div>';}).join('')
+    :'<div class="g-vacio">Aún no hay clientes en la nómina del período activo.</div>';
+  // Clientes por estado
+  var EST=[['activo','Activos'],['onboarding','Onboarding'],['suspendido','Suspendidos'],['inactivo','Inactivos / término']];
+  document.getElementById('in-est').innerHTML=EST.map(function(e){var n=_cli.filter(function(c){return e[0]==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===e[0];}).length;
+    return '<button type="button" class="'+e[0]+'" onclick="verCuales(\''+e[0]+'\',\''+e[1]+'\')"><span>'+e[1]+'<small>Ver cuáles</small></span><b>'+n+'</b></button>';}).join('');
+  if(window.gIconos)gIconos(document);
+}
+function verCuales(est,tit){
+  var l=_cli.filter(function(c){return est==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===est;});
+  document.getElementById('in-modal').innerHTML='<button class="in-cer" type="button" aria-label="Cerrar" onclick="cerrarVer()">✕</button><h3>'+hesc(tit)+' ('+l.length+')</h3><ul>'
+    +(l.length?l.map(function(c){return '<li><span>'+hesc(c.razon||c.rut)+'</span><small>'+hesc(c.rut)+'</small></li>';}).join(''):'<li>No hay clientes en este estado.</li>')+'</ul>';
+  document.getElementById('in-velo').classList.add('on');
+}
+function cerrarVer(){document.getElementById('in-velo').classList.remove('on');}
+document.getElementById('in-velo').addEventListener('click',function(e){if(e.target.id==='in-velo')cerrarVer();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarVer();});
+_waitForAuthReady().then(cargar).catch(function(){err('Sesión no disponible. Vuelve a iniciar sesión.');});
 </script>
-<script src="./supabase.js"></script>
-<script src="./auth.js"></script>
+<script src="notifications.js"></script>
+<script src="auth.js"></script>
 </body>
 </html>

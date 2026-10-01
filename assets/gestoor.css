@@ -809,3 +809,6 @@ body.g-mod-conv{--g-acento:#C77BC9}
 /* Prospectos (control comercial) */
 body.g-mod-pros{--g-acento:#C77BC9}
 .g-mod-pros .tb-title span{color:#E39BE5}
+/* Barras de avance (.g-prog i / .prog-fill): el degradado morado debe ganarle al brillo genérico de arriba
+   (la regla de brillo tenía más especificidad y dejaba la barra transparente, p. ej. "Por analista" del Panel). */
+.g-shell.g-tema-noche :is(.g-prog i,.prog-fill){background-color:transparent;background-image:linear-gradient(90deg,#924893,#C77BC9 70%,#E39BE5)}
