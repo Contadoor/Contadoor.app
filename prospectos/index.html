@@ -284,11 +284,11 @@ function abrir(id){
     f.querySelectorAll('#tp button').forEach(function(b){b.onclick=function(){temp=(temp===b.dataset.t)?null:b.dataset.t;f.querySelectorAll('#tp button').forEach(function(x){x.classList.toggle('on',x.dataset.t===temp);});};});
     document.getElementById('f-seg').onsubmit=function(ev){ev.preventDefault();var b=document.getElementById('gd'),m=document.getElementById('msg');b.disabled=true;m.style.color='#C9A8CC';m.textContent='Guardando…';
       var rsv=document.getElementById('rs').value;
-      rpc('actualizar_etapa_prospecto',{p_id:id,p_etapa:document.getElementById('et').value,p_obs:document.getElementById('obs').value})
-        .then(function(){return rpc('actualizar_seguimiento_prospecto',{p_id:id,p_temperatura:temp,p_responsable:rsv?Number(rsv):null,
-          p_proxima_accion:document.getElementById('pa').value,p_proxima_fecha:document.getElementById('pf').value||null});})
+      // Una sola llamada atómica: etapa + nota + seguimiento (si falla, no queda nada guardado a medias).
+      rpc('guardar_seguimiento_prospecto',{p_id:id,p_etapa:document.getElementById('et').value,p_obs:document.getElementById('obs').value,
+          p_temperatura:temp,p_responsable:rsv?Number(rsv):null,p_proxima_accion:document.getElementById('pa').value,p_proxima_fecha:document.getElementById('pf').value||null})
         .then(function(){m.style.color='#5FE3AE';m.textContent='Guardado';b.disabled=false;cargarSilencioso();})
-        .catch(function(e){m.style.color='#FF8A8A';m.textContent=/RESPONSABLE_INVALIDO/.test(e.message)?'Ese responsable no tiene acceso a Prospectos.':'No se pudo guardar. Intenta de nuevo.';b.disabled=false;});};
+        .catch(function(e){m.style.color='#FF8A8A';m.textContent=/RESPONSABLE_INVALIDO/.test(e.message)?'Ese responsable no tiene acceso a Prospectos. No se guardó ningún cambio.':'No se pudo guardar. No se guardó ningún cambio; intenta de nuevo.';b.disabled=false;});};
     f.querySelector('.f-cer').focus();
   }).catch(function(){f.innerHTML='<div class="f-sec"><button class="f-cer" type="button" onclick="cerrar()" style="position:static;background:#2A1430">✕</button><p>No se pudo abrir la ficha.</p></div>';});
 }
