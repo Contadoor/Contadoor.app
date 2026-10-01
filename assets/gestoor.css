@@ -778,3 +778,33 @@ body.g-mod-conv{--g-acento:#C77BC9}
 .g-hk2{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)}
 .g-hk2 b{font-size:20px}
 .g-hk .alerta b{color:#FF8A8A}
+
+/* ============================================================
+   ARMONÍA ENTRE MÓDULOS (1-oct, pedido de Luciano)
+   Misma escala en todos los módulos rediseñados: ancho, letras de tabla,
+   botones de la barra superior y filtros. Solo presentación.
+   ============================================================ */
+/* Ninguna tabla ancha puede empujar la página fuera de la pantalla: el contenido se ajusta y la tabla se desplaza dentro de su tarjeta */
+.g-shell .main,.g-shell .wrap{min-width:0}
+.g-tema-noche :is(.tabla-wrap,.g-cv-cli,.card,.convenio-card)>div[style*="overflow-x"],.g-tema-noche .tabla-wrap>div:not(.tabla-hdr){overflow-x:auto}
+/* Letras de tablas y listas: 13 px en celdas, 10.5 px en encabezados */
+.g-tema-noche table td{font-size:13px}
+.g-tema-noche table th{font-size:10.5px;letter-spacing:.9px}
+/* Botones de la barra superior: mismo tamaño en todos los módulos */
+.g-tema-noche .topbar :is(.btn-p,.btn-s,.g-btn,.btn-sm){min-height:38px;font-size:13px;padding:0 16px}
+.g-tema-noche .topbar summary.g-btn{display:inline-flex;align-items:center;gap:6px}
+/* Filtros: misma píldora en todos los módulos */
+.g-tema-noche :is(.filtros,.g-filtros,.g-seg,.toolbar) .fb{min-height:32px;font-size:12.5px}
+/* Títulos de sección de tabla/lista: 20 px en todos */
+.g-tema-noche :is(.tabla-titulo,.g-sec-h h2){font-size:20px}
+/* Recorridos dentro de tablas (RRHH): más compactos para que la tabla entre completa en un notebook */
+.g-tema-noche td .pipe-line{width:10px}
+.g-tema-noche td .pipe-lbl{font-size:9px}
+.g-tema-noche td .ps-dot{width:22px;height:22px}
+.g-tema-noche td .pipe-line{margin-top:10px}
+.g-tema-noche .tabla-wrap table :is(td,th){padding-left:9px;padding-right:9px}
+.g-tema-noche td .pipe-step{min-width:0}
+.g-tema-noche .tabla-wrap table th{letter-spacing:.4px}
+.g-tema-noche td .pipe-line{width:6px}
+.g-tema-noche .tabla-wrap table :is(td,th){padding-left:8px;padding-right:8px}
+@media (max-width:1500px){.g-shell :is(.content,.g-contenido){padding-left:20px;padding-right:20px}.g-shell .topbar{padding-left:20px;padding-right:20px}}
