@@ -794,8 +794,8 @@ function _asientoCuota(conv,c){
   var p=c.pago||{}, nom=_nombreConv(conv), cap=Number(p.capital)||0, it=Number(p.interes)||0, rec=Number(p.recargo)||0, tot=Number(p.monto)||0;
   var lineas=[];
   if(cap>0)lineas.push({cta:'C'+nom.slice(1)+' (capital)',debe:cap,haber:0});
-  if(it>0)lineas.push({cta:'Intereses '+nom,debe:it,haber:0});
-  if(rec>0)lineas.push({cta:'Recargos y multas '+nom,debe:rec,haber:0});
+  if(it>0)lineas.push({cta:'Intereses '+nom,debe:it,haber:0,gasto:true});
+  if(rec>0)lineas.push({cta:'Recargos y multas '+nom,debe:rec,haber:0,gasto:true});
   lineas.push({cta:'Disponible',debe:0,haber:tot,sangria:true});
   var debe=lineas.reduce(function(a,l){return a+l.debe;},0);
   return{lineas:lineas,debe:debe,haber:tot,cuadra:Math.abs(debe-tot)<0.5&&tot>0,
@@ -825,11 +825,11 @@ function abrirAsiento(convId,idx){
     +'<div class="modal-sub">'+hesc(conv.clienteNombre)+' · '+hesc(conv.institucion)+(conv.numero?' · N° '+hesc(conv.numero):'')+' · pagada el '+hesc(c.pago.fecha||'')+'</div>'
     +'<div class="amort-stats" style="margin:12px 0">'
     +'<div><div class="amort-stat-v">'+ff(c.pago.capital)+'</div><div class="amort-stat-l">Capital</div></div>'
-    +'<div><div class="amort-stat-v">'+ff(c.pago.interes)+'</div><div class="amort-stat-l">Intereses</div></div>'
-    +(Number(c.pago.recargo)>0?'<div><div class="amort-stat-v">'+ff(c.pago.recargo)+'</div><div class="amort-stat-l">Recargos y multas</div></div>':'')
+    +'<div><div class="amort-stat-v" style="color:#FF6B6B">'+ff(c.pago.interes)+'</div><div class="amort-stat-l">Intereses</div></div>'
+    +(Number(c.pago.recargo)>0?'<div><div class="amort-stat-v" style="color:#FF6B6B">'+ff(c.pago.recargo)+'</div><div class="amort-stat-l">Recargos y multas</div></div>':'')
     +'<div><div class="amort-stat-v">'+ff(c.pago.monto)+'</div><div class="amort-stat-l">Total pagado</div></div></div>'
     +'<table class="data-table"><thead><tr><th>Cuenta</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead><tbody>'
-    +as.lineas.map(function(l){return '<tr><td'+(l.sangria?' style="padding-left:32px"':'')+'>'+hesc(l.cta)+'</td><td class="num">'+n(l.debe)+'</td><td class="num">'+n(l.haber)+'</td></tr>';}).join('')
+    +as.lineas.map(function(l){return '<tr><td'+(l.sangria?' style="padding-left:32px"':'')+'>'+hesc(l.cta)+'</td><td class="num"'+(l.gasto?' style="color:#FF6B6B"':'')+'>'+n(l.debe)+'</td><td class="num">'+n(l.haber)+'</td></tr>';}).join('')
     +'</tbody><tfoot><tr class="total-row"><td>Totales</td><td class="num">'+n(as.debe)+'</td><td class="num">'+n(as.haber)+'</td></tr></tfoot></table>'
     +'<div class="modal-sub" style="margin-top:10px">Glosa: '+hesc(as.glosa)+'</div>'
     +(as.cuadra?'':'<div class="modal-sub" style="color:var(--red);margin-top:8px">El asiento no cuadra (debe distinto de haber). Corrige el pago antes de contabilizar.</div>');
@@ -1010,8 +1010,8 @@ function verAmortizacion(id){
       +'<td class="num">'+ff(c.monto)+'</td>'
       +'<td class="num">'+(pag&&c.pago?ff(c.pago.monto):'—')+'</td>'
       +'<td class="num" style="color:var(--green)">'+(cap!==null?ff(cap):pag?'<span class="g-sin-des" title="Pago registrado sin desglose">sin desglose</span>':tp?gris(c.capital_plan):'—')+'</td>'
-      +'<td class="num" style="color:#FFC85A">'+(intr!==null?ff(intr):pag?'?':tp?gris(c.interes_plan):'—')+'</td>'
-      +'<td class="num" style="color:#FFC85A">'+(rec?ff(rec):'—')+'</td>'
+      +'<td class="num" style="color:#FF6B6B">'+(intr!==null?ff(intr):pag?'?':tp?gris(c.interes_plan):'—')+'</td>'
+      +'<td class="num" style="color:#FF6B6B">'+(rec?ff(rec):'—')+'</td>'
       +'<td class="num" style="color:var(--tm)">'+ff(saldo)+'</td>'
       +'<td>'+(pag?'<span class="badge b-pagada">'+gIcon('check')+' Pagada</span>':esVenc?'<span class="badge b-vencido">'+gIcon('alerta')+' Vencida</span>':'<span class="badge b-pendiente">'+gIcon('reloj')+' Pendiente</span>')+'</td>'
       +'<td>'+(c.contab?'<span class="g-contab ok" title="'+hesc(c.contab.quien)+' · '+hesc(c.contab.fecha)+'">Sí · '+hesc(c.contab.fecha)+'</span>':pag?'<span class="g-contab pend">No</span>':'—')+'</td>'
@@ -1020,10 +1020,10 @@ function verAmortizacion(id){
   }).join('');
   var st=function(v,l){return '<div><div class="amort-stat-v">'+v+'</div><div class="amort-stat-l">'+l+'</div></div>';};
   var stats=rs.plan
-    ?st(ff(conv.deudaCapital),'Deuda original')+st(ff(conv.pie?conv.pie.monto:0),'Pie')+st(ff(costo),'Costo total')+st(ff(costo-conv.deudaCapital),'Intereses totales')
-      +st(ff(rs.capitalPend),'Capital pendiente')+st(ff(rs.interesPend),'Intereses pendientes')+st(ff(rs.saldoPorPagar),'Saldo total')+st(rs.contab+'/'+rs.pagos,'Contabilizadas')
+    ?st(ff(conv.deudaCapital),'Deuda original')+st(ff(conv.pie?conv.pie.monto:0),'Pie')+st(ff(costo),'Costo total')+st('<span style="color:#FF6B6B">'+ff(costo-conv.deudaCapital)+'</span>','Intereses totales')
+      +st(ff(rs.capitalPend),'Capital pendiente')+st('<span style="color:#FF6B6B">'+ff(rs.interesPend)+'</span>','Intereses pendientes')+st(ff(rs.saldoPorPagar),'Saldo total')+st(rs.contab+'/'+rs.pagos,'Contabilizadas')
     :st(ff(conv.montoTotal),'Total convenio')+st(ff(rs.saldoPorPagar),'Saldo por pagar')+st(ff(rs.capitalConfirmado)+(rs.sinDesglose?'*':''),'Capital confirmado')
-      +st(ff(rs.interesPagado)+(rs.sinDesglose?'*':''),'Intereses pagados')+st(rs.pagadas+'/'+conv.nCuotas,'Cuotas pagadas')+st(rs.contab+'/'+rs.pagos,'Contabilizadas');
+      +st('<span style="color:#FF6B6B">'+ff(rs.interesPagado)+(rs.sinDesglose?'*':'')+'</span>','Intereses pagados')+st(rs.pagadas+'/'+conv.nCuotas,'Cuotas pagadas')+st(rs.contab+'/'+rs.pagos,'Contabilizadas');
   document.getElementById('amortContent').innerHTML=
     '<div class="amort-header">'
     +'<div class="amort-title">'+hesc(conv.clienteNombre)+' · '+hesc(conv.institucion)+'</div>'
@@ -1055,8 +1055,8 @@ function renderStats(){
     {v:vencidos.length,l:'Con cuotas vencidas',c:vencidos.length?'#FF6B6B':null},
     {v:cuotasVenc,l:'Cuotas vencidas',c:cuotasVenc?'#FF6B6B':null},
     {v:completados.length,l:'Completados'},
-    {v:porContab,l:'Cuotas por contabilizar',c:porContab?'#FFD24D':null},
-    {v:ff(intPagados),l:'Intereses pagados',c:'#FFC85A'},
+    {v:porContab,l:'Cuotas por contabilizar',c:porContab?'#FF6B6B':null},
+    {v:ff(intPagados),l:'Intereses pagados',c:'#FF6B6B'},
     {v:ff(saldoActivo),l:'Saldo por pagar activo'}
   ].map(function(s){return'<div class="stat-box"><div class="sv"'+(s.c?' style="color:'+s.c+'"':'')+'>'+s.v+'</div><div class="sl">'+s.l+'</div></div>';}).join('');
   // Banner
@@ -1131,7 +1131,7 @@ function renderConvenios(){
         +'<td>'+(c.vencimiento||'—')+'</td>'
         +'<td class="num" style="color:'+(esVenc?'var(--red)':pag?'var(--green)':'var(--p)')+'">'+ff(pag&&c.pago?c.pago.monto:c.monto)+'</td>'
         +'<td class="num">'+(pag?(des?ff(c.pago.capital):'<span class="g-sin-des" title="Falta confirmar el desglose">sin desglose</span>'):typeof c.capital_plan==='number'?'<span style="color:var(--tm)">'+ff(c.capital_plan)+'</span>':'<span style="color:var(--tm)">—</span>')+'</td>'
-        +'<td class="num" style="color:#FFC85A">'+(pag?(des?ff(c.pago.interes||0)+(Number(c.pago.recargo)>0?'<br><small style="color:var(--tm)">+ '+ff(c.pago.recargo)+' recargo</small>':''):'<span class="g-sin-des">?</span>'):typeof c.interes_plan==='number'?'<span style="color:var(--tm)">'+ff(c.interes_plan)+'</span>':'<span style="color:var(--tm)">—</span>')+'</td>'
+        +'<td class="num" style="color:#FF6B6B">'+(pag?(des?ff(c.pago.interes||0)+(Number(c.pago.recargo)>0?'<br><small style="color:#FF6B6B">+ '+ff(c.pago.recargo)+' recargo</small>':''):'<span class="g-sin-des">?</span>'):typeof c.interes_plan==='number'?'<span style="color:var(--tm)">'+ff(c.interes_plan)+'</span>':'<span style="color:var(--tm)">—</span>')+'</td>'
         +'<td>'+badge+'</td>'
         +'<td style="font-size:11px">'+(c.pago?c.pago.fecha+' · <span class="pago-ref">'+hesc(c.pago.quien||'')+'</span>':'—')+'</td>'
         +'<td>'+contab+'</td>'
@@ -1148,7 +1148,7 @@ function renderConvenios(){
       +'<div class="g-cv-txt"><b>'+pagadas+' de '+total+' cuotas pagadas</b> · '+(total-pagadas>0?'quedan '+(total-pagadas)+(piePend?' · <span class="g-cv-atr">pie pendiente</span>':''):piePend?'<span class="g-cv-atr">pie pendiente</span>':'convenio pagado')+(prox?(prox.vencimiento<h?' · <span class="g-cv-atr">atrasada desde '+prox.vencimiento+'</span>':' · próxima '+prox.vencimiento+' por '+ff(prox.monto)):'')+'</div>'
       +'<div class="g-cv-fin">'+(rs.plan?'<span>Capital pendiente <b>'+ff(rs.capitalPend)+'</b></span><span>Intereses pendientes <b class="int">'+ff(rs.interesPend)+'</b></span>'+(rs.recargoPagado?'<span>Recargos pagados <b class="int">'+ff(rs.recargoPagado)+'</b></span>':''):'<span>Capital confirmado <b>'+ff(rs.capitalConfirmado)+'</b></span>')+'<span>Intereses pagados <b class="int">'+ff(rs.interesPagado)+'</b>'+(rs.sinDesglose?'<i class="g-sin-des" title="'+rs.sinDesglose+' pago(s) sin desglose">*</i>':'')+'</span><span>Contabilizadas <b'+(rs.porContab?' class="pend"':'')+'>'+rs.contab+'/'+rs.pagos+'</b></span></div></div>'
       +'<div class="g-cv-saldo"><strong>'+ff(rs.saldoPorPagar)+'</strong><small>'+(rs.plan?'saldo total':'saldo por pagar')+' · '+pct+'%</small></div>'
-      +'<div class="g-cv-est">'+badgeEst+(rs.porContab?'<span class="badge b-pendiente">'+gIcon('lista')+' '+rs.porContab+' por contabilizar</span>':'')+'<span class="g-cv-ver">'+(isExp?'Ocultar':'Ver cuotas')+'</span></div>'
+      +'<div class="g-cv-est">'+badgeEst+(rs.porContab?'<span class="badge b-vencido">'+gIcon('alerta')+' '+rs.porContab+' por contabilizar</span>':'')+'<span class="g-cv-ver">'+(isExp?'Ocultar':'Ver cuotas')+'</span></div>'
       +'</div>'
       +'<div class="conv-body'+(isExp?' on':'')+'">'
       +(conv.conceptos?'<div style="padding:10px 16px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bdr);background:var(--sur2)"><strong>Origen de la deuda:</strong> '+hesc(conv.conceptos)+'</div>':'')
@@ -1162,7 +1162,7 @@ function renderConvenios(){
     }).join('');
     return'<div class="g-cv-cli">'
       +'<div class="g-cv-cab"><div class="g-cli-f">'+logo+'<span><strong>'+hesc(g.nombre||g.rut)+'</strong><small>'+hesc(g.rut||'')+' · '+g.convs.length+' convenio'+(g.convs.length!==1?'s':'')+'</small></span></div>'
-      +'<div class="g-cv-res">'+(vencCli?'<span class="badge b-vencido">'+gIcon('alerta')+' '+vencCli+' sin pagar</span>':'')+(contabCli?'<span class="badge b-pendiente">'+contabCli+' por contabilizar</span>':'')+'<span class="g-cv-saldo-cli">Intereses <b class="int">'+ff(intCli)+'</b></span><span class="g-cv-saldo-cli">Saldo por pagar <b>'+ff(saldoCli)+'</b></span></div></div>'
+      +'<div class="g-cv-res">'+(vencCli?'<span class="badge b-vencido">'+gIcon('alerta')+' '+vencCli+' sin pagar</span>':'')+(contabCli?'<span class="badge b-vencido">'+gIcon('alerta')+' '+contabCli+' por contabilizar</span>':'')+'<span class="g-cv-saldo-cli">Intereses <b class="int">'+ff(intCli)+'</b></span><span class="g-cv-saldo-cli">Saldo por pagar <b>'+ff(saldoCli)+'</b></span></div></div>'
       +filas+'</div>';
   }).join('')+'</div>';
 }
