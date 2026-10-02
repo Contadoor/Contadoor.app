@@ -484,9 +484,9 @@ function esAprobador(){return !!getUsuario().esMaster;}
 
 function getObs(){try{return JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){return[];}}
 function setObs(arr){localStorage.setItem('pagos_bd',JSON.stringify(arr));renderAll();}
+var _clientes=null; // lista cargada desde Supabase (sbGetClientes) al abrir la página
 function getClientes(){
-  var c=sbCacheOrLocal('clientes','clientes_bd');
-  return c||[];
+  return _clientes||sbCacheOrLocal('clientes_v2')||sbCacheOrLocal('clientes','clientes_bd')||[];
 }
 function inicializarClientes(cb){
   sbGetClientes(function(rows){
@@ -577,7 +577,7 @@ function abrirModalNuevo(){
 
 function abrirModalEditar(id){
   var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
-  if(ob.estado!=='creada'){alert('Solo se pueden editar obligaciones en estado Creada.');return;}
+  if(ob.estado!=='creada'&&ob.estado!=='rechazado'){alert('Solo se pueden editar obligaciones en estado Creada o Rechazada.');return;}
   _editId=id;popularSelectClientes();resetForm();
   document.getElementById('modalTitle').textContent='Editar Obligación';
   document.getElementById('f-cliente').value=ob.rut||'';
@@ -624,7 +624,13 @@ function guardarObligacion(){
   };
   if(_editId){
     var idx=arr.findIndex(function(x){return x.id===_editId;});
-    if(idx>=0){ob.conciliacion=arr[idx].conciliacion;arr[idx]=ob;}
+    if(idx>=0){
+      ob.conciliacion=arr[idx].conciliacion;
+      // Al corregir una rechazada se conserva el rechazo como historial (vuelve a Creada).
+      if(arr[idx].rechazo) ob.rechazoAnterior=arr[idx].rechazo;
+      if(arr[idx].rechazoAnterior&&!ob.rechazoAnterior) ob.rechazoAnterior=arr[idx].rechazoAnterior;
+      arr[idx]=ob;
+    }
     else arr.unshift(ob);
   }else arr.unshift(ob);
   setObs(arr);closeModal();
@@ -740,6 +746,7 @@ function marcarCobrado(id){
   setObs(arr);
 }
 function eliminarObligacion(id){
+  if(id===undefined||id===null){alert('Este registro no tiene identificador; se revisará en la migración.');return;}
   var ob=getObs().find(function(x){return x.id===id;});
   if(!ob)return;
   if(ob.estado!=='creada'&&!esAprobador()){alert('Solo se pueden eliminar obligaciones en estado Creada.');return;}
@@ -887,6 +894,7 @@ function renderObligaciones(){
       +'<div class="traza-item">✏️ Creado por <strong>'+hesc(ob.creadoPor||' - ')+'</strong>'+(ob.tsCreado?' · '+ob.tsCreado:'')+'</div>'
       +(ob.conciliacion?'<div class="traza-item">💳 Conciliado por <strong>'+hesc(ob.conciliacion.quien)+'</strong> · '+ob.conciliacion.ts+'</div>':'')
       +(ob.aprobacion?'<div class="traza-item">✅ Aprobado por <strong>'+hesc(ob.aprobacion.quien)+'</strong> · '+ob.aprobacion.ts+'</div>':'')
+      +(ob.rechazoAnterior&&!ob.rechazo?'<div class="traza-item" style="color:#9a849b">↩️ Corregida tras rechazo de <strong>'+hesc(ob.rechazoAnterior.quien)+'</strong>: '+hesc(ob.rechazoAnterior.obs)+'</div>':'')
       +(ob.rechazo?'<div class="traza-item" style="color:#C0392B">❌ Rechazado por <strong>'+hesc(ob.rechazo.quien)+'</strong>: '+hesc(ob.rechazo.obs)+'</div>':'')
       +'</div>';
 
@@ -916,7 +924,7 @@ function renderObligaciones(){
     else if(ob.estado==='aprobacion') accionesHTML+='<span style="font-size:11px;color:#C07A1A;font-weight:600">⏳ Esperando aprobación de '+hesc(MASTER_NOMBRE)+'</span>';
     if(ob.estado==='aprobado') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado('+ob.id+')" style="background:var(--green);font-size:11px">Marcar finalizado</button>';
     if(ob.estado==='rechazado') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">🔄 Corregir y reenviar</button>';
-    if(ob.estado==='creada'||esAprobador()) accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
+    if(ob.id&&(ob.estado==='creada'||esAprobador())) accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
     accionesHTML+='</div>';
 
     return'<div class="oblig-row'+(esSel?' seleccionada':'')+(venc?' vencida-border':'')+'">'
@@ -996,7 +1004,7 @@ function exportarRespaldo(){
 
 renderAll();
 // La lista de clientes se borra al cerrar sesión: se recarga desde Supabase y se vuelve a dibujar.
-inicializarClientes(function(){renderAll();});
+inicializarClientes(function(rows){if(rows&&rows.length)_clientes=rows;renderAll();});
 </script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
