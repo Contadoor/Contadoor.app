@@ -305,7 +305,6 @@ var _obs=[], _clientes=[], _periodos=[], _filtro='', _periodo='', _guardando=fal
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function ff(n){return '$'+Math.round(Number(n)||0).toLocaleString('es-CL');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
-function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
 function hoyChile(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago'}).format(new Date());}
 function periodoLabel(p){var m=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];var a=String(p||'').split('-');return a.length===2?(m[+a[1]-1]+' '+a[0]):String(p||'');}
 function esperarSesion(){return new Promise(function(ok,no){var t0=Date.now();(function mirar(){var s=window._contadoorSesion;if(s&&s.rol)return ok(s);if(Date.now()-t0>15000)return no(new Error('sin sesión'));setTimeout(mirar,100);})();});}
@@ -314,16 +313,23 @@ function esperarSesion(){return new Promise(function(ok,no){var t0=Date.now();(f
 function areasPermitidas(){
   var u=getUsuario();
   if(u.esMaster||u.rol==='master') return ['rrhh','contable','otros_pagos'];
-  if(u.rol==='admin') return ['rrhh','contable','otros_pagos'];
+  if(u.rol==='admin') return ['otros_pagos','rrhh','contable']; // rrhh/contable: solo clientes donde admin es el analista asignado
   if(u.rol==='rrhh') return ['rrhh'];
   if(u.rol==='contable') return ['contable'];
   if(u.rol==='pagos') return ['otros_pagos'];
   return [];
 }
 // Clientes que el usuario puede usar en esa área (los propios; Tesorería y master: todos).
+// Igual que la RPC: master todos; los demás (incluido admin) solo donde su id es el analista asignado.
 function clientesParaArea(area){
-  if(area==='otros_pagos') return _clientes;
-  return _clientes.filter(function(c){return typeof gestoorAsignacion!=='function'||gestoorAsignacion(c,area)==='mio';});
+  var u=getUsuario();
+  if(area==='otros_pagos'||u.esMaster||u.rol==='master') return _clientes;
+  var mi=typeof gestoorMiUsuarioSistemaId==='function'?gestoorMiUsuarioSistemaId():null;
+  if(mi==null) return [];
+  return _clientes.filter(function(c){
+    var id=area==='rrhh'?c.analistaRrhhUsuarioId:c.analistaContableUsuarioId;
+    return id!=null&&Number(id)===Number(mi);
+  });
 }
 function nombreCliente(rut){var c=_clientes.find(function(x){return x.rut===rut;});return c?c.razon:rut;}
 
@@ -351,12 +357,15 @@ function pintarCalendario(){
   document.getElementById('cal-cot').textContent=per?dia(per.venc_previred_limite):'sin fecha configurada';
 }
 
-function cargar(){
+function cargar(listo){
   _periodo=sv('selectPeriodo');
   document.getElementById('periodo-label').textContent=periodoLabel(_periodo);
   document.getElementById('tabla-meta').textContent='Cargando…';
   pintarCalendario();
-  sbGetObligaciones({periodo:_periodo},function(rows,err){
+  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
+    +'&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc';
+  var fin=function(rows,err){
+    if(typeof listo==='function') listo();
     if(err){
       _obs=[];
       document.getElementById('tabla-meta').textContent='No se pudieron cargar las obligaciones';
@@ -364,7 +373,10 @@ function cargar(){
       renderStats();return;
     }
     _obs=rows||[];renderStats();renderTabla();
-  });
+  };
+  // sbFetch directo: un error HTTP o de red se muestra como error, no como "no hay obligaciones".
+  sbFetch(q).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){fin(rows,null);}).catch(function(e){fin([],e);});
 }
 
 function renderStats(){
@@ -407,7 +419,7 @@ function renderTabla(){
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
         +'<td>'+hesc(o.concepto||'—')+'</td>'
         +'<td>'+hesc(AREAS[o.area_origen]||o.area_origen)+'</td>'
-        +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
         +'<td style="text-align:right;font-family:monospace">'+(abierta?ff(o.saldo_pendiente):'—')+'</td>'
         +'<td'+(vencida?' class="ob-venc"':'')+'>'+(o.vencimiento?hesc(o.vencimiento.split('-').reverse().join('-'))+(vencida?' · vencida':''):'—')+'</td>'
         +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span></td>'
@@ -436,7 +448,12 @@ function poblarClientesNueva(){
 }
 function mostrarError(t){var e=document.getElementById('n-err');e.textContent=t;e.style.display=t?'block':'none';}
 // Monto en pesos: solo dígitos (se aceptan puntos de miles). Cualquier otra cosa → inválido.
-function leerMonto(s){var t=String(s||'').replace(/\./g,'').replace(/\s/g,'');return /^\d{1,12}$/.test(t)?Number(t):NaN;}
+function leerMonto(s){
+  var t=String(s||'').replace(/\s/g,'').replace(/^\$/,'');
+  if(!/^(\d{1,3}(\.\d{3})+|\d{1,11})$/.test(t)) return NaN; // "1.5" o "12.50" → inválido (no hay decimales en pesos)
+  return Number(t.replace(/\./g,''));
+}
+var MONTO_ALTO=20000000; // sobre $20 millones se pide una segunda confirmación
 
 function guardarNueva(){
   if(_guardando) return;
@@ -450,6 +467,7 @@ function guardarNueva(){
   if(venc&&!/^\d{4}-\d{2}-\d{2}$/.test(venc)){mostrarError('Fecha de vencimiento inválida.');return;}
   if(!/^\d{4}-\d{2}$/.test(_periodo)){mostrarError('Selecciona un período válido.');return;}
   var concepto=(tipo+' · '+detalle).slice(0,160);
+  if(monto>MONTO_ALTO&&!confirm('El monto '+ff(monto)+' es muy alto. ¿Está bien escrito?')) return;
   if(!confirm('¿Crear esta obligación?\n\n'+nombreCliente(rut)+'\n'+concepto+'\n'+ff(monto)+'\nPeríodo: '+periodoLabel(_periodo)+(venc?'\nVence: '+venc.split('-').reverse().join('-'):''))) return;
   _guardando=true;
   var btn=document.getElementById('n-guardar');btn.disabled=true;btn.textContent='Creando…';
@@ -463,29 +481,38 @@ function guardarNueva(){
     })
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){
-      var msg=(r.status===401||r.status===403||/42501|autorizado/i.test(t))?'No tienes permiso para crear obligaciones en este cliente o área.':'No se pudo crear la obligación (error '+r.status+').';
-      throw new Error(msg);
+      var det='';try{det=(JSON.parse(t)||{}).message||'';}catch(x){}
+      var msg=(r.status===401||r.status===403||/42501|autorizado/i.test(t))?'No tienes permiso para crear obligaciones en este cliente o área.':'No se pudo crear la obligación'+(det?': '+det:' (error '+r.status+').');
+      var er=new Error(msg);er.claro=r.status>=400&&r.status<500;throw er;
     });
     return r.json();
   }).then(function(rows){
     var row=rows&&rows[0];
-    if(!row||row.resultado!=='creada'||!row.obligacion_id) throw new Error('El servidor no confirmó la creación. Revisa la lista antes de reintentar.');
+    if(!row||row.resultado!=='creada'||!row.obligacion_id) throw new Error('sin confirmación');
     _guardando=false;btn.disabled=false;btn.textContent='Crear obligación';
     document.getElementById('modalNueva').classList.remove('on');
     cargar();
   }).catch(function(e){
-    _guardando=false;btn.disabled=false;btn.textContent='Crear obligación';
-    mostrarError(e&&e.message?e.message:'No se pudo crear la obligación.');
-    cargar(); // si alcanzó a crearse, se ve en la lista y no se duplica por error
+    // Rechazo claro del servidor (permiso/validación): se puede corregir y reintentar.
+    // Cualquier otro error (red, respuesta incompleta): NO se sabe si se creó → revisar la lista antes de reintentar.
+    var claro=e&&e.claro;
+    mostrarError(claro?e.message:'No sabemos si la obligación se creó (problema de conexión). Revisa la lista antes de volver a intentarlo.');
+    btn.textContent='Revisando la lista…';
+    cargar(function(){_guardando=false;btn.disabled=false;btn.textContent='Crear obligación';});
   });
 }
 
 esperarSesion().then(function(u){
   document.getElementById('tb-analista-nombre').textContent=u.nombre||'';
   if(!areasPermitidas().length) document.getElementById('btnNueva').style.display='none';
+  // La RPC identifica a la persona en usuarios_sistema; sin ese registro rechaza todo.
+  var p=typeof gestoorCargarMiUsuarioSistema==='function'?gestoorCargarMiUsuarioSistema():null;
+  if(p&&p.then) p.then(function(id){
+    if(id==null){var b=document.getElementById('btnNueva');b.style.display='none';
+      document.getElementById('tabla-meta').textContent+=' · Tu usuario aún no está habilitado para crear obligaciones (pídeselo a Luciano).';}
+  });
   poblarPeriodos();
   _periodo=sv('selectPeriodo');
-  if(typeof gestoorCargarMiUsuarioSistema==='function'){try{gestoorCargarMiUsuarioSistema();}catch(e){}}
   sbGetClientes(function(rows){_clientes=rows||[];renderTabla();});
   sbGetPeriodos(function(rows){_periodos=rows||[];pintarCalendario();});
   cargar();
