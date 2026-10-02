@@ -481,7 +481,7 @@ function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-d
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
 // Solo el master (Luciano) aprueba o rechaza pagos; el equipo crea, transfiere, ingresa y envía a aprobación.
 function esAprobador(){return !!getUsuario().esMaster;}
-// Flujo (Luciano 02-oct): el analista del área crea y PAGA; el área de Pagos solo da el pase cuando el cliente transfirió.
+// Flujo (Luciano 02-oct): el analista del área crea y PAGA; Tesorería (rol pagos) da el pase cuando identifica el ingreso del cliente en el banco.
 //   Registrar transferencia (el pase) → Pagos / admin / master.
 //   Ingresado en Previred/banco, enviar a aprobación, finalizar → analista del área de la obligación / admin / master.
 function puedeConciliar(){var u=getUsuario();return !!u.esMaster||['pagos','cobranza','admin','master'].includes(u.rol);}
@@ -643,7 +643,7 @@ function guardarObligacion(){
 
 // \u2500\u2500 CONCILIAR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function abrirConciliar(id){
-  if(!puedeConciliar()){alert('El registro de la transferencia lo hace el área de Pagos.');return;}
+  if(!puedeConciliar()){alert('La transferencia del cliente la confirma Tesorería.');return;}
   var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
   _accionId=id;
   document.getElementById('concilSub').textContent=ob.concepto+' · '+ff(ob.monto);
@@ -654,7 +654,7 @@ function abrirConciliar(id){
 }
 function closeConciliar(){document.getElementById('modalConciliar').classList.remove('on');}
 function confirmarConciliacion(){
-  if(!puedeConciliar()){alert('El registro de la transferencia lo hace el área de Pagos.');return;}
+  if(!puedeConciliar()){alert('La transferencia del cliente la confirma Tesorería.');return;}
   var fecha=sv('c-fecha'),monto=nv('c-monto'),quien=sv('c-quien');
   if(!fecha||!monto){alert('Fecha y monto son obligatorios.');return;}
   if(!quien){alert('Indica quién concilia este pago.');return;}
@@ -928,7 +928,7 @@ function renderObligaciones(){
     if(waHref) accionesHTML+='<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">💬</a>';
     if(ob.estado==='creada') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">✏️ Editar</button>';
     if(ob.estado==='creada'&&puedeConciliar()) accionesHTML+='<button class="btn-p btn-sm" onclick="abrirConciliar('+ob.id+')">💳 Registrar transferencia</button>';
-    else if(ob.estado==='creada') accionesHTML+='<span style="font-size:11px;color:#9a849b;font-weight:600">💳 Esperando que el cliente transfiera (pase de Pagos)</span>';
+    else if(ob.estado==='creada') accionesHTML+='<span style="font-size:11px;color:#9a849b;font-weight:600">💳 Esperando que Tesorería confirme la transferencia del cliente</span>';
     if(ob.estado==='transferido'&&puedeEjecutar(ob)) accionesHTML+='<button class="btn-p btn-sm" onclick="marcarEnPrevired('+ob.id+')" style="font-size:11px">⚙️ Ingresado en Previred / banco</button>';
     if(ob.estado==='en_previred'&&puedeEjecutar(ob)) accionesHTML+='<button class="btn-s btn-sm" onclick="solicitarAprobacionUno('+ob.id+')" style="font-size:11px">Enviar a aprobacion</button>';
     if(ob.estado==='aprobacion'&&esAprobador()) accionesHTML+='<button class="btn-approve btn-sm" onclick="abrirAprobar('+ob.id+')">Revisar y aprobar</button>';
