@@ -817,7 +817,8 @@ body.g-mod-pros{--g-acento:#C77BC9}
 .g-cuotas i.okp{background:rgba(52,211,153,.18);box-shadow:inset 0 0 0 2px #34D399}
 .g-cv-fin{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px;font-size:11px;color:#8F6F94}
 .g-cv-fin b{color:#E3CFE5;font-weight:700;font-variant-numeric:tabular-nums}
-.g-cv-fin b.int,.g-cv-saldo-cli b.int{color:#FFC85A}
+/* Intereses y recargos = gasto financiero: en rojo (pedido de Luciano 2-oct) */
+.g-cv-fin b.int,.g-cv-saldo-cli b.int{color:#FF6B6B}
 .g-cv-fin b.pend{color:#FFD24D}
 .g-sin-des{color:#FFC85A;font-style:normal;font-weight:800;font-size:10px;margin-left:3px;cursor:help}
 .g-chk-contab{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#FFD24D;cursor:pointer;white-space:nowrap}
@@ -841,6 +842,7 @@ body.g-mod-pros{--g-acento:#C77BC9}
 .g-sino button:not(:disabled):hover{color:#fff;background:rgba(255,255,255,.06)}
 .g-sino button:disabled{cursor:default}
 .g-sino .si.on{background:linear-gradient(135deg,#46D69A,#22A870);color:#04150D;box-shadow:0 0 10px rgba(52,211,153,.35)}
-.g-sino .no.on{background:rgba(255,210,77,.16);color:#FFD24D;box-shadow:inset 0 0 0 1px rgba(255,210,77,.45)}
+/* "No" contabilizada = pendiente: rojo de alerta (pedido de Luciano 2-oct) */
+.g-sino .no.on{background:rgba(255,92,92,.18);color:#FF6B6B;box-shadow:inset 0 0 0 1px rgba(255,107,107,.6),0 0 10px rgba(255,92,92,.28)}
 .g-sino.bloq .si{opacity:.35}
 .g-sino-q{display:block;font-size:10px;color:#8F6F94;margin-top:3px;white-space:nowrap}.g-sino-q.warn{color:#FFC85A}
