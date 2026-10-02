@@ -172,6 +172,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
   </div>
     <button class="btn-s btn-sm" onclick="exportarCSV()">⬇ CSV</button>
+    <button class="btn-s btn-sm" onclick="exportarRespaldo()" title="Descarga todo lo guardado en este navegador, para la migración">💾 Respaldo</button>
     <button class="btn-p btn-sm" onclick="abrirModalNuevo()">+ Nueva obligación</button>
   </div>
   <div class="content">
@@ -455,7 +456,7 @@ var ESTADOS = {
 };
 var FLUJO_PASOS = ['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado','finalizado'];
 
-var _editId=null, _accionId=null, _btnIds={}, _viewActual='todas', _seleccionados=new Set();
+var _editId=null, _accionId=null, _viewActual='todas', _seleccionados=new Set();
 function getReportesMensuales(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
 function setReportesMensuales(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
 function syncEstadoReporte(ob, nuevoEstado){
@@ -478,6 +479,8 @@ function hoy(){return new Date().toISOString().slice(0,10);}
 function esVencido(ob){return ob.estado==='creada'&&ob.fechaLimite&&ob.fechaLimite<hoy();}
 function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
+// Solo el master (Luciano) aprueba o rechaza pagos; el equipo crea, transfiere, ingresa y envía a aprobación.
+function esAprobador(){return !!getUsuario().esMaster;}
 
 function getObs(){try{return JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){return[];}}
 function setObs(arr){localStorage.setItem('pagos_bd',JSON.stringify(arr));renderAll();}
@@ -690,6 +693,7 @@ function solicitarAprobacion(){
 
 // \u2500\u2500 APROBAR / RECHAZAR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function abrirAprobar(id){
+  if(!esAprobador())return;
   var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
   _accionId=id;
   document.getElementById('aprobarSub').textContent=ob.clienteNombre+' · '+ob.concepto;
@@ -707,22 +711,24 @@ function abrirAprobar(id){
 function closeAprobar(){document.getElementById('modalAprobar').classList.remove('on');}
 
 function aprobarPago(){
+  if(!esAprobador()){alert('Solo '+MASTER_NOMBRE+' puede aprobar pagos.');return;}
   var arr=getObs();
   var idx=arr.findIndex(function(x){return x.id===_accionId;});if(idx<0)return;
   arr[idx].estado='aprobado';
-  arr[idx].aprobacion={quien:MASTER_NOMBRE,obs:sv('a-obs'),ts:ts()};
+  arr[idx].aprobacion={quien:getUsuario().nombre||MASTER_NOMBRE,obs:sv('a-obs'),ts:ts()};
   setObs(arr);
   syncEstadoReporte(arr[idx],'aprobado');
   closeAprobar();
   renderAll();
 }
 function rechazarPago(){
+  if(!esAprobador()){alert('Solo '+MASTER_NOMBRE+' puede rechazar pagos.');return;}
   var obs=sv('a-obs');
   if(!obs){alert('Indica el motivo del rechazo.');return;}
   var arr=getObs();
   var idx=arr.findIndex(function(x){return x.id===_accionId;});if(idx<0)return;
   arr[idx].estado='rechazado';
-  arr[idx].rechazo={quien:MASTER_NOMBRE,obs,ts:ts()};
+  arr[idx].rechazo={quien:getUsuario().nombre||MASTER_NOMBRE,obs,ts:ts()};
   setObs(arr);closeAprobar();
 }
 
@@ -734,6 +740,9 @@ function marcarCobrado(id){
   setObs(arr);
 }
 function eliminarObligacion(id){
+  var ob=getObs().find(function(x){return x.id===id;});
+  if(!ob)return;
+  if(ob.estado!=='creada'&&!esAprobador()){alert('Solo se pueden eliminar obligaciones en estado Creada.');return;}
   if(!confirm('¿Eliminar esta obligación?'))return;
   setObs(getObs().filter(function(x){return x.id!==id;}));
 }
@@ -759,7 +768,8 @@ function solicitarAprobacionUno(id){
 function marcarEnPrevired(id){
   var arr=getObs();
   var idx=arr.findIndex(function(x){return x.id===id;});if(idx<0)return;
-  if(!confirm('¿Marcar como ingresado en Previred/sistema de pago?'))return;
+  if(arr[idx].estado!=='transferido'){alert('La obligación debe estar en estado Transferido.');return;}
+  if(!confirm('¿Marcar como ingresado en Previred / banco?'))return;
   arr[idx].estado='en_previred';
   arr[idx].fechaPrevired=ts();
   arr[idx].quienPrevired=getUsuario().nombre||'';
@@ -790,7 +800,7 @@ function renderStats(){
   var vencidos=creadas.filter(function(ob){return esVencido(ob);});
   var xConciliar=arr.filter(function(ob){return ob.estado==='transferido';});
   var xAprobar=arr.filter(function(ob){return ob.estado==='aprobacion';});
-  var totalPend=arr.filter(function(ob){return['creada','transferido','aprobacion'].includes(ob.estado);}).reduce(function(s,ob){return s+ob.monto;},0);
+  var totalPend=arr.filter(function(ob){return['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado'].includes(ob.estado);}).reduce(function(s,ob){return s+ob.monto;},0);
 
   document.getElementById('statsRow').innerHTML=[
     {val:creadas.length,lbl:'Creadas'},
@@ -837,12 +847,11 @@ function filtrarObs(){
   if(_viewActual==='transferido') arr=arr.filter(function(ob){return ob.estado==='transferido';});
   if(_viewActual==='aprobacion')  arr=arr.filter(function(ob){return ob.estado==='aprobacion';});
   if(_viewActual==='aprobar')     arr=arr.filter(function(ob){return ob.estado==='aprobacion';});
-  if(_viewActual==='historial')   arr=arr.filter(function(ob){return['aprobado','rechazado','cobrado','procesado'].includes(ob.estado);});
+  if(_viewActual==='historial')   arr=arr.filter(function(ob){return['aprobado','rechazado','cobrado','finalizado'].includes(ob.estado);});
   return arr.sort(function(a,b){return(b.ts||0)-(a.ts||0);});
 }
 
 function renderObligaciones(){
-  _btnIds={};
   var arr=filtrarObs();
   var cont=document.getElementById('obligacionesList');
   if(!arr.length){
@@ -901,12 +910,13 @@ function renderObligaciones(){
     if(waHref) accionesHTML+='<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">💬</a>';
     if(ob.estado==='creada') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">✏️ Editar</button>';
     if(ob.estado==='creada') accionesHTML+='<button class="btn-p btn-sm" onclick="abrirConciliar('+ob.id+')">💳 Registrar transferencia</button>';
-    if(ob.estado==='en_previred') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarEnPrevired(_btnIds['+_k+'])" style="font-size:11px">Ingresar a Previred</button>';
-    if(ob.estado==='en_previred') accionesHTML+='<button class="btn-s btn-sm" onclick="solicitarAprobacionUno(_btnIds['+_k+'])" style="font-size:11px">Enviar a aprobacion</button>';
-    if(ob.estado==='aprobacion'&&_viewActual==='aprobar') accionesHTML+='<button class="btn-approve btn-sm" onclick="abrirAprobar(_btnIds['+_k+'])">Revisar y aprobar</button>';
-    if(ob.estado==='aprobado') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado(_btnIds['+_k+'])" style="background:var(--green);font-size:11px">Marcar finalizado</button>';
+    if(ob.estado==='transferido') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarEnPrevired('+ob.id+')" style="font-size:11px">⚙️ Ingresado en Previred / banco</button>';
+    if(ob.estado==='en_previred') accionesHTML+='<button class="btn-s btn-sm" onclick="solicitarAprobacionUno('+ob.id+')" style="font-size:11px">Enviar a aprobacion</button>';
+    if(ob.estado==='aprobacion'&&esAprobador()) accionesHTML+='<button class="btn-approve btn-sm" onclick="abrirAprobar('+ob.id+')">Revisar y aprobar</button>';
+    else if(ob.estado==='aprobacion') accionesHTML+='<span style="font-size:11px;color:#C07A1A;font-weight:600">⏳ Esperando aprobación de '+hesc(MASTER_NOMBRE)+'</span>';
+    if(ob.estado==='aprobado') accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado('+ob.id+')" style="background:var(--green);font-size:11px">Marcar finalizado</button>';
     if(ob.estado==='rechazado') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">🔄 Corregir y reenviar</button>';
-    accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
+    if(ob.estado==='creada'||esAprobador()) accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
     accionesHTML+='</div>';
 
     return'<div class="oblig-row'+(esSel?' seleccionada':'')+(venc?' vencida-border':'')+'">'
@@ -970,7 +980,23 @@ function exportarCSV(){
   a.click();
 }
 
+// Respaldo completo de lo que existe SOLO en este navegador (para migrar a Supabase sin perder nada).
+function exportarRespaldo(){
+  var claves=['pagos_bd','reportes_mensuales','concil_movimientos','concil_historial','concil_meta','concil_rut_memoria','convenios_bd','facturas_cxc'];
+  var datos={generado:new Date().toISOString(),usuario:getUsuario().nombre||'',navegador:navigator.userAgent,claves:{}};
+  claves.forEach(function(k){var v=localStorage.getItem(k);if(v!==null){try{datos.claves[k]=JSON.parse(v);}catch(e){datos.claves[k]=v;}}});
+  var n=(datos.claves.pagos_bd||[]).length;
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}));
+  a.download='respaldo-pagos-'+(getUsuario().nombre||'usuario').replace(/[^A-Za-z0-9]+/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  alert('Respaldo descargado: '+n+' obligación'+(n!==1?'es':'')+' de este navegador.');
+}
+
 renderAll();
+// La lista de clientes se borra al cerrar sesión: se recarga desde Supabase y se vuelve a dibujar.
+inicializarClientes(function(){renderAll();});
 </script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
