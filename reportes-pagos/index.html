@@ -301,6 +301,15 @@ var AREAS={rrhh:'RRHH',contable:'Contable',facturacion:'Facturación',otros_pago
 // tipo queda escrito al inicio del concepto ("Finiquito · …").
 var TIPOS=['Finiquito','Cuota convenio','Pie inicial convenio','Devolución al cliente','Certificado digital','Transferencia al equipo','Multa','Otro'];
 var _obs=[], _clientes=[], _periodos=[], _filtro='', _periodo='', _guardando=false;
+// PAG-2: clave de idempotencia por intento de creación. Se genera al abrir el formulario y se MANTIENE si el
+// resultado es incierto (corte de red): reintentar con la misma clave devuelve la obligación ya creada, sin duplicar.
+var _claveIntento=null;
+function nuevaClave(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID();
+  var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return ('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
 
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function ff(n){return '$'+Math.round(Number(n)||0).toLocaleString('es-CL');}
@@ -429,6 +438,7 @@ function renderTabla(){
 
 // ── Nueva obligación ──────────────────────────────────────────────────────
 function abrirNueva(){
+  _claveIntento=nuevaClave();
   var areas=areasPermitidas();
   if(!areas.length){alert('Tu rol no puede crear obligaciones.');return;}
   document.getElementById('n-area').innerHTML=areas.map(function(a){return '<option value="'+a+'">'+AREAS[a]+'</option>';}).join('');
@@ -477,18 +487,20 @@ function guardarNueva(){
     body:JSON.stringify({
       p_cliente_rut:rut, p_periodo:_periodo, p_area_origen:area, p_tipo_obligacion:'otro',
       p_concepto:concepto, p_monto_total:monto, p_monto_exigible:monto, p_monto_postergado:0,
-      p_vencimiento:venc||null, p_iva_fecha_venc:null, p_ref_reporte_id:null, p_ref_factura_id:null
+      p_vencimiento:venc||null, p_iva_fecha_venc:null, p_ref_reporte_id:null, p_ref_factura_id:null, p_clave_idem:_claveIntento
     })
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){
       var det='';try{det=(JSON.parse(t)||{}).message||'';}catch(x){}
+      if(/idempotencia ya usada/i.test(det)) det='en el intento anterior ya se creó una obligación con esta clave. Revisa la lista; si necesitas otra distinta, cierra y vuelve a abrir el formulario';
       var msg=(r.status===401||r.status===403||/42501|autorizado/i.test(t))?'No tienes permiso para crear obligaciones en este cliente o área.':'No se pudo crear la obligación'+(det?': '+det:' (error '+r.status+').');
       var er=new Error(msg);er.claro=r.status>=400&&r.status<500;throw er;
     });
     return r.json();
   }).then(function(rows){
     var row=rows&&rows[0];
-    if(!row||row.resultado!=='creada'||!row.obligacion_id) throw new Error('sin confirmación');
+    if(!row||(row.resultado!=='creada'&&row.resultado!=='existente')||!row.obligacion_id) throw new Error('sin confirmación');
+    _claveIntento=null; // éxito: la próxima creación usa otra clave
     _guardando=false;btn.disabled=false;btn.textContent='Crear obligación';
     document.getElementById('modalNueva').classList.remove('on');
     cargar();
