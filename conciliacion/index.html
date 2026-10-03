@@ -324,7 +324,7 @@ function cargar(listo){
   ]).then(function(r){
     if(typeof listo==='function')listo();
     if(seq!==_seq||r.indexOf(null)>=0)return;
-    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];stats();render();
+    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_cacheSug={};stats();render();
   }).catch(function(){
     if(typeof listo==='function')listo();
     if(seq!==_seq)return;
@@ -364,7 +364,7 @@ function render(){
   if(_vista==='conc') arr=arr.filter(function(m){return Number(m.monto_aplicado)>0;});
   document.getElementById('meta').textContent=arr.length+' ingreso(s)';
   if(!arr.length){cont.innerHTML='<div style="padding:30px;text-align:center;color:var(--tm)">'+(_vista==='pend'?'No hay ingresos por conciliar 👍':'Sin registros.')+'</div>';return;}
-  h='<table><thead><tr><th>Fecha</th><th>Transfiere</th><th>Cliente</th><th style="text-align:right">Monto</th><th style="text-align:right">'+(_vista==='desc'?'Categoría':'Saldo')+'</th><th>Estado</th><th></th></tr></thead><tbody>';
+  h='<table><thead><tr><th>Fecha</th><th>Transfiere</th><th>Cliente</th><th style="text-align:right">Monto</th><th style="text-align:right">'+(_vista==='desc'?'Categoría':'Saldo')+'</th><th>Estado</th>'+(_vista==='pend'?'<th>💡 Sugerencia</th>':'')+'<th></th></tr></thead><tbody>';
   arr.forEach(function(m){
     var e=EST[m.estado]||[m.estado,'eb-gris'], acc='';
     if(_vista==='pend'){
@@ -382,7 +382,9 @@ function render(){
         :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+'</td>'
       +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(m.monto)+'</td>'
       +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo))+'</td>'
-      +'<td><span class="eb '+hesc(e[1])+'">'+hesc(e[0])+'</span></td><td>'+acc+'</td></tr>';
+      +'<td><span class="eb '+hesc(e[1])+'">'+hesc(e[0])+'</span></td>'
+      +(_vista==='pend'?(function(){var sg=sugerencia(m);return '<td style="font-size:11px;max-width:260px;color:'+(sg.tipo==='exacto'?'var(--green)':sg.tipo==='cliente'?'var(--amber)':'var(--tm)')+'">'+hesc(sg.txt)+'</td>';})():'')
+      +'<td>'+acc+'</td></tr>';
   });
   cont.innerHTML=h+'</tbody></table>';
 }
@@ -448,6 +450,41 @@ function registrarCartola(){
 // ── Conciliar ───────────────────────────────────────────────────────────
 // Orden por defecto (Luciano 02-oct): período más antiguo primero; en el mismo período, lo que genera multa
 // (F29 / cotizaciones) antes que "otro" y que servicios Contadoor; luego vencimiento y id.
+// ── Sugerencias (NUNCA se aplican solas: Tesorería revisa y confirma) ───────
+// Fuentes: obligaciones abiertas del cliente, que incluyen las que nacen de los reportes mensuales (F29, cotizaciones)
+// y las de servicios Contadoor / facturas (servicio_contadoor) cuando existan. Criterios: RUT (o memoria) + monto exacto.
+var NOMBRE_TIPO={f29:'F29',cotizaciones:'Cotizaciones',servicio_contadoor:'Servicios Contadoor',otro:'Pago'};
+function etiquetaOb(o){return (o.concepto||NOMBRE_TIPO[o.tipo_obligacion]||'Obligación')+' '+o.periodo;}
+function combinacionExacta(lista,obj){ // menor cantidad de obligaciones; a igual cantidad, las más antiguas
+  var L=lista.slice(0,15),n=L.length,mejor=null;
+  for(var mask=1;mask<(1<<n);mask++){var s=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=Number(L[i].saldo_pendiente);idx.push(i);}
+    if(s===obj&&(!mejor||idx.length<mejor.length||(idx.length===mejor.length&&menorLex(idx,mejor))))mejor=idx;}
+  return mejor?mejor.map(function(i){return L[i];}):null;
+}
+var _cacheSug={}; // se vacía en cada carga de datos (la búsqueda de combinaciones es costosa)
+function sugerencia(m){
+  var k=m.id+':'+m.saldo+':'+(m.cliente_rut||'');
+  if(!_cacheSug[k]) _cacheSug[k]=calcularSugerencia(m);
+  return _cacheSug[k];
+}
+function calcularSugerencia(m){
+  var saldo=Number(m.saldo);
+  if(m.cliente_rut){
+    var ab=_obs.filter(function(o){return o.cliente_rut===m.cliente_rut;}).sort(prioridad);
+    if(!ab.length) return {txt:'Sin obligaciones abiertas: ¿pago de servicios u otro?',tipo:'nada'};
+    var ex=combinacionExacta(ab,saldo);
+    if(ex) return {txt:'Calza exacto con: '+ex.map(etiquetaOb).join(' + '),tipo:'exacto'};
+    var tot=ab.reduce(function(s,o){return s+Number(o.saldo_pendiente);},0);
+    return {txt:saldo<tot?'Abono parcial: cubre parte de '+ab.length+' obligación(es) (lo más antiguo primero)':'Paga de más: deuda abierta '+ff(tot),tipo:'parcial'};
+  }
+  // Sin cliente: buscar obligaciones de cualquier cliente con el mismo monto y la memoria del RUT
+  var mem=_mem.filter(function(x){return x.rut_origen===m.rut_origen;}).map(function(x){return x.cliente_rut;});
+  var porMonto=_obs.filter(function(o){return Number(o.saldo_pendiente)===saldo;});
+  var clis={};mem.forEach(function(r){clis[r]='🧠';});porMonto.forEach(function(o){clis[o.cliente_rut]=(clis[o.cliente_rut]||'')+'💲';});
+  var ks=Object.keys(clis);
+  if(!ks.length) return {txt:'',tipo:'nada'};
+  return {txt:'¿Es de '+ks.slice(0,3).map(function(r){return cliNombre(r)+' '+clis[r];}).join(', ')+(ks.length>3?'…':'')+'?',tipo:'cliente',clientes:ks};
+}
 function rangoTipo(t){return t==='f29'||t==='cotizaciones'?0:t==='servicio_contadoor'?2:1;}
 function prioridad(a,b){return a.periodo<b.periodo?-1:a.periodo>b.periodo?1:rangoTipo(a.tipo_obligacion)-rangoTipo(b.tipo_obligacion)||((a.vencimiento||'9999')<(b.vencimiento||'9999')?-1:(a.vencimiento||'9999')>(b.vencimiento||'9999')?1:0)||a.id-b.id;}
 function abrirConciliar(id){
@@ -456,6 +493,8 @@ function abrirConciliar(id){
   _cands=_obs.filter(function(o){return o.cliente_rut===_mov.cliente_rut;}).sort(prioridad).map(function(o){return {o:o,monto:0};});
   document.getElementById('kIngreso').innerHTML='<div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:8px"><div style="font-size:11px;opacity:.75">INGRESO '+hesc(fecha(_mov.fecha_hora))+' · '+hesc(_mov.rut_origen)+' · '+hesc(_mov.nombre_origen||'')+'</div><div style="font-size:24px;font-weight:800">'+ff(_mov.saldo)+(Number(_mov.monto_aplicado)>0?' <span style="font-size:12px;opacity:.75">por aplicar de '+ff(_mov.monto)+'</span>':'')+'</div><div style="font-size:12px;opacity:.8">'+hesc(cliNombre(_mov.cliente_rut))+'</div></div>';
   pintarCands();abrir('mConc');
+  // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar conciliación".
+  if(_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
 }
 function pintarCands(){
   var h=_cands.length?'<table><thead><tr><th>Período</th><th>Concepto</th><th style="text-align:right">Saldo</th><th style="text-align:right">Aplicar</th></tr></thead><tbody>'+_cands.map(function(c,i){
@@ -483,7 +522,7 @@ function sugerirExacto(){
   if(!mejor){sug.innerHTML='No hay una combinación de obligaciones que sume exactamente '+ff(obj)+(_cands.length>15?' entre las 15 más antiguas':'')+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
   _cands.forEach(function(c){c.monto=0;});mejor.forEach(function(i){_cands[i].monto=Number(_cands[i].o.saldo_pendiente);});
   if(!document.getElementById('kIndica').checked)_criterio='exacto';
-  sug.innerHTML='🎯 Encontré '+mejor.length+' obligación(es) que suman exactamente '+ff(obj)+'. Revisa y aplica.'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'');pintarCands();
+  sug.innerHTML='💡 Sugerencia: '+mejor.length+' obligación(es) suman exactamente '+ff(obj)+'. <strong>Nada se aplica hasta que confirmes.</strong>'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'');pintarCands();
 }
 function aplicar(){
   if(_ocupado)return;
@@ -518,11 +557,17 @@ function abrirAsignar(id){
   document.getElementById('aSub').textContent='Transfiere '+_movAsig.rut_origen+' · '+(_movAsig.nombre_origen||'')+' · '+ff(_movAsig.monto);
   // Sugerencias: clientes que este RUT ya pagó antes (memoria). Aparecen primero en la lista.
   var sug=_mem.filter(function(x){return x.rut_origen===_movAsig.rut_origen;}).map(function(x){return x.cliente_rut;});
+  var porMonto=_obs.filter(function(o){return Number(o.saldo_pendiente)===Number(_movAsig.saldo)&&sug.indexOf(o.cliente_rut)<0;}).map(function(o){return o.cliente_rut;}).filter(function(r,i,a){return a.indexOf(r)===i;});
   var orden=_clientes.slice().sort(function(a,b){var sa=sug.indexOf(a.rut)>=0?0:1,sb=sug.indexOf(b.rut)>=0?0:1;return sa-sb||String(a.razon).localeCompare(String(b.razon));});
   document.getElementById('aCli').innerHTML='<option value="">Seleccionar…</option>'+orden.map(function(c){return '<option value="'+hesc(c.rut)+'">'+(sug.indexOf(c.rut)>=0?'🧠 ':'')+hesc(c.razon)+' · '+hesc(c.rut)+'</option>';}).join('');
   var bs=document.getElementById('aSug');
-  if(sug.length){bs.style.display='block';bs.innerHTML='🧠 Este RUT ya transfirió antes por: <strong>'+sug.map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>'+(sug.length>1?' (tiene varias empresas: elige a cuál corresponde este pago)':'');if(sug.length===1)document.getElementById('aCli').value=sug[0];}
+  var txt=[];
+  if(sug.length) txt.push('🧠 Este RUT ya transfirió antes por: <strong>'+sug.map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>'+(sug.length>1?' (varias empresas: elige a cuál corresponde)':''));
+  if(porMonto.length) txt.push('💲 Monto igual a una obligación abierta de: <strong>'+porMonto.slice(0,5).map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>');
+  if(txt.length){bs.style.display='block';bs.innerHTML=txt.join('<br>')+'<br><span style="color:var(--tm)">Son sugerencias: tú eliges el cliente.</span>';if(sug.length===1)document.getElementById('aCli').value=sug[0];}
   else bs.style.display='none';
+  // los sugeridos por monto también suben en la lista
+  var sel=document.getElementById('aCli');Array.prototype.forEach.call(sel.options,function(op){if(porMonto.indexOf(op.value)>=0&&op.textContent.indexOf('💲')<0)op.textContent='💲 '+op.textContent;});
   document.getElementById('aMot').value=sug.length?'Mismo RUT ya asociado a este cliente':'';document.getElementById('aRec').checked=sug.length<1;err('aErr','');abrir('mAsig');
 }
 function asignar(){
