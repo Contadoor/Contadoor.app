@@ -47,8 +47,8 @@
   var MODULOS_POR_ROL={
     master:   ['*'],
     admin:    ['*'],
-    rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios'],
-    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios'],
+    rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
+    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos'],
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
     comercial:['dashboard','clientes','convenios','prospectos']
