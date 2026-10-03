@@ -209,7 +209,7 @@ tr:hover td{background:#f0fdff;}
       <div class="stat"><div class="sv" id="st-conc" style="color:#8FDBFF">0</div><div class="sl">Conciliadas</div></div>
       <div class="stat"><div class="sv" id="st-ejec" style="color:var(--p)">0</div><div class="sl">En pago</div></div>
       <div class="stat"><div class="sv" id="st-aprob" style="color:var(--amber)">0</div><div class="sl">En aprobación</div></div>
-      <div class="stat"><div class="sv" id="st-fin" style="color:var(--green)">0</div><div class="sl">Finalizadas</div></div>
+      <div class="stat"><div class="sv" id="st-fin" style="color:var(--green)">0</div><div class="sl">Aprobadas · por finalizar</div></div>
       <div class="stat"><div class="sv" id="st-saldo" style="color:var(--t1)">$0</div><div class="sl">Saldo por conciliar</div></div>
     </div>
 
@@ -224,12 +224,12 @@ tr:hover td{background:#f0fdff;}
     <!-- FILTROS -->
     <div class="filtros">
       <span class="fl">Estado:</span>
-      <button class="fb on" data-f="" onclick="setFiltro('')">Todas</button>
+      <button class="fb on" data-f="" onclick="setFiltro('')">En proceso <span class="cnt" id="cnt-abiertas">0</span></button>
       <button class="fb" data-f="pend" onclick="setFiltro('pend')">Por conciliar <span class="cnt" id="cnt-pend">0</span></button>
       <button class="fb" data-f="curso" onclick="setFiltro('curso')">En curso <span class="cnt" id="cnt-curso">0</span></button>
-      <button class="fb" data-f="cerr" onclick="setFiltro('cerr')">Cerradas <span class="cnt" id="cnt-cerr">0</span></button>
-      <span class="fl" style="margin-left:10px">Período:</span>
-      <select id="selectPeriodo" onchange="cargar()" style="padding:4px 8px;border-radius:7px;border:1px solid var(--bdr);font-size:11px"></select>
+      <button class="fb" data-f="hist" onclick="setFiltro('hist')">🗂️ Historial</button>
+      <span class="fl" style="margin-left:10px" id="lblPeriodo">Período (historial y nuevas):</span>
+      <select id="selectPeriodo" onchange="_periodo=this.value;if(esHistorial())cargar();else pintarCalendario();" style="padding:4px 8px;border-radius:7px;border:1px solid var(--bdr);font-size:11px"></select>
       <span class="fl" style="margin-left:10px">Área:</span>
       <select id="selectArea" onchange="renderTabla()" style="padding:4px 8px;border-radius:7px;border:1px solid var(--bdr);font-size:11px">
         <option value="">Todas</option><option value="rrhh">RRHH</option><option value="contable">Contable</option><option value="facturacion">Facturación</option><option value="otros_pagos">Tesorería</option>
@@ -342,11 +342,16 @@ function clientesParaArea(area){
 }
 function nombreCliente(rut){var c=_clientes.find(function(x){return x.rut===rut;});return c?c.razon:rut;}
 
+// Vista: "En proceso" (todas las abiertas, de cualquier período) o "Historial" (finalizadas/anuladas del período).
+// Lo cerrado no se borra: queda en la base y se consulta en Historial.
 function setFiltro(v){
+  var cambiaVista=(v==='hist')!==(_filtro==='hist');
   _filtro=v;
   document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-f')===v);});
-  renderTabla();
+  if(cambiaVista) cargar(); else renderTabla();
 }
+function esHistorial(){return _filtro==='hist';}
+function esMensual(o){return o.ref_reporte_id!=null||o.ref_factura_id!=null;}
 
 function poblarPeriodos(){
   var sel=document.getElementById('selectPeriodo');
@@ -368,11 +373,14 @@ function pintarCalendario(){
 
 function cargar(listo){
   _periodo=sv('selectPeriodo');
-  document.getElementById('periodo-label').textContent=periodoLabel(_periodo);
+  document.getElementById('periodo-label').textContent=esHistorial()?('historial · '+periodoLabel(_periodo)):'en proceso (todos los períodos)';
   document.getElementById('tabla-meta').textContent='Cargando…';
   pintarCalendario();
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
-    +'&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc';
+    +',ref_reporte_id,ref_factura_id'
+    +(esHistorial()
+      ? '&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc'
+      : '&estado=not.in.(finalizada,anulada)&order=vencimiento.asc.nullslast,created_at.desc&limit=1000');
   var fin=function(rows,err){
     if(typeof listo==='function') listo();
     if(err){
@@ -389,37 +397,39 @@ function cargar(listo){
 }
 
 function renderStats(){
+  if(esHistorial()) return; // el resumen describe lo que está en proceso
   function n(est){return _obs.filter(function(o){return est.indexOf(o.estado)>=0;}).length;}
   document.getElementById('st-pend').textContent=n(['pendiente_fondos','parcialmente_conciliada','requiere_revision']);
   document.getElementById('st-conc').textContent=n(['conciliada']);
   document.getElementById('st-ejec').textContent=n(['en_ejecucion']);
   document.getElementById('st-aprob').textContent=n(['pendiente_aprobacion']);
-  document.getElementById('st-fin').textContent=n(['finalizada']);
+  document.getElementById('st-fin').textContent=n(['aprobada']);
   var saldo=_obs.filter(function(o){return ['pendiente_fondos','parcialmente_conciliada','requiere_revision'].indexOf(o.estado)>=0;})
     .reduce(function(s,o){return s+(Number(o.saldo_pendiente)||0);},0);
   document.getElementById('st-saldo').textContent=ff(saldo);
-  ['pend','curso','cerr'].forEach(function(g){
+  ['pend','curso'].forEach(function(g){
     document.getElementById('cnt-'+g).textContent=_obs.filter(function(o){return (ESTADOS[o.estado]||{}).g===g;}).length;
   });
+  document.getElementById('cnt-abiertas').textContent=_obs.length;
 }
 
 function renderTabla(){
   var q=(sv('searchQ')||'').toLowerCase(), area=sv('selectArea'), hoy=hoyChile();
   var arr=_obs.filter(function(o){
     var e=ESTADOS[o.estado]||{};
-    if(_filtro&&e.g!==_filtro) return false;
+    if(_filtro&&_filtro!=='hist'&&e.g!==_filtro) return false;
     if(area&&o.area_origen!==area) return false;
     if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   });
-  document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+' · '+periodoLabel(_periodo);
+  document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(esHistorial()?' cerrada'+(arr.length!==1?'s':'')+' · '+periodoLabel(_periodo):' en proceso');
   var cont=document.getElementById('tablaBody');
   if(!arr.length){
-    cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">No hay obligaciones'+(_filtro||area||q?' con este filtro':' en este período')+'.'
+    cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(esHistorial()?'No hay obligaciones cerradas en '+hesc(periodoLabel(_periodo)):'No hay obligaciones en proceso'+(_filtro||area||q?' con este filtro':''))+'.'
       +(areasPermitidas().length?'<br><br><button class="btn-purple" onclick="abrirNueva()">+ Nueva obligación</button>':'')+'</div>';
     return;
   }
-  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody>'
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Origen</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
       var abierta=e.g!=='cerr';
@@ -427,6 +437,8 @@ function renderTabla(){
       return '<tr>'
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
         +'<td>'+hesc(o.concepto||'—')+'</td>'
+        +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
+        +'<td><span class="eb '+(esMensual(o)?'eb-conc':'eb-ejec')+'">'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</span></td>'
         +'<td>'+hesc(AREAS[o.area_origen]||o.area_origen)+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
         +'<td style="text-align:right;font-family:monospace">'+(abierta?ff(o.saldo_pendiente):'—')+'</td>'
