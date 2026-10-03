@@ -250,7 +250,7 @@ tr:hover td{background:#f0fdff;}
     <button class="btn-s" onclick="sugerirExacto()">🎯 Sugerir suma exacta</button>
     <button class="btn-s" onclick="distribuirAntiguedad()">⏳ Distribuir por antigüedad</button>
     <button class="btn-s" onclick="limpiarMontos()">Limpiar</button>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto"><input type="checkbox" id="kIndica" onchange="_criterio=this.checked?'cliente_indica':_criterio"> El cliente indicó qué paga</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto;text-transform:none;letter-spacing:0;color:var(--t1);margin-top:0"><input type="checkbox" id="kIndica" style="width:auto" onchange="_criterio=this.checked?'cliente_indica':'manual'"> El cliente indicó qué paga</label>
   </div>
   <div id="kSug" class="info-box" style="display:none"></div>
   <div id="kObs"></div>
@@ -301,6 +301,7 @@ function esTesoreria(){var u=getUsuario();return !!u.esMaster||['master','admin'
 function esJefe(){var u=getUsuario();return !!u.esMaster||['master','admin'].indexOf(u.rol)>=0;}
 function nuevaClave(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
 function cliNombre(rut){var c=_clientes.find(function(x){return x.rut===rut;});return c?c.razon:(rut||'');}
+function fechaTz(ts){if(!ts)return'—';var d=new Date(ts);return isNaN(d)?'—':d.toLocaleString('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});} // timestamptz (UTC) → hora de Chile
 function fecha(fh){if(!fh)return'—';var d=String(fh).slice(0,16).replace('T',' ');return d.slice(8,10)+'-'+d.slice(5,7)+'-'+d.slice(0,4)+' '+d.slice(11,16);}
 function abrir(id){document.getElementById(id).classList.add('on');}
 function cerrar(id){if(_ocupado)return;document.getElementById(id).classList.remove('on');}
@@ -348,14 +349,14 @@ function render(){
   if(_vista==='mem'){
     var lm=_mem.filter(function(x){return !q||(x.rut_origen+' '+cliNombre(x.cliente_rut)).toLowerCase().indexOf(q)>=0;});
     document.getElementById('titulo').textContent=T.mem;document.getElementById('meta').textContent=lm.length+' asociación(es)';
-    cont.innerHTML=lm.length?'<table><thead><tr><th>RUT que transfiere</th><th>Cliente</th><th>Motivo</th><th>Desde</th><th></th></tr></thead><tbody>'+lm.map(function(x){return '<tr><td>'+hesc(x.rut_origen)+'</td><td>'+hesc(cliNombre(x.cliente_rut))+'</td><td>'+hesc(x.motivo)+'</td><td>'+hesc(fecha(x.created_at))+'</td><td><button class="btn-s" onclick="olvidar('+x.id+')">Olvidar</button></td></tr>';}).join('')+'</tbody></table>'
+    cont.innerHTML=lm.length?'<table><thead><tr><th>RUT que transfiere</th><th>Cliente</th><th>Motivo</th><th>Desde</th><th></th></tr></thead><tbody>'+lm.map(function(x){return '<tr><td>'+hesc(x.rut_origen)+'</td><td>'+hesc(cliNombre(x.cliente_rut))+'</td><td>'+hesc(x.motivo)+'</td><td>'+hesc(fechaTz(x.created_at))+'</td><td><button class="btn-s" onclick="olvidar('+x.id+')">Olvidar</button></td></tr>';}).join('')+'</tbody></table>'
       :'<div style="padding:30px;text-align:center;color:var(--tm)">Aún no hay RUT recordados. Se agregan al asignar un cliente con "Recordar".</div>';
     return;
   }
   document.getElementById('titulo').textContent=T[_vista];
   if(_vista==='cargas'){
     document.getElementById('meta').textContent=_cargas.length+' carga(s)';
-    cont.innerHTML=_cargas.length?'<table><thead><tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Nuevos</th><th>Duplicados</th><th>Rechazados</th></tr></thead><tbody>'+_cargas.map(function(c){return '<tr><td>'+hesc(fecha(c.created_at))+'</td><td>'+hesc(c.archivo)+'</td><td>'+c.filas+'</td><td>'+c.insertados+'</td><td>'+c.duplicados+'</td><td>'+c.rechazados+'</td></tr>';}).join('')+'</tbody></table>':'<div style="padding:30px;text-align:center;color:var(--tm)">Aún no se carga ninguna cartola.</div>';
+    cont.innerHTML=_cargas.length?'<table><thead><tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Nuevos</th><th>Duplicados</th><th>Rechazados</th></tr></thead><tbody>'+_cargas.map(function(c){return '<tr><td>'+hesc(fechaTz(c.created_at))+'</td><td>'+hesc(c.archivo)+'</td><td>'+c.filas+'</td><td>'+c.insertados+'</td><td>'+c.duplicados+'</td><td>'+c.rechazados+'</td></tr>';}).join('')+'</tbody></table>':'<div style="padding:30px;text-align:center;color:var(--tm)">Aún no se carga ninguna cartola.</div>';
     return;
   }
   var est=_vista==='pend'?['por_conciliar','parcial']:_vista==='conc'?['conciliado','parcial']:['descartado'];
@@ -381,7 +382,7 @@ function render(){
         :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+'</td>'
       +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(m.monto)+'</td>'
       +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo))+'</td>'
-      +'<td><span class="eb '+e[1]+'">'+e[0]+'</span></td><td>'+acc+'</td></tr>';
+      +'<td><span class="eb '+hesc(e[1])+'">'+hesc(e[0])+'</span></td><td>'+acc+'</td></tr>';
   });
   cont.innerHTML=h+'</tbody></table>';
 }
@@ -390,27 +391,33 @@ function cargarConceptos(){
   var ids={};_ops.forEach(function(o){(o.aplicaciones||[]).forEach(function(a){ids[a.obligacion_id]=1;});});
   var lista=Object.keys(ids).filter(function(i){return !_obsTodas[i];});
   if(!lista.length)return;
-  sbFetch('obligaciones_pago?select=id,concepto,periodo&id=in.('+lista.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){(rows||[]).forEach(function(o){_obsTodas[o.id]=(o.concepto||'')+' ('+o.periodo+')';});render();}).catch(function(){});
+  for(var i=0;i<lista.length;i+=100){ // en lotes de 100 para que la URL no crezca sin límite
+    sbFetch('obligaciones_pago?select=id,concepto,periodo&id=in.('+lista.slice(i,i+100).join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){(rows||[]).forEach(function(o){_obsTodas[o.id]=(o.concepto||'')+' ('+o.periodo+')';});render();}).catch(function(){});
+  }
 }
 
 // ── Carga de la cartola ──────────────────────────────────────────────────
 function abrirCarga(){_filasCarga=null;document.getElementById('cFile').value='';document.getElementById('cPrev').innerHTML='';document.getElementById('cBtn').disabled=true;err('cErr','');abrir('mCarga');}
 function norm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
 var COLS={fecha:'fecha',rut:'rut',nombre:'nombre',banco_origen:'banco origen',cuenta_destino:'cuenta destino',monto:'monto',estado:'estado',codigo:'codigo transferencia'};
+var _d1904=false;
 function fechaCelda(v){
-  if(typeof v==='number'){var d=XLSX.SSF.parse_date_code(v);if(!d)return '';var p=function(n){return('0'+n).slice(-2);};return d.y+'-'+p(d.m)+'-'+p(d.d)+' '+p(d.H)+':'+p(d.M)+':'+p(Math.floor(d.S));}
+  if(typeof v==='number'){var d=XLSX.SSF.parse_date_code(v,{date1904:_d1904});if(!d)return '';var p=function(n){return('0'+n).slice(-2);};return d.y+'-'+p(d.m)+'-'+p(d.d)+' '+p(d.H)+':'+p(d.M)+':'+p(Math.floor(d.S));}
   var m=String(v||'').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
   if(m)return m[3]+'-'+m[2]+'-'+m[1]+' '+(m[4]||'00')+':'+(m[5]||'00')+':'+(m[6]||'00');
   return String(v||'');
 }
 function montoCelda(v){if(typeof v==='number')return Number.isInteger(v)?String(v):String(v);var t=String(v||'').replace(/[$\s.]/g,'');return t;}
+var _lectura=0;
 function leerCartola(inp){
-  var f=inp.files&&inp.files[0];err('cErr','');document.getElementById('cBtn').disabled=true;if(!f)return;
-  _archivo=f.name;
+  var f=inp.files&&inp.files[0];err('cErr','');document.getElementById('cBtn').disabled=true;_filasCarga=null;if(!f)return;
+  var mia=++_lectura, nombre=f.name, sha=null;   // si se elige otro archivo mientras se lee, este resultado se descarta
   f.arrayBuffer().then(function(buf){
-    return crypto.subtle.digest('SHA-256',buf).then(function(h){_sha=Array.prototype.map.call(new Uint8Array(h),function(x){return('0'+x.toString(16)).slice(-2);}).join('');return buf;});
+    return crypto.subtle.digest('SHA-256',buf).then(function(h){sha=Array.prototype.map.call(new Uint8Array(h),function(x){return('0'+x.toString(16)).slice(-2);}).join('');return buf;});
   }).then(function(buf){
+    if(mia!==_lectura)return;
     var wb=XLSX.read(buf,{type:'array'}), sh=wb.Sheets[wb.SheetNames[0]];
+    _d1904=!!(wb.Workbook&&wb.Workbook.WBProps&&wb.Workbook.WBProps.date1904);
     var rows=XLSX.utils.sheet_to_json(sh,{header:1,raw:true,defval:''});
     var hi=-1,map={};
     for(var i=0;i<Math.min(rows.length,20);i++){var n=rows[i].map(norm);if(n.indexOf('codigo transferencia')>=0&&n.indexOf('monto')>=0){hi=i;Object.keys(COLS).forEach(function(k){map[k]=n.indexOf(COLS[k]);});break;}}
@@ -419,21 +426,21 @@ function leerCartola(inp){
     for(var j=hi+1;j<rows.length;j++){var r=rows[j];if(!String(r[map.codigo]||'').trim())continue;
       filas.push({codigo:String(r[map.codigo]).trim(),fecha_hora:fechaCelda(r[map.fecha]),rut:String(r[map.rut]).trim(),nombre:String(r[map.nombre]).trim(),banco_origen:String(r[map.banco_origen]).trim(),cuenta_destino:String(r[map.cuenta_destino]).trim(),monto:montoCelda(r[map.monto]),estado:String(r[map.estado]).trim()});}
     if(!filas.length) throw new Error('El archivo no tiene transferencias.');
-    _filasCarga=filas;
-    var tot=filas.reduce(function(s,x){return s+(Number(x.monto)||0);},0);
-    document.getElementById('cPrev').innerHTML='<div class="info-box">Archivo <strong>'+hesc(_archivo)+'</strong>: <strong>'+filas.length+'</strong> transferencias por <strong>'+ff(tot)+'</strong>. Las ya cargadas antes se omiten solas.</div>'
+    _filasCarga=filas;_archivo=nombre;_sha=sha;
+    var okF=filas.filter(function(x){return norm(x.estado)==='ok';}), tot=okF.reduce(function(s,x){return s+(Number(x.monto)||0);},0);
+    document.getElementById('cPrev').innerHTML='<div class="info-box">Archivo <strong>'+hesc(_archivo)+'</strong>: <strong>'+filas.length+'</strong> transferencias'+(okF.length<filas.length?' ('+(filas.length-okF.length)+' con estado distinto de Ok, que no se cargan)':'')+'; ingresos válidos por <strong>'+ff(tot)+'</strong>. Las ya cargadas antes se omiten solas.</div>'
       +'<table><thead><tr><th>Fecha</th><th>RUT</th><th>Nombre</th><th style="text-align:right">Monto</th><th>Estado</th></tr></thead><tbody>'
       +filas.slice(0,8).map(function(x){return '<tr><td>'+hesc(x.fecha_hora)+'</td><td>'+hesc(x.rut)+'</td><td>'+hesc(x.nombre)+'</td><td style="text-align:right">'+ff(x.monto)+'</td><td>'+hesc(x.estado)+'</td></tr>';}).join('')
       +(filas.length>8?'<tr><td colspan="5" style="color:var(--tm)">… y '+(filas.length-8)+' más</td></tr>':'')+'</tbody></table>';
     document.getElementById('cBtn').disabled=false;
-  }).catch(function(e){err('cErr',e.message||'No se pudo leer el archivo.');});
+  }).catch(function(e){if(mia===_lectura)err('cErr',e.message||'No se pudo leer el archivo.');});
 }
 function registrarCartola(){
   if(_ocupado||!_filasCarga)return;_ocupado=true;var b=document.getElementById('cBtn');b.disabled=true;b.textContent='Registrando…';
   rpc('registrar_transferencias',{p_archivo:_archivo,p_sha256:_sha,p_movs:_filasCarga}).then(function(rows){
     var r=rows&&rows[0]||{};
     document.getElementById('cPrev').innerHTML='<div class="info-box">✅ Nuevos: <strong>'+r.insertados+'</strong> · Ya estaban: <strong>'+r.duplicados+'</strong> · Rechazados: <strong>'+(r.rechazados||[]).length+'</strong></div>'
-      +((r.rechazados||[]).length?'<table><thead><tr><th>Fila</th><th>Código</th><th>Motivo</th></tr></thead><tbody>'+r.rechazados.map(function(x){return '<tr><td>'+hesc(x.fila)+'</td><td>'+hesc(x.codigo||'')+'</td><td>'+hesc(x.motivo)+'</td></tr>';}).join('')+'</tbody></table>':'');
+      +((r.rechazados||[]).length?'<table><thead><tr><th>N° transferencia en la lista</th><th>Código</th><th>Motivo</th></tr></thead><tbody>'+r.rechazados.map(function(x){return '<tr><td>'+hesc(x.fila)+'</td><td>'+hesc(x.codigo||'')+'</td><td>'+hesc(x.motivo)+'</td></tr>';}).join('')+'</tbody></table>':'');
     _filasCarga=null;b.textContent='Registrar ingresos';_ocupado=false;cargar();
   }).catch(function(e){_ocupado=false;b.disabled=false;b.textContent='Registrar ingresos';err('cErr',e.claro?e.message:'No sabemos si se registró (problema de conexión). Vuelve a subir el mismo archivo: lo ya cargado no se duplica.');cargar();});
 }
@@ -457,7 +464,7 @@ function pintarCands(){
     :'<div class="info-box">Este cliente no tiene obligaciones abiertas. Si el ingreso no corresponde a una obligación, ciérralo y usa "No corresponde".</div>';
   document.getElementById('kObs').innerHTML=h;totalizar();
 }
-function setMonto(i,v){var t=String(v||'').replace(/[.\s$]/g,'');_cands[i].monto=/^\d{1,12}$/.test(t)?Number(t):(t?NaN:0);if(_criterio!=='cliente_indica')_criterio='manual';totalizar();}
+function setMonto(i,v){var t=String(v||'').replace(/[.\s$]/g,'');_cands[i].monto=/^\d{1,12}$/.test(t)?Number(t):(t?NaN:0);_criterio=document.getElementById('kIndica').checked?'cliente_indica':'manual';totalizar();}
 function totalizar(){
   var tot=0,mal=false;_cands.forEach(function(c){if(isNaN(c.monto))mal=true;else{tot+=c.monto;if(c.monto>Number(c.o.saldo_pendiente))mal=true;}});
   var saldo=Number(_mov.saldo),dif=saldo-tot;
@@ -467,15 +474,16 @@ function totalizar(){
 function limpiarMontos(){_cands.forEach(function(c){c.monto=0;});_criterio='manual';document.getElementById('kSug').style.display='none';pintarCands();}
 function distribuirAntiguedad(){var resto=Number(_mov.saldo);_cands.forEach(function(c){var m=Math.min(resto,Number(c.o.saldo_pendiente));c.monto=m;resto-=m;});if(!document.getElementById('kIndica').checked)_criterio='antiguedad';pintarCands();}
 // Busca la combinación (subconjunto) de saldos que suma exacto el ingreso; prefiere menos obligaciones y más antiguas.
+function menorLex(a,b){for(var i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i];}return false;} // compara posiciones como números (más antiguas primero)
 function sugerirExacto(){
   var obj=Number(_mov.saldo), L=_cands.slice(0,15), mejor=null, n=L.length;
   for(var mask=1;mask<(1<<n);mask++){var s=0,k=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=Number(L[i].o.saldo_pendiente);k++;idx.push(i);}
-    if(s===obj&&(!mejor||k<mejor.length||(k===mejor.length&&idx.join()<mejor.join())))mejor=idx;}
+    if(s===obj&&(!mejor||k<mejor.length||(k===mejor.length&&menorLex(idx,mejor))))mejor=idx;}
   var sug=document.getElementById('kSug');sug.style.display='block';
-  if(!mejor){sug.innerHTML='No hay una combinación de obligaciones que sume exactamente '+ff(obj)+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
+  if(!mejor){sug.innerHTML='No hay una combinación de obligaciones que sume exactamente '+ff(obj)+(_cands.length>15?' entre las 15 más antiguas':'')+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
   _cands.forEach(function(c){c.monto=0;});mejor.forEach(function(i){_cands[i].monto=Number(_cands[i].o.saldo_pendiente);});
   if(!document.getElementById('kIndica').checked)_criterio='exacto';
-  sug.innerHTML='🎯 Encontré '+mejor.length+' obligación(es) que suman exactamente '+ff(obj)+'. Revisa y aplica.';pintarCands();
+  sug.innerHTML='🎯 Encontré '+mejor.length+' obligación(es) que suman exactamente '+ff(obj)+'. Revisa y aplica.'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'');pintarCands();
 }
 function aplicar(){
   if(_ocupado)return;
@@ -497,14 +505,14 @@ function abrirDescartar(id){_movDesc=_movs.find(function(m){return m.id===id;});
 function descartar(){
   if(_ocupado)return;var mot=sv('dMot');if(mot.length<5){err('dErr','Escribe el motivo (mínimo 5 caracteres).');return;}
   _ocupado=true;rpc('descartar_movimiento',{p_movimiento_id:_movDesc.id,p_categoria:sv('dCat'),p_motivo:mot}).then(function(){_ocupado=false;document.getElementById('mDesc').classList.remove('on');cargar();})
-    .catch(function(e){_ocupado=false;err('dErr',e.message);cargar();});
+    .catch(function(e){_ocupado=false;err('dErr',e.claro?e.message:'No sabemos si se guardó (problema de conexión). Revisa la lista antes de reintentar.');cargar();});
 }
-function revertir(id){var mot=prompt('¿Por qué vuelve a "por conciliar"? (mínimo 5 caracteres)');if(!mot||mot.trim().length<5)return;
-  rpc('revertir_descarte',{p_movimiento_id:id,p_motivo:mot.trim()}).then(function(){cargar();}).catch(function(e){alert(e.message);cargar();});}
+function accion(fn,args){if(_ocupado)return;_ocupado=true;rpc(fn,args).then(function(){_ocupado=false;cargar();}).catch(function(e){_ocupado=false;alert(e.claro?e.message:'No sabemos si se guardó (problema de conexión). Revisa la lista antes de reintentar.');cargar();});}
+function revertir(id){var mot=prompt('¿Por qué vuelve a "por conciliar"? (mínimo 5 caracteres)');if(!mot||mot.trim().length<5)return;accion('revertir_descarte',{p_movimiento_id:id,p_motivo:mot.trim()});}
 function anular(opId){if(!esJefe())return;var mot=prompt('Motivo para ANULAR esta conciliación (mínimo 5 caracteres). Las obligaciones vuelven a "por conciliar".');if(!mot||mot.trim().length<5)return;
-  rpc('anular_conciliacion',{p_operacion_id:opId,p_motivo:mot.trim()}).then(function(){cargar();}).catch(function(e){alert(e.message);cargar();});}
+  accion('anular_conciliacion',{p_operacion_id:opId,p_motivo:mot.trim()});}
 function olvidar(id){var mot=prompt('¿Por qué se olvida esta asociación? (mínimo 5 caracteres). Solo afecta cargas futuras.');if(!mot||mot.trim().length<5)return;
-  rpc('olvidar_rut_cliente',{p_id:id,p_motivo:mot.trim()}).then(function(){cargar();}).catch(function(e){alert(e.message);cargar();});}
+  accion('olvidar_rut_cliente',{p_id:id,p_motivo:mot.trim()});}
 function abrirAsignar(id){
   _movAsig=_movs.find(function(m){return m.id===id;});if(!_movAsig)return;
   document.getElementById('aSub').textContent='Transfiere '+_movAsig.rut_origen+' · '+(_movAsig.nombre_origen||'')+' · '+ff(_movAsig.monto);
@@ -523,7 +531,7 @@ function asignar(){
       _ocupado=false;document.getElementById('mAsig').classList.remove('on');
       if(Number(n)>0)alert('Listo. Además se asignaron '+n+' ingreso(s) pendiente(s) del mismo RUT a este cliente.');
       cargar();})
-    .catch(function(e){_ocupado=false;err('aErr',e.message);cargar();});
+    .catch(function(e){_ocupado=false;err('aErr',e.claro?e.message:'No sabemos si se guardó (problema de conexión). Revisa la lista antes de reintentar.');cargar();});
 }
 
 esperarSesion().then(function(u){
