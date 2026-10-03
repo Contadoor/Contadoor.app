@@ -371,7 +371,26 @@ function pintarCalendario(){
   document.getElementById('cal-cot').textContent=per?dia(per.venc_previred_limite):'sin fecha configurada';
 }
 
+// P2 (ChatGPT 03-oct): cada carga lleva un número; una respuesta que llega tarde de una carga anterior
+// (otra vista u otro período) se descarta sin tocar la tabla ni los indicadores.
+var _cargaSeq=0, _parcial=false;
+var PAGINA=1000, MAX_PAGINAS=50; // P1: se trae TODO paginando (PostgREST limita a 1000 por respuesta)
+function traerTodo(base,seq){
+  var filas=[];
+  function pagina(n){
+    return sbFetch(base+'&limit='+PAGINA+'&offset='+(n*PAGINA)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(function(rows){
+        if(seq!==_cargaSeq) return {filas:[],obsoleta:true};
+        rows=rows||[]; filas=filas.concat(rows);
+        if(rows.length<PAGINA) return {filas:filas,parcial:false};
+        if(n+1>=MAX_PAGINAS) return {filas:filas,parcial:true};   // tope de seguridad: se avisa, nunca se presenta como completo
+        return pagina(n+1);
+      });
+  }
+  return pagina(0);
+}
 function cargar(listo){
+  var seq=++_cargaSeq;
   _periodo=sv('selectPeriodo');
   document.getElementById('periodo-label').textContent=esHistorial()?('historial · '+periodoLabel(_periodo)):'en proceso (todos los períodos)';
   document.getElementById('tabla-meta').textContent='Cargando…';
@@ -379,10 +398,12 @@ function cargar(listo){
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
     +',ref_reporte_id,ref_factura_id'
     +(esHistorial()
-      ? '&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc'
-      : '&estado=not.in.(finalizada,anulada)&order=vencimiento.asc.nullslast,created_at.desc&limit=1000');
-  var fin=function(rows,err){
+      ? '&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc,id.desc'
+      : '&estado=not.in.(finalizada,anulada)&order=vencimiento.asc.nullslast,created_at.desc,id.desc');
+  var fin=function(rows,err,parcial){
     if(typeof listo==='function') listo();
+    if(seq!==_cargaSeq) return; // respuesta de una carga anterior: se ignora
+    _parcial=!!parcial;
     if(err){
       _obs=[];
       document.getElementById('tabla-meta').textContent='No se pudieron cargar las obligaciones';
@@ -392,8 +413,7 @@ function cargar(listo){
     _obs=rows||[];renderStats();renderTabla();
   };
   // sbFetch directo: un error HTTP o de red se muestra como error, no como "no hay obligaciones".
-  sbFetch(q).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    .then(function(rows){fin(rows,null);}).catch(function(e){fin([],e);});
+  traerTodo(q,seq).then(function(r){if(r.obsoleta){fin([],null);return;}fin(r.filas,null,r.parcial);}).catch(function(e){fin([],e);});
 }
 
 function renderStats(){
@@ -406,11 +426,11 @@ function renderStats(){
   document.getElementById('st-fin').textContent=n(['aprobada']);
   var saldo=_obs.filter(function(o){return ['pendiente_fondos','parcialmente_conciliada','requiere_revision'].indexOf(o.estado)>=0;})
     .reduce(function(s,o){return s+(Number(o.saldo_pendiente)||0);},0);
-  document.getElementById('st-saldo').textContent=ff(saldo);
+  document.getElementById('st-saldo').textContent=ff(saldo)+(_parcial?' *':'');
   ['pend','curso'].forEach(function(g){
     document.getElementById('cnt-'+g).textContent=_obs.filter(function(o){return (ESTADOS[o.estado]||{}).g===g;}).length;
   });
-  document.getElementById('cnt-abiertas').textContent=_obs.length;
+  document.getElementById('cnt-abiertas').textContent=_obs.length+(_parcial?'+':'');
 }
 
 function renderTabla(){
@@ -422,7 +442,8 @@ function renderTabla(){
     if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   });
-  document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(esHistorial()?' cerrada'+(arr.length!==1?'s':'')+' · '+periodoLabel(_periodo):' en proceso');
+  document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(esHistorial()?' cerrada'+(arr.length!==1?'s':'')+' · '+periodoLabel(_periodo):' en proceso')
+    +(_parcial?' · ⚠️ RESULTADO PARCIAL: hay más de '+(PAGINA*MAX_PAGINAS).toLocaleString('es-CL')+'; los totales (*) no están completos':'');
   var cont=document.getElementById('tablaBody');
   if(!arr.length){
     cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(esHistorial()?'No hay obligaciones cerradas en '+hesc(periodoLabel(_periodo)):'No hay obligaciones en proceso'+(_filtro||area||q?' con este filtro':''))+'.'
