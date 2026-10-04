@@ -251,7 +251,7 @@ tr:hover td{background:#f0fdff;}
     <h2>Nueva obligación</h2>
     <div class="modal-sub">Pago que el cliente debe transferir para que Contadoor lo realice. Queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso.</div>
     <label for="n-cliente">Cliente</label>
-    <select id="n-cliente"></select>
+    <select data-buscador id="n-cliente"></select>
     <div class="ob-grid">
       <div><label for="n-area">Área</label><select id="n-area"></select></div>
       <div><label for="n-tipo">Tipo de pago</label><select id="n-tipo"></select></div>
@@ -560,6 +560,7 @@ esperarSesion().then(function(u){
 });
 </script>
 <script src="../notifications.js"></script>
+<script src="../assets/buscador-cliente.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>

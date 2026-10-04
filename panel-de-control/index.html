@@ -330,7 +330,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="fg3" style="margin-bottom:14px">
       <div class="fgroup" style="grid-column:1/3">
         <label>Cliente *</label>
-        <select id="f-cliente" onchange="onClienteChange()"><option value="">Seleccionar cliente...</option></select>
+        <select data-buscador id="f-cliente" onchange="onClienteChange()"><option value="">Seleccionar cliente...</option></select>
       </div>
       <div class="fgroup">
         <label>Período *</label>
@@ -2476,6 +2476,7 @@ function _siiMostrarMensaje(tipo,texto){
 
 </script>
 <script src="../notifications.js"></script>
+<script src="../assets/buscador-cliente.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>

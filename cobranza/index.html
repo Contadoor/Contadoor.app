@@ -194,7 +194,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="fgroup"><label>N° Folio *</label><input type="text" id="f-folio" placeholder="00123"/></div>
       <div class="fgroup"><label>Fecha emisión *</label><input type="date" id="f-fecha"/></div>
       <div class="fgroup"><label>Cliente *</label>
-        <select id="f-cliente" onchange="onClienteChange()"><option value="">Seleccionar...</option></select>
+        <select data-buscador id="f-cliente" onchange="onClienteChange()"><option value="">Seleccionar...</option></select>
       </div>
       <div class="fgroup"><label>RUT cliente</label><input type="text" id="f-rut" placeholder="77.123.456-7"/></div>
       <div class="fgroup"><label>Monto neto</label><input type="number" id="f-neto" placeholder="0" oninput="calcTotal()"/></div>
@@ -822,6 +822,7 @@ function renderAll(){renderStats();if(_view==='libro')renderLibro();else if(_vie
 renderAll();
 </script>
 <script src="../notifications.js"></script>
+<script src="../assets/buscador-cliente.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>
