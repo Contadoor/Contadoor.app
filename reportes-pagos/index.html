@@ -193,7 +193,7 @@ tr:hover td{background:#f0fdff;}
 <div class="wrap">
 <main class="main">
   <div class="topbar">
-    <h1 class="tb-title"><span>Pagos</span> · obligaciones</h1>
+    <h1 class="tb-title"><span>Pagos</span> · extraordinarios</h1>
     <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre"></span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
@@ -211,14 +211,6 @@ tr:hover td{background:#f0fdff;}
       <div class="stat"><div class="sv" id="st-aprob" style="color:var(--amber)">0</div><div class="sl">En aprobación</div></div>
       <div class="stat"><div class="sv" id="st-fin" style="color:var(--green)">0</div><div class="sl">Aprobadas · por finalizar</div></div>
       <div class="stat"><div class="sv" id="st-saldo" style="color:var(--t1)">$0</div><div class="sl">Saldo por conciliar</div></div>
-    </div>
-
-    <!-- CALENDARIO (desde la tabla periodos; si no está configurado se dice) -->
-    <div class="cal-bar">
-      <span style="font-size:9.5px;font-weight:700;color:var(--pagos);text-transform:uppercase;letter-spacing:.7px">Vencimientos del período:</span>
-      <div class="cal-item"><div class="cal-dot" style="background:var(--red)"></div><span class="cal-lbl">F29:</span><span class="cal-fecha" id="cal-f29">—</span></div>
-      <div class="cal-item"><div class="cal-dot" style="background:var(--amber)"></div><span class="cal-lbl">Previred:</span><span class="cal-fecha" id="cal-cot">—</span></div>
-      <div class="cal-item"><div class="cal-dot" style="background:var(--pagos)"></div><span class="cal-lbl">Hoy:</span><span class="cal-fecha" id="cal-hoy-label"></span></div>
     </div>
 
     <!-- FILTROS -->
@@ -240,7 +232,7 @@ tr:hover td{background:#f0fdff;}
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">Obligaciones · <span id="periodo-label">—</span></div>
+          <div class="tabla-titulo">Pagos extraordinarios · <span id="periodo-label">—</span></div>
           <div class="tabla-meta" id="tabla-meta">Cargando…</div>
         </div>
         <input type="text" id="searchQ" placeholder="Buscar cliente o concepto..." oninput="renderTabla()"
@@ -248,7 +240,7 @@ tr:hover td{background:#f0fdff;}
       </div>
       <div id="tablaBody"></div>
     </div>
-    <div class="info-box" style="margin-top:12px">💡 Cada obligación queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso del cliente en el banco. La conciliación con la cartola se habilita en la próxima etapa.</div>
+    <div class="info-box" style="margin-top:12px">💡 Aquí van solo los <strong>pagos extraordinarios</strong> (finiquitos, convenios, devoluciones, certificados, transferencias al equipo…). Las obligaciones del proceso mensual (F29, cotizaciones) se ven en <strong>Conciliación</strong>. Cada pago queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso del cliente en el banco.</div>
   </div>
 </main>
 </div>
@@ -351,7 +343,6 @@ function setFiltro(v){
   if(cambiaVista) cargar(); else renderTabla();
 }
 function esHistorial(){return _filtro==='hist';}
-function esMensual(o){return o.ref_reporte_id!=null||o.ref_factura_id!=null;}
 
 function poblarPeriodos(){
   var sel=document.getElementById('selectPeriodo');
@@ -363,6 +354,7 @@ function poblarPeriodos(){
 }
 
 function pintarCalendario(){
+  if(!document.getElementById('cal-hoy-label')) return; // sin calendario mensual en Pagos extraordinarios
   var d=new Date();document.getElementById('cal-hoy-label').textContent=d.toLocaleDateString('es-CL',{day:'numeric',month:'short',timeZone:'America/Santiago'});
   var per=_periodos.find(function(p){return p.periodo===_periodo;});
   var sig=(function(){var a=_periodo.split('-');var dt=new Date(Date.UTC(+a[0],+a[1],1));return periodoLabel(dt.toISOString().slice(0,7));})();
@@ -397,6 +389,9 @@ function cargar(listo){
   pintarCalendario();
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
     +',ref_reporte_id,ref_factura_id'
+    // Luciano 4-oct: Pagos = solo pagos EXTRAORDINARIOS (creados a mano). Lo del proceso mensual (F29, cotizaciones,
+    // servicios) nace de los reportes y se ve en Conciliación.
+    +'&ref_reporte_id=is.null&ref_factura_id=is.null'
     +(esHistorial()
       ? '&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(_periodo)+'&order=created_at.desc,id.desc'
       : '&estado=not.in.(finalizada,anulada)&order=vencimiento.asc.nullslast,created_at.desc,id.desc');
@@ -450,7 +445,7 @@ function renderTabla(){
       +(areasPermitidas().length?'<br><br><button class="btn-purple" onclick="abrirNueva()">+ Nueva obligación</button>':'')+'</div>';
     return;
   }
-  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Origen</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody>'
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
       var abierta=e.g!=='cerr';
@@ -459,7 +454,6 @@ function renderTabla(){
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
         +'<td>'+hesc(o.concepto||'—')+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
-        +'<td><span class="eb '+(esMensual(o)?'eb-conc':'eb-ejec')+'">'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</span></td>'
         +'<td>'+hesc(AREAS[o.area_origen]||o.area_origen)+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
         +'<td style="text-align:right;font-family:monospace">'+(abierta?ff(o.saldo_pendiente):'—')+'</td>'
