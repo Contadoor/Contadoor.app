@@ -326,7 +326,7 @@ function cargar(){
   var seq=++_cargaSeq;
   document.getElementById('tabla-meta').textContent='Cargando…';
   var per=document.getElementById('selectPeriodo').value;
-  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at,ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,motivo_anulacion'
+  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at,ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,motivo_anulacion,origen_fondos,beneficiario_nombre,beneficiario_rut'
     +(_vista==='hist'
       ?'&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(per)+'&order=created_at.desc,id.desc'
       :'&estado=not.in.(finalizada,anulada)&order=created_at.asc,id.asc');
@@ -355,7 +355,7 @@ function filasVista(){
   return _obs.filter(function(o){
     if(_vista==='extra'&&!(o.estado==='pendiente_aprobacion'&&!esMensual(o))) return false;
     if(_vista==='mensual'&&!(o.estado==='pendiente_aprobacion'&&esMensual(o))) return false;
-    if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')).toLowerCase().indexOf(q)<0) return false;
+    if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')+' '+(o.beneficiario_nombre||'')+' '+(o.beneficiario_rut||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   });
 }
@@ -386,7 +386,10 @@ function renderTabla(){
       if(o.estado==='anulada'&&o.motivo_anulacion) extra='<div style="font-size:10.5px;color:var(--tm);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_anulacion)+'</div>';
       return '<tr>'
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
-        +'<td>'+hesc(o.concepto||'—')+(venc?'<div class="ob-venc" style="font-size:10.5px">Vencida '+hesc(o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td>'
+        +'<td>'+hesc(o.concepto||'—')
+          +(o.beneficiario_nombre?'<div style="font-size:10.5px;color:var(--t2);margin-top:3px">→ '+hesc(o.beneficiario_nombre)+(o.beneficiario_rut?' · '+hesc(o.beneficiario_rut):'')+'</div>':'')
+          +(o.origen_fondos==='contadoor'?'<div style="margin-top:3px"><span class="eb eb-aprob" style="font-size:9.5px;padding:2px 8px">Plata de Contadoor</span></div>':'')
+          +(venc?'<div class="ob-venc" style="font-size:10.5px">Vencida '+hesc(o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
         +'<td>'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+'</td>'
@@ -405,7 +408,7 @@ function rpcPaso(id,acc,obs){
 function aprobar(id){
   if(_ocupado||!esAprobador()) return;
   var o=_obs.find(function(x){return Number(x.id)===id;});
-  if(!o||!confirm('¿Aprobar el pago de '+ff(o.monto_exigible)+' · '+(o.concepto||'')+' de '+nombreCliente(o.cliente_rut)+'?\n\nRevisaste el comprobante.')) return;
+  if(!o||!confirm('¿Aprobar el pago de '+ff(o.monto_exigible)+' · '+(o.concepto||'')+' de '+nombreCliente(o.cliente_rut)+(o.beneficiario_nombre?'\nBeneficiario: '+o.beneficiario_nombre+(o.beneficiario_rut?' ('+o.beneficiario_rut+')':''):'')+(o.origen_fondos==='contadoor'?'\nPlata de Contadoor':'')+'?\n\nRevisaste el comprobante.')) return;
   _ocupado=true;
   rpcPaso(id,'aprobar').then(function(){_ocupado=false;cargar();}).catch(function(e){_ocupado=false;alert('No se pudo aprobar: '+e.message);cargar();});
 }

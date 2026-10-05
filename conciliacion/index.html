@@ -326,7 +326,7 @@ function cargar(listo){
     todo('concil_movimientos?select=id,codigo,fecha_hora,rut_origen,nombre_origen,banco_origen,monto,saldo,monto_aplicado,estado,cliente_rut,cliente_asignado_manual,cliente_por_memoria,motivo_asignacion,categoria_descarte,motivo_descarte,descartado_at&order=fecha_hora.desc,id.desc',seq),
     todo('concil_operaciones?select=id,movimiento_id,aplicaciones,total,criterio,created_at,anulada,motivo_anulacion&order=created_at.desc,id.desc',seq),
     todo('concil_cargas?select=id,archivo,filas,insertados,duplicados,rechazados,created_at&order=created_at.desc,id.desc',seq),
-    todo('obligaciones_pago?select=id,cliente_rut,periodo,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado&estado=in.(pendiente_fondos,parcialmente_conciliada)&order=periodo.asc,id.asc',seq),
+    todo('obligaciones_pago?select=id,cliente_rut,periodo,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado&estado=in.(pendiente_fondos,parcialmente_conciliada)&origen_fondos=eq.cliente&order=periodo.asc,id.asc',seq),
     todo('concil_rut_cliente?select=id,rut_origen,cliente_rut,motivo,created_at&activo=eq.true&order=rut_origen.asc,id.asc',seq)
   ]).then(function(r){
     if(typeof listo==='function')listo();
