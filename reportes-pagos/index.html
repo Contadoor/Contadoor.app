@@ -542,18 +542,25 @@ function abrirNueva(){
   if(!areas.length){alert('Tu rol no puede crear obligaciones.');return;}
   document.getElementById('n-area').innerHTML=areas.map(function(a){return '<option value="'+a+'">'+AREAS[a]+'</option>';}).join('');
   document.getElementById('n-tipo').innerHTML=TIPOS.map(function(t){return '<option>'+hesc(t)+'</option>';}).join('');
-  document.getElementById('n-area').onchange=poblarClientesNueva;
+  document.getElementById('n-area').onchange=function(){poblarClientesNueva();pintarOrigen();};
   poblarClientesNueva();
   ['n-detalle','n-monto','n-venc','n-benef','n-benef-rut'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('n-origen').value='cliente';pintarOrigen();
   mostrarError('');
   document.getElementById('modalNueva').classList.add('on');
 }
+var RUT_CONTADOOR='77166269-2'; // Asesorías Contadoor Ltda: el "cliente" de los gastos propios
 function pintarOrigen(){
   var k=sv('n-origen')==='contadoor';
+  // Plata de Contadoor: si aún no se eligió cliente, se propone Asesorías Contadoor (se puede cambiar, p. ej. una devolución a un cliente).
+  var sel=document.getElementById('n-cliente');
+  if(k&&sel&&!sel.value&&sel.querySelector&&sel.querySelector('option[value="'+RUT_CONTADOOR+'"]')){
+    sel.value=RUT_CONTADOOR;
+    try{sel.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+  }
   var base='Se registra en el período <strong>'+hesc(periodoLabel(_periodo))+'</strong> (el que está seleccionado arriba).';
   document.getElementById('n-periodo-info').innerHTML=base+(k
-    ?'<br>💼 <strong>Plata de Contadoor:</strong> no pasa por Conciliación. Primero <strong>Luciano autoriza</strong> usar los fondos; recién ahí puedes pagar. Después subes el comprobante y Luciano da la aprobación final. Si no es por un cliente, elige <strong>Asesorías Contadoor</strong> como cliente.'
+    ?'<br>💼 <strong>Plata de Contadoor:</strong> no pasa por Conciliación. Primero <strong>Luciano autoriza</strong> usar los fondos; recién ahí puedes pagar. Después subes el comprobante y Luciano da la aprobación final. Si no es por un cliente, queda <strong>Asesorías Contadoor</strong> como cliente (cámbialo si es, por ejemplo, una devolución a un cliente).'
     :'<br>Queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso del cliente.');
 }
 function cerrarNueva(){if(_guardando)return;document.getElementById('modalNueva').classList.remove('on');}
