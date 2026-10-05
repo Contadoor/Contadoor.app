@@ -133,7 +133,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="g-espacio"></div>
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
     <span id="sessionInfo" style="font-size:11px;color:rgba(255,255,255,.3);margin-right:8px"></span>
-    <button class="btn-s btn-sm" onclick="abrirModalNuevo()" title="Disponible en próxima fase" style="opacity:.5;cursor:not-allowed">+ Nuevo usuario</button>
+    <button class="btn-s btn-sm" id="btnNuevoUsuario" onclick="abrirModalNuevo()" style="display:none">+ Nuevo usuario</button>
   </div>
   <div class="content">
     <div class="warn-box">⚠️ Esta sección solo está disponible para el usuario Master. Los cambios aquí afectan el acceso de todo el equipo al sistema.</div>
@@ -306,6 +306,8 @@ function adminCargar(){
     try{ localStorage.removeItem('usuarios_sistema'); }catch(e){}
     try{ localStorage.removeItem('sbc_usuarios'); }catch(e){}
     _admIdent = null;
+    var bn=document.getElementById('btnNuevoUsuario'); var sesB=window._contadoorSesion||getUsuario();
+    if(bn) bn.style.display=(sesB&&sesB.esMaster===true)?'':'none';
     renderUsuarios();
     var ses = window._contadoorSesion || getUsuario();
     if(ses && ses.esMaster === true){
@@ -590,9 +592,39 @@ function abrirModalEditar(id){
 
   document.getElementById('modal').classList.add('on');
 }
-// ── MODAL NUEVO — deshabilitado en Fase 2B-A ─────────────────────────────
+// ── MODAL NUEVO (USR-2 R2) → rpc/admin_crear_usuario ─────────────────────
+// Solo Master. Crea la FICHA; luego se usa "Enviar invitación" y "Activar en Gestoor".
 function abrirModalNuevo(){
-  adminToast('La invitaci\u00f3n de nuevos usuarios estar\u00e1 disponible en la pr\u00f3xima fase.', 'error');
+  var ses=window._contadoorSesion||getUsuario();
+  if(!(ses&&ses.esMaster===true)){ adminToast('Solo el Master puede crear usuarios.','error'); return; }
+  _editId=null;
+  document.getElementById('modalTitle').textContent='Nuevo usuario';
+  ['f-nombre','f-iniciales','f-wa','f-email'].forEach(function(fid){ var el=document.getElementById(fid); if(el){ el.value=''; el.disabled=false; el.removeAttribute('readonly'); el.style.background=''; el.style.color=''; } });
+  document.getElementById('f-email-hint').textContent='Obligatorio: se usará para enviar la invitación de acceso.';
+  var optMaster=document.querySelector('#f-rol option[value="master"]'); if(optMaster) optMaster.style.display='none';
+  var rolSel=document.getElementById('f-rol'); rolSel.disabled=false; rolSel.title=''; rolSel.value='';
+  _draftModulosAdicionales=[];
+  var aviso=document.getElementById('avisoSoloMaster'); if(aviso) aviso.style.display='none';
+  var btn=document.querySelector('button[onclick="guardarUsuario()"]'); if(btn){ btn.disabled=false; btn.removeAttribute('data-master-disabled'); btn.title=''; }
+  renderFormularioModulos('');
+  document.getElementById('modal').classList.add('on');
+}
+var _creando=false;
+function crearUsuario(){
+  if(_creando) return;
+  var nombre=sv('f-nombre'), rol=sv('f-rol'), email=sv('f-email').toLowerCase(), wa=sv('f-wa');
+  if(nombre.length<3){ adminToast('Escribe el nombre completo.','error'); return; }
+  if(!rol){ adminToast('Selecciona un cargo.','error'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ adminToast('Escribe un correo válido (se usará para la invitación).','error'); return; }
+  if(wa&&!/^[0-9]{8,9}$/.test(wa)){ adminToast('WhatsApp: 8 o 9 dígitos, sin +56.','error'); return; }
+  if(typeof window.gestoorGetModulosBaseRol!=='function'){ adminToast('❌ Error de configuración: recarga la página.','error'); return; }
+  if(!confirm('¿Crear la ficha de '+nombre+' ('+email+')?\n\nDespués: "Enviar invitación" y, cuando cree su contraseña, "Activar en Gestoor".')) return;
+  _creando=true;
+  sbFetch('rpc/admin_crear_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    p_nombre:nombre, p_iniciales:sv('f-iniciales')||null, p_rol:rol, p_wa:wa||null, p_modulos:getAdicionalesSeleccionadosDesdeDom(), p_email:email
+  })}).then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(b){ throw b; }); return r.json(); })
+    .then(function(){ _creando=false; _draftModulosAdicionales=[]; closeModal(); adminToast('✅ Ficha creada. Ahora presiona "Enviar invitación".','ok'); adminCargar(); })
+    .catch(function(e){ _creando=false; adminToast('❌ '+((e&&(e.message||e.error))||'No se pudo crear el usuario.'),'error'); });
 }
 
 // ── CERRAR MODAL ──────────────────────────────────────────────────────────
@@ -618,7 +650,7 @@ function closeModal(){
 
 // ── GUARDAR → rpc/admin_actualizar_usuario ────────────────────────────────
 function guardarUsuario(){
-  if(!_editId){ adminToast('Creación de usuarios pendiente para próxima fase.','error'); return; }
+  if(!_editId){ crearUsuario(); return; }
   var nombre=sv('f-nombre');
   if(!nombre){ adminToast('El nombre es obligatorio.','error'); return; }
   var rol=sv('f-rol');
