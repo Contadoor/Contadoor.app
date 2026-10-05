@@ -3,1022 +3,474 @@
 <html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aprobaciones · Gestoor</title>
 <style>
-:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;}
+:root{
+  --p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;
+  --sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;
+  --green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;
+  --pagos:#0e7490;--pagos-bg:#ecfeff;--pagos-bdr:#a5f3fc;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  --mono:'SF Mono','Fira Mono','Courier New',monospace;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
-.layout{display:flex;min-height:100vh;}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
 .sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
-.sb-logo{padding:16px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);flex-shrink:0;}
-.sb-logo img{width:130px;display:block;}
-.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:4px;}
-.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
+.sb-logo{padding:16px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06);}
+.sb-logo img{height:24px;opacity:.9;}
+.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;min-height:0;}
 .sb-nav::-webkit-scrollbar{width:3px;}
-.sb-nav::-webkit-scrollbar-track{background:transparent;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
-.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden;}
-.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
-.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
-.sb-foot{padding:10px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0;}
-.main{margin-left:220px;flex:1;min-height:100vh;}
-.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(144,72,145,.3);}
-.sb-logo img{width:140px;display:block;}
-.sb-tagline{font-size:9px;color:rgba(255,255,255,.28);letter-spacing:1px;text-transform:uppercase;margin-top:5px;}
-.sb-nav{padding:12px 8px;flex:1;overflow-y:auto;overflow-x:hidden;}
-.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;}
-.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
-.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
-.sb-item svg{width:14px;height:14px;flex-shrink:0;}
-.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);}
-.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
-.tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
-.content{padding:20px;}
-.card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px;margin-bottom:14px;}
-.card-hd{font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-.fg4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
-.fgroup{display:flex;flex-direction:column;gap:4px;}
-.fgroup label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;}
-.fgroup input,.fgroup select,.fgroup textarea{font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;transition:.15s;width:100%;}
-.fgroup input:focus,.fgroup select:focus,.fgroup textarea:focus{border-color:var(--p);}
-.fgroup .hint{font-size:10px;color:var(--tm);}
-.btn-p{background:var(--p);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
-.btn-p:hover{background:var(--pd);}
-.btn-s{background:transparent;color:var(--t1);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s;}
-.btn-s:hover{border-color:var(--p);color:var(--p);}
-.btn-wa{background:#25d366;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;}
-.btn-wa:hover{background:#1da851;}
-.btn-approve{background:#2D9B6F;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
-.btn-approve:hover{background:#1d7a56;}
-.btn-reject{background:#C0392B;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
-.btn-reject:hover{background:#922b21;}
-.btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;}
-.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px;}
-.tab-bar{display:flex;gap:3px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:3px;margin-bottom:16px;width:fit-content;flex-wrap:wrap;}
-.tab{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;color:var(--t2);transition:.15s;}
-.tab:hover{color:var(--p);}
-.tab.on{background:var(--p);color:#fff;font-weight:600;}
-.view{display:none;}.view.on{display:block;}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;align-items:center;justify-content:center;}
+.sb-sec{font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 5px;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:rgba(255,255,255,.55);font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;margin-bottom:1px;}
+.sb-item:hover{background:rgba(255,255,255,.07);color:#fff;}
+.sb-item.on{background:rgba(14,116,144,.3);color:#fff;font-weight:600;}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.35);}
+
+/* LAYOUT */
+.wrap{margin-left:220px;flex:1;display:flex;flex-direction:column;}
+.main{flex:1;}
+
+/* TOPBAR */
+.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--pagos);position:sticky;top:0;z-index:10;}
+.tb-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
+.tb-analista{background:rgba(14,116,144,.3);color:#a5f3fc;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;}
+
+/* CONTENT */
+.content{padding:18px 20px;max-width:1200px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;}
+.stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
+.sv{font-size:20px;font-weight:700;font-family:monospace;}
+.sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
+
+/* CALENDARIO */
+.cal-bar{background:var(--sur);border:1px solid var(--pagos-bdr);border-left:3px solid var(--pagos);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+.cal-item{display:flex;align-items:center;gap:6px;font-size:11px;}
+.cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cal-lbl{color:var(--tm);}
+.cal-fecha{font-weight:700;color:var(--t1);}
+
+/* FILTROS */
+.filtros{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
+.fl{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;}
+.fb{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);}
+.fb.on{background:var(--pagos);color:#fff;border-color:var(--pagos);}
+.fb .cnt{background:rgba(255,255,255,.25);border-radius:10px;padding:0 5px;font-size:9px;font-weight:700;margin-left:3px;}
+
+/* BANNER TRANSFERIDOS */
+.banner-transferidos{background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.btn-conciliar{background:var(--pagos);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;}
+
+/* TABLA */
+.tabla-wrap{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
+.tabla-hdr{background:linear-gradient(135deg,#164e63,var(--pagos));padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.tabla-titulo{font-size:13px;font-weight:700;color:#fff;}
+.tabla-meta{font-size:10px;color:rgba(255,255,255,.55);margin-top:2px;}
+
+table{width:100%;border-collapse:collapse;}
+th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tm);padding:9px 14px;background:var(--sur2);border-bottom:1px solid var(--bdr);text-align:left;white-space:nowrap;}
+td{padding:11px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle;font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f0fdff;}
+
+/* CLIENTE */
+.cli-nombre{font-size:13px;font-weight:700;}
+.cli-rut{font-size:10px;color:var(--tm);margin-top:2px;}
+.plan-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;margin-top:3px;}
+.plan-e{background:var(--pp);color:var(--pd);}
+.plan-a{background:#eff6ff;color:#1e40af;}
+
+/* MONTOS DESGLOSE */
+.montos{display:flex;flex-direction:column;gap:3px;}
+.monto-item{display:flex;align-items:center;gap:6px;font-size:11px;}
+.monto-lbl{color:var(--tm);min-width:80px;}
+.monto-val{font-weight:600;font-family:monospace;color:var(--t1);}
+.monto-val.postergado{color:var(--amber);font-style:italic;}
+.monto-val.convenio{color:var(--p);}
+.monto-total{font-size:13px;font-weight:700;font-family:monospace;color:var(--pagos);border-top:1px solid var(--bdr);padding-top:4px;margin-top:4px;}
+
+/* TIMELINE MINI MORADO */
+.tl-mini{display:flex;align-items:center;gap:1px;margin-bottom:3px;}
+.tls{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+.tls.done{background:var(--p);color:#fff;}
+.tls.active{background:#fff;color:var(--p);border:2px solid var(--p);box-shadow:0 0 0 2px var(--pp);}
+.tls.next{background:var(--sur2);color:var(--tm);border:1.5px solid var(--bdr);}
+.tll{width:8px;height:1.5px;flex-shrink:0;}
+.tll.done{background:var(--p);}
+.tll.next{background:var(--bdr);}
+
+/* ESTADO BADGE */
+.eb{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.eb-enviado{background:#eff6ff;color:#1e40af;}
+.eb-transferido{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+.eb-conciliado{background:#ecfdf5;color:#064e3b;}
+.eb-ejecutando{background:#f5f3ff;color:#6b21a8;}
+.eb-firma{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.eb-pagado{background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;}
+.eb-sin-transf{background:#f3f4f6;color:#6b7280;}
+
+/* PROGRESO CONCILIACIÓN */
+.prog-bar{height:5px;background:var(--bdr);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;background:var(--pagos);border-radius:3px;transition:.3s;}
+
+/* BOTONES */
+.btn-p{background:var(--pagos);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:6px 10px;font-size:10.5px;cursor:pointer;white-space:nowrap;}
+.btn-amber{background:var(--amber);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
+.btn-purple{background:var(--p);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
+
+/* DETALLE EXPANDIDO */
+.cr-detalle{display:none;padding:14px 16px;background:var(--sur2);border-top:1px solid var(--bdr);}
+.cr-detalle.open{display:block;}
+.det-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.det-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;}
+.det-titulo{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.det-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--bdr);}
+.det-row:last-child{border-bottom:none;font-weight:700;}
+
+/* MODAL DISTRIBUCIÓN */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.on{display:flex;}
-.modal{background:var(--sur);border-radius:14px;padding:24px;max-width:680px;width:96%;max-height:90vh;overflow-y:auto;}
-.modal h2{font-size:16px;font-weight:700;margin-bottom:4px;color:var(--p);}
-.modal-sub{font-size:12px;color:var(--tm);margin-bottom:18px;}
-.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--bdr);}
-.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
-.stat-box{background:var(--sur);border:1px solid var(--bdr);border-radius:9px;padding:12px 14px;text-align:center;}
-.stat-box .sv{font-size:17px;font-weight:700;color:var(--p);font-family:monospace;}
-.stat-box .sl{font-size:10px;color:var(--tm);margin-top:2px;text-transform:uppercase;letter-spacing:.6px;}
-.search-bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
-.search-input{flex:1;min-width:160px;font-family:var(--sans);font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;outline:none;background:var(--sur);}
-.search-input:focus{border-color:var(--p);}
-.filter-sel{font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;outline:none;background:var(--sur);color:var(--t1);}
-.empty-state{text-align:center;padding:48px 24px;color:var(--tm);}
-.empty-state h3{font-size:15px;font-weight:600;margin-bottom:5px;color:var(--t2);}
+.modal{background:var(--sur);border-radius:14px;padding:22px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--tm);margin-bottom:16px;}
+.card-hd{font-size:10px;font-weight:700;color:var(--pagos);text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--pagos-bdr);}
+.dist-item{background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.dist-check{width:18px;height:18px;cursor:pointer;accent-color:var(--p);flex-shrink:0;}
+.dist-info{flex:1;}
+.dist-concepto{font-size:12.5px;font-weight:600;color:var(--t1);}
+.dist-sub{font-size:10.5px;color:var(--tm);margin-top:2px;}
+.dist-monto{font-size:14px;font-weight:700;font-family:monospace;color:var(--pagos);}
+.dist-total-box{background:var(--pagos-bg);border:1px solid var(--pagos-bdr);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--bdr);}
+.info-box{background:var(--pagos-bg);border:1px solid var(--pagos-bdr);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--pagos);margin-bottom:10px;}
 
-/* OBLIGACIÓN ROW */
-.oblig-row{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:.15s;}
-.oblig-row:hover{border-color:rgba(144,72,145,.3);}
-.oblig-row.seleccionada{border-color:var(--p);background:var(--pp);}
-.oblig-row.vencida-border{border-left:3px solid var(--red);}
-
-/* FLUJO DE ESTADOS */
-.flujo{display:flex;gap:2px;margin:12px 0;}
-.flujo-paso{flex:1;padding:5px 4px;text-align:center;font-size:9.5px;font-weight:600;background:var(--sur2);border:1px solid var(--bdr);color:var(--tm);}
-.flujo-paso:first-child{border-radius:6px 0 0 6px;}
-.flujo-paso:last-child{border-radius:0 6px 6px 0;}
-.flujo-paso.activo{background:var(--p);color:#fff;border-color:var(--p);}
-.flujo-paso.hecho{background:var(--green);color:#fff;border-color:var(--green);}
-.flujo-paso.rechazado{background:var(--red);color:#fff;border-color:var(--red);}
-
-/* TRAZABILIDAD */
-.traza{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
-.traza-item{font-size:10px;color:var(--tm);background:var(--sur2);border:1px solid var(--bdr);border-radius:5px;padding:3px 8px;}
-.traza-item strong{color:var(--t2);}
-
-/* BADGE */
-.badge{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block;white-space:nowrap;}
-.b-creada{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
-.b-aviso{background:#fef9ec;color:#854F0B;border:1px solid #EF9F27;}
-.b-previred{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;}
-.b-finalizado{background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7;}
-.b-transferido{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
-.b-aprobacion{background:#fef3c7;color:#78350f;border:1px solid #fde68a;}
-.b-aprobado{background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;}
-.b-rechazado{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
-.b-cobrado{background:var(--pp);color:var(--pd);border:1px solid rgba(144,72,145,.2);}
-.b-procesado{background:#e8f5f0;color:#2D9B6F;border:1px solid #2D9B6F;}
-
-/* SELECCIÓN MÚLTIPLE */
-.seleccion-bar{background:var(--deep);border-radius:10px;padding:12px 18px;margin-bottom:14px;display:none;align-items:center;gap:12px;color:#fff;}
-.seleccion-bar.on{display:flex;}
-.sel-count{font-size:14px;font-weight:700;}
-.sel-monto{font-size:13px;color:rgba(255,255,255,.6);}
-
-/* APROBACIÓN PENDIENTE */
-.aprobacion-banner{background:linear-gradient(135deg,#C07A1A,#92400e);border-radius:10px;padding:14px 18px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.aprobacion-banner .count{font-size:20px;font-weight:700;}
-
-/* TIPO TAG */
-.tipo-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--sur2);border:1px solid var(--bdr);}
-.vencido-pill{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;margin-left:5px;}
-
-/* CHECKBOX */
-.ob-check{width:18px;height:18px;cursor:pointer;flex-shrink:0;}
+/* PIPELINE ETAPAS */
+.pipeline{display:flex;align-items:center;gap:0;margin:4px 0;}
+.pipe-step{display:flex;flex-direction:column;align-items:center;}
+.pipe-step .ps-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--bdr);background:var(--sur2);color:var(--tm);flex-shrink:0;}
+.pipe-step.done .ps-dot{background:var(--green);border-color:var(--green);color:#fff;}
+.pipe-step.active .ps-dot{background:var(--p);border-color:var(--p);color:#fff;box-shadow:0 0 0 3px rgba(144,72,145,.2);}
+.pipe-lbl{font-size:8px;color:var(--tm);margin-top:3px;white-space:nowrap;text-align:center;}
+.pipe-step.done .pipe-lbl{color:var(--green);font-weight:600;}
+.pipe-step.active .pipe-lbl{color:var(--p);font-weight:700;}
+.pipe-line{width:16px;height:2px;background:var(--bdr);margin-bottom:14px;flex-shrink:0;}
+.pipe-line.done{background:var(--green);}
+.bulk-bar{display:none;background:var(--p);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;align-items:center;gap:12px;}
+.bulk-bar.on{display:flex;}
+/* OBLIGACIONES (PAG-1) */
+.ob-acc{display:flex;gap:8px;align-items:center;margin-left:auto;}
+.ob-form label{display:block;font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin:10px 0 4px;}
+.ob-form input,.ob-form select{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;background:var(--sur);color:var(--t1);}
+.ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+.ob-err{display:none;background:#fdecea;border:1px solid #f5c2bd;color:var(--red);border-radius:8px;padding:8px 12px;font-size:12px;margin-top:10px;}
+.ob-venc{color:var(--red);font-weight:700;}
+.eb-pend{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+.eb-parcial{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.eb-conc{background:#ecfeff;color:#155e75;}
+.eb-ejec{background:#f5f3ff;color:#6b21a8;}
+.eb-aprob{background:#fff7ed;color:#9a3412;}
+.eb-ok{background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0;}
+.eb-mal{background:#fdecea;color:#991b1b;}
+.eb-gris{background:#f3f4f6;color:#6b7280;}
+@media(max-width:800px){.stats{grid-template-columns:repeat(2,1fr);}.ob-grid{grid-template-columns:1fr;}}
+.stats4{grid-template-columns:repeat(4,1fr);}
+.ev-row{font-size:12px;padding:7px 0;border-bottom:1px solid var(--bdr);}
+.ev-row:last-child{border-bottom:none;}
+.ev-meta{font-size:10.5px;color:var(--tm);}
+.btn-ok{background:var(--green);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:700;cursor:pointer;}
+.btn-no{background:var(--red);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:700;cursor:pointer;}
+.ob-form textarea{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;background:var(--sur);color:var(--t1);min-height:80px;font-family:inherit;}
 </style>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body>
-<div class="layout">
-<aside class="sidebar">
-  <nav>
-    <div class="sb-section">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-section">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item on" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-section">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-section">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<body class="g-shell g-tema-noche g-mod-pag">
+<aside class="sidebar" data-gestoor-activo="pagos"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 
+<div class="wrap">
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">Control de Pagos y Obligaciones
-    <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
+    <h1 class="tb-title"><span>Aprobaciones</span> · pagos</h1>
+    <div class="g-espacio"></div>
+    <span class="tb-analista" id="tb-analista-nombre"></span>
+    <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
+      <span data-g-ic="campana"></span>
+      <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f">0</div>
+    </div>
   </div>
-    <button class="btn-s btn-sm" onclick="exportarCSV()">⬇ CSV</button>
-    <button class="btn-s btn-sm" onclick="exportarRespaldo()" title="Descarga todo lo guardado en este navegador, para la migración">💾 Respaldo</button>
-    <button class="btn-p btn-sm" onclick="abrirModalNuevo()">+ Nueva obligación</button>
-  </div>
+
   <div class="content">
+    <div class="stats stats4">
+      <div class="stat"><div class="sv" id="st-extra" style="color:var(--amber)">0</div><div class="sl">Por aprobar · extraordinarios</div></div>
+      <div class="stat"><div class="sv" id="st-mensual" style="color:var(--amber)">0</div><div class="sl">Por aprobar · proceso mensual</div></div>
+      <div class="stat"><div class="sv" id="st-monto" style="color:var(--t1)">$0</div><div class="sl">Monto por aprobar</div></div>
+      <div class="stat"><div class="sv" id="st-rech" style="color:var(--red)">0</div><div class="sl">Rechazadas · esperando corrección</div></div>
+    </div>
 
-    <!-- BANNER APROBACIONES PENDIENTES -->
-    <div id="aprobBanner" class="aprobacion-banner" style="display:none">
-      <div>
-        <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">⚠️ Pendiente de tu aprobación</div>
-        <div class="count" id="aprobCount">0 pagos esperan aprobación</div>
-        <div style="font-size:12px;opacity:.7;margin-top:2px" id="aprobMonto"></div>
+    <div class="filtros">
+      <span class="fl">Ver:</span>
+      <button class="fb on" data-f="extra" onclick="setVista('extra')">Por aprobar · Extraordinarios <span class="cnt" id="cnt-extra">0</span></button>
+      <button class="fb" data-f="mensual" onclick="setVista('mensual')">Por aprobar · Proceso mensual <span class="cnt" id="cnt-mensual">0</span></button>
+      <button class="fb" data-f="proceso" onclick="setVista('proceso')">Todas en proceso <span class="cnt" id="cnt-proceso">0</span></button>
+      <button class="fb" data-f="hist" onclick="setVista('hist')">🗂️ Historial</button>
+      <span class="fl" style="margin-left:10px" id="lblPeriodo">Período (historial):</span>
+      <select id="selectPeriodo" onchange="if(_vista==='hist')cargar();" style="padding:4px 8px;border-radius:7px;border:1px solid var(--bdr);font-size:11px"></select>
+    </div>
+
+    <div class="info-box" id="soloLectura" style="display:none">👀 Puedes ver las obligaciones, pero <strong>solo Luciano aprueba, rechaza o anula</strong>.</div>
+    <div class="info-box" id="avisoLocal" style="display:none"></div>
+
+    <div class="tabla-wrap">
+      <div class="tabla-hdr">
+        <div>
+          <div class="tabla-titulo" id="tabla-titulo">Por aprobar · Extraordinarios</div>
+          <div class="tabla-meta" id="tabla-meta">Cargando…</div>
+        </div>
+        <input type="text" id="searchQ" placeholder="Buscar cliente o concepto..." oninput="renderTabla()"
+          style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 10px;font-size:11px;width:200px;"/>
       </div>
-      <button class="btn-p" onclick="setView('aprobar')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3)">Ver y aprobar →</button>
+      <div id="tablaBody"></div>
     </div>
-
-    <div class="stats-row" id="statsRow"></div>
-
-    <!-- BARRA SELECCIÓN MÚLTIPLE -->
-    <div class="seleccion-bar" id="selBar">
-      <div class="sel-count" id="selCount">0 seleccionados</div>
-      <div class="sel-monto" id="selMonto"></div>
-      <div style="flex:1"></div>
-      <button class="btn-s btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="deseleccionarTodo()">✕ Limpiar</button>
-      <button class="btn-approve btn-sm" onclick="solicitarAprobacion()">📧 Solicitar aprobación</button>
-    </div>
-
-    <div class="tab-bar">
-      <div class="tab on" onclick="setView('todas')">📋 Todas</div>
-      <div class="tab" onclick="setView('creadas')">✏️ Creadas</div>
-      <div class="tab" onclick="setView('transferido')">💳 Transferidas</div>
-      <div class="tab" onclick="setView('aprobacion')">⏳ En aprobación</div>
-      <div class="tab" onclick="setView('aprobar')">✅ Aprobar <span id="tabAprobBadge" style="display:none;background:#C07A1A;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;margin-left:3px">0</span></div>
-      <div class="tab" onclick="setView('historial')">📁 Historial</div>
-    </div>
-
-    <div class="search-bar">
-      <input class="search-input" type="text" id="searchQ" placeholder="Buscar cliente, concepto, tipo..." oninput="renderObligaciones()"/>
-      <select class="filter-sel" id="filterArea" onchange="renderObligaciones()">
-        <option value="">Todas las áreas</option>
-        <option value="rrhh">👥 RRHH</option>
-        <option value="contable">📊 Contable</option>
-        <option value="pagos">✅ Aprobaciones</option>
-        <option value="cobranza">🧾 Cobranza</option>
-      </select>
-      <select class="filter-sel" id="filterTipo" onchange="renderObligaciones()">
-        <option value="">Todos los tipos</option>
-        <optgroup label="RRHH">
-          <option value="Finiquito">Finiquito</option>
-          <option value="Cotizaciones previsionales">Cotizaciones previsionales</option>
-          <option value="Multas previsionales">Multas previsionales</option>
-        </optgroup>
-        <optgroup label="Contable">
-          <option value="Honorarios a terceros">Honorarios a terceros</option>
-          <option value="Proveedores">Proveedores</option>
-          <option value="Multas SII">Multas SII</option>
-          <option value="Cuotas créditos">Cuotas créditos</option>
-        </optgroup>
-        <optgroup label="Pagos">
-          <option value="Transferencia a tercero">Transferencia a tercero</option>
-          <option value="Obligación general">Obligación general</option>
-        </optgroup>
-        <optgroup label="Otros">
-          <option value="Otro">Otro</option>
-        </optgroup>
-      </select>
-      <select class="filter-sel" id="filterAnalista" onchange="renderObligaciones()">
-        <option value="">Todos los analistas</option>
-      </select>
-      <select class="filter-sel" id="filterCliente" onchange="renderObligaciones()">
-        <option value="">Todos los clientes</option>
-      </select>
-    </div>
-
-    <div id="obligacionesList"></div>
+    <div class="info-box" style="margin-top:12px">💡 Revisa el <strong>comprobante</strong> antes de aprobar. Si rechazas, la obligación <strong>vuelve al analista que la creó</strong> con tu motivo, para que la corrija y la reenvíe. <strong>Anular</strong> solo se puede si la obligación no tiene dinero conciliado (si lo tiene, primero se anula la conciliación en Conciliación).</div>
   </div>
 </main>
 </div>
 
-<!-- MODAL NUEVA / EDITAR OBLIGACIÓN -->
-<div class="modal-bg" id="modal">
+<!-- MODAL MOTIVO (rechazar / anular) -->
+<div class="modal-bg" id="modalMotivo">
+  <div class="modal ob-form">
+    <h2 id="m-titulo">Rechazar</h2>
+    <div class="modal-sub" id="m-sub"></div>
+    <label for="m-motivo">Motivo (obligatorio, mínimo 5 caracteres)</label>
+    <textarea id="m-motivo" maxlength="300"></textarea>
+    <div class="ob-err" id="m-err"></div>
+    <div class="modal-footer">
+      <button class="btn-s" onclick="cerrarMotivo()">Cancelar</button>
+      <button class="btn-no" id="m-ok" onclick="confirmarMotivo()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIAL DE LA OBLIGACIÓN -->
+<div class="modal-bg" id="modalEventos">
   <div class="modal">
-    <h2 id="modalTitle">Nueva Obligación de Pago</h2>
-    <div class="modal-sub">Registra la obligación — quedará pendiente de aprobación de Luciano</div>
-    <input type="hidden" id="f-id"/>
-
-    <div class="card-hd">📋 Datos de la obligación</div>
-    <div class="fg2" style="margin-bottom:12px">
-      <div class="fgroup" style="grid-column:1/3">
-        <label>Cliente *</label>
-        <select data-buscador id="f-cliente" onchange="onClienteChange()"><option value="">Seleccionar...</option></select>
-      </div>
-      <div class="fgroup">
-        <label>Área *</label>
-        <select id="f-area" onchange="onAreaChange()">
-          <option value="">Seleccionar área...</option>
-          <option value="rrhh">👥 RRHH</option>
-          <option value="contable">📊 Contable</option>
-          <option value="pagos">✅ Aprobaciones</option>
-          <option value="cobranza">🧾 Cobranza</option>
-        </select>
-        <span class="hint">Define el área responsable del pago</span>
-      </div>
-      <div class="fgroup">
-        <label>Tipo *</label>
-        <select id="f-tipo" onchange="onTipoChange()">
-          <option value="">Primero selecciona un área...</option>
-        </select>
-      </div>
-      <div class="fgroup" id="f-tipo-otro-wrap" style="display:none">
-        <label>Especificar tipo *</label>
-        <input type="text" id="f-tipo-otro" placeholder="Describe el tipo de pago..."/>
-      </div>
-      <div class="fgroup" style="grid-column:1/3">
-        <label>Concepto / Descripción *</label>
-        <input type="text" id="f-concepto" placeholder="Ej: Finiquito Juan Pérez nov-2025"/>
-      </div>
-      <div class="fgroup">
-        <label>Monto *</label>
-        <input type="number" id="f-monto" placeholder="0"/>
-      </div>
-      <div class="fgroup">
-        <label>Período al que corresponde</label>
-        <input type="month" id="f-periodo"/>
-      </div>
-      <div class="fgroup">
-        <label>Fecha límite de pago</label>
-        <input type="date" id="f-fecha-limite"/>
-      </div>
-      <div class="fgroup">
-        <label>Creado por *</label>
-        <input type="text" id="f-creado-por" placeholder="Auto desde sesión" readonly style="background:#f0f0f0"/>
-      </div>
-      <div class="fgroup">
-        <label>Prioridad</label>
-        <select id="f-prioridad">
-          <option value="normal">Normal</option>
-          <option value="urgente">🔴 Urgente</option>
-        </select>
-      </div>
-      <div class="fgroup">
-        <label>¿Incluir en reporte mensual?</label>
-        <select id="f-cobrar">
-          <option value="si">✅ Sí — incluir en reporte</option>
-          <option value="no">No — uso interno</option>
-        </select>
-      </div>
-      <div class="fgroup">
-        <label>¿Quién gestiona el pago?</label>
-        <select id="f-quien-paga">
-          <option value="contadoor">Contadoor gestiona</option>
-          <option value="directo">Cliente paga directo</option>
-          <option value="mixto">Mixto</option>
-        </select>
-      </div>
-      <div class="fgroup" style="grid-column:1/3">
-        <label>Observaciones</label>
-        <textarea id="f-obs" rows="2" placeholder="Detalles adicionales..."></textarea>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" onclick="guardarObligacion()">💾 Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL CONCILIAR (Analista de Pagos) -->
-<div class="modal-bg" id="modalConciliar">
-  <div class="modal" style="max-width:560px">
-    <h2>Registrar Transferencia</h2>
-    <div class="modal-sub" id="concilSub"></div>
-    <input type="hidden" id="c-id"/>
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af">
-      El analista de pagos carga los datos de la cartola bancaria y hace el match con esta obligación.
-    </div>
-    <div class="fg2" style="margin-bottom:12px">
-      <div class="fgroup">
-        <label>Fecha en cartola *</label>
-        <input type="date" id="c-fecha"/>
-      </div>
-      <div class="fgroup">
-        <label>Monto en cartola *</label>
-        <input type="number" id="c-monto"/>
-      </div>
-      <div class="fgroup">
-        <label>N° Referencia / Movimiento</label>
-        <input type="text" id="c-ref" placeholder="Ej: MOV-20241115-042"/>
-      </div>
-      <div class="fgroup">
-        <label>Cuenta bancaria</label>
-        <input type="text" id="c-cuenta" placeholder="Ej: Banco Estado cta. cte."/>
-      </div>
-      <div class="fgroup" style="grid-column:1/3">
-        <label>Descripción en cartola</label>
-        <input type="text" id="c-desc" placeholder="Texto del extracto bancario"/>
-      </div>
-      <div class="fgroup" style="grid-column:1/3">
-        <label>Conciliado por (analista de pagos) *</label>
-        <input type="text" id="c-quien" placeholder="Tu nombre"/>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-s" onclick="closeConciliar()">Cancelar</button>
-      <button class="btn-p" onclick="confirmarConciliacion()">💳 Marcar como Transferido</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL APROBAR/RECHAZAR (Luciano) -->
-<div class="modal-bg" id="modalAprobar">
-  <div class="modal" style="max-width:600px">
-    <h2>Aprobar o Rechazar Pago</h2>
-    <div class="modal-sub" id="aprobarSub"></div>
-    <input type="hidden" id="a-id"/>
-    <div id="aprobarDetalle" style="margin-bottom:14px"></div>
-    <div class="fgroup" style="margin-bottom:12px">
-      <label>Observaciones (opcional)</label>
-      <textarea id="a-obs" rows="2" placeholder="Motivo de rechazo u observación..."></textarea>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-s" onclick="closeAprobar()">Cancelar</button>
-      <button class="btn-reject" onclick="rechazarPago()">❌ Rechazar</button>
-      <button class="btn-approve" onclick="aprobarPago()">✅ Aprobar pago</button>
-    </div>
+    <h2>Historial de la obligación</h2>
+    <div class="modal-sub" id="ev-sub"></div>
+    <div id="ev-lista">Cargando…</div>
+    <div class="modal-footer"><button class="btn-s" onclick="document.getElementById('modalEventos').classList.remove('on')">Cerrar</button></div>
   </div>
 </div>
 
 <script src="../supabase.js"></script>
+<script src="../assets/comprobantes.js"></script>
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────
-var MASTER_EMAIL = 'lucianoduartec65@gmail.com';
-var MASTER_NOMBRE = 'Luciano';
-
-// Tipos de pago por área
-var TIPOS_POR_AREA = {
-  rrhh: [
-    'Finiquito',
-    'Cotizaciones previsionales',
-    'Multas previsionales',
-    'Bono o gratificación especial',
-    'Anticipo de sueldo',
-    'Otros RRHH'
-  ],
-  contable: [
-    'Honorarios a terceros',
-    'Proveedores',
-    'Multas SII',
-    'Cuotas créditos bancarios',
-    'Gastos operacionales',
-    'Otros Contable'
-  ],
-  pagos: [
-    'Transferencia a tercero',
-    'Obligación general',
-    'Cuota convenio',
-    'Devolución a cliente',
-    'Otros Pagos'
-  ],
-  cobranza: [
-    'Devolución abono',
-    'Nota de crédito',
-    'Ajuste saldo',
-    'Otros Cobranza'
-  ]
+// ═══ APR-1 · Aprobaciones conectada a obligaciones_pago ═══════════════════════
+// Lee public.obligaciones_pago (la RLS decide qué ve cada uno) y cambia estados SOLO con la RPC
+// avanzar_estado_obligacion (aprobar / rechazar / anular: solo Master; la base lo vuelve a validar).
+// Nada se guarda en el navegador.
+var ESTADOS={
+  pendiente_fondos:{l:'Por conciliar',c:'eb-pend'},parcialmente_conciliada:{l:'Parcial',c:'eb-parcial'},requiere_revision:{l:'Requiere revisión',c:'eb-mal'},
+  conciliada:{l:'Conciliada',c:'eb-conc'},en_ejecucion:{l:'En pago',c:'eb-ejec'},pendiente_aprobacion:{l:'Por aprobar',c:'eb-aprob'},
+  aprobada:{l:'Aprobada',c:'eb-ok'},rechazada:{l:'Rechazada',c:'eb-mal'},finalizada:{l:'Finalizada',c:'eb-ok'},anulada:{l:'Anulada',c:'eb-gris'}
 };
+var ACC_TXT={iniciar_ejecucion:'Registró el pago',comprobante:'Subió comprobante',enviar_aprobacion:'Envió a aprobación',aprobar:'Aprobó',rechazar:'Rechazó',corregir:'Volvió a corregir',finalizar:'Finalizó',anular:'Anuló'};
+var _obs=[],_clientes=[],_vista='extra',_cargaSeq=0,_ocupado=false,_motivo=null;
+function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function ff(n){return '$'+Math.round(Number(n)||0).toLocaleString('es-CL');}
+function hoyChile(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago'}).format(new Date());}
+function periodoLabel(p){var m=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];var a=String(p||'').split('-');return a.length===2?(m[+a[1]-1]+' '+a[0]):String(p||'');}
+function fechaHora(t){try{return new Date(t).toLocaleString('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return t;}}
+function esperarSesion(){return new Promise(function(ok,no){var t0=Date.now();(function mirar(){var s=window._contadoorSesion;if(s&&s.rol)return ok(s);if(Date.now()-t0>15000)return no(new Error('sin sesión'));setTimeout(mirar,100);})();});}
+function esAprobador(){var u=getUsuario();return !!(u.esMaster||u.rol==='master');}
+function esMensual(o){return o.ref_reporte_id!=null||o.ref_factura_id!=null;}
+function nombreCliente(rut){var c=_clientes.find(function(x){return x.rut===rut;});return c?c.razon:rut;}
 
-var AREA_LABELS = {
-  rrhh:'👥 RRHH', contable:'📊 Contable',
-  pagos:'💰 Pagos', cobranza:'🧾 Cobranza'
-};
+function poblarPeriodos(){
+  var sel=document.getElementById('selectPeriodo'),hoy=hoyChile(),y=+hoy.slice(0,4),m=+hoy.slice(5,7),l=[];
+  for(var i=-1;i<12;i++){var d=new Date(Date.UTC(y,m-1-i,1));l.push(d.toISOString().slice(0,7));}
+  sel.innerHTML=l.map(function(p){return '<option value="'+p+'">'+periodoLabel(p)+'</option>';}).join('');sel.value=hoy.slice(0,7);
+}
+function setVista(v){
+  var antes=_vista;_vista=v;
+  document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-f')===v);});
+  if((antes==='hist')!==(v==='hist')) cargar(); else renderTabla();
+}
 
-var ESTADOS = {
-  creada:              {label:'Creada',           cls:'b-creada',      icon:'✏️',  orden:0},
-  aviso_enviado:       {label:'Aviso enviado',    cls:'b-aviso',       icon:'📨',  orden:1},
-  transferido:         {label:'Transferido',      cls:'b-transferido', icon:'💳',  orden:2},
-  en_previred:         {label:'En Previred',      cls:'b-previred',    icon:'⚙️',  orden:3},
-  aprobacion:          {label:'En aprobacion',    cls:'b-aprobacion',  icon:'⏳',  orden:4},
-  aprobado:            {label:'Aprobado',         cls:'b-aprobado',    icon:'✅',  orden:5},
-  finalizado:          {label:'Finalizado',       cls:'b-finalizado',  icon:'🔒',  orden:6},
-  rechazado:           {label:'Rechazado',        cls:'b-rechazado',   icon:'❌',  orden:1}
-};
-var FLUJO_PASOS = ['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado','finalizado'];
-
-var _editId=null, _accionId=null, _viewActual='todas', _seleccionados=new Set();
-function getReportesMensuales(){try{return JSON.parse(localStorage.getItem('reportes_mensuales')||'[]');}catch(e){return[];}}
-function setReportesMensuales(arr){localStorage.setItem('reportes_mensuales',JSON.stringify(arr));}
-function syncEstadoReporte(ob, nuevoEstado){
-  // Sincroniza el estado del reporte mensual vinculado a esta obligacion
-  if(!ob||!ob.refReporteId) return;
-  var rpts=getReportesMensuales();
-  var ri=rpts.findIndex(function(r){return String(r.id)===String(ob.refReporteId);});
-  if(ri>=0){
-    rpts[ri].estado=nuevoEstado;
-    setReportesMensuales(rpts);
-    sbPatch('reportes_mensuales?id=eq.'+encodeURIComponent(ob.refReporteId),{estado:nuevoEstado});
+// Trae todo paginando (PostgREST limita a 1000); una respuesta tardía de otra carga se descarta.
+var PAGINA=1000,MAX_PAGINAS=50,_parcial=false;
+function traerTodo(base,seq){
+  var filas=[];
+  function pagina(n){
+    return sbFetch(base+'&limit='+PAGINA+'&offset='+(n*PAGINA)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(function(rows){
+        if(seq!==_cargaSeq) return {obsoleta:true};
+        rows=rows||[];filas=filas.concat(rows);
+        if(rows.length<PAGINA) return {filas:filas,parcial:false};
+        if(n+1>=MAX_PAGINAS) return {filas:filas,parcial:true};
+        return pagina(n+1);
+      });
   }
+  return pagina(0);
 }
-
-function hesc(s){return String(s||'').replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;').replace(/"/g,'\x26quot;');}
-function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
-function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
-function nv(id){return parseFloat(sv(id))||0;}
-function hoy(){return new Date().toISOString().slice(0,10);}
-function esVencido(ob){return ob.estado==='creada'&&ob.fechaLimite&&ob.fechaLimite<hoy();}
-function ts(){return new Date().toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
-function getUsuario(){try{return JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');}catch(e){return{};}}
-// Solo el master (Luciano) aprueba o rechaza pagos; el equipo crea, transfiere, ingresa y envía a aprobación.
-function esAprobador(){return !!getUsuario().esMaster;}
-// Flujo (Luciano 02-oct): el analista del área crea y PAGA; Tesorería (rol pagos) da el pase cuando identifica el ingreso del cliente en el banco.
-//   Registrar transferencia (el pase) → Pagos / admin / master.
-//   Ingresado en Previred/banco, enviar a aprobación, finalizar → analista del área de la obligación / admin / master.
-function puedeConciliar(){var u=getUsuario();return !!u.esMaster||['pagos','cobranza','admin','master'].includes(u.rol);}
-function puedeEjecutar(ob){var u=getUsuario();return !!u.esMaster||u.rol==='admin'||u.rol==='master'||(!!ob&&!!ob.area&&ob.area===u.rol);}
-
-function getObs(){try{return JSON.parse(localStorage.getItem('pagos_bd')||'[]');}catch(e){return[];}}
-function setObs(arr){localStorage.setItem('pagos_bd',JSON.stringify(arr));renderAll();}
-var _clientes=null; // lista cargada desde Supabase (sbGetClientes) al abrir la página
-function getClientes(){
-  return _clientes||sbCacheOrLocal('clientes_v2')||sbCacheOrLocal('clientes','clientes_bd')||[];
-}
-function inicializarClientes(cb){
-  sbGetClientes(function(rows){
-    if(cb)cb(rows);
+function cargar(){
+  var seq=++_cargaSeq;
+  document.getElementById('tabla-meta').textContent='Cargando…';
+  var per=document.getElementById('selectPeriodo').value;
+  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at,ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,motivo_anulacion'
+    +(_vista==='hist'
+      ?'&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(per)+'&order=created_at.desc,id.desc'
+      :'&estado=not.in.(finalizada,anulada)&order=created_at.asc,id.asc');
+  traerTodo(q,seq).then(function(r){
+    if(r.obsoleta||seq!==_cargaSeq) return;
+    _parcial=!!r.parcial;_obs=r.filas||[];renderStats();renderTabla();
+  }).catch(function(){
+    if(seq!==_cargaSeq) return;
+    _obs=[];renderStats();
+    document.getElementById('tabla-meta').textContent='No se pudieron cargar las obligaciones';
+    document.getElementById('tablaBody').innerHTML='<div style="padding:30px;text-align:center;color:var(--red);font-size:13px">No se pudieron cargar las obligaciones. Recarga la página; si sigue, avísale a Luciano.</div>';
   });
 }
-
-// \u2500\u2500 TIPOS POR \u00c1REA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function onAreaChange(){
-  var area=sv('f-area');
-  var tipos=TIPOS_POR_AREA[area]||[];
-  var sel=document.getElementById('f-tipo');
-  sel.innerHTML='<option value="">Seleccionar tipo...</option>';
-  tipos.forEach(function(t){
-    var opt=document.createElement('option');
-    opt.value=t; opt.textContent=t;
-    sel.appendChild(opt);
-  });
-  onTipoChange();
-}
-
-function onTipoChange(){
-  var tipo=sv('f-tipo');
-  var esOtro=tipo.startsWith('Otros') || tipo==='Otro';
-  var wrap=document.getElementById('f-tipo-otro-wrap');
-  if(wrap) wrap.style.display=esOtro?'block':'none';
-}
-
-// \u2500\u2500 POPULAR SELECTS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function popularSelectClientes(){
-  var cl=getClientes();
-  var u=getUsuario();
-  ['f-cliente','filterCliente'].forEach(function(sid){
-    var sel=document.getElementById(sid);if(!sel)return;
-    var cur=sel.value;
-    sel.innerHTML='<option value="">'+(sid==='f-cliente'?'Seleccionar...':'Todos los clientes')+'</option>';
-    cl.forEach(function(c){var o=document.createElement('option');o.value=c.rut;o.textContent=c.razon;sel.appendChild(o);});
-    if(cur)sel.value=cur;
-  });
-  // Popular filtro analistas
-  var obs=getObs();
-  var analistas=[...new Set(obs.map(function(o){return o.creadoPor;}).filter(Boolean))];
-  var fa=document.getElementById('filterAnalista');
-  if(fa){
-    var cur=fa.value;
-    fa.innerHTML='<option value="">Todos los analistas</option>';
-    analistas.forEach(function(a){
-      var o=document.createElement('option');o.value=a;o.textContent=a;fa.appendChild(o);
-    });
-    if(cur)fa.value=cur;
-  }
-}
-
-function onClienteChange(){
-  var rut=sv('f-cliente');
-  var c=getClientes().find(function(x){return x.rut===rut;});
-  // Auto-fill quién paga si está en ficha
-  if(c&&c.quienPaga) document.getElementById('f-quien-paga').value=c.quienPaga;
-}
-
-// \u2500\u2500 MODAL NUEVA / EDITAR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function resetForm(){
-  ['f-cliente','f-area','f-tipo','f-tipo-otro','f-concepto','f-monto',
-   'f-periodo','f-fecha-limite','f-obs'].forEach(function(id){
-    var e=document.getElementById(id);if(e)e.value='';
-  });
-  // Auto-fill analista desde sesión
-  var u=getUsuario();
-  var el=document.getElementById('f-creado-por');
-  if(el) el.value=u.nombre||'';
-  // Auto-fill área según rol
-  var areaEl=document.getElementById('f-area');
-  if(areaEl&&u.rol&&TIPOS_POR_AREA[u.rol]){
-    areaEl.value=u.rol;
-    onAreaChange();
-  }
-  document.getElementById('f-cobrar').value='si';
-  document.getElementById('f-prioridad').value='normal';
-  document.getElementById('f-quien-paga').value='contadoor';
-  var w=document.getElementById('f-tipo-otro-wrap');if(w)w.style.display='none';
-}
-
-function abrirModalNuevo(){
-  _editId=null;popularSelectClientes();resetForm();
-  document.getElementById('modalTitle').textContent='Nueva Obligación de Pago';
-  document.getElementById('modal').classList.add('on');
-}
-
-function abrirModalEditar(id){
-  var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
-  if(ob.estado!=='creada'&&ob.estado!=='rechazado'){alert('Solo se pueden editar obligaciones en estado Creada o Rechazada.');return;}
-  _editId=id;popularSelectClientes();resetForm();
-  document.getElementById('modalTitle').textContent='Editar Obligación';
-  document.getElementById('f-cliente').value=ob.rut||'';
-  document.getElementById('f-area').value=ob.area||'';
-  onAreaChange();
-  document.getElementById('f-tipo').value=ob.tipo||'';
-  onTipoChange();
-  if(ob.tipoOtro) document.getElementById('f-tipo-otro').value=ob.tipoOtro;
-  document.getElementById('f-concepto').value=ob.concepto||'';
-  document.getElementById('f-monto').value=ob.monto||'';
-  document.getElementById('f-periodo').value=ob.periodo||'';
-  document.getElementById('f-fecha-limite').value=ob.fechaLimite||'';
-  document.getElementById('f-creado-por').value=ob.creadoPor||'';
-  document.getElementById('f-cobrar').value=ob.cobrar||'si';
-  document.getElementById('f-prioridad').value=ob.prioridad||'normal';
-  document.getElementById('f-quien-paga').value=ob.quienPaga||'contadoor';
-  document.getElementById('f-obs').value=ob.obs||'';
-  document.getElementById('modal').classList.add('on');
-}
-
-function closeModal(){document.getElementById('modal').classList.remove('on');}
-
-function guardarObligacion(){
-  var rut=sv('f-cliente'),concepto=sv('f-concepto'),area=sv('f-area');
-  var tipo=sv('f-tipo'),tipoOtro=sv('f-tipo-otro');
-  var tipofinal=(tipo.startsWith('Otros')||tipo==='Otro')&&tipoOtro?tipoOtro:tipo;
-  var quien=sv('f-creado-por');
-  if(!rut||!concepto||!area){alert('Cliente, área y concepto son obligatorios.');return;}
-  if(!tipo){alert('Selecciona un tipo de pago.');return;}
-  if(!quien){alert('No se detectó el analista. Verifica tu sesión.');return;}
-  var cl=getClientes().find(function(x){return x.rut===rut;});
-  var arr=getObs();
-  var ob={
-    id:_editId||Date.now(),rut,
-    clienteNombre:cl?cl.razon:'',clienteWa:cl?cl.wa:'',
-    area, tipo:tipofinal, tipoOtro:tipoOtro||'',
-    concepto, monto:nv('f-monto'),
-    periodo:sv('f-periodo'), fechaLimite:sv('f-fecha-limite'),
-    obs:sv('f-obs'), cobrar:sv('f-cobrar'),
-    prioridad:sv('f-prioridad'),
-    quienPaga:sv('f-quien-paga'),
-    creadoPor:quien, tsCreado:ts(),
-    estado:'creada', ts:Date.now()
-  };
-  if(_editId){
-    var idx=arr.findIndex(function(x){return x.id===_editId;});
-    if(idx>=0){
-      ob.conciliacion=arr[idx].conciliacion;
-      // Al corregir una rechazada se conserva el rechazo como historial (vuelve a Creada).
-      if(arr[idx].rechazo) ob.rechazoAnterior=arr[idx].rechazo;
-      if(arr[idx].rechazoAnterior&&!ob.rechazoAnterior) ob.rechazoAnterior=arr[idx].rechazoAnterior;
-      arr[idx]=ob;
-    }
-    else arr.unshift(ob);
-  }else arr.unshift(ob);
-  setObs(arr);closeModal();
-}
-
-// \u2500\u2500 CONCILIAR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function abrirConciliar(id){
-  if(!puedeConciliar()){alert('La transferencia del cliente la confirma Tesorería.');return;}
-  var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
-  _accionId=id;
-  document.getElementById('concilSub').textContent=ob.concepto+' · '+ff(ob.monto);
-  document.getElementById('c-fecha').value=hoy();
-  document.getElementById('c-monto').value=ob.monto||'';
-  ['c-ref','c-cuenta','c-desc','c-quien'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('modalConciliar').classList.add('on');
-}
-function closeConciliar(){document.getElementById('modalConciliar').classList.remove('on');}
-function confirmarConciliacion(){
-  if(!puedeConciliar()){alert('La transferencia del cliente la confirma Tesorería.');return;}
-  var fecha=sv('c-fecha'),monto=nv('c-monto'),quien=sv('c-quien');
-  if(!fecha||!monto){alert('Fecha y monto son obligatorios.');return;}
-  if(!quien){alert('Indica quién concilia este pago.');return;}
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===_accionId;});if(idx<0)return;
-  arr[idx].estado='transferido';
-  arr[idx].conciliacion={fecha,monto,ref:sv('c-ref'),cuenta:sv('c-cuenta'),desc:sv('c-desc'),quien,ts:ts()};
-  setObs(arr);closeConciliar();
-}
-
-// \u2500\u2500 SELECCI\u00d3N M\u00daLTIPLE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function toggleSeleccion(id){
-  if(_seleccionados.has(id)) _seleccionados.delete(id);
-  else _seleccionados.add(id);
-  actualizarBarraSeleccion();
-  renderObligaciones();
-}
-function deseleccionarTodo(){_seleccionados.clear();actualizarBarraSeleccion();renderObligaciones();}
-function actualizarBarraSeleccion(){
-  var bar=document.getElementById('selBar');
-  var arr=getObs().filter(function(ob){return _seleccionados.has(ob.id);});
-  var total=arr.reduce(function(s,ob){return s+ob.monto;},0);
-  document.getElementById('selCount').textContent=_seleccionados.size+' seleccionado'+(arr.length!==1?'s':'');
-  document.getElementById('selMonto').textContent='Total: '+ff(total);
-  bar.classList.toggle('on',_seleccionados.size>0);
-}
-
-function solicitarAprobacion(){
-  if(!_seleccionados.size){alert('Selecciona al menos una obligación.');return;}
-  var arr=getObs();
-  var selArr=arr.filter(function(ob){return _seleccionados.has(ob.id)&&ob.estado==='transferido'&&puedeEjecutar(ob);});
-  if(!selArr.length){alert('Solo se pueden enviar a aprobación obligaciones en estado "Transferido".');return;}
-  var total=selArr.reduce(function(s,ob){return s+ob.monto;},0);
-
-  // Marcar como en aprobación
-  selArr.forEach(function(ob){
-    var idx=arr.findIndex(function(x){return x.id===ob.id;});
-    if(idx>=0){arr[idx].estado='aprobacion';arr[idx].tsSolicitud=ts();}
-  });
-  setObs(arr);_seleccionados.clear();actualizarBarraSeleccion();
-
-  // Generar email para Luciano
-  var subject='🔔 Aprobación requerida  -  '+selArr.length+' pago'+(selArr.length!==1?'s':'')+' · Total: '+ff(total);
-  var body='Hola '+MASTER_NOMBRE+',\n\nSe han enviado los siguientes pagos para tu aprobación:\n\n'
-    +selArr.map(function(ob,i){return(i+1)+'. '+ob.clienteNombre+'  -  '+ob.concepto+'\n   Tipo: '+ob.tipo+'\n   Monto: '+ff(ob.monto)+'\n   Creado por: '+ob.creadoPor+'\n   Conciliado por: '+(ob.conciliacion?ob.conciliacion.quien:' - ')+'\n   Referencia cartola: '+(ob.conciliacion?ob.conciliacion.ref||' - ':' - ')+'\n';}).join('\n')
-    +'\nTOTAL A APROBAR: '+ff(total)+'\n\nIngresa al sistema para aprobar o rechazar:\nhttps://contadoor.github.io/Contadoor.app/pagos/\n\nContadoor.app';
-  window.location.href='mailto:'+encodeURIComponent(MASTER_EMAIL)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-}
-
-// \u2500\u2500 APROBAR / RECHAZAR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function abrirAprobar(id){
-  if(!esAprobador())return;
-  var ob=getObs().find(function(x){return x.id===id;});if(!ob)return;
-  _accionId=id;
-  document.getElementById('aprobarSub').textContent=ob.clienteNombre+' · '+ob.concepto;
-  document.getElementById('a-obs').value='';
-  document.getElementById('aprobarDetalle').innerHTML=
-    '<div style="background:#faf7fa;border:1px solid #e8dde8;border-radius:8px;padding:12px 16px;font-size:13px">'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#9a849b">Monto</span><strong>'+ff(ob.monto)+'</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#9a849b">Tipo</span><span>'+hesc(ob.tipo)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#9a849b">Creado por</span><span>'+hesc(ob.creadoPor)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#9a849b">Conciliado por</span><span>'+(ob.conciliacion?hesc(ob.conciliacion.quien):' - ')+'</span></div>'
-    +(ob.conciliacion?'<div style="display:flex;justify-content:space-between"><span style="color:#9a849b">Ref. cartola</span><span>'+hesc(ob.conciliacion.ref||' - ')+'</span></div>':'')
-    +'</div>';
-  document.getElementById('modalAprobar').classList.add('on');
-}
-function closeAprobar(){document.getElementById('modalAprobar').classList.remove('on');}
-
-function aprobarPago(){
-  if(!esAprobador()){alert('Solo '+MASTER_NOMBRE+' puede aprobar pagos.');return;}
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===_accionId;});if(idx<0)return;
-  arr[idx].estado='aprobado';
-  arr[idx].aprobacion={quien:getUsuario().nombre||MASTER_NOMBRE,obs:sv('a-obs'),ts:ts()};
-  setObs(arr);
-  syncEstadoReporte(arr[idx],'aprobado');
-  closeAprobar();
-  renderAll();
-}
-function rechazarPago(){
-  if(!esAprobador()){alert('Solo '+MASTER_NOMBRE+' puede rechazar pagos.');return;}
-  var obs=sv('a-obs');
-  if(!obs){alert('Indica el motivo del rechazo.');return;}
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===_accionId;});if(idx<0)return;
-  arr[idx].estado='rechazado';
-  arr[idx].rechazo={quien:getUsuario().nombre||MASTER_NOMBRE,obs,ts:ts()};
-  setObs(arr);closeAprobar();
-}
-
-function marcarCobrado(id){
-  if(!confirm('¿Marcar como cobrado al cliente?'))return;
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===id;});if(idx<0)return;
-  arr[idx].estado='cobrado';arr[idx].tsCobrado=ts();
-  setObs(arr);
-}
-function eliminarObligacion(id){
-  if(id===undefined||id===null){alert('Este registro no tiene identificador; se revisará en la migración.');return;}
-  var ob=getObs().find(function(x){return x.id===id;});
-  if(!ob)return;
-  if(ob.estado!=='creada'&&!esAprobador()){alert('Solo se pueden eliminar obligaciones en estado Creada.');return;}
-  if(!confirm('¿Eliminar esta obligación?'))return;
-  setObs(getObs().filter(function(x){return x.id!==id;}));
-}
-
-// \u2500\u2500 RENDER STATS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-
-function solicitarAprobacionUno(id){
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===id;});if(idx<0)return;
-  if(!puedeEjecutar(arr[idx])){alert('Este paso lo hace el analista del área de la obligación.');return;}
-  if(arr[idx].estado!=='en_previred'){alert('La obligación debe estar en estado En Previred.');return;}
-  arr[idx].estado='aprobacion';
-  arr[idx].fechaAprobacion=ts();
-  setObs(arr);
-  syncEstadoReporte(arr[idx],'pendiente_aprobacion');
-  renderAll();
-  var t=document.createElement('div');
-  t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-  t.textContent='Enviado a aprobacion';document.body.appendChild(t);
-  setTimeout(function(){t.remove();},3000);
-}
-
-function marcarEnPrevired(id){
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===id;});if(idx<0)return;
-  if(!puedeEjecutar(arr[idx])){alert('Este paso lo hace el analista del área de la obligación.');return;}
-  if(arr[idx].estado!=='transferido'){alert('La obligación debe estar en estado Transferido.');return;}
-  if(!confirm('¿Marcar como ingresado en Previred / banco?'))return;
-  arr[idx].estado='en_previred';
-  arr[idx].fechaPrevired=ts();
-  arr[idx].quienPrevired=getUsuario().nombre||'';
-  setObs(arr);
-  syncEstadoReporte(arr[idx],'en_previred');
-  renderAll();
-}
-
-function marcarFinalizado(id){
-  var arr=getObs();
-  var idx=arr.findIndex(function(x){return x.id===id;});if(idx<0)return;
-  if(!puedeEjecutar(arr[idx])){alert('Este paso lo hace el analista del área de la obligación.');return;}
-  if(!confirm('¿Verificaste que el pago quedó correctamente registrado? Esto cerrará el proceso.'))return;
-  arr[idx].estado='finalizado';
-  arr[idx].fechaFinalizado=ts();
-  arr[idx].quienFinalizo=getUsuario().nombre||'';
-  setObs(arr);
-  syncEstadoReporte(arr[idx],'finalizado');
-  renderAll();
-  var t=document.createElement('div');
-  t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-  t.textContent='Proceso finalizado correctamente';document.body.appendChild(t);
-  setTimeout(function(){t.remove();},4000);
-}
-
 function renderStats(){
-  var arr=getObs();
-  var creadas=arr.filter(function(ob){return ob.estado==='creada';});
-  var vencidos=creadas.filter(function(ob){return esVencido(ob);});
-  var xConciliar=arr.filter(function(ob){return ob.estado==='transferido';});
-  var xAprobar=arr.filter(function(ob){return ob.estado==='aprobacion';});
-  var totalPend=arr.filter(function(ob){return['creada','aviso_enviado','transferido','en_previred','aprobacion','aprobado'].includes(ob.estado);}).reduce(function(s,ob){return s+ob.monto;},0);
-
-  document.getElementById('statsRow').innerHTML=[
-    {val:creadas.length,lbl:'Creadas'},
-    {val:vencidos.length,lbl:'Vencidas',color:vencidos.length?'#C0392B':null},
-    {val:xConciliar.length,lbl:'Por conciliar'},
-    {val:xAprobar.length,lbl:'En aprobación',color:xAprobar.length?'#C07A1A':null},
-    {val:ff(totalPend),lbl:'Monto pendiente'}
-  ].map(function(s){return'<div class="stat-box"><div class="sv"'+(s.color?' style="color:'+s.color+'"':'')+'>'+s.val+'</div><div class="sl">'+s.lbl+'</div></div>';}).join('');
-
-  // Banner aprobaciones
-  var banner=document.getElementById('aprobBanner');
-  var tab=document.getElementById('tabAprobBadge');
-  if(xAprobar.length>0){
-    banner.style.display='flex';
-    document.getElementById('aprobCount').textContent=xAprobar.length+' pago'+(xAprobar.length!==1?'s':'')+' esperan tu aprobación';
-    document.getElementById('aprobMonto').textContent='Total: '+ff(xAprobar.reduce(function(s,ob){return s+ob.monto;},0));
-    tab.textContent=xAprobar.length;tab.style.display='inline';
-  } else {banner.style.display='none';tab.style.display='none';}
+  if(_vista==='hist') return;
+  var por=_obs.filter(function(o){return o.estado==='pendiente_aprobacion';});
+  var ex=por.filter(function(o){return !esMensual(o);}),me=por.filter(esMensual);
+  document.getElementById('st-extra').textContent=ex.length;document.getElementById('st-mensual').textContent=me.length;
+  document.getElementById('st-monto').textContent=ff(por.reduce(function(s,o){return s+(Number(o.monto_exigible)||0);},0))+(_parcial?' *':'');
+  document.getElementById('st-rech').textContent=_obs.filter(function(o){return o.estado==='rechazada';}).length;
+  document.getElementById('cnt-extra').textContent=ex.length;document.getElementById('cnt-mensual').textContent=me.length;
+  document.getElementById('cnt-proceso').textContent=_obs.length+(_parcial?'+':'');
 }
-
-// \u2500\u2500 RENDER OBLIGACIONES \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-function filtrarObs(){
-  var q=(sv('searchQ')||'').toLowerCase();
-  var tipo=sv('filterTipo'),cliente=sv('filterCliente');
-  var area=sv('filterArea'),analista=sv('filterAnalista');
-  var u=getUsuario();
-
-  var arr=getObs().filter(function(ob){
-    // Filtro por área según rol  -  analistas solo ven su área
-    if(!u.esMaster && u.rol!=='admin' && u.rol!=='pagos'){
-      if(ob.area && ob.area!==u.rol) return false;
-    }
-    var mq=!q||(ob.clienteNombre||'').toLowerCase().includes(q)
-      ||(ob.concepto||'').toLowerCase().includes(q)
-      ||(ob.tipo||'').toLowerCase().includes(q)
-      ||(ob.creadoPor||'').toLowerCase().includes(q);
-    return mq
-      &&(!tipo||ob.tipo===tipo)
-      &&(!cliente||ob.rut===cliente)
-      &&(!area||ob.area===area)
-      &&(!analista||ob.creadoPor===analista);
+function filasVista(){
+  var q=(document.getElementById('searchQ').value||'').trim().toLowerCase();
+  return _obs.filter(function(o){
+    if(_vista==='extra'&&!(o.estado==='pendiente_aprobacion'&&!esMensual(o))) return false;
+    if(_vista==='mensual'&&!(o.estado==='pendiente_aprobacion'&&esMensual(o))) return false;
+    if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')).toLowerCase().indexOf(q)<0) return false;
+    return true;
   });
-  if(_viewActual==='creadas')     arr=arr.filter(function(ob){return ob.estado==='creada';});
-  if(_viewActual==='transferido') arr=arr.filter(function(ob){return ob.estado==='transferido';});
-  if(_viewActual==='aprobacion')  arr=arr.filter(function(ob){return ob.estado==='aprobacion';});
-  if(_viewActual==='aprobar')     arr=arr.filter(function(ob){return ob.estado==='aprobacion';});
-  if(_viewActual==='historial')   arr=arr.filter(function(ob){return['aprobado','rechazado','cobrado','finalizado'].includes(ob.estado);});
-  return arr.sort(function(a,b){return(b.ts||0)-(a.ts||0);});
+}
+var TITULOS={extra:'Por aprobar · Extraordinarios',mensual:'Por aprobar · Proceso mensual',proceso:'Todas en proceso',hist:'Historial'};
+function renderTabla(){
+  var arr=filasVista(),hoy=hoyChile(),apr=esAprobador();
+  document.getElementById('tabla-titulo').textContent=TITULOS[_vista]+(_vista==='hist'?' · '+periodoLabel(document.getElementById('selectPeriodo').value):'');
+  document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(_parcial?' · ⚠️ RESULTADO PARCIAL (*)':'');
+  var cont=document.getElementById('tablaBody');
+  if(!arr.length){cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(_vista==='extra'||_vista==='mensual'?'✅ No hay pagos esperando tu aprobación.':'No hay obligaciones en esta vista.')+'</div>';return;}
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Origen</th><th style="text-align:right">Monto</th><th style="text-align:right">Conciliado</th><th>Estado</th><th>Comprobante</th><th>Acción</th></tr></thead><tbody>'
+    +arr.map(function(o){
+      var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'},id=Number(o.id);
+      var venc=o.vencimiento&&o.vencimiento<hoy&&['finalizada','anulada'].indexOf(o.estado)<0;
+      var acc=[];
+      if(apr&&o.estado==='pendiente_aprobacion'){
+        acc.push(o.comprobante_path?'<button class="btn-ok" onclick="aprobar('+id+')">✓ Aprobar</button>':'<button class="btn-ok" disabled style="opacity:.45;cursor:not-allowed" title="Sin comprobante">✓ Aprobar</button>');
+        acc.push('<button class="btn-no" onclick="abrirMotivo('+id+',\'rechazar\')">Rechazar</button>');
+      }
+      if(apr&&_vista==='proceso'&&['finalizada','anulada'].indexOf(o.estado)<0){
+        acc.push(Number(o.monto_conciliado)>0
+          ?'<button class="btn-s" disabled style="opacity:.5;cursor:not-allowed" title="Tiene dinero conciliado: primero anula la conciliación en Conciliación">Anular</button>'
+          :'<button class="btn-s" onclick="abrirMotivo('+id+',\'anular\')">Anular</button>');
+      }
+      acc.push('<button class="btn-s" onclick="verEventos('+id+')" title="Ver cada paso de la obligación">🕘</button>');
+      var extra='';
+      if(o.estado==='rechazada'&&o.motivo_rechazo) extra='<div style="font-size:10.5px;color:var(--red);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_rechazo)+'</div>';
+      if(o.estado==='anulada'&&o.motivo_anulacion) extra='<div style="font-size:10.5px;color:var(--tm);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_anulacion)+'</div>';
+      return '<tr>'
+        +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
+        +'<td>'+hesc(o.concepto||'—')+(venc?'<div class="ob-venc" style="font-size:10.5px">Vencida '+hesc(o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td>'
+        +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
+        +'<td>'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+'</td>'
+        +'<td style="text-align:right;font-family:monospace">'+ff(o.monto_conciliado)+'</td>'
+        +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span>'+extra+'</td>'
+        +'<td>'+(o.comprobante_path?'<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver</button>':'<span style="color:var(--tm);font-size:11px">—</span>')+'</td>'
+        +'<td><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+acc.join('')+'</div></td>'
+        +'</tr>';
+    }).join('')+'</tbody></table>';
 }
 
-function renderObligaciones(){
-  var arr=filtrarObs();
-  var cont=document.getElementById('obligacionesList');
-  if(!arr.length){
-    cont.innerHTML='<div class="empty-state"><h3>No hay obligaciones'+(
-      _viewActual==='creadas'?' creadas':
-      _viewActual==='transferido'?' por conciliar':
-      _viewActual==='aprobacion'||_viewActual==='aprobar'?' en aprobación':
-      _viewActual==='historial'?' en el historial':''
-    )+'</h3><p>'+(
-      _viewActual==='todas'?'Crea la primera con el botón "+ Nueva obligación"':
-      _viewActual==='aprobar'?'No hay pagos pendientes de tu aprobación 👍':'Cambia el filtro o la vista'
-    )+'</p></div>';
-    return;
-  }
-
-  cont.innerHTML=arr.map(function(ob){
-    var est=ESTADOS[ob.estado]||ESTADOS.creada;
-    var venc=esVencido(ob);
-    var waHref=ob.clienteWa?'https://wa.me/56'+ob.clienteWa.replace(/\D/g,''):'';
-    var esSel=_seleccionados.has(ob.id);
-    var puedeSeleccionar=ob.estado==='transferido'&&puedeEjecutar(ob);
-
-    // BARRA FLUJO
-    var flujoHTML=FLUJO_PASOS.map(function(p){
-      var ordenActual=ESTADOS[ob.estado]?ESTADOS[ob.estado].orden:0;
-      var ordenPaso=ESTADOS[p].orden;
-      var cls=ob.estado==='rechazado'&&p==='transferido'?'rechazado':ordenPaso<ordenActual?'hecho':ordenPaso===ordenActual?'activo':'';
-      return'<div class="flujo-paso '+cls+'">'+ESTADOS[p].icon+' '+ESTADOS[p].label+'</div>';
-    }).join('');
-
-    // TRAZABILIDAD
-    var trazaHTML='<div class="traza">'
-      +'<div class="traza-item">✏️ Creado por <strong>'+hesc(ob.creadoPor||' - ')+'</strong>'+(ob.tsCreado?' · '+ob.tsCreado:'')+'</div>'
-      +(ob.conciliacion?'<div class="traza-item">💳 Conciliado por <strong>'+hesc(ob.conciliacion.quien)+'</strong> · '+ob.conciliacion.ts+'</div>':'')
-      +(ob.aprobacion?'<div class="traza-item">✅ Aprobado por <strong>'+hesc(ob.aprobacion.quien)+'</strong> · '+ob.aprobacion.ts+'</div>':'')
-      +(ob.rechazoAnterior&&!ob.rechazo?'<div class="traza-item" style="color:#9a849b">↩️ Corregida tras rechazo de <strong>'+hesc(ob.rechazoAnterior.quien)+'</strong>: '+hesc(ob.rechazoAnterior.obs)+'</div>':'')
-      +(ob.rechazo?'<div class="traza-item" style="color:#C0392B">❌ Rechazado por <strong>'+hesc(ob.rechazo.quien)+'</strong>: '+hesc(ob.rechazo.obs)+'</div>':'')
-      +'</div>';
-
-    // DETALLE CARTOLA
-    var cartolaHTML='';
-    if(ob.conciliacion){
-      cartolaHTML='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 12px;font-size:11.5px;color:#1e40af;margin-top:8px">'
-        +'🏦 Cartola: '+ob.conciliacion.fecha+' · '+ff(ob.conciliacion.monto)
-        +(ob.conciliacion.ref?' · Ref: '+hesc(ob.conciliacion.ref):'')
-        +(ob.conciliacion.cuenta?' · '+hesc(ob.conciliacion.cuenta):'')
-        +'</div>';
-    }
-
-    // ACCIONES
-    var accionesHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">';
-    if(puedeSeleccionar){
-      accionesHTML+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#904891;font-weight:600">'
-        +'<input type="checkbox" class="ob-check" '+(esSel?'checked':'')+' onchange="toggleSeleccion('+ob.id+')" onclick="event.stopPropagation()"/>'
-        +'Seleccionar para aprobación</label>';
-    }
-    if(waHref) accionesHTML+='<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">💬</a>';
-    if(ob.estado==='creada') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">✏️ Editar</button>';
-    if(ob.estado==='creada'&&puedeConciliar()) accionesHTML+='<button class="btn-p btn-sm" onclick="abrirConciliar('+ob.id+')">💳 Registrar transferencia</button>';
-    else if(ob.estado==='creada') accionesHTML+='<span style="font-size:11px;color:#9a849b;font-weight:600">💳 Esperando que Tesorería confirme la transferencia del cliente</span>';
-    if(ob.estado==='transferido'&&puedeEjecutar(ob)) accionesHTML+='<button class="btn-p btn-sm" onclick="marcarEnPrevired('+ob.id+')" style="font-size:11px">⚙️ Ingresado en Previred / banco</button>';
-    if(ob.estado==='en_previred'&&puedeEjecutar(ob)) accionesHTML+='<button class="btn-s btn-sm" onclick="solicitarAprobacionUno('+ob.id+')" style="font-size:11px">Enviar a aprobacion</button>';
-    if(ob.estado==='aprobacion'&&esAprobador()) accionesHTML+='<button class="btn-approve btn-sm" onclick="abrirAprobar('+ob.id+')">Revisar y aprobar</button>';
-    else if(ob.estado==='aprobacion') accionesHTML+='<span style="font-size:11px;color:#C07A1A;font-weight:600">⏳ Esperando aprobación de '+hesc(MASTER_NOMBRE)+'</span>';
-    if(ob.estado==='aprobado'&&puedeEjecutar(ob)) accionesHTML+='<button class="btn-p btn-sm" onclick="marcarFinalizado('+ob.id+')" style="background:var(--green);font-size:11px">Marcar finalizado</button>';
-    if(ob.estado==='rechazado') accionesHTML+='<button class="btn-s btn-sm" onclick="abrirModalEditar('+ob.id+')">🔄 Corregir y reenviar</button>';
-    if(ob.id&&(ob.estado==='creada'||esAprobador())) accionesHTML+='<button class="btn-danger btn-sm" onclick="eliminarObligacion('+ob.id+')">🗑</button>';
-    accionesHTML+='</div>';
-
-    return'<div class="oblig-row'+(esSel?' seleccionada':'')+(venc?' vencida-border':'')+'">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
-      +'<div style="flex:1">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'
-      +(ob.area?'<span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:#F5EAF5;color:#6D2E6E">'+hesc(AREA_LABELS[ob.area]||ob.area)+'</span>':'')
-      +'<span class="tipo-tag">'+hesc(ob.tipo)+'</span>'
-      +(venc?'<span class="vencido-pill">VENCIDO</span>':'')
-      +(ob.prioridad==='urgente'?'<span class="vencido-pill" style="background:#fef3c7;color:#78350f;border-color:#fde68a">URGENTE</span>':'')
-      +(ob.cobrar==='si'?'<span style="padding:2px 7px;border-radius:20px;font-size:9.5px;font-weight:600;background:#ecfdf5;color:#064e3b;border:1px solid #a7f3d0">En reporte</span>':'')
-      +'</div>'
-      +'<div style="font-size:14px;font-weight:700;margin-bottom:3px">'+hesc(ob.concepto)+'</div>'
-      +'<div style="font-size:11.5px;color:#9a849b">'
-      +hesc(ob.clienteNombre||ob.rut)
-      +(ob.periodo?' · '+ob.periodo:'')
-      +(ob.fechaLimite?' · Límite: '+ob.fechaLimite:'')
-      +(ob.cobrar==='si'?' · <strong style="color:#904891">Se cobra al cliente</strong>':'')
-      +'</div>'
-      +'</div>'
-      +'<div style="text-align:right;flex-shrink:0">'
-      +'<div style="font-size:19px;font-weight:700;color:#904891">'+ff(ob.monto)+'</div>'
-      +'<span class="badge '+est.cls+'" style="margin-top:4px;display:block;text-align:center">'+est.icon+' '+est.label+'</span>'
-      +'</div>'
-      +'</div>'
-      +'<div class="flujo">'+flujoHTML+'</div>'
-      +cartolaHTML
-      +trazaHTML
-      +(ob.obs?'<div style="font-size:11.5px;color:#9a849b;margin-top:6px;font-style:italic">'+hesc(ob.obs)+'</div>':'')
-      +accionesHTML
-      +'</div>';
-  }).join('');
+function rpcPaso(id,acc,obs){
+  return sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:id,p_accion:acc,p_obs:obs||null})})
+    .then(function(r){if(!r.ok)return r.json().catch(function(){return {};}).then(function(j){throw new Error(j.message||('Error '+r.status));});});
+}
+function aprobar(id){
+  if(_ocupado||!esAprobador()) return;
+  var o=_obs.find(function(x){return Number(x.id)===id;});
+  if(!o||!confirm('¿Aprobar el pago de '+ff(o.monto_exigible)+' · '+(o.concepto||'')+' de '+nombreCliente(o.cliente_rut)+'?\n\nRevisaste el comprobante.')) return;
+  _ocupado=true;
+  rpcPaso(id,'aprobar').then(function(){_ocupado=false;cargar();}).catch(function(e){_ocupado=false;alert('No se pudo aprobar: '+e.message);cargar();});
+}
+function abrirMotivo(id,acc){
+  if(!esAprobador()) return;
+  var o=_obs.find(function(x){return Number(x.id)===id;}); if(!o) return;
+  _motivo={id:id,acc:acc};
+  document.getElementById('m-titulo').textContent=acc==='rechazar'?'Rechazar pago':'Anular obligación';
+  document.getElementById('m-sub').textContent=nombreCliente(o.cliente_rut)+' · '+(o.concepto||'')+' · '+ff(o.monto_exigible)
+    +(acc==='rechazar'?' — vuelve al analista que la creó para que la corrija.':' — queda anulada en el Historial (no se borra).');
+  document.getElementById('m-ok').textContent=acc==='rechazar'?'Rechazar':'Anular';
+  document.getElementById('m-motivo').value='';document.getElementById('m-err').style.display='none';
+  document.getElementById('modalMotivo').classList.add('on');document.getElementById('m-motivo').focus();
+}
+function cerrarMotivo(){_motivo=null;document.getElementById('modalMotivo').classList.remove('on');}
+function confirmarMotivo(){
+  if(_ocupado||!_motivo) return;
+  var txt=document.getElementById('m-motivo').value.trim(),err=document.getElementById('m-err');
+  if(txt.length<5){err.textContent='Escribe el motivo (mínimo 5 caracteres).';err.style.display='block';return;}
+  _ocupado=true;document.getElementById('m-ok').disabled=true;
+  rpcPaso(_motivo.id,_motivo.acc,txt).then(function(){_ocupado=false;document.getElementById('m-ok').disabled=false;cerrarMotivo();cargar();})
+    .catch(function(e){_ocupado=false;document.getElementById('m-ok').disabled=false;err.textContent=e.message;err.style.display='block';});
+}
+function verEventos(id){
+  var o=_obs.find(function(x){return Number(x.id)===id;})||{};
+  document.getElementById('ev-sub').textContent=nombreCliente(o.cliente_rut)+' · '+(o.concepto||'');
+  document.getElementById('ev-lista').textContent='Cargando…';document.getElementById('modalEventos').classList.add('on');
+  sbFetch('obligaciones_eventos?select=accion,estado_antes,estado_despues,obs,created_at&obligacion_id=eq.'+id+'&order=id.asc')
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){
+      document.getElementById('ev-lista').innerHTML=rows.length?rows.map(function(x){
+        return '<div class="ev-row"><strong>'+hesc(ACC_TXT[x.accion]||x.accion)+'</strong>'+(x.estado_despues&&x.estado_despues!==x.estado_antes?' → '+hesc((ESTADOS[x.estado_despues]||{}).l||x.estado_despues):'')
+          +(x.obs&&x.accion!=='comprobante'?'<div>'+hesc(x.obs)+'</div>':'')+'<div class="ev-meta">'+hesc(fechaHora(x.created_at))+'</div></div>';
+      }).join(''):'<div style="color:var(--tm);font-size:12px">Sin pasos registrados todavía (los pasos se registran desde la etapa APR-1).</div>';
+    }).catch(function(){document.getElementById('ev-lista').innerHTML='<div style="color:var(--red);font-size:12px">No se pudo cargar el historial.</div>';});
 }
 
-function setView(v){
-  _viewActual=v;
-  document.querySelectorAll('.tab').forEach(function(el){el.classList.remove('on');});
-  var tab=document.querySelector('[onclick="setView(\''+v+'\')"]');
-  if(tab)tab.classList.add('on');
-  renderObligaciones();
+// Datos que quedaron en este navegador con la versión anterior (solo local): se ofrece descargarlos, no se usan.
+function avisoDatosLocales(){
+  var n=0;try{n=(JSON.parse(localStorage.getItem('pagos_bd')||'[]')||[]).length;}catch(e){}
+  if(!n) return;
+  var a=document.getElementById('avisoLocal');
+  a.innerHTML='🗄️ Este navegador tiene '+n+' obligación'+(n!==1?'es':'')+' de la versión anterior de Aprobaciones (guardadas solo aquí, no en Gestoor). <button class="btn-s" onclick="exportarRespaldo()">💾 Descargar respaldo</button>';
+  a.style.display='block';
 }
-
-function renderAll(){
-  popularSelectClientes();renderStats();renderObligaciones();
-}
-
-function exportarCSV(){
-  var arr=getObs();
-  var header=['Cliente','RUT','Tipo','Concepto','Monto','Período','Fecha límite','Estado','Creado por','Fecha creación','Conciliado por','Fecha cartola','Ref cartola','Aprobado/Rechazado por','Obs aprobación','Se cobra'];
-  var rows=arr.map(function(ob){
-    return[ob.clienteNombre,ob.rut,ob.tipo,ob.concepto,ob.monto||0,ob.periodo||'',ob.fechaLimite||'',ob.estado,ob.creadoPor||'',ob.tsCreado||'',
-      ob.conciliacion?ob.conciliacion.quien:'',ob.conciliacion?ob.conciliacion.fecha:'',ob.conciliacion?ob.conciliacion.ref:'',
-      ob.aprobacion?ob.aprobacion.quien:ob.rechazo?ob.rechazo.quien:'',
-      ob.aprobacion?ob.aprobacion.obs:ob.rechazo?ob.rechazo.obs:'',ob.cobrar
-    ].map(function(v){return'"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');
-  });
-  var csv=[header.join(',')].concat(rows).join('\n');
-  var a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download='pagos-contadoor-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
-}
-
-// Respaldo completo de lo que existe SOLO en este navegador (para migrar a Supabase sin perder nada).
 function exportarRespaldo(){
   var claves=['pagos_bd','reportes_mensuales','concil_movimientos','concil_historial','concil_meta','concil_rut_memoria','convenios_bd','facturas_cxc'];
-  var datos={generado:new Date().toISOString(),usuario:getUsuario().nombre||'',navegador:navigator.userAgent,claves:{}};
+  var datos={generado:new Date().toISOString(),usuario:getUsuario().nombre||'',claves:{}};
   claves.forEach(function(k){var v=localStorage.getItem(k);if(v!==null){try{datos.claves[k]=JSON.parse(v);}catch(e){datos.claves[k]=v;}}});
-  var n=(datos.claves.pagos_bd||[]).length;
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}));
-  a.download='respaldo-pagos-'+(getUsuario().nombre||'usuario').replace(/[^A-Za-z0-9]+/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
+  a.download='respaldo-aprobaciones-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
-  alert('Respaldo descargado: '+n+' obligación'+(n!==1?'es':'')+' de este navegador.');
 }
 
-renderAll();
-// La lista de clientes se borra al cerrar sesión: se recarga desde Supabase y se vuelve a dibujar.
-inicializarClientes(function(rows){if(rows&&rows.length)_clientes=rows;renderAll();});
+poblarPeriodos();
+esperarSesion().then(function(s){
+  document.getElementById('tb-analista-nombre').textContent=s.nombre||'';
+  if(!esAprobador()) document.getElementById('soloLectura').style.display='block';
+  avisoDatosLocales();
+  cargar();
+  sbGetClientes(function(rows){_clientes=rows||[];renderTabla();});
+}).catch(function(){document.getElementById('tabla-meta').textContent='Sin sesión';});
 </script>
 <script src="../notifications.js"></script>
-<script src="../assets/buscador-cliente.js"></script>
 <script src="../auth.js"></script>
 </body>
 </html>

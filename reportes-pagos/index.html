@@ -272,6 +272,8 @@ tr:hover td{background:#f0fdff;}
 </div>
 
 <script src="../supabase.js"></script>
+<script src="../assets/comprobantes.js"></script>
+<input type="file" id="fileComprobante" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="comprobanteElegido(this)">
 <script>
 // ═══ PAG-1 · Pagos · Obligaciones ═══════════════════════════════════════════
 // Lee public.obligaciones_pago (RLS decide qué ve cada usuario) y crea obligaciones SOLO vía la RPC
@@ -388,7 +390,7 @@ function cargar(listo){
   document.getElementById('tabla-meta').textContent='Cargando…';
   pintarCalendario();
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
-    +',ref_reporte_id,ref_factura_id'
+    +',ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo'
     // Luciano 4-oct: Pagos = solo pagos EXTRAORDINARIOS (creados a mano). Lo del proceso mensual (F29, cotizaciones,
     // servicios) nace de los reportes y se ve en Conciliación.
     +'&ref_reporte_id=is.null&ref_factura_id=is.null'
@@ -445,7 +447,7 @@ function renderTabla(){
       +(areasPermitidas().length?'<br><br><button class="btn-purple" onclick="abrirNueva()">+ Nueva obligación</button>':'')+'</div>';
     return;
   }
-  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody>'
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
       var abierta=e.g!=='cerr';
@@ -458,9 +460,54 @@ function renderTabla(){
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
         +'<td style="text-align:right;font-family:monospace">'+(abierta?ff(o.saldo_pendiente):'—')+'</td>'
         +'<td'+(vencida?' class="ob-venc"':'')+'>'+(o.vencimiento?hesc(o.vencimiento.split('-').reverse().join('-'))+(vencida?' · vencida':''):'—')+'</td>'
-        +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span></td>'
+        +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span>'+(o.estado==='rechazada'&&o.motivo_rechazo?'<div style="font-size:10.5px;color:var(--red);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_rechazo)+'</div>':'')+'</td>'
+        +'<td>'+accionesHtml(o)+'</td>'
         +'</tr>';
     }).join('')+'</tbody></table>';
+}
+
+// ── APR-1 · Pasos del analista ─────────────────────────────────────────────
+// El responsable de pagar, enviar a aprobación, corregir y finalizar es SIEMPRE quien creó la obligación (o el Master).
+// La base lo vuelve a validar en avanzar_estado_obligacion / registrar_comprobante.
+var _accOcupado=false, _compPara=null;
+function esMio(o){
+  var u=getUsuario(); if(u.esMaster||u.rol==='master') return true;
+  var mi=typeof gestoorMiUsuarioSistemaId==='function'?gestoorMiUsuarioSistemaId():null;
+  return mi!=null&&Number(o.creado_por_usuario_id)===Number(mi);
+}
+function accionesHtml(o){
+  var b=[], id=Number(o.id);
+  if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
+  if(!esMio(o)){ return b.join(' ')||'<span style="color:var(--tm);font-size:11px">—</span>'; }
+  if(o.estado==='conciliada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
+  if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
+  if(o.estado==='en_ejecucion') b.push('<button class="btn-purple"'+(o.comprobante_path?'':' disabled title="Primero sube el comprobante" style="opacity:.45;cursor:not-allowed"')+' onclick="pasoObligacion('+id+',\'enviar_aprobacion\')">Enviar a aprobación</button>');
+  if(o.estado==='rechazada') b.push('<button class="btn-amber" onclick="pasoObligacion('+id+',\'corregir\')">Corregir</button>');
+  if(o.estado==='pendiente_aprobacion') b.push('<span style="color:var(--amber);font-size:11px;font-weight:600">Esperando aprobación de Luciano</span>');
+  if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
+}
+var TEXTO_PASO={
+  iniciar_ejecucion:'¿Confirmas que ya pagaste esta obligación en TGR, Previred o el banco? Después tendrás que subir el comprobante.',
+  enviar_aprobacion:'¿Enviar este pago a aprobación de Luciano?',
+  corregir:'¿Corregir esta obligación? Vuelve a "En pago" para que cambies lo necesario (por ejemplo, el comprobante) y la reenvíes.',
+  finalizar:'¿Finalizar esta obligación? Pasa al Historial.'
+};
+function pasoObligacion(id,acc){
+  if(_accOcupado) return;
+  if(!confirm(TEXTO_PASO[acc]||'¿Confirmas?')) return;
+  _accOcupado=true;
+  sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:id,p_accion:acc,p_obs:null})})
+    .then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(j){throw new Error(j.message||('Error '+r.status));}); })
+    .then(function(){ _accOcupado=false; cargar(); })
+    .catch(function(e){ _accOcupado=false; alert('No se pudo completar: '+(e&&e.message?e.message:e)); cargar(); });
+}
+function subirComprobante(id){ if(_accOcupado) return; _compPara=id; var f=document.getElementById('fileComprobante'); f.value=''; f.click(); }
+function comprobanteElegido(inp){
+  var file=inp.files&&inp.files[0], id=_compPara; _compPara=null; if(!file||!id) return;
+  _accOcupado=true; document.getElementById('tabla-meta').textContent='Subiendo comprobante…';
+  gComprobanteSubir(id,file).then(function(){ _accOcupado=false; cargar(); })
+    .catch(function(e){ _accOcupado=false; alert(e&&e.message?e.message:e); cargar(); });
 }
 
 // ── Nueva obligación ──────────────────────────────────────────────────────
