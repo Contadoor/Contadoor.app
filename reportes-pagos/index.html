@@ -399,7 +399,7 @@ function cargar(listo){
   document.getElementById('tabla-meta').textContent='Cargando…';
   pintarCalendario();
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
-    +',ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,origen_fondos,beneficiario_nombre,beneficiario_rut'
+    +',ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,origen_fondos,beneficiario_nombre,beneficiario_rut,fondos_autorizados_at'
     // Luciano 4-oct: Pagos = solo pagos EXTRAORDINARIOS (creados a mano). Lo del proceso mensual (F29, cotizaciones,
     // servicios) nace de los reportes y se ve en Conciliación.
     +'&ref_reporte_id=is.null&ref_factura_id=is.null'
@@ -422,10 +422,15 @@ function cargar(listo){
   traerTodo(q,seq).then(function(r){if(r.obsoleta){fin([],null);return;}fin(r.filas,null,r.parcial);}).catch(function(e){fin([],e);});
 }
 
-// APR-2: la plata de Contadoor no pasa por Conciliación → 'pendiente_fondos' se muestra como "Lista para pagar".
+// APR-2: la plata de Contadoor no pasa por Conciliación. En 'pendiente_fondos' espera la AUTORIZACIÓN PREVIA de Luciano
+// (antes de pagar) y, una vez autorizada, queda "Lista para pagar".
 function esPlataContadoor(o){return o.origen_fondos==='contadoor';}
-function estadoVis(o){return esPlataContadoor(o)&&o.estado==='pendiente_fondos'?'conciliada':o.estado;}
-function etiquetaEstado(o){var e=ESTADOS[estadoVis(o)]||{l:o.estado,c:'eb-gris'};return esPlataContadoor(o)&&o.estado==='pendiente_fondos'?{l:'Lista para pagar',c:'eb-conc',g:'curso'}:e;}
+function contadoorPendiente(o){return esPlataContadoor(o)&&o.estado==='pendiente_fondos';}
+function estadoVis(o){return contadoorPendiente(o)?(o.fondos_autorizados_at?'conciliada':'por_autorizar'):o.estado;}
+function etiquetaEstado(o){
+  if(contadoorPendiente(o)) return o.fondos_autorizados_at?{l:'Lista para pagar',c:'eb-conc',g:'curso'}:{l:'Esperando autorización de Luciano',c:'eb-aprob',g:'curso'};
+  return ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
+}
 function renderStats(){
   if(esHistorial()) return; // el resumen describe lo que está en proceso
   function n(est){return _obs.filter(function(o){return est.indexOf(estadoVis(o))>=0;}).length;}
@@ -498,11 +503,12 @@ function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
   if(!esMio(o)){ return b.join(' ')||'<span style="color:var(--tm);font-size:11px">—</span>'; }
-  if(estadoVis(o)==='conciliada'&&(o.estado==='conciliada'||(esPlataContadoor(o)&&!(Number(o.monto_conciliado)>0)))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
+  if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
   if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
   if(o.estado==='en_ejecucion') b.push('<button class="btn-purple"'+(o.comprobante_path?'':' disabled title="Primero sube el comprobante" style="opacity:.45;cursor:not-allowed"')+' onclick="pasoObligacion('+id+',\'enviar_aprobacion\')">Enviar a aprobación</button>');
   if(o.estado==='rechazada') b.push('<button class="btn-amber" onclick="pasoObligacion('+id+',\'corregir\')">Corregir</button>');
   if(o.estado==='pendiente_aprobacion') b.push('<span style="color:var(--amber);font-size:11px;font-weight:600">Esperando aprobación de Luciano</span>');
+  if(contadoorPendiente(o)&&!o.fondos_autorizados_at) b.push('<span style="color:var(--amber);font-size:11px;font-weight:600">Luciano debe autorizar antes de pagar</span>');
   if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
 }
@@ -547,7 +553,7 @@ function pintarOrigen(){
   var k=sv('n-origen')==='contadoor';
   var base='Se registra en el período <strong>'+hesc(periodoLabel(_periodo))+'</strong> (el que está seleccionado arriba).';
   document.getElementById('n-periodo-info').innerHTML=base+(k
-    ?'<br>💼 <strong>Plata de Contadoor:</strong> no pasa por Conciliación; queda <strong>lista para pagar</strong>. Igual necesitas el comprobante y la aprobación de Luciano. Si no es por un cliente, elige <strong>Asesorías Contadoor</strong> como cliente.'
+    ?'<br>💼 <strong>Plata de Contadoor:</strong> no pasa por Conciliación. Primero <strong>Luciano autoriza</strong> usar los fondos; recién ahí puedes pagar. Después subes el comprobante y Luciano da la aprobación final. Si no es por un cliente, elige <strong>Asesorías Contadoor</strong> como cliente.'
     :'<br>Queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso del cliente.');
 }
 function cerrarNueva(){if(_guardando)return;document.getElementById('modalNueva').classList.remove('on');}
