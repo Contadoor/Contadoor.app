@@ -236,7 +236,14 @@ tr:hover td{background:#f0fdff;}
 <div class="modal-bg" id="mCarga"><div class="modal ob-form" style="max-width:720px">
   <h2>Cargar cartola de transferencias</h2>
   <div class="modal-sub">Itaú Empresas → Consulta de Transferencias → descargar Excel. Si subes la misma cartola dos veces, no se duplica nada.</div>
-  <input type="file" id="cFile" accept=".xls,.xlsx" onchange="leerCartola(this)">
+  <!-- Zona para arrastrar y soltar la cartola (Luciano 5-oct: carga más fácil). También se puede hacer clic para elegir. -->
+  <label id="cZona" for="cFile" style="text-transform:none;letter-spacing:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:28px 16px;border:2px dashed var(--bdr);border-radius:14px;cursor:pointer;text-align:center;transition:.15s">
+    <span style="font-size:34px">📥</span>
+    <span style="font-weight:700;font-size:14px;color:var(--t1)">Arrastra aquí la cartola de transferencias</span>
+    <span style="font-size:12px;color:var(--tm)">o haz clic para elegir el archivo (.xls o .xlsx)</span>
+    <span id="cNombre" style="font-size:12px;color:var(--p);font-weight:700"></span>
+  </label>
+  <input type="file" id="cFile" accept=".xls,.xlsx" onchange="leerCartola(this)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
   <div id="cPrev" style="margin-top:12px"></div>
   <div class="ob-err" id="cErr"></div>
   <div class="modal-footer"><button class="btn-s" onclick="cerrar('mCarga')">Cerrar</button><button class="btn-purple" id="cBtn" onclick="registrarCartola()" disabled>Registrar ingresos</button></div>
@@ -399,7 +406,7 @@ function cargarConceptos(){
 }
 
 // ── Carga de la cartola ──────────────────────────────────────────────────
-function abrirCarga(){_filasCarga=null;document.getElementById('cFile').value='';document.getElementById('cPrev').innerHTML='';document.getElementById('cBtn').disabled=true;err('cErr','');abrir('mCarga');}
+function abrirCarga(){_filasCarga=null;document.getElementById('cFile').value='';document.getElementById('cNombre').textContent='';document.getElementById('cPrev').innerHTML='';document.getElementById('cBtn').disabled=true;err('cErr','');abrir('mCarga');}
 function norm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
 var COLS={fecha:'fecha',rut:'rut',nombre:'nombre',banco_origen:'banco origen',cuenta_destino:'cuenta destino',monto:'monto',estado:'estado',codigo:'codigo transferencia'};
 var _d1904=false;
@@ -412,7 +419,8 @@ function fechaCelda(v){
 function montoCelda(v){if(typeof v==='number')return Number.isInteger(v)?String(v):String(v);var t=String(v||'').replace(/[$\s.]/g,'');return t;}
 var _lectura=0;
 function leerCartola(inp){
-  var f=inp.files&&inp.files[0];err('cErr','');document.getElementById('cBtn').disabled=true;_filasCarga=null;if(!f)return;
+  var f=inp.files&&inp.files[0];
+  document.getElementById('cNombre').textContent=f?('📄 '+f.name):'';err('cErr','');document.getElementById('cBtn').disabled=true;_filasCarga=null;if(!f)return;
   var mia=++_lectura, nombre=f.name, sha=null;   // si se elige otro archivo mientras se lee, este resultado se descarta
   f.arrayBuffer().then(function(buf){
     return crypto.subtle.digest('SHA-256',buf).then(function(h){sha=Array.prototype.map.call(new Uint8Array(h),function(x){return('0'+x.toString(16)).slice(-2);}).join('');return buf;});
@@ -578,6 +586,24 @@ function asignar(){
       cargar();})
     .catch(function(e){_ocupado=false;err('aErr',e.claro?e.message:'No sabemos si se guardó (problema de conexión). Revisa la lista antes de reintentar.');cargar();});
 }
+
+// ── Arrastrar y soltar ─────────────────────────────────────────────────────
+// Se puede soltar el archivo en la zona del formulario o en cualquier parte de la pantalla (abre el formulario solo).
+(function(){
+  var zona=document.getElementById('cZona'), cont=0;
+  function marcar(on){zona.style.borderColor=on?'var(--p)':'var(--bdr)';zona.style.background=on?'rgba(146,72,147,.12)':'transparent';}
+  function esArchivo(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,'Files')>=0;}
+  document.addEventListener('dragenter',function(e){if(!esArchivo(e))return;e.preventDefault();cont++;
+    if(!document.getElementById('mCarga').classList.contains('on')&&esTesoreria()&&!_ocupado)abrirCarga();marcar(true);});
+  document.addEventListener('dragover',function(e){if(esArchivo(e)){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+  document.addEventListener('dragleave',function(e){if(!esArchivo(e))return;cont=Math.max(0,cont-1);if(!cont)marcar(false);});
+  document.addEventListener('drop',function(e){if(!esArchivo(e))return;e.preventDefault();cont=0;marcar(false);
+    if(!esTesoreria()||_ocupado)return;
+    var f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
+    if(!/\.xlsx?$/i.test(f.name)){err('cErr','El archivo debe ser la cartola en Excel (.xls o .xlsx).');return;}
+    if(!document.getElementById('mCarga').classList.contains('on'))abrirCarga();
+    leerCartola({files:[f]});});
+})();
 
 esperarSesion().then(function(u){
   document.getElementById('tb-analista-nombre').textContent=u.nombre||'';
