@@ -476,9 +476,12 @@ function sugerencia(m){
   if(!_cacheSug[k]) _cacheSug[k]=calcularSugerencia(m);
   return _cacheSug[k];
 }
-// APR-3: obligaciones a las que puede ir este ingreso: las de su cliente, o aquellas donde quien transfirió es el depositante
-// indicado (persona que no es cliente). La base lo vuelve a validar en conciliar_movimiento.
-function obsDelIngreso(m){return _obs.filter(function(o){return (m.cliente_rut&&o.cliente_rut===m.cliente_rut)||(o.depositante_rut&&o.depositante_rut===m.rut_origen);});}
+// APR-3 (R2): obligaciones a las que puede ir este ingreso. Si el ingreso TIENE cliente → solo las de ese cliente.
+// Si NO tiene cliente → solo aquellas cuyo depositante es el RUT de quien transfirió. La base lo vuelve a validar.
+function obsDelIngreso(m){
+  if(m.cliente_rut) return _obs.filter(function(o){return o.cliente_rut===m.cliente_rut;});
+  return _obs.filter(function(o){return o.depositante_rut&&o.depositante_rut===m.rut_origen;});
+}
 function calcularSugerencia(m){
   var saldo=Number(m.saldo);
   if(m.cliente_rut||obsDelIngreso(m).length){
