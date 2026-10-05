@@ -83,47 +83,57 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .info-box{background:#eff6ff;border:1px solid #bfdbfe;border-left:3px solid #3B82F6;border-radius:8px;padding:10px 13px;font-size:12px;color:#1e40af;line-height:1.5;margin-bottom:14px;}
 .warn-box{background:#fef3c7;border:1px solid #fde68a;border-left:3px solid #C07A1A;border-radius:8px;padding:10px 13px;font-size:12px;color:#78350f;line-height:1.5;margin-bottom:14px;}
 </style>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style id="admin-tema-noche">
+/* Admin con la identidad nueva (tema Todo oscuro). Solo apariencia: IDs y lógica sin cambio. */
+.g-mod-adm .tb-title span{color:#E39BE5}
+.g-tema-noche .content{padding:24px 28px}
+.g-tema-noche .usuario-card{background:linear-gradient(180deg,rgba(34,16,39,.92),rgba(23,9,26,.92));border:1px solid #4A2B50;border-radius:20px;padding:18px 20px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.g-tema-noche .u-avatar{background:linear-gradient(160deg,#A4599C,#803889);font-family:var(--g-titulo);font-weight:800;box-shadow:0 8px 20px rgba(146,72,147,.35)}
+.g-tema-noche .u-avatar.master{background:linear-gradient(160deg,#E39BE5,#924893)}
+.u-avatar{overflow:hidden}
+.u-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.g-tema-noche .u-avatar:has(img){border:2px solid rgba(227,155,229,.55)}
+.g-tema-noche .u-nombre{font:800 16px var(--g-titulo);color:#F3E9F4}
+.g-tema-noche .u-mod-tag{background:rgba(199,123,201,.12);color:#E39BE5;border:1px solid rgba(199,123,201,.35);border-radius:999px;padding:3px 9px}
+.g-tema-noche .master-badge{background:rgba(227,155,229,.14);color:#F6D3F7;border:1px solid rgba(227,155,229,.45);border-radius:999px}
+.g-tema-noche .inactivo-badge{background:rgba(255,107,107,.12);color:#FF8A8A;border:1px solid rgba(255,107,107,.4);border-radius:999px}
+.g-tema-noche .btn-danger{background:rgba(255,107,107,.12);color:#FF8A8A;border:1.5px solid rgba(255,107,107,.5);border-radius:999px}
+.g-tema-noche .btn-danger:hover{background:rgba(255,107,107,.22);color:#fff}
+.g-tema-noche .btn-invite{background:rgba(143,219,255,.10);color:#8FDBFF;border:1.5px solid rgba(143,219,255,.45);border-radius:999px}
+.g-tema-noche .btn-invite:hover{background:rgba(143,219,255,.2);color:#fff}
+.g-tema-noche .btn-sm{border-radius:999px}
+.g-tema-noche .warn-box{background:rgba(255,210,77,.08);border:1px solid rgba(255,210,77,.35);border-left:3px solid #FFD24D;color:#FFE7A3;border-radius:14px}
+.g-tema-noche .info-box{background:rgba(143,219,255,.08);border:1px solid rgba(143,219,255,.3);border-left:3px solid #8FDBFF;color:#CDEFFF;border-radius:14px}
+.g-tema-noche .fgroup label{color:#C9A8CC}
+.g-tema-noche .fgroup .hint{color:#8F6F94}
+.g-tema-noche .modal h2{font:800 20px var(--g-titulo);color:#F3E9F4}
+.g-tema-noche .modal-sub{color:#C9A8CC}
+.g-tema-noche .modal-footer{border-top:1px solid #4A2B50}
+.g-tema-noche .card{background:linear-gradient(180deg,rgba(34,16,39,.92),rgba(23,9,26,.92));border:1px solid #4A2B50;border-radius:20px}
+.g-tema-noche .card-hd{color:#E39BE5}
+.g-tema-noche .mod-check-item{background:rgba(255,255,255,.04);border:1px solid #4A2B50;border-radius:12px}
+.g-tema-noche .mod-check-item:hover{background:rgba(199,123,201,.12);border-color:#C77BC9}
+.g-tema-noche .mod-check-item label{color:#F3E9F4}
+.g-tema-noche .u-pin-badge{background:rgba(255,255,255,.05);border:1px solid #4A2B50;color:#C9A8CC}
+</style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body>
+<body class="g-shell g-tema-noche g-mod-adm">
 <div class="layout">
-<aside class="sidebar">
-  <nav>
-    <div class="sb-section">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-section">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-section">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-section">Configuración</div>
-    <a class="sb-item on" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<aside class="sidebar" data-gestoor-activo="admin"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">🔐 Administración de Usuarios</div>
+    <h1 class="tb-title"><span>Admin</span> · usuarios</h1>
+    <div class="g-espacio"></div>
     <div id="notBtn" onclick="if(window.toggleNotPanel)toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px"><span style="font-size:18px">🔔</span><div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div></div>
     <span id="sessionInfo" style="font-size:11px;color:rgba(255,255,255,.3);margin-right:8px"></span>
-    <button class="btn-s btn-sm" onclick="abrirModalNuevo()" title="Disponible en próxima fase" style="opacity:.5;cursor:not-allowed">+ Nuevo usuario</button>
+    <button class="btn-s btn-sm" id="btnNuevoUsuario" onclick="abrirModalNuevo()" style="display:none">+ Nuevo usuario</button>
   </div>
   <div class="content">
     <div class="warn-box">⚠️ Esta sección solo está disponible para el usuario Master. Los cambios aquí afectan el acceso de todo el equipo al sistema.</div>
@@ -268,6 +278,9 @@ var _draftModulosAdicionales = [];
 // ── ESTADO ORIGINAL ───────────────────────────────────────────────────────
 var _editId = null;
 var _admUsuarios = [];
+// USR-2: estado de la identidad operativa (usuarios_sistema) de cada ficha. Solo el Master lo obtiene (RPC admin_listar_identidades);
+// null = desconocido → no se ofrece "Activar en Gestoor" (fail-closed).
+var _admIdent = null;
 
 // ── CARGA DESDE public.usuarios (JWT) ────────────────────────────────────
 // Columnas: solo las verificadas. No usa select=*, no usa usuarios_sistema.
@@ -292,7 +305,17 @@ function adminCargar(){
     // Limpiar caché legacy (solo estas dos claves, no otras de Gestoor)
     try{ localStorage.removeItem('usuarios_sistema'); }catch(e){}
     try{ localStorage.removeItem('sbc_usuarios'); }catch(e){}
+    _admIdent = null;
+    var bn=document.getElementById('btnNuevoUsuario'); var sesB=window._contadoorSesion||getUsuario();
+    if(bn) bn.style.display=(sesB&&sesB.esMaster===true)?'':'none';
     renderUsuarios();
+    var ses = window._contadoorSesion || getUsuario();
+    if(ses && ses.esMaster === true){
+      sbFetch('rpc/admin_listar_identidades',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(function(rows){ var m={}; (rows||[]).forEach(function(x){ m[String(x.usuario_id)]=x; }); _admIdent=m; renderUsuarios(); })
+        .catch(function(){ _admIdent=null; });
+    }
   }).catch(function(e){
     var msg = 'Error al cargar usuarios.';
     if(e && e.status === 401) msg = '❌ Sesión no válida (HTTP 401). Recarga la página.';
@@ -324,6 +347,15 @@ function adminToast(msg, tipo){
   t.style.display = 'block';
   clearTimeout(t._timer);
   t._timer = setTimeout(function(){ t.style.display = 'none'; }, tipo === 'error' ? 5000 : 3000);
+}
+
+// Foto del integrante (assets/equipo/<nombre-apellido>.jpg); si no existe, iniciales.
+function avatarHtml(u){
+  var ini = hesc(u.iniciales || String(u.nombre||'').slice(0,2).toUpperCase());
+  var slug = String(u.nombre||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return '<div class="u-avatar' + (u.es_master ? ' master' : '') + '" data-ini="' + ini + '">'
+    + (slug ? '<img src="../assets/equipo/' + slug + '.jpg" alt="" loading="lazy" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-ini\')">' : ini)
+    + '</div>';
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────
@@ -366,6 +398,11 @@ function renderUsuarios(){
       if(esMasterActual && u.activo && !u.auth_user_id && u.email){
         acciones += '<button class="btn-invite btn-sm" id="btn-invite-' + u.id + '" onclick="invitarUsuario(\'' + u.id + '\')">✉️ Enviar invitación</button>';
       }
+      // USR-2 · Activar en Gestoor: solo Master, ficha activa, con cuenta de acceso y sin identidad operativa
+      var idn = _admIdent ? _admIdent[String(u.id)] : null;
+      if(esMasterActual && u.activo && u.auth_user_id && idn && !idn.tiene_identidad){
+        acciones += '<button class="btn-invite btn-sm" style="background:rgba(95,227,174,.12);color:#5FE3AE;border-color:rgba(95,227,174,.5)" onclick="activarEnGestoor(\'' + u.id + '\')">✅ Activar en Gestoor</button>';
+      }
       // Activar/Desactivar: solo Master, no a sí mismo
       if(esMasterActual && !esYo){
         if(u.activo){
@@ -377,7 +414,7 @@ function renderUsuarios(){
     }
 
     return '<div class="usuario-card">'
-      + '<div class="u-avatar' + (u.es_master ? ' master' : '') + '">' + hesc(u.iniciales || u.nombre.slice(0,2).toUpperCase()) + '</div>'
+      + avatarHtml(u)
       + '<div class="u-info" style="flex:1">'
       + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'
       + '<div class="u-nombre">' + hesc(u.nombre) + '</div>'
@@ -387,7 +424,10 @@ function renderUsuarios(){
       + (esYo ? '<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:3px 8px">👤 Tú</span>' : '')
       + '</div>'
       + (u.email ? '<div style="font-size:10px;color:#9a849b;margin-bottom:2px">✉️ ' + hesc(u.email) + (u.wa ? ' · 💬 +56 ' + hesc(u.wa) : '') + '</div>' : '')
-      + (!u.auth_user_id && !u.es_master ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta Supabase Auth vinculada</div>' : '')
+      + (!u.auth_user_id && !u.es_master ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta de acceso: envía la invitación; cuando la acepte, presiona "Activar en Gestoor".</div>' : '')
+      + (function(){ var x=_admIdent?_admIdent[String(u.id)]:null; if(!x||u.es_master) return '';
+          if(!x.tiene_identidad) return u.auth_user_id?'<div style="font-size:10px;color:#C07A1A;margin-bottom:4px">⏳ Tiene cuenta pero aún no está activo en Gestoor.</div>':'';
+          return x.identidad_activa?'<div style="font-size:10px;color:#2D9B6F;margin-bottom:4px">✔ Activo en Gestoor</div>':'<div style="font-size:10px;color:#9a849b;margin-bottom:4px">Gestoor: inactivo</div>'; })()
       + '<div class="u-modulos" style="margin-bottom:6px">' + modsHTML + '</div>'
       + '<div class="u-actions">' + acciones + '</div>'
       + '</div>'
@@ -552,9 +592,39 @@ function abrirModalEditar(id){
 
   document.getElementById('modal').classList.add('on');
 }
-// ── MODAL NUEVO — deshabilitado en Fase 2B-A ─────────────────────────────
+// ── MODAL NUEVO (USR-2 R2) → rpc/admin_crear_usuario ─────────────────────
+// Solo Master. Crea la FICHA; luego se usa "Enviar invitación" y "Activar en Gestoor".
 function abrirModalNuevo(){
-  adminToast('La invitaci\u00f3n de nuevos usuarios estar\u00e1 disponible en la pr\u00f3xima fase.', 'error');
+  var ses=window._contadoorSesion||getUsuario();
+  if(!(ses&&ses.esMaster===true)){ adminToast('Solo el Master puede crear usuarios.','error'); return; }
+  _editId=null;
+  document.getElementById('modalTitle').textContent='Nuevo usuario';
+  ['f-nombre','f-iniciales','f-wa','f-email'].forEach(function(fid){ var el=document.getElementById(fid); if(el){ el.value=''; el.disabled=false; el.removeAttribute('readonly'); el.style.background=''; el.style.color=''; } });
+  document.getElementById('f-email-hint').textContent='Obligatorio: se usará para enviar la invitación de acceso.';
+  var optMaster=document.querySelector('#f-rol option[value="master"]'); if(optMaster) optMaster.style.display='none';
+  var rolSel=document.getElementById('f-rol'); rolSel.disabled=false; rolSel.title=''; rolSel.value='';
+  _draftModulosAdicionales=[];
+  var aviso=document.getElementById('avisoSoloMaster'); if(aviso) aviso.style.display='none';
+  var btn=document.querySelector('button[onclick="guardarUsuario()"]'); if(btn){ btn.disabled=false; btn.removeAttribute('data-master-disabled'); btn.title=''; }
+  renderFormularioModulos('');
+  document.getElementById('modal').classList.add('on');
+}
+var _creando=false;
+function crearUsuario(){
+  if(_creando) return;
+  var nombre=sv('f-nombre'), rol=sv('f-rol'), email=sv('f-email').toLowerCase(), wa=sv('f-wa');
+  if(nombre.length<3){ adminToast('Escribe el nombre completo.','error'); return; }
+  if(!rol){ adminToast('Selecciona un cargo.','error'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ adminToast('Escribe un correo válido (se usará para la invitación).','error'); return; }
+  if(wa&&!/^[0-9]{8,9}$/.test(wa)){ adminToast('WhatsApp: 8 o 9 dígitos, sin +56.','error'); return; }
+  if(typeof window.gestoorGetModulosBaseRol!=='function'){ adminToast('❌ Error de configuración: recarga la página.','error'); return; }
+  if(!confirm('¿Crear la ficha de '+nombre+' ('+email+')?\n\nDespués: "Enviar invitación" y, cuando cree su contraseña, "Activar en Gestoor".')) return;
+  _creando=true;
+  sbFetch('rpc/admin_crear_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    p_nombre:nombre, p_iniciales:sv('f-iniciales')||null, p_rol:rol, p_wa:wa||null, p_modulos:getAdicionalesSeleccionadosDesdeDom(), p_email:email
+  })}).then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(b){ throw b; }); return r.json(); })
+    .then(function(){ _creando=false; _draftModulosAdicionales=[]; closeModal(); adminToast('✅ Ficha creada. Ahora presiona "Enviar invitación".','ok'); adminCargar(); })
+    .catch(function(e){ _creando=false; adminToast('❌ '+((e&&(e.message||e.error))||'No se pudo crear el usuario.'),'error'); });
 }
 
 // ── CERRAR MODAL ──────────────────────────────────────────────────────────
@@ -580,7 +650,7 @@ function closeModal(){
 
 // ── GUARDAR → rpc/admin_actualizar_usuario ────────────────────────────────
 function guardarUsuario(){
-  if(!_editId){ adminToast('Creación de usuarios pendiente para próxima fase.','error'); return; }
+  if(!_editId){ crearUsuario(); return; }
   var nombre=sv('f-nombre');
   if(!nombre){ adminToast('El nombre es obligatorio.','error'); return; }
   var rol=sv('f-rol');
@@ -639,6 +709,21 @@ function toggleActivo(id,nuevoActivo){
     var msg=(e&&(e.message||e.error))||(nuevoActivo?'Error al reactivar.':'Error al desactivar.');
     adminToast('❌ '+msg,'error');
   });
+}
+
+// ── USR-2 · ACTIVAR EN GESTOOR → rpc/admin_activar_usuario ────────────────
+// Crea la identidad operativa (usuarios_sistema) copiando la ficha. Solo Master; la base valida todo (fail-closed).
+var _activando = false;
+function activarEnGestoor(id){
+  if(_activando) return;
+  var u=_admUsuarios.find(function(x){ return String(x.id)===String(id); });
+  if(!u){ adminToast('Usuario no encontrado.','error'); return; }
+  if(!confirm('¿Activar a '+u.nombre+' en Gestoor con el rol "'+(u.rol_label||u.rol)+'"?\n\nPodrá entrar y ver los módulos de su rol.')) return;
+  _activando = true;
+  sbFetch('rpc/admin_activar_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_usuario_id:Number(id)})})
+    .then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(b){ throw b; }); return r.json(); })
+    .then(function(){ _activando=false; adminToast('✅ '+u.nombre+' quedó activo en Gestoor.','ok'); adminCargar(); })
+    .catch(function(e){ _activando=false; adminToast('❌ '+((e&&(e.message||e.error))||'No se pudo activar.'),'error'); });
 }
 
 // ── INVITAR USUARIO EXISTENTE ─────────────────────────────────────────────
