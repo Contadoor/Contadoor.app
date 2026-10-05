@@ -94,6 +94,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .g-tema-noche .usuario-card{background:linear-gradient(180deg,rgba(34,16,39,.92),rgba(23,9,26,.92));border:1px solid #4A2B50;border-radius:20px;padding:18px 20px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
 .g-tema-noche .u-avatar{background:linear-gradient(160deg,#A4599C,#803889);font-family:var(--g-titulo);font-weight:800;box-shadow:0 8px 20px rgba(146,72,147,.35)}
 .g-tema-noche .u-avatar.master{background:linear-gradient(160deg,#E39BE5,#924893)}
+.u-avatar{overflow:hidden}
+.u-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.g-tema-noche .u-avatar:has(img){border:2px solid rgba(227,155,229,.55)}
 .g-tema-noche .u-nombre{font:800 16px var(--g-titulo);color:#F3E9F4}
 .g-tema-noche .u-mod-tag{background:rgba(199,123,201,.12);color:#E39BE5;border:1px solid rgba(199,123,201,.35);border-radius:999px;padding:3px 9px}
 .g-tema-noche .master-badge{background:rgba(227,155,229,.14);color:#F6D3F7;border:1px solid rgba(227,155,229,.45);border-radius:999px}
@@ -344,6 +347,15 @@ function adminToast(msg, tipo){
   t._timer = setTimeout(function(){ t.style.display = 'none'; }, tipo === 'error' ? 5000 : 3000);
 }
 
+// Foto del integrante (assets/equipo/<nombre-apellido>.jpg); si no existe, iniciales.
+function avatarHtml(u){
+  var ini = hesc(u.iniciales || String(u.nombre||'').slice(0,2).toUpperCase());
+  var slug = String(u.nombre||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return '<div class="u-avatar' + (u.es_master ? ' master' : '') + '" data-ini="' + ini + '">'
+    + (slug ? '<img src="../assets/equipo/' + slug + '.jpg" alt="" loading="lazy" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-ini\')">' : ini)
+    + '</div>';
+}
+
 // ── RENDER ────────────────────────────────────────────────────────────────
 function renderUsuarios(){
   var arr = _admUsuarios;
@@ -400,7 +412,7 @@ function renderUsuarios(){
     }
 
     return '<div class="usuario-card">'
-      + '<div class="u-avatar' + (u.es_master ? ' master' : '') + '">' + hesc(u.iniciales || u.nombre.slice(0,2).toUpperCase()) + '</div>'
+      + avatarHtml(u)
       + '<div class="u-info" style="flex:1">'
       + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'
       + '<div class="u-nombre">' + hesc(u.nombre) + '</div>'
