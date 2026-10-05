@@ -249,15 +249,24 @@ tr:hover td{background:#f0fdff;}
 <div class="modal-bg" id="modalNueva">
   <div class="modal ob-form">
     <h2>Nueva obligación</h2>
-    <div class="modal-sub">Pago que el cliente debe transferir para que Contadoor lo realice. Queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso.</div>
+    <div class="modal-sub">Pago extraordinario a un beneficiario (trabajador, proveedor, servicio…). Puede ser con plata del cliente o de Contadoor.</div>
+    <label for="n-origen">¿De quién es la plata?</label>
+    <select id="n-origen" onchange="pintarOrigen()">
+      <option value="cliente">Del cliente (nos transfiere y pagamos por él)</option>
+      <option value="contadoor">De Contadoor (plata de la empresa)</option>
+    </select>
     <label for="n-cliente">Cliente</label>
     <select data-buscador id="n-cliente"></select>
     <div class="ob-grid">
       <div><label for="n-area">Área</label><select id="n-area"></select></div>
       <div><label for="n-tipo">Tipo de pago</label><select id="n-tipo"></select></div>
     </div>
+    <div class="ob-grid">
+      <div><label for="n-benef">Beneficiario (a quién se le paga)</label><input id="n-benef" maxlength="120" placeholder="Ej: Juan Pérez"></div>
+      <div><label for="n-benef-rut">RUT del beneficiario (opcional)</label><input id="n-benef-rut" maxlength="12" placeholder="12.345.678-9"></div>
+    </div>
     <label for="n-detalle">Detalle</label>
-    <input id="n-detalle" maxlength="120" placeholder="Ej: Juan Pérez · finiquito 30-sep">
+    <input id="n-detalle" maxlength="120" placeholder="Ej: finiquito 30-sep">
     <div class="ob-grid">
       <div><label for="n-monto">Monto ($)</label><input id="n-monto" inputmode="numeric" placeholder="0"></div>
       <div><label for="n-venc">Vencimiento (opcional)</label><input id="n-venc" type="date"></div>
@@ -390,7 +399,7 @@ function cargar(listo){
   document.getElementById('tabla-meta').textContent='Cargando…';
   pintarCalendario();
   var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at'
-    +',ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo'
+    +',ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,origen_fondos,beneficiario_nombre,beneficiario_rut,fondos_autorizados_at'
     // Luciano 4-oct: Pagos = solo pagos EXTRAORDINARIOS (creados a mano). Lo del proceso mensual (F29, cotizaciones,
     // servicios) nace de los reportes y se ve en Conciliación.
     +'&ref_reporte_id=is.null&ref_factura_id=is.null'
@@ -413,19 +422,28 @@ function cargar(listo){
   traerTodo(q,seq).then(function(r){if(r.obsoleta){fin([],null);return;}fin(r.filas,null,r.parcial);}).catch(function(e){fin([],e);});
 }
 
+// APR-2: la plata de Contadoor no pasa por Conciliación. En 'pendiente_fondos' espera la AUTORIZACIÓN PREVIA de Luciano
+// (antes de pagar) y, una vez autorizada, queda "Lista para pagar".
+function esPlataContadoor(o){return o.origen_fondos==='contadoor';}
+function contadoorPendiente(o){return esPlataContadoor(o)&&o.estado==='pendiente_fondos';}
+function estadoVis(o){return contadoorPendiente(o)?(o.fondos_autorizados_at?'conciliada':'por_autorizar'):o.estado;}
+function etiquetaEstado(o){
+  if(contadoorPendiente(o)) return o.fondos_autorizados_at?{l:'Lista para pagar',c:'eb-conc',g:'curso'}:{l:'Esperando autorización de Luciano',c:'eb-aprob',g:'curso'};
+  return ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
+}
 function renderStats(){
   if(esHistorial()) return; // el resumen describe lo que está en proceso
-  function n(est){return _obs.filter(function(o){return est.indexOf(o.estado)>=0;}).length;}
+  function n(est){return _obs.filter(function(o){return est.indexOf(estadoVis(o))>=0;}).length;}
   document.getElementById('st-pend').textContent=n(['pendiente_fondos','parcialmente_conciliada','requiere_revision']);
   document.getElementById('st-conc').textContent=n(['conciliada']);
   document.getElementById('st-ejec').textContent=n(['en_ejecucion']);
   document.getElementById('st-aprob').textContent=n(['pendiente_aprobacion']);
   document.getElementById('st-fin').textContent=n(['aprobada']);
-  var saldo=_obs.filter(function(o){return ['pendiente_fondos','parcialmente_conciliada','requiere_revision'].indexOf(o.estado)>=0;})
+  var saldo=_obs.filter(function(o){return !esPlataContadoor(o)&&['pendiente_fondos','parcialmente_conciliada','requiere_revision'].indexOf(o.estado)>=0;})
     .reduce(function(s,o){return s+(Number(o.saldo_pendiente)||0);},0);
   document.getElementById('st-saldo').textContent=ff(saldo)+(_parcial?' *':'');
   ['pend','curso'].forEach(function(g){
-    document.getElementById('cnt-'+g).textContent=_obs.filter(function(o){return (ESTADOS[o.estado]||{}).g===g;}).length;
+    document.getElementById('cnt-'+g).textContent=_obs.filter(function(o){return etiquetaEstado(o).g===g;}).length;
   });
   document.getElementById('cnt-abiertas').textContent=_obs.length+(_parcial?'+':'');
 }
@@ -433,10 +451,10 @@ function renderStats(){
 function renderTabla(){
   var q=(sv('searchQ')||'').toLowerCase(), area=sv('selectArea'), hoy=hoyChile();
   var arr=_obs.filter(function(o){
-    var e=ESTADOS[o.estado]||{};
+    var e=etiquetaEstado(o);
     if(_filtro&&_filtro!=='hist'&&e.g!==_filtro) return false;
     if(area&&o.area_origen!==area) return false;
-    if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')).toLowerCase().indexOf(q)<0) return false;
+    if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')+' '+(o.beneficiario_nombre||'')+' '+(o.beneficiario_rut||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   });
   document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(esHistorial()?' cerrada'+(arr.length!==1?'s':'')+' · '+periodoLabel(_periodo):' en proceso')
@@ -449,12 +467,12 @@ function renderTabla(){
   }
   cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
     +arr.map(function(o){
-      var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'};
+      var e=etiquetaEstado(o);
       var abierta=e.g!=='cerr';
       var vencida=abierta&&o.vencimiento&&o.vencimiento<hoy;
       return '<tr>'
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
-        +'<td>'+hesc(o.concepto||'—')+'</td>'
+        +'<td>'+hesc(o.concepto||'—')+benefHtml(o)+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
         +'<td>'+hesc(AREAS[o.area_origen]||o.area_origen)+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
@@ -475,15 +493,22 @@ function esMio(o){
   var mi=typeof gestoorMiUsuarioSistemaId==='function'?gestoorMiUsuarioSistemaId():null;
   return mi!=null&&Number(o.creado_por_usuario_id)===Number(mi);
 }
+function benefHtml(o){
+  var x='';
+  if(o.beneficiario_nombre) x+='<div style="font-size:10.5px;color:var(--t2);margin-top:3px">→ '+hesc(o.beneficiario_nombre)+(o.beneficiario_rut?' · '+hesc(o.beneficiario_rut):'')+'</div>';
+  if(esPlataContadoor(o)) x+='<div style="margin-top:3px"><span class="eb eb-aprob" style="font-size:9.5px;padding:2px 8px">Plata de Contadoor</span></div>';
+  return x;
+}
 function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
   if(!esMio(o)){ return b.join(' ')||'<span style="color:var(--tm);font-size:11px">—</span>'; }
-  if(o.estado==='conciliada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
+  if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
   if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
   if(o.estado==='en_ejecucion') b.push('<button class="btn-purple"'+(o.comprobante_path?'':' disabled title="Primero sube el comprobante" style="opacity:.45;cursor:not-allowed"')+' onclick="pasoObligacion('+id+',\'enviar_aprobacion\')">Enviar a aprobación</button>');
   if(o.estado==='rechazada') b.push('<button class="btn-amber" onclick="pasoObligacion('+id+',\'corregir\')">Corregir</button>');
   if(o.estado==='pendiente_aprobacion') b.push('<span style="color:var(--amber);font-size:11px;font-weight:600">Esperando aprobación de Luciano</span>');
+  if(contadoorPendiente(o)&&!o.fondos_autorizados_at) b.push('<span style="color:var(--amber);font-size:11px;font-weight:600">Luciano debe autorizar antes de pagar</span>');
   if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
 }
@@ -519,10 +544,17 @@ function abrirNueva(){
   document.getElementById('n-tipo').innerHTML=TIPOS.map(function(t){return '<option>'+hesc(t)+'</option>';}).join('');
   document.getElementById('n-area').onchange=poblarClientesNueva;
   poblarClientesNueva();
-  ['n-detalle','n-monto','n-venc'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('n-periodo-info').innerHTML='Se registra en el período <strong>'+hesc(periodoLabel(_periodo))+'</strong> (el que está seleccionado arriba).';
+  ['n-detalle','n-monto','n-venc','n-benef','n-benef-rut'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('n-origen').value='cliente';pintarOrigen();
   mostrarError('');
   document.getElementById('modalNueva').classList.add('on');
+}
+function pintarOrigen(){
+  var k=sv('n-origen')==='contadoor';
+  var base='Se registra en el período <strong>'+hesc(periodoLabel(_periodo))+'</strong> (el que está seleccionado arriba).';
+  document.getElementById('n-periodo-info').innerHTML=base+(k
+    ?'<br>💼 <strong>Plata de Contadoor:</strong> no pasa por Conciliación. Primero <strong>Luciano autoriza</strong> usar los fondos; recién ahí puedes pagar. Después subes el comprobante y Luciano da la aprobación final. Si no es por un cliente, elige <strong>Asesorías Contadoor</strong> como cliente.'
+    :'<br>Queda <strong>por conciliar</strong> hasta que Tesorería identifique el ingreso del cliente.');
 }
 function cerrarNueva(){if(_guardando)return;document.getElementById('modalNueva').classList.remove('on');}
 function poblarClientesNueva(){
@@ -542,31 +574,35 @@ var MONTO_ALTO=20000000; // sobre $20 millones se pide una segunda confirmación
 function guardarNueva(){
   if(_guardando) return;
   var rut=sv('n-cliente'), area=sv('n-area'), tipo=sv('n-tipo'), detalle=sv('n-detalle'), venc=sv('n-venc');
+  var origen=sv('n-origen'), benef=sv('n-benef'), benefRut=sv('n-benef-rut');
   var monto=leerMonto(sv('n-monto'));
   if(!rut){mostrarError('Selecciona el cliente.');return;}
   if(areasPermitidas().indexOf(area)<0){mostrarError('Área no permitida para tu rol.');return;}
   if(TIPOS.indexOf(tipo)<0){mostrarError('Selecciona el tipo de pago.');return;}
-  if(!detalle){mostrarError('Escribe el detalle (a quién o qué se paga).');return;}
+  if(origen!=='cliente'&&origen!=='contadoor'){mostrarError('Indica de quién es la plata.');return;}
+  if(benef.length<3){mostrarError('Escribe el beneficiario (a quién se le paga).');return;}
+  if(benefRut&&!/^[0-9.]{1,11}-?[0-9kK]$/.test(benefRut)){mostrarError('El RUT del beneficiario no tiene un formato válido.');return;}
+  if(!detalle){mostrarError('Escribe el detalle (qué se paga).');return;}
   if(!(monto>0)){mostrarError('El monto debe ser un número entero mayor que cero (sin decimales).');return;}
   if(venc&&!/^\d{4}-\d{2}-\d{2}$/.test(venc)){mostrarError('Fecha de vencimiento inválida.');return;}
   if(!/^\d{4}-\d{2}$/.test(_periodo)){mostrarError('Selecciona un período válido.');return;}
   var concepto=(tipo+' · '+detalle).slice(0,160);
   if(monto>MONTO_ALTO&&!confirm('El monto '+ff(monto)+' es muy alto. ¿Está bien escrito?')) return;
-  if(!confirm('¿Crear esta obligación?\n\n'+nombreCliente(rut)+'\n'+concepto+'\n'+ff(monto)+'\nPeríodo: '+periodoLabel(_periodo)+(venc?'\nVence: '+venc.split('-').reverse().join('-'):''))) return;
+  if(!confirm('¿Crear esta obligación?\n\n'+nombreCliente(rut)+'\n'+concepto+'\nBeneficiario: '+benef+(benefRut?' ('+benefRut+')':'')+'\nPlata: '+(origen==='contadoor'?'de Contadoor':'del cliente')+'\n'+ff(monto)+'\nPeríodo: '+periodoLabel(_periodo)+(venc?'\nVence: '+venc.split('-').reverse().join('-'):''))) return;
   _guardando=true;
   var btn=document.getElementById('n-guardar');btn.disabled=true;btn.textContent='Creando…';
-  sbFetch('rpc/crear_obligacion',{
+  // APR-2: crear_pago_extraordinario valida beneficiario y origen, y por dentro usa crear_obligacion (rol, cliente, montos, idempotencia).
+  sbFetch('rpc/crear_pago_extraordinario',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      p_cliente_rut:rut, p_periodo:_periodo, p_area_origen:area, p_tipo_obligacion:'otro',
-      p_concepto:concepto, p_monto_total:monto, p_monto_exigible:monto, p_monto_postergado:0,
-      p_vencimiento:venc||null, p_iva_fecha_venc:null, p_ref_reporte_id:null, p_ref_factura_id:null, p_clave_idem:_claveIntento
+      p_cliente_rut:rut, p_periodo:_periodo, p_area_origen:area, p_concepto:concepto, p_monto:monto,
+      p_vencimiento:venc||null, p_origen_fondos:origen, p_beneficiario_nombre:benef, p_beneficiario_rut:benefRut||null, p_clave_idem:_claveIntento
     })
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){
       var det='';try{det=(JSON.parse(t)||{}).message||'';}catch(x){}
-      if(/idempotencia ya usada/i.test(det)) det='en el intento anterior ya se creó una obligación con esta clave. Revisa la lista; si necesitas otra distinta, cierra y vuelve a abrir el formulario';
+      if(/idempotencia ya usada|ya usada con otros datos/i.test(det)) det='en el intento anterior ya se creó una obligación con esta clave. Revisa la lista; si necesitas otra distinta, cierra y vuelve a abrir el formulario';
       var msg=(r.status===401||r.status===403||/42501|autorizado/i.test(t))?'No tienes permiso para crear obligaciones en este cliente o área.':'No se pudo crear la obligación'+(det?': '+det:' (error '+r.status+').');
       var er=new Error(msg);er.claro=r.status>=400&&r.status<500;throw er;
     });
