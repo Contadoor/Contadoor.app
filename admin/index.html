@@ -268,6 +268,9 @@ var _draftModulosAdicionales = [];
 // ── ESTADO ORIGINAL ───────────────────────────────────────────────────────
 var _editId = null;
 var _admUsuarios = [];
+// USR-2: estado de la identidad operativa (usuarios_sistema) de cada ficha. Solo el Master lo obtiene (RPC admin_listar_identidades);
+// null = desconocido → no se ofrece "Activar en Gestoor" (fail-closed).
+var _admIdent = null;
 
 // ── CARGA DESDE public.usuarios (JWT) ────────────────────────────────────
 // Columnas: solo las verificadas. No usa select=*, no usa usuarios_sistema.
@@ -292,7 +295,15 @@ function adminCargar(){
     // Limpiar caché legacy (solo estas dos claves, no otras de Gestoor)
     try{ localStorage.removeItem('usuarios_sistema'); }catch(e){}
     try{ localStorage.removeItem('sbc_usuarios'); }catch(e){}
+    _admIdent = null;
     renderUsuarios();
+    var ses = window._contadoorSesion || getUsuario();
+    if(ses && ses.esMaster === true){
+      sbFetch('rpc/admin_listar_identidades',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(function(rows){ var m={}; (rows||[]).forEach(function(x){ m[String(x.usuario_id)]=x; }); _admIdent=m; renderUsuarios(); })
+        .catch(function(){ _admIdent=null; });
+    }
   }).catch(function(e){
     var msg = 'Error al cargar usuarios.';
     if(e && e.status === 401) msg = '❌ Sesión no válida (HTTP 401). Recarga la página.';
@@ -366,6 +377,11 @@ function renderUsuarios(){
       if(esMasterActual && u.activo && !u.auth_user_id && u.email){
         acciones += '<button class="btn-invite btn-sm" id="btn-invite-' + u.id + '" onclick="invitarUsuario(\'' + u.id + '\')">✉️ Enviar invitación</button>';
       }
+      // USR-2 · Activar en Gestoor: solo Master, ficha activa, con cuenta de acceso y sin identidad operativa
+      var idn = _admIdent ? _admIdent[String(u.id)] : null;
+      if(esMasterActual && u.activo && u.auth_user_id && idn && !idn.tiene_identidad){
+        acciones += '<button class="btn-invite btn-sm" style="background:rgba(45,155,111,.14);color:#1f7a55;border-color:rgba(45,155,111,.4)" onclick="activarEnGestoor(\'' + u.id + '\')">✅ Activar en Gestoor</button>';
+      }
       // Activar/Desactivar: solo Master, no a sí mismo
       if(esMasterActual && !esYo){
         if(u.activo){
@@ -387,7 +403,10 @@ function renderUsuarios(){
       + (esYo ? '<span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:3px 8px">👤 Tú</span>' : '')
       + '</div>'
       + (u.email ? '<div style="font-size:10px;color:#9a849b;margin-bottom:2px">✉️ ' + hesc(u.email) + (u.wa ? ' · 💬 +56 ' + hesc(u.wa) : '') + '</div>' : '')
-      + (!u.auth_user_id && !u.es_master ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta Supabase Auth vinculada</div>' : '')
+      + (!u.auth_user_id && !u.es_master ? '<div style="font-size:10px;color:#C0392B;margin-bottom:4px">⚠️ Sin cuenta de acceso: envía la invitación; cuando la acepte, presiona "Activar en Gestoor".</div>' : '')
+      + (function(){ var x=_admIdent?_admIdent[String(u.id)]:null; if(!x||u.es_master) return '';
+          if(!x.tiene_identidad) return u.auth_user_id?'<div style="font-size:10px;color:#C07A1A;margin-bottom:4px">⏳ Tiene cuenta pero aún no está activo en Gestoor.</div>':'';
+          return x.identidad_activa?'<div style="font-size:10px;color:#2D9B6F;margin-bottom:4px">✔ Activo en Gestoor</div>':'<div style="font-size:10px;color:#9a849b;margin-bottom:4px">Gestoor: inactivo</div>'; })()
       + '<div class="u-modulos" style="margin-bottom:6px">' + modsHTML + '</div>'
       + '<div class="u-actions">' + acciones + '</div>'
       + '</div>'
@@ -639,6 +658,21 @@ function toggleActivo(id,nuevoActivo){
     var msg=(e&&(e.message||e.error))||(nuevoActivo?'Error al reactivar.':'Error al desactivar.');
     adminToast('❌ '+msg,'error');
   });
+}
+
+// ── USR-2 · ACTIVAR EN GESTOOR → rpc/admin_activar_usuario ────────────────
+// Crea la identidad operativa (usuarios_sistema) copiando la ficha. Solo Master; la base valida todo (fail-closed).
+var _activando = false;
+function activarEnGestoor(id){
+  if(_activando) return;
+  var u=_admUsuarios.find(function(x){ return String(x.id)===String(id); });
+  if(!u){ adminToast('Usuario no encontrado.','error'); return; }
+  if(!confirm('¿Activar a '+u.nombre+' en Gestoor con el rol "'+(u.rol_label||u.rol)+'"?\n\nPodrá entrar y ver los módulos de su rol.')) return;
+  _activando = true;
+  sbFetch('rpc/admin_activar_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_usuario_id:Number(id)})})
+    .then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(b){ throw b; }); return r.json(); })
+    .then(function(){ _activando=false; adminToast('✅ '+u.nombre+' quedó activo en Gestoor.','ok'); adminCargar(); })
+    .catch(function(e){ _activando=false; adminToast('❌ '+((e&&(e.message||e.error))||'No se pudo activar.'),'error'); });
 }
 
 // ── INVITAR USUARIO EXISTENTE ─────────────────────────────────────────────
