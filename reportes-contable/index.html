@@ -156,47 +156,25 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 
 @media print{.no-print{display:none!important;}}
 </style>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
-<aside class="sidebar">
-  <nav>
-    <div class="sb-section">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-section">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item on" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-section">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-section">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<body class="g-shell g-tema-noche g-mod-cont">
+<aside class="sidebar" data-gestoor-activo="reportes-contable"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 <div class="wrap">
 <main class="main">
   <div class="topbar">
-    <div class="tb-title">📊 Vista Contable — Pre-IVA</div>
+    <h1 class="tb-title">Reportes <span>Contables</span></h1>
+    <span class="g-chip-per">Pre-IVA</span>
+    <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre">Analista Contable</span>
     <div id="notBtn" onclick="toggleNotPanel(event)" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;margin-left:8px;">
-      <span style="font-size:18px">🔔</span>
+      <span data-g-ic="campana"></span>
       <div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>
     </div>
   </div>
@@ -222,28 +200,28 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="filtros">
       <span class="fl">Prioridad:</span>
       <button class="fb on" onclick="setFiltro('prioridad','')">Todas</button>
-      <button class="fb" onclick="setFiltro('prioridad','alta')">🔴 Alta</button>
-      <button class="fb" onclick="setFiltro('prioridad','media')">🟡 Media</button>
-      <button class="fb" onclick="setFiltro('prioridad','baja')">🟢 Baja</button>
+      <button class="fb" onclick="setFiltro('prioridad','alta')">Alta</button>
+      <button class="fb" onclick="setFiltro('prioridad','media')">Media</button>
+      <button class="fb" onclick="setFiltro('prioridad','baja')">Baja</button>
       <span class="fl" style="margin-left:12px">Estado:</span>
       <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
-      <button class="fb" onclick="setFiltro('estado','esperando_rrhh')">⏳ Esperando RRHH</button>
-      <button class="fb" onclick="setFiltro('estado','rrhh_ok')">🔵 RRHH OK</button>
-      <button class="fb" onclick="setFiltro('estado','completado')">✅ Pre-IVA validado</button>
-      <button class="fb" onclick="setFiltro('estado','atrasado')">⚠️ Atrasados</button>
+      <button class="fb" onclick="setFiltro('estado','esperando_rrhh')">Esperando RRHH</button>
+      <button class="fb" onclick="setFiltro('estado','rrhh_ok')">RRHH OK</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">Pre-IVA validado</button>
+      <button class="fb" onclick="setFiltro('estado','atrasado')">Atrasados</button>
       <span class="fl" style="margin-left:14px;border-left:1px solid var(--bdr);padding-left:12px">Flujo de pago:</span>
-      <button class="fb" onclick="setFiltro('estado','pago_espera')">⏳ Esp. transferencia</button>
-      <button class="fb" onclick="setFiltro('estado','pago_parcial')">◐ Parcial</button>
-      <button class="fb" onclick="setFiltro('estado','pago_listo')">💰 Listos para procesar</button>
-      <button class="fb" onclick="setFiltro('estado','pago_proc')">▶ En procesamiento</button>
-      <button class="fb" onclick="setFiltro('estado','pago_aprobando')">⏳ Pend. aprobación</button>
-      <button class="fb" onclick="setFiltro('estado','pago_aprobado')">✅ Aprobados</button>
-      <button class="fb" onclick="setFiltro('estado','pago_final')">✓ Finalizados</button>
-      <button class="fb" onclick="setFiltro('estado','pago_atencion')">⚠️ Atención</button>
+      <button class="fb" onclick="setFiltro('estado','pago_espera')">Esp. transferencia</button>
+      <button class="fb" onclick="setFiltro('estado','pago_parcial')">Parcial</button>
+      <button class="fb" onclick="setFiltro('estado','pago_listo')">Listos para procesar</button>
+      <button class="fb" onclick="setFiltro('estado','pago_proc')">En procesamiento</button>
+      <button class="fb" onclick="setFiltro('estado','pago_aprobando')">Pend. aprobación</button>
+      <button class="fb" onclick="setFiltro('estado','pago_aprobado')">Aprobados</button>
+      <button class="fb" onclick="setFiltro('estado','pago_final')">Finalizados</button>
+      <button class="fb" onclick="setFiltro('estado','pago_atencion')">Atención</button>
       <span class="fl" style="margin-left:12px">Plan:</span>
       <button class="fb on" onclick="setFiltro('plan','')">Todos</button>
-      <button class="fb" onclick="setFiltro('plan','estrategico')">⭐ Estratégico</button>
-      <button class="fb" onclick="setFiltro('plan','asesoria')">🔵 Asesoría</button>
+      <button class="fb" onclick="setFiltro('plan','estrategico')">Estratégico</button>
+      <button class="fb" onclick="setFiltro('plan','asesoria')">Asesoría</button>
     </div>
     <!-- BANNER CONSOLIDACIÓN — reemplaza envío masivo -->
     <!-- Fase Panel de Control: bannerMasivo y bannerFirma trasladados — ocultos aquí -->
@@ -253,7 +231,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="tabla-wrap">
       <div class="tabla-hdr">
         <div>
-          <div class="tabla-titulo">📊 Pre-IVA Contable — <span id="periodo-label">Sin período abierto</span></div>
+          <div class="tabla-titulo">Pre-IVA contable · <span id="periodo-label">Sin período abierto</span></div>
           <div class="tabla-meta" id="tabla-meta">Selecciona un período para ver tu nómina</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -271,7 +249,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 <!-- MODAL F29 — Pre-IVA Tributario (sin honorarios comerciales) -->
 <div class="modal-bg" id="modalF29">
   <div class="modal">
-    <h2>📊 Pre-IVA — Impuestos Tributarios</h2>
+    <h2><span data-g-ic="iva"></span> Pre-IVA · Impuestos tributarios</h2>
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-rut"/>
     <input type="hidden" id="m-periodo"/>
@@ -288,8 +266,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
 
     <!-- IVA -->
-    <div class="card-hd">📋 IVA — Formulario 29</div>
-    <div class="info-box" id="info-rrhh-imp">ℹ️ El Impuesto Único 2ª Categoría viene automáticamente desde RRHH.</div>
+    <div class="card-hd"><span data-g-ic="iva"></span> IVA · Formulario 29</div>
+    <div class="info-box" id="info-rrhh-imp">El Impuesto Único 2ª Categoría viene automáticamente desde RRHH.</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
         <label>IVA Débito (ventas) *</label>
@@ -326,7 +304,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <!-- POSTERGACIÓN IVA -->
     <div class="iva-toggle" id="ivaToggleWrap" style="display:none">
       <input type="checkbox" id="f-postergar-iva" onchange="togglePostergacion()"/>
-      <label for="f-postergar-iva">⏳ Postergar IVA — Art. 36 bis (vence +60 días desde día 20)</label>
+      <label for="f-postergar-iva">Postergar IVA — Art. 36 bis (vence +60 días desde día 20)</label>
     </div>
     <div class="iva-detalle" id="iva-detalle-box">
       <div style="font-size:11px;color:#78350f;font-weight:600;margin-bottom:6px;">IVA postergado — detalles</div>
@@ -345,7 +323,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
 
     <!-- PPM -->
-    <div class="card-hd">💰 PPM — Pago Provisional Mensual</div>
+    <div class="card-hd"><span data-g-ic="pagos"></span> PPM · Pago Provisional Mensual</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
         <label>Base PPM (neto + exento) *</label>
@@ -371,7 +349,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
 
     <!-- RETENCIONES (separadas por componente) -->
-    <div class="card-hd">📄 Retenciones y otros impuestos</div>
+    <div class="card-hd"><span data-g-ic="factura"></span> Retenciones y otros impuestos</div>
     <div class="fg3" style="margin-bottom:10px">
       <div class="fgroup">
         <label>Retención honorarios</label>
@@ -410,11 +388,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     </div>
 
     <!-- Mensaje de estado guardado -->
-    <div class="msg-guardado" id="msg-guardado">✅ Pre-IVA guardado correctamente en Supabase.</div>
+    <div class="msg-guardado" id="msg-guardado">Pre-IVA guardado correctamente en Supabase.</div>
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">✅ Validar Pre-IVA</button>
+      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">Validar Pre-IVA</button>
     </div>
   </div>
 </div>
@@ -425,7 +403,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 <!-- Modal: selector de hoja (archivos con múltiples hojas) -->
 <div class="modal-bg" id="modalHoja">
   <div class="modal" style="max-width:400px">
-    <h2>📋 Seleccionar hoja</h2>
+    <h2><span data-g-ic="lista"></span> Seleccionar hoja</h2>
     <div class="modal-sub">El archivo tiene múltiples hojas. Selecciona la que contiene los datos del libro.</div>
     <div id="lista-hojas" style="display:flex;flex-direction:column;gap:6px;margin:12px 0;"></div>
     <div class="modal-footer">
@@ -437,7 +415,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 <!-- Modal: previsualización de libro antes de confirmar -->
 <div class="modal-bg" id="modalPreviewLibro">
   <div class="modal" style="max-width:660px">
-    <h2 id="preview-titulo">📊 Previsualización</h2>
+    <h2 id="preview-titulo">Previsualización</h2>
     <div class="modal-sub" id="preview-sub"></div>
     <div id="preview-resumen-box" class="preview-bloque" style="display:none"></div>
     <div id="preview-adv-box"></div>
@@ -445,7 +423,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="msg-guardado" id="preview-msg"></div>
     <div class="modal-footer">
       <button class="btn-s" onclick="cancelarPreviewLibro()">Cancelar</button>
-      <button class="btn-p" id="btn-confirmar-carga" onclick="confirmarCargaLibro()">✅ Confirmar carga</button>
+      <button class="btn-p" id="btn-confirmar-carga" onclick="confirmarCargaLibro()">Confirmar carga</button>
     </div>
   </div>
 </div>
@@ -1043,9 +1021,9 @@ function renderTabla(){
     }
 
     var planCls=c.plan==='estrategico'?'plan-e':c.plan==='asesoria'?'plan-a':'plan-c';
-    var planLbl=c.plan==='estrategico'?'⭐ Estratégico':c.plan==='asesoria'?'🔵 Asesoría':'📋 Cumplimiento';
+    var planLbl=c.plan==='estrategico'?'Estratégico':c.plan==='asesoria'?'Asesoría':'Cumplimiento';
     var prio=c.prioCont||c.prioridadContable||'media';
-    var prioLbl=prio==='alta'?'🔴':prio==='media'?'🟡':'🟢';
+    var prioLbl=prio==='alta'?'<i class="g-pdot alta" title="Prioridad alta"></i>':prio==='media'?'<i class="g-pdot media" title="Prioridad media"></i>':'<i class="g-pdot baja" title="Prioridad baja"></i>';
 
     // PIPELINE B18: 8 pasos (RRHH→Libros→PreIVA→Reporte→Transferido→F29→Aprobación→Finalizado)
     var oblig=_obligacionesF29Map[String(rep.id||'')]
@@ -1056,19 +1034,19 @@ function renderTabla(){
     // Badge estado
     var badgeHtml='';
     if(!rrhhOk){
-      badgeHtml='<span class="estado-badge eb-pendiente">⏳ Esperando RRHH</span>';
+      badgeHtml='<span class="estado-badge eb-pendiente">'+gIcon('reloj')+' Esperando RRHH</span>';
     } else if(false){
       badgeHtml='';
     } else if(estado==='pendiente'){
-      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">📊 Revisar / Validar Pre-IVA</span>';
+      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">'+gIcon('iva')+' Revisar / Validar Pre-IVA</span>';
     } else if(estado==='completado'){
       if(rep.listoPanelControl){
-        badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">✅ Reporte contable OK</span>';
+        badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">'+gIcon('check')+' Reporte contable OK</span>';
       } else {
-        badgeHtml='<span class="estado-badge eb-completado">✅ Pre-IVA validado</span>';
+        badgeHtml='<span class="estado-badge eb-completado">'+gIcon('check')+' Pre-IVA validado</span>';
       }
     } else if(estado==='atrasado'){
-      badgeHtml='<span class="estado-badge" style="background:#fee2e2;color:#991b1b">⚠️ Atrasado</span>';
+      badgeHtml='<span class="estado-badge" style="background:#fee2e2;color:#991b1b">'+gIcon('alerta')+' Atrasado</span>';
     }
 
     // Total tributario (sin honorarios comerciales)
@@ -1096,17 +1074,17 @@ function renderTabla(){
     } else if(estado==='pendiente'){
       var libOk=librosListos(rep,c);
       if(!libOk){
-        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-IVA">📊 Pre-IVA</button>';
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-IVA">'+gIcon('iva')+' Pre-IVA</button>';
       } else {
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Pre-IVA</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Pre-IVA</button>';
       }
     } else if(estado==='completado'){
       if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">✅ Marcar reporte OK</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
       }
-      html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">✏️ Editar</button>';
+      html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
     }
-    html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')">👁</button>';
+    html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Ver detalle">'+gIcon('ver')+'</button>';
     html+='</div>';
     html+='</div>'; // cr-main
 
@@ -1139,7 +1117,7 @@ function renderTabla(){
           var _fvP=rep.ivaFechaVenc.split('-');
           if(_fvP.length===3) _fvLabel=' · vence '+_fvP[2]+'-'+_fvP[1]+'-'+_fvP[0];
         }
-        html+='<div class="det-row" style="font-size:10.5px;color:#C07A1A;opacity:.9"><span>⏳ IVA postergado'+_fvLabel+'</span><span></span></div>';
+        html+='<div class="det-row" style="font-size:10.5px;color:#C07A1A;opacity:.9"><span>'+gIcon('reloj')+' IVA postergado'+_fvLabel+'</span><span></span></div>';
       };
       if(borrador.remanenteSiguiente>0)html+='<div class="det-row" style="color:var(--contable)"><span>Remanente per. siguiente</span><span>'+ff(borrador.remanenteSiguiente)+'</span></div>';
       html+='</div>';
@@ -1176,24 +1154,24 @@ function renderTabla(){
       }
       html+='<div class="det-total" style="background:#ecfdf5;border:1px solid #6ee7b7;color:#064e3b;margin-top:4px"><span><strong>MONTO A PAGAR AHORA</strong></span><span><strong>'+ff(borrador.montoAPagarAhora)+'</strong></span></div>';
     } else {
-      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">📊 Carga Ventas o Compras para ver el Pre-IVA.</div>';
+      html+='<div style="padding:14px;text-align:center;color:#9a849b;font-size:12px;">'+gIcon('contable')+' Carga Ventas o Compras para ver el Pre-IVA.</div>';
     }
     html+='<div class="acciones" style="margin-top:10px;">';
     if(estado==='pendiente'){
       var libOkDetalle=librosListos(rep,c);
       if(libOkDetalle){
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">📊 Revisar / Validar Pre-IVA</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Revisar / Validar Pre-IVA</button>';
       } else {
-        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-IVA">📋 Carga Compras y Ventas</button>';
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-IVA">'+gIcon('subir')+' Carga Compras y Ventas</button>';
       }
     }
     if(estado==='completado'){
       if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">✅ Marcar reporte OK</button>';
+        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
       } else {
-        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">✅ Reporte contable OK</span>';
+        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">'+gIcon('check')+' Reporte contable OK</span>';
       }
-      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">✏️ Editar Pre-IVA</button>';
+      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar Pre-IVA</button>';
     }
     // ── B19: Acciones financieras (RPC exclusivo, no PATCH directo) ────────
     if(oblig&&rep.listoPanelControl){
@@ -1211,7 +1189,7 @@ function renderTabla(){
         html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'iniciar_ejecucion\',null)">\u25b6 Iniciar procesamiento</button>';
       }else if(_eOb==='en_ejecucion'){
         html+='<div style="font-size:10px;color:var(--contable);margin:4px 0 4px">Pago en procesamiento</div>';
-        html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'enviar_aprobacion\',\'\u00bfConfirmas que el pago ya fue ingresado y est\u00e1 listo para aprobaci\u00f3n?\')">\U0001f4e4 Enviar a aprobaci\u00f3n</button>';
+        html+='<button class="btn-p" style="font-size:11px" onclick="event.stopPropagation();avanzarObligacionContable(\''+c.rut+'\',\'enviar_aprobacion\',\'\u00bfConfirmas que el pago ya fue ingresado y est\u00e1 listo para aprobaci\u00f3n?\')">'+gIcon('enviar')+' Enviar a aprobaci\u00f3n</button>';
       }else if(_eOb==='pendiente_aprobacion'){
         html+='<span style="font-size:10px;color:#C07A1A;margin-left:4px">\u23f3 Pago enviado \u00b7 Pendiente de aprobaci\u00f3n</span>';
       }else if(_eOb==='aprobada'){
@@ -1775,7 +1753,7 @@ function mostrarPreviewHonorarios(data,btnCArg){
   var btnC=btnCArg||document.getElementById('btn-confirmar-carga');
 
   // ── Restablecer estado del botón ───────────────────────────────────────
-  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='\u2705 Confirmar carga';}
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='Confirmar carga';}
 
   // ── Título y subtítulo del preview ────────────────────────────────────
   var ctx=_cargaLibroCtx||{};
@@ -1783,7 +1761,7 @@ function mostrarPreviewHonorarios(data,btnCArg){
   var clienteNombre=clienteInfo.razon||ctx.rut||'Cliente';
   var nombreArchivo=data.file?data.file.name:'(sin archivo)';
   var titEl=document.getElementById('preview-titulo');
-  if(titEl) titEl.textContent='\ud83d\udcca Previsualizaci\u00f3n — Libro de Honorarios';
+  if(titEl) titEl.textContent='Previsualizaci\u00f3n — Libro de Honorarios';
   var subEl=document.getElementById('preview-sub');
   if(subEl) subEl.innerHTML=
     '<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">'+hesc(nombreArchivo)+'</div>'+
@@ -2365,7 +2343,7 @@ function guardarF29(){
   // Bloquear si no hay reporte con ID — RRHH debe existir primero
   if(!repExistente||!repExistente.id||!/^\d+$/.test(String(repExistente.id))){
     alert('No existe un reporte mensual base para este cliente y período.\n\nRecarga el módulo o completa primero el proceso RRHH.');
-    if(btnG){btnG.disabled=false;btnG.textContent='\u2705 Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
     return;
   }
 
@@ -2402,12 +2380,12 @@ function guardarF29(){
   };
 
   var btnG=document.getElementById('btn-guardar-f29');
-  if(btnG){btnG.disabled=true;btnG.textContent='\u23f3 Guardando\u2026';}
+  if(btnG){btnG.disabled=true;btnG.textContent='Guardando\u2026';}
   var mg=document.getElementById('msg-guardado');
   if(mg) mg.className='msg-guardado';
 
   sbPatchReporte(repExistente.id, patchContable).then(function(filaGuardada){
-    if(btnG){btnG.disabled=false;btnG.textContent='✅ Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
 
     // Supabase con Prefer:return=representation devuelve array
     var fila=Array.isArray(filaGuardada)?filaGuardada[0]:filaGuardada;
@@ -2502,7 +2480,7 @@ function guardarF29(){
     });
 
   }).catch(function(err){
-    if(btnG){btnG.disabled=false;btnG.textContent='✅ Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
     // Mensaje sanitizado — no mostrar tokens ni datos sensibles
     var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
     alert('Error al persistir Pre-IVA: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
@@ -2945,13 +2923,13 @@ function mostrarPreviewLibro(data){
 
   // Restablecer botón al inicio de cada preview
   var btnC=document.getElementById('btn-confirmar-carga');
-  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='Confirmar carga';}
 
   // Identificación del archivo y cliente
   var clienteInfo=_clientesContables.find(function(c){return c.rut===ctx.rut;})||{};
   var clienteNombre=clienteInfo.razon||ctx.rut;
   var nombreArchivo=data.file?data.file.name:'(sin archivo)';
-  document.getElementById('preview-titulo').textContent='\uD83D\uDCCA Previsualización — Libro de '+label;
+  document.getElementById('preview-titulo').textContent='Previsualización — Libro de '+label;
   var sub=document.getElementById('preview-sub');
   sub.innerHTML='<div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">'+hesc(nombreArchivo)+'</div>'+
     '<div style="font-size:11px;color:var(--tm)">'+hesc(clienteNombre)+' &middot; '+hesc(ctx.rut)+' &middot; '+hesc(ctx.periodo)+' &middot; '+hesc(label)+'</div>';
@@ -3204,7 +3182,7 @@ function mostrarPreviewLibro(data){
 
   if(btnC){
     if(puedeConfirmar){
-      btnC.disabled=false; btnC.style.opacity='1'; btnC.title=''; btnC.textContent='\u2705 Confirmar carga';
+      btnC.disabled=false; btnC.style.opacity='1'; btnC.title=''; btnC.textContent='Confirmar carga';
     } else {
       btnC.disabled=true; btnC.style.opacity='.4'; btnC.title=motivos.join(' | ');
     }
@@ -3222,7 +3200,7 @@ function cancelarPreviewLibro(){
   if(tb){tb.innerHTML='';tb.style.display='none';}
   if(ab){ab.innerHTML='';}
   var btnC=document.getElementById('btn-confirmar-carga');
-  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='✅ Confirmar carga';}
+  if(btnC){btnC.disabled=false;btnC.style.opacity='1';btnC.title='';btnC.textContent='Confirmar carga';}
 }
 
 // ── Mapeo de fila Honorarios al contrato real de p_registros ────────────
@@ -3443,14 +3421,14 @@ async function confirmarCargaLibro(){
   if(!prepCambio.ok){ if(prepCambio.mensaje) alert(prepCambio.mensaje); return; }
 
   var btnC=document.getElementById('btn-confirmar-carga');
-  if(btnC){btnC.disabled=true;btnC.textContent='⏳ Calculando…';}
+  if(btnC){btnC.disabled=true;btnC.textContent='Calculando…';}
   var pm=document.getElementById('preview-msg');
   if(pm) pm.className='msg-guardado';
 
   // Guard rail: carga real con 0 documentos incluidos no es válida
   var nIncluidas=(data.cabeceraCalc||{}).n_filas_incluidas||(data.cabeceraCalc||{}).n_docs_incluidos||0;
   if(nIncluidas===0&&(ctx.accion==='carga_inicial'||ctx.accion==='reemplazo')){
-    if(btnC){btnC.disabled=false;btnC.textContent='✅ Confirmar carga';}
+    if(btnC){btnC.disabled=false;btnC.textContent='Confirmar carga';}
     alert('No se detectaron documentos válidos.\n\nSi no hubo movimientos, utiliza la acción "Sin movimientos" en lugar de cargar un archivo.');
     return;
   }
@@ -3460,7 +3438,7 @@ async function confirmarCargaLibro(){
 
   try{
     // 1. SHA256
-    if(btnC) btnC.textContent='⏳ Subiendo archivo…';
+    if(btnC) btnC.textContent='Subiendo archivo…';
     var sha256=await calcSha256Libro(data.file);
 
     // 2. Storage path
@@ -3476,7 +3454,7 @@ async function confirmarCargaLibro(){
     if(up.error) throw up.error;
     pathConfirmado=up.data.path||storagePath;
 
-    if(btnC) btnC.textContent='⏳ Guardando en Supabase…';
+    if(btnC) btnC.textContent='Guardando en Supabase…';
 
     // 3. RPC
     var mime=data.file.type||'application/octet-stream';
@@ -3602,7 +3580,7 @@ async function confirmarCargaLibro(){
     } else {
       alert('Error al cargar el libro:\n'+msg+(pathConfirmado?'\nEl archivo temporal fue eliminado de Storage.':''));
     }
-    if(btnC){btnC.disabled=false;btnC.textContent='✅ Confirmar carga';}
+    if(btnC){btnC.disabled=false;btnC.textContent='Confirmar carga';}
   }
 }
 
@@ -3662,9 +3640,9 @@ function botonQuitarLibro(tipo, c, rep){
     var motivoQ=rep.listoPanelControl===true
       ? 'Reporte contable OK para el Panel: cambiar sus libros requiere una reapertura controlada'
       : 'Pre-IVA validado: para corregir usa Reemplazar (reabre el Pre-IVA antes de cambiar el libro)';
-    return '<button class="btn-s" style="font-size:10px;opacity:.4" disabled title="'+motivoQ+'">🗑 Quitar</button>';
+    return '<button class="btn-s" style="font-size:10px;opacity:.4" disabled title="'+motivoQ+'">'+gIcon('basura')+' Quitar</button>';
   }
-  return '<button class="btn-s" style="font-size:10px;color:var(--red)" onclick="quitarLibro('+c.id+',\''+c.rut+'\',\''+tipo+'\')">🗑 Quitar</button>';
+  return '<button class="btn-s" style="font-size:10px;color:var(--red)" onclick="quitarLibro('+c.id+',\''+c.rut+'\',\''+tipo+'\')">'+gIcon('basura')+' Quitar</button>';
 }
 
 function quitarLibro(clienteId, rut, tipo){
@@ -4224,12 +4202,12 @@ function ts_lib(isoStr){
 function renderLibroBadge(estado){
   var map = {
     'no_cargado':      ['lb-no-cargado','sin cargar'],
-    'validado':        ['lb-validado','✅ validado'],
-    'con_observaciones':['lb-obs','⚠ observaciones'],
-    'sin_movimientos': ['lb-sin-mov','○ sin movimientos'],
-    'no_aplica':       ['lb-no-aplica','— no aplica'],
-    'error':           ['lb-error','✕ error'],
-    'procesando':      ['lb-obs','⏳ procesando'],
+    'validado':        ['lb-validado','validado'],
+    'con_observaciones':['lb-obs','observaciones'],
+    'sin_movimientos': ['lb-sin-mov','sin movimientos'],
+    'no_aplica':       ['lb-no-aplica','no aplica'],
+    'error':           ['lb-error','error'],
+    'procesando':      ['lb-obs','procesando'],
   };
   var p = map[estado] || ['lb-no-cargado', estado||'—'];
   return '<span class="libro-badge '+p[0]+'">'+p[1]+'</span>';
@@ -4238,7 +4216,7 @@ function renderLibroBadge(estado){
 function renderTarjetaLibro(tipo, cab, c, rep){
   var estado  = cab ? cab.estado : 'no_cargado';
   var btnQuitar = botonQuitarLibro(tipo, c, rep);
-  var etiqueta = tipo==='compras'?'📋 Compras':tipo==='ventas'?'📋 Ventas':'📋 Honorarios';
+  var etiqueta = tipo==='compras'?'Compras':tipo==='ventas'?'Ventas':'Honorarios';
   var cid = c.id;
   var rut = c.rut;
 
@@ -4267,7 +4245,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
       h += '</div>';
     }
     h += '<div class="libro-actions">';
-    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Reemplazar</button>';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('repetir')+' Reemplazar</button>';
     h += btnQuitar;
     h += '</div>';
   } else if(estado==='sin_movimientos'){
@@ -4275,7 +4253,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     if(cab&&cab.validadoPor) h += '<br>'+hesc(cab.validadoPor);
     h += '</div>';
     h += '<div class="libro-actions">';
-    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('subir')+' Cargar de todas formas</button>';
     h += btnQuitar;
     h += '</div>';
   } else if(estado==='no_aplica'){
@@ -4283,7 +4261,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     if(cab&&cab.obs) h += '<br><em>'+hesc(cab.obs)+'</em>';
     h += '</div>';
     h += '<div class="libro-actions">';
-    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">📥 Cargar de todas formas</button>';
+    h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('subir')+' Cargar de todas formas</button>';
     h += btnQuitar;
     h += '</div>';
   } else {
@@ -4291,12 +4269,12 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     h += '<div class="libro-meta" style="color:var(--tm);font-size:11px">No cargado para este período.</div>';
     h += '<div class="libro-actions">';
     if(tipo!=='honorarios'){
-      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
-      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">'+gIcon('subir')+' Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">Sin movimientos</button>';
     } else {
-      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">📥 Cargar</button>';
-      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">○ Sin movimientos</button>';
-      h += '<button class="btn-s" style="font-size:10px" onclick="marcarNoAplicaLibro('+cid+',\''+rut+'\',\''+tipo+'\')">— No aplica</button>';
+      h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">'+gIcon('subir')+' Cargar</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">Sin movimientos</button>';
+      h += '<button class="btn-s" style="font-size:10px" onclick="marcarNoAplicaLibro('+cid+',\''+rut+'\',\''+tipo+'\')">No aplica</button>';
     }
     h += '</div>';
   }
@@ -4307,7 +4285,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
 function renderSeccionLibros(rep, c){
   var libros = rep.libros || (_librosMap[String(c.id||'')] || {});
   var h = '<div style="margin-bottom:14px">';
-  h += '<div class="libros-sec-titulo">📂 Documentos contables del período</div>';
+  h += '<div class="libros-sec-titulo">'+gIcon('contable')+' Documentos contables del período</div>';
   h += '<div class="libros-grid">';
   h += renderTarjetaLibro('compras',   libros.compras,   c, rep);
   h += renderTarjetaLibro('ventas',    libros.ventas,    c, rep);
