@@ -65,7 +65,7 @@
     ['Principal',[['inicio','Dashboard','']]],
     ['Operación mensual',[['clientes','Clientes','clientes'],['panel','Panel de Control','panel-de-control'],['rrhh','RRHH','reportes-rrhh'],
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
-      ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva'],['pir','PIR','pir']]],
+      ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva'],['pir','MiRenta','pir']]],
     ['Gestión interna',[['objetivo','Prospectos','prospectos'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','CxC / Cobranza',null],
       ['factura','Facturación',null],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
       ['correo','Comunicaciones',null],['grafico','Performance',null]]],
