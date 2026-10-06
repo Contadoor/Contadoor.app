@@ -878,7 +878,10 @@ body.g-mod-cont{--contable:var(--g-area-cont);--contable-bg:rgba(52,211,153,.10)
 .g-mod-cont .eb-pendiente{background:rgba(255,200,90,.14);color:#FFC85A}
 .g-mod-cont .eb-completado{background:rgba(52,211,153,.13);color:#5FE3AE;border-color:rgba(52,211,153,.32)!important}
 .g-mod-cont .eb-enviado{background:rgba(199,123,201,.18);color:#E39BE5}
-.g-mod-cont .estado-badge[style*="--contable-bg"]{border-color:rgba(52,211,153,.32)!important}
+/* Pendiente / en curso ≠ terminado: el verde del área queda solo para estados OK */
+.g-mod-cont .estado-badge[style*="--contable-bg"]{background:rgba(199,123,201,.18)!important;color:#E39BE5!important;border-color:rgba(199,123,201,.35)!important}
+.g-mod-cont .det-row[style*="color:var(--contable)"]{color:#E39BE5!important}
+.g-mod-cont .acciones>div[style*="color:var(--contable)"]{color:#E39BE5!important}
 /* Recorrido: el módulo usa .error (no .err) */
 .g-mod-cont .pipe-step.error .ps-dot{background:rgba(229,72,77,.16);border-color:#E5484D;color:#FF8A8A}
 .g-mod-cont .pipe-step.error .pipe-lbl{color:#FF8A8A}
@@ -924,7 +927,8 @@ body.g-mod-cont{--contable:var(--g-area-cont);--contable-bg:rgba(52,211,153,.10)
 .g-mod-cont [style*="background:#fee2e2"]{background:rgba(229,72,77,.12)!important}
 .g-mod-cont :is([style*="background:#fef3c7"],[style*="background:#fef9ec"],[style*="background:#fef9e7"],[style*="background:#fff7ed"]){background:rgba(255,200,90,.10)!important}
 .g-mod-cont :is([style*="background:#f3f4f6"],[style*="background:#e5e7eb"],[style*="background:#f9f7ff"]){background:rgba(255,255,255,.06)!important}
-.g-mod-cont :is([style*="background:#eff6ff"],[style*="background:#dbeafe"]){background:rgba(52,211,153,.10)!important}
+.g-mod-cont :is([style*="background:#eff6ff"],[style*="background:#dbeafe"]){background:rgba(142,197,255,.12)!important;color:#8EC5FF!important}
+.g-mod-cont [style*="background:#eff6ff"]{border-color:rgba(142,197,255,.45)!important}
 .g-mod-cont [style*="border:1px solid #6ee7b7"],.g-mod-cont [style*="border:1px solid #a7f3d0"]{border-color:rgba(52,211,153,.35)!important}
 .g-mod-cont [style*="border:1px solid #fca5a5"]{border-color:rgba(229,72,77,.4)!important}
 .g-mod-cont [style*="border:1px solid #fde68a"]{border-color:rgba(255,200,90,.35)!important}

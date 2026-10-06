@@ -1023,7 +1023,7 @@ function renderTabla(){
     var planCls=c.plan==='estrategico'?'plan-e':c.plan==='asesoria'?'plan-a':'plan-c';
     var planLbl=c.plan==='estrategico'?'Estratégico':c.plan==='asesoria'?'Asesoría':'Cumplimiento';
     var prio=c.prioCont||c.prioridadContable||'media';
-    var prioLbl=prio==='alta'?'<i class="g-pdot alta" title="Prioridad alta"></i>':prio==='media'?'<i class="g-pdot media" title="Prioridad media"></i>':'<i class="g-pdot baja" title="Prioridad baja"></i>';
+    var prioLbl=prio==='alta'?'<i class="g-pdot alta" role="img" aria-label="Prioridad alta" title="Prioridad alta"></i>':prio==='media'?'<i class="g-pdot media" role="img" aria-label="Prioridad media" title="Prioridad media"></i>':'<i class="g-pdot baja" role="img" aria-label="Prioridad baja" title="Prioridad baja"></i>';
 
     // PIPELINE B18: 8 pasos (RRHH→Libros→PreIVA→Reporte→Transferido→F29→Aprobación→Finalizado)
     var oblig=_obligacionesF29Map[String(rep.id||'')]
@@ -1084,7 +1084,7 @@ function renderTabla(){
       }
       html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
     }
-    html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Ver detalle">'+gIcon('ver')+'</button>';
+    html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Ver detalle" aria-label="Ver detalle">'+gIcon('ver')+'</button>';
     html+='</div>';
     html+='</div>'; // cr-main
 
