@@ -846,3 +846,104 @@ body.g-mod-pros{--g-acento:#C77BC9}
 .g-sino .no.on{background:rgba(255,92,92,.18);color:#FF6B6B;box-shadow:inset 0 0 0 1px rgba(255,107,107,.6),0 0 10px rgba(255,92,92,.28)}
 .g-sino.bloq .si{opacity:.35}
 .g-sino-q{display:block;font-size:10px;color:#8F6F94;margin-top:3px;white-space:nowrap}.g-sino-q.warn{color:#FFC85A}
+
+/* ============================================================
+   Contable · tema Todo oscuro (6-oct)
+   Solo presentación de reportes-contable/: tarjetas de cliente, insignias de estado,
+   detalle Pre-IVA, modal F29, libros, avisos y bloque SII. Todo acotado a .g-mod-cont.
+   Muchos colores claros vienen escritos en atributos style desde el JS; se pisan aquí
+   con selectores [style*=…] para no tocar la lógica del módulo.
+   ============================================================ */
+body.g-mod-cont{--contable:var(--g-area-cont);--contable-bg:rgba(52,211,153,.10);--contable-bdr:rgba(52,211,153,.32)}
+.g-mod-cont .sb-foot{color:#8F6F94}
+/* Selector de período dentro de la cabecera de la tabla */
+.g-mod-cont #selectPeriodo{background:rgba(255,255,255,.05)!important;color:#F3E9F4!important;border:1px solid #4A2B50!important;border-radius:999px!important;min-height:36px;padding:0 14px!important;font-size:12.5px!important}
+.g-mod-cont .filtros .fl[style*="border-left"]{border-left-color:#4A2B50!important}
+/* Filas de cliente (lista por tarjetas) */
+.g-mod-cont .cliente-row{border-bottom:1px solid #33193A}
+.g-mod-cont .cliente-row:hover{background:rgba(199,123,201,.06)}
+.g-mod-cont .cliente-row[style*="#f9fefb"]{background:rgba(52,211,153,.04)!important}
+.g-mod-cont .cr-nombre{color:#F3E9F4;font-size:13.5px}
+.g-mod-cont .cr-rut{color:#8F6F94}
+.g-mod-cont .cr-plan{margin-top:4px}
+.g-tema-noche.g-mod-cont :is(.cr-main,.libro-actions) :is(.btn-p,.btn-s){min-height:28px;padding:0 10px;gap:5px;font-size:11.5px;box-shadow:none}
+.g-mod-cont .cr-main .g-ic{width:13px;height:13px}
+.g-mod-cont .cr-main .btn-s:has(>.g-ic:only-child){padding:0 8px}
+.g-mod-cont .cr-main>div:last-child{flex-wrap:wrap}
+.g-pdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.g-pdot.alta{background:var(--g-prio-alta,#FF5A5F)}.g-pdot.media{background:var(--g-prio-media,#FFC85A)}.g-pdot.baja{background:var(--g-prio-baja,#46D69A)}
+/* Insignias de estado */
+.g-mod-cont .estado-badge{gap:5px;border:1px solid transparent!important}
+.g-mod-cont .estado-badge .g-ic,.g-mod-cont .det-row .g-ic{width:12px;height:12px}
+.g-mod-cont .eb-pendiente{background:rgba(255,200,90,.14);color:#FFC85A}
+.g-mod-cont .eb-completado{background:rgba(52,211,153,.13);color:#5FE3AE;border-color:rgba(52,211,153,.32)!important}
+.g-mod-cont .eb-enviado{background:rgba(199,123,201,.18);color:#E39BE5}
+/* Pendiente / en curso ≠ terminado: el verde del área queda solo para estados OK */
+.g-mod-cont .estado-badge[style*="--contable-bg"]{background:rgba(199,123,201,.18)!important;color:#E39BE5!important;border-color:rgba(199,123,201,.35)!important}
+.g-mod-cont .det-row[style*="color:var(--contable)"]{color:#E39BE5!important}
+.g-mod-cont .acciones>div[style*="color:var(--contable)"]{color:#E39BE5!important}
+/* Recorrido: el módulo usa .error (no .err) */
+.g-mod-cont .pipe-step.error .ps-dot{background:rgba(229,72,77,.16);border-color:#E5484D;color:#FF8A8A}
+.g-mod-cont .pipe-step.error .pipe-lbl{color:#FF8A8A}
+.g-mod-cont .pipe-step.warn .pipe-lbl{color:#FFC85A}
+/* Detalle expandido */
+.g-mod-cont .det-card-titulo{color:var(--g-acento)}
+.g-mod-cont .det-sep{border-top:1px solid #33193A;margin:4px 0}
+.g-mod-cont .det-total{background:rgba(52,211,153,.10);color:#5FE3AE;border-radius:12px;font-variant-numeric:tabular-nums}
+.g-mod-cont .det-row{font-variant-numeric:tabular-nums}
+/* Modal F29 */
+.g-mod-cont .modal{scrollbar-color:#4A2B50 transparent}
+.g-mod-cont .card-hd{color:var(--g-acento);border-bottom-color:#4A2B50}
+.g-mod-cont .fgroup .hint{color:#8F6F94}
+.g-mod-cont .fgroup input,.g-mod-cont .fgroup select,.g-mod-cont .fgroup textarea{font-family:var(--g-texto)}
+.g-mod-cont input[style*="#f0f0f0"]{background:rgba(255,255,255,.08)!important;color:#F3E9F4}
+.g-mod-cont .info-box{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.28);color:#C8F0DD;border-radius:12px}
+.g-mod-cont .iva-toggle{background:rgba(255,200,90,.10);border:1px solid rgba(255,200,90,.35);border-radius:12px}
+.g-mod-cont .iva-toggle label{color:#FFE2A3}
+.g-mod-cont .iva-detalle{background:rgba(255,200,90,.06);border:1px solid rgba(255,200,90,.3);border-radius:12px}
+.g-mod-cont .msg-guardado{background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.35);color:#5FE3AE;border-radius:12px}
+.g-mod-cont [style*="font-family:monospace"]{font-family:var(--g-texto)!important;font-variant-numeric:tabular-nums}
+/* Libros MasConta */
+.g-mod-cont .libros-sec-titulo{display:flex;align-items:center;gap:6px;color:var(--g-acento);border-bottom-color:#4A2B50}
+.g-mod-cont .libros-sec-titulo .g-ic{width:14px;height:14px}
+.g-mod-cont .libro-card{background:#1B0D20;border:1px solid #3A2140;border-radius:14px}
+.g-mod-cont .libro-titulo{color:var(--g-acento)}
+.g-mod-cont .libro-meta{color:#A98AAE}
+.g-mod-cont .libro-total-row{border-bottom-color:#2E1834;color:#E3CFE5}
+.g-mod-cont .libro-actions .g-ic{width:13px;height:13px}
+.g-mod-cont .libro-badge{border:1px solid transparent}
+.g-mod-cont :is(.lb-no-cargado,.lb-no-aplica){background:rgba(255,255,255,.06);color:#C9A8CC;border-color:#4A2B50}
+.g-mod-cont .lb-validado{background:rgba(52,211,153,.13);color:#5FE3AE;border-color:rgba(52,211,153,.32)}
+.g-mod-cont .lb-obs{background:rgba(255,200,90,.13);color:#FFC85A;border-color:rgba(255,200,90,.35)}
+.g-mod-cont .lb-sin-mov{background:rgba(199,123,201,.16);color:#E39BE5;border-color:rgba(199,123,201,.3)}
+.g-mod-cont .lb-error{background:rgba(229,72,77,.14);color:#FF8A8A;border-color:rgba(229,72,77,.4)}
+.g-mod-cont .preview-bloque{background:rgba(255,255,255,.03);border-color:#4A2B50;border-radius:12px}
+.g-mod-cont .preview-totales{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.28);border-radius:12px}
+.g-mod-cont .preview-adv{background:rgba(255,200,90,.08);border-color:rgba(255,200,90,.32);color:#FFE2A3;border-radius:12px}
+.g-mod-cont .libros-gate-msg{background:rgba(255,200,90,.08);border-color:rgba(255,200,90,.32);color:#FFE2A3;border-radius:12px}
+.g-mod-cont #lista-hojas .btn-s{justify-content:flex-start}
+/* Colores claros escritos en style="" por el JS → equivalentes oscuros */
+.g-mod-cont [style*="background:#ecfdf5"],.g-mod-cont [style*="background:#f0fdf4"],.g-mod-cont [style*="background:#d1fae5"]{background:rgba(52,211,153,.10)!important}
+.g-mod-cont [style*="background:#fee2e2"]{background:rgba(229,72,77,.12)!important}
+.g-mod-cont :is([style*="background:#fef3c7"],[style*="background:#fef9ec"],[style*="background:#fef9e7"],[style*="background:#fff7ed"]){background:rgba(255,200,90,.10)!important}
+.g-mod-cont :is([style*="background:#f3f4f6"],[style*="background:#e5e7eb"],[style*="background:#f9f7ff"]){background:rgba(255,255,255,.06)!important}
+.g-mod-cont :is([style*="background:#eff6ff"],[style*="background:#dbeafe"]){background:rgba(142,197,255,.12)!important;color:#8EC5FF!important}
+.g-mod-cont [style*="background:#eff6ff"]{border-color:rgba(142,197,255,.45)!important}
+.g-mod-cont [style*="border:1px solid #6ee7b7"],.g-mod-cont [style*="border:1px solid #a7f3d0"]{border-color:rgba(52,211,153,.35)!important}
+.g-mod-cont [style*="border:1px solid #fca5a5"]{border-color:rgba(229,72,77,.4)!important}
+.g-mod-cont [style*="border:1px solid #fde68a"]{border-color:rgba(255,200,90,.35)!important}
+.g-mod-cont :is([style*="color:#064e3b"],[style*="color:#065f46"],[style*="color:#166534"]){color:#5FE3AE!important}
+.g-mod-cont :is([style*="color:#991b1b"],[style*="color:#C0392B"],[style*="color:#c0392b"],[style*="color:#dc2626"]){color:#FF8A8A!important}
+.g-mod-cont :is([style*="color:#C07A1A"],[style*="color:#c07a1a"],[style*="color:#78350f"],[style*="color:#b45309"],[style*="color:#92400e"],[style*="color:#9a3412"]){color:#FFC85A!important}
+.g-mod-cont :is([style*="color:#9a849b"],[style*="color:#6b7280"],[style*="color:#9ca3af"],[style*="color:#374151"]){color:#A98AAE!important}
+.g-mod-cont [style*="color:#1d4ed8"]{color:#8EC5FF!important}
+.g-mod-cont [style*="border:1px solid #C07A1A"]{border-color:rgba(255,200,90,.6)!important}
+/* Elementos cuyo style="" el JS reescribe (p. ej. .style.display): el navegador lo vuelve a serializar
+   en rgb() y los selectores [style*=…] dejan de calzar; se fijan por id */
+.g-mod-cont #res-remanente-box{background:rgba(52,211,153,.10)!important}
+.g-mod-cont #res-iva-post-row{background:rgba(255,200,90,.10)!important;color:#FFC85A!important}
+.g-mod-cont :is(#f-remanente-ant,#f-iva-postergado,#f-iva-fecha-venc,#f-ppm-monto,#f-imp-2cat){background:rgba(255,255,255,.08)!important;color:#F3E9F4}
+/* Mensaje de sincronización SII (color asignado con el.style desde el JS) */
+.g-mod-cont #_siiF29-msg[style*="rgb(6, 95, 70)"]{color:#5FE3AE!important}
+.g-mod-cont #_siiF29-msg[style*="rgb(220, 38, 38)"]{color:#FF8A8A!important}
+@media (max-width:980px){.g-mod-cont .libros-grid{grid-template-columns:1fr}.g-mod-cont .det-grid{grid-template-columns:1fr}}
