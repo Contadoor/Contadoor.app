@@ -1,4 +1,4 @@
-// Composición de secciones (R2). Cliente: 5 secciones. Asesor: las mismas + "⚙ Revisión técnica" (capa operativa aparte).
+// Composición de secciones (R2.1). Cliente: 5 secciones. Asesor: las mismas + "⚙ Revisión técnica" (capa operativa aparte).
 import { clp, mm, pct, esc } from './formato.js';
 import { posicion, cubierto, hoyDiciembre, caja } from './componentes/resumen.js';
 import { barrasRealProyectado, lineas } from './componentes/graficos.js';
@@ -50,7 +50,7 @@ export function render(id, d, ctx) {
           ${card('Cómo se determina <span>el impuesto</span>', puente(d, modo), `<small>${modo === 'ASESOR' ? 'Detalle, fuentes y reglas' : 'Versión simple'}</small>`)}</div>`; }
 
     case 'escenarios': return escenarios(d, ctx.escSel, modo, ctx.detalleEsc);
-    case 'registros': return determinacionYRegistros(d, ctx.regAbierto, modo, ctx.lotes);
+    case 'registros': return determinacionYRegistros(d, ctx);
     case 'radar': return card('Radar <span>MiRenta</span>', radar(d.radar, { modo }), '<small>Hallazgo · por qué importa · decisión a revisar</small>') + card('Decisiones <span>para revisar</span>', decisiones(d.decisiones));
     case 'fuentes': return card('¿Qué tan completa es <span>esta proyección?</span>', calidad(d.calidad, modo)) + (modo === 'ASESOR'
       ? card('Histórico', `<table class="cmp"><thead><tr><th>Año</th><th>Resultado</th><th>Impuesto</th><th>PPM</th><th>Saldo</th><th>Tasa efectiva</th></tr></thead><tbody>${d.historico.map((h) => `<tr><td>${h.anio}${h.proyectado ? ' (proy.)' : ''}</td><td>${clp(h.resultado)}</td><td>${clp(h.impuesto)}</td><td>${clp(h.ppm)}</td><td>${clp(h.saldo)}</td><td>${pct(h.tasaEfectiva)}</td></tr>`).join('')}</tbody></table>`) : '');

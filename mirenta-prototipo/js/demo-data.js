@@ -3,7 +3,7 @@
 //
 // Simula lo que el backend versionado entregará: todas las cifras vienen YA calculadas
 // (base, tasa, impuesto, cobertura, diferencias…). El frontend solo las presenta:
-// no contiene tasas, fórmulas, topes, códigos F22 ni reglas de régimen.
+// no contiene tasas, fórmulas, topes ni reglas de régimen. Códigos F22 y layouts: referenciales, viven aquí (simulan el backend versionado por AT).
 // Un valor `null` significa NO DISPONIBLE (nunca se muestra como $0).
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -196,6 +196,134 @@ const base = {
     incidencias: ['APERTURA_NO_DETECTADA', 'SALDO_CONTRARIO_A_NATURALEZA × 2'],
   },
 };
+
+// ── R2.1 · Determinación con estructura SII, incentivo al ahorro, propietarios y consolidado ──
+// Todo YA calculado (demo). Los códigos F22 y el layout son REFERENCIALES: versionados por AT y por certificar.
+const p = (glosa, monto, codigo = null, fuente = 'Libro Diario (percibido / pagado)') => ({ glosa, monto, codigo, fuente });
+base.rli = {
+  layout: { registro_layout_version: 'RLI-14D3-AT2027-demo.0', regimen: '14 D N°3', anio_tributario: 2027,
+    fuente_oficial: 'Por certificar · referencia: SII, paso a paso ProPyme General', estado: 'DEMO / ESTRUCTURA REFERENCIAL' },
+  ingresos: [
+    p('Ingresos del giro percibidos', 205000000, '1400'),
+    p('Ingresos del giro devengados en ejercicios anteriores y percibidos en el ejercicio actual', 4200000),
+    p('Rentas de fuente extranjera percibidas', 0),
+    p('Intereses percibidos', 800000),
+    p('Mayor valor percibido por rescate o enajenación de inversiones o bienes no depreciables', 0),
+    p('Ingresos percibidos o devengados por operaciones con empresas relacionadas Art. 14 A', 0),
+    p('Otros ingresos percibidos o devengados', 0),
+    p('Ingreso diferido imputado en el ejercicio', 0),
+    p('Otros conceptos que correspondan según AT', null, null, 'Estructura AT 2027 por certificar'),
+  ],
+  totalIngresos: 210000000,
+  egresos: [
+    p('Saldo inicial de existencias / insumos por cambio de régimen', 0),
+    p('Saldo inicial de activos fijos por cambio de régimen', 0),
+    p('Pérdida tributaria por cambio de régimen', 0),
+    p('Existencias, insumos y servicios pagados', 64500000),
+    p('Existencias, insumos y servicios de ejercicios anteriores pagados en el ejercicio', 2300000),
+    p('Gastos asociados a rentas de fuente extranjera', 0),
+    p('Remuneraciones pagadas', 52800000),
+    p('Honorarios pagados', 9800000),
+    p('Adquisición de bienes del activo fijo pagados', 3900000),
+    p('Arriendos pagados', 7200000),
+    p('Intereses y reajustes pagados', 650000),
+    p('Partidas Art. 21', 0),
+    p('Pérdidas por rescate / enajenación', 0),
+    p('Otros gastos deducibles', 1250000),
+    p('Operaciones con empresas relacionadas', 0),
+    p('Pérdidas tributarias de ejercicios anteriores', null, '1426', 'F22 AT 2026 (pendiente)'),
+    p('Créditos incobrables', 0),
+    p('Donaciones aceptadas', 0),
+    p('Otros conceptos según estructura del AT', null, null, 'Estructura AT 2027 por certificar'),
+  ],
+  totalEgresos: 142400000,
+  otrasPartidas: 0,
+  baseAntesIncentivo: 67600000,
+  beneficios: [
+    { glosa: 'Incentivo al Ahorro Art. 14 E', monto: 0, codigo: '1432', nota: 'No aplicado en la Base · evaluable en Escenarios' },
+    { glosa: 'IDPC voluntario', monto: 0, codigo: null, nota: 'No aplicado' },
+  ],
+  baseImponible: 67600000, codigoBase: '1440',
+  resumenCliente: { ingresos: 210000000, egresos: -142400000, otrosAjustes: 0, baseAntes: 67600000, incentivo: 0, baseImponible: 67600000 },
+};
+// Ficha de cada registro (qué es / por qué importa / estructura tributaria referencial)
+const ficha = {
+  RLI: { porQue: 'Es la base sobre la que se calcula el impuesto de la empresa.' },
+  CPTS: { porQue: 'Mide el patrimonio tributario y sirve para controlar retiros y distribuciones.',
+    estructura: [p('Capital aportado', 10000000, null, 'Escritura / aportes'), p('Utilidades tributarias acumuladas (RAI)', 100150000, null, 'Registro RAI'), p('Rentas exentas e ingresos no renta (REX)', null, null, 'Registro REX (sin datos)'), p('Otros componentes del patrimonio tributario', 69000000, null, 'Balance tributario'), p('CPTS final proyectado', 179150000, null, 'Total')] },
+  RAI: { porQue: 'Determina qué retiros tributan en los propietarios y con qué crédito.',
+    estructura: [p('Saldo inicial', 41000000, null, 'Registro AT 2026'), p('Incorporaciones del ejercicio', 59150000, null, 'Determinación AC 2026'), p('Imputación de retiros / distribuciones proyectados', null, null, 'Se determina al cierre (motor)'), p('Saldo final proyectado', 100150000, null, 'Total')] },
+  REX: { porQue: 'Permite distribuir rentas que no pagan impuestos finales o tienen un tratamiento especial.',
+    estructura: [p('Saldo inicial', null, null, 'Sin datos'), p('Rentas exentas del ejercicio', null, null, 'Sin datos'), p('Ingresos no constitutivos de renta', null, null, 'Sin datos'), p('Saldo final', null, null, 'Sin datos')] },
+  SAC: { porQue: 'Define el crédito que acompaña los retiros y distribuciones de los propietarios.',
+    estructura: [p('Saldo inicial de créditos', 6200000, null, 'Registro AT 2026'), p('IDPC del ejercicio (proyectado)', 8450000, null, 'Determinación AC 2026'), p('Crédito asignado a retiros proyectados', null, null, 'Se determina al cierre (motor)'), p('Saldo final proyectado', 14650000, null, 'Total')] },
+};
+base.registros.forEach((r) => Object.assign(r, ficha[r.id], { ultimaValidacion: 'Sin validar (prototipo)' }));
+base.layouts = ['RLI', 'CPTS', 'RAI', 'REX', 'SAC'].map((id) => ({ registro: id, registro_layout_version: `${id}-14D3-AT2027-demo.0`, regimen: '14 D N°3', anio_tributario: 2027, fuente_oficial: 'Por certificar' }));
+
+// Incentivo al ahorro (Art. 14 E) · cifras ya calculadas (demo). El tope en UF se valoriza con la UF del cierre (parámetro del período).
+base.incentivo = {
+  rliAntes: 67600000, invertido: 47600000, notaInvertido: 'RLI menos retiros proyectados del ejercicio ($20 MM)',
+  deduccionPotencial: 23800000, tope: '5.000 UF', topeMonto: null, deduccionUtilizada: 23800000, nuevaBase: 43800000,
+  idpcSin: 8450000, idpcCon: 5475000, diferencia: 2975000,
+  efectos: [
+    { t: 'Efecto empresa', d: 'Menor impuesto de la empresa en el AT 2027: $2.975.000.' },
+    { t: 'Efecto propietarios', d: 'La utilidad deducida tributará cuando se retire, y el crédito asociado a futuros retiros es menor.' },
+    { t: 'Efecto caja', d: 'Paga $2.975.000 menos en abril, pero exige mantener $47,6 MM invertidos en la empresa.' },
+    { t: 'Condiciones / elegibilidad', d: 'Empresa acogida al régimen Pro Pyme · opción anual al declarar · deducción de hasta el 50 % de la RLI que permanece invertida · tope 5.000 UF.' },
+  ],
+  avisoDemo: 'Texto demo: requisitos y efectos los valida el asesor antes de usarse.',
+  comparacion: [
+    { t: 'Base antes de incentivo', base: 67600000, con: 67600000 },
+    { t: 'Deducción Art. 14 E', base: null, con: -23800000, baseTxt: '—' },
+    { t: 'Base afecta a IDPC', base: 67600000, con: 43800000, fuerte: true },
+    { t: 'IDPC empresa', base: 8450000, con: 5475000, fuerte: true },
+    { t: 'PPM al cierre', base: 7300000, con: 7300000 },
+    { t: 'Saldo empresa (abril)', base: 1150000, con: -1825000, nota: 'negativo = excedente' },
+    { t: 'Caja después de impuesto', base: 59150000, con: 62125000 },
+    { t: 'Efecto propietario', base: null, con: null, baseTxt: '—', conTxt: 'Menor crédito en retiros futuros' },
+  ],
+  separacion: [{ t: 'Ahorro permanente', v: null, txt: 'Por determinar: depende de retiros futuros' }, { t: 'Diferimiento', v: 2975000 }, { t: 'Efecto caja (abril)', v: 2975000 }],
+};
+base.escenarios.push({ id: 'c', nombre: 'C · Incentivo al Ahorro', descripcion: 'Art. 14 E: mantener $47,6 MM invertidos en la empresa', incentivo: true, ventas: 210000000, gastos: 142400000,
+  resultado: 67600000, impuesto: 5475000, ppm: 7300000, saldoAbril: -1825000, cajaDespuesImpuesto: 62125000, ahorroPermanente: null, diferimiento: 2975000, costoDecision: null });
+base.decisionesEvaluables = [
+  { t: 'Aplicar Incentivo al Ahorro', sub: 'Art. 14 letra E', esc: 'c', nuevo: true }, { t: 'Comprar un activo', esc: 'a' }, { t: 'Contratar una persona', esc: 'b' },
+  { t: 'Retirar utilidades', esc: 'retiro' }, { t: 'Aumentar remuneraciones' }, { t: 'Realizar una inversión' }, { t: 'Cambiar proyección de ventas' }, { t: 'Otra decisión' },
+];
+
+// Propietarios (sin datos personales: identificadores genéricos). Cada socio con perfil tributario independiente.
+base.propietarios = [
+  { id: 'A', nombre: 'Socio A', tipo: 'Persona natural residente', participacion: 70, retiros: 14000000, rentasAsignadas: 14000000, creditos: 2000000,
+    tipoCredito: 'Crédito IDPC · derecho a devolución por determinar', estado: 'PRELIMINAR',
+    gc: { rentas: [{ t: 'Retiros de la empresa', v: 14000000 }, { t: 'Incremento por crédito IDPC', v: 2000000 }, { t: 'Otras rentas (sueldo empresarial, demo)', v: 24000000 }],
+      base: 40000000, tramo: 'Según tabla del AT 2027 (la aplica el motor; no cargada)', rebaja: null, igcDeterminado: 2950000,
+      creditoIdpc: -2000000, restitucion: 0, notaRestitucion: 'Sin restitución en 14 D N°3 (por validar)', retenciones: -1100000, ppmPersonales: 0, otrosCreditos: 0,
+      saldoFinal: -150000, resultado: { tipo: 'EXCEDENTE', valor: 150000 }, posibleDevolucion: null,
+      notaDevolucion: 'Solo hay devolución si el excedente proviene de créditos con derecho a devolución: lo determina el motor.' } },
+  { id: 'B', nombre: 'Socio B', tipo: 'Persona natural residente', participacion: 30, retiros: 6000000, rentasAsignadas: 6000000, creditos: 857000,
+    tipoCredito: 'Crédito IDPC · derecho a devolución por determinar', estado: 'PRELIMINAR',
+    gc: { rentas: [{ t: 'Retiros de la empresa', v: 6000000 }, { t: 'Incremento por crédito IDPC', v: 857000 }, { t: 'Otras rentas', v: 0 }],
+      base: 6857000, tramo: 'Según tabla del AT 2027 (la aplica el motor; no cargada)', rebaja: null, igcDeterminado: 0,
+      creditoIdpc: -857000, restitucion: 0, notaRestitucion: 'Sin restitución en 14 D N°3 (por validar)', retenciones: 0, ppmPersonales: 0, otrosCreditos: 0,
+      saldoFinal: -857000, resultado: { tipo: 'EXCEDENTE', valor: 857000 }, posibleDevolucion: null,
+      notaDevolucion: 'Solo hay devolución si el excedente proviene de créditos con derecho a devolución: lo determina el motor.' } },
+];
+base.consolidado = {
+  empresa: { idpc: 8450000, ppm: 7300000, saldo: 1150000 },
+  socios: { igc: 2950000, creditosIdpc: -2857000, restitucion: 0, retenciones: -1100000, saldoPersonal: -1007000 },
+  total: { impuestoEmpresa: 8450000, impuestoPersonalNeto: 93000, carga: 8543000, pagadoAnticipado: 8400000, posibleDevolucion: null, salidaNetaAbril: 143000 },
+};
+// Comparador empresa + socios (demo, ya calculado). Columnas = escenarios.
+base.comparador = {
+  columnas: ['Base', 'Incentivo al Ahorro', 'Retiro $30 MM'],
+  grupos: [
+    { g: 'Empresa', filas: [{ t: 'Base imponible', v: [67600000, 43800000, 67600000] }, { t: 'IDPC', v: [8450000, 5475000, 8450000] }, { t: 'Saldo empresa (abril)', v: [1150000, -1825000, 1150000] }] },
+    { g: 'Socios', filas: [{ t: 'Retiros', v: [20000000, 20000000, 30000000] }, { t: 'IGC determinado', v: [2950000, 2950000, 4900000] }, { t: 'Créditos IDPC', v: [-2857000, -2857000, -4286000] }, { t: 'Resultado personal', v: [-1007000, -1007000, -486000], nota: 'negativo = excedente' }] },
+    { g: 'Consolidado', filas: [{ t: 'Salida neta de caja (abril)', v: [143000, -2832000, 664000] }, { t: 'Carga tributaria total', v: [8543000, 5568000, 9064000], fuerte: true }] },
+  ],
+};
+base.calidad = base.calidad.map((c) => c.fuente === 'Propietarios' ? { ...c, estado: 'REVISAR', cliente: 'Parcial', detalle: '2 socios (datos demo)' } : c);
 
 // ── Variantes de estado (para revisar cómo se ve cada situación) ───────
 const clonar = (o) => JSON.parse(JSON.stringify(o));
