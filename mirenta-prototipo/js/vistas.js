@@ -16,7 +16,7 @@ export const SECCIONES = [
   { id: 'proyeccion', nombre: 'Proyección', pregunta: '¿Hacia dónde va mi renta y qué la mueve?' },
   { id: 'ppm', nombre: 'PPM', pregunta: '¿Cuánto tengo pagado y me alcanza?' },
   { id: 'escenarios', nombre: 'Escenarios', pregunta: '¿Qué pasa si tomo una decisión?' },
-  { id: 'registros', nombre: 'Registros', pregunta: '¿Qué saldos tributarios estoy acumulando?' },
+  { id: 'registros', nombre: 'Registros', pregunta: '¿Cómo se determina mi RLI y qué saldos tributarios estoy acumulando?' },
   { id: 'propietarios', nombre: 'Propietarios', pregunta: 'Empresa y propietarios (próximamente)' },
   { id: 'radar', nombre: 'Radar', pregunta: '¿Qué necesita mi atención?' },
   { id: 'fuentes', nombre: 'Datos y fuentes', pregunta: '¿Qué tan completa es la información?' },

@@ -4,7 +4,7 @@ import { SECCIONES, render } from './vistas.js';
 import { cabecera } from './componentes/cabecera.js';
 import { traza } from './componentes/traza.js';
 
-const S = { seccion: 'resumen', modo: 'CLIENTE', estado: 'preliminar', escSel: ['base', 'a'], regAbierto: 'SAC' };
+const S = { seccion: 'resumen', modo: 'CLIENTE', estado: 'preliminar', escSel: ['base', 'a'], regAbierto: 'RLI' };
 const $ = (s) => document.querySelector(s);
 try { const g = JSON.parse(localStorage.getItem('mirenta-proto') || '{}'); Object.assign(S, { modo: g.modo ?? S.modo, estado: g.estado ?? S.estado }); } catch { /* sin almacenamiento */ }
 const guardar = () => { try { localStorage.setItem('mirenta-proto', JSON.stringify({ modo: S.modo, estado: S.estado })); } catch { /* ignorar */ } };

@@ -139,6 +139,9 @@ table.cmp tr.fuerte td{font-weight:800;color:var(--t1)}table.cmp tr.sep td{borde
 .sub{margin:14px 20px 4px;font:700 11px var(--txt);letter-spacing:1.2px;text-transform:uppercase;color:var(--t2)}
 .hist{display:flex;gap:10px;padding:0 20px}.hist div{flex:1;padding:10px;border:1px solid var(--borde);border-radius:12px}.hist span{display:block;font-size:11.5px;color:var(--t2)}.hist b{font:800 15px var(--tit)}
 .imprimir{margin-left:auto}
+table.rli tr.grupo td{color:var(--lila2)!important;font:700 11px var(--txt);letter-spacing:1.1px;text-transform:uppercase;padding-top:14px}
+table.rli tr.total-rli td{border-top:2px solid var(--borde2);font-size:15px}table.rli td.fte{color:var(--t3);font-size:12px}
+.reg-grid{grid-template-columns:repeat(5,1fr)!important}@media (max-width:1180px){.reg-grid{grid-template-columns:1fr 1fr!important}}
 .futuro{padding:4px 20px;color:var(--t2)}.tec{color:var(--t2);font-size:13px}
 /* Panel ¿Por qué? */
 .velo{position:fixed;inset:0;background:rgba(5,2,6,.55);opacity:0;pointer-events:none;transition:.2s;z-index:20}.velo.on{opacity:1;pointer-events:auto}

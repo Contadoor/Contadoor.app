@@ -130,6 +130,19 @@ const base = {
 
   // Registros tributarios 14 D N°3 (estructura demo; montos ilustrativos)
   registros: [
+    { id: 'RLI', tipo: 'DETERMINACION', nombre: 'Determinación de la renta líquida imponible', explicacion: 'Cómo se pasa del resultado contable a la base sobre la que se calcula el impuesto de primera categoría.',
+      saldoInicial: null, movimientos: null, resultadoContable: 67150000, ajustesNetos: 450000, saldoProyectado: 67600000, estado: 'PRELIMINAR', ultimaValidacion: '—',
+      partidas: [
+        { grupo: 'RESULTADO', concepto: 'Resultado contable del ejercicio (proyectado)', monto: 67150000, fuente: 'Libro Diario + Balance' },
+        { grupo: 'AGREGADOS', concepto: 'Gastos rechazados (ej. representación sin respaldo)', monto: 450000, fuente: 'Regla de ajuste (backend)' },
+        { grupo: 'AGREGADOS', concepto: 'Impuesto a la renta contabilizado como gasto', monto: 0, fuente: 'Regla de ajuste (backend)' },
+        { grupo: 'AGREGADOS', concepto: 'Multas e intereses fiscales', monto: 0, fuente: 'Regla de ajuste (backend)' },
+        { grupo: 'AGREGADOS', concepto: 'Otros agregados', monto: 200000, fuente: 'Dato del asesor' },
+        { grupo: 'DEDUCCIONES', concepto: 'Ingresos no constitutivos de renta / exentos', monto: 0, fuente: 'Regla de ajuste (backend)' },
+        { grupo: 'DEDUCCIONES', concepto: 'Otras deducciones', monto: -200000, fuente: 'Dato del asesor' },
+        { grupo: 'DEDUCCIONES', concepto: 'Pérdida tributaria de ejercicios anteriores', monto: null, fuente: 'F22 AT 2026 (pendiente)' },
+      ],
+      historia: [{ anio: 2024, saldo: 41500000 }, { anio: 2025, saldo: 55400000 }, { anio: 2026, saldo: 67600000 }] },
     { id: 'CPTS', nombre: 'Capital propio tributario simplificado', explicacion: 'Muestra el patrimonio de la empresa medido con criterios tributarios.',
       saldoInicial: 120000000, movimientos: 59150000, saldoProyectado: 179150000, estado: 'PRELIMINAR', ultimaValidacion: '—',
       historia: [{ anio: 2024, saldo: 78000000 }, { anio: 2025, saldo: 120000000 }, { anio: 2026, saldo: 179150000 }] },
