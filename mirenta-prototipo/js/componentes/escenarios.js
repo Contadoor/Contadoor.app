@@ -1,26 +1,32 @@
-// ScenarioComparator · siempre desde el escenario BASE; nunca modifica la realidad.
-// Ahorro permanente, diferimiento y efecto de caja van SEPARADOS (un diferimiento no es ahorro).
+// Escenarios (R2): parte por "¿Qué decisión quieres evaluar?". BASE = proyección vigente, inmutable. Simulaciones aparte.
+// Cliente: tabla corta (impuesto, caja, saldo, costo de la decisión) + "Ver detalle financiero y tributario". Asesor: tabla completa.
 import { clp, esc } from '../formato.js';
-const METRICAS = [['resultado', 'Resultado proyectado'], ['impuesto', 'Impuesto empresa'], ['ppm', 'PPM al cierre'], ['saldoAbril', 'Saldo abril'],
-  ['cajaDespuesImpuesto', 'Caja después de impuesto'], ['ahorroPermanente', 'Ahorro permanente'], ['diferimiento', 'Diferimiento (no es ahorro)']];
+const CORTA = [['impuesto', 'Impuesto de la empresa'], ['cajaDespuesImpuesto', 'Caja después de impuesto'], ['saldoAbril', 'Saldo abril'], ['costoDecision', 'Costo de la decisión']];
+const COMPLETA = [['resultado', 'Resultado proyectado'], ['impuesto', 'Impuesto de la empresa'], ['ppm', 'PPM al cierre'], ['saldoAbril', 'Saldo abril'],
+  ['cajaDespuesImpuesto', 'Caja después de impuesto'], ['costoDecision', 'Costo de la decisión'], ['ahorroPermanente', 'Ahorro permanente'], ['diferimiento', 'Diferimiento (no es ahorro)']];
+const NEUTRO = ['resultado', 'ppm', 'diferimiento', 'costoDecision'], MENOS_ES_MEJOR = ['impuesto', 'saldoAbril'];
 
-export function escenarios(d, sel) {
+export function escenarios(d, sel, modo, detalle) {
   const base = d.escenarios[0], comp = d.escenarios.filter((e) => sel.includes(e.id) && e.id !== 'base');
-  const tarjetas = d.escenarios.map((e) => `<button class="esc-card ${sel.includes(e.id) ? 'on' : ''} ${e.id === 'base' ? 'base' : ''}" data-esc="${e.id}" ${e.id === 'base' ? 'disabled' : ''}>
-      <small>${e.id === 'base' ? 'Referencia' : sel.includes(e.id) ? 'Comparando' : 'Agregar a la comparación'}</small><b>${esc(e.nombre)}</b><p>${esc(e.descripcion)}</p>
-      <div class="esc-num"><span>Saldo abril</span><strong>${clp(e.saldoAbril)}</strong></div></button>`).join('');
-  // Color solo donde la dirección es inequívoca; diferimiento y resultado van neutros (un diferimiento NO es ahorro).
-  const NEUTRO = ['resultado', 'ppm', 'diferimiento'], MENOS_ES_MEJOR = ['impuesto', 'saldoAbril'];
   const dif = (e, k) => { const v = e[k] - base[k]; if (v === 0) return '<span class="cero">—</span>';
-    const cl = NEUTRO.includes(k) ? 'neutro' : (MENOS_ES_MEJOR.includes(k) ? v < 0 : v > 0) ? 'mejor' : 'peor';
-    return `<span class="${cl}">${v > 0 ? '+' : ''}${clp(v)}</span>`; };
-  const tabla = `<table class="cmp"><thead><tr><th>Métrica</th><th>Base</th>${comp.map((e) => `<th>${esc(e.nombre)}</th><th>Diferencia</th>`).join('')}</tr></thead>
-    <tbody>${METRICAS.map(([k, t]) => `<tr class="${k === 'saldoAbril' ? 'fuerte' : ''} ${k === 'ahorroPermanente' ? 'sep' : ''}"><td>${t}</td><td>${clp(base[k])}</td>${comp.map((e) => `<td>${clp(e[k])}</td><td>${dif(e, k)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-  const activo = comp.find((e) => e.activo);
-  const bloqueActivo = activo ? `<div class="card activo"><div class="h"><h2>Inversión: <span>${esc(activo.nombre.replace(/^A · /, ''))}</span></h2></div>
-    <div class="act-g">${[['Costo activo', activo.activo.costo], ['Desembolso de caja', activo.activo.desembolso], ['Efecto tributario', activo.activo.efectoTributario],
-      ['Crédito 33 bis potencial', activo.activo.credito33bis], ['Costo económico neto', activo.activo.costoNeto]].map(([t, v]) => `<div><span>${t}</span><b>${clp(v)}</b></div>`).join('')}</div>
-    <p class="nota fuerte">No conviene realizar una inversión únicamente por su efecto tributario.</p></div>` : '';
-  return `<div class="esc-grid">${tarjetas}<div class="esc-card nueva"><small>Próximamente</small><b>+ Crear escenario</b><p>${d.ideasEscenario.slice(0, 5).join(' · ')}…</p></div></div>
-    <div class="card"><div class="h"><h2>Comparador</h2><small>Diferencias contra Base · ahorro permanente ≠ diferimiento ≠ caja</small></div>${comp.length ? tabla : '<div class="vacio">Elige uno o más escenarios para comparar contra Base.</div>'}</div>${bloqueActivo}`;
+    const cl = NEUTRO.includes(k) ? 'neutro' : (MENOS_ES_MEJOR.includes(k) ? v < 0 : v > 0) ? 'mejor' : 'peor'; return `<span class="${cl}">${v > 0 ? '+' : ''}${clp(v)}</span>`; };
+  const metricas = modo === 'ASESOR' || detalle ? COMPLETA : CORTA;
+  const decide = `<section><h2 class="titulo-sec">¿Qué decisión <span>quieres evaluar?</span></h2>
+    <div class="decide">${d.decisionesEvaluables.map((x) => `<button class="dch">${esc(x)}</button>`).join('')}</div>
+    <p class="nota sola">Al elegir una decisión se abren sus supuestos (prototipo: los escenarios A y B ya están armados).</p></section>`;
+  const tarjetas = `<div class="esc-grid"><div class="esc-card base"><small>🔒 Proyección vigente</small><b>Base</b><p>${esc(base.descripcion)}. No se modifica.</p>
+      <div class="esc-num"><span>Saldo abril</span><strong>${clp(base.saldoAbril)}</strong></div></div>
+    ${d.escenarios.slice(1).map((e) => `<button class="esc-card sim ${sel.includes(e.id) ? 'on' : ''}" data-esc="${e.id}"><small>Simulación${sel.includes(e.id) ? ' · comparando' : ''}</small><b>${esc(e.nombre)}</b><p>${esc(e.descripcion)}</p>
+      <div class="esc-num"><span>Saldo abril</span><strong>${clp(e.saldoAbril)}</strong></div></button>`).join('')}</div>`;
+  const tabla = comp.length ? `<table class="cmp"><thead><tr><th></th><th>Base</th>${comp.map((e) => `<th>${esc(e.nombre)}</th><th>Impacto</th>`).join('')}</tr></thead>
+    <tbody>${metricas.map(([k, t]) => `<tr class="${k === 'saldoAbril' || k === 'costoDecision' ? 'fuerte' : ''} ${k === 'ahorroPermanente' ? 'sep' : ''}"><td>${t}</td><td>${clp(base[k])}</td>${comp.map((e) => `<td>${clp(e[k])}</td><td>${dif(e, k)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    ${modo !== 'ASESOR' ? `<button class="link pad" data-detalle-esc>${detalle ? 'Ocultar detalle' : 'Ver detalle financiero y tributario'} →</button>` : ''}` : '<div class="vacio">Elige una simulación para compararla con la Base.</div>';
+  const a = comp.find((e) => e.activo);
+  const inv = a ? `<div class="card inversion"><div class="h"><h2>Comprar un activo: <span>¿cuánto cuesta realmente?</span></h2></div>
+    <div class="inv-g"><div class="inv-prot"><small>Costo de la decisión</small><b>${clp(a.activo.costo)}</b><span>Salida de caja ${clp(-a.activo.desembolso)}</span></div>
+      <div><small>Efecto tributario</small><b>${clp(a.activo.efectoTributario)}</b></div><div><small>Crédito potencial</small><b>${clp(a.activo.credito33bis)}</b></div>
+      <div class="inv-neto"><small>Costo económico neto</small><b>${clp(a.activo.costoNeto)}</b></div></div>
+    <p class="nota fuerte">No conviene realizar una inversión únicamente por su efecto tributario.</p>
+    <p class="nota">Esta decisión reduce el impuesto, pero implica una salida de caja mayor al beneficio tributario.</p></div>` : '';
+  return `${decide}${tarjetas}<div class="card"><div class="h"><h2>Comparación <span>con la Base</span></h2><small>Ahorro permanente ≠ diferimiento ≠ caja</small></div>${tabla}</div>${inv}`;
 }

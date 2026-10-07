@@ -1,10 +1,10 @@
-// MiRentaShell · navegación, modo Cliente/Asesor, estado demo y panel "¿Por qué?". Sin cálculos tributarios.
+// MiRentaShell (R2) · navegación, modo Cliente/Asesor, estado demo y paneles laterales. Sin cálculos tributarios.
 import { ESTADOS } from './demo-data.js';
-import { SECCIONES, render } from './vistas.js';
+import { SECCIONES, OCULTAS, render } from './vistas.js';
 import { cabecera } from './componentes/cabecera.js';
-import { traza } from './componentes/traza.js';
+import { traza, regimen } from './componentes/traza.js';
 
-const S = { seccion: 'resumen', modo: 'CLIENTE', estado: 'preliminar', escSel: ['base', 'a'], regAbierto: 'RLI' };
+const S = { seccion: 'resumen', modo: 'CLIENTE', estado: 'preliminar', escSel: ['a'], regAbierto: 'RLI', subProy: 'renta', subTec: 'Contabilidad', detalleEsc: false, lotes: false };
 const $ = (s) => document.querySelector(s);
 try { const g = JSON.parse(localStorage.getItem('mirenta-proto') || '{}'); Object.assign(S, { modo: g.modo ?? S.modo, estado: g.estado ?? S.estado }); } catch { /* sin almacenamiento */ }
 const guardar = () => { try { localStorage.setItem('mirenta-proto', JSON.stringify({ modo: S.modo, estado: S.estado })); } catch { /* ignorar */ } };
@@ -15,26 +15,31 @@ function pintar() {
   $('#cabecera').innerHTML = cabecera(d);
   $('#nav').innerHTML = SECCIONES.filter((s) => !s.asesor || S.modo === 'ASESOR')
     .map((s) => `<button class="nv ${s.id === S.seccion ? 'on' : ''} ${s.asesor ? 'interna' : ''}" data-sec="${s.id}">${s.nombre}</button>`).join('');
-  const sec = SECCIONES.find((s) => s.id === S.seccion);
+  const sec = SECCIONES.find((s) => s.id === S.seccion) ?? OCULTAS[S.seccion];
   $('#pregunta').textContent = sec.pregunta;
   $('#contenido').innerHTML = render(S.seccion, d, S);
   document.querySelectorAll('[data-modo]').forEach((b) => b.classList.toggle('on', b.dataset.modo === S.modo));
   $('#selEstado').value = S.estado;
 }
-function abrirTraza(id) { $('#traza-cuerpo').innerHTML = traza(ESTADOS[S.estado], id, S.modo); $('#traza').classList.add('on'); $('#velo').classList.add('on'); }
-function cerrarTraza() { $('#traza').classList.remove('on'); $('#velo').classList.remove('on'); }
+function abrir(html) { $('#traza-cuerpo').innerHTML = html; $('#traza').classList.add('on'); $('#velo').classList.add('on'); }
+function cerrar() { $('#traza').classList.remove('on'); $('#velo').classList.remove('on'); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sec],[data-ir],[data-modo],[data-traza],[data-esc],[data-reg],[data-imprimir],#cerrarTraza,#velo');
+  const t = e.target.closest('[data-sec],[data-ir],[data-modo],[data-traza],[data-regimen],[data-esc],[data-reg],[data-proy],[data-tec],[data-detalle-esc],[data-lotes],#cerrarTraza,#velo');
   if (!t) return;
+  const d = ESTADOS[S.estado];
   if (t.dataset.sec || t.dataset.ir) { S.seccion = t.dataset.sec || t.dataset.ir; pintar(); window.scrollTo({ top: 0 }); }
-  else if (t.dataset.modo) { S.modo = t.dataset.modo; if (SECCIONES.find((s) => s.id === S.seccion)?.asesor && S.modo === 'CLIENTE') S.seccion = 'resumen'; guardar(); pintar(); }
-  else if (t.dataset.traza) abrirTraza(t.dataset.traza);
+  else if (t.dataset.proy) { S.seccion = 'proyeccion'; S.subProy = t.dataset.proy; pintar(); window.scrollTo({ top: 0 }); }
+  else if (t.dataset.tec) { S.subTec = t.dataset.tec; pintar(); }
+  else if (t.dataset.modo) { S.modo = t.dataset.modo; if (S.seccion === 'tecnica' && S.modo === 'CLIENTE') S.seccion = 'resumen'; guardar(); pintar(); }
+  else if (t.dataset.traza) abrir(traza(d, t.dataset.traza, S.modo));
+  else if (t.hasAttribute('data-regimen')) abrir(regimen(d, S.modo));
   else if (t.dataset.esc) { const id = t.dataset.esc; S.escSel = S.escSel.includes(id) ? S.escSel.filter((x) => x !== id) : [...S.escSel, id]; pintar(); }
   else if (t.dataset.reg) { S.regAbierto = t.dataset.reg; pintar(); }
-  else if (t.hasAttribute('data-imprimir')) window.print();
-  else cerrarTraza();
+  else if (t.hasAttribute('data-detalle-esc')) { S.detalleEsc = !S.detalleEsc; pintar(); }
+  else if (t.hasAttribute('data-lotes')) { S.lotes = !S.lotes; pintar(); }
+  else cerrar();
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarTraza(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
 $('#selEstado').addEventListener('change', (e) => { S.estado = e.target.value; guardar(); pintar(); });
 pintar();

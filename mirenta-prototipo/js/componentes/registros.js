@@ -1,47 +1,56 @@
-// TaxRegisters · tarjetas por registro (adaptables por régimen) + detalle e historia. SAC con lotes (nunca se borra un lote usado).
+// Determinación y registros (R2). Separados: DETERMINACIÓN (RLI) ≠ REGISTROS EMPRESARIALES (CPTS/RAI/REX/SAC).
+// Cliente: concepto primero, sigla después. Asesor: sigla primero. SAC en cliente = "Créditos disponibles" con lotes expandibles.
 import { clp, esc } from '../formato.js';
-const EST = { PRELIMINAR: 'lila', SIN_DATOS: 'gris', VALIDADO: 'verde' };
-const ESTLOTE = { DISPONIBLE: 'verde', PARCIAL: 'ambar', FULLY_USED: 'gris' };
+const EST = { PRELIMINAR: ['Preliminar', 'lila'], SIN_DATOS: ['Sin datos', 'gris'], VALIDADO: ['Validado', 'verde'] };
+const ESTLOTE = { DISPONIBLE: ['Disponible', 'verde'], PARCIAL: ['Parcial', 'ambar'], FULLY_USED: ['Utilizado', 'gris'] };
+const nombre = (r, modo) => modo === 'ASESOR' ? [r.id, r.nombre] : [r.concepto, r.id];
 
-export function registros(d, abierto, modo) {
-  const tarjetas = d.registros.map((r) => `<button class="reg-card ${abierto === r.id ? 'on' : ''}" data-reg="${r.id}">
-      <div class="reg-top"><b>${r.id}</b><span class="estado ${EST[r.estado] ?? 'gris'}">${r.estado === 'SIN_DATOS' ? 'Sin datos' : r.estado === 'PRELIMINAR' ? 'Preliminar' : r.estado}</span></div>
-      <small>${esc(r.nombre)}</small>
-      ${r.tipo === 'DETERMINACION'
-        ? `<div class="reg-n"><span>Resultado contable</span><em>${clp(r.resultadoContable)}</em></div><div class="reg-n"><span>Ajustes netos</span><em>${clp(r.ajustesNetos)}</em></div>
-           <div class="reg-n fuerte"><span>RLI proyectada</span><em>${clp(r.saldoProyectado)}</em></div>`
-        : `<div class="reg-n"><span>Saldo inicial</span><em>${clp(r.saldoInicial)}</em></div>
-      <div class="reg-n"><span>Movimientos</span><em>${clp(r.movimientos ?? r.incorporaciones)}</em></div>
-      <div class="reg-n fuerte"><span>Saldo proyectado</span><em>${clp(r.saldoProyectado)}</em></div>`}
-      <div class="reg-val">Última validación: ${esc(r.ultimaValidacion)}</div></button>`).join('');
-  const r = d.registros.find((x) => x.id === abierto) ?? d.registros[0];
-  if (r.tipo === 'DETERMINACION') return `<div class="reg-grid">${tarjetas}</div>${determinacion(r, modo)}`;
-  const filas = r.incorporaciones !== undefined
-    ? [['Saldo inicial', r.saldoInicial], ['Incorporaciones', r.incorporaciones], ['Imputaciones', r.imputaciones], ['Saldo final / proyectado', r.saldoProyectado]]
-    : [['Saldo inicial', r.saldoInicial], ['Movimientos del ejercicio', r.movimientos], ['Saldo proyectado', r.saldoProyectado]];
-  const lotes = r.lotes ? `<h3 class="sub">Lotes de crédito</h3><table class="cmp"><thead><tr><th>Origen</th><th>Año</th><th>Tipo crédito</th><th>Monto original</th><th>Utilizado</th><th>Disponible</th><th>Estado</th></tr></thead>
-    <tbody>${r.lotes.map((l) => `<tr class="${l.estado === 'FULLY_USED' ? 'usado' : ''}"><td>${esc(l.origen)}</td><td>${l.anio}</td><td>${esc(l.tipo)}</td><td>${clp(l.original)}</td><td>${clp(l.utilizado)}</td><td>${clp(l.disponible)}</td>
-      <td><span class="estado ${ESTLOTE[l.estado]}">${l.estado === 'FULLY_USED' ? 'Utilizado' : l.estado === 'PARCIAL' ? 'Parcial' : 'Disponible'}</span></td></tr>`).join('')}</tbody></table>` : '';
-  const hist = r.historia.length ? `<h3 class="sub">Historia</h3><div class="hist">${r.historia.map((h) => `<div><span>${h.anio}</span><b>${clp(h.saldo)}</b></div>`).join('')}</div>` : '';
-  return `<div class="reg-grid">${tarjetas}</div>
-    <div class="card"><div class="h"><h2>${r.id} · <span>${esc(r.nombre)}</span></h2><button class="btn sm imprimir" data-imprimir>🖨 Imprimir</button></div>
-      <p class="explica">${esc(r.explicacion)}</p>
-      <table class="cmp"><tbody>${filas.map(([t, v], i) => `<tr class="${i === filas.length - 1 ? 'fuerte' : ''}"><td>${t}</td><td>${clp(v)}</td></tr>`).join('')}</tbody></table>
-      ${lotes}${hist}
-      ${modo === 'ASESOR' ? '<p class="nota">Detalle técnico: saldos iniciales desde F22/DJ AT 2026 (pendiente de integrar). Reglas de cada registro: backend versionado.</p>' : ''}</div>`;
+export function determinacionYRegistros(d, abierto, modo, lotesAbiertos) {
+  const rli = d.registros.find((r) => r.tipo === 'DETERMINACION'), regs = d.registros.filter((r) => r.tipo !== 'DETERMINACION');
+  const [t1, t2] = nombre(rli, modo);
+  const det = `<section><h2 class="titulo-sec">Determinación</h2>
+    <button class="reg-card rli ${abierto === rli.id ? 'on' : ''}" data-reg="${rli.id}"><div><b>${esc(t1)}</b><small>${esc(t2)}${modo === 'ASESOR' ? '' : ' · Renta líquida imponible'}</small></div>
+      <div class="rli-n"><span>Resultado contable</span><em>${clp(rli.resultadoContable)}</em></div><div class="rli-n"><span>Ajustes netos</span><em>${clp(rli.ajustesNetos)}</em></div>
+      <div class="rli-n fuerte"><span>Renta imponible proyectada</span><em>${clp(rli.saldoProyectado)}</em></div></button></section>`;
+  const tarjetas = `<section><h2 class="titulo-sec">Registros <span>empresariales</span></h2><div class="reg-grid">${regs.map((r) => { const [a, b] = nombre(r, modo), [et, cl] = EST[r.estado] ?? ['—', 'gris'];
+    const valor = r.id === 'SAC' && modo !== 'ASESOR' ? r.disponibleHoy : r.saldoProyectado;
+    return `<button class="reg-card ${abierto === r.id ? 'on' : ''}" data-reg="${r.id}"><div class="reg-top"><b>${esc(a)}</b><span class="estado ${cl}">${et}</span></div><small>${esc(b)}</small>
+      <div class="reg-n fuerte"><span>${r.id === 'SAC' && modo !== 'ASESOR' ? 'Disponible hoy' : 'Saldo proyectado'}</span><em>${clp(valor)}</em></div></button>`; }).join('')}</div></section>`;
+  const r = d.registros.find((x) => x.id === abierto) ?? rli;
+  const detalle = r.tipo === 'DETERMINACION' ? hojaRli(r, modo) : r.id === 'SAC' ? sac(r, modo, lotesAbiertos) : registro(r, modo);
+  const prop = `<div class="card futuro-card"><div class="h"><h2>Empresa y <span>propietarios</span></h2><small>Próximamente</small></div><p class="nota">Retiros, cuenta particular, distribuciones y créditos asociados por propietario, con permisos separados. Sin datos personales en el prototipo.</p></div>`;
+  return `${det}${tarjetas}${detalle}${prop}`;
 }
 
-// Determinación de la RLI: hoja de partidas (resultado + agregados − deducciones = RLI). Montos ya calculados por el backend (demo).
-function determinacion(r, modo) {
-  const g = (k) => r.partidas.filter((p) => p.grupo === k);
+function hojaRli(r, modo) {
+  const g = (k) => r.partidas.filter((p) => p.grupo === k), cols = modo === 'ASESOR' ? 3 : 2;
   const fila = (p) => `<tr><td>${esc(p.concepto)}</td><td>${clp(p.monto)}</td>${modo === 'ASESOR' ? `<td class="fte">${esc(p.fuente)}</td>` : ''}</tr>`;
-  const cols = modo === 'ASESOR' ? 3 : 2;
-  const titulo = (t) => `<tr class="grupo"><td colspan="${cols}">${t}</td></tr>`;
-  return `<div class="card"><div class="h"><h2>RLI · <span>${esc(r.nombre)}</span></h2><button class="btn sm imprimir" data-imprimir>🖨 Imprimir</button></div>
-    <p class="explica">${esc(r.explicacion)}</p>
+  const tit = (t) => `<tr class="grupo"><td colspan="${cols}">${t}</td></tr>`;
+  const [t1, t2] = nombre(r, modo);
+  return `<div class="card"><div class="h"><h2>${esc(t1)}</h2><small>${esc(t2)}</small></div><p class="explica">${esc(r.explicacion)}</p>
     <table class="cmp rli"><thead><tr><th>Partida</th><th>Monto</th>${modo === 'ASESOR' ? '<th>Fuente</th>' : ''}</tr></thead><tbody>
-      ${g('RESULTADO').map(fila).join('')}${titulo('Más: agregados')}${g('AGREGADOS').map(fila).join('')}${titulo('Menos: deducciones')}${g('DEDUCCIONES').map(fila).join('')}
-      <tr class="fuerte total-rli"><td>Renta líquida imponible proyectada</td><td>${clp(r.saldoProyectado)}</td>${modo === 'ASESOR' ? '<td></td>' : ''}</tr></tbody></table>
-    <p class="nota">Las partidas y su tratamiento por régimen los define y valida el asesor; los montos vendrán del motor versionado. Una partida "No disponible" no se asume en cero.</p>
-    <h3 class="sub">Historia</h3><div class="hist">${r.historia.map((h) => `<div><span>${h.anio}</span><b>${clp(h.saldo)}</b></div>`).join('')}</div></div>`;
+    ${g('RESULTADO').map(fila).join('')}${tit('Más: ajustes (agregados)')}${g('AGREGADOS').map(fila).join('')}${tit('Menos: deducciones')}${g('DEDUCCIONES').map(fila).join('')}
+    <tr class="fuerte total-rli"><td>Renta imponible proyectada</td><td>${clp(r.saldoProyectado)}</td>${modo === 'ASESOR' ? '<td></td>' : ''}</tr></tbody></table>
+    <p class="nota">Las partidas por régimen las define y valida el asesor. Una partida "No disponible" no se asume en cero.</p></div>`;
+}
+
+function registro(r, modo) {
+  const [t1, t2] = nombre(r, modo);
+  const filas = r.incorporaciones !== undefined ? [['Saldo inicial', r.saldoInicial], ['Incorporaciones', r.incorporaciones], ['Imputaciones', r.imputaciones], ['Saldo final / proyectado', r.saldoProyectado]]
+    : [['Saldo inicial', r.saldoInicial], ['Movimientos del ejercicio', r.movimientos], ['Saldo proyectado', r.saldoProyectado]];
+  return `<div class="card"><div class="h"><h2>${esc(t1)}</h2><small>${esc(t2)}</small></div><p class="explica">${esc(r.explicacion)}</p>
+    <table class="cmp"><tbody>${filas.map(([t, v], i) => `<tr class="${i === filas.length - 1 ? 'fuerte' : ''}"><td>${t}</td><td>${clp(v)}</td></tr>`).join('')}</tbody></table>
+    ${r.historia.length ? `<div class="hist">${r.historia.map((h) => `<div><span>${h.anio}</span><b>${clp(h.saldo)}</b></div>`).join('')}</div>` : ''}</div>`;
+}
+
+function sac(r, modo, lotesAbiertos) {
+  const lotes = `<table class="cmp"><thead><tr><th>Origen</th><th>Año</th><th>Tipo</th><th>Original</th><th>Utilizado</th><th>Disponible</th><th>Estado</th></tr></thead>
+    <tbody>${r.lotes.map((l) => { const [et, cl] = ESTLOTE[l.estado]; return `<tr class="${l.estado === 'FULLY_USED' ? 'usado' : ''}"><td>${esc(l.origen)}</td><td>${l.anio}</td><td>${esc(l.tipo)}</td><td>${clp(l.original)}</td><td>${clp(l.utilizado)}</td><td>${clp(l.disponible)}</td><td><span class="estado ${cl}">${et}</span></td></tr>`; }).join('')}</tbody></table>`;
+  if (modo === 'ASESOR') return `<div class="card"><div class="h"><h2>SAC</h2><small>${esc(r.nombre)}</small></div>
+    <table class="cmp"><tbody><tr><td>Saldo inicial</td><td>${clp(r.saldoInicial)}</td></tr><tr><td>Movimientos del ejercicio</td><td>${clp(r.movimientos)}</td></tr><tr class="fuerte"><td>Saldo proyectado</td><td>${clp(r.saldoProyectado)}</td></tr></tbody></table>
+    <h3 class="sub">Lotes de crédito</h3>${lotes}</div>`;
+  return `<div class="card"><div class="h"><h2>Créditos <span>disponibles</span></h2><small>SAC</small></div><p class="explica">${esc(r.explicacion)}</p>
+    <div class="sac-g"><div><small>Disponible hoy</small><b>${clp(r.disponibleHoy)}</b></div><div><small>Proyectado al cierre</small><b>${clp(r.proyectadoCierre)}</b></div></div>
+    <button class="link pad" data-lotes>${lotesAbiertos ? 'Ocultar lotes de crédito' : 'Ver lotes de crédito'} →</button>${lotesAbiertos ? lotes : ''}
+    <p class="nota">Su uso depende del orden de imputación que determine el motor; no se promete su aplicación.</p></div>`;
 }

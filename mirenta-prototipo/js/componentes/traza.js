@@ -14,8 +14,17 @@ export function traza(d, id, modo) {
   }[id];
   if (!T) return '';
   return `<div class="tr-cab"><small>¿Por qué?</small><h3>${esc(T.t)}</h3><div class="tr-v">${clp(T.v)}</div></div>
-    <section><h4>Explicación</h4><p>${esc(T.exp)}</p></section>
-    <section><h4>Detalle</h4><table class="cmp">${T.det.map(([a, v, txt]) => `<tr class="${a.startsWith('=') ? 'fuerte' : ''}"><td>${esc(a)}</td><td>${txt ?? clp(v)}</td></tr>`).join('')}</table></section>
+    <section><h4>Explicación simple</h4><p>${esc(T.exp)}</p></section>
+    <section><h4>Cálculo</h4><table class="cmp">${T.det.map(([a, v, txt]) => `<tr class="${a.startsWith('=') ? 'fuerte' : ''}"><td>${esc(a)}</td><td>${txt ?? clp(v)}</td></tr>`).join('')}</table></section>
     ${modo === 'ASESOR' ? `<section><h4>Fuente</h4>${T.fuente ? `<table class="cmp"><tr><td>Fuente</td><td>${esc(T.fuente.nombre)}</td></tr><tr><td>Fecha</td><td>${esc(T.fuente.fecha)}</td></tr><tr><td>Período</td><td>${esc(T.fuente.periodo)}</td></tr><tr><td>Estado</td><td>${esc(T.fuente.estado)}</td></tr></table>` : '<p>Combinación de las cifras anteriores.</p>'}
-      <p class="nota">Detalle técnico: ${esc(d.tecnico.snapshot)} · ${esc(d.tecnico.reglas)}</p></section>` : '<p class="nota">El detalle técnico y las fuentes están disponibles para el equipo Contadoor.</p>'}`;
+      <section><h4>Detalle técnico</h4><p class="nota">${esc(d.tecnico.snapshot)} · ${esc(d.tecnico.reglas)}</p></section></section>` : ''}`;
+}
+
+// "Tu régimen tributario" (abre desde la cabecera). Lenguaje cliente; detalle técnico solo en asesor.
+export function regimen(d, modo) {
+  const r = d.regimenInfo;
+  return `<div class="tr-cab"><small>Tu régimen tributario</small><h3>${esc(d.caso.regimen.nombre)}</h3><p class="tr-sub">${esc(d.caso.regimen.articulo)}</p></div>
+    <p>${esc(r.resumen)}</p>${r.puntos.map((p) => `<section><h4>${esc(p.t)}</h4><p>${esc(p.d)}</p></section>`).join('')}
+    ${modo === 'ASESOR' ? `<section><h4>Detalle técnico</h4><p class="nota">${esc(r.tecnico)}</p></section>` : ''}
+    <p class="nota">Texto demo: el contenido definitivo lo valida el asesor.</p>`;
 }

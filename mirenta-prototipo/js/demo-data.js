@@ -27,6 +27,15 @@ const base = {
     cobertura: { porcentaje: 60, faltante: 3350000 },
   },
 
+  // Hoy vs diciembre: lo que sabemos hoy y hacia dónde vamos (sin inventar: lo que el motor no entrega va null).
+  hoyVsDiciembre: [
+    { concepto: 'Resultado', hoy: 50700000, diciembre: 67600000 },
+    { concepto: 'Impuesto', hoy: null, diciembre: 8450000 },
+    { concepto: 'PPM', hoy: 5100000, diciembre: 7300000 },
+    { concepto: 'Saldo', hoy: null, diciembre: 1150000 },
+  ],
+  caja: { saldoProyectado: 3350000, reservaConsiderada: 1500000, diferencia: 1850000 },
+
   // Proyección al cierre (resultado contable) · real vs. proyectado
   proyeccion: {
     actualAcumulado: 50700000, mesesRestantes: 16900000, anualProyectado: 67600000,
@@ -35,10 +44,10 @@ const base = {
     // cómo fue cambiando la renta (impuesto) proyectada mes a mes
     evolucion: [2.1, 2.7, 3.4, 4.6, 5.3, 5.9, 6.4, 6.6, 6.8].map((v, i) => ({ mes: MESES[i], impuestoProyectado: v * 1e6 })),
     impuestoCierre: 8450000,
-    motores: [
-      { nombre: 'Ventas por servicios', efecto: '+', detalle: 'Ritmo estable de facturación (promedio últimos 3 meses).' },
-      { nombre: 'Remuneraciones', efecto: '−', detalle: 'Centralización registrada solo en abril: revisar meses faltantes.' },
-      { nombre: 'Gastos generales', efecto: '·', detalle: 'Sin variaciones relevantes.' },
+    motores: [   // ranking por impacto estimado en el resultado anual (demo)
+      { nombre: 'Ventas por servicios', efecto: '↑', impacto: 4200000, detalle: 'Ritmo estable de facturación (promedio últimos 3 meses).' },
+      { nombre: 'Remuneraciones', efecto: '↓', impacto: -1100000, detalle: 'Centralización registrada solo en abril: revisar meses faltantes.' },
+      { nombre: 'Gastos generales', efecto: '·', impacto: null, detalle: 'Sin cambio relevante.' },
     ],
   },
 
@@ -73,16 +82,16 @@ const base = {
   ],
 
   radar: [
-    { id: 'r1', categoria: 'RIESGO', nivel: 'URGENTE', titulo: 'PPM bajo respecto de la renta proyectada', impacto: 'Saldo relevante en abril', monto: 3350000,
+    { id: 'r1', categoria: 'RIESGO', nivel: 'URGENTE', titulo: 'PPM bajo respecto de la renta proyectada', decision: 'Evaluar nivel de PPM y planificación de caja', impacto: 'Saldo relevante en abril', monto: 3350000,
       evidencia: 'Cobertura actual 60 % · PPM pagados ene–sep', porque: 'Si la tendencia se mantiene, podría existir un saldo relevante al presentar la renta.',
       accion: 'Revisar nivel de PPM con el cliente', estado: 'ABIERTO' },
-    { id: 'r2', categoria: 'INCONSISTENCIA', nivel: 'REVISAR', titulo: 'Remuneraciones registradas solo en abril', impacto: 'Resultado posiblemente sobrestimado', monto: null,
+    { id: 'r2', categoria: 'INCONSISTENCIA', nivel: 'REVISAR', titulo: 'Remuneraciones registradas solo en abril', decision: 'Confirmar las centralizaciones mensuales con el cliente', impacto: 'Resultado posiblemente sobrestimado', monto: null,
       evidencia: '1 asiento de centralización en el año', porque: 'Si hubo sueldos en otros meses, la base tributaria proyectada sería menor.',
       accion: 'Confirmar centralizaciones mensuales', estado: 'ABIERTO' },
-    { id: 'r3', categoria: 'OPORTUNIDAD', nivel: 'INFORMATIVO', titulo: 'Inversión planificada antes del cierre', impacto: 'Posible efecto tributario y de caja', monto: null,
+    { id: 'r3', categoria: 'OPORTUNIDAD', nivel: 'INFORMATIVO', titulo: 'Inversión planificada antes del cierre', decision: 'Simular la inversión con su costo neto en Escenarios', impacto: 'Posible efecto tributario y de caja', monto: null,
       evidencia: 'Mencionada por el cliente en reunión anterior', porque: 'Conviene evaluarla con su costo económico neto, no solo por su efecto tributario.',
       accion: 'Simular en Escenarios', estado: 'ABIERTO' },
-    { id: 'r4', categoria: 'DESVIACIÓN', nivel: 'INFORMATIVO', titulo: 'Proyección subió 0,2 MM vs. el mes anterior', impacto: 'Mayor impuesto proyectado', monto: 200000,
+    { id: 'r4', categoria: 'DESVIACIÓN', nivel: 'INFORMATIVO', titulo: 'Proyección subió 0,2 MM vs. el mes anterior', decision: 'Sin decisión necesaria por ahora', impacto: 'Mayor impuesto proyectado', monto: 200000,
       evidencia: 'Proyección agosto 6,6 MM → septiembre 6,8 MM', porque: 'Las ventas de septiembre superaron el promedio.', accion: 'Sin acción', estado: 'INFORMATIVO' },
   ],
 
@@ -94,21 +103,21 @@ const base = {
   ],
 
   decisiones: [
-    { titulo: 'Revisar nivel de PPM', impacto: 'Alto', urgencia: 'Antes de nov.', evidencia: 'Cobertura 60 %', accion: 'Evaluar aumento de tasa PPM' },
-    { titulo: 'Revisar provisión de impuesto', impacto: 'Medio', urgencia: 'Cierre', evidencia: 'Saldo estimado 3,35 MM', accion: 'Separar reserva' },
+    { titulo: 'Revisar nivel de PPM', impacto: 'Alto', urgencia: 'Antes de noviembre', evidencia: 'La cobertura de PPM está en 60 %', accion: 'Conversar ajuste de PPM' },
+    { titulo: 'Revisar provisión de impuesto', impacto: 'Medio', urgencia: 'Cierre', evidencia: 'Saldo estimado 3,35 MM', accion: 'Conversar planificación de caja' },
     { titulo: 'Evaluar inversión planificada', impacto: 'Medio', urgencia: 'Antes del 31-12', evidencia: 'Radar · oportunidad', accion: 'Simular escenario' },
     { titulo: 'Revisar retiros de socios', impacto: 'Por definir', urgencia: '—', evidencia: 'Sin datos de propietarios', accion: 'Cargar antecedentes' },
   ],
 
   calidad: [
-    { fuente: 'Contabilidad', estado: 'OK', detalle: 'Diario y Balance 2026 procesados' },
-    { fuente: 'Diario ↔ Balance', estado: 'OK', detalle: 'Cuadra · 0 diferencias' },
-    { fuente: 'Apertura', estado: 'REVISAR', detalle: 'Sin asiento de apertura' },
-    { fuente: 'Plan de cuentas', estado: 'OK', detalle: 'Cuentas clasificadas' },
-    { fuente: 'RCV', estado: 'REVISAR', detalle: 'Cobertura parcial (1 de 9 meses)' },
-    { fuente: 'F29', estado: 'SIN_DATOS', detalle: 'No integrado' },
-    { fuente: 'Propietarios', estado: 'SIN_DATOS', detalle: 'No cargados' },
-    { fuente: 'Registros tributarios', estado: 'SIN_DATOS', detalle: 'Faltan saldos iniciales AT 2026' },
+    { fuente: 'Contabilidad', estado: 'OK', cliente: 'Completa', detalle: 'Diario y Balance 2026 procesados' },
+    { fuente: 'Diario ↔ Balance', estado: 'OK', cliente: 'Conciliados', detalle: 'Cuadra · 0 diferencias' },
+    { fuente: 'Apertura', estado: 'REVISAR', cliente: 'Pendiente', detalle: 'Sin asiento de apertura' },
+    { fuente: 'Plan de cuentas', estado: 'OK', cliente: 'Completo', detalle: 'Cuentas clasificadas' },
+    { fuente: 'RCV', estado: 'REVISAR', cliente: 'Parcial', detalle: 'Cobertura parcial (1 de 9 meses)' },
+    { fuente: 'PPM / F29', estado: 'SIN_DATOS', cliente: 'Pendiente', detalle: 'No integrado' },
+    { fuente: 'Propietarios', estado: 'SIN_DATOS', cliente: 'No disponible', detalle: 'No cargados' },
+    { fuente: 'Registros tributarios', estado: 'SIN_DATOS', cliente: 'Pendiente', detalle: 'Faltan saldos iniciales AT 2026' },
   ],
 
   timeline: [
@@ -119,18 +128,19 @@ const base = {
   // Escenarios: cifras YA calculadas por el backend (demo). Ahorro permanente ≠ diferimiento ≠ caja.
   escenarios: [
     { id: 'base', nombre: 'Base', descripcion: 'Situación actual, sin decisiones nuevas', ventas: 210000000, gastos: 142400000, resultado: 67600000,
-      impuesto: 8450000, ppm: 7300000, saldoAbril: 1150000, cajaDespuesImpuesto: 59150000, ahorroPermanente: 0, diferimiento: 0 },
+      impuesto: 8450000, ppm: 7300000, saldoAbril: 1150000, cajaDespuesImpuesto: 59150000, ahorroPermanente: 0, diferimiento: 0, costoDecision: 0 },
     { id: 'a', nombre: 'A · Comprar activo', descripcion: 'Activo de $10 MM antes del 31-12 (tratamiento a definir por el motor)', ventas: 210000000, gastos: 142400000,
-      resultado: 57600000, impuesto: 7200000, ppm: 7300000, saldoAbril: -100000, cajaDespuesImpuesto: 50400000, ahorroPermanente: 0, diferimiento: 1250000,
+      resultado: 57600000, impuesto: 7200000, ppm: 7300000, saldoAbril: -100000, cajaDespuesImpuesto: 50400000, ahorroPermanente: 0, diferimiento: 1250000, costoDecision: 10000000,
       activo: { costo: 10000000, desembolso: 10000000, efectoTributario: -1250000, credito33bis: null, costoNeto: 8750000 } },
     { id: 'b', nombre: 'B · Contratar trabajador', descripcion: 'Contratación desde noviembre ($1,2 MM/mes)', ventas: 210000000, gastos: 144800000,
-      resultado: 65200000, impuesto: 8150000, ppm: 7300000, saldoAbril: 850000, cajaDespuesImpuesto: 57050000, ahorroPermanente: 300000, diferimiento: 0 },
+      resultado: 65200000, impuesto: 8150000, ppm: 7300000, saldoAbril: 850000, cajaDespuesImpuesto: 57050000, ahorroPermanente: 300000, diferimiento: 0, costoDecision: 2400000 },
   ],
+  decisionesEvaluables: ['Comprar un activo', 'Contratar una persona', 'Aumentar remuneraciones', 'Realizar una inversión', 'Distribuir utilidades', 'Cambiar proyección de ventas', 'Cambiar gastos proyectados', 'Otra decisión'],
   ideasEscenario: ['Contratar trabajador', 'Comprar activo', 'Aumentar remuneración', 'Realizar inversión', 'Postergar inversión', 'Distribuir utilidades', 'No distribuir', 'Cambiar supuesto de ventas', 'Cambiar gastos proyectados'],
 
   // Registros tributarios 14 D N°3 (estructura demo; montos ilustrativos)
   registros: [
-    { id: 'RLI', tipo: 'DETERMINACION', nombre: 'Determinación de la renta líquida imponible', explicacion: 'Cómo se pasa del resultado contable a la base sobre la que se calcula el impuesto de primera categoría.',
+    { id: 'RLI', tipo: 'DETERMINACION', concepto: 'Cómo se determina tu renta', nombre: 'Renta líquida imponible', explicacion: 'Así pasamos del resultado contable a la base sobre la que se calcula el impuesto.',
       saldoInicial: null, movimientos: null, resultadoContable: 67150000, ajustesNetos: 450000, saldoProyectado: 67600000, estado: 'PRELIMINAR', ultimaValidacion: '—',
       partidas: [
         { grupo: 'RESULTADO', concepto: 'Resultado contable del ejercicio (proyectado)', monto: 67150000, fuente: 'Libro Diario + Balance' },
@@ -143,15 +153,15 @@ const base = {
         { grupo: 'DEDUCCIONES', concepto: 'Pérdida tributaria de ejercicios anteriores', monto: null, fuente: 'F22 AT 2026 (pendiente)' },
       ],
       historia: [{ anio: 2024, saldo: 41500000 }, { anio: 2025, saldo: 55400000 }, { anio: 2026, saldo: 67600000 }] },
-    { id: 'CPTS', nombre: 'Capital propio tributario simplificado', explicacion: 'Muestra el patrimonio de la empresa medido con criterios tributarios.',
+    { id: 'CPTS', concepto: 'Capital tributario', nombre: 'Capital propio tributario simplificado', explicacion: 'Muestra el patrimonio de la empresa medido con criterios tributarios.',
       saldoInicial: 120000000, movimientos: 59150000, saldoProyectado: 179150000, estado: 'PRELIMINAR', ultimaValidacion: '—',
       historia: [{ anio: 2024, saldo: 78000000 }, { anio: 2025, saldo: 120000000 }, { anio: 2026, saldo: 179150000 }] },
-    { id: 'RAI', nombre: 'Rentas afectas a impuestos', explicacion: 'Ayuda a determinar cómo se imputan futuras distribuciones a los propietarios.',
+    { id: 'RAI', concepto: 'Utilidades afectas a impuestos', nombre: 'Rentas afectas a impuestos', explicacion: 'Ayuda a determinar cómo se imputan futuras distribuciones a los propietarios.',
       saldoInicial: 41000000, incorporaciones: 59150000, imputaciones: 0, saldoProyectado: 100150000, estado: 'PRELIMINAR', ultimaValidacion: '—',
       historia: [{ anio: 2024, saldo: 22000000 }, { anio: 2025, saldo: 41000000 }, { anio: 2026, saldo: 100150000 }] },
-    { id: 'REX', nombre: 'Rentas exentas e ingresos no renta', explicacion: 'Rentas que, al distribuirse, no pagan impuestos finales o tienen un tratamiento especial.',
+    { id: 'REX', concepto: 'Rentas exentas o con tratamiento especial', nombre: 'Rentas exentas e ingresos no renta', explicacion: 'Rentas que, al distribuirse, no pagan impuestos finales o tienen un tratamiento especial.',
       saldoInicial: null, incorporaciones: null, imputaciones: null, saldoProyectado: null, estado: 'SIN_DATOS', ultimaValidacion: '—', historia: [] },
-    { id: 'SAC', nombre: 'Saldo acumulado de créditos', explicacion: 'Créditos por impuesto pagado por la empresa que podrán usar los propietarios.',
+    { id: 'SAC', concepto: 'Créditos disponibles', nombre: 'Saldo acumulado de créditos', explicacion: 'Créditos tributarios acumulados que podrían acompañar futuras distribuciones a los propietarios.', disponibleHoy: 6200000, proyectadoCierre: 14650000,
       saldoInicial: 6200000, movimientos: 8450000, saldoProyectado: 14650000, estado: 'PRELIMINAR', ultimaValidacion: '—',
       lotes: [
         { origen: 'IDPC AT 2024', anio: 2024, tipo: 'Crédito IDPC', original: 3100000, utilizado: 3100000, disponible: 0, estado: 'FULLY_USED' },
@@ -168,6 +178,17 @@ const base = {
     { anio: 2026, resultado: 67600000, impuesto: 8450000, ppm: 7300000, saldo: 1150000, tasaEfectiva: 12.5, proyectado: true },
   ],
 
+  regimenInfo: {   // TEXTO DEMO: el contenido real lo define y valida el asesor
+    resumen: 'Tu empresa está actualmente acogida al régimen Pro Pyme General.',
+    puntos: [
+      { t: 'Cómo determina su resultado', d: 'A partir de su contabilidad, con los ajustes tributarios que corresponden al régimen.' },
+      { t: 'Cómo tributa la empresa', d: 'Paga impuesto de primera categoría sobre su renta imponible, con pagos provisionales mensuales (PPM) durante el año.' },
+      { t: 'Qué relación tiene con los propietarios', d: 'Los propietarios tributan cuando reciben retiros o distribuciones, con los créditos que correspondan.' },
+      { t: 'Qué registros debe mantener', d: 'Registros de capital, utilidades, rentas exentas y créditos (ver Determinación y registros).' },
+    ],
+    tecnico: 'Art. 14 letra D N°3 LIR · parámetros desde reglas versionadas (backend).',
+  },
+
   // Detalle técnico (solo modo Asesor)
   tecnico: {
     snapshot: 'Foto de clasificación #1 · huella c1213b7d…', reglas: 'Parámetros AT 2027 · versión demo (sin regla certificada)',
@@ -183,9 +204,10 @@ function variante(cambios) { const v = clonar(base); cambios(v); return v; }
 export const ESTADOS = {
   completo: variante((v) => {
     v.caso.estadoAnalisis = 'COMPLETO'; v.caso.corte = 'Contabilidad al 31-12-2026';
-    v.calidad = v.calidad.map((c) => ({ ...c, estado: 'OK', detalle: 'Validado' }));
+    v.calidad = v.calidad.map((c) => ({ ...c, estado: 'OK', cliente: 'Completo', detalle: 'Validado' }));
     v.pendientes = []; v.resumen.cobertura = { porcentaje: 100, faltante: 0 };
     v.resumen.ppmDisponible.valor = 8450000; v.resumen.saldo = { tipo: 'POR_PAGAR', valor: 0 };
+    v.caja = { saldoProyectado: 0, reservaConsiderada: 0, diferencia: 0 };
   }),
   preliminar: base,
   faltan_datos: variante((v) => {
@@ -193,17 +215,22 @@ export const ESTADOS = {
     v.resumen.ppmDisponible.valor = null; v.resumen.cobertura = { porcentaje: null, faltante: null }; v.resumen.saldo = { tipo: 'POR_PAGAR', valor: null };
     v.ppm.pagado = null; v.ppm.disponible = null; v.ppm.deficitEstimado = null; v.ppm.coberturaCierre = null;
     v.puente.find((p) => p.id === 'ppm').valor = null; v.puente.find((p) => p.id === 'saldo').valor = null;
+    v.hoyVsDiciembre = v.hoyVsDiciembre.map((f) => (f.concepto === 'PPM' || f.concepto === 'Saldo') ? { ...f, hoy: null, diciembre: null } : f);
+    v.caja = { saldoProyectado: null, reservaConsiderada: 1500000, diferencia: null };
   }),
   riesgo: variante((v) => {
     v.caso.estadoAnalisis = 'RIESGO';
     v.resumen.ppmDisponible.valor = 2950000; v.resumen.cobertura = { porcentaje: 35, faltante: 5500000 }; v.resumen.saldo = { tipo: 'POR_PAGAR', valor: 5500000 };
     v.ppm.pagado = 2950000; v.ppm.disponible = 2950000; v.ppm.proyectadoDiciembre = 4200000; v.ppm.deficitEstimado = 4250000; v.ppm.coberturaCierre = 50;
+    v.hoyVsDiciembre = v.hoyVsDiciembre.map((f) => f.concepto === 'PPM' ? { ...f, hoy: 2950000, diciembre: 4200000 } : f.concepto === 'Saldo' ? { ...f, diciembre: 4250000 } : f);
+    v.caja = { saldoProyectado: 5500000, reservaConsiderada: 1500000, diferencia: 4000000 };
   }),
   sin_info: variante((v) => {
     v.caso.estadoAnalisis = 'SIN_INFORMACION'; v.caso.corte = 'Sin contabilidad cargada'; v.caso.mesesReales = 0;
     v.resumen = { baseTributaria: { valor: null }, impuesto: { valor: null, tasaAplicable: null }, ppmDisponible: { valor: null }, saldo: { tipo: 'POR_PAGAR', valor: null }, cobertura: { porcentaje: null, faltante: null } };
     v.proyeccion.meses = []; v.proyeccion.evolucion = []; v.ppm.curva = []; v.radar = []; v.decisiones = [];
-    v.calidad = v.calidad.map((c) => ({ ...c, estado: 'SIN_DATOS', detalle: 'Sin información' }));
+    v.hoyVsDiciembre = v.hoyVsDiciembre.map((f) => ({ ...f, hoy: null, diciembre: null })); v.caja = { saldoProyectado: null, reservaConsiderada: null, diferencia: null };
+    v.calidad = v.calidad.map((c) => ({ ...c, estado: 'SIN_DATOS', cliente: 'No disponible', detalle: 'Sin información' }));
     v.pendientes = [{ titulo: 'Cargar la contabilidad del año', nivel: 'URGENTE', explicacion: 'Sin Libro Diario ni Balance no es posible proyectar.' }];
   }),
 };

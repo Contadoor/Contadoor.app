@@ -1,4 +1,4 @@
-// PendingReviews ("Qué debemos revisar") y decisiones para revisar ("Qué podemos hacer").
+// "Qué debemos revisar" y decisiones para revisar (R2: decisión, impacto, cuándo revisarla, por qué apareció, acción).
 import { esc, NIVEL } from '../formato.js';
 export function pendientes(items, modo) {
   if (!items.length) return '<div class="vacio ok">✓ No hay pendientes.</div>';
@@ -8,6 +8,6 @@ export function pendientes(items, modo) {
 export function decisiones(items) {
   if (!items.length) return '<div class="vacio">Sin decisiones sugeridas por ahora.</div>';
   return `<div class="decis">${items.map((x) => `<div class="dec"><b>${esc(x.titulo)}</b>
-    <div class="dec-g"><span>Impacto<em>${esc(x.impacto)}</em></span><span>Urgencia<em>${esc(x.urgencia)}</em></span><span>Evidencia<em>${esc(x.evidencia)}</em></span><span>Acción<em>${esc(x.accion)}</em></span></div></div>`).join('')}</div>
+    <dl><dt>Impacto</dt><dd>${esc(x.impacto)}</dd><dt>Cuándo revisarla</dt><dd>${esc(x.urgencia)}</dd><dt>Por qué apareció</dt><dd>${esc(x.evidencia)}</dd><dt>Acción</dt><dd>${esc(x.accion)}</dd></dl></div>`).join('')}</div>
     <p class="nota">Son decisiones para conversar, no órdenes automáticas.</p>`;
 }
