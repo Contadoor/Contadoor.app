@@ -17,7 +17,7 @@ export function determinacionYRegistros(d, ctx) {
       <b>${r.id}</b><small>${esc(modo === 'ASESOR' ? r.nombre : r.concepto)}</small><em>${clp(r.id === 'SAC' && modo !== 'ASESOR' ? r.disponibleHoy : r.saldoProyectado)}</em></button>`).join('')}</div>`;
   const r = d.registros.find((x) => x.id === ctx.regAbierto) ?? d.registros[0];
   const cuerpo = r.id === 'RLI' ? rli(d, r, ctx) : r.id === 'SAC' && modo !== 'ASESOR' ? sacCliente(r, ctx) : registro(r, ctx);
-  return `${sub}${barra}<div class="reg-zona acc-${r.id}">${cabeza(r, ctx)}${cuerpo}</div>`;
+  return `${sub}${barra}<div class="reg-zona acc-${r.id}"><div class="reg-fijo">${r.id === 'RLI' ? '' : `<div class="franja">ESTÁS REVISANDO: <b>${r.id} · ${esc(r.concepto)}</b></div>`}${cabeza(r, ctx)}</div>${cuerpo}</div>`;
 }
 
 // Encabezado fijo (sticky) con el color del registro + Exportar / Imprimir
@@ -45,22 +45,32 @@ function rli(d, r, ctx) {
   return (ctx.modo === 'ASESOR' ? '' : resumen) + hojaSii(x, ctx);
 }
 
+const ESTP = { OK: ['OK', 'verde'], PENDIENTE: ['Pendiente', 'gris'], REVISAR: ['Revisar', 'ambar'] };
 function hojaSii(x, ctx) {
-  const cod = ctx.codigos, cols = cod ? 4 : 3;
-  const fila = (p) => `<tr><td>${esc(p.glosa)}</td>${cod ? `<td class="cod">${p.codigo ?? '<span class="nd">por certificar</span>'}</td>` : ''}<td>${clp(p.monto)}</td><td class="fte">${esc(p.fuente)}</td></tr>`;
-  const grupo = (t) => `<tr class="grupo"><td colspan="${cols}">${t}</td></tr>`;
-  const tot = (t, v, c = null, cls = '') => `<tr class="fuerte ${cls}"><td>${t}</td>${cod ? `<td class="cod">${c ?? ''}</td>` : ''}<td>${clp(v)}</td><td></td></tr>`;
+  const cod = ctx.codigos, ab = ctx.rliGrupos, cols = cod ? 5 : 4;
+  const fila = (p) => { const [et, cl] = ESTP[p.estado] ?? ESTP.OK;
+    return `<tr><td>${esc(p.glosa)}</td>${cod ? `<td class="cod">${p.codigo ?? '<span class="nd">por certificar</span>'}</td>` : ''}<td>${clp(p.monto)}</td><td class="ep"><span class="estado ${cl}">${et}</span></td><td class="fte">${esc(p.fuente)}</td></tr>`; };
+  const cuenta = (ps) => { const n = (e) => ps.filter((p) => p.estado === e).length, pe = n('PENDIENTE'), re = n('REVISAR');
+    return [pe ? `<span class="estado gris">${pe} pendiente${pe > 1 ? 's' : ''}</span>` : '', re ? `<span class="estado ambar">${re} por revisar</span>` : '', !pe && !re ? '<span class="estado verde">Todo OK</span>' : ''].join(''); };
+  // grupo colapsable: la cabecera muestra nombre, estados y SUBTOTAL siempre visible
+  const grupo = (id, titulo, partidas, subtotal, codSub = null) => `<tbody class="grp ${ab.includes(id) ? 'abierto' : ''}">
+      <tr class="grp-h" data-grupo="${id}"><td><span class="flecha">${ab.includes(id) ? '▾' : '▸'}</span>${titulo} <small class="meta">${partidas.length} partidas</small></td>${cod ? `<td class="cod">${codSub ?? ''}</td>` : ''}<td class="sub">${clp(subtotal)}</td><td class="ep" colspan="2">${cuenta(partidas)}</td></tr>
+      ${ab.includes(id) ? partidas.map(fila).join('') : ''}</tbody>`;
+  const ben = x.beneficios.map((b) => ({ glosa: b.glosa, monto: b.monto ? -b.monto : null, codigo: b.codigo, fuente: b.nota, estado: 'OK', noAplica: !b.monto }));
+  const filaBen = (b) => `<tr><td>${esc(b.glosa)}</td>${cod ? `<td class="cod">${b.codigo ?? ''}</td>` : ''}<td>${b.noAplica ? '<span class="nd">No aplicado</span>' : clp(b.monto)}</td><td class="ep"></td><td class="fte">${esc(b.fuente)}</td></tr>`;
+  const todos = ['ing', 'egr', 'ben', 'fin'], todoAbierto = todos.every((g) => ab.includes(g));
   return `<div class="card"><div class="h"><h2>Determinación de la <span>Base Imponible</span></h2>
+      <button class="btn sm" data-grupo="${todoAbierto ? 'cerrar-todo' : 'abrir-todo'}">${todoAbierto ? 'Contraer todo' : 'Expandir todo'}</button>
       <button class="btn sm" data-codigos>${cod ? 'Ocultar' : 'Mostrar'} código F22</button></div>
     <div class="layout-tag">${esc(x.layout.estado)} · ${esc(x.layout.registro_layout_version)} · Régimen ${esc(x.layout.regimen)} · AT ${x.layout.anio_tributario}</div>
-    <table class="cmp hoja"><thead><tr><th>Partida</th>${cod ? '<th class="cod">Código F22</th>' : ''}<th>Monto</th><th>Fuente</th></tr></thead><tbody>
-      ${grupo('Ingresos')}${x.ingresos.map(fila).join('')}${tot('Total ingresos anuales', x.totalIngresos)}
-      ${grupo('Egresos')}${x.egresos.map(fila).join('')}${tot('Total egresos anuales', -x.totalEgresos)}
-      ${grupo('Resultado')}<tr><td>Partidas que correspondan</td>${cod ? '<td></td>' : ''}<td>${clp(x.otrasPartidas)}</td><td class="fte">Regla de ajuste (backend)</td></tr>
-      ${tot('Base antes de incentivo al ahorro', x.baseAntesIncentivo, null, 'sep')}
-      ${grupo('Beneficios (no son gastos ordinarios)')}${x.beneficios.map((b) => `<tr><td>${esc(b.glosa)}</td>${cod ? `<td class="cod">${b.codigo ?? ''}</td>` : ''}<td>${b.monto ? clp(-b.monto) : '<span class="nd">No aplicado</span>'}</td><td class="fte">${esc(b.nota)}</td></tr>`).join('')}
-      ${tot('Base imponible afecta a IDPC / pérdida tributaria', x.baseImponible, x.codigoBase, 'sep total-rli')}</tbody></table>
-    <p class="nota">Una partida "No disponible" no se asume en cero: el total es preliminar mientras falten. Los códigos F22 son referenciales y se versionan por Año Tributario.</p></div>`;
+    <table class="cmp hoja grupos"><thead><tr><th>Partida</th>${cod ? '<th class="cod">Código F22</th>' : ''}<th>Monto</th><th class="ep">Estado</th><th>Fuente</th></tr></thead>
+      ${grupo('ing', 'Ingresos', x.ingresos, x.totalIngresos)}
+      ${grupo('egr', 'Egresos', x.egresos.map((p) => ({ ...p, monto: p.monto === null ? null : (p.monto ? -p.monto : 0) })), -x.totalEgresos)}
+      <tbody class="grp"><tr class="grp-h fijo"><td>Base antes de incentivo al ahorro</td>${cod ? '<td></td>' : ''}<td class="sub">${clp(x.baseAntesIncentivo)}</td><td class="ep" colspan="2"><small class="meta">Ingresos − egresos ± partidas que correspondan (${clp(x.otrasPartidas)})</small></td></tr></tbody>
+      <tbody class="grp ${ab.includes('ben') ? 'abierto' : ''}"><tr class="grp-h" data-grupo="ben"><td><span class="flecha">${ab.includes('ben') ? '▾' : '▸'}</span>Beneficios <small class="meta">no son gastos ordinarios</small></td>${cod ? '<td></td>' : ''}<td class="sub">${clp(x.baseImponible - x.baseAntesIncentivo)}</td><td class="ep" colspan="2"><span class="estado gris">No aplicados en la Base</span></td></tr>
+        ${ab.includes('ben') ? ben.map(filaBen).join('') : ''}</tbody>
+      <tbody class="grp final"><tr class="grp-h fijo total"><td>Resultado final · Base imponible afecta a IDPC / pérdida tributaria</td>${cod ? `<td class="cod">${x.codigoBase}</td>` : ''}<td class="sub">${clp(x.baseImponible)}</td><td class="ep" colspan="2">${cuenta([...x.ingresos, ...x.egresos])}</td></tr></tbody></table>
+    <p class="nota">Los subtotales siempre están visibles; abre cada grupo para ver sus partidas. "No disponible" no se asume en cero: el total es preliminar mientras haya partidas pendientes. Códigos F22 referenciales, versionados por AT.</p></div>`;
 }
 
 // ── CPTS / RAI / REX / SAC ──────────────────────────────────────────────
@@ -99,7 +109,7 @@ function propietarios(d, ctx) {
   const resTxt = res.tipo === 'EXCEDENTE' ? 'Excedente estimado' : 'Saldo por pagar';
   const personal = `<div class="card"><div class="h"><h2>${modo === 'ASESOR' ? `Impuesto personal proyectado · <span>${esc(s.nombre)}</span>` : `Tu posición <span>personal estimada</span> · ${esc(s.nombre)}`}</h2><small>Global Complementario · AT 2027 · demo</small></div>
     <div class="pers-g"><div><small>Rentas consideradas</small><b>${clp(g.base)}</b></div><div><small>Impuesto estimado (IGC)</small><b>${clp(g.igcDeterminado)}</b></div>
-      <div><small>Créditos disponibles</small><b>${clp(credDisp)}</b></div><div class="prot"><small>${resTxt}</small><b>${clp(res.valor)}</b><span>Posible devolución: ${g.posibleDevolucion === null ? '<em>por determinar</em>' : clp(g.posibleDevolucion)}</span></div></div>
+      <div><small>Créditos disponibles</small><b>${clp(credDisp)}</b></div><div class="prot ${g.posibleDevolucion === null ? 'neutro' : 'ok'}"><small>${resTxt}</small><b>${clp(res.valor)}</b><span>Posible devolución: ${g.posibleDevolucion === null ? '<em>por determinar</em>' : clp(g.posibleDevolucion)}</span></div></div>
     <p class="nota">${esc(g.notaDevolucion)}</p>
     ${modo === 'ASESOR' || ctx.gcDet ? detallePersonal(g) : ''}
     ${modo === 'ASESOR' ? '' : `<button class="link pad" data-gc>${ctx.gcDet ? 'Ocultar determinación personal' : 'Ver determinación personal'} →</button>`}</div>`;
@@ -118,7 +128,10 @@ function detallePersonal(g) {
 }
 function consolidado(d) {
   const c = d.consolidado, row = (t, v, cls = '') => `<div class="cl ${cls}"><span>${t}</span><b>${clp(v)}</b></div>`;
+  const t = c.total, frase = t.carga === null ? 'Aún no tenemos información suficiente para estimar la carga consolidada de empresa y socios.'
+    : `Considerando empresa y socios, la carga tributaria estimada es <b>${clp(t.carga)}</b>. Parte ya estaría cubierta por PPM, retenciones y créditos, por lo que la salida neta estimada sería <b>${clp(t.salidaNetaAbril)}</b>.`;
   return `<div class="card"><div class="h"><h2>Carga tributaria <span>consolidada</span></h2><small>Empresa + socios · demo</small></div>
+    <p class="frase consol-frase">${frase}</p>
     <div class="consol"><div class="col"><h4>Empresa</h4>${row('IDPC proyectado', c.empresa.idpc)}${row('PPM disponibles al cierre', -c.empresa.ppm)}${row('Saldo empresa', c.empresa.saldo, 'fin')}</div>
       <div class="col"><h4>Socios</h4>${row('IGC proyectado', c.socios.igc)}${row('Créditos IDPC utilizables', c.socios.creditosIdpc)}${row('Restitución, si corresponde', c.socios.restitucion)}${row('Retenciones / otros créditos', c.socios.retenciones)}${row('Saldo personal estimado', c.socios.saldoPersonal, 'fin')}</div>
       <div class="col prot"><h4>Posición consolidada</h4>${row('Impuesto empresa', c.total.impuestoEmpresa)}${row('Impuesto personal neto del crédito IDPC', c.total.impuestoPersonalNeto)}${row('Carga tributaria total estimada', c.total.carga, 'fin')}

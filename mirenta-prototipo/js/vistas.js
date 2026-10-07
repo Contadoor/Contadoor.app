@@ -49,7 +49,7 @@ export function render(id, d, ctx) {
         <div class="g2">${card('¿Qué está moviendo <span>el resultado?</span>', `<ol class="ranking">${d.proyeccion.motores.map((m, i) => `<li><span class="rk">${i + 1}</span><span class="m-ef">${m.efecto}</span><div><b>${esc(m.nombre)}</b><small>${esc(m.detalle)}</small></div><em class="${m.impacto > 0 ? 'mejor' : m.impacto < 0 ? 'peor' : 'cero'}">${m.impacto === null ? 'Sin cambio relevante' : 'Impacto estimado ' + (m.impacto > 0 ? '+' : '') + clp(m.impacto)}</em></li>`).join('')}</ol>`, '', 'destacada')}
           ${card('Cómo se determina <span>el impuesto</span>', puente(d, modo), `<small>${modo === 'ASESOR' ? 'Detalle, fuentes y reglas' : 'Versión simple'}</small>`)}</div>`; }
 
-    case 'escenarios': return escenarios(d, ctx.escSel, modo, ctx.detalleEsc);
+    case 'escenarios': return escenarios(d, ctx);
     case 'registros': return determinacionYRegistros(d, ctx);
     case 'radar': return card('Radar <span>MiRenta</span>', radar(d.radar, { modo }), '<small>Hallazgo · por qué importa · decisión a revisar</small>') + card('Decisiones <span>para revisar</span>', decisiones(d.decisiones));
     case 'fuentes': return card('¿Qué tan completa es <span>esta proyección?</span>', calidad(d.calidad, modo)) + (modo === 'ASESOR'

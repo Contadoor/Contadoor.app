@@ -199,13 +199,14 @@ const base = {
 
 // ── R2.1 · Determinación con estructura SII, incentivo al ahorro, propietarios y consolidado ──
 // Todo YA calculado (demo). Los códigos F22 y el layout son REFERENCIALES: versionados por AT y por certificar.
-const p = (glosa, monto, codigo = null, fuente = 'Libro Diario (percibido / pagado)') => ({ glosa, monto, codigo, fuente });
+// estado por partida: OK · PENDIENTE (falta el dato) · REVISAR (dato con observación). Lo entregará el backend.
+const p = (glosa, monto, codigo = null, fuente = 'Libro Diario (percibido / pagado)', estado = monto === null ? 'PENDIENTE' : 'OK') => ({ glosa, monto, codigo, fuente, estado });
 base.rli = {
   layout: { registro_layout_version: 'RLI-14D3-AT2027-demo.0', regimen: '14 D N°3', anio_tributario: 2027,
     fuente_oficial: 'Por certificar · referencia: SII, paso a paso ProPyme General', estado: 'DEMO / ESTRUCTURA REFERENCIAL' },
   ingresos: [
     p('Ingresos del giro percibidos', 205000000, '1400'),
-    p('Ingresos del giro devengados en ejercicios anteriores y percibidos en el ejercicio actual', 4200000),
+    p('Ingresos del giro devengados en ejercicios anteriores y percibidos en el ejercicio actual', 4200000, null, 'Libro Diario (percibido / pagado)', 'REVISAR'),
     p('Rentas de fuente extranjera percibidas', 0),
     p('Intereses percibidos', 800000),
     p('Mayor valor percibido por rescate o enajenación de inversiones o bienes no depreciables', 0),
@@ -222,14 +223,14 @@ base.rli = {
     p('Existencias, insumos y servicios pagados', 64500000),
     p('Existencias, insumos y servicios de ejercicios anteriores pagados en el ejercicio', 2300000),
     p('Gastos asociados a rentas de fuente extranjera', 0),
-    p('Remuneraciones pagadas', 52800000),
+    p('Remuneraciones pagadas', 52800000, null, 'Libro Diario · centralización solo en abril', 'REVISAR'),
     p('Honorarios pagados', 9800000),
     p('Adquisición de bienes del activo fijo pagados', 3900000),
     p('Arriendos pagados', 7200000),
     p('Intereses y reajustes pagados', 650000),
     p('Partidas Art. 21', 0),
     p('Pérdidas por rescate / enajenación', 0),
-    p('Otros gastos deducibles', 1250000),
+    p('Otros gastos deducibles', 1250000, null, 'Libro Diario · incluye representación', 'REVISAR'),
     p('Operaciones con empresas relacionadas', 0),
     p('Pérdidas tributarias de ejercicios anteriores', null, '1426', 'F22 AT 2026 (pendiente)'),
     p('Créditos incobrables', 0),
@@ -273,6 +274,7 @@ base.incentivo = {
     { t: 'Condiciones / elegibilidad', d: 'Empresa acogida al régimen Pro Pyme · opción anual al declarar · deducción de hasta el 50 % de la RLI que permanece invertida · tope 5.000 UF.' },
   ],
   avisoDemo: 'Texto demo: requisitos y efectos los valida el asesor antes de usarse.',
+  exige: 'Mantener los $47,6 MM invertidos (sin retirarlos) durante el ejercicio. Su conveniencia depende de los retiros planificados y de la caja.',
   comparacion: [
     { t: 'Base antes de incentivo', base: 67600000, con: 67600000 },
     { t: 'Deducción Art. 14 E', base: null, con: -23800000, baseTxt: '—' },

@@ -1,4 +1,4 @@
-// MiRentaShell (R2.1) · navegación, modo Cliente/Asesor, estado demo y paneles laterales. Sin cálculos tributarios.
+// MiRentaShell (R2.2) · navegación, modo Cliente/Asesor, estado demo y paneles laterales. Sin cálculos tributarios.
 // Roles: CLIENTE · ASESOR. MASTER (validación, aprobación, certificación, cierre) queda reservado: sin botón en R2.
 import { ESTADOS } from './demo-data.js';
 import { SECCIONES, OCULTAS, render } from './vistas.js';
@@ -7,7 +7,8 @@ import { traza, regimen } from './componentes/traza.js';
 import { vistaDocumento } from './componentes/registros.js';
 
 const S = { seccion: 'resumen', modo: 'CLIENTE', estado: 'preliminar', escSel: ['a'], regAbierto: 'RLI', subProy: 'renta', subTec: 'Contabilidad', detalleEsc: false, lotes: false,
-  blq: 'det', rliCompleta: false, codigos: true, estr: false, exportar: false, socio: 'A', gcDet: false };
+  blq: 'det', rliCompleta: false, codigos: true, estr: false, exportar: false, socio: 'A', gcDet: false,
+  rliGrupos: [], incPaso: 1, verConsol: false };
 const $ = (s) => document.querySelector(s);
 try { const g = JSON.parse(localStorage.getItem('mirenta-proto') || '{}'); Object.assign(S, { modo: g.modo ?? S.modo, estado: g.estado ?? S.estado }); } catch { /* sin almacenamiento */ }
 const guardar = () => { try { localStorage.setItem('mirenta-proto', JSON.stringify({ modo: S.modo, estado: S.estado })); } catch { /* ignorar */ } };
@@ -28,7 +29,7 @@ function abrir(html) { $('#traza-cuerpo').innerHTML = html; $('#traza').classLis
 function cerrar() { $('#traza').classList.remove('on'); $('#velo').classList.remove('on'); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sec],[data-ir],[data-modo],[data-traza],[data-regimen],[data-esc],[data-reg],[data-proy],[data-tec],[data-detalle-esc],[data-lotes],[data-blq],[data-rli-completa],[data-codigos],[data-estr],[data-exportar],[data-doc],[data-socio],[data-gc],[data-decide],[data-cerrar-doc],#doc,#cerrarTraza,#velo');
+  const t = e.target.closest('[data-sec],[data-ir],[data-modo],[data-traza],[data-regimen],[data-esc],[data-reg],[data-proy],[data-tec],[data-detalle-esc],[data-lotes],[data-blq],[data-rli-completa],[data-codigos],[data-estr],[data-exportar],[data-doc],[data-socio],[data-gc],[data-decide],[data-grupo],[data-paso],[data-ver-consol],[data-cerrar-doc],#doc,#cerrarTraza,#velo');
   if (!t) return;
   if (t.id === 'doc') { if (e.target.id === 'doc') $('#doc').classList.remove('on'); return; }
   const d = ESTADOS[S.estado];
@@ -50,7 +51,11 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.socio) { S.socio = t.dataset.socio; pintar(); }
   else if (t.hasAttribute('data-gc')) { S.gcDet = !S.gcDet; pintar(); }
   else if (t.dataset.decide) { S.seccion = 'escenarios'; const id = t.dataset.decide;
-    if (id === 'retiro') { pintar(); document.getElementById('comparador')?.scrollIntoView({ behavior: 'smooth' }); } else { S.escSel = [id]; pintar(); } }
+    if (id === 'retiro') { S.verConsol = true; pintar(); document.getElementById('comparador')?.scrollIntoView({ behavior: 'smooth' }); } else { S.escSel = [id]; if (id === 'c') S.incPaso = 1; pintar(); } }
+  else if (t.dataset.grupo) { const g = t.dataset.grupo, todos = ['ing', 'egr', 'ben', 'fin'];
+    S.rliGrupos = g === 'abrir-todo' ? todos : g === 'cerrar-todo' ? [] : S.rliGrupos.includes(g) ? S.rliGrupos.filter((x) => x !== g) : [...S.rliGrupos, g]; pintar(); }
+  else if (t.dataset.paso) { S.incPaso = Number(t.dataset.paso); pintar(); document.querySelector('.incentivo')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  else if (t.hasAttribute('data-ver-consol')) { S.verConsol = !S.verConsol; pintar(); }
   else if (t.hasAttribute('data-detalle-esc')) { S.detalleEsc = !S.detalleEsc; pintar(); }
   else if (t.hasAttribute('data-lotes')) { S.lotes = !S.lotes; pintar(); }
   else cerrar();

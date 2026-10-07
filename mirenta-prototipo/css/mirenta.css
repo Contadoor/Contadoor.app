@@ -280,3 +280,31 @@ table.docs td.salidas{display:flex;gap:6px;justify-content:flex-end}table.docs .
 @media (max-width:1180px){.regbar{flex-wrap:wrap}.rb{flex:1 1 30%}.ficha,.consol,.ia-ef{grid-template-columns:1fr}.pers-g,.ia-g{grid-template-columns:1fr 1fr}}
 .hoja-doc tr.sec td{text-align:left!important;color:#924893}
 table.cmp tr.grupo td{color:var(--lila2)!important;font:700 11px var(--txt);letter-spacing:1.1px;text-transform:uppercase;padding-top:14px;text-align:left}
+/* ═══ R2.2 · refinamiento UX ═══ */
+/* RLI por grupos colapsables con subtotal siempre visible */
+table.hoja.grupos tr.grp-h td{background:rgba(255,255,255,.035);font-weight:700;color:var(--t1)!important;padding-top:11px;padding-bottom:11px}
+table.hoja.grupos tr.grp-h[data-grupo]{cursor:pointer}table.hoja.grupos tr.grp-h[data-grupo]:hover td{background:rgba(199,123,201,.09)}
+table.hoja.grupos .flecha{display:inline-block;width:18px;color:var(--acc,var(--lila))}table.hoja.grupos td.sub{font:800 14.5px var(--tit);white-space:nowrap}
+table.hoja.grupos tbody.abierto tr.grp-h td{border-bottom:1px solid var(--acc,var(--borde2))}
+table.hoja.grupos tr.grp-h.fijo td{background:rgba(199,123,201,.08)}table.hoja.grupos tr.grp-h.total td{background:var(--acc-bg,rgba(199,123,201,.14));font-size:14px;border-top:2px solid var(--acc,var(--borde2))}
+table.hoja.grupos tr.grp-h.total td.sub{color:var(--acc,var(--lila2));font-size:17px}
+table.hoja td.ep,table.hoja th.ep{text-align:left!important;white-space:nowrap}table.hoja td.ep .estado{margin-right:4px;font-size:10.5px;padding:2px 8px}
+/* Franja de orientación */
+.reg-fijo{position:sticky;top:62px;z-index:4;display:flex;flex-direction:column;gap:6px}.reg-fijo .reg-head{position:static}
+.franja{padding:6px 14px;border-radius:10px;background:var(--acc);color:#140816;font:700 11.5px var(--txt);letter-spacing:1.2px;animation:franja .35s ease-out}
+.franja b{font-weight:900;letter-spacing:.4px}@keyframes franja{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+/* Excedente neutro hasta confirmar derecho a devolución */
+.pers-g .prot.neutro{background:rgba(255,200,90,.07);border-color:rgba(255,200,90,.35)}.pers-g .prot.neutro b{color:var(--ambar)}
+/* Frase ejecutiva consolidado */
+.consol-frase{margin:2px 20px 12px;font-size:16px;line-height:1.5}.consol-frase b{color:var(--lila2)}
+/* Incentivo progresivo */
+.pasos{display:flex;align-items:center;gap:8px;padding:4px 20px 14px}.paso-sep{flex:1;height:1px;background:var(--borde)}
+.paso{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--borde);background:transparent;color:var(--t2);border-radius:999px;padding:6px 14px 6px 6px;font-weight:700;font-size:12.5px;cursor:pointer}
+.paso i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);font-size:11px}
+.paso.on{border-color:var(--lila);color:var(--t1);background:rgba(199,123,201,.14)}.paso.on i{background:var(--lila);color:#17091A}.paso.hecho i{background:rgba(95,207,156,.2);color:var(--verde)}
+.pie-paso{display:flex;justify-content:flex-end;padding:10px 20px 0}.btn.sig{border-color:var(--lila);background:rgba(199,123,201,.12)}
+.ia-ef.dos{grid-template-columns:1fr 1fr}.sub-comp{margin-top:6px;border-top:1px solid var(--borde)}
+.abrir-consol{display:flex;flex-direction:column;gap:2px;align-items:flex-start;width:100%;text-align:left;padding:16px 20px;border-radius:20px;border:1px dashed var(--borde2);background:rgba(255,255,255,.02);color:var(--lila2);font:800 15px var(--tit);cursor:pointer}
+.abrir-consol small{font:500 12px var(--txt);color:var(--t2)}.abrir-consol:hover{background:rgba(199,123,201,.08)}
+.incentivo .frase{margin:0 20px 12px;font-size:15.5px}
+.ia-ef.tres{grid-template-columns:repeat(3,1fr)}
