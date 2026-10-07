@@ -1,4 +1,5 @@
 // MiRentaShell (R2) · navegación, modo Cliente/Asesor, estado demo y paneles laterales. Sin cálculos tributarios.
+// Roles: CLIENTE · ASESOR. MASTER (validación, aprobación, certificación, cierre) queda reservado: sin botón en R2.
 import { ESTADOS } from './demo-data.js';
 import { SECCIONES, OCULTAS, render } from './vistas.js';
 import { cabecera } from './componentes/cabecera.js';
