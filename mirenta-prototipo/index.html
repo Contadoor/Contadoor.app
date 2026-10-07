@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MiRenta · prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/mirenta.css">
+</head>
+<body data-modo="CLIENTE">
+<aside class="side">
+  <div class="logo">Gest<span>oor</span></div>
+  <div class="it"><i>⌂</i>Dashboard</div>
+  <div class="sec">OPERACIÓN</div>
+  <div class="it"><i>▤</i>Contable</div><div class="it"><i>◎</i>Tributario</div><div class="it"><i>$</i>Pagos</div>
+  <div class="sec">RENTA</div>
+  <div class="it on"><i>◆</i>MiRenta</div>
+</aside>
+<div class="main">
+  <header class="top">
+    <div class="marca-mr"><h1>Mi<span>Renta</span></h1><p>Convierte la contabilidad en inteligencia tributaria · <em>no esperamos abril para saber qué está pasando con tus impuestos</em></p></div>
+    <div class="esp"></div>
+    <div class="demo">
+      <span>PROTOTIPO · DATOS DEMO</span>
+      <label>Estado: <select id="selEstado"><option value="completo">Completo</option><option value="preliminar">Preliminar</option><option value="faltan_datos">Faltan datos</option><option value="riesgo">Riesgo</option><option value="sin_info">Sin información</option></select></label>
+    </div>
+    <div class="modo" role="group" aria-label="Vista"><button data-modo="CLIENTE">Vista cliente</button><button data-modo="ASESOR">Vista asesor</button></div>
+    <button class="btn sm" data-imprimir>🖨 Imprimir</button>
+  </header>
+  <div id="cabecera"></div>
+  <nav class="nav" id="nav"></nav>
+  <p class="pregunta" id="pregunta"></p>
+  <main id="contenido" class="cont"></main>
+</div>
+<div class="velo" id="velo"></div>
+<aside class="traza" id="traza" aria-label="Detalle de la cifra"><button class="cerrar" id="cerrarTraza" aria-label="Cerrar">✕</button><div id="traza-cuerpo"></div></aside>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
