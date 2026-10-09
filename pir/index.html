@@ -78,6 +78,19 @@ body.g-mod-mr{--g-acento:#C77BC9;--grad:linear-gradient(160deg,#A4599C,#803889);
 .mr-tabla{width:100%;border-collapse:collapse;font-size:13px}
 .mr-tabla th{text-align:left;font:700 10.5px Inter,sans-serif;letter-spacing:1.1px;text-transform:uppercase;color:var(--t3);padding:8px 10px;border-bottom:1px solid var(--borde)}
 .mr-tabla td{padding:9px 10px;border-bottom:1px solid rgba(74,43,80,.4);vertical-align:top}.mr-tabla td.num{font-weight:700;white-space:nowrap}
+/* Color propio por familia de saldo y por tarjeta (mismo código que los registros del diseño R2.2) */
+.acc-PERD{--acc:#E07A6E;--acc-bg:rgba(224,122,110,.12)}.acc-CPTS{--acc:#7FA6FF;--acc-bg:rgba(127,166,255,.13)}.acc-RAI{--acc:#F2B84B;--acc-bg:rgba(242,184,75,.12)}
+.acc-REX{--acc:#3FC9A8;--acc-bg:rgba(63,201,168,.12)}.acc-SAC{--acc:#52D3EC;--acc-bg:rgba(82,211,236,.12)}.acc-CAP{--acc:#C77BC9;--acc-bg:rgba(199,123,201,.14)}
+.acc-PPM{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.12)}.acc-DIF{--acc:#B9A3FF;--acc-bg:rgba(185,163,255,.12)}
+.acc-DOC{--acc:#C77BC9;--acc-bg:rgba(199,123,201,.12)}.acc-PROP{--acc:#7FA6FF;--acc-bg:rgba(127,166,255,.10)}.acc-BLOQ{--acc:#E07A6E;--acc-bg:rgba(224,122,110,.10)}
+.acc-OK{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.10)}.acc-REV{--acc:#FFC85A;--acc-bg:rgba(255,200,90,.09)}
+.card[class*="acc-"]{border-top:3px solid var(--acc);background:linear-gradient(180deg,var(--acc-bg),rgba(34,16,39,.72) 140px)}
+.card[class*="acc-"] .h h2::before{background:var(--acc)}
+.mr-fila[class*="acc-"]{border-left:3px solid var(--acc);background:linear-gradient(90deg,var(--acc-bg),rgba(255,255,255,.02) 55%)}
+.mr-fila.con-error{border-color:rgba(224,122,110,.55);border-left-color:var(--acc)}
+.chip{display:inline-grid;place-items:center;min-width:40px;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:var(--acc);color:#140816;font:900 10.5px Montserrat,sans-serif;letter-spacing:.3px;vertical-align:1px}
+.chip.mini{min-width:36px;height:18px;font-size:10px}
+.mr-tabla tr[class*="acc-"] td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
 .mr-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(227,155,229,.3);border-top-color:var(--lila2);animation:mr-giro .8s linear infinite}
 @keyframes mr-giro{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.mr-spin{animation-duration:2.4s}}

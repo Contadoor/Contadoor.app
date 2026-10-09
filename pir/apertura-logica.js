@@ -33,6 +33,19 @@
   var NOMBRE_PROC = { DECLARED_F22: 'F22', REGISTER: 'Registro', CERTIFICATE: 'Certificado', DJ: 'Declaración jurada', MANUAL_OTHER: 'Otro respaldo' };
   var NOMBRE_ESTADO = { OK: 'Leído desde F22', REVIEW: 'Requiere revisión', PENDING: 'Pendiente', NOT_APPLICABLE: 'No aplica' };
 
+  // Familia de cada saldo: da el color propio (mismo código de color que los registros del diseño aprobado R2.2).
+  function familia(clave) {
+    var k = String(clave || '');
+    if (k === 'opening.previous_year_tax_loss') return { sigla: 'PÉRD', clase: 'acc-PERD' };
+    if (k.indexOf('opening.cpts') === 0) return { sigla: 'CPTS', clase: 'acc-CPTS' };
+    if (k === 'opening.rai') return { sigla: 'RAI', clase: 'acc-RAI' };
+    if (k === 'opening.rex') return { sigla: 'REX', clase: 'acc-REX' };
+    if (k.indexOf('opening.sac.') === 0) return { sigla: 'SAC', clase: 'acc-SAC' };
+    if (k === 'opening.capital_aportado_historico') return { sigla: 'CAP', clase: 'acc-CAP' };
+    if (k === 'opening.ppm_to_recover') return { sigla: 'PPM', clase: 'acc-PPM' };
+    return { sigla: 'DIF', clase: 'acc-DIF' };
+  }
+
   function esMonto(v) { return typeof v === 'number' && isFinite(v) && v >= 0; }
   function limpio(s) { return typeof s === 'string' ? s.trim() : ''; }
 
@@ -185,7 +198,7 @@
     return '$' + Math.round(n).toLocaleString('es-CL');
   }
 
-  var api = { CLAVES: CLAVES, ETIQUETA: ETIQUETA, PROCEDENCIAS_OTRAS: PROCEDENCIAS_OTRAS, NOMBRE_PROC: NOMBRE_PROC, NOMBRE_ESTADO: NOMBRE_ESTADO,
+  var api = { CLAVES: CLAVES, familia: familia, ETIQUETA: ETIQUETA, PROCEDENCIAS_OTRAS: PROCEDENCIAS_OTRAS, NOMBRE_PROC: NOMBRE_PROC, NOMBRE_ESTADO: NOMBRE_ESTADO,
               filasDesdePropuesta: filasDesdePropuesta, opciones: opciones, decidir: decidir, erroresFila: erroresFila, itemDeFila: itemDeFila,
               evaluarDeclaracion: evaluarDeclaracion, payloadDeclarar: payloadDeclarar, evaluarVerificacion: evaluarVerificacion,
               vistaVersiones: vistaVersiones, mensajeError: mensajeError, f22Vigente: f22Vigente, reemplazoF22: reemplazoF22, f22Historicos: f22Historicos, formatoMonto: formatoMonto };

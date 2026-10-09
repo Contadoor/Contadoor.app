@@ -172,7 +172,7 @@
 
   function tarjetaDocumento() {
     var f = f22Actual(), lec = lecturaActual(), puedeSubir = S.caso && (S.caso.estado === 'DRAFT' || S.caso.estado === 'IN_PROGRESS');
-    var h = '<section class="card"><div class="h"><h2>1 · Documento</h2>' + (f ? pill('verde', 'F22 registrado') : pill('gris', 'Sin F22')) + '</div>';
+    var h = '<section class="card acc-DOC"><div class="h"><h2>1 · Documento</h2>' + (f ? pill('verde', 'F22 registrado') : pill('gris', 'Sin F22')) + '</div>';
     if (!f) {
       h += '<p class="t2">Sube el <b>F22 Compacto del período anterior</b> tal como se descarga del SII (PDF). MiRenta lo guarda en el expediente del caso y lo lee.</p>';
       h += puedeSubir ? '<div class="mr-subir"><input type="file" accept="application/pdf" id="mr-f22-archivo"><button class="btn" data-accion="subir-f22"' + (S.ocupado ? ' disabled' : '') + '>' + (S.ocupado === 'subiendo' ? 'Subiendo…' : 'Subir F22 Compacto') + '</button></div>'
@@ -224,8 +224,9 @@
     var p = f.prop || {}, d = f.decision, ops = L.opciones(f), errs = L.erroresFila(f, (lecturaActual() || {}).fuente_id);
     var nombresOp = { F22: 'Mantener (leído desde F22)', REVISAR: 'Marcar “requiere revisión”', PENDIENTE: 'Dejar pendiente', NO_APLICA: 'No aplica', OTRA: 'Usar otro valor…' };
     var montoMostrado = d.tipo === 'OTRA' ? d.monto : (d.tipo === 'PENDIENTE' || d.tipo === 'NO_APLICA') ? null : p.monto;
-    var h = '<div class="mr-fila' + (errs.length ? ' con-error' : '') + '" data-i="' + i + '">' +
-      '<div class="c-concepto"><b>' + esc(f.concepto) + '</b><span class="t3">' + (p.codigo ? 'Código F22 ' + esc(p.codigo) : 'Sin código F22') + '</span></div>' +
+    var fam = L.familia(f.clave);
+    var h = '<div class="mr-fila ' + fam.clase + (errs.length ? ' con-error' : '') + '" data-i="' + i + '">' +
+      '<div class="c-concepto"><b><span class="chip">' + esc(fam.sigla) + '</span>' + esc(f.concepto) + '</b><span class="t3">' + (p.codigo ? 'Código F22 ' + esc(p.codigo) : 'Sin código F22') + '</span></div>' +
       '<div class="c-monto num"><b class="m">' + monto(montoMostrado) + '</b>' + (d.tipo === 'OTRA' && p.monto != null ? '<span class="t3">F22: ' + esc(L.formatoMonto(p.monto)) + '</span>' : '') + '</div>' +
       '<div class="c-estado">' + estadoFila(f) + '<span class="t3">' + esc(d.tipo === 'OTRA' ? (L.NOMBRE_PROC[d.provenance] || 'Procedencia por elegir') : 'Procedencia: F22') + '</span></div>' +
       '<div class="c-accion"><select data-accion="decidir" data-i="' + i + '">' + ops.map(function (o) { return '<option value="' + o + '"' + (o === d.tipo ? ' selected' : '') + '>' + nombresOp[o] + '</option>'; }).join('') + '</select></div>';
@@ -248,7 +249,7 @@
     var lec = lecturaActual(); if (!lec || lec.estado === 'EN_PROCESO' || lec.estado === 'ERROR') return '';
     var w = S.vigente && S.vigente.working;
     var r = lec.resultado || {}, warns = r.warnings || [];
-    var h = '<section class="card"><div class="h"><h2>2 · Propuesta del sistema</h2>' + (lec.estado === 'BLOQUEADO' ? pill('rojo', 'Bloqueado') : pill('lila', 'Leído desde F22')) + '</div>';
+    var h = '<section class="card ' + (lec.estado === 'BLOQUEADO' ? 'acc-BLOQ' : 'acc-PROP') + '"><div class="h"><h2>2 · Propuesta del sistema</h2>' + (lec.estado === 'BLOQUEADO' ? pill('rojo', 'Bloqueado') : pill('lila', 'Leído desde F22')) + '</div>';
     h += '<p class="t3 mr-meta">Lectura del ' + esc(fecha(lec.finalizado_at)) + ' · lector ' + esc(lec.parser) + ' ' + esc(lec.parser_version) + ' · por ' + quien(lec.actor) + (S.tecnico ? ' · <span class="mono">lectura #' + lec.id + ' · resultado ' + esc(lec.resultado_hash) + '</span>' : '') + '</p>';
     if (warns.length) h += '<div class="aviso ambar">' + warns.map(function (x) { return esc(x.mensaje) + (x.monto != null ? ' (' + esc(L.formatoMonto(x.monto)) + ')' : ''); }).join('<br>') + '</div>';
     if (lec.estado === 'BLOQUEADO') return h + bloqueos(lec) + '</section>';
@@ -275,7 +276,8 @@
         var otra = i.estado === 'OK' && i.provenance && i.provenance !== 'DECLARED_F22';
         var cls = otra ? 'lila' : i.estado === 'OK' ? 'verde' : i.estado === 'REVIEW' ? 'ambar' : 'gris';
         var txt = otra ? 'Respaldado por otra evidencia' : (L.NOMBRE_ESTADO[i.estado] || i.estado || '—');
-        return '<tr><td>' + esc(c[1]) + '</td><td class="mono">' + esc(i.f22_codigo_ref || '—') + '</td><td class="num">' + monto(i.monto) + '</td><td>' + pill(cls, txt) + '</td><td>' + esc(L.NOMBRE_PROC[i.provenance] || i.provenance || '—') + '</td><td class="t2">' + esc(i.nota || '') + '</td></tr>';
+        var fam = L.familia(c[0]);
+        return '<tr class="' + fam.clase + '"><td><span class="chip mini">' + esc(fam.sigla) + '</span>' + esc(c[1]) + '</td><td class="mono">' + esc(i.f22_codigo_ref || '—') + '</td><td class="num">' + monto(i.monto) + '</td><td>' + pill(cls, txt) + '</td><td>' + esc(L.NOMBRE_PROC[i.provenance] || i.provenance || '—') + '</td><td class="t2">' + esc(i.nota || '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
 
@@ -289,11 +291,11 @@
   function tarjetaVersiones() {
     var v = L.vistaVersiones(S.vigente); if (!v.efectiva && !v.enRevision) return '';
     var h = '';
-    if (v.efectiva) h += '<section class="card"><div class="h"><h2>Apertura vigente</h2>' + pill('verde', 'Verificado') + '</div><p class="t2">Versión ' + v.efectiva.version + '. Es la que usa MiRenta para el caso.</p>' + itemsApertura(v.efectiva) + auditoria(v.efectiva) + '</section>';
+    if (v.efectiva) h += '<section class="card acc-OK"><div class="h"><h2>Apertura vigente</h2>' + pill('verde', 'Verificado') + '</div><p class="t2">Versión ' + v.efectiva.version + '. Es la que usa MiRenta para el caso.</p>' + itemsApertura(v.efectiva) + auditoria(v.efectiva) + '</section>';
     if (v.enRevision) {
       var w = v.enRevision, ver = L.evaluarVerificacion(S.vigente, S.yo);
       var abiertos = (w.items || []).filter(function (i) { return i.estado === 'PENDING' || i.estado === 'REVIEW'; }).length;
-      h += '<section class="card"><div class="h"><h2>' + (v.efectiva ? 'Nueva versión en revisión' : 'Apertura en revisión') + '</h2>' + pill('ambar', 'Declarada · por verificar') + '</div>' +
+      h += '<section class="card acc-REV"><div class="h"><h2>' + (v.efectiva ? 'Nueva versión en revisión' : 'Apertura en revisión') + '</h2>' + pill('ambar', 'Declarada · por verificar') + '</div>' +
         '<p class="t2">Versión ' + w.version + '. ' + (abiertos ? 'Tiene ' + abiertos + (abiertos === 1 ? ' saldo pendiente o por revisar' : ' saldos pendientes o por revisar') + ': se resuelven con una nueva versión antes de verificar.' : 'Todos los saldos están resueltos.') +
         (v.efectiva ? ' La apertura vigente no cambia hasta que esta versión se verifique.' : '') + '</p>' + itemsApertura(w) + auditoria(w);
       if (ver.mostrar) {
@@ -311,7 +313,7 @@
     var raiz = $('#mr-app'); if (!raiz) return;
     var h = '<div class="mr-cabecera">' + selectorCaso() + '<label class="mr-tec"><input type="checkbox" data-accion="tecnico"' + (S.tecnico ? ' checked' : '') + '> Modo técnico</label></div>';
     if (S.aviso) h += '<div class="aviso ' + S.aviso.tipo + '" role="status">' + esc(S.aviso.texto) + '</div>';
-    if (!S.caso) h += '<section class="card"><div class="h"><h2>Apertura tributaria</h2></div><p class="t2">Elige un caso para revisar su apertura: los saldos iniciales que vienen del F22 del año anterior.</p>' + (S.casos.length ? '' : '<div class="aviso gris">No tienes casos de MiRenta asignados.</div>') + '</section>';
+    if (!S.caso) h += '<section class="card acc-DOC"><div class="h"><h2>Apertura tributaria</h2></div><p class="t2">Elige un caso para revisar su apertura: los saldos iniciales que vienen del F22 del año anterior.</p>' + (S.casos.length ? '' : '<div class="aviso gris">No tienes casos de MiRenta asignados.</div>') + '</section>';
     else if (S.ocupado === 'cargando' && !S.vigente) h += '<section class="card"><div class="aviso lila"><span class="mr-spin"></span>Cargando…</div></section>';
     else {
       var v = L.vistaVersiones(S.vigente);
