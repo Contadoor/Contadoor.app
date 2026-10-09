@@ -10,14 +10,94 @@
 <link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <style>
-/* MiRenta · en reconstrucción (P0.5-A). El prototipo anterior (Cloudflare KV) fue retirado. */
-body.g-mod-mr{--g-acento:#C77BC9}
+/* MiRenta · Apertura tributaria (E0C-B) · tokens del prototipo aprobado R2.2 (oscuro, morado de marca). */
+body.g-mod-mr{--g-acento:#C77BC9;--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--lila2:#E39BE5;--borde:#4A2B50;
+  --t1:#F3E9F4;--t2:#C9A8CC;--t3:#8F6F94;--verde:#5FCF9C;--ambar:#FFC85A;--rojo:#E07A6E;font-variant-numeric:tabular-nums}
 .g-mod-mr .tb-title span{color:#E39BE5}
-.mr-card{max-width:760px;background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:20px;padding:26px 28px}
-.mr-card h2{font:800 20px var(--g-titulo);color:#F3E9F4;margin-bottom:10px}
-.mr-card p{font-size:14px;line-height:1.6;color:#C9A8CC;margin-bottom:12px}
-.mr-card ul{margin:0 0 12px 18px;color:#C9A8CC;font-size:14px;line-height:1.7}
-.mr-marca b{color:#fff}.mr-marca i{font-style:normal;color:#E39BE5}
+/* Base del shell (como en los demás módulos; gestoor.css la re-viste con el tema noche) */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:220px;display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0}
+.main{margin-left:220px;flex:1;min-height:100vh;min-width:0}
+.topbar{padding:10px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.tb-title{flex:1}
+.content{padding:20px}
+#mr-app{display:flex;flex-direction:column;gap:16px;max-width:1080px;min-width:0}
+.t2{color:var(--t2)}.t3{color:var(--t3)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;word-break:break-all}.rojo-t{color:var(--rojo)}
+.mr-cabecera{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.mr-sel{display:flex;align-items:center;gap:10px;flex:1;min-width:0}.mr-sel span{font:700 11px Inter,sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t2)}
+.mr-sel select,.mr-fila select,.mr-otra select,.mr-campo input,.mr-nota,.mr-otra input[type=number]{min-height:36px;border:1px solid var(--borde);border-radius:10px;background:rgba(255,255,255,.05);color:var(--t1);padding:0 10px;font:600 13px Inter,sans-serif;min-width:0}
+.mr-sel select{flex:1;max-width:560px}.mr-fila select option,.mr-sel select option,.mr-otra select option{background:#1B0D20}
+.mr-tec{margin-left:auto;font-size:12px;color:var(--t3);display:flex;gap:6px;align-items:center;cursor:pointer}
+.mr-resumen{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.mr-resumen b{font:800 16px Montserrat,sans-serif}.mr-resumen span{color:var(--t2);font-size:13px}.mr-resumen .estado{margin-left:auto}
+.mr-pasos{display:flex;gap:6px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.mr-pasos li{display:flex;align-items:center;gap:8px;padding:7px 13px 7px 7px;border-radius:999px;border:1px solid var(--borde);color:var(--t3);font-size:12.5px;font-weight:600}
+.mr-pasos li b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.06);font:800 11px Montserrat,sans-serif}
+.mr-pasos li.ok{color:var(--t2)}.mr-pasos li.ok b{background:rgba(95,207,156,.18);color:var(--verde)}
+.mr-pasos li.act{color:var(--t1);border-color:var(--lila)}.mr-pasos li.act b{background:var(--grad);color:#fff}
+.card{background:rgba(34,16,39,.72);border:1px solid rgba(74,43,80,.55);border-radius:20px;box-shadow:0 10px 28px rgba(0,0,0,.28);padding:0 20px 18px;min-width:0}
+.card .h{display:flex;align-items:center;gap:10px;padding:16px 0 8px;flex-wrap:wrap}
+.card .h h2{position:relative;margin:0;padding-left:13px;font:800 17px/1.2 Montserrat,sans-serif;color:var(--t1)}
+.card .h h2::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:5px;border-radius:4px;background:var(--grad)}
+.card .h .estado{margin-left:auto}.card p{font-size:13.5px;line-height:1.55;margin:6px 0 10px}
+.mr-sub{font:800 14px Montserrat,sans-serif;color:var(--lila2);margin:18px 0 4px}
+.estado{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font:700 11.5px Inter,sans-serif;white-space:nowrap}
+.estado.verde{background:rgba(95,207,156,.14);color:var(--verde)}.estado.lila{background:rgba(199,123,201,.18);color:var(--lila2)}.estado.ambar{background:rgba(255,200,90,.14);color:var(--ambar)}
+.estado.rojo{background:rgba(224,122,110,.15);color:var(--rojo)}.estado.gris{background:rgba(255,255,255,.06);color:var(--t2)}
+.aviso{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 14px;border-radius:12px;font-size:12.5px;line-height:1.5;margin:8px 0}
+.aviso.ambar{background:rgba(255,200,90,.08);border:1px dashed rgba(255,200,90,.45);color:#F6DFA9}
+.aviso.rojo{background:rgba(224,122,110,.10);border:1px solid rgba(224,122,110,.5);color:#F5C2BB}.aviso.rojo.fuerte{font-size:13.5px}
+.aviso.gris{background:rgba(255,255,255,.04);border:1px dashed var(--borde);color:var(--t2)}
+.aviso.lila{background:rgba(199,123,201,.10);border:1px solid rgba(199,123,201,.45);color:var(--lila2)}
+.aviso.verde{background:rgba(95,207,156,.10);border:1px solid rgba(95,207,156,.45);color:#BDEFD6}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 18px;border-radius:999px;border:0;background:var(--grad);color:#fff;font:700 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.btn.sec{background:transparent;border:1.5px solid var(--lila);color:var(--t1)}.btn.chico{min-height:30px;padding:0 12px;font-size:12px}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+@media (hover:hover) and (pointer:fine){.btn:not(:disabled):hover{filter:brightness(1.12)}.btn.sec:not(:disabled):hover{background:rgba(199,123,201,.12)}}
+.mr-acciones{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
+.mr-subir{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.mr-subir input,.mr-mini input{color:var(--t2);font-size:12px;max-width:100%}
+.mr-doc{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:6px 0 4px}
+.mr-doc div{display:flex;flex-direction:column;gap:2px;font-size:13px;min-width:0;overflow-wrap:anywhere}.mr-doc span{font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.mr-hist{margin:8px 0;font-size:12.5px;color:var(--t2)}.mr-hist summary{cursor:pointer;color:var(--t3)}.mr-hist ul{margin:6px 0 0 18px;padding:0}
+.mr-reemplazo{border-left:3px solid var(--ambar);padding-left:12px;margin-top:10px}
+.mr-meta{font-size:12px !important;margin:0 0 8px !important}
+.mr-filas{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mr-fila{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.6fr);gap:8px 14px;align-items:center;padding:11px 14px;border-radius:14px;border:1px solid rgba(74,43,80,.6);background:rgba(255,255,255,.025)}
+.mr-fila.cab{background:none;border:0;padding:0 14px;font:700 10.5px Inter,sans-serif;letter-spacing:1.1px;text-transform:uppercase;color:var(--t3)}
+.mr-fila.con-error{border-color:rgba(224,122,110,.55)}
+.mr-fila>div{min-width:0}.c-concepto,.c-estado,.c-monto{display:flex;flex-direction:column;gap:3px}.c-concepto b{font-weight:700;font-size:13.5px}.c-concepto span,.c-estado span,.c-monto span{font-size:11.5px}
+.c-estado .estado{align-self:flex-start}.c-monto b{font:800 15px Montserrat,sans-serif}.c-monto b .t3{font:600 12px Inter,sans-serif}
+.c-accion select{width:100%}.num{text-align:right}.c-monto{align-items:flex-end}
+.c-full{grid-column:1/-1}.mr-nota{width:100%}.mr-err{color:var(--rojo);font-size:12px}
+.mr-otra{border-left:3px solid var(--ambar);padding-left:12px}.mr-otra .aviso{margin-top:0}
+.mr-otra-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.mr-otra label,.mr-campo{display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:var(--t2);min-width:0}
+.mr-mini{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.mr-campo input{width:100%}
+.mr-nota,.mr-campo input,.mr-otra input[type=number],.mr-otra select,.c-accion select{box-sizing:border-box;max-width:100%}
+.mr-tabla-wrap{overflow-x:auto;margin:6px 0}
+.mr-tabla{width:100%;border-collapse:collapse;font-size:13px}
+.mr-tabla th{text-align:left;font:700 10.5px Inter,sans-serif;letter-spacing:1.1px;text-transform:uppercase;color:var(--t3);padding:8px 10px;border-bottom:1px solid var(--borde)}
+.mr-tabla td{padding:9px 10px;border-bottom:1px solid rgba(74,43,80,.4);vertical-align:top}.mr-tabla td.num{font-weight:700;white-space:nowrap}
+/* Color propio por familia de saldo y por tarjeta (mismo código que los registros del diseño R2.2) */
+.acc-PERD{--acc:#E07A6E;--acc-bg:rgba(224,122,110,.12)}.acc-CPTS{--acc:#7FA6FF;--acc-bg:rgba(127,166,255,.13)}.acc-RAI{--acc:#F2B84B;--acc-bg:rgba(242,184,75,.12)}
+.acc-REX{--acc:#3FC9A8;--acc-bg:rgba(63,201,168,.12)}.acc-SAC{--acc:#52D3EC;--acc-bg:rgba(82,211,236,.12)}.acc-CAP{--acc:#C77BC9;--acc-bg:rgba(199,123,201,.14)}
+.acc-PPM{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.12)}.acc-DIF{--acc:#B9A3FF;--acc-bg:rgba(185,163,255,.12)}
+.acc-DOC{--acc:#C77BC9;--acc-bg:rgba(199,123,201,.12)}.acc-PROP{--acc:#7FA6FF;--acc-bg:rgba(127,166,255,.10)}.acc-BLOQ{--acc:#E07A6E;--acc-bg:rgba(224,122,110,.10)}
+.acc-OK{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.10)}.acc-REV{--acc:#FFC85A;--acc-bg:rgba(255,200,90,.09)}
+.card[class*="acc-"]{border-top:3px solid var(--acc);background:linear-gradient(180deg,var(--acc-bg),rgba(34,16,39,.72) 140px)}
+.card[class*="acc-"] .h h2::before{background:var(--acc)}
+.mr-fila[class*="acc-"]{border-left:3px solid var(--acc);background:linear-gradient(90deg,var(--acc-bg),rgba(255,255,255,.02) 55%)}
+.mr-fila.con-error{border-color:rgba(224,122,110,.55);border-left-color:var(--acc)}
+.chip{display:inline-grid;place-items:center;min-width:40px;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:var(--acc);color:#140816;font:900 10.5px Montserrat,sans-serif;letter-spacing:.3px;vertical-align:1px}
+.chip.mini{min-width:36px;height:18px;font-size:10px}
+.mr-tabla tr[class*="acc-"] td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+.mr-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(227,155,229,.3);border-top-color:var(--lila2);animation:mr-giro .8s linear infinite}
+@keyframes mr-giro{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.mr-spin{animation-duration:2.4s}}
+@media (max-width:760px){
+  .mr-fila{grid-template-columns:minmax(0,1fr) auto}.mr-fila.cab{display:none}
+  .c-estado,.c-accion{grid-column:1/-1}.mr-resumen .estado{margin-left:0}
+}
 </style>
 </head>
 <body class="g-shell g-tema-noche g-mod-mr">
@@ -30,18 +110,7 @@ body.g-mod-mr{--g-acento:#C77BC9}
     <div class="g-espacio"></div>
   </div>
   <div class="content">
-    <div class="mr-card">
-      <h2 class="mr-marca"><b>Mi</b><i>Renta</i> está en reconstrucción</h2>
-      <p>El prototipo anterior del PIR fue retirado porque guardaba información de clientes fuera de Gestoor, sin los controles de seguridad del sistema.</p>
-      <p>La nueva versión se construirá dentro de Gestoor:</p>
-      <ul>
-        <li>solo para clientes autorizados de tu cartera;</li>
-        <li>con los libros originales guardados y trazables;</li>
-        <li>con reglas tributarias versionadas por año tributario;</li>
-        <li>con historial de cambios y aprobación del Master para cerrar un año.</li>
-      </ul>
-      <p>Mientras tanto, esta pantalla no calcula ni guarda información.</p>
-    </div>
+    <div id="mr-app"><div class="aviso lila"><span class="mr-spin"></span>Cargando MiRenta…</div></div>
   </div>
 </main>
 </div>
@@ -54,6 +123,8 @@ body.g-mod-mr{--g-acento:#C77BC9}
 })();
 </script>
 <script src="../supabase.js"></script>
+<script src="apertura-logica.js"></script>
+<script src="apertura.js"></script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
 </body>
