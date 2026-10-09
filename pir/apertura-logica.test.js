@@ -160,6 +160,16 @@ test('efectiva + en revisión → ambas versiones visibles', () => {
   assert.ok(v.efectiva && v.enRevision); assert.match(v.titulo, /nueva versión en revisión/);
 });
 
+test('E0C-B R1 · F22 nuevo: reemplaza exactamente al vigente (o NULL si no hay)', () => {
+  assert.equal(L.reemplazoF22([]), null);
+  const fs = [{ id: 4, tipo_fuente: 'F22_ANTERIOR', estado: 'REEMPLAZADA' }, { id: 7, tipo_fuente: 'OTRO', estado: 'REGISTRADA' },
+              { id: 8, tipo_fuente: 'F22_ANTERIOR', estado: 'REGISTRADA' }, { id: 9, tipo_fuente: 'F22_ANTERIOR', estado: 'ANULADA' }];
+  assert.equal(L.reemplazoF22(fs), 8);
+  assert.equal(L.reemplazoF22(fs.filter((f) => f.id !== 8)), null);   // solo históricos → primer F22 de nuevo
+  assert.deepEqual(L.f22Historicos(fs).map((f) => f.id), [9, 4]);      // el historial no se oculta
+  assert.match(L.mensajeError('F22_VIGENTE_EXISTE: el caso ya tiene un F22 registrado (fuente 8)'), /Recarga/);
+});
+
 test('formato de montos chileno', () => {
   assert.equal(L.formatoMonto(4000000), '$4.000.000');
   assert.equal(L.formatoMonto(null), null);

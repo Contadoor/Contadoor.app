@@ -8,7 +8,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var S = { sb: null, yo: null, casos: [], clientes: {}, caso: null, fuentes: [], lecturas: [], vigente: null, usuarios: {},
-            filas: null, lecturaEdit: null, abierta: {}, motivo: '', motivoVerif: '', ocupado: null, aviso: null, tecnico: false, editarNueva: false };
+            filas: null, lecturaEdit: null, abierta: {}, motivo: '', motivoVerif: '', ocupado: null, aviso: null, tecnico: false, editarNueva: false, reemplazar: false };
 
   // ── acceso a datos (solo sesión del usuario) ──────────────────────────────
   function rpc(fn, args) {
@@ -37,7 +37,7 @@
 
   function elegirCaso(id) {
     S.caso = S.casos.find(function (c) { return c.id === Number(id); }) || null;
-    S.filas = null; S.lecturaEdit = null; S.abierta = {}; S.motivo = ''; S.motivoVerif = ''; S.aviso = null; S.editarNueva = false;
+    S.filas = null; S.lecturaEdit = null; S.abierta = {}; S.motivo = ''; S.motivoVerif = ''; S.aviso = null; S.editarNueva = false; S.reemplazar = false;
     try { history.replaceState(null, '', S.caso ? '?caso=' + S.caso.id : location.pathname); } catch (e) {}
     if (!S.caso) { render(); return Promise.resolve(); }
     return recargarCaso();
@@ -54,7 +54,7 @@
       var lec = lecturaActual();
       if (lec && lec.estado === 'PROPUESTA' && (!S.lecturaEdit || S.lecturaEdit !== lec.id)) {
         S.filas = L.filasDesdePropuesta((lec.resultado || {}).propuesta); S.lecturaEdit = lec.id;
-      }
+      } else if (!lec || lec.estado !== 'PROPUESTA') { S.filas = null; S.lecturaEdit = null; }
       return cargarNombres();
     }).then(render).catch(function (e) { S.ocupado = null; S.aviso = { tipo: 'rojo', texto: 'No se pudo cargar el caso: ' + e.message }; render(); });
   }
@@ -72,10 +72,7 @@
   }
   function quien(id) { return id ? esc(S.usuarios[id] || ('usuario #' + id)) : '—'; }
 
-  function f22Actual() {
-    var f = S.fuentes.filter(function (x) { return x.tipo_fuente === 'F22_ANTERIOR' && x.estado === 'REGISTRADA'; });
-    return f.length ? f[f.length - 1] : null;
-  }
+  function f22Actual() { return L.f22Vigente(S.fuentes); }
   function lecturaActual() {
     var f = f22Actual(); if (!f) return null;
     return S.lecturas.find(function (l) { return l.fuente_id === f.id; }) || null;
@@ -91,7 +88,8 @@
       return Array.prototype.map.call(new Uint8Array(h), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
     });
   }
-  function subirFuente(archivo, tipo) {
+  // reemplazaA: solo para F22 (E0C-B R1). Se toma del F22 vigente en el momento de subir; la base exige que sea exactamente ese.
+  function subirFuente(archivo, tipo, reemplazaA) {
     if (!archivo) return Promise.reject(new Error('Elige un archivo.'));
     if (tipo === 'F22_ANTERIOR' && archivo.type !== 'application/pdf') return Promise.reject(new Error('El F22 debe ser el PDF del Compacto descargado del SII.'));
     if (archivo.size > 50 * 1024 * 1024) return Promise.reject(new Error('El archivo supera 50 MB.'));
@@ -102,7 +100,7 @@
         .then(function (r) { if (r.error) throw new Error('No se pudo subir el archivo (' + r.error.message + ').'); })
         .then(function () {
           return rpc('renta_fuente_registrar', { p_caso_id: S.caso.id, p_clave: clave, p_tipo_fuente: tipo, p_origen: tipo === 'F22_ANTERIOR' ? 'SII' : 'CONTADOOR',
-                                                 p_nombre_original: archivo.name, p_sha256: sha });
+                                                 p_nombre_original: archivo.name, p_sha256: sha, p_reemplaza_a: reemplazaA || null });
         });
     });
   }
@@ -165,6 +163,13 @@
     return '<label class="mr-sel"><span>Caso</span><select data-accion="caso">' + ops + '</select></label>';
   }
 
+  function historialF22() {
+    var hist = L.f22Historicos(S.fuentes); if (!hist.length) return '';
+    return '<details class="mr-hist"><summary>Versiones anteriores del F22 (' + hist.length + ')</summary><ul>' + hist.map(function (x) {
+      return '<li>' + esc(x.nombre_original) + ' <span class="t3">· cargado ' + esc(fecha(x.cargado_at)) + ' · ' + (x.estado === 'REEMPLAZADA' ? 'reemplazado' : 'anulado') + '</span></li>';
+    }).join('') + '</ul></details>';
+  }
+
   function tarjetaDocumento() {
     var f = f22Actual(), lec = lecturaActual(), puedeSubir = S.caso && (S.caso.estado === 'DRAFT' || S.caso.estado === 'IN_PROGRESS');
     var h = '<section class="card"><div class="h"><h2>1 · Documento</h2>' + (f ? pill('verde', 'F22 registrado') : pill('gris', 'Sin F22')) + '</div>';
@@ -172,7 +177,7 @@
       h += '<p class="t2">Sube el <b>F22 Compacto</b> del año tributario ' + (S.caso.anio_tributario - 1) + ' tal como se descarga del SII (PDF). MiRenta lo guarda en el expediente del caso y lo lee.</p>';
       h += puedeSubir ? '<div class="mr-subir"><input type="file" accept="application/pdf" id="mr-f22-archivo"><button class="btn" data-accion="subir-f22"' + (S.ocupado ? ' disabled' : '') + '>' + (S.ocupado === 'subiendo' ? 'Subiendo…' : 'Subir F22 Compacto') + '</button></div>'
                       : '<div class="aviso gris">El caso está en estado ' + esc(S.caso.estado) + ': ya no admite documentos nuevos.</div>';
-      return h + '</section>';
+      return h + historialF22() + '</section>';
     }
     h += '<div class="mr-doc"><div><span class="t3">Archivo</span><b>' + esc(f.nombre_original) + '</b></div><div><span class="t3">Cargado</span>' + esc(fecha(f.cargado_at)) + '</div>';
     if (lec && lec.resultado && lec.resultado.document) {
@@ -180,10 +185,18 @@
       h += '<div><span class="t3">RUT</span>' + esc(d.rut || '—') + '</div><div><span class="t3">Año tributario</span>' + esc(d.anio_tributario || '—') + '</div><div><span class="t3">Folio</span>' + esc(d.folio || '—') + '</div>';
     }
     h += '</div>';
+    h += historialF22();
     if (S.ocupado === 'leyendo') h += '<div class="aviso lila"><span class="mr-spin"></span>Leyendo el F22… (unos segundos)</div>';
     else if (!lec) h += '<div class="mr-acciones"><button class="btn" data-accion="leer" data-fuente="' + f.id + '">Leer F22</button></div>';
     else if (lec.estado === 'EN_PROCESO') h += '<div class="aviso ambar">Hay una lectura iniciada el ' + esc(fecha(lec.creado_at)) + ' que no terminó.</div><div class="mr-acciones"><button class="btn sec" data-accion="leer" data-fuente="' + f.id + '">Leer de nuevo</button></div>';
     else if (lec.estado === 'ERROR') h += '<div class="aviso rojo">La lectura terminó con error (' + esc(lec.error_codigo) + '). Si el PDF es una imagen escaneada, descarga el Compacto directamente desde el SII y súbelo de nuevo.</div><div class="mr-acciones"><button class="btn sec" data-accion="leer" data-fuente="' + f.id + '">Leer de nuevo</button></div>';
+    if (puedeSubir && S.ocupado !== 'leyendo') {
+      h += S.reemplazar
+        ? '<div class="mr-reemplazo"><div class="aviso ambar">Este archivo reemplazará el F22 actualmente utilizado por MiRenta. El anterior y sus lecturas quedan en el historial.</div>' +
+          '<div class="mr-subir"><input type="file" accept="application/pdf" id="mr-f22-archivo"><button class="btn" data-accion="subir-f22"' + (S.ocupado ? ' disabled' : '') + '>' + (S.ocupado === 'subiendo' ? 'Subiendo…' : 'Subir y reemplazar') + '</button>' +
+          '<button class="btn sec" data-accion="cancelar-reemplazo">Cancelar</button></div></div>'
+        : '<div class="mr-acciones"><button class="btn sec chico" data-accion="reemplazar">Reemplazar F22…</button></div>';
+    }
     return h + '</section>';
   }
 
@@ -370,10 +383,13 @@
       if (a === 'verificar') return verificar();
       if (a === 'nueva') { var lec = lecturaActual(); S.filas = L.filasDesdePropuesta(lec.resultado.propuesta); S.editarNueva = true; return render(); }
       if (a === 'cancelar-nueva') { S.editarNueva = false; return render(); }
+      if (a === 'reemplazar') { S.reemplazar = true; return render(); }
+      if (a === 'cancelar-reemplazo') { S.reemplazar = false; return render(); }
       if (a === 'subir-f22') {
         var arch = ($('#mr-f22-archivo').files || [])[0];
         S.ocupado = 'subiendo'; S.aviso = null; render();
-        return subirFuente(arch, 'F22_ANTERIOR').then(function (r) { S.ocupado = null; return recargarCaso().then(function () { return leerF22(r.id); }); })
+        S.reemplazar = false;
+        return subirFuente(arch, 'F22_ANTERIOR', L.reemplazoF22(S.fuentes)).then(function (r) { S.ocupado = null; return recargarCaso().then(function () { return leerF22(r.id); }); })
           .catch(function (err) { S.ocupado = null; S.aviso = { tipo: 'rojo', texto: L.mensajeError(err.message) }; render(); });
       }
       if (a === 'subir-ev') {

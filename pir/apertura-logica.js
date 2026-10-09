@@ -150,10 +150,21 @@
     return { estado: v.estado || 'OPENING_MISSING', titulo: titulo, efectiva: v.effective || null, enRevision: v.working || null };
   }
 
+  // F22 vigente del caso (E0C-B R1: como máximo uno REGISTRADA). Un F22 nuevo debe reemplazar exactamente a este (o NULL si no hay).
+  function f22Vigente(fuentes) {
+    var v = (fuentes || []).filter(function (f) { return f.tipo_fuente === 'F22_ANTERIOR' && f.estado === 'REGISTRADA'; });
+    return v.length ? v[v.length - 1] : null;
+  }
+  function reemplazoF22(fuentes) { var v = f22Vigente(fuentes); return v ? v.id : null; }
+  function f22Historicos(fuentes) {
+    return (fuentes || []).filter(function (f) { return f.tipo_fuente === 'F22_ANTERIOR' && f.estado !== 'REGISTRADA'; }).reverse();
+  }
+
   // Mensajes de la base → texto para el analista (sin perder la edición).
   function mensajeError(msg) {
     var m = String(msg || '');
     var mapa = [
+      [/F22_VIGENTE_EXISTE/, 'El F22 vigente del caso cambió (otra persona pudo haberlo reemplazado). Recarga la página y vuelve a intentarlo.'],
       [/LECTURA_F22_DATO_NO_COINCIDE/, 'Un saldo marcado como “leído desde F22” no coincide con lo que se leyó del F22. Si el valor correcto es otro, usa “Usar otro valor” con su respaldo.'],
       [/LECTURA_F22_INVALIDA/, 'La lectura del F22 ya no es válida para declarar (otro documento, bloqueada o alterada). Vuelve a leer el F22.'],
       [/CPTS_INCOHERENTE/, 'CPTS positivo y negativo no pueden tener monto a la vez.'],
@@ -177,7 +188,7 @@
   var api = { CLAVES: CLAVES, ETIQUETA: ETIQUETA, PROCEDENCIAS_OTRAS: PROCEDENCIAS_OTRAS, NOMBRE_PROC: NOMBRE_PROC, NOMBRE_ESTADO: NOMBRE_ESTADO,
               filasDesdePropuesta: filasDesdePropuesta, opciones: opciones, decidir: decidir, erroresFila: erroresFila, itemDeFila: itemDeFila,
               evaluarDeclaracion: evaluarDeclaracion, payloadDeclarar: payloadDeclarar, evaluarVerificacion: evaluarVerificacion,
-              vistaVersiones: vistaVersiones, mensajeError: mensajeError, formatoMonto: formatoMonto };
+              vistaVersiones: vistaVersiones, mensajeError: mensajeError, f22Vigente: f22Vigente, reemplazoF22: reemplazoF22, f22Historicos: f22Historicos, formatoMonto: formatoMonto };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.AperturaLogica = api;
 })(typeof window !== 'undefined' ? window : globalThis);
