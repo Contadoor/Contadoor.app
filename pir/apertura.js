@@ -174,7 +174,7 @@
     var f = f22Actual(), lec = lecturaActual(), puedeSubir = S.caso && (S.caso.estado === 'DRAFT' || S.caso.estado === 'IN_PROGRESS');
     var h = '<section class="card"><div class="h"><h2>1 · Documento</h2>' + (f ? pill('verde', 'F22 registrado') : pill('gris', 'Sin F22')) + '</div>';
     if (!f) {
-      h += '<p class="t2">Sube el <b>F22 Compacto</b> del año tributario ' + (S.caso.anio_tributario - 1) + ' tal como se descarga del SII (PDF). MiRenta lo guarda en el expediente del caso y lo lee.</p>';
+      h += '<p class="t2">Sube el <b>F22 Compacto del período anterior</b> tal como se descarga del SII (PDF). MiRenta lo guarda en el expediente del caso y lo lee.</p>';
       h += puedeSubir ? '<div class="mr-subir"><input type="file" accept="application/pdf" id="mr-f22-archivo"><button class="btn" data-accion="subir-f22"' + (S.ocupado ? ' disabled' : '') + '>' + (S.ocupado === 'subiendo' ? 'Subiendo…' : 'Subir F22 Compacto') + '</button></div>'
                       : '<div class="aviso gris">El caso está en estado ' + esc(S.caso.estado) + ': ya no admite documentos nuevos.</div>';
       return h + historialF22() + '</section>';
@@ -259,7 +259,7 @@
     h += '<h3 class="mr-sub">3 · Revisión humana</h3><p class="t2">Revisa cada saldo. Lo leído desde el F22 no se edita: si el valor correcto es otro, usa “Usar otro valor…” con su respaldo.</p>';
     h += '<div class="mr-filas"><div class="mr-fila cab"><div>Concepto</div><div class="num">Monto</div><div>Estado</div><div>Decisión</div></div>' + S.filas.map(filaRevision).join('') + '</div>';
     var ev = L.evaluarDeclaracion(lec, S.filas, S.motivo);
-    h += '<h3 class="mr-sub">4 · Declaración</h3><label class="mr-campo"><span>Motivo</span><input type="text" data-accion="motivo" value="' + esc(S.motivo) + '" placeholder="Ej.: Apertura desde F22 AT ' + (S.caso.anio_tributario - 1) + '"></label>' +
+    h += '<h3 class="mr-sub">4 · Declaración</h3><label class="mr-campo"><span>Motivo</span><input type="text" data-accion="motivo" value="' + esc(S.motivo) + '" placeholder="Ej.: Apertura desde el F22 del período anterior"></label>' +
       '<div class="mr-acciones"><button class="btn" data-accion="declarar"' + (ev.ok && !S.ocupado ? '' : ' disabled') + '>' + (S.ocupado === 'declarando' ? 'Declarando…' : 'Declarar apertura') + '</button>' +
       (S.editarNueva ? '<button class="btn sec" data-accion="cancelar-nueva">Cancelar</button>' : '') + '</div>' +
       (S.aviso && S.aviso.tipo === 'rojo' ? '<div class="aviso rojo">' + esc(S.aviso.texto) + '</div>' : '') +
