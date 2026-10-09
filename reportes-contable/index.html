@@ -1484,21 +1484,27 @@ function detectarTipoLibroEnHtml(tablas){
 }
 
 function puntuarTablaMasConta(tablaInfo, tipoSolicitado){
+  // C6 (9-oct): el tipo de libro se decide SOLO por el título, nunca por los datos de las filas
+  // (un proveedor con "VENTAS" en el nombre hacía perder puntos a la tabla de detalle de Compras).
   var titulo=normalizarEncabezado(tablaInfo.titulo||'');
-  var primeras=tablaInfo.filas.slice(0,15).map(function(row){
-    return row.map(normalizarEncabezado).join(' | ');
-  }).join(' ');
-  var texto=titulo+' '+primeras;
   var puntos=0;
   if(tipoSolicitado==='ventas'){
-    if(/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto))  puntos+=20;
-    if(/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto)) puntos-=20;
+    if(/LIBRO DE VENTAS?\b/.test(titulo))  puntos+=20;
+    if(/LIBRO DE COMPRAS?\b/.test(titulo)) puntos-=20;
   } else if(tipoSolicitado==='compras'){
-    if(/LIBRO.*COMPRAS|COMPRAS.*LIBRO/.test(texto)) puntos+=20;
-    if(/LIBRO.*VENTAS|VENTAS.*LIBRO/.test(texto))   puntos-=20;
+    if(/LIBRO DE COMPRAS?\b/.test(titulo)) puntos+=20;
+    if(/LIBRO DE VENTAS?\b/.test(titulo))  puntos-=20;
   }
   var headerInfo=detectarHeaderRow(tablaInfo.filas);
-  if(headerInfo&&headerInfo.index>=0) puntos+=(headerInfo.score||8);
+  if(headerInfo&&headerInfo.index>=0){
+    puntos+=(headerInfo.score||8);
+    // La tabla RESUMEN por tipo de documento (Documento | Cant. Doc. | …) nunca es el detalle:
+    // no trae RUT ni fecha por documento.
+    var hn=headerInfo.headersNormalizados||[];
+    var esResumen=hn.some(function(v){return /CANT.*DOC/.test(v);})||
+      !hn.some(function(v){return /^RUT$|RUT CLIENTE|RUT PROVEEDOR|RUT RECEPTOR/.test(v);});
+    if(esResumen) puntos-=40;
+  }
   if(tablaInfo.filas.length>5) puntos+=2;
   return {tabla:tablaInfo,puntos:puntos,headerInfo:headerInfo};
 }
