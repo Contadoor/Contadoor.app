@@ -53,6 +53,11 @@ th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
 td{padding:10px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#f9fefb;}
+/* Cliente seleccionado: fila destacada en lila (mismo estilo que Contable) */
+tr.g-fila-sel td{background:linear-gradient(180deg,rgba(199,123,201,.24),rgba(146,72,147,.12))!important;border-top:1.5px solid rgba(199,123,201,.7)!important;border-bottom:1.5px solid rgba(199,123,201,.7)!important}
+tr.g-fila-sel td:first-child{box-shadow:inset 5px 0 0 #C77BC9}
+tr.g-fila-sel .cli-nombre{color:#F3E9F4}
+tr[data-rut]{cursor:pointer}
 .cli-nombre{font-size:12.5px;font-weight:700;}
 .cli-sub{font-size:10px;color:var(--tm);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .plan{padding:1px 7px;border-radius:20px;font-size:9.5px;font-weight:700;}
@@ -815,7 +820,7 @@ function renderTabla(periodo){
     var planLabel=c&&c.plan?({cumplimiento:'Cumplimiento',asesoria:'Contadoor PRO',pro:'Contadoor PRO',estrategico:'Contadoor Estratégico'}[c.plan.toLowerCase()]||c.plan):' - ';
     var est_r=getEstadoRrhh(r);
     var _chkOk=(est_r==='completado'); // solo RRHH OK puede iniciar nuevo aviso
-    html+='<tr>'
+    html+='<tr data-rut="'+hesc(r.rut)+'" class="'+(r.rut===_rutSelRrhh?'g-fila-sel':'')+'" onclick="seleccionarClienteRrhh(this.getAttribute(\'data-rut\'))">'
       +'<td style="text-align:center">'
       +(_chkOk
         ?'<input type="checkbox" class="rrhh-chk" data-id="'+r.id+'" data-estado="'+est_r+'" onchange="actualizarBulkBar()" style="width:14px;height:14px;accent-color:var(--p)">'
@@ -1503,8 +1508,18 @@ function actualizarPreviewRpt(){
 // ═══════════════════════════════════════════════════
 // MODAL RRHH
 // ═══════════════════════════════════════════════════
+// Cliente seleccionado (destacado en lila, igual que en Contable): al hacer clic en su fila o abrir Completar/Editar.
+// Se quita al enviar a aprobación o finalizar. Solo presentación.
+var _rutSelRrhh=null;
+function seleccionarClienteRrhh(rut){
+  _rutSelRrhh=rut||null;
+  document.querySelectorAll('#rpt-tabla-body tr[data-rut], tr[data-rut]').forEach(function(tr){
+    tr.classList.toggle('g-fila-sel', !!_rutSelRrhh && tr.getAttribute('data-rut')===_rutSelRrhh);
+  });
+}
 function abrirModal(id,enviar,limpiar){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
+  if(r&&r.rut) seleccionarClienteRrhh(r.rut);
   // Si no hay reporte existente (cliente nuevo en período) → crear placeholder
   if(!r && String(id).indexOf('nuevo_')===0){
     var partes=String(id).replace('nuevo_','').split('_');
@@ -2449,6 +2464,7 @@ function marcarEnPreviredRrhh(id){
 function enviarAprobacionRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Enviar a aprobación de Luciano?'))return;
+  if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
   actualizarEstadoRrhh(id,'pendiente_aprobacion',{fechaAprobacion:new Date().toISOString()});
   var u=getUsuario();
   // Registrar pago en Supabase tabla pagos
@@ -2483,6 +2499,7 @@ function enviarAprobacionRrhh(id){
 function marcarFinalizadoRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Verificaste que las cotizaciones quedaron pagadas correctamente?\nEsto cierra el proceso de '+hesc(r.clienteNombre)+'.'))return;
+  if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
   actualizarEstadoRrhh(id,'finalizado',{fechaFinalizado:new Date().toISOString(),quienFinalizo:getUsuario().nombre||''});
   renderTabla(sv('selectPeriodo'));toast('🔒 Proceso finalizado correctamente');
 }
