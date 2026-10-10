@@ -62,6 +62,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .cliente-row{border-bottom:1px solid var(--bdr);transition:.1s;}
 .cliente-row:last-child{border-bottom:none;}
 .cliente-row:hover{background:#f9f7ff;}
+/* Cliente seleccionado: toda su sección (fila + detalle) con color de selección */
+.g-mod-cont .cliente-row.sel[id],.cliente-row.sel{position:relative;background:linear-gradient(180deg,rgba(199,123,201,.26),rgba(146,72,147,.12) 120px,rgba(146,72,147,.08))!important;box-shadow:inset 5px 0 0 #C77BC9,0 0 0 1.5px rgba(199,123,201,.7),0 14px 34px rgba(0,0,0,.35)!important;border-radius:14px;margin:8px 0;border-bottom-color:transparent!important}
+.g-mod-cont .cliente-row.sel[id] .cr-detalle,.cliente-row.sel .cr-detalle{background:rgba(23,9,26,.55)!important;border-top-color:rgba(199,123,201,.35)!important;border-radius:0 0 14px 14px}
+.cliente-row.sel .cr-nombre{color:#F3E9F4}
+@media (prefers-reduced-motion:no-preference){.cliente-row{transition:background-color .2s ease,box-shadow .2s ease}}
 .cr-main{display:grid;grid-template-columns:220px 1fr 1fr 1fr auto;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;}
 .cr-nombre{font-size:13px;font-weight:700;}
 .cr-rut{font-size:10px;color:var(--tm);margin-top:2px;}
@@ -1227,19 +1232,37 @@ function renderTabla(){
 // que utiliza toggleRow. No modifica la estructura DOM.
 function restaurarFilaAbierta(rut){
   var det=document.getElementById('det-'+rut);
+  if(det) _abrirSolo(rut);
+}
+
+// Un solo cliente abierto a la vez (acordeón) y su sección completa destacada como "seleccionada".
+function _cerrarTodos(exceptoRut){
+  document.querySelectorAll('.cr-detalle.open').forEach(function(d){ if(d.id!=='det-'+exceptoRut) d.classList.remove('open'); });
+  document.querySelectorAll('.cliente-row.sel').forEach(function(r){ if(r.id!=='row-'+exceptoRut) r.classList.remove('sel'); });
+}
+function _abrirSolo(rut){
+  _cerrarTodos(rut);
+  var det=document.getElementById('det-'+rut), row=document.getElementById('row-'+rut);
   if(det) det.classList.add('open');
+  if(row) row.classList.add('sel');
 }
 
 // toggleRow — una sola declaración
 function toggleRow(rut){
   var det=document.getElementById('det-'+rut);
   if(!det)return;
-  det.classList.toggle('open');
-  // Estado SII en las tarjetas de libros: solo al abrir (una consulta por cliente, nunca para toda la lista)
   if(det.classList.contains('open')){
-    var fila=det.querySelector('.libro-sii[data-cid]');
-    if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
+    det.classList.remove('open');
+    var row=document.getElementById('row-'+rut); if(row) row.classList.remove('sel');
+    return;
   }
+  _abrirSolo(rut);
+  // que el cliente elegido quede a la vista (sin saltos si ya lo está)
+  var r=document.getElementById('row-'+rut);
+  if(r&&r.getBoundingClientRect().top<0) r.scrollIntoView({block:'start',behavior:'smooth'});
+  // Estado SII en las tarjetas de libros: solo al abrir (una consulta por cliente, nunca para toda la lista)
+  var fila=det.querySelector('.libro-sii[data-cid]');
+  if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
 }
 
 // ── FILTROS ───────────────────────────────────────────────────────────────
