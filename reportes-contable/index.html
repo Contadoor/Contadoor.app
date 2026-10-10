@@ -4325,7 +4325,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     h += '</div>';
   }
   if(conSii){
-    var nLibro=(cab&&(estado==='validado'||estado==='con_observaciones'))?((cab.nDocsIncluidos||0)+(cab.nDocsExcluidos||0)):'';
+    var nLibro=(cab&&(estado==='validado'||estado==='con_observaciones'))?(cab.nDocsIncluidos||0):(estado==='sin_movimientos'?0:'');   // se compara con los documentos incluidos
     h += '<div class="libro-sii" data-libsii="'+tipo+'" data-cid="'+cid+'" data-ndocs="'+nLibro+'"><span class="libsii-t">SII</span> <span class="libsii-txt">se revisa al abrir el detalle</span></div>';
   }
   h += '</div>';
