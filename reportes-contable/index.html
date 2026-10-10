@@ -1230,7 +1230,9 @@ function renderTabla(){
 // restaurarFilaAbierta: reabre el detalle de un cliente después de renderTabla().
 // Usa el mismo ID que genera renderTabla ('det-'+rut) y la misma clase ('open')
 // que utiliza toggleRow. No modifica la estructura DOM.
+var _noReabrir=null;   // cliente recién marcado "Reporte OK": no se reabre tras los refrescos siguientes
 function restaurarFilaAbierta(rut){
+  if(rut===_noReabrir) return;
   var det=document.getElementById('det-'+rut);
   if(det) _abrirSolo(rut);
 }
@@ -1256,6 +1258,7 @@ function toggleRow(rut){
     var row=document.getElementById('row-'+rut); if(row) row.classList.remove('sel');
     return;
   }
+  _noReabrir=null;
   _abrirSolo(rut);
   // que el cliente elegido quede a la vista (sin saltos si ya lo está)
   var r=document.getElementById('row-'+rut);
@@ -3781,8 +3784,9 @@ function marcarListoParaConsolidar(rut){
       if(_librosGuardadosLPC) reportes[idx].libros=_librosGuardadosLPC;
     }
     setReportes(reportes);
+    // Reporte OK = trabajo del cliente terminado: su detalle se cierra (queda solo la línea del flujo)
+    _noReabrir=rut;
     renderTabla();
-    restaurarFilaAbierta(rut);
         // ── B18: crear / actualizar obligación F29 (helper idempotente) ──
     // Solo DESPUÉS del PATCH exitoso. No revertir listo_panel_control si la RPC falla.
     crearActualizarObligacionF29(rep, getClientes().find(function(x){return x.rut===rut;})||{});
