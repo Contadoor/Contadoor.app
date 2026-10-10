@@ -820,7 +820,7 @@ function renderTabla(periodo){
     var planLabel=c&&c.plan?({cumplimiento:'Cumplimiento',asesoria:'Contadoor PRO',pro:'Contadoor PRO',estrategico:'Contadoor Estratégico'}[c.plan.toLowerCase()]||c.plan):' - ';
     var est_r=getEstadoRrhh(r);
     var _chkOk=(est_r==='completado'); // solo RRHH OK puede iniciar nuevo aviso
-    html+='<tr data-rut="'+hesc(r.rut)+'" class="'+(r.rut===_rutSelRrhh?'g-fila-sel':'')+'" onclick="seleccionarClienteRrhh(this.getAttribute(\'data-rut\'))">'
+    html+='<tr data-rut="'+hesc(r.rut)+'" class="'+(r.rut===_rutSelRrhh?'g-fila-sel':'')+'" onclick="clicFilaRrhh(event,this)">'
       +'<td style="text-align:center">'
       +(_chkOk
         ?'<input type="checkbox" class="rrhh-chk" data-id="'+r.id+'" data-estado="'+est_r+'" onchange="actualizarBulkBar()" style="width:14px;height:14px;accent-color:var(--p)">'
@@ -1516,6 +1516,14 @@ function seleccionarClienteRrhh(rut){
   document.querySelectorAll('#rpt-tabla-body tr[data-rut], tr[data-rut]').forEach(function(tr){
     tr.classList.toggle('g-fila-sel', !!_rutSelRrhh && tr.getAttribute('data-rut')===_rutSelRrhh);
   });
+}
+// Clic en la fila del cliente (fuera de botones y casillas): se destaca y se abre su ventana de trabajo
+// (la misma de "Completar"/"Editar"). Si en su estado no hay ventana de edición (en aprobación, finalizado), solo se destaca.
+function clicFilaRrhh(ev,tr){
+  if(ev&&ev.target&&ev.target.closest&&ev.target.closest('button,input,a,select,label')) return;
+  seleccionarClienteRrhh(tr.getAttribute('data-rut'));
+  var b=tr.querySelector('button[onclick*="abrirModal("]');
+  if(b) b.click();
 }
 function abrirModal(id,enviar,limpiar){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
