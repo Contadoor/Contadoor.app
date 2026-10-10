@@ -1230,11 +1230,19 @@ function renderTabla(){
 // restaurarFilaAbierta: reabre el detalle de un cliente después de renderTabla().
 // Usa el mismo ID que genera renderTabla ('det-'+rut) y la misma clase ('open')
 // que utiliza toggleRow. No modifica la estructura DOM.
-var _noReabrir=null;   // cliente recién marcado "Reporte OK": no se reabre tras los refrescos siguientes
-function restaurarFilaAbierta(rut){
-  if(rut===_noReabrir) return;
-  var det=document.getElementById('det-'+rut);
-  if(det) _abrirSolo(rut);
+var _rutAbierto=null;   // único cliente abierto (acordeón). Reporte OK lo deja en null para que no se reabra.
+function _cargarSiiDe(rut){
+  var det=document.getElementById('det-'+rut); if(!det) return;
+  var fila=det.querySelector('.libro-sii[data-cid]');
+  if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
+}
+function restaurarFilaAbierta(rut, porAccion){
+  // Tras un renderTabla. porAccion = el usuario acaba de actuar sobre ese cliente (libro, Pre-IVA): se abre ese.
+  // Sin porAccion (respuestas asíncronas): solo se reabre el que el usuario tenga abierto; si lo cerró o marcó Reporte OK, nada.
+  var objetivo=porAccion?rut:_rutAbierto;
+  if(!objetivo||!document.getElementById('det-'+objetivo)) return;
+  _abrirSolo(objetivo);
+  _cargarSiiDe(objetivo);
 }
 
 // Un solo cliente abierto a la vez (acordeón) y su sección completa destacada como "seleccionada".
@@ -1247,6 +1255,7 @@ function _abrirSolo(rut){
   var det=document.getElementById('det-'+rut), row=document.getElementById('row-'+rut);
   if(det) det.classList.add('open');
   if(row) row.classList.add('sel');
+  _rutAbierto=rut;
 }
 
 // toggleRow — una sola declaración
@@ -1256,16 +1265,15 @@ function toggleRow(rut){
   if(det.classList.contains('open')){
     det.classList.remove('open');
     var row=document.getElementById('row-'+rut); if(row) row.classList.remove('sel');
+    if(_rutAbierto===rut) _rutAbierto=null;
     return;
   }
-  _noReabrir=null;
   _abrirSolo(rut);
   // que el cliente elegido quede a la vista (sin saltos si ya lo está)
   var r=document.getElementById('row-'+rut);
   if(r&&r.getBoundingClientRect().top<0) r.scrollIntoView({block:'start',behavior:'smooth'});
   // Estado SII en las tarjetas de libros: solo al abrir (una consulta por cliente, nunca para toda la lista)
-  var fila=det.querySelector('.libro-sii[data-cid]');
-  if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
+  _cargarSiiDe(rut);
 }
 
 // ── FILTROS ───────────────────────────────────────────────────────────────
@@ -2510,7 +2518,7 @@ function guardarF29(){
 
     // Mostrar confirmación
     if(mg){mg.className='msg-guardado on';}
-    setTimeout(function(){ closeModal(); renderTabla(); restaurarFilaAbierta(rut); },600);
+    setTimeout(function(){ closeModal(); renderTabla(); restaurarFilaAbierta(rut, true); },600);
 
     if(window.crearNotificacion) crearNotificacion({
       modulo:'reportes',tipo:'info',prioridad:'media',
@@ -3598,7 +3606,7 @@ async function confirmarCargaLibro(){
     }
     cancelarPreviewLibro();
     renderTabla();
-    restaurarFilaAbierta(ctx.rut);
+    restaurarFilaAbierta(ctx.rut, true);
 
     if(window.crearNotificacion) crearNotificacion({
       modulo:'reportes',tipo:'info',prioridad:'baja',
@@ -3641,7 +3649,7 @@ function marcarSinMovimientosLibro(clienteId, rut, tipo){
     if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d);
         var invS=await invalidarPreIvaPorCambioLibro(rut,tipo+': sin movimientos');
         if(invS&&!invS.ok){var mS='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mS});else alert(mS);}
-        renderTabla(); restaurarFilaAbierta(rut); }
+        renderTabla(); restaurarFilaAbierta(rut, true); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   });
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
@@ -3663,7 +3671,7 @@ function marcarNoAplicaLibro(clienteId, rut, tipo){
     if(d&&d.ok){ actualizarLibroEnMemoria(parseInt(clienteId),tipo,d);
         var invN=await invalidarPreIvaPorCambioLibro(rut,tipo+': no aplica');
         if(invN&&!invN.ok){var mN='El libro fue actualizado, pero el Pre-IVA no pudo reabrirse. Recarga antes de continuar.';if(window.crearNotificacion)crearNotificacion({tipo:'warn',prioridad:'alta',mensaje:mN});else alert(mN);}
-        renderTabla(); restaurarFilaAbierta(rut); }
+        renderTabla(); restaurarFilaAbierta(rut, true); }
     else alert('Error: '+((d&&d.message)||'Error desconocido'));
   });
   }).catch(function(e){ alert('Error de conexión: '+e.message); });
@@ -3712,7 +3720,7 @@ function quitarLibro(clienteId, rut, tipo){
       return;
     }
     actualizarLibroEnMemoria(parseInt(clienteId,10), tipo, {cabecera:d.cabecera||null});
-    renderTabla(); restaurarFilaAbierta(rut);
+    renderTabla(); restaurarFilaAbierta(rut, true);
     if(window.crearNotificacion) crearNotificacion({
       modulo:'reportes',tipo:'info',prioridad:'media',
       mensaje:'Libro de '+label+' quitado · '+periodo+' · '+(d.realizado_por||''),accion:null
@@ -3785,7 +3793,7 @@ function marcarListoParaConsolidar(rut){
     }
     setReportes(reportes);
     // Reporte OK = trabajo del cliente terminado: su detalle se cierra (queda solo la línea del flujo)
-    _noReabrir=rut;
+    if(_rutAbierto===rut) _rutAbierto=null;
     renderTabla();
         // ── B18: crear / actualizar obligación F29 (helper idempotente) ──
     // Solo DESPUÉS del PATCH exitoso. No revertir listo_panel_control si la RPC falla.
@@ -4507,7 +4515,7 @@ function _libSiiPintar(cid, data, aviso){
     var tipo=el.getAttribute('data-libsii'), f=(data&&data[tipo])||{estado:'nunca'};
     var tiene=(f.esActual===true&&f.version!=null);
     var partes=[];
-    if(tiene) partes.push('<b>'+(f.nDocumentos||0)+' documentos</b>'+(f.datosActualizadosAt?' · sincronizado '+hesc(_siiF29FormatoFecha(f.datosActualizadosAt)||''):''));
+    if(tiene) partes.push('<b>'+(Number(f.nDocumentos)||0)+' documentos</b>'+(f.datosActualizadosAt?' · sincronizado '+hesc(_siiF29FormatoFecha(f.datosActualizadosAt)||''):''));
     else partes.push(f.estado==='ejecutando'?'actualizando…':'sin datos del SII todavía');
     var cls='libsii-ok';
     if(f.estado==='error'){
@@ -4517,7 +4525,7 @@ function _libSiiPintar(cid, data, aviso){
     var nLib=el.getAttribute('data-ndocs');
     if(tiene&&nLib!==''&&Number(nLib)!==Number(f.nDocumentos||0)){
       cls=cls==='libsii-err'?cls:'libsii-dif';
-      partes.push('<span class="libsii-dif-t">no coincide con el libro ('+nLib+' documentos)</span>');
+      partes.push('<span class="libsii-dif-t">no coincide con el libro ('+Number(nLib)+' documentos)</span>');
     }
     if(auth!=='validado') partes.push('<span class="libsii-error">falta validar la autorización SII</span>');
     if(aviso&&aviso.tipo===tipo) partes.push('<span class="'+(aviso.ok?'libsii-okt':'libsii-error')+'">'+hesc(aviso.texto)+'</span>');
@@ -4547,7 +4555,8 @@ function libSiiSincronizar(cid, tipo){
   if(btn){ btn.disabled=true; btn.innerHTML=gIcon('repetir')+' Sincronizando…'; }
   var per=_periodoActual;
   var fin=function(aviso){ _libSiiOcupado[cid+tipo]=false;
-    if(btn){ btn.innerHTML=gIcon('repetir')+' Sincronizar SII'; }
+    var b=document.querySelector('[data-libsii-btn="'+tipo+'"][data-cid="'+cid+'"]');
+    if(b){ b.innerHTML=gIcon('repetir')+' Sincronizar SII'; b.disabled=false; b.style.opacity=''; }
     if(per===_periodoActual) libSiiCargar(cid, aviso); };
   _siiF29CallEdge('gestoor-rcv-consultar',{clienteId:cid,periodo:per,tipo:tipo})
     .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
