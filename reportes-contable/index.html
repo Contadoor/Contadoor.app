@@ -1092,6 +1092,12 @@ function renderTabla(){
         html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
       }
       html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
+      // CONT-REAP-1: solo el Master puede reabrir un reporte marcado OK (motivo obligatorio; nunca mueve dinero)
+      if(rep.listoPanelControl&&u.esMaster){
+        var _obR=_obligacionesF29Map[String(rep.id||'')]||_obligacionesF29Map[c.rut+'_'+_periodoActual]||null;
+        var _concR=!!_obR&&(_obR.estado==='conciliada'||Number(_obR.monto_conciliado||0)>0);
+        html+='<button class="btn-s g-warn" onclick="event.stopPropagation();reabrirReporteContable(\''+c.rut+'\')" title="'+(_concR?'Reabrir reporte con obligación conciliada (los fondos no se modifican)':'Reabrir reporte para corregir libros')+'">'+gIcon('repetir')+' '+(_concR?'Reabrir (fondos conciliados)':'Reabrir reporte')+'</button>';
+      }
     }
     html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Ver detalle" aria-label="Ver detalle">'+gIcon('ver')+'</button>';
     html+='</div>';
@@ -3756,6 +3762,50 @@ function actualizarLibroEnMemoria(clienteId, tipo, rpcData){
 // Requiere estado_contable = 'completado'.
 // Persiste listo_panel_control = true en Supabase antes de actualizar memoria.
 // No envía correos, no cambia estados RRHH ni de pagos.
+// ── CONT-REAP-1 · Reabrir reporte OK (solo Master). La RPC es la autoridad; aquí solo se pide motivo y confirmación. ──
+function _reapMonto(v){ return '$'+Math.round(Number(v)||0).toLocaleString('es-CL'); }
+function reabrirReporteContable(rut){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+  if(!rep||!rep.id||!/^\d+$/.test(String(rep.id))){ alert('No se encontró el reporte de '+_periodoActual+'.'); return; }
+  var ob=_obligacionesF29Map[String(rep.id)]||_obligacionesF29Map[rut+'_'+_periodoActual]||null;
+  if(ob&&ob.estado==='finalizada'){ alert('No se puede reabrir: la obligación F29 de '+_periodoActual+' está finalizada (el impuesto ya se pagó). Corresponde una rectificación.'); return; }
+  if(ob&&['en_ejecucion','pendiente_aprobacion','aprobada','rechazada'].indexOf(ob.estado)>=0){ alert('No se puede reabrir: la obligación F29 tiene un pago en curso ('+ob.estado+'). Resuélvelo primero en Pagos.'); return; }
+  var conc=!!ob&&(ob.estado==='conciliada'||Number(ob.monto_conciliado||0)>0);
+  var motivo=prompt('Reabrir el reporte contable de '+_periodoActual+'.\n\nEl Pre-IVA vuelve a quedar pendiente y podrás reemplazar o quitar los libros.\n\nMotivo (obligatorio, mínimo 10 caracteres; queda en la auditoría):');
+  if(motivo===null) return;
+  motivo=String(motivo).trim();
+  if(motivo.length<10){ alert('El motivo debe tener al menos 10 caracteres.'); return; }
+  if(conc){
+    var txt='ESTA OBLIGACIÓN TIENE FONDOS CONCILIADOS\n\n'
+      +'F29 actual: '+_reapMonto(ob.monto_exigible)+'\n'
+      +'Monto conciliado: '+_reapMonto(ob.monto_conciliado)+'\n\n'
+      +'Después de reabrir, la obligación quedará "Requiere revisión".\n'
+      +'Los fondos NO serán movidos ni eliminados. Pagos resolverá la diferencia con el nuevo F29.\n\n¿Reabrir el reporte?';
+    if(!confirm(txt)) return;
+    if(!confirm('Confirma otra vez: reabrir el reporte de '+_periodoActual+' con '+_reapMonto(ob.monto_conciliado)+' conciliados.')) return;
+  } else if(!confirm('¿Reabrir el reporte contable de '+_periodoActual+'?')) return;
+  sbFetch('rpc/reabrir_reporte_contable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    p_reporte_id:Number(rep.id), p_motivo:motivo, p_confirmar_conciliada:conc
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(!d||d.ok!==true){
+      var m=String((d&&(d.message||d.error))||'Error desconocido');
+      var mapa=[[/SOLO_MASTER/,'Solo el Master puede reabrir un reporte.'],[/REPORTE_NO_CERRADO/,'El reporte ya está abierto (otra persona pudo haberlo reabierto). Recarga la página.'],
+        [/REAPERTURA_NO_PERMITIDA/,m.replace(/^REAPERTURA_NO_PERMITIDA:\s*/,'No se puede reabrir: ')],[/CONFIRMACION_REQUERIDA/,'La obligación tiene fondos conciliados: recarga la página y confirma de nuevo.'],
+        [/MOTIVO_OBLIGATORIO/,'El motivo debe tener al menos 10 caracteres.']];
+      for(var i=0;i<mapa.length;i++){ if(mapa[i][0].test(m)){ m=mapa[i][1]; break; } }
+      alert('No se pudo reabrir el reporte:\n'+m.replace(/<[^>]+>/g,'').substring(0,300));
+      return;
+    }
+    var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===_periodoActual;});
+    if(idx>=0){ reportes[idx].listoPanelControl=false; reportes[idx].estadoContable='pendiente'; }
+    setReportes(reportes);
+    if(ob&&d.obligacion){ ob.estado=d.obligacion.estado_despues; }
+    renderTabla(); restaurarFilaAbierta(rut, true);
+    alert('Reporte de '+_periodoActual+' reabierto.'+(d.obligacion?'\nLa obligación F29 quedó "'+d.obligacion.estado_despues+'" con '+_reapMonto(d.obligacion.monto_conciliado)+' conciliados (sin cambios).':'')+'\nAhora puedes corregir los libros, validar el Pre-IVA y marcar el reporte OK.');
+  }).catch(function(){ alert('No se pudo reabrir el reporte (error de conexión). No se hizo ningún cambio si no viste confirmación.'); });
+}
+
 function marcarListoParaConsolidar(rut){
   var reportes=getReportes();
   var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
