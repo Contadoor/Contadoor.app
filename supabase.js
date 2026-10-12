@@ -945,6 +945,11 @@ function sbUpsertReporte(r){
                r.id !== null &&
                /^\d+$/.test(String(r.id));
   if(idReal){
+    // CONT-REAP-1 R2: el guardado completo de RRHH no reescribe campos que son de Contable (Pre-IVA/F29, estado y cierre).
+    // Antes reenviaba los valores de su memoria: podía pisar un F29 más nuevo o desmarcar el cierre si la memoria estaba vieja.
+    ['debito_iva','credito_iva','remanente','iva_remanente_sig','iva_postergado','postergar_iva','iva_fecha_venc',
+     'f29','total_imp_inmediato','ppm','ppm_tasa','ppm_base','ret_hon','ret2','otros_imp','obs_cont',
+     'estado_contable','listo_panel_control'].forEach(function(k){ delete row[k]; });
     return sbPatch('reportes_mensuales?id=eq.'+encodeURIComponent(r.id),row);
   }
   return sbPost('reportes_mensuales',row);
