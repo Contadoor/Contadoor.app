@@ -1097,7 +1097,7 @@ function renderTabla(){
       if(rep.listoPanelControl&&u.esMaster){
         var _obR=_obligacionesF29Map[String(rep.id||'')]||_obligacionesF29Map[c.rut+'_'+_periodoActual]||null;
         var _concR=!!_obR&&(_obR.estado==='conciliada'||Number(_obR.monto_conciliado||0)>0);
-        html+='<button class="btn-s g-warn" onclick="event.stopPropagation();reabrirReporteContable(\''+c.rut+'\')" title="'+(_concR?'Reabrir reporte con obligación conciliada (los fondos no se modifican)':'Reabrir reporte para corregir libros')+'">'+gIcon('repetir')+' '+(_concR?'Reabrir (fondos conciliados)':'Reabrir reporte')+'</button>';
+        html+='<button class="btn-s g-warn" onclick="event.stopPropagation();reabrirReporteContable(\''+c.rut+'\')" title="'+(_concR?'Reabrir reporte con obligación conciliada (los fondos no se modifican)':'Reabrir reporte para corregir libros')+'">'+gIcon('repetir')+' Reabrir</button>';
       }
     }
     html+='<button class="btn-s" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Ver detalle" aria-label="Ver detalle">'+gIcon('ver')+'</button>';
