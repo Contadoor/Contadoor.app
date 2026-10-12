@@ -1870,7 +1870,10 @@ function guardarRrhh(accion){
       }
       if(iuFallo){
         // RPC IU falló — secciones.rrhh.ok NO se marca; _iuDebeSincronizar permanece true
-        toast('⚠️ Datos RRHH guardados, pero el IU tributario no pudo sincronizarse. Debe revisarse antes de considerar el proceso completo.');
+        var _cerrado=resultado&&resultado.error&&/REPORTE_CERRADO/.test(String(resultado.error.message||resultado.error));
+        toast(_cerrado
+          ? '⚠️ Datos RRHH guardados, pero el IU no cambió: el reporte contable del período ya está OK para el Panel. El Master debe usar "Reabrir reporte" en Contable antes de cambiar el IU.'
+          : '⚠️ Datos RRHH guardados, pero el IU tributario no pudo sincronizarse. Debe revisarse antes de considerar el proceso completo.');
         return;
       }
       // ── Borrador: actualizar caché y cerrar (sin marcar sección OK) ────────

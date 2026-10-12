@@ -1091,7 +1091,8 @@ function renderTabla(){
       if(!rep.listoPanelControl){
         html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
       }
-      html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
+      // Reporte OK: el Pre-IVA ya no se edita (la base lo rechaza); el Master usa "Reabrir reporte"
+      if(!rep.listoPanelControl) html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
       // CONT-REAP-1: solo el Master puede reabrir un reporte marcado OK (motivo obligatorio; nunca mueve dinero)
       if(rep.listoPanelControl&&u.esMaster){
         var _obR=_obligacionesF29Map[String(rep.id||'')]||_obligacionesF29Map[c.rut+'_'+_periodoActual]||null;
@@ -1186,7 +1187,7 @@ function renderTabla(){
       } else {
         html+='<span style="font-size:11px;color:#064e3b;font-weight:600">'+gIcon('check')+' Reporte contable OK</span>';
       }
-      html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar Pre-IVA</button>';
+      if(!rep.listoPanelControl) html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar Pre-IVA</button>';
     }
     // ── B19: Acciones financieras (RPC exclusivo, no PATCH directo) ────────
     if(oblig&&rep.listoPanelControl){
