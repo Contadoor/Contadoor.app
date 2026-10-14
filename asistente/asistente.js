@@ -12,7 +12,7 @@
 
   var DEMO=window.ASIS_DEMO||null;                       // solo existe en localhost con ?demo=1 (ver demo.js)
   var E4_URL=SB_URL+'/functions/v1/asistente-bandeja';
-  var REFRESCO_MS=20000;
+  var REFRESCO_MS=60000;   // 60 s: cada lectura de la lista queda auditada (bandeja_lista); 20 s generaba ~180 eventos por hora por pestaña
   var MAX_TEXTO=2000;
 
   var S={
