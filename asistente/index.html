@@ -152,6 +152,19 @@ body{min-height:100vh}
 .as-comp textarea:disabled{opacity:.6}
 .as-comp .cuenta{font-size:11px;color:var(--a-dim2);text-align:right;margin-top:3px}
 .as-comp .cuenta.mal{color:var(--a-rojo)}
+/* Adjuntar archivo (PDF, JPG o PNG) */
+.as-clip{flex:none;width:46px;min-height:46px;padding:0;justify-content:center;color:var(--a-celeste)}
+.as-clip .g-ic{width:18px;height:18px}
+.as-comp{flex-wrap:wrap}
+.as-chip{flex:0 0 100%;display:flex;align-items:center;gap:9px;min-width:0;padding:7px 8px 7px 11px;border-radius:12px;background:rgba(92,200,255,.08);border:1px solid rgba(92,200,255,.35);color:var(--a-ink);font-size:12.5px}
+.as-chip[hidden]{display:none}
+.as-chip .nom{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.as-chip small{flex:none;color:var(--a-dim);font-size:11.5px}
+.as-chip button{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--a-linea);background:rgba(255,255,255,.03);color:var(--a-dim);font:700 14px/1 var(--g-texto);cursor:pointer}
+.as-chip button:hover{color:var(--a-rojo);border-color:rgba(229,72,77,.55)}
+.as-chip button:disabled{opacity:.45;cursor:not-allowed}
+.as-m .adj{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--a-ink)}
+.as-m .leyenda{display:block;margin-top:4px}
 .as-placeholder{flex:1;display:grid;place-items:center;text-align:center;color:var(--a-dim2);padding:30px;font-size:13.5px}
 
 /* Columna 3 · ficha */
@@ -218,7 +231,7 @@ body{min-height:100vh}
 <main class="main">
   <div class="topbar">
     <h1 class="tb-title">Asistente <span>IA</span></h1>
-    <span class="g-chip-per">WhatsApp · número de prueba</span>
+    <span class="g-chip-per">WhatsApp · +56 9 4675 4390</span>
     <span class="as-demo" id="as-demo">Demo local · datos ficticios</span>
     <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre"></span>
@@ -253,10 +266,14 @@ body{min-height:100vh}
           <div class="as-placeholder">Elige una conversación de la lista para verla aquí.</div>
         </div>
         <form class="as-comp" id="as-comp" hidden>
+          <!-- Archivo elegido: nombre, tamaño y ✕ para quitarlo (fila propia sobre la caja). El texto de la caja pasa a ser la leyenda. -->
+          <div class="as-chip" id="as-chip" hidden></div>
           <div style="flex:1;min-width:0">
             <textarea id="as-texto" maxlength="2000" rows="1" placeholder="Escribe tu respuesta…" aria-label="Respuesta"></textarea>
             <div class="cuenta" id="as-cuenta">0 / 2000</div>
           </div>
+          <input type="file" id="as-archivo" accept="application/pdf,image/jpeg,image/png" hidden aria-hidden="true" tabindex="-1">
+          <button class="as-btn as-clip" type="button" id="as-adjuntar" aria-label="Adjuntar archivo (PDF, JPG o PNG, hasta 5 MB)" title="Adjuntar archivo (PDF, JPG o PNG, hasta 5 MB)"></button>
           <button class="as-btn pri" type="submit" id="as-enviar"><span data-g-ic="enviar"></span> Enviar</button>
         </form>
       </section>

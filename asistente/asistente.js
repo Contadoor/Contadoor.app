@@ -14,6 +14,13 @@
   var E4_URL=SB_URL+'/functions/v1/asistente-bandeja';
   var REFRESCO_MS=60000;   // 60 s: cada lectura de la lista queda auditada (bandeja_lista); 20 s generaba ~180 eventos por hora por pestaña
   var MAX_TEXTO=2000;
+  var MAX_LEYENDA=1000;                                  // leyenda de un archivo adjunto (contrato de E4)
+  var MAX_ARCHIVO=5*1024*1024;                           // 5 MB del archivo original
+  var MAX_NOMBRE=120;
+  var MIMES={'application/pdf':'PDF','image/jpeg':'JPG','image/png':'PNG'};
+  var EXT_MIME={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
+  // No hay ícono de clip en gestoor-menu.js: se dibuja aquí con el mismo estilo de línea (Lucide).
+  var SVG_CLIP='<svg class="g-ic" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
 
   var S={
     convs:[],total:0,parcial:false,cargada:false,
@@ -21,7 +28,8 @@
     filtro:'todas',q:'',
     sel:null,det:null,firmaSel:'',cargandoDet:false,
     yo:null,ocupado:false,
-    borradores:{},nombres:{}                            // solo en memoria de esta pestaña
+    borradores:{},nombres:{},                           // solo en memoria de esta pestaña
+    adjuntos:{}                                         // archivo elegido por conversación: {archivo,nombre,mime,tam} (solo en memoria)
   };
 
   // ── Utilidades ─────────────────────────────────────────────────────────────
@@ -46,6 +54,11 @@
   function usd(n){return 'US$ '+Number(n||0).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function humanizar(k){k=String(k||'').replace(/_/g,' ').trim();return k.charAt(0).toUpperCase()+k.slice(1);}
   function iniciales(n){var p=String(n||'').trim().split(/\s+/).filter(Boolean);return p.length?p.map(function(x){return x.charAt(0);}).join('').slice(0,2).toUpperCase():'';}
+  function tamano(b){
+    if(b<1024)return b+' B';
+    if(b<1024*1024)return Math.max(1,Math.round(b/1024)).toLocaleString('es-CL')+' KB';
+    return (b/1024/1024).toLocaleString('es-CL',{minimumFractionDigits:1,maximumFractionDigits:1})+' MB';
+  }
   function esMaster(){var s=window._contadoorSesion;return !!(s&&(s.esMaster===true||s.rol==='master'));}
 
   // ── Avisos y errores ───────────────────────────────────────────────────────
@@ -59,7 +72,7 @@
     if(!txt){e.classList.remove('on');e.textContent='';return;}
     e.innerHTML=ic('alerta','rojo')+'<span>'+esc(txt)+'</span>';e.classList.add('on');
   }
-  function textoError(e){
+  function textoError(e,conAdjunto){
     var c=(e&&e.codigo)||'',st=e&&e.status;
     if(st===401||c==='NO_SESSION')return 'Tu sesión venció. Vuelve a ingresar.';
     if(c==='SIN_PERMISO'||st===403)return 'No tienes permiso para esta acción.';
@@ -70,7 +83,11 @@
     if(c.indexOf('ASISTENTE_ENVIO')===0)return 'Ese envío ya cambió de estado. Se actualizó la vista.';
     if(c==='ASISTENTE_OPT_OUT'||c==='ASISTENTE_REACTIVAR')return 'La baja ya cambió de estado. Se actualizó la vista.';
     if(c==='ASISTENTE_BLOQUEO')return 'Ese bloqueo ya no existe.';
-    if(st===400&&c==='texto')return 'El mensaje está vacío o supera los 2.000 caracteres.';
+    if(st===400&&c==='texto')return conAdjunto?'La leyenda supera los 1.000 caracteres.':'El mensaje está vacío o supera los 2.000 caracteres.';
+    if(st===400&&c==='mime')return 'Solo se pueden enviar archivos PDF, JPG o PNG.';
+    if(st===400&&c==='nombre')return 'El nombre del archivo no es válido. Cámbialo e intenta de nuevo.';
+    if(st===400&&c==='contenido')return 'El archivo está vacío, dañado, supera los 5 MB o no es realmente un PDF, JPG o PNG.';
+    if(st===413)return 'El archivo es demasiado grande para enviarlo (máximo 5 MB).';
     if(c.indexOf('ASISTENTE_')===0)return 'La base rechazó la acción ('+c+'). Se actualizó la vista.';
     return 'No se pudo completar la acción. Revisa tu conexión e intenta de nuevo.';
   }
@@ -142,6 +159,7 @@
     var t=d[0],m=ev.datos&&ev.datos.motivo;
     if(ev.evento==='derivada_a_humano'&&m)t+=' · '+(MOTIVOS[m]||humanizar(m).toLowerCase());
     if(ev.evento==='conversacion_tomada'&&ev.datos&&ev.datos.anterior)t='Conversación reasignada a otra persona del equipo';
+    if(ev.evento==='envio_humano_programado'&&ev.datos&&ev.datos.adjunto===true)t='Archivo del equipo en cola de envío';
     return {texto:t,icono:d[1],color:d[2]};
   }
   function tomadaPor(c){
@@ -186,12 +204,15 @@
   }
 
   // ── Columna 1 · lista ──────────────────────────────────────────────────────
+  // Archivo enviado por el equipo desde la bandeja: saliente, autor humano, tipo documento (PDF) o imagen (JPG/PNG).
+  function esAdjuntoEquipo(m){return !!m&&m.direccion==='saliente'&&m.autor==='humano'&&(m.tipo==='documento'||m.tipo==='imagen');}
   function previa(c){
     var u=c.ultimo;
     if(!u)return {t:'Sin mensajes',vacia:true};
     if(u.suprimido)return {t:'Contenido borrado',vacia:true};
     if(u.no_descifra)return {t:'No se pudo leer el mensaje',vacia:true};
     var pre=u.autor==='ia'?'IA: ':u.autor==='humano'?'Equipo: ':u.autor==='sistema'?'Sistema: ':'';
+    if(esAdjuntoEquipo(u))return {t:pre+'📎 Archivo adjunto'+(u.previa?' · '+u.previa:''),vacia:false};
     if(u.previa==null)return {t:pre+(TIPO_ADJ[u.tipo]||'Mensaje sin texto'),vacia:true};
     return {t:pre+u.previa,vacia:false};
   }
@@ -310,6 +331,12 @@
     var duda=m.envio&&m.envio.estado==='incierto';
     var cuerpo;
     if(m.suprimido)cuerpo='<span class="nota">Contenido borrado</span>';
+    else if(esAdjuntoEquipo(m)){
+      // El detalle no trae el nombre del archivo: solo se indica que hubo adjunto, más la leyenda si existe.
+      cuerpo='<span class="adj">📎 Archivo adjunto</span>';
+      if(m.no_descifra)cuerpo+='<span class="leyenda nota">No se pudo leer la leyenda</span>';
+      else if(m.texto)cuerpo+='<span class="leyenda">'+esc(m.texto)+'</span>';
+    }
     else if(m.no_descifra)cuerpo='<span class="nota">No se pudo leer este mensaje</span>';
     else if(m.texto==null||m.texto==='')cuerpo='<span class="nota">'+esc(TIPO_ADJ[m.tipo]||'Mensaje sin texto')+'</span>';
     else cuerpo=esc(m.texto);                              // texto de terceros: SIEMPRE escapado
@@ -351,7 +378,8 @@
     var sub=['WhatsApp '+(c.telefono||resumenFila.telefono_mascara||'sin número')];
     if(o.material)sub.push('llegó por «'+o.material+'»');
     var viejoMsgs=cuerpo.querySelector('.as-msgs'),abajo=true,top=0;
-    if(viejoMsgs&&viejoMsgs.getAttribute('data-id')===c.id){top=viejoMsgs.scrollTop;abajo=viejoMsgs.scrollHeight-viejoMsgs.scrollTop-viejoMsgs.clientHeight<60;}
+    if(viejoMsgs&&viejoMsgs.getAttribute('data-id')===c.id&&S.alFondo!==c.id){top=viejoMsgs.scrollTop;abajo=viejoMsgs.scrollHeight-viejoMsgs.scrollTop-viejoMsgs.clientHeight<60;}
+    if(S.alFondo===c.id)S.alFondo=null;                   // tras un envío propio se muestra el último mensaje
     var h='<div class="as-chead"><button type="button" class="as-btn sm as-volver" data-volver="1">← Volver</button>'
       +'<span class="as-av">'+(c.sellada?ic('basura','rojo'):(c.ficha&&c.ficha.nombre?esc(iniciales(c.ficha.nombre)):ic('chat','celeste')))+'</span>'
       +'<div class="as-ctit"><h2>'+esc(nombreConv(c,c))+'</h2><p>'+esc(sub.join(' · '))+'</p></div>'
@@ -377,17 +405,78 @@
     if(c.estado==='humano'&&!c.sellada&&!c.opt_out){
       comp.hidden=false;
       var ok=puedeEscribir(c)&&!c.opt_out_posible;
-      ta.disabled=!ok;$('as-enviar').disabled=!ok||S.ocupado;
+      ta.disabled=!ok;$('as-enviar').disabled=!ok||S.ocupado;$('as-adjuntar').disabled=!ok||S.ocupado;
       var nombre=c.ficha&&typeof c.ficha.nombre==='string'?c.ficha.nombre.trim().split(/\s+/)[0]:'';
       ta.placeholder=c.opt_out_posible?'Resuelve la posible baja antes de escribir':!puedeEscribir(c)?'La atiende otra persona del equipo':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
-      if(ta.getAttribute('data-conv')!==c.id){ta.setAttribute('data-conv',c.id);ta.value=S.borradores[c.id]||'';contarTexto();}
+      if(ta.getAttribute('data-conv')!==c.id){ta.setAttribute('data-conv',c.id);ta.value=S.borradores[c.id]||'';}
+      if(!ok)delete S.adjuntos[c.id];                     // si ya no puede escribir, el archivo elegido se descarta
+      pintarAdjunto();
     }else{
       comp.hidden=true;
     }
   }
   function contarTexto(){
-    var ta=$('as-texto'),n=ta.value.length,c=$('as-cuenta');
-    c.textContent=n.toLocaleString('es-CL')+' / 2.000';c.classList.toggle('mal',n>MAX_TEXTO);
+    var ta=$('as-texto'),n=ta.value.length,c=$('as-cuenta'),adj=adjuntoActual();
+    var max=adj?MAX_LEYENDA:MAX_TEXTO;
+    c.textContent=(adj?'Leyenda (opcional) · ':'')+n.toLocaleString('es-CL')+' / '+max.toLocaleString('es-CL');c.classList.toggle('mal',n>max);
+  }
+
+  // ── Adjuntar archivo ───────────────────────────────────────────────────────
+  function adjuntoActual(){var id=$('as-texto').getAttribute('data-conv');return id&&id===S.sel?S.adjuntos[id]||null:null;}
+  function pintarAdjunto(){
+    var a=adjuntoActual(),chip=$('as-chip'),ta=$('as-texto');
+    // Mostrar u ocultar el chip cambia el alto del chat: si estaba al final, se mantiene al final.
+    var ms=document.querySelector('#as-chat-cuerpo .as-msgs'),pegado=ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<60;
+    if(!a){chip.hidden=true;chip.innerHTML='';}
+    else{
+      chip.innerHTML='<i class="ic ic-celeste">'+SVG_CLIP+'</i><span class="nom" title="'+esc(a.nombre)+'">'+esc(a.nombre)+'</span>'
+        +'<small>'+esc(MIMES[a.mime])+' · '+esc(tamano(a.tam))+'</small>'
+        +'<button type="button" id="as-quitar" aria-label="Quitar archivo '+esc(a.nombre)+'" title="Quitar archivo"'+(S.ocupado?' disabled':'')+'>✕</button>';
+      chip.hidden=false;
+    }
+    if(!ta.disabled){
+      var c=S.det&&S.det.conversacion,nombre=c&&c.ficha&&typeof c.ficha.nombre==='string'?c.ficha.nombre.trim().split(/\s+/)[0]:'';
+      ta.placeholder=a?'Leyenda opcional para el archivo…':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
+    }
+    ta.maxLength=a?MAX_LEYENDA:MAX_TEXTO;
+    contarTexto();
+    if(pegado)ms.scrollTop=ms.scrollHeight;
+  }
+  // Recorta el nombre a 120 caracteres sin perder la extensión.
+  function nombreSeguro(n){
+    n=String(n||'').replace(/[\u0000-\u001f\/\\]/g,'').trim();
+    if(n.length<=MAX_NOMBRE)return n;
+    var p=n.lastIndexOf('.'),ext=p>0&&n.length-p<=6?n.slice(p):'';
+    return n.slice(0,MAX_NOMBRE-ext.length)+ext;
+  }
+  function elegirArchivo(f){
+    var c=S.det&&S.det.conversacion;
+    if(!f||!c||!puedeEscribir(c)||c.opt_out_posible)return;
+    var ext=(String(f.name).split('.').pop()||'').toLowerCase();
+    var mime=MIMES[f.type]?f.type:(!f.type&&EXT_MIME[ext]?EXT_MIME[ext]:'');   // algunos sistemas no informan el tipo
+    if(!mime){aviso('Ese archivo no se puede enviar: solo PDF, JPG o PNG.',true);return;}
+    if(!f.size){aviso('El archivo está vacío.',true);return;}
+    if(f.size>MAX_ARCHIVO){aviso('El archivo pesa '+tamano(f.size)+': el máximo es 5 MB.',true);return;}
+    var nombre=nombreSeguro(f.name);
+    if(!nombre){aviso('El archivo no tiene un nombre válido.',true);return;}
+    S.adjuntos[c.id]={archivo:f,nombre:nombre,mime:mime,tam:f.size};
+    pintarAdjunto();
+    if($('as-texto').value.trim().length>MAX_LEYENDA)aviso('Con archivo, el texto es la leyenda y no puede superar los 1.000 caracteres.',true);
+  }
+  // Lee el archivo y devuelve su base64 SIN el prefijo data:...;base64,
+  function leerBase64(f){
+    return new Promise(function(res,rej){
+      var r=new FileReader();
+      r.onload=function(){var v=String(r.result||''),i=v.indexOf(',');res(i>=0?v.slice(i+1):'');};
+      r.onerror=function(){rej(new Error('LECTURA'));};
+      r.readAsDataURL(f);
+    });
+  }
+  var _envHtml=null;
+  function botonEnviando(on){
+    var b=$('as-enviar');
+    if(_envHtml===null)_envHtml=b.innerHTML;
+    b.innerHTML=on?'Enviando…':_envHtml;
   }
 
   // ── Columna 3 · ficha ──────────────────────────────────────────────────────
@@ -450,7 +539,8 @@
   function pintarTodo(){pintarResumen();pintarBloqueos();pintarLista();pintarChat();pintarFicha();bloquearBotones(S.ocupado);}
   function bloquearBotones(on){
     document.querySelectorAll('[data-acc]').forEach(function(b){b.disabled=!!on;});
-    var env=$('as-enviar');if(on)env.disabled=true;
+    var env=$('as-enviar');if(on){env.disabled=true;$('as-adjuntar').disabled=true;}
+    var q=$('as-quitar');if(q)q.disabled=!!on;
   }
 
   // ── Carga ──────────────────────────────────────────────────────────────────
@@ -572,16 +662,36 @@
     ev.preventDefault();
     var c=S.det&&S.det.conversacion,ta=$('as-texto'),t=ta.value.trim();
     if(!c||!puedeEscribir(c)||c.opt_out_posible||S.ocupado)return;
-    if(!t){aviso('Escribe un mensaje antes de enviar.',true);return;}
-    if(t.length>MAX_TEXTO){aviso('El mensaje supera los 2.000 caracteres.',true);return;}
+    var adj=S.adjuntos[c.id]||null;
+    if(adj){
+      // Con archivo: responder_adjunto; el texto de la caja es la leyenda (opcional).
+      if(t.length>MAX_LEYENDA){aviso('La leyenda supera los 1.000 caracteres.',true);return;}
+      if(!MIMES[adj.mime]||adj.tam>MAX_ARCHIVO){aviso('Solo PDF, JPG o PNG de hasta 5 MB.',true);return;}
+    }else{
+      if(!t){aviso('Escribe un mensaje o adjunta un archivo antes de enviar.',true);return;}
+      if(t.length>MAX_TEXTO){aviso('El mensaje supera los 2.000 caracteres.',true);return;}
+    }
     var id=c.id;
-    S.ocupado=true;bloquearBotones(true);
-    e4('responder',{conversacion_id:id,texto:t}).then(function(){
-      if(ta.getAttribute('data-conv')===id){ta.value='';contarTexto();}
+    S.ocupado=true;bloquearBotones(true);botonEnviando(true);
+    var envio=adj
+      ?leerBase64(adj.archivo).then(function(b64){
+          if(!b64){var e=new Error('contenido');e.status=400;e.codigo='contenido';throw e;}
+          var cuerpo={conversacion_id:id,nombre:adj.nombre,mime:adj.mime,contenido:b64};
+          if(t)cuerpo.texto=t;
+          return e4('responder_adjunto',cuerpo);
+        },function(){var e=new Error('LECTURA');e.codigo='LECTURA';throw e;})
+      :e4('responder',{conversacion_id:id,texto:t});
+    envio.then(function(){
+      if(ta.getAttribute('data-conv')===id){ta.value='';}
       delete S.borradores[id];
-      aviso('Mensaje en cola de envío.');
-    },function(e){aviso(textoError(e),true);}).then(function(){
-      S.ocupado=false;S.firmaSel='';
+      if(adj&&S.adjuntos[id]===adj)delete S.adjuntos[id];
+      $('as-archivo').value='';
+      S.alFondo=id;
+      aviso(adj?'Archivo en cola de envío.':'Mensaje en cola de envío.');
+    },function(e){
+      aviso(e&&e.codigo==='LECTURA'?'No se pudo leer el archivo desde tu equipo. Elígelo de nuevo.':textoError(e,!!adj),true);
+    }).then(function(){
+      S.ocupado=false;S.firmaSel='';botonEnviando(false);pintarAdjunto();
       return Promise.all([cargarDetalle(id),refrescar(false)]);
     }).then(pintarTodo);
   }
@@ -600,6 +710,14 @@
     ta.addEventListener('input',function(){var id=ta.getAttribute('data-conv');if(id)S.borradores[id]=ta.value;contarTexto();});
     ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();$('as-comp').requestSubmit();}});
     $('as-comp').addEventListener('submit',enviarRespuesta);
+    $('as-adjuntar').innerHTML=SVG_CLIP;
+    $('as-adjuntar').addEventListener('click',function(){if(!this.disabled&&!S.ocupado)$('as-archivo').click();});
+    $('as-archivo').addEventListener('change',function(){var f=this.files&&this.files[0];this.value='';elegirArchivo(f);});
+    $('as-chip').addEventListener('click',function(e){
+      if(!e.target.closest('#as-quitar')||S.ocupado)return;
+      var id=$('as-texto').getAttribute('data-conv');if(id)delete S.adjuntos[id];
+      pintarAdjunto();$('as-texto').focus();
+    });
     document.addEventListener('visibilitychange',function(){if(!document.hidden&&S.iniciado)refrescar(false);});
   }
 
