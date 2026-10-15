@@ -132,6 +132,20 @@
         var env=uid(9000+(seq++));
         c.msgs.push({id:uid(8000+(seq++)),direccion:'saliente',autor:'humano',tipo:'texto',texto:t,estado_entrega:null,suprimido:false,no_descifra:false,created_at:new Date().toISOString(),envio:{id:env,tipo:'humano',estado:'programado',motivo:null,programado_para:null}});
         evento(c,'envio_humano_programado',{envio_id:env});r={ok:true,envio_id:env};break;
+      case 'responder_adjunto':
+        // Mismas reglas que responder + las del contrato de E4 (tipo, nombre, base64 sin prefijo, 5 MB, leyenda ≤ 1000).
+        if(c.estado!=='humano') return err(409,'ASISTENTE_PROGRAMAR');
+        var mimes={'application/pdf':'documento','image/jpeg':'imagen','image/png':'imagen'};
+        if(!mimes[b.mime]) return err(400,'mime');
+        var nom=typeof b.nombre==='string'?b.nombre.trim():''; if(!nom||nom.length>120) return err(400,'nombre');
+        if(typeof b.contenido!=='string'||!b.contenido||/^data:/.test(b.contenido)) return err(400,'contenido');
+        var bytes; try{bytes=atob(b.contenido).length;}catch(_){return err(400,'contenido');}
+        if(!bytes||bytes>5*1024*1024) return err(400,'contenido');
+        var ley=typeof b.texto==='string'?b.texto.trim():''; if(ley.length>1000) return err(400,'texto');
+        var envA=uid(9000+(seq++));
+        // Como en el detalle real: tipo documento/imagen, autor humano, leyenda en texto y SIN el nombre del archivo.
+        c.msgs.push({id:uid(8000+(seq++)),direccion:'saliente',autor:'humano',tipo:mimes[b.mime],texto:ley||null,estado_entrega:null,suprimido:false,no_descifra:false,created_at:new Date().toISOString(),envio:{id:envA,tipo:'humano',estado:'programado',motivo:null,programado_para:null}});
+        evento(c,'envio_humano_programado',{envio_id:envA,adjunto:true});r={ok:true,envio_id:envA};break;
       case 'confirmar_baja':
         if(!c.opt_out_posible||b.mensaje_id!==c.opt_out_posible_mensaje_id) return err(409,'ASISTENTE_OPT_OUT');
         c.opt_out=true;c.opt_out_posible=false;c.opt_out_posible_mensaje_id=null;c.estado='cerrada';c.tomada_por=null;
