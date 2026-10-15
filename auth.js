@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&
+    !path.includes('/asistente/')&&!path.includes('/novedades/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -36,6 +36,7 @@
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
+    if(path.includes('/novedades/'))         return 'novedades';
     if(path.includes('/portal/'))            return 'portal';
     if(path.includes('/planes/'))            return 'planes';
     if(path.includes('/admin/'))             return 'admin';
@@ -53,7 +54,7 @@
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos'],
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
-    comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
+    comercial:['dashboard','clientes','convenios','prospectos','asistente','novedades'] // asistente: bandeja de WhatsApp · novedades: radar y parrilla (master y comercial; la base re-verifica)
   };
 
   function puedeVerModulo(perfil,modulo){
