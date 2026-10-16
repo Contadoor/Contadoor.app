@@ -326,7 +326,7 @@ function cargar(listo){
     todo('concil_movimientos?select=id,codigo,fecha_hora,rut_origen,nombre_origen,banco_origen,monto,saldo,monto_aplicado,estado,cliente_rut,cliente_asignado_manual,cliente_por_memoria,motivo_asignacion,categoria_descarte,motivo_descarte,descartado_at&order=fecha_hora.desc,id.desc',seq),
     todo('concil_operaciones?select=id,movimiento_id,aplicaciones,total,criterio,created_at,anulada,motivo_anulacion&order=created_at.desc,id.desc',seq),
     todo('concil_cargas?select=id,archivo,filas,insertados,duplicados,rechazados,created_at&order=created_at.desc,id.desc',seq),
-    todo('obligaciones_pago?select=id,cliente_rut,periodo,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado&estado=in.(pendiente_fondos,parcialmente_conciliada)&origen_fondos=eq.cliente&order=periodo.asc,id.asc',seq),
+    todo('obligaciones_pago?select=id,cliente_rut,periodo,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,depositante_nombre,depositante_rut&estado=in.(pendiente_fondos,parcialmente_conciliada)&origen_fondos=eq.cliente&order=periodo.asc,id.asc',seq),
     todo('concil_rut_cliente?select=id,rut_origen,cliente_rut,motivo,created_at&activo=eq.true&order=rut_origen.asc,id.asc',seq)
   ]).then(function(r){
     if(typeof listo==='function')listo();
@@ -375,6 +375,7 @@ function render(){
   arr.forEach(function(m){
     var e=EST[m.estado]||[m.estado,'eb-gris'], acc='';
     if(_vista==='pend'){
+      if(!m.cliente_rut&&obsDelIngreso(m).length) acc+='<button class="btn-purple" onclick="abrirConciliar('+m.id+')" title="Hay obligaciones donde quien transfirió figura como depositante">Conciliar</button> ';
       if(!m.cliente_rut) acc+='<button class="btn-amber" onclick="abrirAsignar('+m.id+')">Asignar cliente</button> ';
       else acc+='<button class="btn-purple" onclick="abrirConciliar('+m.id+')">Conciliar</button> '+(m.estado==='por_conciliar'&&(m.cliente_asignado_manual||m.cliente_por_memoria)?'<button class="btn-s" onclick="abrirAsignar('+m.id+')" title="Cambiar cliente">↺</button> ':'');
       if(m.estado==='por_conciliar') acc+='<button class="btn-s" onclick="abrirDescartar('+m.id+')">No corresponde</button>';
@@ -475,10 +476,16 @@ function sugerencia(m){
   if(!_cacheSug[k]) _cacheSug[k]=calcularSugerencia(m);
   return _cacheSug[k];
 }
+// APR-3 (R2): obligaciones a las que puede ir este ingreso. Si el ingreso TIENE cliente → solo las de ese cliente.
+// Si NO tiene cliente → solo aquellas cuyo depositante es el RUT de quien transfirió. La base lo vuelve a validar.
+function obsDelIngreso(m){
+  if(m.cliente_rut) return _obs.filter(function(o){return o.cliente_rut===m.cliente_rut;});
+  return _obs.filter(function(o){return o.depositante_rut&&o.depositante_rut===m.rut_origen;});
+}
 function calcularSugerencia(m){
   var saldo=Number(m.saldo);
-  if(m.cliente_rut){
-    var ab=_obs.filter(function(o){return o.cliente_rut===m.cliente_rut;}).sort(prioridad);
+  if(m.cliente_rut||obsDelIngreso(m).length){
+    var ab=obsDelIngreso(m).sort(prioridad);
     if(!ab.length) return {txt:'Sin obligaciones abiertas: ¿pago de servicios u otro?',tipo:'nada'};
     var ex=combinacionExacta(ab,saldo);
     if(ex) return {txt:'Calza exacto con: '+ex.map(etiquetaOb).join(' + '),tipo:'exacto'};
@@ -498,7 +505,7 @@ function prioridad(a,b){return a.periodo<b.periodo?-1:a.periodo>b.periodo?1:rang
 function abrirConciliar(id){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
   _clave=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
-  _cands=_obs.filter(function(o){return o.cliente_rut===_mov.cliente_rut;}).sort(prioridad).map(function(o){return {o:o,monto:0};});
+  _cands=obsDelIngreso(_mov).sort(prioridad).map(function(o){return {o:o,monto:0};});
   document.getElementById('kIngreso').innerHTML='<div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:8px"><div style="font-size:11px;opacity:.75">INGRESO '+hesc(fecha(_mov.fecha_hora))+' · '+hesc(_mov.rut_origen)+' · '+hesc(_mov.nombre_origen||'')+'</div><div style="font-size:24px;font-weight:800">'+ff(_mov.saldo)+(Number(_mov.monto_aplicado)>0?' <span style="font-size:12px;opacity:.75">por aplicar de '+ff(_mov.monto)+'</span>':'')+'</div><div style="font-size:12px;opacity:.8">'+hesc(cliNombre(_mov.cliente_rut))+'</div></div>';
   pintarCands();abrir('mConc');
   // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar conciliación".
@@ -506,7 +513,7 @@ function abrirConciliar(id){
 }
 function pintarCands(){
   var h=_cands.length?'<table><thead><tr><th>Período</th><th>Concepto</th><th style="text-align:right">Saldo</th><th style="text-align:right">Aplicar</th></tr></thead><tbody>'+_cands.map(function(c,i){
-    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+hesc(c.o.concepto||c.o.tipo_obligacion)+(c.o.vencimiento?'<div style="font-size:10px;color:var(--tm)">vence '+hesc(c.o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo_pendiente)+'</td>'
+    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+hesc(c.o.concepto||c.o.tipo_obligacion)+(c.o.depositante_nombre?'<div style="font-size:10px;color:var(--tm)">Deposita: '+hesc(c.o.depositante_nombre)+'</div>':'')+(c.o.vencimiento?'<div style="font-size:10px;color:var(--tm)">vence '+hesc(c.o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo_pendiente)+'</td>'
       +'<td style="text-align:right"><input inputmode="numeric" style="width:120px;text-align:right" value="'+(c.monto||'')+'" oninput="setMonto('+i+',this.value)"></td></tr>';}).join('')+'</tbody></table>'
     :'<div class="info-box">Este cliente no tiene obligaciones abiertas. Si el ingreso no corresponde a una obligación, ciérralo y usa "No corresponde".</div>';
   document.getElementById('kObs').innerHTML=h;totalizar();
