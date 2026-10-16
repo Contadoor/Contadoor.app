@@ -305,7 +305,7 @@ function pintar(meses){
     return '<div class="in-as'+(atr?' atr':'')+'">'+foto+'<div><strong>'+hesc(a.n)+'</strong><small>'+a.area+(pend?' · '+pend+' pendiente'+(pend>1?'s':''):' · al día')+'</small><div class="g-prog"><i style="width:'+pct+'%"></i></div></div><span class="n">'+a.ok+' / '+a.t+'</span></div>';}).join('')
     :'<div class="g-vacio">Aún no hay clientes en la nómina del período activo.</div>';
   // Carga del equipo (pedido de Luciano, 16-oct): cartera vigente (activo + onboarding) por asesor; contables con y sin remuneraciones.
-  renderCarga();
+  renderCarga(repAct, pa);
   // Clientes por estado
   var EST=[['activo','Activos'],['onboarding','Onboarding'],['suspendido','Suspendidos'],['inactivo','Inactivos / término']];
   document.getElementById('in-est').innerHTML=EST.map(function(e){var n=_cli.filter(function(c){return e[0]==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===e[0];}).length;
@@ -313,29 +313,36 @@ function pintar(meses){
   if(window.gIconos)gIconos(document);
 }
 function _vigente(c){return c.estado==='activo'||c.estado==='onboarding';}
-function renderCarga(){
+var _repActCarga=[];
+function renderCarga(repAct, pa){
+  repAct=repAct||[]; _repActCarga=repAct;
   var vig=_cli.filter(_vigente), C={}, R={};
   vig.forEach(function(c){
     if(c.tieneCont!==false){var k=(c.contador||'').trim()||'Sin asignar';C[k]=C[k]||{t:0,con:0,sin:0};C[k].t++;if(c.tieneRrhh!==false)C[k].con++;else C[k].sin++;}
-    if(c.tieneRrhh!==false){var j=(c.rrhh||'').trim()||'Sin asignar';R[j]=(R[j]||0)+1;}
+    // Remuneraciones: trabajadores activos del período = los informados por RRHH en la nómina del período activo (n_trabajadores).
+    if(c.tieneRrhh!==false){var j=(c.rrhh||'').trim()||'Sin asignar';R[j]=R[j]||{t:0,trab:0,pend:0};R[j].t++;
+      var r=repAct.find(function(x){return x.rut===c.rut;});
+      if(r&&Number(r.nTrab)>0)R[j].trab+=Number(r.nTrab); else R[j].pend++;}
   });
   var orden=function(o,f){return Object.keys(o).sort(function(a,b){if(a==='Sin asignar')return 1;if(b==='Sin asignar')return -1;return f(b)-f(a);});};
   var btn=function(n,area,nombre,filtro){return n?'<button type="button" onclick="verCarga(\''+area+'\',\''+hesc(nombre).replace(/'/g,'&#39;')+'\',\''+filtro+'\')">'+n+'</button>':'0';};
   var tc=orden(C,function(k){return C[k].t;}).map(function(k){var v=C[k];
     return '<tr'+(k==='Sin asignar'?' class="sin"':'')+'><td>'+hesc(k)+'</td><td><b>'+btn(v.t,'c',k,'')+'</b></td><td>'+btn(v.con,'c',k,'con')+'</td><td>'+btn(v.sin,'c',k,'sin')+'</td></tr>';}).join('');
-  var tr=orden(R,function(k){return R[k];}).map(function(k){
-    return '<tr'+(k==='Sin asignar'?' class="sin"':'')+'><td>'+hesc(k)+'</td><td><b>'+btn(R[k],'r',k,'')+'</b></td></tr>';}).join('');
-  var totC=Object.keys(C).reduce(function(s,k){return s+C[k].t;},0), totR=Object.keys(R).reduce(function(s,k){return s+R[k];},0);
+  var tr=orden(R,function(k){return R[k].trab;}).map(function(k){var v=R[k];
+    return '<tr'+(k==='Sin asignar'?' class="sin"':'')+'><td>'+hesc(k)+'</td><td>'+btn(v.t,'r',k,'')+'</td><td><b>'+v.trab+'</b></td><td'+(v.pend?' style="color:#FFB86B"':'')+'>'+(v.pend?btn(v.pend,'r',k,'pend'):'0')+'</td></tr>';}).join('');
+  var totC=Object.keys(C).reduce(function(s,k){return s+C[k].t;},0), totR=Object.keys(R).reduce(function(s,k){return s+R[k].t;},0), totT=Object.keys(R).reduce(function(s,k){return s+R[k].trab;},0);
   document.getElementById('in-carga').innerHTML=vig.length?
     '<div class="in-carga-tit">Contabilidad · '+totC+' clientes</div><table class="in-carga"><thead><tr><th>Asesor(a)</th><th>Total</th><th>Con remuneraciones</th><th>Sin remuneraciones</th></tr></thead><tbody>'+tc+'</tbody></table>'
-    +'<div class="in-carga-tit">Remuneraciones · '+totR+' clientes</div><table class="in-carga"><thead><tr><th>Asesor(a)</th><th>Total</th></tr></thead><tbody>'+tr+'</tbody></table>'
+    +'<div class="in-carga-tit">Remuneraciones · '+totR+' clientes · '+totT+' trabajadores'+(pa?' en '+perTxt(pa):'')+'</div><table class="in-carga"><thead><tr><th>Asesor(a)</th><th>Clientes</th><th>Trabajadores activos</th><th>Sin informar</th></tr></thead><tbody>'+tr+'</tbody></table><div class="sub" style="margin-top:8px">Trabajadores = los informados por RRHH en la nómina del período activo. "Sin informar" = clientes sin número de trabajadores cargado en la nómina del período.</div>'
     :'<div class="g-vacio">Aún no hay clientes activos.</div>';
 }
 function verCarga(area,nombre,filtro){
   var l=_cli.filter(_vigente).filter(function(c){
     if(area==='c'){if(c.tieneCont===false)return false;if((((c.contador||'').trim())||'Sin asignar')!==nombre)return false;if(filtro==='con')return c.tieneRrhh!==false;if(filtro==='sin')return c.tieneRrhh===false;return true;}
-    return c.tieneRrhh!==false&&((((c.rrhh||'').trim())||'Sin asignar')===nombre);});
-  var tit=nombre+' · '+(area==='c'?'Contabilidad'+(filtro==='con'?' con remuneraciones':filtro==='sin'?' sin remuneraciones':''):'Remuneraciones');
+    if(c.tieneRrhh===false||((((c.rrhh||'').trim())||'Sin asignar')!==nombre))return false;
+    if(filtro==='pend'){var r=(_repActCarga||[]).find(function(x){return x.rut===c.rut;});return !(r&&Number(r.nTrab)>0);}
+    return true;});
+  var tit=nombre+' · '+(area==='c'?'Contabilidad'+(filtro==='con'?' con remuneraciones':filtro==='sin'?' sin remuneraciones':''):'Remuneraciones'+(filtro==='pend'?' sin informar':''));
   document.getElementById('in-modal').innerHTML='<button class="in-cer" type="button" aria-label="Cerrar" onclick="cerrarVer()">✕</button><h3>'+hesc(tit)+' ('+l.length+')</h3><ul>'
     +(l.length?l.map(function(c){return '<li><span>'+hesc(c.razon||c.rut)+'</span><small>'+hesc(c.rut)+'</small></li>';}).join(''):'<li>No hay clientes.</li>')+'</ul>';
   document.getElementById('in-velo').classList.add('on');
