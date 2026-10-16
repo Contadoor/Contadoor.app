@@ -147,6 +147,9 @@ body.modal-open{overflow:hidden;}
         <option value="suspendido">Suspendido</option>
         <option value="inactivo">Inactivo</option>
       </select>
+      <select id="filterAnalista" onchange="renderClientes()" aria-label="Filtrar por analista">
+        <option value="">Todos los analistas</option>
+      </select>
       <button class="btn-p" id="btn-nuevo" style="display:none">+ Nuevo cliente</button>
     </div>
 
@@ -725,6 +728,7 @@ function cargarUsuariosSistema() {
           return { id: Number(u.id), nombre: u.nombre, rol: u.rol };
         });
         _usuariosSistemaCargados = true;   // \u00e9xito confirmado
+        llenarFiltroAnalista();
       });
     })
     .catch(function(e) {
@@ -1434,15 +1438,39 @@ function verClaves(id) {
 // ─────────────────────────────────────────────────────
 // RENDER TABLA
 // ─────────────────────────────────────────────────────
+// Filtro por analista (pedido de Luciano, 16-oct-2026): contable o RRHH asignado, por ID (fuente de verdad) o, si no hay ID, por el nombre legacy.
+function llenarFiltroAnalista() {
+  var sel = g('filterAnalista'); if (!sel) return;
+  var actual = sel.value;
+  var opts = '<option value="">Todos los analistas</option><option value="__sin_contable">Sin analista contable</option><option value="__sin_rrhh">Sin analista RRHH</option>';
+  _usuariosSistema.slice().sort(function(a, b){ return (a.nombre || '').localeCompare(b.nombre || ''); }).forEach(function(u) {
+    opts += '<option value="' + u.id + '">' + escHtmlFiltro(u.nombre || ('ID ' + u.id)) + '</option>';
+  });
+  sel.innerHTML = opts; sel.value = actual;
+}
+function escHtmlFiltro(t) { return String(t).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
+function coincideAnalista(c, fa) {
+  if (!fa) return true;
+  if (fa === '__sin_contable') return !c.analistaContableUsuarioId && !c.contador;
+  if (fa === '__sin_rrhh') return c.tieneRrhh !== false && !c.analistaRrhhUsuarioId && !c.rrhh;
+  var id = Number(fa);
+  if (Number(c.analistaContableUsuarioId) === id || Number(c.analistaRrhhUsuarioId) === id) return true;
+  var u = _usuariosSistema.find(function(x){ return x.id === id; });
+  var n = u ? (u.nombre || '').trim().toLowerCase() : '';
+  return !!n && (((c.contador || '').trim().toLowerCase() === n && !c.analistaContableUsuarioId) || ((c.rrhh || '').trim().toLowerCase() === n && !c.analistaRrhhUsuarioId));
+}
+
 function renderClientes() {
   var q   = (gv('searchQ') || '').toLowerCase();
   var fp  = gv('filterPlan');
   var fe  = gv('filterEstado');
+  var fa  = gv('filterAnalista');
   var all = getClientes();
   var arr = all.filter(function(c) {
     if (q && !(c.razon||'').toLowerCase().includes(q) && !(c.rut||'').includes(q) && !(c.giro||'').toLowerCase().includes(q)) return false;
     if (fp && c.plan !== fp)   return false;
     if (fe && c.estado !== fe) return false;
+    if (!coincideAnalista(c, fa)) return false;
     return true;
   });
 
