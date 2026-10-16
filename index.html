@@ -51,6 +51,16 @@
 .in-as:not(.atr) .g-prog i[style*="100%"]{background-image:linear-gradient(90deg,#22A870,#5FE3AE)!important}
 .in-av{width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--g-grad,#924893);color:#fff;font:800 12px var(--g-titulo)}
 .in-av img{width:100%;height:100%;object-fit:cover}
+/* Carga del equipo */
+.in-carga{width:100%;border-collapse:collapse;font-size:13px}
+.in-carga th{text-align:right;font:700 11px var(--g-texto);color:#8F6F94;text-transform:uppercase;letter-spacing:.4px;padding:6px 8px;border-bottom:1px solid #2E1834}
+.in-carga th:first-child{text-align:left}
+.in-carga td{padding:9px 8px;border-top:1px solid #2E1834;text-align:right;color:#E3CFE5;font-weight:600}
+.in-carga td:first-child{text-align:left;color:#F3E9F4}
+.in-carga td b{font:900 15px var(--g-titulo);color:#F3E9F4}
+.in-carga tr.sin td:first-child{color:#FFB86B}
+.in-carga button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0;text-decoration:underline dotted;text-underline-offset:3px}
+.in-carga-tit{font:700 12px var(--g-texto);color:#C77BC9;margin:14px 0 4px}
 /* Clientes por estado */
 .in-est{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .in-est button{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.03);border:1px solid #3A2140;border-radius:14px;padding:12px 14px;color:#E3CFE5;font:600 13px var(--g-texto);cursor:pointer;text-align:left}
@@ -108,6 +118,12 @@
         <div id="in-equipo"></div>
       </section>
     </div>
+
+    <section class="in-card" style="margin-top:16px">
+      <h2><span data-g-ic="personal"></span> Carga del equipo</h2>
+      <div class="sub">Clientes activos y en onboarding por asesor · toca un número para ver cuáles son</div>
+      <div id="in-carga"></div>
+    </section>
 
     <div class="in-grid2">
       <section class="in-card">
@@ -288,11 +304,41 @@ function pintar(meses){
     foto=foto.replace('<span class="in-av">','<span class="in-av" data-i="'+hesc(ini)+'">');
     return '<div class="in-as'+(atr?' atr':'')+'">'+foto+'<div><strong>'+hesc(a.n)+'</strong><small>'+a.area+(pend?' · '+pend+' pendiente'+(pend>1?'s':''):' · al día')+'</small><div class="g-prog"><i style="width:'+pct+'%"></i></div></div><span class="n">'+a.ok+' / '+a.t+'</span></div>';}).join('')
     :'<div class="g-vacio">Aún no hay clientes en la nómina del período activo.</div>';
+  // Carga del equipo (pedido de Luciano, 16-oct): cartera vigente (activo + onboarding) por asesor; contables con y sin remuneraciones.
+  renderCarga();
   // Clientes por estado
   var EST=[['activo','Activos'],['onboarding','Onboarding'],['suspendido','Suspendidos'],['inactivo','Inactivos / término']];
   document.getElementById('in-est').innerHTML=EST.map(function(e){var n=_cli.filter(function(c){return e[0]==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===e[0];}).length;
     return '<button type="button" class="'+e[0]+'" onclick="verCuales(\''+e[0]+'\',\''+e[1]+'\')"><span>'+e[1]+'<small>Ver cuáles</small></span><b>'+n+'</b></button>';}).join('');
   if(window.gIconos)gIconos(document);
+}
+function _vigente(c){return c.estado==='activo'||c.estado==='onboarding';}
+function renderCarga(){
+  var vig=_cli.filter(_vigente), C={}, R={};
+  vig.forEach(function(c){
+    if(c.tieneCont!==false){var k=(c.contador||'').trim()||'Sin asignar';C[k]=C[k]||{t:0,con:0,sin:0};C[k].t++;if(c.tieneRrhh!==false)C[k].con++;else C[k].sin++;}
+    if(c.tieneRrhh!==false){var j=(c.rrhh||'').trim()||'Sin asignar';R[j]=(R[j]||0)+1;}
+  });
+  var orden=function(o,f){return Object.keys(o).sort(function(a,b){if(a==='Sin asignar')return 1;if(b==='Sin asignar')return -1;return f(b)-f(a);});};
+  var btn=function(n,area,nombre,filtro){return n?'<button type="button" onclick="verCarga(\''+area+'\',\''+hesc(nombre).replace(/'/g,'&#39;')+'\',\''+filtro+'\')">'+n+'</button>':'0';};
+  var tc=orden(C,function(k){return C[k].t;}).map(function(k){var v=C[k];
+    return '<tr'+(k==='Sin asignar'?' class="sin"':'')+'><td>'+hesc(k)+'</td><td><b>'+btn(v.t,'c',k,'')+'</b></td><td>'+btn(v.con,'c',k,'con')+'</td><td>'+btn(v.sin,'c',k,'sin')+'</td></tr>';}).join('');
+  var tr=orden(R,function(k){return R[k];}).map(function(k){
+    return '<tr'+(k==='Sin asignar'?' class="sin"':'')+'><td>'+hesc(k)+'</td><td><b>'+btn(R[k],'r',k,'')+'</b></td></tr>';}).join('');
+  var totC=Object.keys(C).reduce(function(s,k){return s+C[k].t;},0), totR=Object.keys(R).reduce(function(s,k){return s+R[k];},0);
+  document.getElementById('in-carga').innerHTML=vig.length?
+    '<div class="in-carga-tit">Contabilidad · '+totC+' clientes</div><table class="in-carga"><thead><tr><th>Asesor(a)</th><th>Total</th><th>Con remuneraciones</th><th>Sin remuneraciones</th></tr></thead><tbody>'+tc+'</tbody></table>'
+    +'<div class="in-carga-tit">Remuneraciones · '+totR+' clientes</div><table class="in-carga"><thead><tr><th>Asesor(a)</th><th>Total</th></tr></thead><tbody>'+tr+'</tbody></table>'
+    :'<div class="g-vacio">Aún no hay clientes activos.</div>';
+}
+function verCarga(area,nombre,filtro){
+  var l=_cli.filter(_vigente).filter(function(c){
+    if(area==='c'){if(c.tieneCont===false)return false;if((((c.contador||'').trim())||'Sin asignar')!==nombre)return false;if(filtro==='con')return c.tieneRrhh!==false;if(filtro==='sin')return c.tieneRrhh===false;return true;}
+    return c.tieneRrhh!==false&&((((c.rrhh||'').trim())||'Sin asignar')===nombre);});
+  var tit=nombre+' · '+(area==='c'?'Contabilidad'+(filtro==='con'?' con remuneraciones':filtro==='sin'?' sin remuneraciones':''):'Remuneraciones');
+  document.getElementById('in-modal').innerHTML='<button class="in-cer" type="button" aria-label="Cerrar" onclick="cerrarVer()">✕</button><h3>'+hesc(tit)+' ('+l.length+')</h3><ul>'
+    +(l.length?l.map(function(c){return '<li><span>'+hesc(c.razon||c.rut)+'</span><small>'+hesc(c.rut)+'</small></li>';}).join(''):'<li>No hay clientes.</li>')+'</ul>';
+  document.getElementById('in-velo').classList.add('on');
 }
 function verCuales(est,tit){
   var l=_cli.filter(function(c){return est==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===est;});
