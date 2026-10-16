@@ -150,6 +150,17 @@ body.modal-open{overflow:hidden;}
       <select id="filterAnalista" onchange="renderClientes()" aria-label="Filtrar por analista">
         <option value="">Todos los analistas</option>
       </select>
+      <select id="filterRemu" onchange="renderClientes()" aria-label="Filtrar por remuneraciones">
+        <option value="">Con y sin remuneraciones</option>
+        <option value="con">Con remuneraciones</option>
+        <option value="sin">Sin remuneraciones</option>
+      </select>
+      <select id="filterPrio" onchange="renderClientes()" aria-label="Filtrar por prioridad">
+        <option value="">Todas las prioridades</option>
+        <option value="alta">Prioridad alta</option>
+        <option value="media">Prioridad media</option>
+        <option value="baja">Prioridad baja</option>
+      </select>
       <button class="btn-p" id="btn-nuevo" style="display:none">+ Nuevo cliente</button>
     </div>
 
@@ -326,15 +337,15 @@ body.modal-open{overflow:hidden;}
         <div class="fgroup"><label>Área de Pagos</label>
           <input id="f-pagos-resp" readonly tabindex="-1" title="Pagos es transversal: atiende a todos los clientes (no se asigna por ficha)" style="background:#f6f2f8;color:#5c4a5d">
         </div>
-        <div class="fgroup"><label>Prioridad RRHH</label>
-          <select id="f-prio-rrhh">
+        <div class="fgroup"><label>Prioridad Contable</label>
+          <select id="f-prio-cont">
             <option value="alta">Alta</option>
             <option value="media" selected>Media</option>
             <option value="baja">Baja</option>
           </select>
         </div>
-        <div class="fgroup"><label>Prioridad Contable</label>
-          <select id="f-prio-cont">
+        <div class="fgroup"><label>Prioridad Remuneraciones</label>
+          <select id="f-prio-rrhh">
             <option value="alta">Alta</option>
             <option value="media" selected>Media</option>
             <option value="baja">Baja</option>
@@ -1460,17 +1471,33 @@ function coincideAnalista(c, fa) {
   return !!n && (((c.contador || '').trim().toLowerCase() === n && !c.analistaContableUsuarioId) || ((c.rrhh || '').trim().toLowerCase() === n && !c.analistaRrhhUsuarioId));
 }
 
+function coincidePrioridad(c, fpr, fa) {
+  var pc = c.prioCont || 'media', pr = c.prioRrhh || 'media';
+  var id = Number(fa);
+  if (fa && !isNaN(id)) {
+    if (Number(c.analistaContableUsuarioId) === id) return pc === fpr;
+    if (Number(c.analistaRrhhUsuarioId) === id) return pr === fpr;
+  }
+  return pc === fpr || (c.tieneRrhh !== false && pr === fpr);
+}
+
 function renderClientes() {
   var q   = (gv('searchQ') || '').toLowerCase();
   var fp  = gv('filterPlan');
   var fe  = gv('filterEstado');
   var fa  = gv('filterAnalista');
+  var fr  = gv('filterRemu');
+  var fpr = gv('filterPrio');
   var all = getClientes();
   var arr = all.filter(function(c) {
     if (q && !(c.razon||'').toLowerCase().includes(q) && !(c.rut||'').includes(q) && !(c.giro||'').toLowerCase().includes(q)) return false;
     if (fp && c.plan !== fp)   return false;
     if (fe && c.estado !== fe) return false;
     if (!coincideAnalista(c, fa)) return false;
+    if (fr === 'con' && c.tieneRrhh === false) return false;
+    if (fr === 'sin' && c.tieneRrhh !== false) return false;
+    // Prioridad: con analista elegido, la del área de ese analista; si no, la contable o la de remuneraciones.
+    if (fpr && !coincidePrioridad(c, fpr, fa)) return false;
     return true;
   });
 
