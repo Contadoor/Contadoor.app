@@ -724,12 +724,21 @@
   // Refresco liviano: lista + contadores + bloqueos. No toca la caja de respuesta ni el buscador.
   function tic(){if(!$('as-app')||document.hidden||S.ocupado||$('as-velo').classList.contains('on'))return;refrescar(false);}
 
+  // Aviso push → /asistente/?c=<id>: abre esa conversación (si está en la lista) y limpia la URL para que recargar no la reabra.
+  function abrirDesdeAviso(){
+    var m=/(?:^|[?&])c=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:&|$)/i.exec(location.search.slice(1));
+    if(!m)return;
+    var id=m[1].toLowerCase();
+    try{history.replaceState(null,'',location.pathname+location.search.replace(/([?&])c=[^&]*(&|$)/,function(_,a,b){return b?a:'';}).replace(/[?&]$/,'')+location.hash);}catch(e){}
+    if(S.convs.some(function(x){return x.id===id;}))abrir(id);
+    else aviso('Esa conversación ya no está en la bandeja (pudo cerrarse o ser atendida).',false);
+  }
   function iniciar(){
     if(S.iniciado||!$('as-app'))return;                    // acceso denegado: auth.js reemplazó la página
     S.iniciado=true;
     if(DEMO)$('as-demo').classList.add('on');
     pintarFiltros();
-    cargarYo().then(function(){return refrescar(true);});
+    cargarYo().then(function(){return refrescar(true);}).then(abrirDesdeAviso);
     setInterval(tic,REFRESCO_MS);
   }
 
