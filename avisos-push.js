@@ -5,7 +5,7 @@
 // Requiere supabase.js (sbPost con JWT). En iPhone solo funciona con Gestoor instalado en la pantalla de inicio.
 // ═══════════════════════════════════════════════════════════
 (function () {
-  var VAPID_PUBLICA = 'BHBGgUQeSxTWNJnJFyttOqCnu_BVzxMI6MsqypCUPMfFwf5KHHppnpEB42875pbUcCZdK0xPPGpCMUPONSlIl4I';
+  var VAPID_PUBLICA = 'BL1WhJS8bWYFwrmgmz7CYOeJpcdL9sqPerJjyBBTWpsLp58Am0D4TzKVUdQRrw9G1v6OATehG7HGt8YyByffrqg';
 
   function bytes(b64) {
     var s = (b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
