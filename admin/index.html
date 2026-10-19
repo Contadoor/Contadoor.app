@@ -261,12 +261,15 @@ var ROL_LABELS = {
 var MODULOS_ADICIONALES_PERMITIDOS = [
   'clientes','planes','panel-de-control',
   'reportes-rrhh','reportes-contable','reportes-pagos',
-  'pir','pre-iva','pagos','conciliacion','convenios'
+  'pir','pre-iva','pagos','conciliacion','convenios',
+  // Facturación (F1, 19-oct-2026): permiso para preparar y emitir lotes (p. ej. un contable que además factura).
+  // Aprobar sigue siendo solo del Master (se valida en el servidor). La pantalla del módulo llega en F1b.
+  'facturacion'
 ];
 
 // ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
 var MODULOS_FUTUROS_IDS = [
-  'gestion-personal','cobranza','facturacion',
+  'gestion-personal','cobranza',
   'crm','cotizaciones','campanas','comunicaciones','performance'
 ];
 
