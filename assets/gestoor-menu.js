@@ -67,7 +67,7 @@
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
       ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva'],['pir','MiRenta','pir']]],
     ['Gestión interna',[['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','CxC / Cobranza',null],
-      ['factura','Facturación',null],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
+      ['factura','Facturación','facturacion'],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
       ['correo','Comunicaciones',null],['grafico','Performance',null]]],
     ['Configuración',[['admin','Admin','admin']]]
   ];
