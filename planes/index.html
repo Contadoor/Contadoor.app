@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es" class="auth-pending">
 <head>
@@ -6,511 +5,491 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Planes y Servicios · Gestoor</title>
 <style>
-:root{--p:#904891;--pd:#6D2E6E;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#faf7fa;--bdr:#e8dde8;--t1:#1a0a1b;--t2:#5c4a5d;--tm:#9a849b;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#1e40af;}
+/* Base común de los módulos (igual que clientes/); assets/gestoor.css la reviste en tema oscuro */
+:root{--deep:#08040f;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--t1);display:flex;min-height:100vh;}
 .sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
 nav{padding:8px;flex:1;overflow-y:auto;min-height:0;}
-.sb-section{font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 5px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:rgba(255,255,255,.55);font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;margin-bottom:1px;}
-.sb-item:hover{background:rgba(255,255,255,.07);color:#fff;}
-.sb-item.on{background:rgba(144,72,145,.25);color:#fff;font-weight:600;}
-.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.35);}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;text-decoration:none;transition:.15s;margin-bottom:1px;}
 .wrap{margin-left:220px;flex:1;}
-.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
-.tb-title{font-size:14px;font-weight:700;color:#fff;flex:1;}
-.content{padding:20px;max-width:1100px;}
-/* PLAN CARDS */
-.planes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
-.plan-card{background:var(--sur);border:2px solid var(--bdr);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.2s;}
-.plan-card.estrategico{border-color:var(--p);}
-.plan-card-hdr{padding:20px;background:var(--sur2);}
-.plan-card.estrategico .plan-card-hdr{background:linear-gradient(135deg,var(--pd),var(--p));}
-.plan-icon{font-size:28px;margin-bottom:8px;}
-.plan-nombre{font-size:18px;font-weight:800;color:var(--t1);}
-.plan-card.estrategico .plan-nombre{color:#fff;}
-.plan-tagline{font-size:12px;color:var(--tm);margin-top:4px;font-style:italic;}
-.plan-card.estrategico .plan-tagline{color:rgba(255,255,255,.7);}
-.plan-precio-box{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:baseline;gap:6px;}
-.plan-precio-num{font-size:26px;font-weight:800;color:var(--p);font-family:monospace;}
-.plan-precio-mon{font-size:12px;color:var(--tm);}
-.plan-precio-clp{font-size:11px;color:var(--p);font-weight:600;margin-left:auto;}
-.plan-body{padding:16px 20px;flex:1;}
-.plan-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
-.plan-meta-item{background:var(--pp);border-radius:8px;padding:8px 10px;}
-.plan-meta-lbl{font-size:9px;color:var(--pd);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
-.plan-meta-val{font-size:13px;font-weight:700;color:var(--pd);margin-top:2px;}
-.plan-servicios{margin-bottom:14px;}
-.plan-servicios-title{font-size:10px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
-.plan-servicio{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2);margin-bottom:5px;line-height:1.4;}
-.plan-servicio .ck{color:var(--green);font-size:13px;flex-shrink:0;margin-top:1px;}
-.plan-reuniones{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;color:var(--blue);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:10px;}
-.plan-card-footer{padding:12px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;}
-.btn-p{background:var(--p);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;}
-.btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;}
-.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px;}
-.btn-danger{background:#fee2e2;color:#991b1b;border:none;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;}
-.seccion-titulo{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
-.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
-/* HISTORIAL */
-.historial-list{display:flex;flex-direction:column;gap:8px;}
-.historial-item{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;}
-.historial-fecha{font-size:10px;color:var(--tm);width:80px;flex-shrink:0;}
-.historial-desc{font-size:12px;color:var(--t2);flex:1;}
-.historial-quien{font-size:10px;color:var(--tm);}
-/* MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:16px;}
-.modal-bg.on{display:flex;}
-.modal{background:var(--sur);border-radius:14px;max-width:580px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25);}
-.modal-header{padding:16px 22px 12px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
-.modal-header h2{font-size:16px;font-weight:700;color:var(--p);margin:0;}
-.modal-body{overflow-y:auto;flex:1;padding:20px 22px;}
-.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 22px;border-top:2px solid var(--bdr);background:var(--sur2);flex-shrink:0;}
-.card-hd{font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bdr);}
-.fgroup{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
-.fgroup label{font-size:11px;font-weight:600;color:var(--t2);}
-.fgroup input,.fgroup select,.fgroup textarea{font-family:inherit;font-size:13px;border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t1);background:var(--sur2);outline:none;width:100%;}
-.fgroup input:focus,.fgroup select:focus{border-color:var(--p);}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.servicio-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);}
-.servicio-row:last-child{border-bottom:none;}
-.servicio-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--p);flex-shrink:0;}
-.servicio-row label{font-size:12px;color:var(--t2);cursor:pointer;flex:1;}
-.preview-precio{background:var(--pp);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--pd);margin-top:8px;}
+.topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;}
+.content{padding:20px;}
+/* Planes y Servicios · catálogo comercial */
+.pl-aviso{margin:4px 0 16px}
+.pl-sec{display:flex;align-items:center;gap:10px;margin:22px 0 12px;flex-wrap:wrap}
+.pl-sec h2{font:800 18px var(--g-titulo);color:#F3E9F4;margin:0}
+.pl-sec small{color:#C9A8CC;font-size:12px}
+.pl-sec .g-espacio{flex:1}
+.pl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pl-svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.pl-card{display:flex;flex-direction:column;padding:18px 20px;min-width:0}
+.pl-card.inactivo{opacity:.55}
+.pl-card.flagship{border-color:#C77BC9!important;box-shadow:0 0 0 1px #C77BC9,0 12px 34px rgba(0,0,0,.35)!important}
+.pl-hd{display:flex;align-items:flex-start;gap:10px}
+.pl-ico{font-size:24px;line-height:1}
+.pl-nom{font:800 18px/1.2 var(--g-titulo);color:#F3E9F4;word-break:break-word}
+.pl-cod{font-size:11px;color:#8F6F94}
+.pl-hd .g-espacio{flex:1}
+.pl-precio{margin:14px 0 4px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.pl-precio b{font:900 28px var(--g-titulo);color:#E39BE5;font-variant-numeric:tabular-nums}
+.pl-precio span{color:#C9A8CC;font-size:12px}
+.pl-eq{font-size:12px;color:#C9A8CC;font-variant-numeric:tabular-nums}
+.pl-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.pl-meta div{background:rgba(199,123,201,.10);border:1px solid #4A2B50;border-radius:12px;padding:8px 10px;min-width:0}
+.pl-meta small{display:block;font:700 9.5px var(--g-texto);letter-spacing:1px;text-transform:uppercase;color:#C9A8CC}
+.pl-meta strong{display:block;font-size:13px;color:#F3E9F4;margin-top:2px;font-variant-numeric:tabular-nums}
+.pl-lista-t{font:700 10px var(--g-texto);letter-spacing:1.2px;text-transform:uppercase;color:#C9A8CC;margin:10px 0 6px}
+.pl-lista{list-style:none;margin:0;padding:0}
+.pl-lista li{display:flex;gap:8px;font-size:12.5px;color:#E3CFE5;margin-bottom:4px;line-height:1.4}
+.pl-lista li::before{content:"✓";color:#5FCF9C;flex:none}
+.pl-lista.no li::before{content:"✕";color:#E07A6E}
+.pl-vacio-l{font-size:12px;color:#8F6F94;font-style:italic}
+.pl-desc{font-size:12.5px;color:#C9A8CC;margin-top:8px;line-height:1.45}
+.pl-obs{font-size:11.5px;color:#C9A8CC;margin-top:8px}
+.pl-pie{display:flex;gap:8px;margin-top:auto;padding-top:14px;flex-wrap:wrap}
+.pl-tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.pl-tag.t-tipo{background:rgba(142,197,255,.14);color:#8EC5FF}
+.pl-tag.t-off{background:rgba(255,255,255,.08);color:#C9A8CC}
+.pl-tag.t-prop{background:rgba(255,200,90,.14);color:#FFC85A}
+.pl-cat{font-size:10.5px;color:#C9A8CC;text-transform:uppercase;letter-spacing:.8px}
+.pl-hist{padding:6px 0}
+.pl-hist-i{display:grid;grid-template-columns:120px 1fr auto;gap:12px;padding:10px 20px;border-bottom:1px solid #33193A;font-size:12.5px;align-items:baseline}
+.pl-hist-i:last-child{border-bottom:0}
+.pl-hist-i time{color:#8F6F94;font-size:11px}
+.pl-hist-i span{color:#E3CFE5;min-width:0;overflow-wrap:anywhere}
+.pl-hist-i em{font-style:normal;color:#8F6F94;font-size:11px}
+.pl-err{background:rgba(224,122,110,.12);border:1px solid rgba(224,122,110,.4);color:#F3C2BB;border-radius:12px;padding:10px 14px;font-size:12.5px;margin:8px 0 14px}
+.pl-legado{background:rgba(255,200,90,.08);border:1px solid rgba(255,200,90,.35);color:#FFE2A8;border-radius:12px;padding:10px 14px;font-size:12.5px;margin:0 0 14px}
+.pl-chk{display:flex;align-items:center;gap:8px;font-size:13px;color:#E3CFE5;cursor:pointer;margin:6px 0 10px}
+.pl-chk input{width:18px;height:18px;accent-color:#C77BC9}
+.modal{max-width:620px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{padding:18px 22px 12px;flex-shrink:0}
+.modal-header h2{margin:0}
+.modal-body{overflow-y:auto;flex:1;padding:6px 22px 18px}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 22px;flex-shrink:0;flex-wrap:wrap}
+.modal-bg{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-bg.on{display:flex}
+.fgroup{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fgroup label{font-size:11.5px;font-weight:600}
+.fgroup input,.fgroup select,.fgroup textarea{font-size:14px;padding:9px 12px;width:100%}
+.fgroup small{font-size:11px;color:#8F6F94}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl-eq-form{background:rgba(199,123,201,.10);border:1px solid #4A2B50;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#E3CFE5;margin:2px 0 8px}
+.modal-msg{font-size:12.5px;margin-right:auto;align-self:center;color:#F3C2BB}
+#toast{display:none;position:fixed;bottom:20px;right:20px;left:auto;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 10px 30px rgba(0,0,0,.45);color:#fff;max-width:calc(100vw - 40px)}
+@media (max-width:1180px){.pl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.pl-grid{grid-template-columns:1fr}.pl-hist-i{grid-template-columns:1fr;gap:2px}}
+@media (max-width:560px){.fg2{grid-template-columns:1fr;gap:0}.pl-svc-grid{grid-template-columns:1fr}.modal-bg{padding:0;align-items:flex-end}.modal{max-height:94vh;border-radius:20px 20px 0 0!important}#toast{left:16px;right:16px;bottom:16px}}
 </style>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
-<body>
-<aside class="sidebar">
-  <nav>
-    <div class="sb-section">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-section">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item" href="../pre-iva/index.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-section">Gestión interna</div>
-    <a class="sb-item on" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-section">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<body class="g-shell g-tema-noche">
+
+<aside class="sidebar" data-gestoor-activo="planes"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+
 <div class="wrap">
   <div class="topbar">
-    <div class="tb-title">📋 Planes y Servicios</div>
-    <span style="font-size:11px;color:rgba(255,255,255,.4)" id="uf-display">UF: cargando...</span>
+    <h1 class="tb-title">Planes <span>y servicios</span></h1>
+    <div class="g-espacio"></div>
+    <span class="g-chip-per" id="uf-chip">UF <em>cargando…</em></span>
+    <span class="g-chip-per" id="rol-chip" style="display:none"></span>
   </div>
   <div class="content">
 
-    <!-- PLANES -->
-    <div class="planes-grid" id="planesGrid"></div>
+    <div class="g-info-azul pl-aviso">Este es el <b>catálogo comercial</b>: precios de referencia para vender y cotizar. Cambiarlo <b>no cambia lo que paga cada cliente</b>; eso se define en su ficha y es lo que usa Facturación.</div>
+    <div id="pl-error"></div>
 
-    <!-- SERVICIOS ADICIONALES -->
-    <div class="seccion-titulo" style="margin-top:8px">
-      🛎️ Catálogo de servicios adicionales
-      <button class="btn-p btn-sm" id="btn-nuevo-servicio">+ Nuevo servicio</button>
+    <div class="pl-sec">
+      <h2>Planes</h2><small id="pl-planes-n"></small>
+      <div class="g-espacio"></div>
+      <button class="btn-s btn-sm solo-master" id="btn-nuevo-plan" style="display:none">+ Nuevo plan</button>
     </div>
-    <div id="serviciosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:24px"></div>
+    <div class="pl-grid" id="planesGrid"></div>
 
-    <!-- HISTORIAL -->
-    <div class="seccion-titulo">
-      🕓 Historial de cambios
+    <div class="pl-sec">
+      <h2>Servicios adicionales</h2><small id="pl-svc-n"></small>
+      <div class="g-espacio"></div>
+      <label class="pl-chk" style="margin:0"><input type="checkbox" id="ver-inactivos"> Ver desactivados</label>
+      <button class="btn-p btn-sm solo-master" id="btn-nuevo-servicio" style="display:none">+ Nuevo servicio</button>
     </div>
-    <div class="historial-list" id="historialList">
-      <div style="padding:20px;text-align:center;color:var(--tm);font-size:12px">Sin cambios registrados aún.</div>
-    </div>
+    <div id="pl-legado"></div>
+    <div class="pl-svc-grid" id="serviciosGrid"></div>
+
+    <div class="pl-sec"><h2>Historial de cambios</h2><small>quién cambió qué y cuándo</small></div>
+    <div class="g-card pl-hist" id="historialList"><div class="g-vacio">Cargando…</div></div>
 
   </div>
 </div>
 
-<!-- MODAL EDITAR PLAN -->
+<!-- MODAL PLAN -->
 <div class="modal-bg" id="modalPlan">
-  <div class="modal">
-    <div class="modal-header">
-      <h2 id="modalPlanTitle">Editar plan</h2>
-    </div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalPlanTitle">
+    <div class="modal-header"><h2 id="modalPlanTitle">Editar plan</h2></div>
     <div class="modal-body">
-      <div class="card-hd">📌 Identificación</div>
-      <div class="fgroup"><label>Nombre del plan</label><input type="text" id="f-plan-nombre" readonly style="background:var(--pp);color:var(--pd);font-weight:700"></div>
-      <div class="fgroup"><label>Tagline</label><input type="text" id="f-plan-tagline" placeholder="Frase que describe el plan"></div>
-      <div class="fgroup"><label>Descripción breve</label><textarea id="f-plan-desc" rows="2" placeholder="Para quién es este plan..."></textarea></div>
-      <div class="card-hd">💰 Precio de referencia</div>
+      <div class="card-hd">Identificación</div>
       <div class="fg2">
-        <div class="fgroup"><label>Moneda base</label>
-          <select id="f-plan-moneda">
-            <option value="UF">UF</option>
-            <option value="CLP">CLP</option>
-          </select>
-        </div>
-        <div class="fgroup"><label>Monto base fijo mensual</label><input type="number" id="f-plan-precio" placeholder="3.5" step="0.01"></div>
+        <div class="fgroup"><label for="f-plan-nombre">Nombre del plan *</label><input type="text" id="f-plan-nombre" maxlength="80"></div>
+        <div class="fgroup"><label for="f-plan-icono">Ícono (emoji)</label><input type="text" id="f-plan-icono" maxlength="4" placeholder="📊"></div>
+      </div>
+      <div class="fgroup"><label for="f-plan-codigo">Código interno</label><input type="text" id="f-plan-codigo" maxlength="40" placeholder="ej: pro_plus">
+        <small id="f-plan-codigo-ayuda">Es el vínculo con las fichas de clientes: no se puede cambiar después.</small></div>
+      <div class="fgroup"><label for="f-plan-desc">Descripción breve</label><textarea id="f-plan-desc" rows="2" maxlength="400" placeholder="Para quién es este plan"></textarea></div>
+      <div class="card-hd">Precio de referencia</div>
+      <label class="pl-chk"><input type="checkbox" id="f-plan-propuesta"> Sin precio público (por propuesta)</label>
+      <div class="fg2" id="f-plan-precio-box">
+        <div class="fgroup"><label for="f-plan-moneda">Moneda</label><select id="f-plan-moneda"><option value="UF">UF</option><option value="CLP">Pesos ($)</option></select></div>
+        <div class="fgroup"><label for="f-plan-precio">Precio mensual</label><input type="number" id="f-plan-precio" min="0" step="0.01" inputmode="decimal"></div>
       </div>
       <div class="fg2">
-        <div class="fgroup"><label>Moneda valor por trabajador</label>
-          <select id="f-plan-moneda-var">
-            <option value="UF">UF</option>
-            <option value="CLP">CLP</option>
-          </select>
-        </div>
-        <div class="fgroup"><label>Valor por trabajador (mensual)</label><input type="number" id="f-plan-var" placeholder="0.3" step="0.01"></div>
+        <div class="fgroup"><label for="f-plan-trab">Trabajadores incluidos</label><input type="number" id="f-plan-trab" min="0" step="1" inputmode="numeric"></div>
+        <div class="fgroup"><label for="f-plan-vtrab">Valor por trabajador adicional (UF)</label><input type="number" id="f-plan-vtrab" min="0" step="0.01" inputmode="decimal"></div>
       </div>
-      <input type="hidden" id="f-plan-trab" value="0">
-      <div class="preview-precio" id="plan-preview">—</div>
-      <div class="card-hd">🎯 Reuniones mensuales</div>
-      <div class="fgroup">
-        <label>Cantidad de reuniones incluidas</label>
-        <select id="f-plan-reuniones">
-          <option value="0">Sin reuniones</option>
-          <option value="1">1 reunión mensual</option>
-          <option value="2">2 reuniones mensuales</option>
-          <option value="3">3 reuniones mensuales</option>
-        </select>
-      </div>
-      <div class="card-hd">✅ Servicios incluidos</div>
-      <div id="serviciosCheck"></div>
+      <div class="pl-eq-form" id="plan-preview">—</div>
+      <div class="card-hd">Qué incluye</div>
+      <div class="fgroup"><label for="f-plan-incluye">Incluye (una línea por ítem)</label><textarea id="f-plan-incluye" rows="5"></textarea></div>
+      <div class="fgroup"><label for="f-plan-noincluye">No incluye (una línea por ítem)</label><textarea id="f-plan-noincluye" rows="3"></textarea></div>
+      <div class="fgroup"><label for="f-plan-obs">Observaciones</label><input type="text" id="f-plan-obs" maxlength="300" placeholder="Ej: reunión trimestral de 45 min"></div>
+      <label class="pl-chk"><input type="checkbox" id="f-plan-activo"> Plan activo (se ofrece)</label>
     </div>
     <div class="modal-footer">
-      <button class="btn-s" id="btn-plan-cancelar">Cancelar</button>
-      <button class="btn-p" id="btn-plan-guardar">💾 Guardar cambios</button>
+      <span class="modal-msg" id="plan-msg"></span>
+      <button class="btn-s" id="btn-plan-cancelar" type="button">Cancelar</button>
+      <button class="btn-p" id="btn-plan-guardar" type="button">Guardar plan</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL SERVICIO ADICIONAL -->
+<!-- MODAL SERVICIO -->
 <div class="modal-bg" id="modalServicio">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-header">
-      <h2 id="modalServicioTitle">Nuevo servicio adicional</h2>
-    </div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalServicioTitle" style="max-width:560px">
+    <div class="modal-header"><h2 id="modalServicioTitle">Nuevo servicio</h2></div>
     <div class="modal-body">
-      <div class="card-hd">📌 Identificación</div>
-      <div class="fgroup"><label>Nombre del servicio *</label><input type="text" id="f-svc-nombre" placeholder="Ej: Constitución de empresa"></div>
-      <div class="fgroup"><label>Categoría</label>
-        <select id="f-svc-categoria">
-          <option value="tributario">📋 Tributario</option>
-          <option value="laboral">👥 Laboral</option>
-          <option value="societario">🏢 Societario</option>
-          <option value="contable">📊 Contable</option>
-          <option value="otro">🔧 Otro</option>
-        </select>
-      </div>
-      <div class="fgroup"><label>Descripción</label><textarea id="f-svc-desc" rows="2" placeholder="Qué incluye este servicio..."></textarea></div>
-      <div class="card-hd">💰 Precio de referencia</div>
+      <div class="card-hd">Identificación</div>
+      <div class="fgroup"><label for="f-svc-nombre">Nombre del servicio *</label><input type="text" id="f-svc-nombre" maxlength="120" placeholder="Ej: Orientación adicional de 45 minutos"></div>
       <div class="fg2">
-        <div class="fgroup"><label>Moneda</label>
-          <select id="f-svc-moneda">
-            <option value="UF">UF</option>
-            <option value="CLP">CLP</option>
-          </select>
-        </div>
-        <div class="fgroup"><label>Precio</label><input type="number" id="f-svc-precio" placeholder="150000" step="1000"></div>
+        <div class="fgroup"><label for="f-svc-categoria">Categoría</label>
+          <select id="f-svc-categoria">
+            <option value="tributario">Tributario</option><option value="contable">Contable</option><option value="laboral">Laboral</option>
+            <option value="societario">Societario</option><option value="asesoria">Asesoría</option><option value="otro">Otro</option>
+          </select></div>
+        <div class="fgroup"><label for="f-svc-tipo">Tipo de cobro</label>
+          <select id="f-svc-tipo">
+            <option value="puntual">Único (una vez)</option><option value="mensual">Mensual</option><option value="anual">Anual</option>
+            <option value="por_trabajador">Por trabajador al mes</option><option value="por_propuesta">Por propuesta (se cotiza)</option>
+          </select></div>
       </div>
-      <div class="fgroup">
-        <label>Tipo</label>
-        <select id="f-svc-tipo">
-          <option value="puntual">⚡ Puntual (cobro único)</option>
-          <option value="recurrente">🔄 Recurrente (cobro mensual)</option>
-        </select>
+      <div class="fgroup"><label for="f-svc-desc">Descripción</label><textarea id="f-svc-desc" rows="2" maxlength="500" placeholder="Qué incluye este servicio"></textarea></div>
+      <div class="card-hd">Precio de referencia</div>
+      <div class="fg2">
+        <div class="fgroup"><label for="f-svc-moneda">Moneda</label><select id="f-svc-moneda"><option value="UF">UF</option><option value="CLP">Pesos ($)</option></select></div>
+        <div class="fgroup"><label for="f-svc-precio">Precio (o "desde")</label><input type="number" id="f-svc-precio" min="0" step="0.01" inputmode="decimal" placeholder="Vacío = sin precio fijo"></div>
       </div>
-      <div class="fgroup"><label>Obs. / condiciones</label><input type="text" id="f-svc-obs" placeholder="Precio puede variar según complejidad..."></div>
+      <div class="fgroup"><label for="f-svc-hasta">Hasta (opcional, si es un rango)</label><input type="number" id="f-svc-hasta" min="0" step="0.01" inputmode="decimal"></div>
+      <div class="pl-eq-form" id="svc-preview">—</div>
+      <div class="fgroup"><label for="f-svc-obs">Observaciones / condiciones</label><input type="text" id="f-svc-obs" maxlength="300" placeholder="Ej: solo empresas simples; si hay atrasos se cotiza aparte"></div>
+      <label class="pl-chk"><input type="checkbox" id="f-svc-activo"> Servicio activo (se ofrece)</label>
     </div>
     <div class="modal-footer">
-      <button class="btn-s" id="btn-svc-cancelar">Cancelar</button>
-      <button class="btn-p" id="btn-svc-guardar">💾 Guardar servicio</button>
+      <span class="modal-msg" id="svc-msg"></span>
+      <button class="btn-s" id="btn-svc-cancelar" type="button">Cancelar</button>
+      <button class="btn-p" id="btn-svc-guardar" type="button">Guardar servicio</button>
     </div>
   </div>
 </div>
 
-<div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script src="../supabase.js"></script>
 <script>
-var UF = 39700;
-var ESTADOS = {
-  activo:{l:'Activo',c:'badge-activo'},onboarding:{l:'Onboarding',c:'badge-onboarding'},
-  suspendido:{l:'Suspendido',c:'badge-suspendido'},inactivo:{l:'Inactivo',c:'badge-inactivo'}
-};
-var SERVICIOS_BASE = [
-  'Declaraciones mensuales (F29, IVA)','Declaración anual de renta (F22)',
-  'Balance anual básico','Libros contables y registros obligatorios',
-  'Liquidaciones y cotizaciones previsionales','Alertas de vencimientos',
-  'Atención por email en horario hábil','Balance anual completo',
-  'Reportes mensuales con análisis de resultados',
-  'Orientación tributaria ante decisiones del negocio',
-  'Planificación básica de carga tributaria','Atención prioritaria',
-  'Balance anual completo con análisis ejecutivo',
-  'Planificación tributaria avanzada (PIR, optimización IDPC)',
-  'Proyecciones financieras y flujo de caja',
-  'Asesoría en estructuras societarias','Atención inmediata — respuesta en el día'
-];
-var PLANES_DEFAULT = {
-  cumplimiento:{
-    id:'cumplimiento',nombre:'Cumplimiento',icono:'📋',
-    tagline:'Tu negocio al día, sin sorpresas',
-    desc:'Para el empresario que necesita tener sus obligaciones tributarias y laborales al día, sin preocuparse de plazos ni multas.',
-    moneda:'UF',precio:3.5,monedaVar:'UF',varTrab:0.3,reuniones:0,
-    servicios:['Declaraciones mensuales (F29, IVA)','Declaración anual de renta (F22)','Balance anual básico','Libros contables y registros obligatorios','Liquidaciones y cotizaciones previsionales','Alertas de vencimientos','Atención por email en horario hábil']
-  },
-  asesoria:{
-    id:'asesoria',nombre:'Asesoría',icono:'📊',
-    tagline:'Un contador que entiende tu negocio',
-    desc:'Para el empresario que además de cumplir, quiere entender sus números y tomar mejores decisiones.',
-    moneda:'UF',precio:5.5,monedaVar:'UF',varTrab:0.4,reuniones:1,
-    servicios:['Declaraciones mensuales (F29, IVA)','Declaración anual de renta (F22)','Balance anual completo','Libros contables y registros obligatorios','Liquidaciones y cotizaciones previsionales','Alertas de vencimientos','Reportes mensuales con análisis de resultados','Orientación tributaria ante decisiones del negocio','Planificación básica de carga tributaria','Atención prioritaria']
-  },
-  estrategico:{
-    id:'estrategico',nombre:'Estratégico',icono:'⭐',
-    tagline:'Tu aliado para crecer con inteligencia financiera',
-    desc:'Para el empresario que quiere usar la contabilidad como herramienta de crecimiento. Acompañamiento máximo, visión de largo plazo.',
-    moneda:'UF',precio:9,monedaVar:'UF',varTrab:0.5,reuniones:3,
-    servicios:['Declaraciones mensuales (F29, IVA)','Declaración anual de renta (F22)','Balance anual completo con análisis ejecutivo','Libros contables y registros obligatorios','Liquidaciones y cotizaciones previsionales','Alertas de vencimientos','Reportes mensuales con análisis de resultados','Orientación tributaria ante decisiones del negocio','Planificación tributaria avanzada (PIR, optimización IDPC)','Proyecciones financieras y flujo de caja','Asesoría en estructuras societarias','Atención inmediata — respuesta en el día']
-  }
-};
+// ── Planes y Servicios · Supabase es la fuente; localStorage solo caché de lectura ──────────────────────────────
+// Lecturas con sbGet. Escrituras con el sbFetch central de supabase.js (mismo JWT) para poder leer el código de error
+// (sbPost/sbPatch devuelven null sin el motivo); mismo patrón que conciliacion/ y reportes-pagos/.
+// Quién puede escribir lo decide la base (RLS: solo el Master). La pantalla solo oculta los botones al resto.
+var UF = null, UF_PER = '';
+var PLANES = [], SERVICIOS = [], HIST = null;
+var ES_MASTER = false;
+var CACHE_P = 'gestoor_planes_cat', CACHE_S = 'gestoor_servicios_cat';
+var CATS = {tributario:'Tributario',contable:'Contable',laboral:'Laboral',societario:'Societario',asesoria:'Asesoría',otro:'Otro'};
+var TIPOS = {puntual:'Único',mensual:'Mensual',anual:'Anual',por_trabajador:'Por trabajador / mes',por_propuesta:'Por propuesta'};
 
 function g(id){return document.getElementById(id);}
-function gv(id){var e=g(id);return e?e.value.trim():'';}
+function gv(id){var e=g(id);return e?String(e.value).trim():'';}
 function sv(id,v){var e=g(id);if(e)e.value=(v==null?'':v);}
-function nv(id){return parseFloat(gv(id))||0;}
-function ff(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function toast(msg,color){var t=g('toast');t.textContent=msg;t.style.background=color||'#2D9B6F';t.style.display='block';clearTimeout(t._t);t._t=setTimeout(function(){t.style.display='none';},3000);}
+function numOrNull(id){var s=gv(id).replace(',','.');if(s==='')return null;var n=Number(s);return isFinite(n)?n:NaN;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function pesos(n){return '$'+Math.round(Number(n)||0).toLocaleString('es-CL');}
+function ufTxt(n){return Number(n).toLocaleString('es-CL',{maximumFractionDigits:4})+' UF';}
+function montoTxt(mon,n){return mon==='UF'?ufTxt(n):pesos(n);}
+function equiv(mon,n){if(n==null||mon!=='UF')return '';return UF?'≈ '+pesos(n*UF):'(sin UF del período)';}
+function toast(msg,tipo){var t=g('toast');t.textContent=msg;t.style.background=tipo==='err'?'#B23A2C':(tipo==='warn'?'#9A6510':'#1F7A52');t.style.display='block';clearTimeout(t._t);t._t=setTimeout(function(){t.style.display='none';},tipo==='err'?7000:3500);}
+function lineas(txt){return String(txt||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);}
+function cacheLeer(k){try{var v=JSON.parse(localStorage.getItem(k)||'null');return Array.isArray(v)?v:null;}catch(e){return null;}}
+function cacheGuardar(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
-function getPlanes(){try{return JSON.parse(localStorage.getItem('planes_bd')||'null')||PLANES_DEFAULT;}catch(e){return PLANES_DEFAULT;}}
-function setPlanes(p){localStorage.setItem('planes_bd',JSON.stringify(p));}
-function getClientes(){
-  var c=sbCacheOrLocal('clientes','clientes_bd');
-  return c||[];
+// ── Errores en lenguaje simple ──
+function mensajeError(status,body){
+  var b={};try{b=JSON.parse(body||'{}')||{};}catch(e){}
+  var code=b.code||'', txt=(b.message||'')+' '+(b.details||'')+' '+(b.hint||'');
+  if(code==='42501'||status===401||status===403||/SOLO_MASTER|permission denied|row-level security/i.test(txt)){
+    if(/CODIGO_INMUTABLE/.test(txt))return 'El código del plan no se puede cambiar: lo usan las fichas de clientes.';
+    return 'No tienes permiso para guardar: solo el Master puede modificar planes y servicios.';
+  }
+  if(/PLAN_EN_USO/.test(txt))return 'Ese plan tiene clientes asignados: desactívalo en vez de borrarlo.';
+  if(code==='23505')return 'Ya existe un plan con ese código. Usa otro.';
+  if(code==='23514')return 'Algún dato no es válido (moneda, tipo de cobro, precio negativo o rango "hasta" menor que "desde").';
+  if(code==='PGRST204'||code==='42703')return 'La base todavía no tiene los campos nuevos del catálogo (falta aplicar su actualización). No se guardó nada.';
+  if(code==='22P02')return 'Hay un número mal escrito. Revisa los montos.';
+  return 'No se pudo guardar'+(b.message?': '+b.message:' (error '+status+').');
 }
-function inicializarClientes(cb){
-  sbGetClientes(function(rows){
-    if(cb)cb(rows);
-  });
+function escribir(metodo,ruta,datos){
+  return sbFetch(ruta,{method:metodo,headers:{'Prefer':'return=representation'},body:JSON.stringify(datos)})
+    .then(function(r){return r.text().then(function(t){
+      if(!r.ok)throw new Error(mensajeError(r.status,t));
+      var filas=[];try{filas=JSON.parse(t||'[]');}catch(e){}
+      if(!Array.isArray(filas)||!filas.length)throw new Error('No se guardó: no tienes permiso o el registro ya no existe. Recarga la página.');
+      return filas[0];
+    });},function(e){
+      if(e&&e.message==='GESTOOR_NO_SESSION')throw new Error('Tu sesión expiró. Vuelve a ingresar.');
+      if(e&&/^(No |Tu |Ya |Algún|La base|Hay |Ese )/.test(e.message||''))throw e;
+      throw new Error('Sin conexión con la base. No se guardó nada; intenta de nuevo.');
+    });
 }
 
+// ── Carga ──
 function cargarUF(){
-  return sbFetch('periodos?select=uf&order=periodo.desc&limit=1')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(rows){
-      if(rows&&rows[0]&&rows[0].uf){UF=parseFloat(rows[0].uf);}
-      var el2=g('uf-display');if(el2)el2.textContent='UF: '+ff(UF);
-    }).catch(function(){var el2=g('uf-display');if(el2)el2.textContent='UF: '+ff(UF)+' (ref.)';});
+  return sbGet('periodos?select=periodo,uf&order=periodo.desc&limit=1').then(function(rows){
+    var r=rows&&rows[0];
+    if(r&&Number(r.uf)>0){UF=Number(r.uf);UF_PER=r.periodo||'';g('uf-chip').innerHTML='UF '+esc(UF_PER)+' <em>'+esc(pesos(UF))+'</em>';}
+    else{UF=null;g('uf-chip').innerHTML='UF <em>sin período abierto</em>';}
+  });
 }
-function cargarClientes(){
-  return sbFetch('clientes?select=id,razon_social,rut,plan,estado,moneda_plan,monto_base,moneda_variable,hon_variable,trab_incluidos,analista_contable,analista_rrhh&order=razon_social.asc')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(data){
-      var mapped=data.map(function(r){return{id:r.id,razon:r.razon_social,rut:r.rut,plan:r.plan,estado:r.estado||'activo',moneda:r.moneda_plan||'UF',monto:r.monto_base||0,monedaVar:r.moneda_variable||r.moneda_plan||'UF',varTrab:r.hon_variable||0,trab:r.trab_incluidos||0,contador:r.analista_contable,rrhh:r.analista_rrhh};});
-      (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(mapped):localStorage.setItem('clientes_bd',JSON.stringify(mapped)));
-      return mapped;
-    }).catch(function(){return getClientes();});
-}
-function guardarPlanSupabase(plan){
-  var row={id:plan.id,nombre:plan.nombre,icono:plan.icono,tagline:plan.tagline,descripcion:plan.desc,moneda_base:plan.moneda,precio_base:plan.precio,moneda_variable:plan.monedaVar,valor_variable:plan.varTrab,reuniones_mensuales:plan.reuniones,servicios:plan.servicios};
-  return sbFetch('planes?id=eq.'+plan.id,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(row)})
-    .then(function(r){if(!r.ok)return sbFetch('planes',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(row)});return r;});
+function cargarDatos(){
+  var err=[];
+  var pP=sbFetch('planes?select=*&order=id.asc').then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(rows){PLANES=rows;cacheGuardar(CACHE_P,rows);},function(){err.push('planes');});
+  var pS=sbFetch('servicios_adicionales?select=*&order=nombre.asc').then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(rows){SERVICIOS=rows;cacheGuardar(CACHE_S,rows);},function(){err.push('servicios');});
+  var pH=sbFetch('catalogo_historial?select=id,tabla,registro_id,operacion,cambios,antes,despues,usuario,creado_at&order=id.desc&limit=40')
+    .then(function(r){return r.ok?r.json():null;}).then(function(rows){HIST=rows;},function(){HIST=null;});
+  return Promise.all([pP,pS,pH]).then(function(){
+    var box=g('pl-error');
+    box.innerHTML=err.length?'<div class="pl-err">No se pudo leer '+err.join(' ni ')+' desde la base. '+(cacheLeer(CACHE_P)?'Se muestra la última copia guardada en este equipo (puede estar desactualizada) y no se puede editar.':'Recarga la página.')+'</div>':'';
+    if(err.indexOf('planes')>=0)PLANES=cacheLeer(CACHE_P)||[];
+    if(err.indexOf('servicios')>=0)SERVICIOS=cacheLeer(CACHE_S)||[];
+    window._plSoloLectura=err.length>0;
+    pintarTodo();
+  });
 }
 
-function renderPlanes(){
-  var planes=getPlanes();
-  var clientes=getClientes();
+// ── Pintar ──
+function pintarTodo(){aplicarRol();pintarPlanes();pintarServicios();pintarLegado();pintarHistorial();}
+function puedeEditar(){return ES_MASTER&&!window._plSoloLectura;}
+function aplicarRol(){
+  document.querySelectorAll('.solo-master').forEach(function(el){el.style.display=puedeEditar()?'':'none';});
+  var chip=g('rol-chip');chip.style.display='';
+  chip.innerHTML=puedeEditar()?'Edición <em>Master</em>':'Solo <em>lectura</em>';
+}
+function precioPlanHtml(p){
+  if(p.por_propuesta)return '<div class="pl-precio"><b style="font-size:22px">Por propuesta</b></div><div class="pl-eq">Sin precio público</div>';
+  var n=p.moneda==='CLP'?p.precio_clp:p.precio_uf;
+  if(n==null||Number(n)===0)return '<div class="pl-precio"><b style="font-size:22px;color:#FFC85A">Sin precio</b></div><div class="pl-eq">Pendiente de definir</div>';
+  return '<div class="pl-precio"><b>'+esc(p.moneda==='CLP'?pesos(n):Number(n).toLocaleString('es-CL',{maximumFractionDigits:4}))+'</b><span>'+(p.moneda==='CLP'?'':'UF ')+'al mes</span></div><div class="pl-eq">'+esc(equiv(p.moneda,n))+'</div>';
+}
+function listaHtml(arr,no){
+  if(!arr||!arr.length)return '<div class="pl-vacio-l">Sin definir</div>';
+  return '<ul class="pl-lista'+(no?' no':'')+'">'+arr.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul>';
+}
+function pintarPlanes(){
   var grid=g('planesGrid');
-  grid.innerHTML='';
-  ['cumplimiento','asesoria','estrategico'].forEach(function(key){
-    var p=planes[key];
-    var cnt=clientes.filter(function(c){return c.plan===key&&c.estado==='activo';}).length;
-    var precioClp=p.moneda==='UF'?p.precio*UF:p.precio;
-    var esMixto=p.monedaVar&&p.monedaVar!==p.moneda&&p.varTrab;
-    var card=document.createElement('div');
-    card.className='plan-card'+(key==='estrategico'?' estrategico':'');
-    var hdr=document.createElement('div');hdr.className='plan-card-hdr';
-    hdr.innerHTML='<div class="plan-icon">'+p.icono+'</div><div class="plan-nombre">'+esc(p.nombre)+'</div><div class="plan-tagline">'+esc(p.tagline)+'</div>';
-    card.appendChild(hdr);
-    var pb=document.createElement('div');pb.className='plan-precio-box';
-    pb.innerHTML='<span class="plan-precio-num">'+p.precio+'</span><span class="plan-precio-mon">'+p.moneda+' base</span>'+(esMixto?'<span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 6px;border-radius:4px;margin-left:6px">MIXTO</span>':'')+'<span class="plan-precio-clp">≈ '+ff(precioClp)+'</span>';
-    card.appendChild(pb);
-    var body=document.createElement('div');body.className='plan-body';
-    var meta=document.createElement('div');meta.className='plan-meta';
-    meta.innerHTML='<div class="plan-meta-item"><div class="plan-meta-lbl">Base fija mensual</div><div class="plan-meta-val">'+p.precio+' '+p.moneda+'</div></div>'+'<div class="plan-meta-item"><div class="plan-meta-lbl">Valor por trabajador</div><div class="plan-meta-val">'+(p.varTrab?p.varTrab+' '+p.monedaVar:'—')+'</div></div>'+'<div class="plan-meta-item"><div class="plan-meta-lbl">Clientes activos</div><div class="plan-meta-val" style="color:var(--green)">'+cnt+'</div></div>'+'<div class="plan-meta-item"><div class="plan-meta-lbl">Reuniones / mes</div><div class="plan-meta-val">'+(p.reuniones||'Sin reuniones')+'</div></div>';
-    body.appendChild(meta);
-    if(p.reuniones>0){var rb=document.createElement('div');rb.className='plan-reuniones';rb.innerHTML='📅 '+p.reuniones+' reunión'+(p.reuniones>1?'es':'')+' mensual'+(p.reuniones>1?'es':'');body.appendChild(rb);}
-    var sv2=document.createElement('div');sv2.className='plan-servicios';
-    sv2.innerHTML='<div class="plan-servicios-title">✅ Servicios incluidos</div>';
-    p.servicios.forEach(function(s){var row=document.createElement('div');row.className='plan-servicio';row.innerHTML='<span class="ck">✓</span><span>'+esc(s)+'</span>';sv2.appendChild(row);});
-    body.appendChild(sv2);card.appendChild(body);
-    var foot=document.createElement('div');foot.className='plan-card-footer';
-    var btnEdit=document.createElement('button');btnEdit.className='btn-p btn-sm';btnEdit.textContent='✏️ Editar plan';
-    btnEdit.onclick=(function(k){return function(){abrirModalPlan(k);};})(key);
-    foot.appendChild(btnEdit);card.appendChild(foot);
-    grid.appendChild(card);
+  g('pl-planes-n').textContent=PLANES.length?PLANES.filter(function(p){return p.activo!==false;}).length+' activos':'';
+  if(!PLANES.length){grid.innerHTML='<div class="g-card g-vacio" style="grid-column:1/-1">No hay planes para mostrar.</div>';return;}
+  grid.innerHTML=PLANES.map(function(p,i){
+    var vt=Number(p.valor_por_trab_uf)||0;
+    return '<div class="g-card pl-card'+(p.activo===false?' inactivo':'')+(p.codigo==='asesoria'||p.codigo==='pro'?' flagship':'')+'">'
+      +'<div class="pl-hd"><div class="pl-ico">'+esc(p.icono||'📋')+'</div><div style="min-width:0"><div class="pl-nom">'+esc(p.nombre)+'</div><div class="pl-cod">código: '+esc(p.codigo)+'</div></div><div class="g-espacio"></div>'
+      +(p.activo===false?'<span class="pl-tag t-off">Desactivado</span>':'')+(p.por_propuesta?'<span class="pl-tag t-prop">Propuesta</span>':'')+'</div>'
+      +precioPlanHtml(p)
+      +'<div class="pl-meta"><div><small>Trabajadores incluidos</small><strong>'+(Number(p.trab_incluidos)||0)+'</strong></div>'
+      +'<div><small>Valor por trabajador</small><strong>'+(vt?esc(ufTxt(vt)):'—')+'</strong>'+(vt?'<small style="text-transform:none;letter-spacing:0;font-weight:500">'+esc(equiv('UF',vt))+'</small>':'')+'</div></div>'
+      +(p.descripcion?'<div class="pl-desc">'+esc(p.descripcion)+'</div>':'')
+      +'<div class="pl-lista-t">Incluye</div>'+listaHtml(p.incluye,false)
+      +(p.no_incluye&&p.no_incluye.length?'<div class="pl-lista-t">No incluye</div>'+listaHtml(p.no_incluye,true):'')
+      +(p.obs?'<div class="pl-obs">📝 '+esc(p.obs)+'</div>':'')
+      +(puedeEditar()?'<div class="pl-pie"><button class="btn-s btn-sm" data-plan="'+i+'"><span data-g-ic="lapiz"></span> Editar plan</button></div>':'')
+      +'</div>';
+  }).join('');
+  grid.querySelectorAll('[data-plan]').forEach(function(b){b.onclick=function(){abrirPlan(PLANES[+b.getAttribute('data-plan')]);};});
+  if(window.gIconos)gIconos(grid);
+}
+function precioSvcTxt(s){
+  if(s.tipo==='por_propuesta'&&s.precio==null)return {t:'Por propuesta',e:''};
+  if(s.precio==null)return {t:'Sin precio fijo',e:''};
+  var t=(s.precio_hasta!=null?'Desde ':'')+montoTxt(s.moneda,s.precio)+(s.precio_hasta!=null?' hasta '+montoTxt(s.moneda,s.precio_hasta):'');
+  var e=s.moneda==='UF'?equiv('UF',s.precio)+(s.precio_hasta!=null&&UF?' – '+pesos(s.precio_hasta*UF):''):'';
+  return {t:t,e:e};
+}
+function pintarServicios(){
+  var ver=g('ver-inactivos').checked, grid=g('serviciosGrid');
+  var lista=SERVICIOS.filter(function(s){return ver||s.activo!==false;});
+  var nAct=SERVICIOS.filter(function(s){return s.activo!==false;}).length;
+  g('pl-svc-n').textContent=SERVICIOS.length?nAct+' activos'+(SERVICIOS.length>nAct?' · '+(SERVICIOS.length-nAct)+' desactivados':''):'';
+  if(!lista.length){grid.innerHTML='<div class="g-card g-vacio" style="grid-column:1/-1">'+(SERVICIOS.length?'No hay servicios activos. Marca "Ver desactivados".':'Todavía no hay servicios en el catálogo.'+(puedeEditar()?' Usa "+ Nuevo servicio".':''))+'</div>';return;}
+  grid.innerHTML=lista.map(function(s){
+    var p=precioSvcTxt(s);
+    return '<div class="g-card pl-card'+(s.activo===false?' inactivo':'')+'">'
+      +'<div class="pl-hd"><div style="min-width:0"><div class="pl-cat">'+esc(CATS[s.categoria]||s.categoria||'')+'</div><div class="pl-nom" style="font-size:15px">'+esc(s.nombre)+'</div></div><div class="g-espacio"></div>'
+      +'<span class="pl-tag t-tipo">'+esc(TIPOS[s.tipo]||s.tipo||'')+'</span></div>'
+      +'<div class="pl-precio" style="margin-top:10px"><b style="font-size:19px">'+esc(p.t)+'</b></div>'+(p.e?'<div class="pl-eq">'+esc(p.e)+'</div>':'')
+      +(s.descripcion?'<div class="pl-desc">'+esc(s.descripcion)+'</div>':'')
+      +(s.obs?'<div class="pl-obs">📝 '+esc(s.obs)+'</div>':'')
+      +(s.activo===false?'<div style="margin-top:8px"><span class="pl-tag t-off">Desactivado</span></div>':'')
+      +(puedeEditar()?'<div class="pl-pie"><button class="btn-s btn-sm" data-svc="'+esc(s.id)+'"><span data-g-ic="lapiz"></span> Editar</button></div>':'')
+      +'</div>';
+  }).join('');
+  grid.querySelectorAll('[data-svc]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-svc');abrirServicio(SERVICIOS.find(function(x){return x.id===id;}));};});
+  if(window.gIconos)gIconos(grid);
+}
+// Servicios que la versión anterior del módulo guardó SOLO en este navegador (ids "svc-<número>"): se muestran para no perderlos.
+function legadoLocal(){
+  var arr=[];try{arr=JSON.parse(localStorage.getItem('servicios_adicionales')||'[]');}catch(e){}
+  if(!Array.isArray(arr))return [];
+  return arr.filter(function(x){return x&&/^svc-\d+$/.test(String(x.id||''))&&x.nombre&&!SERVICIOS.some(function(s){return s.nombre===x.nombre;});});
+}
+function pintarLegado(){
+  var box=g('pl-legado'), arr=legadoLocal();
+  if(!arr.length){box.innerHTML='';return;}
+  box.innerHTML='<div class="pl-legado"><b>'+arr.length+' servicio(s) guardados solo en este navegador</b> por la versión anterior (no estaban en la base): '
+    +arr.map(function(x){return esc(x.nombre)+(x.precio?' ('+esc(montoTxt(x.moneda==='CLP'?'CLP':'UF',x.precio))+')':'');}).join(' · ')
+    +(puedeEditar()?'. Para conservarlos, créalos con "+ Nuevo servicio".':'. Pídele al Master que los cree en el catálogo.')+'</div>';
+}
+function describirCambio(h){
+  var nom=(h.despues&&h.despues.nombre)||(h.antes&&h.antes.nombre)||h.registro_id;
+  var tipo=h.tabla==='planes'?'Plan':'Servicio';
+  if(h.operacion==='INSERT')return tipo+' <b>'+esc(nom)+'</b> creado';
+  if(h.operacion==='DELETE')return tipo+' <b>'+esc(nom)+'</b> eliminado';
+  var et={nombre:'nombre',precio_uf:'precio UF',precio_clp:'precio $',precio:'precio',precio_hasta:'hasta',moneda:'moneda',valor_por_trab_uf:'valor por trabajador',trab_incluidos:'trabajadores incluidos',activo:'activo',tipo:'tipo',por_propuesta:'por propuesta',incluye:'incluye',no_incluye:'no incluye',descripcion:'descripción',obs:'observaciones',categoria:'categoría',icono:'ícono'};
+  var partes=Object.keys(h.cambios||{}).map(function(k){
+    var c=h.cambios[k], f=function(v){return Array.isArray(v)?v.length+' ítems':(v===true?'sí':v===false?'no':(v==null||v===''?'—':String(v)));};
+    return esc(et[k]||k)+': '+esc(f(c.antes))+' → '+esc(f(c.despues));
   });
+  return tipo+' <b>'+esc(nom)+'</b> · '+partes.join(' · ');
+}
+function pintarHistorial(){
+  var el=g('historialList');
+  if(HIST===null){el.innerHTML='<div class="g-vacio">El historial de cambios se activa con la actualización del catálogo en la base.</div>';return;}
+  if(!HIST.length){el.innerHTML='<div class="g-vacio">Sin cambios registrados aún.</div>';return;}
+  el.innerHTML=HIST.map(function(h){
+    var d=new Date(h.creado_at);
+    return '<div class="pl-hist-i"><time>'+esc(d.toLocaleDateString('es-CL'))+' '+esc(d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}))+'</time><span>'+describirCambio(h)+'</span><em>'+esc(h.usuario||'')+'</em></div>';
+  }).join('');
 }
 
-var _planActual=null;
-function abrirModalPlan(key){
-  var planes=getPlanes();var p=planes[key];_planActual=key;
-  g('modalPlanTitle').textContent='Editar plan — '+p.icono+' '+p.nombre;
-  sv('f-plan-nombre',p.icono+' '+p.nombre);sv('f-plan-tagline',p.tagline);sv('f-plan-desc',p.desc);
-  sv('f-plan-moneda',p.moneda||'UF');sv('f-plan-precio',p.precio||'');
-  sv('f-plan-moneda-var',p.monedaVar||p.moneda||'UF');sv('f-plan-var',p.varTrab||'');
-  sv('f-plan-reuniones',p.reuniones||0);
-  var sc=g('serviciosCheck');sc.innerHTML='';
-  SERVICIOS_BASE.forEach(function(s,i){
-    var row=document.createElement('div');row.className='servicio-row';
-    var chk=document.createElement('input');chk.type='checkbox';chk.id='chk-svc-'+i;
-    chk.checked=p.servicios.indexOf(s)>=0;
-    var lbl=document.createElement('label');lbl.setAttribute('for',chk.id);lbl.textContent=s;
-    row.appendChild(chk);row.appendChild(lbl);sc.appendChild(row);
-  });
-  updatePlanPreview();
-  g('modalPlan').classList.add('on');
+// ── Modal plan ──
+var _plan=null;
+function abrirPlan(p){
+  if(!puedeEditar())return;
+  _plan=p||null; var nuevo=!p; p=p||{moneda:'UF',activo:true,trab_incluidos:0,incluye:[],no_incluye:[]};
+  g('modalPlanTitle').textContent=nuevo?'Nuevo plan':'Editar plan · '+p.nombre;
+  sv('f-plan-nombre',p.nombre);sv('f-plan-icono',p.icono);sv('f-plan-codigo',p.codigo);sv('f-plan-desc',p.descripcion);
+  g('f-plan-codigo').readOnly=!nuevo; g('f-plan-codigo-ayuda').textContent=nuevo?'Solo minúsculas, números y _. Es el vínculo con las fichas de clientes: no se puede cambiar después.':'No se puede cambiar: lo usan las fichas de clientes.';
+  g('f-plan-propuesta').checked=!!p.por_propuesta;
+  sv('f-plan-moneda',p.moneda||'UF');
+  var pr=(p.moneda==='CLP'?p.precio_clp:p.precio_uf); sv('f-plan-precio',pr==null||Number(pr)===0?'':pr);
+  sv('f-plan-trab',p.trab_incluidos||0);sv('f-plan-vtrab',Number(p.valor_por_trab_uf)?p.valor_por_trab_uf:'');
+  sv('f-plan-incluye',(p.incluye||[]).join('\n'));sv('f-plan-noincluye',(p.no_incluye||[]).join('\n'));sv('f-plan-obs',p.obs);
+  g('f-plan-activo').checked=p.activo!==false; g('plan-msg').textContent='';
+  previewPlan(); g('modalPlan').classList.add('on'); setTimeout(function(){g('f-plan-nombre').focus();},50);
 }
-function updatePlanPreview(){
-  var precio=nv('f-plan-precio'),mon=gv('f-plan-moneda')||'UF';
-  var varT=nv('f-plan-var'),monV=gv('f-plan-moneda-var')||mon;
-  var p2=g('plan-preview');if(!p2)return;
-  if(!precio){p2.textContent='—';return;}
-  var baseClp=mon==='UF'?precio*UF:precio;
-  var esMixto=monV!==mon&&varT;
-  var txt=precio+' '+mon+' base fija';
-  if(varT)txt+=' + '+varT+' '+monV+'/trabajador';
-  txt+='<br><span style="font-size:10px;color:var(--tm)">Ej. 5 trab → ≈ '+ff(baseClp+(varT*(monV==='UF'?UF:1)*5))+'</span>';
-  if(esMixto)txt+=' <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:4px">MIXTO</span>';
-  p2.innerHTML=txt;
+function previewPlan(){
+  var prop=g('f-plan-propuesta').checked; g('f-plan-precio-box').style.opacity=prop?.45:1; g('f-plan-precio').disabled=prop; g('f-plan-moneda').disabled=prop;
+  var mon=gv('f-plan-moneda'), n=numOrNull('f-plan-precio'), vt=numOrNull('f-plan-vtrab'), inc=parseInt(gv('f-plan-trab'),10)||0;
+  var t=prop?'Por propuesta (sin precio público)':(n?montoTxt(mon,n)+' al mes'+(mon==='UF'?' '+equiv('UF',n):''):'Sin precio');
+  if(vt)t+=' · +'+ufTxt(vt)+' por trabajador sobre '+inc+(UF?' ('+equiv('UF',vt)+')':'');
+  g('plan-preview').textContent=t;
 }
 function guardarPlan(){
-  if(!_planActual)return;
-  var planes=getPlanes();var p=planes[_planActual];
-  var usuario='';try{var u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');usuario=u.nombre||'';}catch(e){}
-  var serviciosMarcados=[];
-  g('serviciosCheck').querySelectorAll('input[type=checkbox]').forEach(function(chk,i){if(chk.checked&&SERVICIOS_BASE[i])serviciosMarcados.push(SERVICIOS_BASE[i]);});
-  var cambios=[];
-  var precioNuevo=nv('f-plan-precio');
-  if(precioNuevo&&precioNuevo!==p.precio)cambios.push('Precio: '+p.precio+' → '+precioNuevo+' '+gv('f-plan-moneda'));
-  var reunNuevo=parseInt(gv('f-plan-reuniones'))||0;
-  if(reunNuevo!==p.reuniones)cambios.push('Reuniones: '+p.reuniones+' → '+reunNuevo);
-  planes[_planActual]=Object.assign({},p,{tagline:gv('f-plan-tagline'),desc:gv('f-plan-desc'),moneda:gv('f-plan-moneda')||'UF',precio:precioNuevo||p.precio,monedaVar:gv('f-plan-moneda-var')||gv('f-plan-moneda')||'UF',varTrab:nv('f-plan-var'),reuniones:reunNuevo,servicios:serviciosMarcados});
-  setPlanes(planes);
-  if(cambios.length){
-    var hist=getHistorial();
-    hist.unshift({fecha:new Date().toLocaleDateString('es-CL'),hora:new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}),plan:p.nombre,desc:cambios.join(' · '),quien:usuario||'Sistema'});
-    localStorage.setItem('planes_historial',JSON.stringify(hist.slice(0,50)));
-  }
-  g('modalPlan').classList.remove('on');
-  renderPlanes();renderHistorial();
-  toast('✅ Plan actualizado');
-  guardarPlanSupabase(planes[_planActual]).catch(function(){toast('⚠️ Solo guardado local','#C07A1A');});
+  var msg=g('plan-msg'); msg.textContent='';
+  var nombre=gv('f-plan-nombre'), codigo=gv('f-plan-codigo').toLowerCase(), prop=g('f-plan-propuesta').checked, mon=gv('f-plan-moneda')||'UF';
+  var precio=numOrNull('f-plan-precio'), vt=numOrNull('f-plan-vtrab'), trab=numOrNull('f-plan-trab');
+  if(!nombre){msg.textContent='El nombre es obligatorio.';return;}
+  if(!_plan&&!/^[a-z0-9_]{2,40}$/.test(codigo)){msg.textContent='Código: solo minúsculas, números y _ (2 a 40).';return;}
+  if([precio,vt,trab].some(function(x){return x!==null&&(isNaN(x)||x<0);})){msg.textContent='Los montos deben ser números positivos.';return;}
+  if(trab!==null&&Math.floor(trab)!==trab){msg.textContent='Trabajadores incluidos debe ser un número entero.';return;}
+  var fila={nombre:nombre,icono:gv('f-plan-icono')||null,descripcion:gv('f-plan-desc')||null,moneda:mon,por_propuesta:prop,
+    precio_uf:prop?0:(mon==='UF'?(precio||0):0),precio_clp:prop?0:(mon==='CLP'?(precio||0):0),
+    trab_incluidos:trab||0,valor_por_trab_uf:vt||0,incluye:lineas(gv('f-plan-incluye')),no_incluye:lineas(gv('f-plan-noincluye')),
+    obs:gv('f-plan-obs')||null,activo:g('f-plan-activo').checked};
+  var b=g('btn-plan-guardar'); b.disabled=true; b.textContent='Guardando…';
+  var op=_plan?escribir('PATCH','planes?id=eq.'+encodeURIComponent(_plan.id),fila):escribir('POST','planes',Object.assign({codigo:codigo},fila));
+  op.then(function(){g('modalPlan').classList.remove('on');toast('Plan guardado en la base');return cargarDatos();})
+    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');})
+    .then(function(){b.disabled=false;b.textContent='Guardar plan';});
 }
 
-function getHistorial(){try{return JSON.parse(localStorage.getItem('planes_historial')||'[]');}catch(e){return[];}}
-function renderHistorial(){
-  var hist=getHistorial();var el2=g('historialList');
-  if(!hist.length){el2.innerHTML='<div style="padding:20px;text-align:center;color:var(--tm);font-size:12px">Sin cambios registrados aún.</div>';return;}
-  el2.innerHTML='';
-  hist.forEach(function(h){
-    var item=document.createElement('div');item.className='historial-item';
-    item.innerHTML='<div class="historial-fecha">'+esc(h.fecha)+'<br><span style="font-size:9px">'+esc(h.hora)+'</span></div>'+'<div class="historial-desc"><strong>'+esc(h.plan)+'</strong> — '+esc(h.desc)+'</div>'+'<div class="historial-quien">'+esc(h.quien)+'</div>';
-    el2.appendChild(item);
-  });
+// ── Modal servicio ──
+var _svc=null;
+function abrirServicio(s){
+  if(!puedeEditar())return;
+  _svc=s||null; s=s||{categoria:'tributario',moneda:'UF',tipo:'puntual',activo:true};
+  g('modalServicioTitle').textContent=_svc?'Editar servicio':'Nuevo servicio';
+  sv('f-svc-nombre',s.nombre);sv('f-svc-categoria',CATS[s.categoria]?s.categoria:'otro');sv('f-svc-tipo',TIPOS[s.tipo]?s.tipo:'puntual');
+  sv('f-svc-desc',s.descripcion);sv('f-svc-moneda',s.moneda||'UF');sv('f-svc-precio',s.precio);sv('f-svc-hasta',s.precio_hasta);sv('f-svc-obs',s.obs);
+  g('f-svc-activo').checked=s.activo!==false; g('svc-msg').textContent='';
+  previewSvc(); g('modalServicio').classList.add('on'); setTimeout(function(){g('f-svc-nombre').focus();},50);
 }
-
-var CATS={tributario:'📋 Tributario',laboral:'👥 Laboral',societario:'🏢 Societario',contable:'📊 Contable',otro:'🔧 Otro'};
-var _svcEditId=null;
-function getServicios(){try{return JSON.parse(localStorage.getItem('servicios_adicionales')||'[]');}catch(e){return[];}}
-function setServicios(arr){localStorage.setItem('servicios_adicionales',JSON.stringify(arr));}
-function renderServicios(){
-  var svcs=getServicios();var grid=g('serviciosGrid');if(!grid)return;
-  grid.innerHTML='';
-  if(!svcs.length){grid.innerHTML='<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--tm);font-size:12px;background:var(--sur);border:1px solid var(--bdr);border-radius:12px">Sin servicios adicionales. Haz clic en &quot;+ Nuevo servicio&quot; para agregar.</div>';return;}
-  svcs.forEach(function(s){
-    var card=document.createElement('div');
-    card.style.cssText='background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden';
-    // Precio con separador de miles
-    var precioFmt = s.moneda==='UF' ? s.precio+' UF' : ff(s.precio||0);
-    var precioClp = s.moneda==='UF' ? s.precio*UF : s.precio;
-    card.innerHTML='<div style="padding:12px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">'
-      +'<div><div style="font-size:10px;color:var(--tm)">'+(CATS[s.categoria]||s.categoria||'')+'</div>'
-      +'<div style="font-size:13px;font-weight:700;color:var(--t1)">'+esc(s.nombre)+'</div></div>'
-      +'<span style="background:'+(s.tipo==='recurrente'?'#eff6ff':'var(--pp)')+';color:'+(s.tipo==='recurrente'?'var(--blue)':'var(--pd)')+';font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">'+(s.tipo==='recurrente'?'🔄 Recurrente':'⚡ Puntual')+'</span>'
-      +'</div>'
-      +'<div style="padding:10px 14px">'
-      +(s.desc?'<div style="font-size:11px;color:var(--t2);margin-bottom:8px">'+esc(s.desc)+'</div>':'')
-      +'<div style="display:flex;align-items:center;justify-content:space-between">'
-      +'<div><span style="font-size:16px;font-weight:800;color:var(--p)">'+precioFmt+'</span>'
-      +(s.moneda==='UF'?'<span style="font-size:10px;color:var(--tm);margin-left:6px">≈ '+ff(precioClp)+'</span>':'')
-      +'</div>'
-      +'<div style="display:flex;gap:6px" class="svc-btns"></div>'
-      +'</div>'
-      +(s.obs?'<div style="font-size:10px;color:var(--tm);margin-top:6px">📝 '+esc(s.obs)+'</div>':'')
-      +'</div>';
-    var btns=card.querySelector('.svc-btns');
-    var bEdit=document.createElement('button');bEdit.className='btn-s btn-sm';bEdit.textContent='✏️';
-    bEdit.onclick=(function(sid){return function(){abrirModalServicio(sid);};})(s.id);
-    var bDel=document.createElement('button');bDel.className='btn-danger btn-sm';bDel.textContent='✕';
-    bDel.onclick=(function(sid){return function(){if(confirm('¿Eliminar este servicio?')){var arr=getServicios().filter(function(x){return x.id!==sid;});setServicios(arr);renderServicios();toast('🗑️ Servicio eliminado','#C0392B');}};})(s.id);
-    if(btns){btns.appendChild(bEdit);btns.appendChild(bDel);}
-    grid.appendChild(card);
-  });
-}
-function abrirModalServicio(id){
-  _svcEditId=id||null;var mSvc=g('modalServicio');if(!mSvc)return;
-  if(id){
-    var s=getServicios().find(function(x){return x.id===id;});if(!s)return;
-    g('modalServicioTitle').textContent='Editar servicio';
-    sv('f-svc-nombre',s.nombre);sv('f-svc-desc',s.desc);sv('f-svc-categoria',s.categoria);
-    sv('f-svc-moneda',s.moneda);sv('f-svc-precio',s.precio);sv('f-svc-tipo',s.tipo);sv('f-svc-obs',s.obs);
-  }else{
-    g('modalServicioTitle').textContent='Nuevo servicio adicional';
-    ['f-svc-nombre','f-svc-desc','f-svc-precio','f-svc-obs'].forEach(function(id2){sv(id2,'');});
-    sv('f-svc-categoria','tributario');sv('f-svc-moneda','UF');sv('f-svc-tipo','puntual');
-  }
-  mSvc.classList.add('on');
+function previewSvc(){
+  var s={moneda:gv('f-svc-moneda'),precio:numOrNull('f-svc-precio'),precio_hasta:numOrNull('f-svc-hasta'),tipo:gv('f-svc-tipo')};
+  if(isNaN(s.precio)||isNaN(s.precio_hasta)){g('svc-preview').textContent='Revisa los montos';return;}
+  var p=precioSvcTxt(s); g('svc-preview').textContent=p.t+(p.e?' '+p.e:'')+(s.precio!=null?' · '+(TIPOS[s.tipo]||''):'');
 }
 function guardarServicio(){
-  var nombre=gv('f-svc-nombre');if(!nombre){alert('El nombre es obligatorio');return;}
-  var arr=getServicios();
-  var svc={id:_svcEditId||'svc-'+Date.now(),nombre:nombre,desc:gv('f-svc-desc'),categoria:gv('f-svc-categoria')||'tributario',moneda:gv('f-svc-moneda')||'UF',precio:parseFloat(gv('f-svc-precio'))||0,tipo:gv('f-svc-tipo')||'puntual',obs:gv('f-svc-obs')};
-  if(_svcEditId){var idx=arr.findIndex(function(x){return x.id===_svcEditId;});if(idx>=0)arr[idx]=svc;else arr.unshift(svc);}
-  else{arr.unshift(svc);}
-  setServicios(arr);
-  var mSvc=g('modalServicio');if(mSvc)mSvc.classList.remove('on');
-  renderServicios();
-  toast(_svcEditId?'✅ Servicio actualizado':'✅ Servicio agregado');
-  _svcEditId=null;
+  var msg=g('svc-msg'); msg.textContent='';
+  var nombre=gv('f-svc-nombre'), precio=numOrNull('f-svc-precio'), hasta=numOrNull('f-svc-hasta');
+  if(!nombre){msg.textContent='El nombre es obligatorio.';return;}
+  if([precio,hasta].some(function(x){return x!==null&&(isNaN(x)||x<0);})){msg.textContent='Los montos deben ser números positivos.';return;}
+  if(hasta!==null&&(precio===null||hasta<precio)){msg.textContent='"Hasta" debe ser mayor o igual que el precio "desde".';return;}
+  var fila={nombre:nombre,categoria:gv('f-svc-categoria')||'otro',tipo:gv('f-svc-tipo')||'puntual',descripcion:gv('f-svc-desc')||null,
+    moneda:gv('f-svc-moneda')||'UF',precio:precio,precio_hasta:hasta,obs:gv('f-svc-obs')||null,activo:g('f-svc-activo').checked};
+  var b=g('btn-svc-guardar'); b.disabled=true; b.textContent='Guardando…';
+  var op=_svc?escribir('PATCH','servicios_adicionales?id=eq.'+encodeURIComponent(_svc.id),fila):escribir('POST','servicios_adicionales',fila);
+  op.then(function(){g('modalServicio').classList.remove('on');toast(_svc?'Servicio actualizado en la base':'Servicio agregado a la base');return cargarDatos();})
+    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');})
+    .then(function(){b.disabled=false;b.textContent='Guardar servicio';});
 }
 
-// EVENTOS
-var btnCancel=g('btn-plan-cancelar');if(btnCancel)btnCancel.onclick=function(){g('modalPlan').classList.remove('on');};
-var btnGuard=g('btn-plan-guardar');if(btnGuard)btnGuard.onclick=guardarPlan;
-['f-plan-precio','f-plan-var'].forEach(function(id){var e=g(id);if(e)e.oninput=updatePlanPreview;});
-['f-plan-moneda','f-plan-moneda-var'].forEach(function(id){var e=g(id);if(e)e.onchange=updatePlanPreview;});
-var mPlan=g('modalPlan');if(mPlan)mPlan.addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');});
-var btnNvoSvc=g('btn-nuevo-servicio');if(btnNvoSvc)btnNvoSvc.onclick=function(){abrirModalServicio(null);};
-var btnSvcCancel=g('btn-svc-cancelar');if(btnSvcCancel)btnSvcCancel.onclick=function(){var m=g('modalServicio');if(m)m.classList.remove('on');};
-var btnSvcGuard=g('btn-svc-guardar');if(btnSvcGuard)btnSvcGuard.onclick=guardarServicio;
-var mSvc=g('modalServicio');if(mSvc)mSvc.addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');});
+// ── Eventos ──
+function cerrar(id){g(id).classList.remove('on');}
+g('btn-plan-cancelar').onclick=function(){cerrar('modalPlan');};
+g('btn-plan-guardar').onclick=guardarPlan;
+g('btn-nuevo-plan').onclick=function(){abrirPlan(null);};
+['f-plan-precio','f-plan-vtrab','f-plan-trab'].forEach(function(id){g(id).oninput=previewPlan;});
+['f-plan-moneda','f-plan-propuesta'].forEach(function(id){g(id).onchange=previewPlan;});
+g('btn-svc-cancelar').onclick=function(){cerrar('modalServicio');};
+g('btn-svc-guardar').onclick=guardarServicio;
+g('btn-nuevo-servicio').onclick=function(){abrirServicio(null);};
+['f-svc-precio','f-svc-hasta'].forEach(function(id){g(id).oninput=previewSvc;});
+['f-svc-moneda','f-svc-tipo'].forEach(function(id){g(id).onchange=previewSvc;});
+g('ver-inactivos').onchange=pintarServicios;
+['modalPlan','modalServicio'].forEach(function(id){g(id).addEventListener('click',function(e){if(e.target===this)cerrar(id);});});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){cerrar('modalPlan');cerrar('modalServicio');}});
 
-// INIT — al final
+// ── Inicio ──
+// Rol: auth.js deja la sesión verificada en window._contadoorSesion al quitar "auth-pending" (mismo patrón que clientes/).
+function leerRol(){var s=window._contadoorSesion;ES_MASTER=!!(s&&s.esMaster===true);}
 (function(){
-  try{var u=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}');g('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Sistema');}catch(e){}
-  renderPlanes();renderHistorial();renderServicios();
-  cargarUF().then(function(){
-    cargarClientes().then(function(){renderPlanes();}).catch(function(){renderPlanes();});
-  }).catch(function(){renderPlanes();});
+  PLANES=cacheLeer(CACHE_P)||[]; SERVICIOS=cacheLeer(CACHE_S)||[];
+  var arrancar=function(){leerRol();pintarTodo();cargarUF().then(cargarDatos,cargarDatos);};
+  if(!document.documentElement.classList.contains('auth-pending')){arrancar();return;}
+  var obs=new MutationObserver(function(){
+    if(!document.documentElement.classList.contains('auth-pending')){obs.disconnect();arrancar();}
+  });
+  obs.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 <script src="../auth.js"></script>
