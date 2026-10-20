@@ -257,7 +257,9 @@ function escribir(metodo,ruta,datos){
     });},function(e){
       if(e&&e.message==='GESTOOR_NO_SESSION')throw new Error('Tu sesión expiró. Vuelve a ingresar.');
       if(e&&/^(No |Tu |Ya |Algún|La base|Hay |Ese )/.test(e.message||''))throw e;
-      throw new Error('Sin conexión con la base. No se guardó nada; intenta de nuevo.');
+      // Sin respuesta: la base pudo haber guardado igual (la respuesta se perdió). No afirmar nada: se recarga la lista para mostrar la verdad.
+      var x=new Error('No hubo respuesta de la base (conexión). No sabemos si alcanzó a guardarse: revisa la lista, que se volvió a cargar, antes de reintentar.');
+      x.sinRespuesta=true; throw x;
     });
 }
 
@@ -428,7 +430,7 @@ function guardarPlan(){
   var b=g('btn-plan-guardar'); b.disabled=true; b.textContent='Guardando…';
   var op=_plan?escribir('PATCH','planes?id=eq.'+encodeURIComponent(_plan.id),fila):escribir('POST','planes',Object.assign({codigo:codigo},fila));
   op.then(function(){g('modalPlan').classList.remove('on');toast('Plan guardado en la base');return cargarDatos();})
-    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');})
+    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');if(e.sinRespuesta)return cargarDatos();})
     .then(function(){b.disabled=false;b.textContent='Guardar plan';});
 }
 
@@ -459,7 +461,7 @@ function guardarServicio(){
   var b=g('btn-svc-guardar'); b.disabled=true; b.textContent='Guardando…';
   var op=_svc?escribir('PATCH','servicios_adicionales?id=eq.'+encodeURIComponent(_svc.id),fila):escribir('POST','servicios_adicionales',fila);
   op.then(function(){g('modalServicio').classList.remove('on');toast(_svc?'Servicio actualizado en la base':'Servicio agregado a la base');return cargarDatos();})
-    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');})
+    .catch(function(e){msg.textContent=e.message;toast(e.message,'err');if(e.sinRespuesta)return cargarDatos();})
     .then(function(){b.disabled=false;b.textContent='Guardar servicio';});
 }
 
