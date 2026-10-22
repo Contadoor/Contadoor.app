@@ -160,7 +160,7 @@
   function reglaRemanente(c, cfg) {
     var a = c.actual || {}; if (c.exenta || a.sinDato || !(n(a.nuevoRemanente) >= cfg.minImpacto)) return null;
     return r({ id: 'remanente', monto: a.nuevoRemanente, color: 'verde', frase: '¿Por qué este mes no pago IVA?',
-      detectado: 'Este mes el crédito de tus compras supera el débito de tus ventas: no pagas IVA y te queda un crédito a favor de ' + clp(a.nuevoRemanente) + '.',
+      detectado: 'Este mes el crédito de tus compras más el remanente del mes anterior superan el débito de tus ventas: no pagas IVA y te queda un crédito a favor de ' + clp(a.nuevoRemanente) + '.',
       impacto: clp(a.nuevoRemanente) + ' que se descuentan del IVA de ' + mesSig(c.periodo) + '.',
       accion: 'No tienes que hacer nada: lo aplicamos en tu próximo F29.' + (n(a.ppm) > 0 ? ' El PPM (' + clp(a.ppm) + ') se paga igual el ' + dia(c.vencF29) + '.' : ''), plazo: n(a.ppm) > 0 ? c.vencF29 : null, quien: 'Tu analista' });
   }
@@ -384,7 +384,7 @@
       return r({ id: 'renta_cobertura', monto: saldo, color: 'morado', frase: '¿Me alcanzará para la renta de abril?',
         detectado: 'Según tu proyección de renta (' + fechas + '), tus PPM cubren el ' + Math.round(n(ppm) / n(idpc) * 100) + ' % del impuesto de abril: faltarían ' + clp(saldo) + '.' + (desact ? ' Ojo: la proyección está desactualizada.' : ''),
         impacto: clp(saldo) + ' a pagar en abril si nada cambia.',
-        accion: (hay(cuota) && n(cuota) > 0 ? 'Revisemos un PPM voluntario: en tu escenario de MiRenta, con ' + clp(cuota) + ' al mes hasta diciembre llegarías a abril sin saldo.' : 'Revisemos tu PPM y la opción de un PPM voluntario en la próxima reunión.') + (desact ? ' Antes, actualizamos la proyección.' : ''),
+        accion: (hay(cuota) && n(cuota) > 0 ? 'Revisemos un PPM voluntario: según tu escenario de MiRenta, con ' + clp(cuota) + ' al mes hasta diciembre podrías llegar a abril sin saldo.' : 'Revisemos tu PPM y la opción de un PPM voluntario en la próxima reunión.') + (desact ? ' Antes, actualizamos la proyección.' : ''),
         plazo: null, quien: 'Tu analista' });
     }
     if (desact) return r({ id: 'renta_desact', monto: 0, color: 'morado', frase: '¿Mi proyección de renta sigue vigente?',

@@ -13,7 +13,7 @@ function base(extra) {
   }, extra || {});
 }
 const H6 = (iva, extra) => ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].map((p, i) => Object.assign({ periodo: p, iva: iva[i], ppm: 150000, debito: 2500000, credito: 1700000, ventas: 12000000, tasa: 1.5 }, extra ? extra(i) : {}));
-const doc = (o) => Object.assign({ tipo_dte: 33, folio: '1', rut: '77.000.000-1', razon: 'Proveedor Ficticio SpA', fecha: '2026-10-05', neto: 100000, exento: 0, iva: 19000, total: 119000 }, o);
+const doc = (o) => Object.assign({ tipo_dte: 33, folio: '1', rut: 'DEMO-T06', razon: 'Proveedor Ficticio SpA', fecha: '2026-10-05', neto: 100000, exento: 0, iva: 19000, total: 119000 }, o);
 const vacioPrevios = () => ({ '2026-04': { ventas: [], compras: [] }, '2026-05': { ventas: [], compras: [] }, '2026-06': { ventas: [], compras: [] }, '2026-07': { ventas: [], compras: [] }, '2026-08': { ventas: [], compras: [] }, '2026-09': { ventas: [], compras: [] } });
 const ids = (l) => l.map((x) => x.id);
 
@@ -71,7 +71,7 @@ test('MiRenta: cobertura del PPM con escenario de PPM voluntario, fechas de la c
   const out = { 'forecast.idpc': 53400000, 'forecast.ppm.imputable': 24565821, 'forecast.saldo_abril': 28834179, 'sim.ppm_voluntario.cuota_mensual': 9611393 };
   let x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21T15:00:00Z', corte: '2026-09-30', outputs: out } })).find((y) => y.id === 'renta_cobertura');
   assert.match(x.detectado, /actualizada el 21-10, datos al 30-09\), tus PPM cubren el 46 % del impuesto de abril: faltarían \$28\.834\.179/);
-  assert.match(x.accion, /con \$9\.611\.393 al mes hasta diciembre llegarías a abril sin saldo/); assert.equal(x.monto, 28834179);
+  assert.match(x.accion, /con \$9\.611\.393 al mes hasta diciembre podrías llegar a abril sin saldo/); assert.equal(x.monto, 28834179);
   x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', outputs: Object.assign({}, out, { 'sim.ppm_voluntario.cuota_mensual': null }) } })).find((y) => y.id === 'renta_cobertura');
   assert.doesNotMatch(x.accion, /\$/);
   x = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', outputs: { 'forecast.idpc': 1000, 'forecast.ppm.imputable': 2000, 'forecast.saldo_abril': -1000 } } })).find((y) => y.id === 'renta_desact');
@@ -112,37 +112,37 @@ test('razonabilidad: compras 45 % bajo el promedio → ¿faltan facturas?; dentr
 function previosCon(fn) { const p = vacioPrevios(); Object.keys(p).forEach((k, i) => fn(p[k], k, i)); return p; }
 
 test('recurrentes: proveedor presente → nada; ausente después de su día habitual → pídela; cliente recurrente sin factura', () => {
-  const previos = previosCon((m, k) => { m.compras.push(doc({ rut: '77.111.111-1', razon: 'Arriendos Ficticios Ltda.', fecha: k + '-05', iva: 380000, total: 2380000 }));
-    m.ventas.push(doc({ rut: '76.222.222-2', razon: 'Cliente Ficticio Grande SpA', fecha: k + '-10', iva: 950000, total: 5950000 })); });
+  const previos = previosCon((m, k) => { m.compras.push(doc({ rut: 'DEMO-T07', razon: 'Arriendos Ficticios Ltda.', fecha: k + '-05', iva: 380000, total: 2380000 }));
+    m.ventas.push(doc({ rut: 'DEMO-T02', razon: 'Cliente Ficticio Grande SpA', fecha: k + '-10', iva: 950000, total: 5950000 })); });
   let l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [] } } }));
   const p = l.find((y) => y.id.startsWith('rec_prov')); const c = l.find((y) => y.id.startsWith('rec_cli'));
   assert.match(p.detectado, /Todos los meses le compras a Arriendos Ficticios Ltda\. \(6 de 6 meses, unos \$380\.000 de IVA/);
   assert.match(p.accion, /antes del 31-10/);
   assert.match(c.detectado, /le facturas a Cliente Ficticio Grande SpA .* y este mes aún no hay factura emitida/);
-  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: '77.111.111-1', fecha: '2026-10-05', iva: 380000 })] } } }));
+  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T07', fecha: '2026-10-05', iva: 380000 })] } } }));
   assert.equal(l.find((y) => y.id.startsWith('rec_prov')), undefined);
   l = R.generar(base({ hoy: '2026-10-06', docs: { disponible: true, previos, actual: { ventas: [], compras: [] } } }));
   assert.equal(l.find((y) => y.id.startsWith('rec_prov')), undefined, 'antes del día habitual + margen no se avisa');
 });
 
 test('documento atípico (3 veces la mediana de esa contraparte), proveedor nuevo con monto alto, y razonable → nada', () => {
-  const previos = previosCon((m, k) => { m.compras.push(doc({ rut: '77.333.333-3', razon: 'Insumos Ficticios SpA', fecha: k + '-08', iva: 95000, total: 595000 })); });
-  let l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: '77.333.333-3', razon: 'Insumos Ficticios SpA', folio: '9001', fecha: '2026-10-08', fecha_recepcion: '2026-10-20', iva: 380000, total: 2380000 })] } } }));
+  const previos = previosCon((m, k) => { m.compras.push(doc({ rut: 'DEMO-T08', razon: 'Insumos Ficticios SpA', fecha: k + '-08', iva: 95000, total: 595000 })); });
+  let l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T08', razon: 'Insumos Ficticios SpA', folio: '9001', fecha: '2026-10-08', fecha_recepcion: '2026-10-20', iva: 380000, total: 2380000 })] } } }));
   const a = l.find((y) => y.id.startsWith('atipico'));
   assert.match(a.detectado, /Recibiste una factura de Insumos Ficticios SpA por \$2\.380\.000 \(folio 9001, 08-10\), 4 veces lo habitual con ese proveedor/);
   assert.match(a.accion, /antes del plazo de reclamo \(28-10\)/);
-  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: '77.333.333-3', iva: 100000, total: 600000 })] } } }));
+  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T08', iva: 100000, total: 600000 })] } } }));
   assert.equal(l.find((y) => y.id.startsWith('atipico')), undefined);
-  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: '78.999.999-9', razon: 'Proveedor Nuevo Ficticio', folio: '55', fecha_recepcion: '2026-10-21', iva: 950000, total: 5950000 })] } } }));
+  l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T10', razon: 'Proveedor Nuevo Ficticio', folio: '55', fecha_recepcion: '2026-10-21', iva: 950000, total: 5950000 })] } } }));
   assert.match(l.find((y) => y.id.startsWith('nuevo')).detectado, /primera vez en 6 meses .* Proveedor Nuevo Ficticio/);
   // Venta atípica (vs. la mediana de esa contraparte)
-  const prevV = previosCon((m, k) => { m.ventas.push(doc({ rut: '76.444.444-4', razon: 'Cliente Habitual Ficticio', fecha: k + '-12', iva: 50000, total: 297500 })); });
-  l = R.generar(base({ docs: { disponible: true, previos: prevV, actual: { ventas: [doc({ rut: '76.444.444-4', razon: 'Cliente Habitual Ficticio', folio: '700', iva: 300000, total: 1785000 })], compras: [] } } }));
+  const prevV = previosCon((m, k) => { m.ventas.push(doc({ rut: 'DEMO-T03', razon: 'Cliente Habitual Ficticio', fecha: k + '-12', iva: 50000, total: 297500 })); });
+  l = R.generar(base({ docs: { disponible: true, previos: prevV, actual: { ventas: [doc({ rut: 'DEMO-T03', razon: 'Cliente Habitual Ficticio', folio: '700', iva: 300000, total: 1785000 })], compras: [] } } }));
   assert.match(l.find((y) => y.id.startsWith('atipico')).detectado, /^Emitiste una factura a Cliente Habitual Ficticio/);
 });
 
 test('sin documentos previos suficientes no hay reglas de comportamiento (nadie es "nuevo" ni "atípico")', () => {
-  const l = R.generar(base({ docs: { disponible: true, previos: {}, actual: { ventas: [], compras: [doc({ rut: '78.999.999-9', iva: 950000, total: 5950000 })] } } }));
+  const l = R.generar(base({ docs: { disponible: true, previos: {}, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T10', iva: 950000, total: 5950000 })] } } }));
   assert.equal(l.filter((y) => /^(nuevo|atipico|rec_)/.test(y.id)).length, 0);
 });
 
@@ -162,14 +162,14 @@ test('solo boletas → sin alerta de duplicado; cambio de patrón → se mencion
   assert.match(x.detectado, /Desde octubre aparecen comprobantes de pago electrónico que antes no tenías/);
 });
 test('voucher que coincide con una factura del mismo día (±1 %) → detalle dentro de la alerta; duplicado exacto; NC sin documento asociado', () => {
-  const ventas = [doc({ tipo_dte: 48, folio: 'v1', rut: '', fecha: '2026-10-07', total: 1190000, iva: 0 }), doc({ tipo_dte: 33, folio: '501', rut: '76.555.555-5', fecha: '2026-10-07', total: 1195000, iva: 190800 })];
+  const ventas = [doc({ tipo_dte: 48, folio: 'v1', rut: '', fecha: '2026-10-07', total: 1190000, iva: 0 }), doc({ tipo_dte: 33, folio: '501', rut: 'DEMO-T04', fecha: '2026-10-07', total: 1195000, iva: 190800 })];
   let x = R.generar(base({ docs: { disponible: true, actual: { ventas, compras: [] }, resumenActual: {} } })).find((y) => y.id === 'dup_voucher');
   assert.match(x.detectado, /Detectamos \$1\.190\.000 en comprobantes de pago electrónico que coinciden con facturas o boletas del mismo día/);
-  const rep = [doc({ folio: '777', rut: '77.666.666-6', iva: 200000 }), doc({ folio: '777', rut: '77.666.666-6', iva: 200000 })];
+  const rep = [doc({ folio: '777', rut: 'DEMO-T09', iva: 200000 }), doc({ folio: '777', rut: 'DEMO-T09', iva: 200000 })];
   x = R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: rep } } })).find((y) => y.id === 'dup_exacto_compras');
   assert.match(x.detectado, /aparece dos veces con el mismo tipo, folio y contraparte \(por ejemplo, folio 777\)/);
-  const previos = previosCon((m, k) => { m.ventas.push(doc({ rut: '76.000.000-1', fecha: k + '-03' })); });
-  x = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [doc({ tipo_dte: 61, folio: '88', rut: '76.999.000-0', iva: 120000, total: 714000 })], compras: [] } } })).find((y) => y.id.startsWith('nc_sin_ref'));
+  const previos = previosCon((m, k) => { m.ventas.push(doc({ rut: 'DEMO-T01', fecha: k + '-03' })); });
+  x = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [doc({ tipo_dte: 61, folio: '88', rut: 'DEMO-T05', iva: 120000, total: 714000 })], compras: [] } } })).find((y) => y.id.startsWith('nc_sin_ref'));
   assert.match(x.impacto, /^Posible nota de crédito sin la referencia correcta/);
 });
 

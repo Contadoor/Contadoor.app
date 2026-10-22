@@ -118,7 +118,7 @@ function historial(cli,per){
           ppm:num(a.ppm),debito:d,credito:c,ventas:num(a.ppm_base),tasa:num(a.ppm_tasa)};
       }
       if(b){var f=num(b.f29),pp=num(b.ppm);
-        return {periodo:p,fuente:'Pre-IVA enviado',iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:num(b.neto_ventas),tasa:num(b.tasa_ppm)};}
+        return {periodo:p,fuente:'Pre-IVA enviado',iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:null,tasa:num(b.tasa_ppm)};}   // neto_ventas no es la misma base que ppm_base: no se mezcla
       return {periodo:p,fuente:null,iva:null,ppm:null,debito:null,credito:null,ventas:null,tasa:null};
     });
     return {filas:filas,error:r[0]&&r[0].error?r[0].error:null};

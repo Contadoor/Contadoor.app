@@ -28,7 +28,11 @@ function clp(n){return (n==null||!isFinite(n))?'No disponible':(n<0?'−':'')+'$
 function corto(n){if(n==null||!isFinite(n))return '';var a=Math.abs(n),s=n<0?'−':'';if(a>=1e6)return s+'$'+(Math.round(a/1e5)/10).toString().replace('.',',')+' M';if(a>=1e3)return s+'$'+Math.round(a/1e3)+' mil';return s+'$'+Math.round(a);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function pon(id,t){var e=$(id);if(e&&e.textContent!==t)e.textContent=t;}
-function clase(el,c,on){if(el)el.classList.toggle(c,!!on);}
+function clase(el,c,on){if(el&&el.classList.contains(c)!==!!on)el.classList.toggle(c,!!on);}
+// Escrituras idempotentes: no tocar el DOM si el valor no cambió (evita que el MutationObserver repinte en bucle)
+function cls(el,v){if(el&&el.className!==v)el.className=v;}
+function oculto(el,v){if(el&&el.hidden!==!!v)el.hidden=!!v;}
+function attr(el,k,v){if(el&&el.getAttribute(k)!==v)el.setAttribute(k,v);}
 function z(n){return (n<10?'0':'')+n;}
 function fCorta(iso){try{var d=new Date(iso);if(isNaN(d.getTime()))return '';return z(d.getDate())+'-'+z(d.getMonth()+1)+'-'+d.getFullYear();}catch(e){return '';}}
 function fDM(iso){var s=String(iso||'');if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s.slice(8,10)+'-'+s.slice(5,7);try{var d=new Date(iso);return isNaN(d.getTime())?'':z(d.getDate())+'-'+z(d.getMonth()+1);}catch(e){return '';}}
@@ -49,12 +53,12 @@ function periodo(){
 }
 
 // Chip de aviso (se crea una vez dentro de #pio-chips; texto con textContent)
-function chip(id,cls,ic,texto){
+function chip(id,tipo,ic,texto){
   var cont=$('pio-chips');if(!cont)return;
   var el=$(id);
-  if(!texto){if(el)el.hidden=true;return;}
+  if(!texto){oculto(el,true);return;}
   if(!el){el=document.createElement('span');el.id=id;el.innerHTML=icono(ic)+'<span></span>';cont.appendChild(el);}
-  el.className='chip '+cls;el.hidden=false;
+  cls(el,'chip '+tipo);oculto(el,false);
   var s=el.querySelector('span:last-child');if(s&&s.textContent!==texto)s.textContent=texto;
 }
 
@@ -95,16 +99,16 @@ function pintar(){
     else if(!fila){e=['ambar','Pendiente'];sub='Aún no se envía este mes';}
     else if(fila.fecha_envio){e=['verde','Enviado'];sub='El '+fCorta(fila.fecha_envio)+(fila.enviado_por?' · '+fila.enviado_por:'');}
     else{e=['lila','Borrador'];sub='Guardado en Gestoor, sin enviar';}
-    est.className='estado '+e[0];pon('pio-estado',e[1]);pon('pio-estado-sub',sub);
+    cls(est,'estado '+e[0]);pon('pio-estado',e[1]);pon('pio-estado-sub',sub);
   }
   var fu=$('pio-fuente');
-  if(fu){var sii=!!(fila&&fila.fuente==='SII');fu.className='estado '+(sii?'cel':'gris');pon('pio-fuente',sii?'SII automático':'Manual');}
+  if(fu){var sii=!!(fila&&fila.fuente==='SII');cls(fu,'estado '+(sii?'cel':'gris'));pon('pio-fuente',sii?'SII automático':'Manual');}
 
   // ── Empresa exenta de IVA: el F29 es solo el PPM (misma fórmula con débito = crédito = remanente = 0) ──
   var panel=$('panel-simulacion');
   clase(panel,'pio-modo-exenta',exenta);
-  var av=$('pio-exenta');if(av)av.hidden=!exenta;
-  var ivaND=$('pio-iva-sin-dato');if(ivaND)ivaND.hidden=!(S.D&&S.D.extra&&!S.D.extra.error&&!S.D.extra.ivaCondicion);
+  oculto($('pio-exenta'),!exenta);
+  oculto($('pio-iva-sin-dato'),!(S.D&&S.D.extra&&!S.D.extra.error&&!S.D.extra.ivaCondicion));
   ['inp-debito','inp-credito'].forEach(function(id){var i=$(id);if(i)clase(i.closest('.campo-iva'),'con-valor',val(id)!=='');});
   pon('pio-hero-lbl',exenta?'F29 estimado (solo PPM)':'F29 estimado a pagar');
   pon('pio-op-ppm',exenta?'':'+');
@@ -133,7 +137,7 @@ function pintar(){
 
   // ── Comparación con el mes anterior (solo si se escribió el F29 anterior) ──
   var f29Ant=parseInt(val('inp-f29-ant'),10)||0, vl=$('pio-var-linea');
-  if(vl){vl.hidden=!(f29Ant>0);
+  if(vl){oculto(vl,!(f29Ant>0));
     if(f29Ant>0){var v=txt('kpi-var').trim();pon('pio-var-ic',/^\+0%$|^0%$/.test(v)?'=':v.charAt(0)==='-'?'↘':'↗');pon('pio-f29-ant',clp(f29Ant));}}
 
   // ── Chips de aviso extra ──
@@ -141,6 +145,7 @@ function pintar(){
   chip('pio-chip-rem','ambar','alerta',!exenta&&/no se pudo leer/i.test(txt('lbl-remanente-fuente'))?'No se pudo leer el remanente desde Contable: se usó $0':'');
   var nuevoRem=pesos(txt('kpi-remanente'));
   chip('pio-chip-nrem','verde','check',!exenta&&!sinDato&&nuevoRem>0?'Queda un remanente a favor de '+clp(nuevoRem)+' para el mes siguiente':'');
+  chip('pio-chip-exrem','ambar','alerta',exenta&&pesos(txt('res-remanente'))>0?'Empresa exenta: hay un remanente de '+txt('res-remanente')+' desde Contable que se resta del F29; revísalo con Contable.':'');
   chip('pio-chip-exppm','gris','alerta',exenta&&val('inp-debito')===''?'Empresa exenta: sin débito, el neto afecto es $0 y la base del PPM son solo los ingresos exentos.':'');
   chip('pio-chip-exiva','ambar','alerta',exenta&&(val('inp-debito')!==''||val('inp-credito')!=='')?'Empresa exenta: el débito o crédito escritos se suman al F29; déjalos vacíos si no corresponden':'');
   var editado=['debito','credito','f29','ppm','remanente'].some(function(k){return ov[k]!==null&&ov[k]!==undefined;})||(ov.acciones&&ov.acciones.length>0)||!!(ov.obs&&String(ov.obs).trim());
@@ -151,7 +156,7 @@ function pintar(){
   var actual=!!(P&&P.actual), pc=actual?Math.max(0,Math.min(100,Math.round(dT/dTot*100))):100;
   pon('pio-av-pct',pc+'%');pon('pio-av-det',actual?'(día '+dT+' de '+dTot+')':'· mes cerrado, libros completos');
   var bar=$('pio-av-barra'), fill=$('pio-av-fill');
-  if(bar){clase(bar,'cerrado',!actual);bar.setAttribute('aria-valuenow',String(pc));}
+  if(bar){clase(bar,'cerrado',!actual);attr(bar,'aria-valuenow',String(pc));}
   if(fill&&fill.style.width!==pc+'%')fill.style.width=pc+'%';
 
   // ── Piezas con datos del SII, historial y MiRenta ──
@@ -170,9 +175,9 @@ function pintarSii(){
     desactualizado:['ambar','Desactualizado: actualiza antes de calcular',s&&(s.motivo||s.aviso)||''],
     sin_datos:['ambar','Sin datos del SII','Aún no hay RCV de este período: actualiza antes de calcular.']}[e]||['gris',e,''];
   if(!cambio('sii',[e,m]))return;
-  chipEl.className='estado '+m[0];chipEl.textContent=m[1];pon('pio-sii-det',m[2]);
+  cls(chipEl,'estado '+m[0]);chipEl.textContent=m[1];pon('pio-sii-det',m[2]);
   var activa=siiActiva();
-  if(btn){btn.disabled=!activa;btn.title=activa?'Usa 2 consultas de la bolsa manual (compras y ventas)':'Se habilita cuando se active la conexión con el SII';}
+  if(btn&&btn.disabled!==!activa)btn.disabled=!activa;if(btn){btn.title=activa?'Usa 2 consultas de la bolsa manual (compras y ventas)':'Se habilita cuando se active la conexión con el SII';}
   pon('pio-sii-nota',activa?'Bolsa manual: hasta 10 actualizaciones por cliente al mes.':'Se habilita cuando se active la conexión con el SII · bolsa manual: hasta 10 por cliente al mes.');
 }
 function actualizarSii(){
@@ -190,7 +195,7 @@ function actualizarSii(){
 function pintarManual(){
   var d=$('pio-manual');if(!d)return;
   var ver=CFG.cargaManual==='siempre'||(CFG.cargaManual==='auto'&&!siiActiva());
-  if(d.hidden===ver)d.hidden=!ver;
+  oculto(d,!ver);
 }
 
 /* ── Recomendaciones (motor pre-iva/recomendaciones.js) ── */
@@ -207,14 +212,14 @@ function ctxRecos(x){
 function pintarRecos(x){
   var cont=$('pio-recos'), acc=$('pio-correo-acc');if(!cont||!x.P)return;
   var nuevo=!!CFG.recomendacionesNuevas&&!!window.PreIvaRecos;
-  cont.hidden=!nuevo;
-  if(acc){if(!nuevo){acc.open=true;acc.classList.add('solo');}else acc.classList.remove('solo');}
+  oculto(cont,!nuevo);
+  if(acc){if(!nuevo&&!acc.open)acc.open=true;clase(acc,'solo',!nuevo);}
   // Proyección de renta (MiRenta): fecha de la última actualización y enlace
   var R=S.D&&S.D.renta, rb=$('pio-renta');
-  if(rb){var conCaso=nuevo&&R&&R.casoId;rb.hidden=!conCaso;
+  if(rb){var conCaso=nuevo&&R&&R.casoId;oculto(rb,!conCaso);
     if(conCaso){var est={VIGENTE:'vigente',DESACTUALIZADA:'desactualizada',CONGELADA:'congelada',SIN_PROYECCION:'sin calcular'}[R.estado]||String(R.estado).toLowerCase();
       pon('pio-renta-txt','Proyección de renta '+est+(R.finalizado?' · actualizada el '+fDM(R.finalizado):'')+(R.corte?' · datos al '+fDM(R.corte):''));
-      var a=$('pio-renta-link');if(a)a.href='../pir/proyeccion.html?caso='+encodeURIComponent(R.casoId);}}
+      attr($('pio-renta-link'),'href','../pir/proyeccion.html?caso='+encodeURIComponent(R.casoId));}}
   if(!nuevo)return;
   if(!S.D){if(cambio('recos','cargando'))cont.innerHTML='<p class="nota">Cargando los datos del SII, el historial y la proyección de renta…</p>';return;}
   var l=window.PreIvaRecos.generar(ctxRecos(x));
@@ -308,7 +313,7 @@ function pintarTendencias(x){
 function pintarDocs(x){
   var tabla=$('pio-docs-tabla');if(!tabla)return;
   var D=S.D, docs=D&&D.docs, libro=S.libro, hoy=hoyIso(), R=window.PreIvaRecos;
-  var selA=$('pio-docs-acuse');if(selA)selA.hidden=libro!=='compras';
+  oculto($('pio-docs-acuse'),libro!=='compras');
   if(!D){if(cambio('docs','c')){tabla.innerHTML='<p class="nota">Cargando documentos del SII…</p>';pon('pio-docs-tot','');}return;}
   var lista=(docs&&docs.actual&&docs.actual[libro])||[], res=((docs&&docs.resumen&&docs.resumen[x.P.db])||{})[libro]||{};
   pon('pio-n-ventas',String(((docs&&docs.actual&&docs.actual.ventas)||[]).length));pon('pio-n-compras',String(((docs&&docs.actual&&docs.actual.compras)||[]).length));
@@ -359,8 +364,9 @@ function iniciar(){
   if(window.PIO_DEMO){var dm=$('pioDemo');if(dm)dm.hidden=false;}
   if(window.MutationObserver){
     var mo=new MutationObserver(programar);
-    ['res-f29','res-ppm','res-debito','res-credito','res-remanente','kpi-remanente','kpi-var','estado-guardado','cliente-sel-nombre','lbl-remanente-fuente','aviso-entradas','panel-simulacion']
+    ['res-f29','res-ppm','res-debito','res-credito','res-remanente','kpi-remanente','kpi-var','estado-guardado','cliente-sel-nombre','lbl-remanente-fuente','aviso-entradas']
       .forEach(function(id){var e=$(id);if(e)mo.observe(e,{childList:true,characterData:true,subtree:true,attributes:true});});
+    var ps=$('panel-simulacion');if(ps)mo.observe(ps,{attributes:true,attributeFilter:['style']});   // solo cuando se muestra u oculta
   }
   document.addEventListener('input',function(e){if(e.target&&e.target.id==='pio-docs-q'){S.q=e.target.value.trim();S.lim=CFG.filasDocs;}programar();},true);
   document.addEventListener('change',function(e){var t=e.target;if(t&&t.id==='pio-docs-tipo'){S.tipo=t.value;S.lim=CFG.filasDocs;}if(t&&t.id==='pio-docs-acuse'){S.acuse=t.value;S.lim=CFG.filasDocs;}programar();},true);
