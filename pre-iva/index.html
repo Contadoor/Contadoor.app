@@ -241,10 +241,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </main>
 </div>
 <script src="../supabase.js"></script>
+<script src="../correo-gestoor.js"></script>
 <script src="f29-formula.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
-var PROXY='https://contafunnel-v2.vercel.app';
+var _clavePreiva=null; // intención de envío vigente (misma clave en reintentos: el servidor no duplica)
 // Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
 // Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
 var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
@@ -779,37 +780,48 @@ function enviarPreIVA(){
   var varComp='';
   if(f29Ant>0){var vp=Math.round((f29Num-f29Ant)/f29Ant*100);var vi=vp>0?'↗':vp<0?'↘':'=';varComp='F29 proyectado: '+ff(f29Num)+' · '+vi+' '+(vp>0?'+':'')+vp+'% vs '+formatPeriodo(getPeriodoAnterior(_periodoActual));}
   function minHTML(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
-  fetch(PROXY+'/api/enviar-preiva',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      tipo:'preiva',
-      analistaNombre:u.nombre,
-      analistaWa:u.wa||'',
-      toEmail:c.email,
-      toNombre:c.contacto||c.razonSocial||c.rut,
-      toEmpresa:c.razonSocial||c.rut,
-      varComparativo:varComp,
-      periodo:periodo,
-      htmlReporte:minHTML(htmlReporte)
-    })
-  })
-  .then(function(r){return r.json();})
+  // Correos unificados (22-oct): sale por la Edge gestoor-correo-enviar (De: Contadoor <reportes@>, Responder a: analista del cliente).
+  // El servidor toma el destinatario de la ficha, arma el asunto, agrega el marco común (logo, firma con foto) y registra el envío.
+  var kClave=c.id+'|'+_periodoActual;
+  if(!_clavePreiva||_clavePreiva.k!==kClave)_clavePreiva={k:kClave,v:GestoorCorreo.nuevaClave('preiva')};
+  // Ronda 2 (decisión de Luciano 22-oct): el correo lo GENERA el servidor con la plantilla aprobada; aquí solo van los montos
+  // (los que el analista revisó según las reglas del módulo). El servidor recalcula el F29 con la misma fórmula (f29-formula.js).
+  // Texto libre (observación o acciones editadas) o F29 distinto al calculado: solo el Master (el servidor lo exige).
+  function pesos(t){return parseInt(String(t==null?'':t).replace(/[^0-9]/g,''),10)||0;}
+  function valor(ov,id){return pesos(ov!==null&&ov!==undefined?ov:(document.getElementById(id)||{}).textContent);}
+  var datosCorreo={
+    debito:valor(_editOverrides.debito,'res-debito'),
+    credito:valor(_editOverrides.credito,'res-credito'),
+    remanente:valor(_editOverrides.remanente,'res-remanente'),
+    ppm:valor(_editOverrides.ppm,'kpi-ppm'),
+    f29_anterior:Math.max(0,Math.round(f29Ant)||0),
+    dias_restantes:Math.min(31,pesos((document.getElementById('res-dias-rest')||{}).textContent)),
+    ppm_no_definitivo:!!ppmAvisoReporte()
+  };
+  if(_editOverrides.f29!==null)datosCorreo.f29_manual=pesos(_editOverrides.f29);
+  if(_editOverrides.obs&&String(_editOverrides.obs).trim())datosCorreo.observacion=String(_editOverrides.obs).trim();
+  var accionesEditadas=_editOverrides.acciones&&_editOverrides.acciones.length>0;
+  var pedido={tipo:'preiva', cliente_id:c.id, periodo:String(_periodoActual).slice(0,4)+'-'+String(_periodoActual).slice(4,6), clave:_clavePreiva.v};
+  // Acciones reescritas a mano = contenido editado: va como HTML libre y el servidor solo lo acepta si quien envía es el Master.
+  if(accionesEditadas)pedido.contenido_html=minHTML(htmlReporte);else pedido.datos=datosCorreo;
+  GestoorCorreo.enviar(pedido)
   .then(function(data){
-    if(data.ok||data.id){
+    if(data.ok){
+      _clavePreiva=null;
+      if(data.estado==='ya_enviado'){mostrarToast('ℹ️ '+GestoorCorreo.mensaje(data));return;}
       // El email ya salió: ahora queda registrado en Gestoor (si falla, se avisa claro y se puede reintentar).
       return guardarPreiva('envio').then(function(){
-        mostrarToast('✅ Email enviado a '+c.email+' y guardado en Gestoor');
+        mostrarToast('✅ '+GestoorCorreo.mensaje(data)+' Guardado en Gestoor.');
         renderHistorial();
         renderNomina();
       },function(e){
-        alert('El email SÍ se envió a '+c.email+', pero NO quedó guardado en Gestoor:\n\n'+e.message+'\n\nUsa el botón "Reintentar" junto al estado (arriba del Pre-IVA) para guardarlo.');
+        alert('El email SÍ se envió, pero NO quedó guardado en Gestoor:\n\n'+e.message+'\n\nUsa el botón "Reintentar" junto al estado (arriba del Pre-IVA) para guardarlo.');
       });
     }else{
-      alert('Error al enviar: '+(data.error||'Error desconocido'));
+      if(data.estado==='incierto'||data.codigo==='ENVIO_INCIERTO')_clavePreiva=null;
+      alert('❌ '+GestoorCorreo.mensaje(data));
     }
   })
-  .catch(function(err){alert('Error de conexión: '+err.message);})
   .finally(function(){if(btn){btn.disabled=false;btn.textContent='✉️ Enviar Pre-IVA';}});
 }
 function mostrarToast(msg){
