@@ -191,7 +191,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             <div class="inp-row"><span class="inp-label">Crédito IVA registrado</span><input class="inp-field" type="number" id="inp-credito" placeholder="0"></div>
             <div class="inp-row"><span class="inp-label">Ventas exentas (neto)</span><input class="inp-field" type="number" id="inp-exento-ventas" min="0" placeholder="Del libro; vacío = sin dato" title="Base del PPM = neto afecto + exento. Si queda vacío, el PPM se marca como estimado sin ventas exentas."></div>
             <div class="inp-row"><span class="inp-label">Días transcurridos</span><input class="inp-field" type="number" id="inp-dias-transc" min="1" max="31"></div>
-            <div class="inp-row"><span class="inp-label">Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31"></div>
+            <div class="inp-row"><span class="inp-label">Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31" readonly title="Días reales del período (calendario): no se editan"></div>
             <div class="inp-row"><span class="inp-label">Tasa PPM (%)</span><input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10"></div>
             <div class="inp-row"><span class="inp-label">F29 mes anterior</span><input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa"></div>
             <div id="aviso-entradas" role="alert" style="display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px;margin-top:8px"></div>
@@ -242,6 +242,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </div>
 <script src="../supabase.js"></script>
 <script src="f29-formula.js"></script>
+<script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
 var PROXY='https://contafunnel-v2.vercel.app';
@@ -615,21 +616,18 @@ function calcularPPM(proy){
 function calcular(){
   revisarEntradas();
   var debReg=nv('inp-debito'), credReg=nv('inp-credito');
-  var diasT=nv('inp-dias-transc')||22, diasTot=nv('inp-dias-tot')||31;
   var remanente=_datos.remanente;
-  // Días restantes para actuar = días hasta el cierre del período (día 20 del mes siguiente)
-  // Calculado desde la fecha real del sistema
-  var _hoy=new Date();
-  var _anio=parseInt(_periodoActual.slice(0,4)), _mes=parseInt(_periodoActual.slice(4,6))-1;
-  var _vencMes=_mes+1>11?0:_mes+1, _vencAnio=_mes+1>11?_anio+1:_anio;
-  var _fechaVenc=new Date(_vencAnio,_vencMes,20);
-  var _diasRestReal=Math.max(0,Math.ceil((_fechaVenc-_hoy)/(1000*60*60*24)));
-  var diasRest=_diasRestReal;
-  // Solo el mes en curso se proyecta: un mes ya terminado (abierto desde la cartera con ?periodo=) tiene los libros completos.
-  var _esMesActual=(_anio===_hoy.getFullYear()&&_mes===_hoy.getMonth());
-  var pry=PreIvaF29.proyectarMes({debitoRegistrado:debReg,creditoRegistrado:credReg,diasTranscurridos:diasT,diasRestantes:diasRest,esMesActual:_esMesActual});
+  // Horizonte (pre-iva/proyeccion.js, hotfix 22-oct): el mes en curso se proyecta hasta el ÚLTIMO DÍA DEL MES
+  // (días restantes = días del mes − transcurridos); un mes cerrado no se proyecta. El vencimiento del F29
+  // (día 20 del mes siguiente) es un dato aparte: solo "días para actuar" y las acciones sugeridas.
+  var hz=PreIvaProyeccion.horizonte({hoy:new Date(),periodo:_periodoActual,diasTranscurridos:nv('inp-dias-transc'),diasTotales:nv('inp-dias-tot')});
+  var diasT=hz.diasTranscurridos, diasRest=hz.diasVencF29, _esMesActual=hz.esMesActual;
+  // La pantalla muestra lo que realmente se usó: días del mes del calendario y transcurridos dentro de rango.
+  var _it=document.getElementById('inp-dias-tot');if(_it&&String(_it.value)!==String(hz.diasTotales))_it.value=hz.diasTotales;
+  var _id=document.getElementById('inp-dias-transc');if(_id&&hz.diasTranscurridosAjustado&&String(_id.value)!=='')_id.value=hz.diasTranscurridos;
+  var pry=PreIvaF29.proyectarMes({debitoRegistrado:debReg,creditoRegistrado:credReg,diasTranscurridos:diasT,diasRestantes:hz.diasRestantesMes,esMesActual:_esMesActual});
   var debProy=pry.debito, credProy=pry.credito;
-  var ppm=calcularPPM({diasTranscurridos:diasT,diasRestantes:diasRest,esMesActual:_esMesActual});
+  var ppm=calcularPPM({diasTranscurridos:diasT,diasRestantes:hz.diasRestantesMes,esMesActual:_esMesActual});
   // F29 estimado = IVA a pagar (débito − crédito − remanente, nunca negativo) + PPM. El remanente no rebaja el PPM (pre-iva/f29-formula.js).
   var r29=PreIvaF29.calcularF29Estimado({debito:debProy,credito:credProy,remanente:remanente,ppm:ppm});
   var f29=r29.total;
