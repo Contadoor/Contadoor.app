@@ -12,6 +12,8 @@
   var futuro=/(?:^|[?&])futuro=1(?:&|$)/.test(location.search.slice(1));
 
   var A={id:9101,n:'Analista Demo A'}, B={id:9102,n:'Analista Demo B'}, C={id:9103,n:'Analista Demo C'};
+  // Filtro por responsable (assets/equipo.js): foto GENÉRICA para un analista ficticio; los demás muestran iniciales
+  if(window.GEquipo)window.GEquipo.fotoDemo(A.n,'../assets/equipo/demo-generica.svg');
   // [id, razón social ficticia, plan, analista]
   var CLI=[
     [1,'Panadería Demo Los Aromos SpA','asesoria',A],[2,'Transportes Demo Cordillera Ltda.','estrategico',A],

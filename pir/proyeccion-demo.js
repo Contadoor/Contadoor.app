@@ -41,8 +41,12 @@
     cli(5005,'Consultora Austral Norte SpA','Analista Demo Uno',901,'gerencia@australnorte.example',''),
     cli(5006,'Transportes Quebrada Verde SpA','Analista Demo Dos',902,'',''),
     cli(5007,'Estudio Arquitectura Mirador SpA','Analista Demo Dos',902,'estudio@mirador.example',''),
-    cli(5008,'Viñedos Llanura Alta SpA','Analista Demo Uno',901,'','')
+    cli(5008,'Viñedos Llanura Alta SpA','Analista Demo Uno',901,'',''),
+    cli(5009,'Librería Demo Puerto Claro SpA','Analista Demo Tres',903,'',''),   // responsable ficticio sin foto → iniciales
+    cli(5010,'Almacén Demo Río Seco EIRL',null,null,'','')                     // sin responsable asignado → "Sin asignar"
   ];
+  // Filtro por responsable (assets/equipo.js): foto GENÉRICA para un analista ficticio; los demás muestran iniciales
+  if(window.GEquipo)window.GEquipo.fotoDemo('Analista Demo Uno','../assets/equipo/demo-generica.svg');
   // Aperturas ficticias: tributaria (renta_aperturas) y aceptaciones de la apertura contable
   var APERTURAS=[{id:801,caso_id:71,estado:'OPENING_DECLARED_NOT_FULLY_RECONSTRUCTED'},{id:803,caso_id:73,estado:'OPENING_VERIFIED'},{id:804,caso_id:74,estado:'OPENING_VERIFIED'},
     {id:805,caso_id:75,estado:'OPENING_VERIFIED'},{id:806,caso_id:76,estado:'OPENING_VERIFIED'}];
