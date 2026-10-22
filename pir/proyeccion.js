@@ -341,7 +341,7 @@ function creditosIdpc(){return Object.keys(S.O).filter(function(k){return /^fore
 function tasaNum(t){return t!=null&&t!==''&&isFinite(t)?String(t).replace('.',',')+' %':null;}
 function cuadre(total,partes){   // total del motor vs suma de partes mostradas; null = no se puede verificar (falta un dato)
   if(total==null||partes.some(function(x){return x==null;}))return null;
-  return total-partes.reduce(function(s,x){return s+x;},0);
+  return Number(total)-partes.reduce(function(s,x){return s+Number(x);},0);
 }
 function liquidacion(){
   var tI=S.T['forecast.idpc']||{}, base=v('forecast.f22.1440'), tasa=tasaNum(tI.tasa), idF=v('forecast.idpc'),
@@ -358,7 +358,7 @@ function liquidacion(){
   if(ppmA!=null||ppmF==null){
     var porPagar=(ppmA!=null&&ppmF!=null)?ppmF-ppmA:null;
     filas.push({op:'−',txt:'PPM pagados al corte',sub:'Imputables de ene a '+M3(m||1)+' (por período tributario)',k:'actual.ppm.imputable',n:ppmA});
-    filas.push({op:'−',txt:'PPM por pagar hasta diciembre',sub:(m&&m<12?'Proyectados de '+M3(m+1)+' a dic':'Sin meses restantes')+' · PPM del año '+clpT(ppmF)+' − pagados al corte',k:'forecast.ppm.imputable',n:porPagar});
+    filas.push({op:'−',txt:'PPM por pagar hasta diciembre',sub:(m&&m<12?'Proyectados de '+M3(m+1)+' a dic':'Sin meses restantes')+' · PPM del año '+clpT(ppmF)+' − pagados al corte',n:porPagar});
     partes.push(ppmA==null?null:-ppmA, porPagar==null?null:-porPagar);
   }else{   // sin PPM al corte separado: una sola fila con el PPM del año
     filas.push({op:'−',txt:'PPM del año (proyectados a diciembre)',k:'forecast.ppm.imputable',n:ppmF});
@@ -369,7 +369,7 @@ function liquidacion(){
   var dev=sal!=null&&sal<0;
   filas.push({op:'=',txt:dev?'Devolución estimada en abril':'Saldo a pagar en abril',sub:S.caso?'Año tributario '+S.caso.anio_tributario:'',k:'forecast.saldo_abril',n:dev?-sal:sal,cls:'fin'+(dev?' dev':'')});
   return {filas:filas,aj:aj,dev:dev,baseNeg:base!=null&&base<0,
-    baseDif:(tI.base!=null&&base!=null&&Number(tI.base)!==base)?Number(tI.base):null};
+    baseDif:(tI.base!=null&&base!=null&&Number(tI.base)!==Math.round(base))?Number(tI.base):null};
 }
 function liquidacionE14(){
   if(!o('sim.e14.idpc')&&!o('sim.e14.deduccion')&&!o('sim.e14.saldo_abril'))return null;
@@ -409,7 +409,7 @@ function cardLiquidacion(){
     +'<p class="nota">El crédito asignado a los retiros (SAC) no rebaja este impuesto: lo usan los socios en su declaración personal. Se ve en Determinación y registros.</p></div>';
   if(E)h+='<div class="liq-e14"><div class="liq-e14-h"><span class="estado lila">Simulación</span><b>Con incentivo al ahorro · Art. 14 E</b><small>Dejar invertidas las utilidades del año (sin más retiros). No está aplicado en la proyección.</small></div>'
     +'<div class="tabla-box"><table class="cmp liq-t1"><tbody>'+filasLiqHtml(E.filas,true)+'</tbody></table></div>'
-    +'<div class="aviso verde">'+I('hucha','ic-ver')+'<span>Menor impuesto estimado frente a la Base: <b>'+clpT(E.ahorro)+'</b>. Requisitos y efectos en los socios por certificar.</span></div>'
+    +(E.ahorro!=null?'<div class="aviso verde">'+I('hucha','ic-ver')+'<span>Menor impuesto estimado frente a la Base: <b>'+clpT(E.ahorro)+'</b>. Requisitos y efectos en los socios por certificar.</span></div>':'')
     +notaCuadre(E.aj,'el saldo simulado')+'<button type="button" class="link" data-sec="escenarios">Ver en Escenarios →</button></div>';
   return h+'</div></div>';
 }
