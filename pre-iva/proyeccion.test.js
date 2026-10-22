@@ -36,7 +36,6 @@ test('meses de 30 y 31 días y febrero bisiesto / no bisiesto', () => {
   assert.equal(feb27.hz.diasMes, 28); assert.equal(feb27.debito, 2800000); assert.equal(feb27.credito, 1400000);
   const feb28 = cadena(dia(2028, 2, 14), '202802', { debito: 1400000, credito: 0 });
   assert.equal(feb28.hz.diasMes, 29); assert.equal(feb28.debito, 2900000);
-  // Si la pantalla trae "31" en días totales para febrero, se respeta lo que escribió el analista (28–31) …
   assert.equal(horizonte({ hoy: dia(2027, 2, 14), periodo: '202702', diasTranscurridos: 14, diasTotales: 28 }).diasRestantesMes, 14);
 });
 
@@ -79,12 +78,48 @@ test('datos faltantes o inválidos: nunca un 22/31 fijo; se usan el día de hoy 
   assert.equal(h.diasTranscurridos, 22); assert.equal(h.diasTotales, 31); assert.equal(h.diasRestantesMes, 9);
   h = horizonte({ hoy: dia(2027, 2, 5), periodo: '202702', diasTranscurridos: null, diasTotales: '' });
   assert.equal(h.diasTotales, 28); assert.equal(h.diasRestantesMes, 23);
-  h = horizonte({ hoy: dia(2026, 10, 22), periodo: '202610', diasTranscurridos: 40, diasTotales: 31 });   // transcurridos > total → 0 restantes
-  assert.equal(h.diasRestantesMes, 0);
+  h = horizonte({ hoy: dia(2026, 10, 22), periodo: '202610', diasTranscurridos: 40, diasTotales: 31 });   // más allá de hoy → hoy (22)
+  assert.equal(h.diasTranscurridos, 22); assert.equal(h.diasRestantesMes, 9); assert.equal(h.diasTranscurridosAjustado, true);
   h = horizonte({ hoy: dia(2026, 10, 22), periodo: '202610', diasTranscurridos: 10.5, diasTotales: 31 }); // decimal → día de hoy
   assert.equal(h.diasTranscurridos, 22);
   assert.throws(() => horizonte({ hoy: new Date(), periodo: 'abc' }), /PERIODO_INVALIDO/);
   // Débito/crédito vacíos (sin libros, por ejemplo con el SII desactualizado): se proyecta 0, nada se inventa
   const r = cadena(dia(2026, 10, 22), '202610', { debito: 0, credito: 0, tasa: 1.5 });
   assert.equal(r.debito, 0); assert.equal(r.ppm, 0); assert.equal(r.f29, 0);
+});
+
+test('RONDA 3 · días totales SIEMPRE del calendario: un valor distinto del analista se ignora (y se informa)', () => {
+  let h = horizonte({ hoy: dia(2026, 10, 22), periodo: '202610', diasTranscurridos: 22, diasTotales: 30 });   // 30 en octubre
+  assert.equal(h.diasTotales, 31); assert.equal(h.diasRestantesMes, 9); assert.equal(h.diasTotalesIgnorado, true);
+  h = horizonte({ hoy: dia(2027, 2, 14), periodo: '202702', diasTranscurridos: 14, diasTotales: 31 });         // 31 en febrero no bisiesto
+  assert.equal(h.diasTotales, 28); assert.equal(h.diasRestantesMes, 14); assert.equal(h.diasTotalesIgnorado, true);
+  h = horizonte({ hoy: dia(2028, 2, 14), periodo: '202802', diasTranscurridos: 14, diasTotales: 28 });         // 28 en febrero bisiesto
+  assert.equal(h.diasTotales, 29); assert.equal(h.diasRestantesMes, 15);
+  assert.equal(horizonte({ hoy: dia(2026, 4, 15), periodo: '202604', diasTranscurridos: 15, diasTotales: 30 }).diasTotalesIgnorado, false);
+  // El resultado de la cadena completa no cambia con un "días totales" erróneo
+  assert.equal(cadena(dia(2026, 10, 22), '202610', { debito: 1000000, credito: 0, diasT: 22, diasTot: 30 }).debito, 1409091);
+});
+
+test('RONDA 3 · días transcurridos fuera de rango: entre 1 y los días del mes; en el mes en curso, nunca más allá de hoy', () => {
+  const H = (tr, hoy = dia(2026, 10, 22), per = '202610') => horizonte({ hoy, periodo: per, diasTranscurridos: tr });
+  assert.equal(H(0).diasTranscurridos, 22); assert.equal(H(-3).diasTranscurridos, 22); assert.equal(H(2.5).diasTranscurridos, 22);
+  assert.equal(H(23).diasTranscurridos, 22);                    // mañana: no
+  assert.equal(H(31).diasTranscurridos, 22);
+  assert.equal(H(10).diasTranscurridos, 10); assert.equal(H(10).diasRestantesMes, 21); assert.equal(H(10).diasTranscurridosAjustado, false);
+  // Mes cerrado: el tope son los días del mes; sin proyección igual
+  assert.equal(H(45, dia(2026, 10, 22), '202609').diasTranscurridos, 30);
+  assert.equal(H(45, dia(2026, 10, 22), '202609').diasRestantesMes, 0);
+});
+
+test('RONDA 3 · período con formato EXACTO AAAAMM o AAAA-MM (si no, PERIODO_INVALIDO)', () => {
+  for (const p of ['2026-1', '202610x', '2026/10', 'abc', '20261', '2026-13', '2026-00', ' 202610', '202610 ', '2026-010', '', null, undefined])
+    assert.throws(() => horizonte({ hoy: dia(2026, 10, 22), periodo: p }), /PERIODO_INVALIDO/, String(p));
+  assert.equal(horizonte({ hoy: dia(2026, 10, 22), periodo: '202610' }).diasMes, 31);
+  assert.equal(horizonte({ hoy: dia(2026, 10, 22), periodo: '2026-10' }).diasMes, 31);
+});
+
+test('RONDA 3 · vencimiento del F29 = referencia operativa configurable (sin cambio de comportamiento: día 20)', () => {
+  const { CONFIG } = require('./proyeccion.js');
+  assert.equal(CONFIG.diaVencimientoF29, 20);
+  assert.equal(horizonte({ hoy: dia(2026, 10, 22), periodo: '202610' }).vencF29, '2026-11-20');
 });

@@ -72,3 +72,17 @@ test('INTEGRACIÓN hotfix · mes cerrado (septiembre abierto el 22-10): sin extr
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
+
+test('INTEGRACIÓN ronda 3 · días totales de solo lectura y del calendario; transcurridos no pasan de hoy', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const { ctx, page } = await abrir(browser, base, '2026-10');
+    assert.equal(await page.evaluate(() => document.getElementById('inp-dias-tot').readOnly), true);
+    await escribir(page, { 'inp-debito': 1000000, 'inp-credito': 0, 'inp-tasa-ppm': 0, 'inp-dias-tot': 30, 'inp-dias-transc': 28 });
+    const r = await leer(page);
+    assert.equal(r['inp-dias-tot'], '31'); assert.equal(r['inp-dias-transc'], '22');
+    assert.equal(num(r['res-debito']), 1409091);
+    await ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
