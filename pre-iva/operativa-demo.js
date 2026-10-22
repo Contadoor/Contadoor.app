@@ -77,9 +77,10 @@
     if(k===0)return;                                   // cliente 1: el mes más antiguo queda "Sin dato"
     if(k===2){PV[1][p]={cliente_rut:'DEMO-01',periodo:p,debito_iva:2400000,credito_iva:1600000,remanente:0,f29:1015000,ppm:195000,tasa_ppm:1.5,neto_ventas:13000000,neto_compras:8400000,fecha_envio:p+'-25T15:00:00Z',enviado_por:'Analista Demo A'};return;}   // solo Pre-IVA enviado
     var deb=Math.round(2450000*f), cred=Math.round(1630000*f);
-    RM[1][p]={periodo:p,debito_iva:deb,credito_iva:cred,remanente:0,f29:deb-cred+Math.round(12900000*f*0.015),ppm:Math.round(12900000*f*0.015),ppm_tasa:1.5,ppm_base:Math.round(12900000*f),iva_remanente_sig:0};
+    RM[1][p]={periodo:p,debito_iva:deb,credito_iva:cred,remanente:0,f29:deb-cred+Math.round(12900000*f*0.015),ppm:Math.round(12900000*f*0.015),ppm_tasa:1.5,ppm_base:Math.round(12900000*f),iva_remanente_sig:0,
+      procesado_at:k===5?null:mover(p,1)+'-15T15:00:00Z',estado_contable:null,updated_at:mover(p,1)+'-15T15:00:00Z'};   // el último mes queda sin evidencia (se muestra excluido)
   });
-  PERS.slice(0,6).forEach(function(p,k){RM[2][p]={periodo:p,debito_iva:0,credito_iva:0,remanente:0,f29:120000+k*1000,ppm:120000+k*1000,ppm_tasa:1.2,ppm_base:10000000+k*80000,iva_remanente_sig:0};});
+  PERS.slice(0,6).forEach(function(p,k){RM[2][p]={periodo:p,debito_iva:0,credito_iva:0,remanente:0,f29:120000+k*1000,ppm:120000+k*1000,ppm_tasa:1.2,ppm_base:10000000+k*80000,iva_remanente_sig:0,fecha_finalizado:mover(p,1)+'-18T12:00:00Z',updated_at:mover(p,1)+'-18T12:00:00Z'};});
   var PANT={   // Pre-IVA del mes abierto (borrador) que lee la pantalla
     1:{cliente_rut:'DEMO-01',periodo:PER,debito_iva:1100000,credito_iva:600000,remanente:120000,f29:0,ppm:0,tasa_ppm:1.5,neto_ventas:0,neto_compras:0,por_tipo_doc_ventas:{},por_tipo_doc_compras:{},enviado_por:null,fecha_envio:null},
     2:{cliente_rut:'DEMO-02',periodo:PER,debito_iva:0,credito_iva:0,remanente:0,f29:0,ppm:0,tasa_ppm:1.2,neto_ventas:0,neto_compras:0,por_tipo_doc_ventas:{},por_tipo_doc_compras:{},enviado_por:null,fecha_envio:null}

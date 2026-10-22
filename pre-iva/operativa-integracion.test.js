@@ -33,6 +33,7 @@ async function abrir(browser, base, url, o = {}) {
       if (p === 'planes') return json([{ codigo: 'asesoria', nombre: 'Contadoor PRO', incluye_preiva: true }]);
       if (p === 'periodos') return json([{ periodo: '2026-10', uf: 39700 }]);
       if (p === 'rpc/sapi_frescura') return o.sii && o.sii !== '404' ? json(o.sii) : json({ code: 'PGRST202', message: 'no existe' }, 404);
+      if (p === 'reportes_mensuales') return json(String(u.searchParams.get('periodo') || '').startsWith('in.') ? (o.rm || []) : []);
       if (p === 'rcv_resumenes') return o.docsError ? json({ message: 'boom' }, 500) : json(o.resumen || []);
       if (p === 'rcv_documentos') return json(u.searchParams.get('offset') !== '0' ? [] : (o.docs || []));
       if (p === 'preiva_historial') {
@@ -159,4 +160,21 @@ test('CARTERA · exenta: "Exenta · solo PPM" e IVA "No aplica"; afecta: "Así v
     assert.deepEqual(errores, []);
     await ctx.close();
   }
+}));
+
+test('PANTALLA ronda 4 · meses comparables estrictos con trazabilidad visible (excluidos se muestran con su motivo)', { skip: omitir }, () => conNavegador(async (browser, base) => {
+  const fila = (p, extra) => Object.assign({ periodo: p, debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_tasa: 1.5, ppm_base: 12700000, procesado_at: '2026-10-05T12:00:00Z', updated_at: '2026-10-05T12:00:00Z' }, extra || {});
+  const rm = [fila('2026-04'), fila('2026-05'), fila('2026-06'), fila('2026-07'), fila('2026-08', { procesado_at: null }), fila('2026-09', { debito_iva: 0, credito_iva: 0 })];
+  const { ctx, page, errores } = await abrir(browser, base, '/pre-iva/index.html?periodo=2026-10&cliente=1', { rm });
+  await listo(page);
+  await escribir(page, { 'inp-debito': 1000000, 'inp-credito': 500000, 'inp-exento-ventas': 0, 'inp-tasa-ppm': 1 });
+  await page.waitForFunction(() => /Período/.test(document.getElementById('pio-hist-traz').textContent), null, { timeout: 5000 });
+  const traz = await txt(page, 'pio-hist-traz');
+  assert.match(traz, /Ago 26.*Excluido.*origen no identificable/s);
+  assert.match(traz, /Sep 26.*datos insuficientes para: iva, debito, credito/s);
+  assert.match(traz, /Abr 26.*Se usa: iva, ppm, ventas, debito, credito/s);
+  assert.match(traz, /procesado por Contable/);
+  assert.match(await txt(page, 'pio-ref-f29'), /rango referencial.*promedio de 4 meses cerrados/);   // 4 comparables (abr–jul)
+  assert.deepEqual(errores, []);
+  await ctx.close();
 }));

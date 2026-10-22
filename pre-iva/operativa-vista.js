@@ -154,8 +154,9 @@ function pintar(){
   // CERRADOS y COMPARABLES (registrados por Contable; mínimo 4). Nunca suma ni promedio de los dos métodos. Con menos: solo la lineal.
   var refTxt='', lim=[];
   if(!cerrado&&!sinDato&&S.D&&S.D.hist){
-    var lin=pesos(txt('res-f29')), comp=(S.D.hist.filas||[]).filter(function(f){return f.fuente==='Contable';})
-      .map(function(f){return exenta?f.ppm:(f.iva!=null&&f.ppm!=null?f.iva+f.ppm:null);}).filter(function(v){return v!=null;});
+    // Comparable positivo y por indicador: exenta = PPM; afecta = IVA y PPM del mismo mes (F29 = IVA a pagar + PPM)
+    var lin=pesos(txt('res-f29')), comp=(S.D.hist.filas||[]).filter(function(f){var k=f.comparable||{};return exenta?k.ppm===true:(k.iva===true&&k.ppm===true);})
+      .map(function(f){return exenta?f.ppm:f.iva+f.ppm;}).filter(function(v){return v!=null&&isFinite(v);});
     if(comp.length>=4){var pr=comp.reduce(function(a,b){return a+b;},0)/comp.length, A=Math.min(lin,pr), B=Math.max(lin,pr);
       refTxt='Referencia estimada (rango referencial): podrías llegar a pagar entre '+clp(A)+' y '+clp(B)+' · según tu ritmo actual y tu promedio de '+comp.length+' meses cerrados';}
     else{refTxt='Referencia estimada: según tu ritmo actual podrías llegar a pagar cerca de '+clp(lin)+' (solo proyección lineal)';
@@ -314,19 +315,27 @@ function pintarHistorial(x){
   if(!D){if(cambio('hist','c')){tit.innerHTML=x.exenta?'Tu PPM <span>de los últimos 6 meses</span>':'Tu IVA <span>de los últimos 6 meses</span>';gEl.innerHTML='<p class="nota">Cargando el historial…</p>';}return;}
   var filas=(D.hist&&D.hist.filas)||[];
   var cur=x.sinDato?null:(x.exenta?(x.sinTasa?null:pesos(txt('res-ppm'))):x.ivaNum);   // mes en curso: referencia estimada (se compara contra meses completos); mes cerrado = real (no se proyecta)
-  var vals=filas.map(function(f){return f[campo];}), st=window.PreIvaRecos?window.PreIvaRecos.stats(vals):{n:0};
-  var firma=[campo,vals,cur,x.P.db];if(!cambio('hist',firma))return;
+  var vals=filas.map(function(f){return f[campo];});
+  // El promedio usa SOLO los meses comparables para este indicador; los demás se muestran igual, con su motivo (trazabilidad)
+  var valsComp=filas.map(function(f){return f.comparable&&f.comparable[campo]===true?f[campo]:null;});
+  var st=window.PreIvaRecos?window.PreIvaRecos.stats(valsComp):{n:0};
+  var firma=[campo,vals,valsComp,cur,x.P.db,filas.map(function(f){return f.motivo;})];if(!cambio('hist',firma))return;
   tit.innerHTML=x.exenta?'Tu PPM <span>de los últimos 6 meses</span>':'Tu IVA a pagar <span>· últimos 6 meses</span>';
   var meses=filas.map(function(f){return etiquetaMes(f.periodo);}).concat([etiquetaMes(x.P.db)]);
-  var prom=st.n>=3?st.prom:null;
+  var prom=st.n>=4?st.prom:null;   // mínimo 4 meses comparables
   gEl.innerHTML=svgBarras(meses,[{nombre:x.exenta?'PPM':'IVA a pagar',grad:'pgL',borde:'#E39BE5',v:vals.concat([cur]),etqActual:x.cerrado?'registrado':'ref. estimada'}],prom);
   var cmp='';
   if(prom!=null&&cur!=null&&prom>0){var d=(cur-prom)/prom;cmp=(x.cerrado?'':'Referencia estimada: ')+(Math.abs(d)<0.005?'igual a tu promedio de 6 meses':pct(d)+(d>0?' sobre':' bajo')+' tu promedio de 6 meses');}
   if(prom!=null)cmp+=(cmp?' · ':'')+'promedio '+clp(prom)+' (línea amarilla)';
-  else if(prom==null)cmp='Faltan meses con dato para el promedio';
+  else if(prom==null)cmp='Promedio no disponible: hay '+st.n+' de 4 meses cerrados comparables';
   pon('pio-hist-cmp',cmp);
   var nC=filas.filter(function(f){return f.fuente==='Contable';}).length, nP=filas.filter(function(f){return f.fuente==='Pre-IVA enviado';}).length;
-  pon('pio-hist-fuente','Fuente: '+(x.exenta?'PPM pagado':'IVA a pagar = débito − crédito − remanente')+' registrado por Contable en reportes_mensuales ('+nC+' mes'+(nC===1?'':'es')+')'+(nP?' y del Pre-IVA enviado cuando Contable aún no lo tiene ('+nP+')':'')+'. "Sin dato" = mes sin información (nunca $0). Mes en curso: estimado de esta pantalla.'+(D.hist&&D.hist.error?' ⚠ No se pudo leer reportes_mensuales.':''));
+  var traz=$('pio-hist-traz');
+  if(traz)traz.innerHTML='<summary>Trazabilidad de los meses <small>(período · fuente · registro · uso)</small><i class="pio-chev" aria-hidden="true"></i></summary><table class="pio-t"><thead><tr><th>Período</th><th>Fuente</th><th>Registro</th><th>Uso en promedios</th></tr></thead><tbody>'
+    +filas.map(function(f){var k=f.comparable||{}, usa=['iva','ppm','ventas','debito','credito'].filter(function(c){return k[c]===true;});
+      return '<tr><td>'+esc(etiquetaMes(f.periodo))+'</td><td>'+esc(f.fuente||'—')+'</td><td>'+esc(f.registradoAt?fCorta(f.registradoAt):'—')+(f.evidencia?'<small class="t3">'+esc(f.evidencia)+'</small>':'')+'</td>'
+        +'<td>'+(usa.length?'<span class="estado verde">Se usa: '+esc(usa.join(', '))+'</span>':'<span class="estado gris">Excluido</span>')+(f.motivo?'<small class="t3">'+esc(f.motivo)+'</small>':'')+'</td></tr>';}).join('')+'</tbody></table>';
+  pon('pio-hist-fuente','Fuente: '+(x.exenta?'PPM':'IVA a pagar = débito − crédito − remanente')+' de reportes_mensuales cuando hay evidencia de registro de Contable (procesado, finalizado, aprobación o estado contable); el Pre-IVA enviado se muestra pero no entra en promedios. Las barras de meses excluidos se ven igual; el promedio usa solo los comparables (mínimo 4). "Sin dato" = mes sin información (nunca $0). Mes en curso: '+(x.cerrado?'valor registrado.':'referencia estimada.')+(D.hist&&D.hist.error?' ⚠ No se pudo leer reportes_mensuales.':''));
 }
 
 /* ── Tendencias de ventas y compras netas ── */
@@ -342,8 +351,9 @@ function pintarTendencias(x){
     fuente='Fuente: RCV del SII (neto + exento; las notas de crédito restan; sin comprobantes de pago electrónico). Mes en curso: a la fecha.';
   }else{
     var tasa=0.19;
-    V=filas.map(function(f){return x.exenta?f.ventas:(f.debito!=null?Math.round(f.debito/tasa):f.ventas);}).concat([x.sinDato?null:(x.exenta?(isFinite(Number(x.datos.ppmBase))?Number(x.datos.ppmBase):null):Math.round(pesos(txt('res-debito'))/tasa))]);
-    C=filas.map(function(f){return f.credito!=null?Math.round(f.credito/tasa):null;}).concat([x.sinDato||x.exenta?null:Math.round(pesos(txt('res-credito'))/tasa)]);
+    var K=function(f,c){return f.comparable&&f.comparable[c]===true;};
+    V=filas.map(function(f){return x.exenta?(K(f,'ventas')?f.ventas:null):(K(f,'debito')?Math.round(f.debito/tasa):(K(f,'ventas')?f.ventas:null));}).concat([x.sinDato?null:(x.exenta?(isFinite(Number(x.datos.ppmBase))?Number(x.datos.ppmBase):null):Math.round(pesos(txt('res-debito'))/tasa))]);
+    C=filas.map(function(f){return K(f,'credito')?Math.round(f.credito/tasa):null;}).concat([x.sinDato||x.exenta?null:Math.round(pesos(txt('res-credito'))/tasa)]);
     fuente='Fuente: F29 registrado por Contable (neto estimado desde el IVA ÷ 0,19) y, en el mes en curso, esta pantalla (proyectado al cierre). Con la conexión al SII se usará el RCV.';
   }
   if(!cambio('tend',[V,C,x.P.db,x.cerrado]))return;

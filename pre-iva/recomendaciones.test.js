@@ -12,7 +12,8 @@ function base(extra) {
     historial: [], docs: { disponible: false }, sii: { estado: 'pendiente' }, renta: null
   }, extra || {});
 }
-const H6 = (iva, extra) => ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].map((p, i) => Object.assign({ periodo: p, iva: iva[i], ppm: 150000, debito: 2500000, credito: 1700000, ventas: 12000000, tasa: 1.5 }, extra ? extra(i) : {}));
+const TODO = { iva: true, ppm: true, ventas: true, debito: true, credito: true };
+const H6 = (iva, extra) => ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].map((p, i) => Object.assign({ periodo: p, iva: iva[i], ppm: 150000, debito: 2500000, credito: 1700000, ventas: 12000000, tasa: 1.5, comparable: TODO }, extra ? extra(i) : {}));
 const doc = (o) => Object.assign({ tipo_dte: 33, folio: '1', rut: 'DEMO-T06', razon: 'Proveedor Ficticio SpA', fecha: '2026-10-05', neto: 100000, exento: 0, iva: 19000, total: 119000 }, o);
 const vacioPrevios = () => ({ '2026-04': { ventas: [], compras: [] }, '2026-05': { ventas: [], compras: [] }, '2026-06': { ventas: [], compras: [] }, '2026-07': { ventas: [], compras: [] }, '2026-08': { ventas: [], compras: [] }, '2026-09': { ventas: [], compras: [] } });
 const ids = (l) => l.map((x) => x.id);
@@ -245,4 +246,43 @@ test('RONDA 3 · promedios solo con meses cerrados comparables: un Pre-IVA envia
   const h2 = H6([800000, 820000, 850000, 830000, 840000, 870000], (i) => (i === 0 ? { comparable: false, iva: 5000000 } : {}));
   const x = R.generar(base({ historial: h2, actual: Object.assign(base().actual, { ivaPagar: 985000 }) })).find((y) => y.id === 'reserva');
   assert.match(x.detectado, /promedio de 6 meses cerrados \(\$842\.000\)/);   // sin el mes no comparable (que habría inflado el promedio)
+});
+
+test('RONDA 4 · comparable es POSITIVO y por indicador: ausente, false u otro tipo → excluido', () => {
+  const act = Object.assign(base().actual, { ivaPagar: 1500000 });
+  for (const comp of [undefined, false, null, true, 'si', {}, { iva: 'true' }, { iva: 1 }]) {
+    const h = H6([800000, 820000, 850000, 830000, 840000, 870000], () => ({ comparable: comp }));
+    assert.equal(R.generar(base({ historial: h, actual: act })).find((y) => y.id === 'reserva'), undefined, JSON.stringify(comp));
+  }
+  // Datos parciales por indicador: el mes sirve para ventas pero no para IVA → la regla de IVA no tiene 4 meses; la de ventas sí
+  const h = H6([800000, 800000, 800000, 800000, 800000, 800000], (i) => ({ comparable: i < 3 ? { ventas: true, iva: false, debito: true, credito: true, ppm: true } : TODO }));
+  assert.equal(R.generar(base({ historial: h, actual: act })).find((y) => y.id === 'reserva'), undefined);
+  assert.ok(R.generar(base({ historial: h, actual: Object.assign(base().actual, { ventasBase: 15600000 }) })).find((y) => y.id === 'ventas_ppm'));
+});
+
+test('RONDA 4 · evaluarComparable: período cerrado + evidencia de Contable + componentes por indicador', () => {
+  const E = R.evaluarComparable, o = { periodoAbierto: '2026-10', mesHoy: '2026-10' };
+  const fila = { periodo: '2026-09', debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_base: 12700000, procesado_at: '2026-10-15T15:00:00Z' };
+  let r = E(fila, o);
+  assert.deepEqual(r.comparable, { iva: true, debito: true, credito: true, ppm: true, ventas: true }); assert.equal(r.motivo, null);
+  assert.equal(r.evidencia, 'procesado por Contable'); assert.equal(r.registradoAt, '2026-10-15T15:00:00Z');
+  // Origen no identificable (sin procesado, finalizado, aprobación ni estado contable) → excluido en todo
+  r = E(Object.assign({}, fila, { procesado_at: null }), o);
+  assert.deepEqual(Object.values(r.comparable), [false, false, false, false, false]); assert.match(r.motivo, /origen no identificable/);
+  r = E(Object.assign({}, fila, { procesado_at: null, estado_contable: '  ' }), o); assert.match(r.motivo, /origen no identificable/);
+  r = E(Object.assign({}, fila, { procesado_at: null, estado_contable: 'pendiente', updated_at: '2026-10-02T10:00:00Z' }), o);
+  assert.equal(r.comparable.iva, true); assert.equal(r.evidencia, 'estado contable: pendiente');
+  // Fila marcador 0/0 (hoy 186 de 187 filas) → no sirve para IVA ni débito/crédito; sí para PPM/ventas si los trae
+  r = E(Object.assign({}, fila, { debito_iva: 0, credito_iva: 0 }), o);
+  assert.equal(r.comparable.iva, false); assert.equal(r.comparable.debito, false); assert.equal(r.comparable.ppm, true); assert.match(r.motivo, /iva, debito, credito/);
+  // Faltan componentes
+  assert.equal(E(Object.assign({}, fila, { remanente: null }), o).comparable.iva, false);
+  assert.equal(E(Object.assign({}, fila, { ppm: null }), o).comparable.ppm, false);
+  assert.equal(E(Object.assign({}, fila, { ppm_base: 0 }), o).comparable.ventas, false);
+  // Período no cerrado, error de lectura, sin registro, período mal formado
+  assert.match(E(Object.assign({}, fila, { periodo: '2026-10' }), o).motivo, /no cerrado/);
+  assert.match(E(fila, { periodoAbierto: '2026-10', mesHoy: '2026-09' }).motivo, /no cerrado/);
+  assert.match(E(fila, Object.assign({ errorLectura: true }, o)).motivo, /error de lectura/);
+  assert.match(E(null, o).motivo, /sin registro/);
+  assert.match(E(Object.assign({}, fila, { periodo: '2026-9' }), o).motivo, /período no identificable/);
 });

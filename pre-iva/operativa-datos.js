@@ -104,23 +104,28 @@ function historial(cli,per){
   var pers=previos(per);
   var rut=encodeURIComponent(cli.rut);
   return Promise.all([
-    get('reportes_mensuales?cliente_rut=eq.'+rut+'&periodo=in.'+lista(pers)+'&select=periodo,debito_iva,credito_iva,remanente,f29,ppm,ppm_tasa,ppm_base').then(function(r){return r||[];},function(e){return {error:e.message};}),
+    get('reportes_mensuales?cliente_rut=eq.'+rut+'&periodo=in.'+lista(pers)+'&select=periodo,debito_iva,credito_iva,remanente,f29,ppm,ppm_tasa,ppm_base,estado_contable,procesado_at,fecha_finalizado,fecha_aprobacion,updated_at').then(function(r){return r||[];},function(e){return {error:e.message};}),
     get('preiva_historial?cliente_rut=eq.'+rut+'&periodo=in.'+lista(pers)+'&select=periodo,debito_iva,credito_iva,remanente,f29,ppm,tasa_ppm,neto_ventas,neto_compras,fecha_envio').then(function(r){return r||[];},function(e){return {error:e.message};})
   ]).then(function(r){
     var rm={}, pv={};
     (Array.isArray(r[0])?r[0]:[]).forEach(function(x){if(x&&x.periodo)rm[x.periodo]=x;});
     (Array.isArray(r[1])?r[1]:[]).forEach(function(x){if(x&&x.periodo&&x.fecha_envio)pv[x.periodo]=x;});
-    var F=window.PreIvaF29;
+    var F=window.PreIvaF29, E=window.PreIvaRecos, errRM=!!(r[0]&&r[0].error);
+    var hoy=new Date(), mesHoy=hoy.getFullYear()+'-'+z(hoy.getMonth()+1);
+    // Trazabilidad por mes: período, fuente, fecha de registro y qué indicadores sirven (o por qué se excluye)
     var filas=pers.map(function(p){
       var a=rm[p], b=pv[p];
+      var ev=E?E.evaluarComparable(a,{periodoAbierto:per,mesHoy:mesHoy,errorLectura:errRM}):{comparable:{},motivo:'motor no disponible'};
       if(a&&(num(a.debito_iva)!=null||num(a.ppm)!=null)){
         var d=num(a.debito_iva),c=num(a.credito_iva),re=num(a.remanente);
-        return {periodo:p,fuente:'Contable',comparable:true,iva:d!=null&&c!=null&&F?F.calcularF29Estimado({debito:d,credito:c,remanente:re||0,ppm:0}).ivaPagar:null,
+        return {periodo:p,fuente:'Contable',comparable:ev.comparable,motivo:ev.motivo,evidencia:ev.evidencia,registradoAt:ev.registradoAt,
+          iva:d!=null&&c!=null&&F?F.calcularF29Estimado({debito:d,credito:c,remanente:re||0,ppm:0}).ivaPagar:null,
           ppm:num(a.ppm),debito:d,credito:c,ventas:num(a.ppm_base),tasa:num(a.ppm_tasa)};
       }
       if(b){var f=num(b.f29),pp=num(b.ppm);
-        return {periodo:p,fuente:'Pre-IVA enviado',comparable:false,iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:null,tasa:num(b.tasa_ppm)};}   // neto_ventas no es la misma base que ppm_base: no se mezcla
-      return {periodo:p,fuente:null,iva:null,ppm:null,debito:null,credito:null,ventas:null,tasa:null};
+        return {periodo:p,fuente:'Pre-IVA enviado',comparable:{iva:false,debito:false,credito:false,ppm:false,ventas:false},motivo:'Pre-IVA enviado (estimación): no entra en promedios',
+          registradoAt:b.fecha_envio,iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:null,tasa:num(b.tasa_ppm)};}   // neto_ventas no es la misma base que ppm_base: no se mezcla
+      return {periodo:p,fuente:null,comparable:{iva:false,debito:false,credito:false,ppm:false,ventas:false},motivo:errRM?'error de lectura de reportes_mensuales':'sin registro',iva:null,ppm:null,debito:null,credito:null,ventas:null,tasa:null};
     });
     return {filas:filas,error:r[0]&&r[0].error?r[0].error:null};
   });

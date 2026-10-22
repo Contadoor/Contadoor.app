@@ -61,8 +61,38 @@
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   function mesSig(periodo) { var y = +String(periodo).slice(0, 4), m = +String(periodo).slice(5, 7); return MESES[m % 12] + (m === 12 ? ' ' + (y + 1) : ''); }
 
-  // Solo meses CERRADOS y COMPARABLES (registrados por Contable): un Pre-IVA enviado es una estimación y no entra en promedios.
-  function comparables(h) { return (h || []).filter(function (x) { return x && x.comparable !== false; }); }
+  // ── Meses COMPARABLES (ronda 4 de ChatGPT): condición POSITIVA y ESTRICTA, por indicador ──
+  // Un mes entra en un promedio solo si h.comparable[indicador] === true. Ausente, false, otro tipo o sin evidencia → excluido.
+  function comparables(h, indicador) {
+    return (h || []).filter(function (x) { return x && x.comparable && typeof x.comparable === 'object' && x.comparable[indicador] === true; });
+  }
+  // Evalúa una fila de reportes_mensuales (función pura, la usa operativa-datos.js):
+  //   · período cerrado: anterior al mes abierto en el Pre-IVA y al mes calendario de hoy;
+  //   · persistido por Contable con EVIDENCIA identificable en los datos (fecha_finalizado, procesado_at, fecha_aprobacion o un
+  //     estado_contable no vacío). Sin evidencia → origen no identificable → excluido (hoy 185 de 187 filas son "borrador" sin evidencia);
+  //   · componentes suficientes PARA CADA INDICADOR (un mes puede servir para ventas y no para IVA):
+  //       iva     = débito, crédito y remanente presentes y débito o crédito > 0 (una fila en 0/0 es un marcador, no un registro);
+  //       debito  = débito > 0 · credito = crédito > 0 · ppm = PPM presente y (PPM > 0 o base > 0) · ventas = base del PPM > 0.
+  function evaluarComparable(a, o) {
+    o = o || {};
+    var res = { comparable: { iva: false, debito: false, credito: false, ppm: false, ventas: false }, motivo: null, evidencia: null, registradoAt: null };
+    if (o.errorLectura) { res.motivo = 'error de lectura de reportes_mensuales'; return res; }
+    if (!a) { res.motivo = 'sin registro de Contable'; return res; }
+    var p = String(a.periodo || '');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) { res.motivo = 'período no identificable'; return res; }
+    if (!(o.periodoAbierto && p < o.periodoAbierto) || !(o.mesHoy && p < o.mesHoy)) { res.motivo = 'período no cerrado'; return res; }
+    var ev = a.fecha_finalizado ? ['finalizado por Contable', a.fecha_finalizado] : a.procesado_at ? ['procesado por Contable', a.procesado_at]
+      : a.fecha_aprobacion ? ['aprobado', a.fecha_aprobacion] : (a.estado_contable && String(a.estado_contable).trim()) ? ['estado contable: ' + String(a.estado_contable).trim(), a.updated_at || null] : null;
+    if (!ev) { res.motivo = 'origen no identificable (sin procesado, finalizado, aprobación ni estado contable)'; return res; }
+    res.evidencia = ev[0]; res.registradoAt = ev[1];
+    var d = hay(a.debito_iva) ? n(a.debito_iva) : null, cr = hay(a.credito_iva) ? n(a.credito_iva) : null, re = hay(a.remanente) ? n(a.remanente) : null;
+    var pp = hay(a.ppm) ? n(a.ppm) : null, b = hay(a.ppm_base) ? n(a.ppm_base) : null;
+    res.comparable = { iva: d !== null && cr !== null && re !== null && (d > 0 || cr > 0), debito: d !== null && d > 0, credito: cr !== null && cr > 0,
+      ppm: pp !== null && (pp > 0 || (b !== null && b > 0)), ventas: b !== null && b > 0 };
+    var faltan = Object.keys(res.comparable).filter(function (k) { return !res.comparable[k]; });
+    if (faltan.length) res.motivo = 'datos insuficientes para: ' + faltan.join(', ');
+    return res;
+  }
   function stats(vals) {
     var v = (vals || []).filter(hay).map(Number);
     if (!v.length) return { n: 0, prom: null, desv: null };
@@ -141,7 +171,7 @@
     var a = c.actual || {}; if (a.sinDato) return null;
     var campo = c.exenta ? 'ppm' : 'iva', cur = c.exenta ? a.ppm : a.ivaPagar;
     if (!hay(cur) || !hay(a.f29)) return null;
-    var s = stats(comparables(c.historial).map(function (h) { return h[campo]; }));
+    var s = stats(comparables(c.historial, campo).map(function (h) { return h[campo]; }));
     if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return null;
     var dif = cur - s.prom;
     if (dif < cfg.minImpacto || cur < s.prom * (1 + cfg.sobrePromedioPct)) return null;
@@ -174,7 +204,7 @@
   function reglaVentasPpm(c, cfg, ya) {
     if (ya.renta_cobertura) return null;
     var a = c.actual || {}; if (a.sinDato || !hay(a.ventasBase) || !(n(a.tasaPPM) > 0)) return null;
-    var hist = comparables(c.historial).filter(function (h) { return hay(h.ventas); });
+    var hist = comparables(c.historial, 'ventas').filter(function (h) { return hay(h.ventas); });
     var s = stats(hist.map(function (h) { return h.ventas; }));
     if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return null;
     var tasas = hist.map(function (h) { return n(h.tasa); }).filter(function (t) { return t > 0; });
@@ -196,7 +226,7 @@
     var out = [];
     [['credito', 'compras', 'Las compras'], ['debito', 'ventas', 'Las ventas']].forEach(function (x) {
       var cur = a[x[0]]; if (!hay(cur)) return;
-      var s = stats(comparables(c.historial).map(function (h) { return h[x[0]]; }));
+      var s = stats(comparables(c.historial, x[0]).map(function (h) { return h[x[0]]; }));
       if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return;
       var dif = cur - s.prom, z = s.desv > 0 ? dif / s.desv : 0;
       if (Math.abs(dif) < cfg.minImpacto) return;
@@ -443,7 +473,7 @@
     var s = stats(serie); if (s.n < 3 || !(s.prom > 0) || !hay(actual)) return null;
     return { prom: s.prom, var: (n(actual) - s.prom) / s.prom, n: s.n };
   }
-  var api = { CONFIG: CONFIG, tendencia: tendencia, generar: generar, estadoAcuse: estadoAcuse, stats: stats, signo: signo, sumaIva: sumaIva };
+  var api = { CONFIG: CONFIG, tendencia: tendencia, evaluarComparable: evaluarComparable, comparables: comparables, generar: generar, estadoAcuse: estadoAcuse, stats: stats, signo: signo, sumaIva: sumaIva };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.PreIvaRecos = api;
 })(typeof window !== 'undefined' ? window : globalThis);

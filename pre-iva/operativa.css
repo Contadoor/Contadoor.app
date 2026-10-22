@@ -365,3 +365,6 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-pio .pio-correo-envia{flex:1 1 100%;order:3;font-size:11.5px;color:#F6DFA9;background:rgba(255,200,90,.07);border:1px dashed rgba(255,200,90,.4);border-radius:12px;padding:6px 10px}
 .g-mod-pio .pio-ref-lim{font-style:normal!important;opacity:.9}
 .g-mod-pio .kpi.hero .pio-ref-lim{color:#F6DFA9!important}
+.g-mod-pio .pio-traz table.pio-t td small{display:block;font-size:10.5px;margin-top:2px}
+.g-mod-pio .pio-traz table.pio-t{font-size:12px}
+.g-mod-pio .pio-traz{overflow-x:auto}
