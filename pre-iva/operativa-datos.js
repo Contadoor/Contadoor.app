@@ -6,7 +6,7 @@
      · RPC sapi_frescura (gestoor-backend PR #57, aún NO instalado) → estado de sincronización con el SII
          404 / PGRST202 / 42883 = "Conexión con el SII pendiente de activación" (no es un error)
      · rcv_resumenes + rcv_documentos (snapshot más reciente por período y libro) → documentos y totales del SII
-     · reportes_mensuales (F29 registrado por Contable; no existe un estado formal de "validado") y preiva_historial (enviados) → historial de 6 meses
+     · reportes_mensuales (mes contable con estado_contable = 'completado'; procesado_at solo trazabilidad) y preiva_historial (enviados) → historial de 6 meses
      · renta_casos + RPC renta_e1_proyeccion_vigente (igual que pir/proyeccion.js) → proyección de renta de MiRenta
    ============================================================ */
 (function(){
@@ -115,10 +115,10 @@ function historial(cli,per){
     // Trazabilidad por mes: período, fuente, fecha de registro y qué indicadores sirven (o por qué se excluye)
     var filas=pers.map(function(p){
       var a=rm[p], b=pv[p];
-      var ev=E?E.evaluarComparable(a,{periodoAbierto:per,mesHoy:mesHoy,errorLectura:errRM}):{comparable:{},motivo:'motor no disponible'};
+      var ev=E?E.evaluarComparable(a,{periodoAbierto:per,mesHoy:mesHoy,errorLectura:errRM,ahora:Date.now()}):{comparable:{},motivo:'motor no disponible'};
       if(a&&(num(a.debito_iva)!=null||num(a.ppm)!=null)){
         var d=num(a.debito_iva),c=num(a.credito_iva),re=num(a.remanente);
-        return {periodo:p,fuente:'Contable',comparable:ev.comparable,motivo:ev.motivo,evidencia:ev.evidencia,registradoAt:ev.registradoAt,
+        return {periodo:p,fuente:'Contable',comparable:ev.comparable,motivo:ev.motivo,evidencia:ev.evidencia,registradoAt:ev.registradoAt,procesadoAt:ev.procesadoAt,
           iva:d!=null&&c!=null&&F?F.calcularF29Estimado({debito:d,credito:c,remanente:re||0,ppm:0}).ivaPagar:null,
           ppm:num(a.ppm),debito:d,credito:c,ventas:num(a.ppm_base),tasa:num(a.ppm_tasa)};
       }

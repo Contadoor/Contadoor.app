@@ -260,22 +260,16 @@ test('RONDA 4 · comparable es POSITIVO y por indicador: ausente, false u otro t
   assert.ok(R.generar(base({ historial: h, actual: Object.assign(base().actual, { ventasBase: 15600000 }) })).find((y) => y.id === 'ventas_ppm'));
 });
 
-test('RONDA 4 · evaluarComparable: período cerrado + evidencia de Contable + componentes por indicador', () => {
-  const E = R.evaluarComparable, o = { periodoAbierto: '2026-10', mesHoy: '2026-10' };
-  const fila = { periodo: '2026-09', debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_base: 12700000, procesado_at: '2026-10-15T15:00:00Z' };
+test('RONDA 4/5 · evaluarComparable: período cerrado + evidencia suficiente + componentes por indicador', () => {
+  const E = R.evaluarComparable, o = { periodoAbierto: '2026-10', mesHoy: '2026-10', ahora: Date.parse('2026-10-22T12:00:00Z') };
+  const fila = { periodo: '2026-09', debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_base: 12700000, estado_contable: 'completado', updated_at: '2026-10-15T15:00:00Z' };
   let r = E(fila, o);
   assert.deepEqual(r.comparable, { iva: true, debito: true, credito: true, ppm: true, ventas: true }); assert.equal(r.motivo, null);
-  assert.equal(r.evidencia, 'procesado por Contable'); assert.equal(r.registradoAt, '2026-10-15T15:00:00Z');
-  // Origen no identificable (sin procesado, finalizado, aprobación ni estado contable) → excluido en todo
-  r = E(Object.assign({}, fila, { procesado_at: null }), o);
-  assert.deepEqual(Object.values(r.comparable), [false, false, false, false, false]); assert.match(r.motivo, /origen no identificable/);
-  r = E(Object.assign({}, fila, { procesado_at: null, estado_contable: '  ' }), o); assert.match(r.motivo, /origen no identificable/);
-  r = E(Object.assign({}, fila, { procesado_at: null, estado_contable: 'pendiente', updated_at: '2026-10-02T10:00:00Z' }), o);
-  assert.equal(r.comparable.iva, true); assert.equal(r.evidencia, 'estado contable: pendiente');
-  // Fila marcador 0/0 (hoy 186 de 187 filas) → no sirve para IVA ni débito/crédito; sí para PPM/ventas si los trae
+  assert.equal(r.evidencia, 'estado contable: completado'); assert.equal(r.registradoAt, '2026-10-15T15:00:00Z');
+  assert.equal(E(Object.assign({}, fila, { estado_contable: '  COMPLETADO ' }), o).comparable.iva, true);   // trim + minúsculas
+  // Fila marcador 0/0 → no sirve para IVA ni débito/crédito; sí para PPM/ventas si los trae
   r = E(Object.assign({}, fila, { debito_iva: 0, credito_iva: 0 }), o);
   assert.equal(r.comparable.iva, false); assert.equal(r.comparable.debito, false); assert.equal(r.comparable.ppm, true); assert.match(r.motivo, /iva, debito, credito/);
-  // Faltan componentes
   assert.equal(E(Object.assign({}, fila, { remanente: null }), o).comparable.iva, false);
   assert.equal(E(Object.assign({}, fila, { ppm: null }), o).comparable.ppm, false);
   assert.equal(E(Object.assign({}, fila, { ppm_base: 0 }), o).comparable.ventas, false);
@@ -285,4 +279,34 @@ test('RONDA 4 · evaluarComparable: período cerrado + evidencia de Contable + c
   assert.match(E(fila, Object.assign({ errorLectura: true }, o)).motivo, /error de lectura/);
   assert.match(E(null, o).motivo, /sin registro/);
   assert.match(E(Object.assign({}, fila, { periodo: '2026-9' }), o).motivo, /período no identificable/);
+});
+
+test('RONDA 5 · NEGATIVAS de evidencia: borrador, pendiente, vacío, desconocido y procesado_at aislado → excluido', () => {
+  const E = R.evaluarComparable, o = { periodoAbierto: '2026-10', mesHoy: '2026-10', ahora: Date.parse('2026-10-22T12:00:00Z') };
+  const base = { periodo: '2026-09', debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_base: 12700000 };
+  for (const est of ['borrador', 'pendiente', 'PENDIENTE', '', '   ', null, undefined, 'validado', 'finalizado', 'listo', 'terminado', 'aprobado']) {
+    const r = E(Object.assign({}, base, { estado_contable: est }), o);
+    assert.deepEqual(Object.values(r.comparable), [false, false, false, false, false], String(est));
+    assert.match(r.motivo, /sin evidencia de registro de Contable/);
+  }
+  const r = E(Object.assign({}, base, { procesado_at: '2026-10-05T12:00:00Z' }), o);   // procesado_at aislado: solo trazabilidad
+  assert.equal(r.comparable.iva, false); assert.equal(r.procesadoAt, '2026-10-05T12:00:00Z');
+  // Fechas de RRHH: con la configuración por defecto NO cuentan (hoy las escribe el flujo de remuneraciones)
+  assert.equal(E(Object.assign({}, base, { fecha_finalizado: '2026-10-10T12:00:00Z' }), o).comparable.iva, false);
+  assert.equal(E(Object.assign({}, base, { fecha_aprobacion: '2026-10-10T12:00:00Z' }), o).comparable.iva, false);
+  assert.deepEqual([...R.ESTADOS_TERMINADOS], ['completado']);
+});
+
+test('RONDA 5 · POSITIVAS: estado terminado confirmado; fecha_finalizado / fecha_aprobacion válidas solo si se habilitan', () => {
+  const E = R.evaluarComparable, o = { periodoAbierto: '2026-10', mesHoy: '2026-10', ahora: Date.parse('2026-10-22T12:00:00Z') };
+  const base = { periodo: '2026-09', debito_iva: 2500000, credito_iva: 1700000, remanente: 0, ppm: 190000, ppm_base: 12700000 };
+  assert.equal(E(Object.assign({}, base, { estado_contable: 'completado' }), o).comparable.iva, true);
+  const on = { evidenciaFechasRrhh: true };
+  let r = E(Object.assign({}, base, { fecha_finalizado: '2026-10-10T12:00:00Z' }), o, on);
+  assert.equal(r.comparable.iva, true); assert.equal(r.evidencia, 'fecha de finalización');
+  r = E(Object.assign({}, base, { fecha_aprobacion: '2026-10-08T12:00:00Z' }), o, on);
+  assert.equal(r.comparable.iva, true); assert.equal(r.evidencia, 'fecha de aprobación');
+  // Fechas inválidas o en el futuro no cuentan
+  assert.equal(E(Object.assign({}, base, { fecha_finalizado: 'no-es-fecha' }), o, on).comparable.iva, false);
+  assert.equal(E(Object.assign({}, base, { fecha_aprobacion: '2030-01-01T00:00:00Z' }), o, on).comparable.iva, false);
 });

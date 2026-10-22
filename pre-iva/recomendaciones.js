@@ -14,6 +14,7 @@
   // ── Umbrales: configuración ÚNICA de PILOTO (ronda 2 de ChatGPT: se calibran con el uso; documentados en descargas/PRE_IVA_OPERATIVA.md) ──
   var CONFIG = {
     piloto: true,
+    evidenciaFechasRrhh: false,     // fecha_finalizado / fecha_aprobacion hoy las escribe RRHH: no cuentan como evidencia hasta confirmarlo
     maxSinMonto: 1,                 // alertas sin monto (avisos preventivos): como máximo 1 y nunca antes de las 2 de mayor impacto
     dteConfirmadoSimpleApi: false,  // códigos 48/boletas aún sin contrastar con lo que devuelve SimpleAPI → regla de comprobantes en modo prudente (solo aviso A)
     max: 4,                         // recomendaciones como máximo
@@ -66,24 +67,50 @@
   function comparables(h, indicador) {
     return (h || []).filter(function (x) { return x && x.comparable && typeof x.comparable === 'object' && x.comparable[indicador] === true; });
   }
+  // ── Evidencia de "registrado por Contable" (ronda 5 de ChatGPT) ──
+  // evidenciaSuficiente = fechaFinalizadoValida || fechaAprobacionValida || estadoTerminado
+  //   · estadoTerminado: estado_contable ∈ ESTADOS_TERMINADOS. Solo valores REALES del sistema: 'completado' es el que escribe
+  //     reportes-contable/index.html al guardar el F29 del mes (y "Reabrir" lo devuelve a 'pendiente'); panel-de-control lo
+  //     trata como "Pre-IVA validado". En la base hoy (SELECT DISTINCT) solo hay NULL y 'pendiente'.
+  //   · borrador, pendiente, vacío o cualquier valor desconocido → NO cuentan.
+  //   · procesado_at: solo TRAZABILIDAD. En el código lo escribe reportes-rrhh/index.html cuando se procesa el archivo de
+  //     remuneraciones (usaArchivo): no prueba un registro de Contable.
+  //   · fecha_finalizado / fecha_aprobacion: en el código hoy las escribe el flujo de RRHH (actualizarEstadoRrhh 'finalizado' /
+  //     'pendiente_aprobacion'), no Contable. Por prudencia quedan detrás de CONFIG.evidenciaFechasRrhh (false por defecto)
+  //     hasta que ChatGPT/Luciano confirmen si cuentan como evidencia del mes contable.
+  var ESTADOS_TERMINADOS = new Set(['completado']);
+  function fechaValida(v, o) {
+    if (!v) return false; var t = Date.parse(v); if (!isFinite(t)) return false;
+    if (o && o.ahora && t > o.ahora) return false;   // no en el futuro
+    return true;
+  }
+  function evidenciaContable(a, o, cfg) {
+    var est = String(a.estado_contable == null ? '' : a.estado_contable).trim().toLowerCase();
+    if (ESTADOS_TERMINADOS.has(est)) return ['estado contable: ' + est, a.updated_at || null];
+    if (cfg.evidenciaFechasRrhh) {
+      if (fechaValida(a.fecha_finalizado, o)) return ['fecha de finalización', a.fecha_finalizado];
+      if (fechaValida(a.fecha_aprobacion, o)) return ['fecha de aprobación', a.fecha_aprobacion];
+    }
+    return null;
+  }
   // Evalúa una fila de reportes_mensuales (función pura, la usa operativa-datos.js):
-  //   · período cerrado: anterior al mes abierto en el Pre-IVA y al mes calendario de hoy;
-  //   · persistido por Contable con EVIDENCIA identificable en los datos (fecha_finalizado, procesado_at, fecha_aprobacion o un
-  //     estado_contable no vacío). Sin evidencia → origen no identificable → excluido (hoy 185 de 187 filas son "borrador" sin evidencia);
+  //   · período cerrado (anterior al mes abierto en el Pre-IVA y al mes calendario de hoy);
+  //   · evidencia suficiente (ver arriba); sin ella → origen no identificable → excluido;
+  //   · sin error de lectura;
   //   · componentes suficientes PARA CADA INDICADOR (un mes puede servir para ventas y no para IVA):
   //       iva     = débito, crédito y remanente presentes y débito o crédito > 0 (una fila en 0/0 es un marcador, no un registro);
   //       debito  = débito > 0 · credito = crédito > 0 · ppm = PPM presente y (PPM > 0 o base > 0) · ventas = base del PPM > 0.
-  function evaluarComparable(a, o) {
-    o = o || {};
-    var res = { comparable: { iva: false, debito: false, credito: false, ppm: false, ventas: false }, motivo: null, evidencia: null, registradoAt: null };
+  function evaluarComparable(a, o, cfgParcial) {
+    o = o || {}; var cfg = Object.assign({}, CONFIG, cfgParcial || {});
+    var res = { comparable: { iva: false, debito: false, credito: false, ppm: false, ventas: false }, motivo: null, evidencia: null, registradoAt: null, procesadoAt: a && a.procesado_at || null };
     if (o.errorLectura) { res.motivo = 'error de lectura de reportes_mensuales'; return res; }
     if (!a) { res.motivo = 'sin registro de Contable'; return res; }
     var p = String(a.periodo || '');
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) { res.motivo = 'período no identificable'; return res; }
     if (!(o.periodoAbierto && p < o.periodoAbierto) || !(o.mesHoy && p < o.mesHoy)) { res.motivo = 'período no cerrado'; return res; }
-    var ev = a.fecha_finalizado ? ['finalizado por Contable', a.fecha_finalizado] : a.procesado_at ? ['procesado por Contable', a.procesado_at]
-      : a.fecha_aprobacion ? ['aprobado', a.fecha_aprobacion] : (a.estado_contable && String(a.estado_contable).trim()) ? ['estado contable: ' + String(a.estado_contable).trim(), a.updated_at || null] : null;
-    if (!ev) { res.motivo = 'origen no identificable (sin procesado, finalizado, aprobación ni estado contable)'; return res; }
+    var ev = evidenciaContable(a, o, cfg);
+    if (!ev) { var e0 = String(a.estado_contable == null ? '' : a.estado_contable).trim();
+      res.motivo = 'sin evidencia de registro de Contable (estado contable: ' + (e0 || 'vacío') + ')'; return res; }
     res.evidencia = ev[0]; res.registradoAt = ev[1];
     var d = hay(a.debito_iva) ? n(a.debito_iva) : null, cr = hay(a.credito_iva) ? n(a.credito_iva) : null, re = hay(a.remanente) ? n(a.remanente) : null;
     var pp = hay(a.ppm) ? n(a.ppm) : null, b = hay(a.ppm_base) ? n(a.ppm_base) : null;
@@ -473,7 +500,7 @@
     var s = stats(serie); if (s.n < 3 || !(s.prom > 0) || !hay(actual)) return null;
     return { prom: s.prom, var: (n(actual) - s.prom) / s.prom, n: s.n };
   }
-  var api = { CONFIG: CONFIG, tendencia: tendencia, evaluarComparable: evaluarComparable, comparables: comparables, generar: generar, estadoAcuse: estadoAcuse, stats: stats, signo: signo, sumaIva: sumaIva };
+  var api = { CONFIG: CONFIG, tendencia: tendencia, evaluarComparable: evaluarComparable, comparables: comparables, ESTADOS_TERMINADOS: ESTADOS_TERMINADOS, generar: generar, estadoAcuse: estadoAcuse, stats: stats, signo: signo, sumaIva: sumaIva };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.PreIvaRecos = api;
 })(typeof window !== 'undefined' ? window : globalThis);
