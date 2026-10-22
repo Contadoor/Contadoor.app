@@ -512,7 +512,7 @@ function injectNotUI(){
     btn.innerHTML='<i class="ti ti-bell" style="font-size:18px;color:rgba(255,255,255,.75)"></i>'
       +'<div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>';
     var tbTitle=topbar.querySelector('.tb-title');
-    if(tbTitle){topbar.insertBefore(btn,tbTitle.nextSibling);}
+    if(tbTitle&&tbTitle.parentNode===topbar){topbar.insertBefore(btn,tbTitle.nextSibling);}   // título anidado → al final
     else{topbar.appendChild(btn);}
   }
 

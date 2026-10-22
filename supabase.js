@@ -1353,3 +1353,17 @@ console.log('✅ supabase.js v3 · Gestoor');
     }
   }catch(e){}
 })();
+
+// ── AVISO DE VERSIÓN NUEVA ───────────────────────────────────
+// Carga assets/version-check.js en todas las páginas que usan supabase.js.
+// Solo muestra un aviso "Hay una versión nueva de Gestoor · Recargar"; nunca recarga solo.
+(function(){
+  try{
+    if(window.__gestoorVersionCheck || typeof document==='undefined') return;
+    var yo = document.currentScript;
+    var src = new URL('assets/version-check.js', yo && yo.src ? yo.src : location.href).href;
+    var s = document.createElement('script');
+    s.src = src; s.defer = true;
+    (document.head || document.documentElement).appendChild(s);
+  }catch(e){}
+})();

@@ -261,12 +261,21 @@ var ROL_LABELS = {
 var MODULOS_ADICIONALES_PERMITIDOS = [
   'clientes','planes','panel-de-control',
   'reportes-rrhh','reportes-contable','reportes-pagos',
-  'pir','pre-iva','pagos','conciliacion','convenios'
+  'pir','pre-iva','pagos','conciliacion','convenios',
+  // Facturación (F1, 19-oct-2026): permiso para preparar y emitir lotes (p. ej. un contable que además factura).
+  // Aprobar sigue siendo solo del Master (se valida en el servidor). La pantalla del módulo llega en F1b.
+  'facturacion'
 ];
+
+// ── MÓDULOS QUE NUNCA SE PRE-MARCAN DESDE public.usuarios.modulos ─────────
+// public.usuarios.modulos trae valores antiguos sin sincronizar (p. ej. 'facturacion' en fichas que nadie habilitó) y la UI no puede
+// leer usuarios_sistema.modulos (la RLS solo deja ver la fila propia). Por eso estas casillas se abren SIEMPRE desmarcadas y solo
+// se marcan con un clic explícito del Master; al guardar se pide confirmación. La autorización real está en el servidor.
+var MODULOS_SIN_PRECARGA = ['facturacion'];
 
 // ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
 var MODULOS_FUTUROS_IDS = [
-  'gestion-personal','cobranza','facturacion',
+  'gestion-personal','cobranza',
   'crm','cotizaciones','campanas','comunicaciones','performance'
 ];
 
@@ -449,8 +458,12 @@ function modulosBaseDelRol(rol){
 function modulosAdicionalesDeUsuario(u){
   var base=modulosBaseDelRol(u.rol)||[];
   return (u.modulos||[]).filter(function(m){
-    return base.indexOf(m)===-1 && MODULOS_ADICIONALES_PERMITIDOS.indexOf(m)>=0;
+    return base.indexOf(m)===-1 && MODULOS_ADICIONALES_PERMITIDOS.indexOf(m)>=0 && MODULOS_SIN_PRECARGA.indexOf(m)===-1;
   });
+}
+// ¿La ficha (public.usuarios) registra Facturación? Solo para avisar; nunca para pre-marcar.
+function fichaRegistraFacturacion(u){
+  return !!(u && Array.isArray(u.modulos) && u.modulos.indexOf('facturacion')>=0);
 }
 
 // ── ROL CHANGE ────────────────────────────────────────────────────────────
@@ -619,9 +632,12 @@ function crearUsuario(){
   if(wa&&!/^[0-9]{8,9}$/.test(wa)){ adminToast('WhatsApp: 8 o 9 dígitos, sin +56.','error'); return; }
   if(typeof window.gestoorGetModulosBaseRol!=='function'){ adminToast('❌ Error de configuración: recarga la página.','error'); return; }
   if(!confirm('¿Crear la ficha de '+nombre+' ('+email+')?\n\nDespués: "Enviar invitación" y, cuando cree su contraseña, "Activar en Gestoor".')) return;
+  var modsNuevo=getAdicionalesSeleccionadosDesdeDom();
+  if(modsNuevo.indexOf('facturacion')>=0 &&
+     !confirm('Vas a habilitar Facturación para '+nombre+'.\n\nPodrá preparar lotes, enviarlos a revisión y emitir. Aprobar sigue siendo solo del Master.\n\n¿Confirmas?')) return;
   _creando=true;
   sbFetch('rpc/admin_crear_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    p_nombre:nombre, p_iniciales:sv('f-iniciales')||null, p_rol:rol, p_wa:wa||null, p_modulos:getAdicionalesSeleccionadosDesdeDom(), p_email:email
+    p_nombre:nombre, p_iniciales:sv('f-iniciales')||null, p_rol:rol, p_wa:wa||null, p_modulos:modsNuevo, p_email:email
   })}).then(function(r){ if(!r.ok) return r.json().catch(function(){return {};}).then(function(b){ throw b; }); return r.json(); })
     .then(function(){ _creando=false; _draftModulosAdicionales=[]; closeModal(); adminToast('✅ Ficha creada. Ahora presiona "Enviar invitación".','ok'); adminCargar(); })
     .catch(function(e){ _creando=false; adminToast('❌ '+((e&&(e.message||e.error))||'No se pudo crear el usuario.'),'error'); });
@@ -660,6 +676,12 @@ function guardarUsuario(){
   }
   var adicionalesFinal=getAdicionalesSeleccionadosDesdeDom();
   var uActual=_admUsuarios.find(function(x){ return String(x.id)===String(_editId); });
+  // Facturación: la casilla se abre siempre desmarcada (MODULOS_SIN_PRECARGA); habilitarla exige confirmación explícita.
+  if(adicionalesFinal.indexOf('facturacion')>=0){
+    if(!confirm('Vas a habilitar Facturación para '+nombre+'.\n\nPodrá preparar lotes, enviarlos a revisión y emitir. Aprobar sigue siendo solo del Master.\n\n¿Confirmas?')) return;
+  } else if(fichaRegistraFacturacion(uActual)){
+    if(!confirm('La ficha de '+nombre+' registra Facturación, pero la casilla está desmarcada: al guardar, Facturación quedará deshabilitada.\n\nSi debe seguir facturando, cancela y marca la casilla.\n\n¿Guardar sin Facturación?')) return;
+  }
 
   sbFetch('rpc/admin_actualizar_usuario',{
     method:'POST',
