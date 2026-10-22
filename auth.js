@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&
+    !path.includes('/asistente/')&&!path.includes('/trabajos-especiales/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -33,6 +33,7 @@
     if(path.includes('/pagos/'))             return 'pagos';
     if(path.includes('/conciliacion/'))      return 'conciliacion';
     if(path.includes('/cobranza/'))          return 'cobranza';
+    if(path.includes('/trabajos-especiales/')) return 'trabajos_especiales';
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
@@ -51,7 +52,7 @@
     admin:    ['*'],
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
-    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos'],
+    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','cobranza','trabajos_especiales'], // Cobranza C1 y Trabajos especiales T1: Pagos lee (la RLS re-verifica)
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
     comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
   };
@@ -61,6 +62,8 @@
     var permisos=MODULOS_POR_ROL[perfil.rol]||perfil.modulos||[];
     if(permisos[0]==='*') return true;
     if(modulo==='dashboard') return true;
+    // Trabajos especiales T1: Facturación (módulo facturacion) prepara la factura DTE 34 y ve los trabajos (la RLS re-verifica).
+    if(modulo==='trabajos_especiales'&&(perfil.modulos||[]).includes('facturacion')) return true;
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
@@ -154,8 +157,6 @@
       return;
     }
 
-    // Cobranza: sidebar con diseño diferente — no interferir
-    if(typeof MODULO_ACTUAL!=='undefined'&&MODULO_ACTUAL==='cobranza') return;
 
     document.querySelectorAll('.sidebar a[href]').forEach(function(link){
       // FUTUROS: href="#" + pointer-events:none inline → conservar intactos, sin candado
@@ -167,8 +168,10 @@
       var modId;
       if(href==='../index.html'){
         modId='dashboard';
-      }else if(href.startsWith('../')&&href.endsWith('/index.html')){
-        modId=href.slice(3,href.length-'/index.html'.length);
+      }else if(/^\.\.\/[a-z0-9-]+\/[a-z0-9-]+\.html$/.test(href)){
+        // ../<modulo>/<pagina>.html (index.html o páginas de entrada como cobranza/cartera.html)
+        modId=href.slice(3,href.indexOf('/',3));
+        if(modId==='trabajos-especiales') modId='trabajos_especiales';
       }else{
         return;  // href='#' sin pointer-events (edge case) → no tocar
       }
