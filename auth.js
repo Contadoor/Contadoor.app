@@ -57,7 +57,11 @@
     comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
   };
 
+  // Módulos cuyo acceso a la PÁGINA decide el servidor (usuarios_sistema.modulos), no public.usuarios.modulos.
+  var RPC_ACCESO_SERVIDOR={cobranza:'cobranza_yo',trabajos_especiales:'te_yo'};
+
   function puedeVerModulo(perfil,modulo){
+    if(perfil.accesoServidor&&perfil.accesoServidor[modulo]===true) return true; // ya confirmado por el servidor en esta página
     if(perfil.es_master||perfil.esMaster) return true;
     var permisos=MODULOS_POR_ROL[perfil.rol]||perfil.modulos||[];
     if(permisos[0]==='*') return true;
@@ -397,11 +401,20 @@
             return base.slice();
           };
 
-          // Control de acceso al módulo actual
-          if(!puedeVerModulo(perfil,MODULO_ACTUAL)){
+          // Control de acceso al módulo actual.
+          // Cobranza C1 y Trabajos especiales T1: decide el SERVIDOR (cobranza_yo / te_yo leen usuarios_sistema.modulos, lo mismo que
+          // validan sus RPC y su RLS). public.usuarios.modulos puede estar desfasado y no se usa para estas dos páginas. Fail-closed:
+          // error, sin fila operativa o puede_leer distinto de true → Acceso denegado.
+          var rpcAcceso=RPC_ACCESO_SERVIDOR[MODULO_ACTUAL];
+          var decision=rpcAcceso
+            ? client.rpc(rpcAcceso).then(function(r){return !r.error&&!!r.data&&r.data.puede_leer===true;}).catch(function(){return false;})
+            : Promise.resolve(puedeVerModulo(perfil,MODULO_ACTUAL));
+          return decision.then(function(permitido){
+          if(!permitido){
             mostrarAccesoDenegado(); // revelar + mensaje (no redirige al login)
             return;
           }
+          if(rpcAcceso){ sesion.accesoServidor={}; sesion.accesoServidor[MODULO_ACTUAL]=true; }
 
   // ── DASHBOARD-ROL-1: Permisos del Dashboard ──────────────────────────────────
   // Solo actúa cuando MODULO_ACTUAL === 'dashboard'.
@@ -446,6 +459,7 @@
             revelarContenido();                   // 3. retirar auth-pending
             inyectarTopbar(sesion);              // 4. badge de usuario
           });
+          }); // fin decision.then
 
         }).catch(function(e){
           console.error('[auth.js] Error cargando perfil:',e);

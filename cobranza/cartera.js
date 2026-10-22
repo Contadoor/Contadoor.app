@@ -6,7 +6,8 @@
            cobranza_repactacion_validar (solo Master)
      Tablas (solo lectura, RLS cob_puede_leer = Master, Cobranza, Pagos): cobranza_documentos · cobranza_clientes ·
            cobranza_repactaciones · cobranza_pausas · cobranza_tareas · cobranza_pagos · cobranza_avisos · cobranza_gestiones
-     clientes (solo el nombre; la RLS de clientes decide qué nombres ve cada persona)
+     clientes (solo nombre y RUT; la RLS de clientes decide qué ve cada persona) · cobte_cartera_nombres (backend COBTE-NOMBRES:
+           razón social y RUT de la cartera para el Master y los gestores de cobranza, p. ej. Leandro; el servidor valida el permiso)
    Reglas: el estado del cliente (al día, mora, riesgo, suspensión programada…) lo calcula el MOTOR en el servidor; la pantalla
    solo lo muestra. MODO PRUEBA hasta el 31-12-2026: no se envían avisos ni se suspende (esta pantalla no envía nada).
    Modo demostración: cartera-demo.js (solo ?demo=1 en localhost).
@@ -43,7 +44,7 @@ var A=G.API;
 function enLotes(ids,tam){var r=[];for(var i=0;i<ids.length;i+=tam)r.push(ids.slice(i,i+tam));return r;}
 var REAL={
   yo:function(){return A.rpc('cobranza_yo');},
-  cartera:function(){
+  cartera:function(yo){
     var hoy=G.hoyCL(), mes=hoy.slice(0,8)+'01';
     return Promise.all([
       A.get('cobranza_documentos?select=id,cliente_id,origen,folio,periodo,concepto,cuota_n,cuotas_total,fecha_emision,fecha_vencimiento,monto,pagado,rebajado,saldo,estado,te_cuota_id,ref_externa&estado=in.(PENDIENTE,CASTIGADO)&order=fecha_vencimiento.asc,id.asc&limit=5000'),
@@ -55,17 +56,23 @@ var REAL={
     ]).then(function(r){
       var ids={};r[0].forEach(function(d){ids[d.cliente_id]=1;});r[1].forEach(function(c){ids[c.cliente_id]=1;});
       r[2].forEach(function(x){ids[x.cliente_id]=1;});r[4].forEach(function(x){ids[x.cliente_id]=1;});
-      return REAL.nombres(Object.keys(ids)).then(function(nom){
-        return {documentos:r[0],clientes:r[1],repactaciones:r[2],pausas:r[3],tareas:r[4],pagosMes:r[5],nombres:nom};
+      return REAL.nombres(Object.keys(ids),yo).then(function(nom){
+        return {documentos:r[0],clientes:r[1],repactaciones:r[2],pausas:r[3],tareas:r[4],pagosMes:r[5],nombres:nom.nombres,ruts:nom.ruts};
       });
     });
   },
-  // Nombres: la RLS de clientes decide qué ve cada persona (un analista ve solo su cartera). Lo que no ve queda como "Cliente N.º".
-  nombres:function(ids){
-    if(!ids.length)return Promise.resolve({});
-    return Promise.all(enLotes(ids,150).map(function(l){
-      return A.get('clientes?select=id,razon_social&id=in.('+l.map(function(x){return encodeURIComponent(x);}).join(',')+')').catch(function(){return [];});
-    })).then(function(rs){var m={};rs.forEach(function(r){(r||[]).forEach(function(c){m[c.id]=c.razon_social;});});return m;});
+  // Nombres y RUT. (1) La RLS de clientes decide qué ve cada persona (Pagos ve todos; un analista solo los suyos). (2) Si el servidor dice
+  // que es gestor de cobranza o Master (cobranza_yo.puede_gestionar), cobte_cartera_nombres completa razón social y RUT de TODA la cartera
+  // (la función vuelve a validar el permiso). Si la función aún no está instalada o falla, queda lo de (1) y el resto como "Cliente N.º".
+  nombres:function(ids,yo){
+    var m={},ruts={};
+    function poner(id,n,rut){if(id==null)return;if(n)m[id]=n;if(rut)ruts[id]=rut;}
+    var rls=!ids.length?Promise.resolve([]):Promise.all(enLotes(ids,150).map(function(l){
+      return A.get('clientes?select=id,razon_social,rut&id=in.('+l.map(function(x){return encodeURIComponent(x);}).join(',')+')').catch(function(){return [];});
+    })).then(function(rs){rs.forEach(function(r){(r||[]).forEach(function(c){poner(c.id,c.razon_social,c.rut);});});});
+    var cartera=(yo&&yo.puede_gestionar)?A.rpc('cobte_cartera_nombres',{}).then(function(rs){(rs||[]).forEach(function(c){poner(c.cliente_id,c.razon_social,c.rut);});})
+      .catch(function(e){console.warn('[cobranza] cobte_cartera_nombres no disponible; se usan solo los nombres visibles por la RLS de clientes.',e&&e.message);}):Promise.resolve();
+    return Promise.all([rls,cartera]).then(function(){return {nombres:m,ruts:ruts};});
   },
   indicadores:function(){return A.rpc('cobranza_indicadores',{});},
   movimientos:function(){return A.rpc('cobranza_movimientos_sugeridos',{p_cliente_id:null});},
@@ -118,6 +125,7 @@ var S={yo:null,datos:null,filas:[],tab:'cartera',filtro:'TODOS',buscar:'',ind:nu
 
 function nombreCli(id){var n=S.datos&&S.datos.nombres[id];return n?n:'Cliente N.º '+id;}
 function nombreVisible(id){return !!(S.datos&&S.datos.nombres[id]);}
+function rutCli(id){return (S.datos&&S.datos.ruts&&S.datos.ruts[id])||'';}
 
 /* Arma una fila por cliente con lo que viene del servidor (documentos + estado del motor). */
 function armarFilas(){
@@ -146,11 +154,11 @@ function cargar(){
   return D.yo().then(function(yo){
     S.yo=yo;
     if(!yo||!yo.puede_leer){render();return;}
-    return D.cartera().then(function(d){S.datos=d;armarFilas();render();});
+    return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();render();});
   }).catch(function(e){S.err=mErr(e);render();});
 }
 function recargar(msg){
-  return D.cartera().then(function(d){S.datos=d;armarFilas();S.mov=null;S.avisos=null;render();if(msg)G.toast(msg);});
+  return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();S.mov=null;S.avisos=null;render();if(msg)G.toast(msg);});
 }
 
 /* ── Render principal ── */
@@ -220,7 +228,7 @@ var FILTROS=[['TODOS','Todos'],['AL_DIA','Al día'],['POR_VENCER','Por vencer'],
 function pasaFiltro(f){
   if(S.filtro==='REPACTACION'&&!f.rep)return false;
   if(S.filtro!=='TODOS'&&S.filtro!=='REPACTACION'&&f.etapa!==S.filtro)return false;
-  if(S.buscar){var q=S.buscar.toLowerCase();if(f.nombre.toLowerCase().indexOf(q)<0&&String(f.id)!==q)return false;}
+  if(S.buscar){var q=S.buscar.toLowerCase(),qr=q.replace(/[.\s]/g,''),r=rutCli(f.id).toLowerCase().replace(/\./g,'');if(f.nombre.toLowerCase().indexOf(q)<0&&String(f.id)!==q&&!(qr&&r&&r.indexOf(qr)>=0))return false;}
   return true;
 }
 function carteraHtml(){
@@ -237,7 +245,7 @@ function carteraHtml(){
   lista.forEach(function(f){
     var e=ETAPA[f.etapa]||ETAPA.SIN_EVALUAR, borde={rojo:'borde-rojo',naranja:'borde-naranja',ambar:'borde-ambar'}[e.c]||'';
     h+='<tr class="clic '+borde+'" data-act="ficha" data-id="'+esc(f.id)+'" tabindex="0">'
-      +'<td class="cli"><b>'+esc(f.nombre)+'</b>'+(nombreVisible(f.id)?'':'<span class="sub">Nombre no visible con tu permiso</span>')+(f.pausa?'<span class="sub">'+I('pausa','ic-amb')+' '+(f.pausa.origen==='COMPROMISO'?'Compromiso hasta '+G.fFecha(f.pausa.hasta):'Recordatorios en pausa hasta '+G.fFecha(f.pausa.hasta))+'</span>':'')+'</td>'
+      +'<td class="cli"><b>'+esc(f.nombre)+'</b>'+(nombreVisible(f.id)?(rutCli(f.id)?'<span class="sub">RUT '+esc(rutCli(f.id))+'</span>':''):'<span class="sub">Nombre no visible con tu permiso</span>')+(f.pausa?'<span class="sub">'+I('pausa','ic-amb')+' '+(f.pausa.origen==='COMPROMISO'?'Compromiso hasta '+G.fFecha(f.pausa.hasta):'Recordatorios en pausa hasta '+G.fFecha(f.pausa.hasta))+'</span>':'')+'</td>'
       +'<td class="num">'+f.docs.length+'</td><td class="num"><b>'+clp(f.deuda)+'</b></td>'
       +'<td class="num '+(f.vencido>0?'t-ambar':'t3')+'">'+clp(f.vencido)+'</td>'
       +'<td class="num">'+(f.diasMora!=null?'<b class="'+(f.diasMora>60?'t-rojo':f.diasMora>30?'t-ambar':'')+'">'+f.diasMora+' d</b><span class="sub">'+f.nVenc+' doc. vencido(s)</span>':'<span class="t3">—</span>')+'</td>'
@@ -265,7 +273,7 @@ function abrirFicha(id){
 }
 function fichaHtml(id,f,x){
   var yo=S.yo, ec=x.estado||{}, mot=f?f.motor:(S.datos.clientes.find(function(c){return String(c.cliente_id)===String(id);})||null), e=ETAPA[f?f.etapa:(mot?mot.estado:'SIN_EVALUAR')]||ETAPA.SIN_EVALUAR;
-  var h='<div class="det-cab"><small>Ficha de cobranza</small><h3>'+esc(nombreCli(id))+'</h3><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span>'
+  var h='<div class="det-cab"><small>Ficha de cobranza'+(rutCli(id)?' · RUT '+esc(rutCli(id)):'')+'</small><h3>'+esc(nombreCli(id))+'</h3><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span>'
     +(mot&&mot.estado_desde?' <span class="t3" style="font-size:12px">desde el '+G.fFecha(mot.estado_desde)+'</span>':'')+'</div>';
   h+='<div class="gc-tri"><div><small>💰 Deuda</small><b>'+clp(ec.total_deuda)+'</b></div><div><small>⏰ Vencido</small><b class="t-ambar">'+clp(ec.total_vencido)+'</b></div><div><small>🎁 Abonos</small><b class="t-verde">'+clp(ec.total_abonos)+'</b></div></div>';
   h+='<div class="cl fin"><span>Total a pagar (deuda − abonos)</span><b>'+clp(ec.total)+'</b></div>';

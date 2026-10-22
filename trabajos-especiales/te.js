@@ -3,6 +3,7 @@
    Conectada SOLO a lo que exponen las migraciones 202610201700_trabajos_especiales_t1 + 1710 (Storage), en producción (main 49ca3629):
      Lectura (RLS te_puede_ver_trabajo: Master, Pagos, Facturación y el responsable): te_v_tablero · te_trabajos · te_cuotas ·
        te_facturas · te_pasos · te_documentos · te_eventos · te_tareas · te_parametros · servicios_adicionales (catálogo) · clientes (nombre, según su RLS)
+     Nombres de responsables: cobte_te_responsables (backend COBTE-NOMBRES; solo los de trabajos visibles).
      RPC (cada una valida el rol en el servidor): te_yo · te_cotizacion_crear · te_cotizacion_enviar_aprobacion · te_cotizacion_aprobar ·
        te_cotizacion_devolver · te_cotizacion_enviar · te_cotizacion_renovar · te_cotizacion_registrar_aceptacion · te_cotizacion_registrar_rechazo ·
        te_documento_registrar · te_factura_preparar · te_factura_aprobar · te_factura_devolver · te_trabajo_autorizar_inicio · te_trabajo_iniciar ·
@@ -55,8 +56,12 @@ var REAL={
   tablero:function(){
     return Promise.all([
       A.get('te_v_tablero?select=*&order=id.desc&limit=1000'),
-      A.get('te_parametros?select=modo_factura,produccion_habilitada,avisos_habilitados,avisos_modo,vigencia_cotizacion_dias,responsable_ve_todos').catch(function(){return [];})
-    ]).then(function(r){return {trabajos:r[0],parametros:r[1][0]||null,usuarios:{}};});
+      A.get('te_parametros?select=modo_factura,produccion_habilitada,avisos_habilitados,avisos_modo,vigencia_cotizacion_dias,responsable_ve_todos').catch(function(){return [];}),
+      // Nombres de los responsables de los trabajos que esta persona ya ve (backend COBTE-NOMBRES; el servidor aplica te_puede_ver_trabajo).
+      // Si la función aún no está instalada, se muestra "Responsable N.º x" como antes.
+      A.rpc('cobte_te_responsables',{}).catch(function(e){console.warn('[te] cobte_te_responsables no disponible; se muestran los N.º de responsable.',e&&e.message);return [];})
+    ]).then(function(r){var u={};(r[2]||[]).forEach(function(x){if(x&&x.usuario_id!=null&&x.nombre)u[x.usuario_id]=x.nombre;});
+      return {trabajos:r[0],parametros:r[1][0]||null,usuarios:u};});
   },
   ficha:function(id){
     var i=q(id);

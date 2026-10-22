@@ -24,6 +24,9 @@ var ROLES={
 var NOM={101:'Cafetería Brisa Andina SpA',102:'Taller Ruedas del Sur Ltda.',103:'Estudio Creativo Nube Lila SpA',104:'Ferretería El Martillo Feliz EIRL',
   105:'Clínica Veterinaria Patitas SpA',106:'Transportes Cóndor Azul SpA',107:'Librería Hoja Nueva Ltda.',108:'Constructora Piedra Firme SpA',
   109:'Agrícola Valle Sereno SpA',110:'Distribuidora Mar Abierto Ltda.'};
+// RUT ficticios (cuerpo inventado 76.0xx.xxx con dígito verificador calculado).
+function dvRut(n){var s=0,m=2;String(n).split('').reverse().forEach(function(c){s+=Number(c)*m;m=m===7?2:m+1;});var r=11-(s%11);return r===11?'0':r===10?'K':String(r);}
+var RUTS={};Object.keys(NOM).forEach(function(k){var n=76000000+Number(k)*1111;RUTS[k]=n+'-'+dvRut(n);});
 var docId=1000, DOCS=[], CLI=[], REPS=[], PAUSAS=[], TAREAS=[], PAGOS=[], AVISOS=[], GEST=[], avId=5000, pagoId=900, repId=70;
 function doc(cli,origen,montoMil,venceOffset,extra){
   var v=addD(HOY,venceOffset), e=addD(v,-20), d=Object.assign({id:++docId,cliente_id:cli,origen:origen,folio:origen==='CUOTA_REPACTACION'?null:String(4000+docId),
@@ -76,7 +79,7 @@ window.COB_DEMO_API={
     var mes=HOY.slice(0,8)+'01';
     return ok({documentos:DOCS.filter(function(d){return d.estado==='PENDIENTE'||d.estado==='CASTIGADO';}),clientes:CLI,
       repactaciones:REPS.filter(function(r){return ['EN_VALIDACION','APROBADA','VIGENTE'].indexOf(r.estado)>=0;}),pausas:PAUSAS,tareas:TAREAS,
-      pagosMes:PAGOS.filter(function(p){return p.estado==='VIGENTE'&&p.fecha_pago>=mes;}),nombres:ROL==='pagos'?NOM:NOM});
+      pagosMes:PAGOS.filter(function(p){return p.estado==='VIGENTE'&&p.fecha_pago>=mes;}),nombres:NOM,ruts:RUTS});
   },
   indicadores:function(){
     var x=exigir('puede_decidir','SOLO_MASTER');if(x)return x;
