@@ -121,7 +121,7 @@ function iniciar(){
   S.cargando=true;S.error=null;render();
   var tok=++S.tok;
   Promise.all([
-    getTodo('clientes?select=id,rut,razon_social,plan,estado,analista_contable,analista_contable_usuario_id&estado=eq.activo&order=razon_social.asc,id.asc'),
+    getTodo('clientes?select=id,rut,razon_social,plan,estado,analista_contable,analista_contable_usuario_id,iva_condicion&estado=eq.activo&order=razon_social.asc,id.asc'),
     API.get('planes?select=codigo,nombre,incluye_preiva').then(function(r){return r||[];},function(e){S.errPlanes=e;return null;}),
     API.get('periodos?select=periodo,estado&order=periodo.desc&limit=36').then(function(r){return r||[];},function(){return [];})
   ]).then(function(r){
@@ -170,7 +170,8 @@ function filas(){
     var incluye=pl?(pl.incluye_preiva===true?true:pl.incluye_preiva===false?false:null):null;
     var h=S.errHist?null:(S.hist[c.rut]||null);
     var f={id:c.id,rut:c.rut||'',nombre:c.razon_social||('Cliente #'+c.id),plan:plan,planNombre:pl?pl.nombre:(c.plan||''),incluye:incluye,
-      resp:c.analista_contable||'',resp_id:c.analista_contable_usuario_id,h:h,motivos:[],chips:[]};
+      resp:c.analista_contable||'',resp_id:c.analista_contable_usuario_id,h:h,motivos:[],chips:[],
+      exenta:c.iva_condicion==='exento'};   // empresa exenta de IVA: el Pre-IVA es solo el PPM (si la ficha no lo indica, flujo normal)
     // Pre-IVA automático (futuro): h.fuente='SII' + facturas en plazo → "Pendiente de acuse"; sin revisar → "Calculado por el sistema"
     f.auto=!!(h&&h.fuente==='SII');
     f.fact=h&&h.facturas_aceptadas!=null?{ok:num(h.facturas_aceptadas),plazo:num(h.facturas_en_plazo),rec:num(h.facturas_reclamadas),vence:h.plazo_reclamo_vence||null}:null;
@@ -180,8 +181,8 @@ function filas(){
     f.iva=null;f.ppm=null;f.f29=null;f.sinLibros=false;f.sinTasa=false;
     if(h){
       var deb=num(h.debito_iva), cred=num(h.credito_iva), rem=num(h.remanente);
-      f.sinLibros=!(deb>0)&&!(cred>0);   // débito y crédito en 0: no se cargaron libros (no se asume IVA $0)
-      f.iva=(!f.sinLibros&&deb!=null&&cred!=null&&rem!=null)?deb-cred-rem:null;
+      f.sinLibros=!f.exenta&&!(deb>0)&&!(cred>0);   // débito y crédito en 0: no se cargaron libros (no se asume IVA $0)
+      f.iva=(!f.exenta&&!f.sinLibros&&deb!=null&&cred!=null&&rem!=null)?deb-cred-rem:null;
       var ppm=num(h.ppm), tasa=num(h.tasa_ppm);
       f.sinTasa=ppm===0&&!(tasa>0);
       f.ppm=f.sinTasa?null:ppm;
@@ -196,6 +197,7 @@ function filas(){
       if(dias<0)f.motivos.push('el F29 de este mes ya venció');
       else if(dias<=3)f.motivos.push(dias===0?'el F29 vence hoy':'el F29 vence en '+dias+' día'+(dias===1?'':'s'));
     }
+    if(f.exenta)f.chips.push(['lila','Exenta · solo PPM']);
     if(h&&incluye===false)f.chips.push(['gris','Fuera del plan ('+(f.planNombre||f.plan)+')']);
     if(incluye===null)f.chips.push(['gris',S.errPlanes?'Plan sin confirmar (no se pudo leer la tabla de planes)':(f.plan?'Plan "'+f.plan+'" sin regla de Pre-IVA':'Sin plan en la ficha')]);
     f.prio=EST[f.estado][2];
@@ -335,7 +337,7 @@ function filaHtml(f){
   else if(f.estado==='SIN_CONFIRMAR')guard='<span class="nd">No se pudo leer</span>';
   else guard='<span class="nd">Sin Pre-IVA este mes</span>';
   var sinFila=!h?(f.estado==='SIN_CONFIRMAR'?'No disponible':'—'):null;
-  var iva=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.iva,f.sinLibros?'Sin libros cargados':'No disponible',true);
+  var iva=f.exenta?'<span class="nd">No aplica</span>':sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.iva,f.sinLibros?'Sin libros cargados':'No disponible',true);
   var ppm=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.ppm,f.sinTasa?'Sin tasa PPM':'No disponible',false);
   var f29=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.f29,f.sinLibros?'Sin libros cargados':'No disponible',false);
   // Fuente del dato + última consulta al SII + facturas recibidas (acuse). Hoy: "Manual" y facturas en blanco.
@@ -371,8 +373,8 @@ function descargarCsv(){
     var h=f.h, nd=function(v){return h?(v==null?'No disponible':v):'';};
     L.push([EST[f.estado][1],f.motivos.concat(f.chips.map(function(c){return c[1];})).join(' · '),f.nombre,f.rut,f.planNombre||f.plan,f.resp||'Sin asignar',S.per,h?(f.auto?'SII automático':'Manual'):'',
       h&&h.fecha_envio?fFechaHora(h.fecha_envio):'',h&&h.enviado_por||'',
-      h?(f.sinLibros?'Sin libros cargados':nd(num(h.debito_iva))):'',h?(f.sinLibros?'Sin libros cargados':nd(num(h.credito_iva))):'',h?nd(num(h.remanente)):'',
-      h?(f.iva==null?'No disponible':(f.iva>0?f.iva:0)):'',h?(f.iva==null?'No disponible':(f.iva<0?-f.iva:0)):'',
+      f.exenta?'No aplica':h?(f.sinLibros?'Sin libros cargados':nd(num(h.debito_iva))):'',f.exenta?'No aplica':h?(f.sinLibros?'Sin libros cargados':nd(num(h.credito_iva))):'',f.exenta?'No aplica':h?nd(num(h.remanente)):'',
+      f.exenta?'No aplica':h?(f.iva==null?'No disponible':(f.iva>0?f.iva:0)):'',f.exenta?'No aplica':h?(f.iva==null?'No disponible':(f.iva<0?-f.iva:0)):'',
       h?nd(f.ppm):'',h?nd(f.f29):''].map(csvCelda).join(';'));
   });
   var blob=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}), url=URL.createObjectURL(blob), a=document.createElement('a');
