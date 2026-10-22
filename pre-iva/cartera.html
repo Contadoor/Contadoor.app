@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pre-IVA · Cartera de Pre-IVA · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/preiva-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cartera.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (por ejemplo gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js.
+   Candado 2: cartera-demo.js vuelve a revisar el host antes de definir los datos ficticios. Candado 3: cartera.js. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.PV_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-piv">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="pre-iva"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <!-- Barra superior: h1.tb-title es hijo DIRECTO de .topbar y aquí no hay <button>.
+       auth.js (insignia + "Salir") y notifications.js (campana) insertan sus elementos con insertBefore sobre .topbar:
+       así funciona con y sin el arreglo del PR #67. No agregar botones ni anidar el título dentro de esta barra. -->
+  <div class="topbar pvc-top">
+    <img class="pvc-ico" src="../assets/preiva-icono.svg" alt="" width="40" height="40">
+    <h1 class="tb-title">Pre<span>-IVA</span></h1>
+    <p class="pvc-sub">Proyección mensual del IVA · el cliente sabe cuánto viene antes del día 20</p>
+    <div class="g-espacio"></div>
+    <span class="pvc-demo" id="pvDemo" hidden title="Datos ficticios locales: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+  </div>
+  <div class="content">
+    <div id="pvApp" class="pvc-app"><div class="aviso lila"><span class="pvc-spin"></span>Cargando la cartera de Pre-IVA…</div></div>
+  </div>
+</main>
+</div>
+<div class="pvc-toast" id="pvToast" role="status" aria-live="polite"></div>
+
+<script src="../supabase.js"></script>
+<script>if(window.PV_DEMO)document.write('<script src="cartera-demo.js"><\/script>');</script>
+<script src="cartera.js"></script>
+<script>if(!window.PV_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>

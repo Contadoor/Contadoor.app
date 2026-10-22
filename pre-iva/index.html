@@ -103,7 +103,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
     <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
     <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item on" href="../pre-iva/index.html">📋 Pre-IVA</a>
+    <a class="sb-item on" href="../pre-iva/cartera.html">📋 Pre-IVA</a>
     <a class="sb-item" href="../pir/index.html">📊 PIR</a>
     <div class="sb-sec">Gestión interna</div>
     <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
@@ -128,6 +128,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     </span>
   </div>
   <div class="toolbar">
+    <a id="lnk-volver-cartera" class="btn-calcular" href="cartera.html" style="text-decoration:none;color:var(--p);font-weight:600" title="Volver a la Cartera de Pre-IVA (todos los clientes del mes)">&#8592; Volver a la cartera</a>
     <div id="cliente-seleccionado" style="display:none;background:var(--pp);border:1px solid var(--bdr);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--p);font-weight:600;align-items:center;gap:8px;">
       <span id="cliente-sel-nombre"></span>
       <span id="cliente-sel-rut" style="font-weight:400;color:var(--tm)"></span>
@@ -589,7 +590,10 @@ function calcular(){
   var _diasRestReal=Math.max(0,Math.ceil((_fechaVenc-_hoy)/(1000*60*60*24)));
   var diasRest=_diasRestReal;
   var tasaDiaria=diasT>0?debReg/diasT:0, tasaDiariaC=diasT>0?credReg/diasT:0;
-  var debProy=Math.round(debReg+tasaDiaria*diasRest), credProy=Math.round(credReg+tasaDiariaC*diasRest);
+  // Solo el mes en curso se proyecta: un mes ya terminado (abierto desde la cartera con ?periodo=) tiene los libros completos.
+  var _esMesActual=(_anio===_hoy.getFullYear()&&_mes===_hoy.getMonth());
+  var diasProy=_esMesActual?diasRest:0;
+  var debProy=Math.round(debReg+tasaDiaria*diasProy), credProy=Math.round(credReg+tasaDiariaC*diasProy);
   var ppm=calcularPPM();
   var f29=Math.max(debProy-credProy-remanente-ppm,0);
   var nuevoRem=Math.max(credProy+remanente+ppm-debProy,0);
@@ -1269,11 +1273,16 @@ function subirLocales(){
   var sb=document.getElementById('sb-usuario');
   if(sb)sb.textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Admin');
   var now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;
+  // Desde la Cartera de Pre-IVA: ?periodo=AAAA-MM (mes) y ?cliente=<id> (abre ese cliente). Sin parámetros: mes en curso.
+  var _qs=new URLSearchParams(location.search), _perQ=_qs.get('periodo'), _cliQ=_qs.get('cliente');
+  var _esMesEnCurso=true;
+  if(/^\d{4}-(0[1-9]|1[0-2])$/.test(_perQ||'')){var _yq=parseInt(_perQ.slice(0,4),10),_mq=parseInt(_perQ.slice(5,7),10);_esMesEnCurso=(_yq===y&&_mq===m);y=_yq;m=_mq;}
   _periodoActual=String(y)+(m<10?'0':'')+m;
+  var lnkCart=document.getElementById('lnk-volver-cartera');if(lnkCart)lnkCart.href='cartera.html?periodo='+perDb(_periodoActual);
   var lbl=document.getElementById('sel-periodo-label');
   if(lbl){var ms=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];lbl.textContent=ms[m-1]+' '+y;}
   var lc=document.getElementById('lbl-corte');
-  if(lc)lc.textContent='Datos al '+now.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()];
+  if(lc)lc.textContent=_esMesEnCurso?'Datos al '+now.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()]:'Mes distinto al en curso (abierto desde la cartera)';
   // Event listeners
   var btnLimpCli=document.getElementById('btn-limpiar-cliente');if(btnLimpCli)btnLimpCli.onclick=limpiarCliente;
   var btnNuevaSim=document.getElementById('btn-nueva-sim');if(btnNuevaSim)btnNuevaSim.onclick=function(){limpiarSimulacion();if(_clienteActual){calcular();marcarCambio();}};
@@ -1296,7 +1305,15 @@ function subirLocales(){
   document.addEventListener('click',function(e){if(!e.target.closest('#inp-buscar-cliente')&&!e.target.closest('#cliente-dropdown')){var dd=document.getElementById('cliente-dropdown');if(dd)dd.style.display='none';}});
   // Cargar datos desde Supabase
   setSyncStatus('syncing');
-  Promise.all([cargarUF(), cargarClientes()]).then(function(){setSyncStatus('ok');}).catch(function(){setSyncStatus('error');});
+  Promise.all([cargarUF(), cargarClientes()]).then(function(){
+    setSyncStatus('ok');
+    // Abrir directo el cliente pedido por la cartera (solo si la RLS lo deja ver y está activo)
+    if(_cliQ){
+      var cq=_todosClientes.find(function(x){return String(x.id)===String(_cliQ);});
+      if(cq)seleccionarCliente(cq.rut);   // sin desplazar la página: que se vea "← Volver a la cartera"
+      else mostrarToast('No se encontró ese cliente en tu cartera (o no está activo).');
+    }
+  }).catch(function(){setSyncStatus('error');});
 })();
 </script>
 <script src="../auth.js"></script>
