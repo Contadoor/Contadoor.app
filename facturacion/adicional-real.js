@@ -27,6 +27,7 @@ var ERR={
   SOLO_MASTER:'Esta acción la hace solo el Master.',
   CAMPO_NO_PERMITIDO:'Hay un dato que no corresponde. Recarga la pantalla.',
   MOTIVO_OBLIGATORIO:'El motivo es obligatorio: explica por qué es una factura excepcional (10 a 500 caracteres).',
+  MOTIVO_ANULACION:'El motivo de la anulación es obligatorio (mínimo 10 caracteres).',
   TEXTO_NO_PERMITIDO:'No uses la palabra "honorarios": escribe "nuestros servicios".',
   GLOSA_INVALIDA:'Cada glosa debe tener entre 3 y 80 caracteres.',
   DETALLE_INVALIDO:'El detalle de una línea es demasiado largo (máximo 1000).',
@@ -254,7 +255,7 @@ function accion(act,id){
   if(act==='enviar')return modal({t:'Enviar a aprobación',ic:'enviar',b:'<p>Se congela el contenido de <b>'+esc(x.codigo)+'</b> ('+clp(+x.total)+') y se envía al Master. Si falta algo en la ficha del cliente, se te avisará.</p>',ok:'Enviar',cb:function(){correr(rpc('factura_adicional_enviar',{p_factura:x.id}),'Enviada al Master.',true);return false;}});
   if(act==='aprobar')return modal({t:'Aprobar factura',ic:'escudo',b:resumenRevision(x),ok:'Aprobar',cb:function(){correr(rpc('factura_adicional_aprobar',{p_factura:x.id,p_huella:x.snapshot_hash}),'Aprobada. El facturador ya puede emitir.',true);return false;}});
   if(act==='devolver')return modal({t:'Devolver al facturador',ic:'devolver',icc:'ic-amb',b:'<label>¿Qué hay que corregir?<textarea id="faCom" rows="3" maxlength="2000"></textarea></label>',ok:'Devolver',cls:'',cb:function(){var t=$('faCom').value.trim();if(t.length<5){modal.error(ERR.COMENTARIO_OBLIGATORIO);return false;}correr(rpc('factura_adicional_devolver',{p_factura:x.id,p_comentario:t}),'Devuelta al facturador.',true);return false;}});
-  if(act==='anular')return modal({t:'Anular factura',ic:'basura',icc:'ic-roj',b:'<label>Motivo de la anulación (mínimo 10 caracteres)<textarea id="faAnu" rows="3" maxlength="1000"></textarea></label>',ok:'Anular',cls:'',cb:function(){var t=$('faAnu').value.trim();if(t.length<10){modal.error(ERR.MOTIVO_OBLIGATORIO);return false;}correr(rpc('factura_adicional_anular',{p_factura:x.id,p_motivo:t}),'Anulada.',true);return false;}});
+  if(act==='anular')return modal({t:'Anular factura',ic:'basura',icc:'ic-roj',b:'<label>Motivo de la anulación (mínimo 10 caracteres)<textarea id="faAnu" rows="3" maxlength="1000"></textarea></label>',ok:'Anular',cls:'',cb:function(){var t=$('faAnu').value.trim();if(t.length<10){modal.error(ERR.MOTIVO_ANULACION);return false;}correr(rpc('factura_adicional_anular',{p_factura:x.id,p_motivo:t}),'Anulada.',true);return false;}});
   if(act==='emitir'){
     var prod=x.modo==='PRODUCCION';
     return modal({t:prod?'Emitir FACTURA REAL':'Emitir en prueba',ic:'enviar',icc:prod?'ic-roj':'ic-ver',
