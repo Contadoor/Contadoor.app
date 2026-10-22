@@ -157,7 +157,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-label">F29 proyectado</div><div class="kpi-value" id="kpi-f29" style="color:var(--red)">$0</div><div class="kpi-sub">A pagar el 20</div></div>
         <div class="kpi-card"><div class="kpi-label">vs. mes anterior</div><div class="kpi-value" id="kpi-var">—</div><div class="kpi-sub">Comparativa F29</div></div>
-        <div class="kpi-card"><div class="kpi-label">PPM del período</div><div class="kpi-value" id="kpi-ppm" style="color:var(--p)">$0</div><div class="kpi-sub">Incluido en F29</div></div>
+        <div class="kpi-card"><div class="kpi-label">PPM del período</div><div class="kpi-value" id="kpi-ppm" style="color:var(--p)">$0</div><div class="kpi-sub" id="kpi-ppm-sub">Incluido en F29</div></div>
         <div class="kpi-card"><div class="kpi-label">Días para actuar</div><div class="kpi-value" id="kpi-dias" style="color:var(--p)">—</div><div class="kpi-sub">Hasta cierre</div></div>
         <div class="kpi-card"><div class="kpi-label">Nuevo remanente</div><div class="kpi-value" id="kpi-remanente" style="color:var(--green)">$0</div><div class="kpi-sub">Si hay saldo a favor</div></div>
       </div>
@@ -189,10 +189,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             </div>
             <div class="inp-row"><span class="inp-label">Débito IVA registrado</span><input class="inp-field" type="number" id="inp-debito" placeholder="0"></div>
             <div class="inp-row"><span class="inp-label">Crédito IVA registrado</span><input class="inp-field" type="number" id="inp-credito" placeholder="0"></div>
+            <div class="inp-row"><span class="inp-label">Ventas exentas (neto)</span><input class="inp-field" type="number" id="inp-exento-ventas" min="0" placeholder="Del libro; vacío = sin dato" title="Base del PPM = neto afecto + exento. Si queda vacío, el PPM se marca como estimado sin ventas exentas."></div>
             <div class="inp-row"><span class="inp-label">Días transcurridos</span><input class="inp-field" type="number" id="inp-dias-transc" min="1" max="31"></div>
             <div class="inp-row"><span class="inp-label">Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31"></div>
             <div class="inp-row"><span class="inp-label">Tasa PPM (%)</span><input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10"></div>
             <div class="inp-row"><span class="inp-label">F29 mes anterior</span><input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa"></div>
+            <div id="aviso-entradas" role="alert" style="display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px;margin-top:8px"></div>
           </div>
         </div>
         <div class="panel-card">
@@ -202,7 +204,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             <div class="bar-row" style="margin-bottom:14px"><span class="bar-label">Crédito IVA</span><div class="bar-track"><div class="bar-fill" id="bar-credito" style="width:0%;background:var(--green)"></div></div><span class="bar-val" id="res-credito">$0</span></div>
             <div class="res-row remanente"><span class="res-label">Remanente período anterior</span><span class="res-valor" id="res-remanente">$0</span></div>
             <div class="res-row"><span class="res-label">PPM del período</span><span class="res-valor" id="res-ppm" style="color:var(--p)">$0</span></div>
+            <div id="res-ppm-aviso" style="display:none;font-size:11px;color:var(--amber);margin:-2px 0 6px"></div>
             <div class="res-row total"><span class="res-label">F29 estimado a pagar</span><span class="res-valor" id="res-f29">$0</span></div>
+            <div id="res-f29-alcance" style="font-size:10.5px;color:var(--tm);margin:4px 0 0">Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29 (lo valida Contable).</div>
             <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:11px">
               <span style="color:var(--tm)">Días restantes para actuar</span>
               <span style="color:var(--p);font-weight:600" id="res-dias-rest">—</span>
@@ -237,9 +241,29 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </main>
 </div>
 <script src="../supabase.js"></script>
+<script src="f29-formula.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
 var PROXY='https://contafunnel-v2.vercel.app';
+// Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
+// Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
+var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
+var CAMPOS_TRIB_EDICION=[['ed-debito','Débito IVA'],['ed-credito','Crédito IVA'],['ed-ppm','PPM'],['ed-remanente','Remanente'],['ed-f29','F29 a pagar (manual)']];
+function erroresCampos(lista){
+  var errs=[];
+  lista.forEach(function(c){var e=document.getElementById(c[0]);if(!e)return;
+    var m=PreIvaF29.validarMonto(e.value,{badInput:!!(e.validity&&e.validity.badInput)});
+    e.style.borderColor=m?'#d92d20':'';e.setAttribute('aria-invalid',m?'true':'false');
+    if(m)errs.push(c[1]+': '+m);});
+  return errs;
+}
+function revisarEntradas(){
+  var errs=erroresCampos(CAMPOS_TRIB);_datos.erroresEntrada=errs;
+  var el=document.getElementById('aviso-entradas');
+  if(el){el.textContent=errs.length?'⚠ Corrige antes de enviar · '+errs.join(' · '):'';el.style.display=errs.length?'block':'none';}
+  return errs;
+}
+var F29_ALCANCE='Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29.';
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function nv(id){var e=document.getElementById(id);return parseFloat((e?e.value:'')||0)||0;}
@@ -262,7 +286,7 @@ var _periodoActual='';
 var _datos={debitoRegistrado:0,creditoRegistrado:0,remanente:0,diasTranscurridos:22,diasTotales:31,ppm:0,tasaPPM:0};
 var _todosClientes=[];
 var _UF=39700;
-var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
 // ── CARGAR CLIENTES DESDE SUPABASE ────────────────────────────────────────
 function cargarClientes(){
   return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,ppm_tasa_default&order=razon_social.asc')
@@ -545,6 +569,7 @@ function cargarDatos(){
       document.getElementById('inp-debito').value=parseFloat(fila.debito_iva)||'';
       document.getElementById('inp-credito').value=parseFloat(fila.credito_iva)||'';
       _datos.netoVentas=parseFloat(fila.neto_ventas)||0;_datos.netoCompras=parseFloat(fila.neto_compras)||0;
+      _datos.debitoDeLibro=_datos.netoVentas>0?(parseFloat(fila.debito_iva)||0):null;   // el exento no se guarda en Gestoor: queda vacío hasta recargar el libro o escribirlo
       _datos.porTipoDocVentas=fila.por_tipo_doc_ventas||{};_datos.porTipoDocCompras=fila.por_tipo_doc_compras||{};
       var lv=document.getElementById('lbl-libro-ventas'),lc=document.getElementById('lbl-libro-compras');
       if(lv&&parseFloat(fila.debito_iva)>0){lv.textContent='Recuperado de Gestoor · Débito IVA: '+ff(fila.debito_iva)+' (vuelve a cargar el libro para actualizar)';lv.style.color='var(--p)';}
@@ -568,16 +593,27 @@ function mostrarPanel(show){
   var e=document.getElementById('panel-empty');if(e)e.style.display=show?'none':'flex';
 }
 // ── PPM ───────────────────────────────────────────────────────────────────
-function calcularPPM(){
-  var ventasNetas=nv('inp-debito')/1.19;
+// Base PPM = neto afecto + exento (igual que Contable). Neto del libro de ventas si corresponde al débito actual; si no, débito ÷ 0,19 (estimado).
+// Exento: el del libro o el que escriba el analista; vacío = sin dato → "PPM estimado sin ventas exentas" (no definitivo).
+// proy (opcional): {diasTranscurridos, diasRestantes, esMesActual} → la base se proyecta al cierre igual que el débito.
+function calcularPPM(proy){
+  var debReg=nv('inp-debito');
+  var netoOk=_datos.debitoDeLibro!=null&&_datos.debitoDeLibro===debReg;
+  var exRaw=(document.getElementById('inp-exento-ventas')||{}).value;
+  var b=PreIvaF29.calcularBasePPM({debito:debReg,netoAfecto:netoOk?_datos.netoVentas:null,exento:(exRaw===''||exRaw==null)?null:exRaw});
+  var base=proy?PreIvaF29.proyectarMes({debitoRegistrado:b.base,creditoRegistrado:0,diasTranscurridos:proy.diasTranscurridos,diasRestantes:proy.diasRestantes,esMesActual:proy.esMesActual}).debito:b.base;
   var tasa=parseFloat(document.getElementById('inp-tasa-ppm').value)||0;
-  var ppm=Math.round(ventasNetas*(tasa/100));
+  var ppm=PreIvaF29.calcularPPM(base,tasa);
+  var avisos=tasa>0?b.avisos:[];
   var elPpm=document.getElementById('res-ppm');if(elPpm)elPpm.textContent=ff(ppm);
-  _datos.ppm=ppm;_datos.tasaPPM=tasa;
+  var elAv=document.getElementById('res-ppm-aviso');if(elAv){elAv.textContent=avisos.length?'⚠ PPM no definitivo: '+avisos.join(' · ')+'. Base usada: '+ff(base)+'.':'';elAv.style.display=avisos.length?'block':'none';}
+  var elSub=document.getElementById('kpi-ppm-sub');if(elSub)elSub.textContent=avisos.length?'Estimado · ver aviso':'Incluido en F29';
+  _datos.ppm=ppm;_datos.tasaPPM=tasa;_datos.ppmBase=base;_datos.ppmAvisos=avisos;
   return ppm;
 }
 // ── CÁLCULO ───────────────────────────────────────────────────────────────
 function calcular(){
+  revisarEntradas();
   var debReg=nv('inp-debito'), credReg=nv('inp-credito');
   var diasT=nv('inp-dias-transc')||22, diasTot=nv('inp-dias-tot')||31;
   var remanente=_datos.remanente;
@@ -589,14 +625,15 @@ function calcular(){
   var _fechaVenc=new Date(_vencAnio,_vencMes,20);
   var _diasRestReal=Math.max(0,Math.ceil((_fechaVenc-_hoy)/(1000*60*60*24)));
   var diasRest=_diasRestReal;
-  var tasaDiaria=diasT>0?debReg/diasT:0, tasaDiariaC=diasT>0?credReg/diasT:0;
   // Solo el mes en curso se proyecta: un mes ya terminado (abierto desde la cartera con ?periodo=) tiene los libros completos.
   var _esMesActual=(_anio===_hoy.getFullYear()&&_mes===_hoy.getMonth());
-  var diasProy=_esMesActual?diasRest:0;
-  var debProy=Math.round(debReg+tasaDiaria*diasProy), credProy=Math.round(credReg+tasaDiariaC*diasProy);
-  var ppm=calcularPPM();
-  var f29=Math.max(debProy-credProy-remanente-ppm,0);
-  var nuevoRem=Math.max(credProy+remanente+ppm-debProy,0);
+  var pry=PreIvaF29.proyectarMes({debitoRegistrado:debReg,creditoRegistrado:credReg,diasTranscurridos:diasT,diasRestantes:diasRest,esMesActual:_esMesActual});
+  var debProy=pry.debito, credProy=pry.credito;
+  var ppm=calcularPPM({diasTranscurridos:diasT,diasRestantes:diasRest,esMesActual:_esMesActual});
+  // F29 estimado = IVA a pagar (débito − crédito − remanente, nunca negativo) + PPM. El remanente no rebaja el PPM (pre-iva/f29-formula.js).
+  var r29=PreIvaF29.calcularF29Estimado({debito:debProy,credito:credProy,remanente:remanente,ppm:ppm});
+  var f29=r29.total;
+  var nuevoRem=r29.nuevoRemanente;
   var f29Ant=parseInt((document.getElementById('inp-f29-ant')||{}).value)||0;
   var variacion=f29Ant>0?Math.round((f29-f29Ant)/f29Ant*100):0;
   // UI
@@ -614,15 +651,11 @@ function calcular(){
   var maxVal=Math.max(debProy,credProy,1);
   document.getElementById('bar-debito').style.width=Math.min(debProy/maxVal*100,100)+'%';
   document.getElementById('bar-credito').style.width=Math.min(credProy/maxVal*100,100)+'%';
-  generarAcciones(debProy,credProy,remanente,f29,diasRest);
+  generarAcciones(debProy,credProy,remanente,r29.ivaPagar,diasRest);   // las acciones de compras/ventas solo mueven el IVA, no el PPM
 }
 // ── ACCIONES SUGERIDAS ────────────────────────────────────────────────────
-function generarAcciones(deb,cred,rem,f29,diasRest){
-  var acciones=[];
-  if(f29>500000){acciones.push({tipo:'verde',titulo:'Adelantar compras del mes siguiente',desc:'Registrar facturas de proveedores del próximo mes genera crédito adicional y reduce el F29.',monto:'Ahorro estimado hasta '+ff(Math.round(f29*0.13))});}
-  if(diasRest>=5&&deb>0){acciones.push({tipo:'amarillo',titulo:'Diferir facturación de fin de mes',desc:'Facturas emitidas el 1 del mes siguiente mueven débito al período siguiente.',monto:'Impacto posible: '+ff(Math.round(deb/22*3*0.19))});}
-  acciones.push({tipo:'morado',titulo:'Revisar facturas de proveedores pendientes',desc:'Documentos recibidos y aún no registrados. Cada factura suma crédito fiscal.',monto:'Consulta con tu analista'});
-  if(f29>1000000){acciones.push({tipo:'amarillo',titulo:'Compra de activo fijo',desc:'Si tienes activos planificados, el IVA del activo genera crédito inmediato.',monto:'Depende del monto del activo'});}
+function generarAcciones(deb,cred,rem,ivaPagar,diasRest){
+  var acciones=PreIvaF29.accionesSugeridas({debito:deb,ivaPagar:ivaPagar,diasRestantes:diasRest,formato:ff});
   var html='';
   acciones.forEach(function(a){
     html+='<div class="accion '+a.tipo+'"><div class="ac-titulo">'+hesc(a.titulo)+'</div><div class="ac-desc">'+hesc(a.desc)+'</div><div class="ac-monto">'+hesc(a.monto)+'</div></div>';
@@ -704,6 +737,8 @@ function onLibroChange(input,tipo){
       _datos.porTipoDocVentas=res.porTipoDoc||{};
       _datos.netoVentas=res.neto||0;
       _datos.exentoVentas=res.exento||0;
+      _datos.debitoDeLibro=res.iva||0;   // el neto del libro vale para la base PPM mientras el débito no se edite a mano
+      var inpEx=document.getElementById('inp-exento-ventas');if(inpEx)inpEx.value=res.exento||0;
     }else{
       document.getElementById('inp-credito').value=res.iva;
       _datos.porTipoDocCompras=res.porTipoDoc||{};
@@ -730,9 +765,11 @@ function enviarPreIVA(){
   if(!c.email){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
   var u=getUsuario();
   if(!u.nombre){alert('No hay usuario activo en sesión.');return;}
+  var errEnt=revisarEntradas();
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
   var periodo=formatPeriodo(_periodoActual);
   var f29=document.getElementById('res-f29').textContent;
-  if(!confirm('¿Enviar proyección IVA de '+periodo+' a '+hesc(c.razonSocial||c.rut)+'?\n\nEmail: '+c.email+'\nF29 proyectado: '+f29))return;
+  if(!confirm('¿Enviar proyección IVA de '+periodo+' a '+hesc(c.razonSocial||c.rut)+'?\n\nEmail: '+c.email+'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+(ppmAvisoReporte()?'\n\n⚠ PPM no definitivo: '+ppmAvisoReporte()+'. El correo lo mostrará como estimado.':'')))return;
   var btn=document.getElementById('btn-enviar');
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   var htmlReporte=buildReporteHTML();
@@ -781,6 +818,14 @@ function mostrarToast(msg){
   t.textContent=msg;document.body.appendChild(t);
   setTimeout(function(){t.remove();},4000);
 }
+// Aviso de PPM no definitivo para el reporte/correo y la confirmación: se CONSERVA aunque el PPM se edite a mano,
+// y solo desaparece si el analista marca "PPM verificado con antecedentes completos" en "Editar reporte".
+function ppmAvisoReporte(){
+  if(_editOverrides.ppmVerificado) return '';
+  var av=(_datos.ppmAvisos||[]).slice();
+  if(_editOverrides.ppm!==null&&numDe(_editOverrides.ppm)!==(_datos.ppm||0)) av.push('PPM editado a mano sin verificar');
+  return av.join(' · ');
+}
 // ── REPORTE HTML ──────────────────────────────────────────────────────────
 function buildDesgloseHTML(porTipoDoc,titulo,colorAccento){
   if(!porTipoDoc||!Object.keys(porTipoDoc).length)return '';
@@ -809,6 +854,8 @@ function buildReporteHTML(){
   var remanente=document.getElementById('res-remanente').textContent;
   var periodo=formatPeriodo(_periodoActual);
   var tasaPPM=_datos.tasaPPM||0;
+  // PPM no definitivo (sin exento o neto estimado): el cliente lo ve marcado como estimado, salvo que el analista lo haya cambiado en "Editar reporte".
+  var ppmEst=ppmAvisoReporte();
   var contacto=c.contacto||c.razonSocial||(c.rut||'Cliente').split(' ')[0];
   var f29Ant=nv('inp-f29-ant');
   var f29Num=parseInt(String(f29).replace(/[^0-9]/g,''))||0;
@@ -826,7 +873,7 @@ function buildReporteHTML(){
   var now=new Date();
   var html='<div style="padding:16px 28px;border-bottom:1px solid #eee"><div style="font-size:10px;color:#904891;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Proyección de IVA · '+periodo+'</div><div style="font-size:16px;font-weight:700;color:#1a0a1b;margin-bottom:2px">'+hesc(c.razonSocial||c.rut)+'</div><div style="font-size:11px;color:#9a849b">RUT '+hesc(c.rut)+' · Datos al '+now.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()]+'</div></div>';
   html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8dde8"><div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">F29 proyectado</div><div style="font-size:20px;font-weight:700;color:#C0392B;font-variant-numeric:tabular-nums">'+f29+'</div>'+varHTML+'<div style="font-size:10px;color:#9a849b;margin-top:2px">A pagar el 20 del próximo mes</div></div><div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Remanente aplicado</div><div style="font-size:20px;font-weight:700;color:#2D9B6F;font-variant-numeric:tabular-nums">'+remanente+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Período anterior</div></div><div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Días para actuar</div><div style="font-size:20px;font-weight:700;color:#904891;font-variant-numeric:tabular-nums">'+diasRest+' días</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Hasta el cierre del período</div></div></div>';
-  html+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0"><div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">📊 Composición proyectada al cierre</div><table style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Débito IVA (ventas proyectadas)</td><td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+debProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Crédito IVA (compras proyectadas)</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+credProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Remanente período anterior</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+remanente+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">PPM (tasa '+tasaPPM+'%)</td><td style="text-align:right;font-weight:600;color:#904891;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+ppm+'</td></tr><tr style="border-top:2px solid #e8dde8"><td style="padding:8px 0;font-weight:700;color:#1a0a1b">F29 estimado a pagar</td><td style="text-align:right;font-weight:700;font-size:15px;color:#C0392B;font-variant-numeric:tabular-nums">'+f29+'</td></tr></table><div style="font-size:10px;color:#c9c0cc;margin-top:6px">Proyección basada en promedio diario al día '+now.getDate()+' · puede variar al cierre</div></div>';
+  html+='<div style="padding:16px 28px;border-bottom:1px solid #f0ebf0"><div style="font-size:11px;font-weight:600;color:#1a0a1b;margin-bottom:10px">📊 Composición proyectada al cierre</div><table style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Débito IVA (ventas proyectadas)</td><td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+debProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Crédito IVA (compras proyectadas)</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+credProy+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">Remanente período anterior</td><td style="text-align:right;font-weight:600;color:#2D9B6F;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+remanente+'</td></tr><tr><td style="padding:6px 0;color:#5c4a5d;border-bottom:1px solid #f5f0f5">PPM (tasa '+tasaPPM+'%)'+(ppmEst?'<div style="font-size:10px;color:#B7791F">Estimado: '+hesc(ppmEst)+'</div>':'')+'</td><td style="text-align:right;font-weight:600;color:#904891;font-variant-numeric:tabular-nums;border-bottom:1px solid #f5f0f5">'+ppm+'</td></tr><tr style="border-top:2px solid #e8dde8"><td style="padding:8px 0;font-weight:700;color:#1a0a1b">F29 estimado a pagar</td><td style="text-align:right;font-weight:700;font-size:15px;color:#C0392B;font-variant-numeric:tabular-nums">'+f29+'</td></tr></table><div style="font-size:10px;color:#9a849b;margin-top:6px">'+hesc(F29_ALCANCE)+'</div><div style="font-size:10px;color:#c9c0cc;margin-top:4px">Proyección basada en promedio diario al día '+now.getDate()+' · puede variar al cierre</div></div>';
   html+=buildDesgloseHTML(_datos.porTipoDocVentas||{},'📄 Ventas por tipo de documento','#904891');
   html+=buildDesgloseHTML(_datos.porTipoDocCompras||{},'📋 Compras por tipo de documento','#2D9B6F');
   // Acciones: usar las editadas si existen
@@ -925,7 +972,7 @@ function seleccionarClienteNomina(rut){
   setTimeout(function(){var p=document.getElementById('panel-simulacion');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});},100);
 }
 function limpiarSimulacion(){
-  ['inp-debito','inp-credito','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  ['inp-debito','inp-credito','inp-exento-ventas','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('inp-dias-transc').value=22;
   document.getElementById('inp-dias-tot').value=31;
   ['lbl-libro-ventas','lbl-libro-compras'].forEach(function(id){var e=document.getElementById(id);if(e){e.textContent='Sin archivo cargado';e.style.color='var(--tm)';}});
@@ -939,7 +986,8 @@ function limpiarSimulacion(){
   document.getElementById('bar-credito').style.width='0%';
   document.getElementById('acciones-grid').innerHTML='';
   _datos.debitoRegistrado=0;_datos.creditoRegistrado=0;_datos.ppm=0;
-  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+  _datos.netoVentas=0;_datos.exentoVentas=0;_datos.debitoDeLibro=null;_datos.ppmAvisos=[];
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
 }
 // ── MODAL EDITAR REPORTE ─────────────────────────────────────────────────
 function abrirModalEdicion(){
@@ -997,6 +1045,8 @@ function abrirModalEdicion(){
     +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">PPM</div><input id="ed-ppm" class="inp-field" value="'+fmtNum(ppm)+'" type="number" style="width:100%"></div>'
     +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">Remanente</div><input id="ed-remanente" class="inp-field" value="'+fmtNum(rem)+'" type="number" style="width:100%"></div>'
     +'<div style="grid-column:1/-1"><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">F29 a pagar (manual)</div><input id="ed-f29" class="inp-field" value="'+fmtNum(f29)+'" type="number" style="width:100%"><div style="font-size:10px;color:var(--tm);margin-top:3px">Si lo dejas en 0, se recalcula automáticamente</div></div>'
+    +'<label style="grid-column:1/-1;display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--t2);cursor:pointer"><input type="checkbox" id="ed-ppm-verificado"'+(_editOverrides.ppmVerificado?' checked':'')+' style="margin-top:2px"><span><strong>PPM verificado con antecedentes completos</strong> (neto afecto, exento y otros ingresos del período). Si no lo marcas, el correo muestra el PPM como estimado.</span></label>'
+    +'<div id="ed-errores" role="alert" style="grid-column:1/-1;display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px"></div>'
     +'</div>'
     // Acciones
     +'<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">⚡ Acciones sugeridas</div>'
@@ -1048,6 +1098,9 @@ function eliminarAccion(idx){
   if(items[idx]) items[idx].remove();
 }
 function guardarEdicion(){
+  var errEd=erroresCampos(CAMPOS_TRIB_EDICION);
+  var boxErr=document.getElementById('ed-errores');
+  if(errEd.length){if(boxErr){boxErr.textContent='⚠ No se aplicaron los cambios. Corrige: '+errEd.join(' · ');boxErr.style.display='block';}return false;}
   var debito=document.getElementById('ed-debito').value;
   var credito=document.getElementById('ed-credito').value;
   var ppm=document.getElementById('ed-ppm').value;
@@ -1056,7 +1109,7 @@ function guardarEdicion(){
   var obs=document.getElementById('ed-obs').value||'';
   // Recalcular f29 si se dejó en 0
   var debNum=parseInt(debito)||0,credNum=parseInt(credito)||0,ppmNum=parseInt(ppm)||0,remNum=parseInt(remanente)||0;
-  var f29Calc=f29raw>0?f29raw:Math.max(debNum-credNum-remNum-ppmNum,0);
+  var f29Calc=PreIvaF29.f29DesdeEdicion({f29Manual:f29raw,debito:debNum,credito:credNum,remanente:remNum,ppm:ppmNum});
   // Recolectar acciones
   var acciones=[];
   var bloques=document.querySelectorAll('#ed-acciones > div');
@@ -1075,12 +1128,13 @@ function guardarEdicion(){
   _editOverrides.f29=ff(f29Calc);
   _editOverrides.acciones=acciones;
   _editOverrides.obs=obs;
+  var chkV=document.getElementById('ed-ppm-verificado');_editOverrides.ppmVerificado=!!(chkV&&chkV.checked);
   document.getElementById('modal-edicion').remove();
   mostrarToast('✅ Cambios aplicados — usa Vista previa para revisar');
   marcarCambio();
 }
 function limpiarEdicion(){
-  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
   document.getElementById('modal-edicion').remove();
   mostrarToast('↩️ Reporte restablecido a valores calculados');
 }
@@ -1296,8 +1350,8 @@ function subirLocales(){
   var filV=document.getElementById('file-ventas');if(filV)filV.onchange=function(){onLibroChange(this,'ventas');};
   var filC=document.getElementById('file-compras');if(filC)filC.onchange=function(){onLibroChange(this,'compras');};
   // Inputs de cálculo
-  ['inp-debito','inp-credito','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=function(){calcular();marcarCambio();};});
-  var inpPPM=document.getElementById('inp-tasa-ppm');if(inpPPM)inpPPM.oninput=function(){calcularPPM();calcular();marcarCambio();};
+  ['inp-debito','inp-credito','inp-exento-ventas','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=function(){calcular();marcarCambio();};});
+  var inpPPM=document.getElementById('inp-tasa-ppm');if(inpPPM)inpPPM.oninput=function(){calcular();marcarCambio();};
   var btnGuardarAhora=document.getElementById('btn-guardar-ahora');if(btnGuardarAhora)btnGuardarAhora.onclick=function(){guardarPreiva('borrador').catch(function(){});};
   window.addEventListener('beforeunload',function(e){if(_sucio||_autoTimer){guardarPendiente();e.preventDefault();e.returnValue='';}});
   var btnLoc=document.getElementById('banner-locales');if(btnLoc)btnLoc.onclick=function(e){if(e.target.closest('#btn-subir-locales'))abrirModalLocales();};
