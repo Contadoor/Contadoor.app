@@ -146,6 +146,7 @@ tr[data-rut]{cursor:pointer}
 .bulk-bar.on{display:flex;}
 </style>
 <script src="../supabase.js"></script>
+<script src="../correo-gestoor.js"></script>
 <link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1957,7 +1958,8 @@ function enviarReporteParcial(){
     }
   });
 }
-function buildPreReporteRrhhHTML(r,data){
+function buildPreReporteRrhhHTML(r,data,opts){
+  var sinMarco=!!(opts&&opts.sinMarco); // Correos unificados: el marco común (logo, firma con foto, pie) lo agrega la Edge
   var periodo=formatPeriodo(r.periodo);
   var u=getUsuario();
   var partes=String(r.periodo||'').split('-');
@@ -2006,10 +2008,10 @@ function buildPreReporteRrhhHTML(r,data){
   var mailPost='mailto:'+analistaEmail+'?subject='+encodeURIComponent('Quiero postergar cotizaciones '+periodo+' — '+(r.clienteNombre||r.rut))+'&body='+encodeURIComponent('Hola '+analistaNombre+', necesito postergar el pago de cotizaciones de '+periodo+'. Motivo: ');
     var AVISO='Asesorías Contadoor Ltda. no se hace responsable de multas, intereses ni recargos generados por el pago fuera de plazo. La recepción de este aviso constituye notificación formal de las obligaciones y fechas límite vigentes. Para coordinar postergaciones, contáctenos antes del plazo indicado.';
   return '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto">'
-  // Header: fondo morado + logo blanco
-  +'<div style="background:#904891;padding:18px 24px;text-align:center">'
+  // Header: fondo morado + logo blanco (se omite cuando lo envuelve el marco común)
+  +(sinMarco?'':'<div style="background:#904891;padding:18px 24px;text-align:center">'
   +'<img src="'+LOGO_EMAIL+'" width="160" style="display:block;margin:0 auto;max-height:40px;object-fit:contain" alt="Contadoor">'
-  +'</div>'
+  +'</div>')
   // Saludo
   +'<div style="padding:18px 24px 14px;border-bottom:1px solid #f0ebf0">'
   +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 6px">Hola '+contacto+',</p>'
@@ -2072,7 +2074,8 @@ function buildPreReporteRrhhHTML(r,data){
   +'<div style="padding:12px 24px;background:#f5f0f8;border-top:1px solid #e8dde8;border-bottom:1px solid #e8dde8">'
   +'<p style="font-size:10px;color:#9a849b;line-height:1.6;margin:0;font-style:italic">'+AVISO+'</p>'
   +'</div>'
-  // Footer
+  // Footer (se omite cuando lo envuelve el marco común: ahí va la firma con foto del analista)
+  +(sinMarco?'':''
   +'<div style="padding:14px 24px;background:#f5f0f8;border-top:1px solid #e8dde8">'
   +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:8px">Tu asesor de remuneraciones</div>'
   +'<div style="display:flex;align-items:center;gap:12px">'
@@ -2085,7 +2088,7 @@ function buildPreReporteRrhhHTML(r,data){
   +'<div style="padding:12px 24px;background:#1a0a1b;text-align:center">'
   +'<p style="font-size:11px;color:#c9a6e8;margin:0 0 2px">'+analistaNombre+' · Asesorías Contadoor Ltda.</p>'
   +'<p style="font-size:10px;color:#4a3060;margin:0">reportes@contadoor.cl · contadoor.cl · +56 9 7988 1891</p>'
-  +'</div>'
+  +'</div>')
   +'</div>';
 }
 // ── VALIDACIÓN PREVIA AL ENVÍO DE AVISO DE COTIZACIONES ────────────────────
@@ -2155,7 +2158,7 @@ function enviarAvisoRrhhCore(r, opciones){
     }
   }
   var htmlContent;
-  try{htmlContent=buildPreReporteRrhhHTML(r,data);}
+  try{htmlContent=buildPreReporteRrhhHTML(r,data,{sinMarco:true});}
   catch(buildErr){
     console.error('[RRHH CORE] Error build email:',buildErr);
     return Promise.resolve({ok:false, motivo:'Error al generar el email: '+buildErr.message});
@@ -2171,38 +2174,19 @@ function enviarAvisoRrhhCore(r, opciones){
   var periodo=formatPeriodo(r.periodo);
   var _cli=getClientes().find(function(x){return x.rut===r.rut;});
   var toNombre=(_cli&&(_cli.contacto||_cli.contact))||r.clienteNombre||r.rut;
-  var replyTo=u.email||(_cli&&_cli.emailAnalista)||'reportes@contadoor.cl';
-  console.log('[RRHH EMAIL] destino:',val.email);
+  console.log('[RRHH EMAIL] destino (ficha):',val.email);
   console.log('[RRHH EMAIL] totalCot:',r.totalCot||r.totalCotizaciones||0);
   console.log('[RRHH EMAIL] nTrab:',r.nTrab||0);
   console.log('[RRHH EMAIL] htmlReporte:',htmlEmail.length,'bytes ('+Math.round(htmlEmail.length/1024)+'KB)');
   console.log('[RRHH EMAIL] llamando endpoint...');
-  return fetch('https://contafunnel-v2.vercel.app/api/enviar-cotizaciones',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      analistaNombre:u.nombre||'Contadoor',
-      analistaWa:u.wa||'979881891',
-      toEmail:val.email,
-      toNombre:toNombre,
-      toEmpresa:r.clienteNombre||r.rut,
-      periodo:periodo,
-      htmlReporte:htmlEmail,
-      replyTo:replyTo,
-      revision:r.revision||1
-    })
-  })
-  .then(function(res){
-    console.log('[RRHH EMAIL] HTTP status:',res.status);
-    if(!res.ok) return res.text().then(function(t){
-      console.error('[RRHH EMAIL] error body:',t);
-      return {ok:false, motivo:'HTTP '+res.status+': '+t.slice(0,200)};
-    });
-    return res.json().then(function(d){
-      // Log completo de la respuesta del endpoint
-      console.log('[RRHH EMAIL] respuesta endpoint:',JSON.stringify(d));
-      if(d&&(d.id||d.messageId)) console.log('[RRHH EMAIL] messageId proveedor:',d.id||d.messageId);
-      if(!(d&&d.ok)) return {ok:false, emailEnviado:false, estadoActualizado:false, motivo:d&&d.error?d.error:'El servidor rechazó el envío.'};
+  // Correos unificados (22-oct): Edge gestoor-correo-enviar. Destinatario = ficha del cliente; De: Contadoor <reportes@>; Responder a: analista RRHH.
+  if(!_cli||!_cli.id) return Promise.resolve({ok:false, emailEnviado:false, estadoActualizado:false, motivo:'No se encontró el cliente (RUT '+r.rut+') en la nómina.'});
+  var claveAviso=opciones.clave||GestoorCorreo.nuevaClave('rrhh-aviso');
+  return GestoorCorreo.enviar({tipo:'cotizaciones_rrhh', cliente_id:_cli.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rev'+(r.revision||1), clave:claveAviso, contenido_html:htmlEmail})
+  .then(function(d){
+    {
+      console.log('[RRHH EMAIL] respuesta:',d&&d.estado,d&&d.codigo);
+      if(!(d&&d.ok)) return {ok:false, emailEnviado:false, estadoActualizado:false, motivo:GestoorCorreo.mensaje(d||{})};
       // ── 4. PATCH Supabase (awaited — no fire-and-forget) ───
       var fechaEnvio=new Date().toISOString();
       var idReal=/^\d+$/.test(String(r.id))?r.id:null;
@@ -2230,13 +2214,13 @@ function enviarAvisoRrhhCore(r, opciones){
           arr[i].estado='aviso_enviado';
           setReportesCache(arr);
         }
-        var _msgId = typeof d!=='undefined'&&d?(d.id||d.messageId||null):null;
+        var _msgId = d&&d.id?d.id:null; // id del registro en correos_envios
         return {ok:true, emailEnviado:true, estadoActualizado:true, email:val.email, messageId:_msgId};
       }).catch(function(_patchErr){
         console.error('[RRHH EMAIL] PATCH Supabase excepción:',_patchErr);
         return {ok:false, emailEnviado:true, estadoActualizado:false, motivo:'Correo enviado pero excepción en PATCH Supabase: '+(_patchErr&&_patchErr.message||_patchErr)};
       });
-    });
+    }
   })
   .catch(function(err){
     console.error('[RRHH EMAIL] Error fetch:',err);
@@ -2278,31 +2262,25 @@ function reenviarAviso(id){
   var u=getUsuario();
   var periodo=formatPeriodo(r.periodo);
   var htmlContent;
-  try{htmlContent=buildPreReporteRrhhHTML(r,null);}
+  try{htmlContent=buildPreReporteRrhhHTML(r,null,{sinMarco:true});}
   catch(e){alert('Error generando email: '+e.message);return;}
   var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
   htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
   console.log('[RRHH REENVÍO] reporte_id:',r.id,'| rev:',_rev,'| email:',_email);
-  fetch('https://contafunnel-v2.vercel.app/api/enviar-cotizaciones',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      analistaNombre:u.nombre||'Contadoor',analistaWa:u.wa||'979881891',
-      toEmail:_email,toNombre:(_cli&&(_cli.contacto||_cli.contact))||r.clienteNombre||r.rut,
-      toEmpresa:r.clienteNombre||r.rut,periodo:periodo,htmlReporte:htmlEmail,
-      replyTo:u.email||(_cli&&_cli.emailAnalista)||'reportes@contadoor.cl',
-      revision:_rev
-    })
-  }).then(function(res){return res.ok?res.json():res.text().then(function(t){return {ok:false,error:'HTTP '+res.status+': '+t.slice(0,100)};});})
+  // Correos unificados (22-oct): reenvío explícito por la Edge (reenvio:true permite el mismo contenido; queda registrado como envío aparte).
+  if(!_cli||!_cli.id){alert('No se encontró el cliente (RUT '+r.rut+') en la nómina.');return;}
+  GestoorCorreo.enviar({tipo:'cotizaciones_rrhh', cliente_id:_cli.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rev'+_rev+':reenvio',
+                        clave:GestoorCorreo.nuevaClave('rrhh-reenvio'), contenido_html:htmlEmail, reenvio:true})
   .then(function(d){
-    console.log('[RRHH REENV\u00cdO] respuesta:',JSON.stringify(d));
+    console.log('[RRHH REENV\u00cdO] respuesta:',d&&d.estado,d&&d.codigo);
     if(d&&d.ok){
       // Solo registrar fecha de reenv\u00edo, NO cambiar estado ni revisi\u00f3n
       var arr=getReportes();
       var i=arr.findIndex(function(x){return String(x.id)===String(id);});
       if(i>=0){arr[i].preReporteFecha=new Date().toISOString();setReportesCache(arr);}
-      toast('\u2705 Aviso reenviado a '+_email);
-    }else{alert('\u274c Error al reenviar: '+(d&&d.error)||'Error desconocido');}
-  }).catch(function(err){alert('Error de conexión: '+err.message);});
+      toast('\u2705 '+GestoorCorreo.mensaje(d));
+    }else{alert('\u274c Error al reenviar: '+GestoorCorreo.mensaje(d||{}));}
+  });
 }
 // ── INICIO DE REPROCESO RRHH ──────────────────────────────────────────────────
 function iniciarReproceso(id){
@@ -2591,6 +2569,9 @@ function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
   +'</div>';
 }
 function enviarRecordatorioRrhh(id, forzar){
+  // Correos unificados (22-oct): ningún correo automático sale desde el navegador de quien abre la pantalla.
+  // Los recordatorios automáticos se diseñan en el servidor (cron + Edge, con horario y límite legal). Aquí solo el envío manual.
+  if(!forzar) return;
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r) return;
   if(!r.clienteEmail) return;
@@ -2625,32 +2606,25 @@ function enviarRecordatorioRrhh(id, forzar){
   var htmlRec=buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente);
   var periodo=formatPeriodo(r.periodo);
   function minH(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
-  fetch('https://contafunnel-v2.vercel.app/api/enviar-cotizaciones',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      analistaNombre:u.nombre||'Contadoor',
-      analistaWa:u.wa||'979881891',
-      toEmail:r.clienteEmail,
-      toNombre:r.clienteNombre||r.rut,
-      periodo:periodo,
-      htmlReporte:minH(htmlRec)
-    })
-  }).then(function(res){return res.json();})
+  // Correos unificados (22-oct): Edge gestoor-correo-enviar (tipo recordatorio_rrhh). Solo manual (forzar): ver verificarRecordatoriosRrhh.
+  var _cliRec=getClientes().find(function(x){return x.rut===r.rut;});
+  if(!_cliRec||!_cliRec.id){if(forzar)alert('No se encontró el cliente (RUT '+r.rut+') en la nómina.');return;}
+  GestoorCorreo.enviar({tipo:'recordatorio_rrhh', cliente_id:_cliRec.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rec'+((r.nRecordatorios||0)+1),
+                        clave:GestoorCorreo.nuevaClave('rrhh-rec'), contenido_html:minH(htmlRec)})
   .then(function(data){
     if(data.ok){
       // Registrar envío
       var arr=getReportes();
       var i=arr.findIndex(function(x){return String(x.id)===String(id);});
       if(i>=0){arr[i].ultimoRecordatorio=new Date().toISOString();arr[i].nRecordatorios=(arr[i].nRecordatorios||0)+1;setReportes(arr);}
-      if(forzar) toast('🔔 Recordatorio enviado a '+r.clienteEmail);
-    }
-  }).catch(function(){});
+      if(forzar) toast('🔔 '+GestoorCorreo.mensaje(data));
+    }else if(forzar){alert('❌ '+GestoorCorreo.mensaje(data));}
+  });
 }
 function verificarRecordatoriosRrhh(){
-  // Corre al cargar — revisa todos los reportes pendientes
-  var arr=getReportes();
-  arr.forEach(function(r){enviarRecordatorioRrhh(r.id,false);});
+  // Correos unificados (22-oct): desactivado. Antes enviaba recordatorios automáticos desde el navegador de quien abría
+  // la pantalla (sin registro, sin horario, a veces duplicados). Pasarán a una tarea del servidor (etapa C del paquete).
+  return;
 }
 // ═══════════════════════════════════════════════════
 // NOTIFICACIONES (stub si no está cargado)
