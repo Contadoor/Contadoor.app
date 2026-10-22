@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiRenta · Cartera de Renta · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/mirenta-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="proyeccion.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 2): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (por ejemplo gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js.
+   El candado 2 está dentro de proyeccion-demo.js (vuelve a revisar el host antes de definir los datos ficticios). */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.MR_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-mrp">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="pir"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar mrp-top">
+    <div class="mrp-marca">
+      <img class="mrp-ico" src="../assets/mirenta-icono.svg" alt="" width="40" height="40">
+      <div><h1 class="tb-title">Mi<span>Renta</span></h1><p>Proyección de la renta · no esperamos abril para saber qué está pasando</p></div>
+    </div>
+    <div class="g-espacio"></div>
+    <span class="mrp-demo" id="mrDemo" hidden title="Datos ficticios locales: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+    <a class="g-btn sm mrp-volver" href="index.html" title="Volver a la apertura tributaria de MiRenta"><i class="ic ic-cel" data-ic="flecha-izq"></i>Apertura</a>
+    <div class="g-seg mrp-modo" role="group" aria-label="Vista">
+      <button type="button" class="fb on" data-modo="CLIENTE" aria-pressed="true"><i class="ic ic-ver" data-ic="persona"></i>Vista cliente</button>
+      <button type="button" class="fb" data-modo="ASESOR" aria-pressed="false"><i class="ic ic-ama" data-ic="codigo"></i>Modo técnico</button>
+    </div>
+  </div>
+  <div class="content">
+    <div id="mrApp" class="mrp-app"><div class="aviso lila"><span class="mrp-spin"></span>Cargando la proyección…</div></div>
+  </div>
+</main>
+</div>
+
+<!-- Detalle de una cifra (ventana lateral para validar datos) -->
+<div class="mrp-velo" id="mrVelo"></div>
+<aside class="mrp-det" id="mrDet" role="dialog" aria-modal="true" aria-labelledby="mrDetTit" hidden>
+  <div class="mrp-det-bar">
+    <button type="button" class="g-btn sm" id="mrDetAncho" title="Ampliar o reducir la ventana"><i class="ic ic-cel" data-ic="ampliar"></i><span>Ampliar</span></button>
+    <button type="button" class="g-btn sm" id="mrDetImp" title="Imprimir este detalle"><i class="ic ic-mor" data-ic="imprimir"></i>Imprimir</button>
+    <button type="button" class="mrp-cerrar" id="mrDetCerrar" aria-label="Cerrar detalle"><i class="ic" data-ic="cerrar"></i></button>
+  </div>
+  <div id="mrDetCuerpo"></div>
+</aside>
+
+<!-- Documento imprimible (resumen ejecutivo para el cliente) -->
+<div class="mrp-doc" id="mrDoc" role="dialog" aria-modal="true" aria-label="Resumen ejecutivo" hidden>
+  <div class="mrp-doc-bar">
+    <span><i class="ic ic-cel" data-ic="imprimir"></i> Resumen en una hoja A4, marcado PRELIMINAR. En la ventana de impresión elige “Guardar como PDF”.</span>
+    <label class="mrc-check"><input type="checkbox" id="mrDocDet"> Incluir detalle (determinación, registros y F22)</label>
+    <button type="button" class="g-btn sm pri" id="mrDocImp"><i class="ic" data-ic="descargar"></i>Descargar PDF</button>
+    <button type="button" class="g-btn sm" data-act="enviar"><i class="ic ic-mor" data-ic="enviar"></i>Enviar al cliente</button>
+    <button type="button" class="g-btn sm" id="mrDocCerrar"><i class="ic" data-ic="cerrar"></i>Cerrar</button>
+  </div>
+  <div id="mrDocHoja"></div>
+</div>
+
+<!-- Confirmaciones con motivo (toda acción del motor exige motivo) -->
+<div class="mrp-velo" id="mrMvelo"></div>
+<div class="mrp-modal" id="mrModal" role="dialog" aria-modal="true" aria-labelledby="mrModalTit" hidden>
+  <div id="mrModalCuerpo"></div>
+</div>
+<div class="mrp-toast" id="mrToast" role="status" aria-live="polite"></div>
+
+<script src="../supabase.js"></script>
+<script>if(window.MR_DEMO)document.write('<script src="proyeccion-demo.js"><\/script>');</script>
+<script src="proyeccion.js"></script>
+<script>if(!window.MR_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>
