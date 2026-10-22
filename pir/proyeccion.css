@@ -415,3 +415,58 @@ body.g-mod-mrp .mrp-doc-bar .g-btn:not(.pri){background:transparent;border-color
   body.g-mod-mrp .mrc-cob.ambar .mrc-cob-barra i{background:linear-gradient(90deg,#C98A22,#E3A33B)!important}
   body.g-mod-mrp .mrc-cob.verde .mrc-cob-barra i{background:linear-gradient(90deg,#2E8F64,#3FAF7E)!important}
 }
+
+/* ── Liquidación del impuesto ("Cómo se calcula tu impuesto"): filas de contador con operador alineado ── */
+.g-mod-mrp .liq-g{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.g-mod-mrp .liq-g.solo{grid-template-columns:minmax(0,1fr)}
+.g-mod-mrp table.liq-t1 td{vertical-align:middle}
+.g-mod-mrp table.liq-t1 td.op{width:26px;padding-right:0;text-align:center;font:900 17px/1 var(--tit);color:var(--lila2)}
+.g-mod-mrp table.liq-t1 .liq-t{color:var(--t1);font-weight:600}
+.g-mod-mrp table.liq-t1 td small{display:block;margin-top:2px;color:var(--t3);font-size:11.5px;line-height:1.4}
+.g-mod-mrp table.liq-t1 .num{font:800 14px var(--tit)}
+.g-mod-mrp table.liq-t1 .liq-tasa{font:800 14px var(--tit);color:var(--lila2)}
+.g-mod-mrp table.liq-t1 tr.tot td{border-top:1px solid var(--borde2);background:rgba(199,123,201,.06)}
+.g-mod-mrp table.liq-t1 tr.tot .liq-t{font-weight:800}
+.g-mod-mrp table.liq-t1 tr.gris td,.g-mod-mrp table.liq-t1 tr.gris .liq-t{color:var(--t3)}
+.g-mod-mrp table.liq-t1 tr.gris td.op{color:var(--t3)}
+.g-mod-mrp table.liq-t1 tr.aj td,.g-mod-mrp table.liq-t1 tr.aj .liq-t,.g-mod-mrp table.liq-t1 tr.aj td.op{color:var(--ambar)}
+.g-mod-mrp table.liq-t1 tr.fin td{border-top:2px solid var(--lila);border-bottom:0;background:rgba(199,123,201,.10)}
+.g-mod-mrp table.liq-t1 tr.fin .liq-t{font:800 15px var(--tit)}
+.g-mod-mrp table.liq-t1 tr.fin .num{font:900 19px var(--tit);color:var(--lila2)}
+.g-mod-mrp table.liq-t1 tr.fin.dev td{border-top-color:var(--verde);background:rgba(95,207,156,.10)}
+.g-mod-mrp table.liq-t1 tr.fin.dev .num,.g-mod-mrp table.liq-t1 tr.fin.dev .mrp-num,.g-mod-mrp table.liq-t1 tr.fin.dev td.op{color:var(--verde)}
+.g-mod-mrp .mrp-liq .nota{display:flex;gap:6px;align-items:flex-start}
+.g-mod-mrp .mrp-liq .nota .ic{flex:none}.g-mod-mrp .mrp-liq .nota .g-ic{width:14px;height:14px}
+.g-mod-mrp .mrp-liq .liq-ok{color:#9FE3C2}
+.g-mod-mrp .liq-e14{padding:14px 14px 10px;border-radius:16px;border:1px dashed rgba(199,123,201,.55);background:rgba(199,123,201,.05);min-width:0}
+.g-mod-mrp .liq-e14-h{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}
+.g-mod-mrp .liq-e14-h .estado{align-self:flex-start}
+.g-mod-mrp .liq-e14-h b{font:800 15px var(--tit);color:var(--t1)}.g-mod-mrp .liq-e14-h small{color:var(--t2);font-size:12px;line-height:1.45}
+@media (max-width:980px){.g-mod-mrp .liq-g{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){
+  .g-mod-mrp table.liq-t1 td{padding:8px 6px}.g-mod-mrp table.liq-t1 td.op{width:18px;font-size:15px}
+  .g-mod-mrp table.liq-t1 .num{font-size:13px}.g-mod-mrp table.liq-t1 tr.fin .num{font-size:16px}
+  .g-mod-mrp .liq-e14{padding:12px 10px 8px}
+}
+/* Hoja ejecutiva (A4 clara) */
+.g-mod-mrp .ej-liq-g{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start}
+.g-mod-mrp .ej-liq-g.solo{grid-template-columns:1fr}
+.g-mod-mrp .ej-liq{width:100%;border-collapse:collapse;font-size:11.5px}
+.g-mod-mrp .ej-liq td{padding:4px 5px;border-bottom:1px solid #EEE;vertical-align:middle;color:#22172A}
+.g-mod-mrp .ej-liq td span{display:block;color:#6E6075;font-size:10px;line-height:1.3}
+.g-mod-mrp .ej-liq td.op{width:16px;text-align:center;font:900 13px Montserrat,sans-serif;color:#924893;padding-right:0}
+.g-mod-mrp .ej-liq td.num{text-align:right;white-space:nowrap;font-weight:700}
+.g-mod-mrp .ej-liq tr.tot td{font-weight:800;border-top:1px solid #D9C6DC;background:#FAF5FB}
+.g-mod-mrp .ej-liq tr.gris td{color:#8A7F8F;font-style:italic}
+.g-mod-mrp .ej-liq tr.aj td{color:#B7791F}
+.g-mod-mrp .ej-liq tr.fin td{border-top:2px solid #924893;border-bottom:0;font:800 12.5px Montserrat,sans-serif;background:#F7EEF8}
+.g-mod-mrp .ej-liq tr.fin td.num{color:#B03A2E;font-size:14px}
+.g-mod-mrp .ej-liq tr.fin.dev td{border-top-color:#1E7A55;background:#EEF8F2}.g-mod-mrp .ej-liq tr.fin.dev td.num{color:#1E7A55}
+.g-mod-mrp .ej-liq-e14{border:1px dashed #C9A3CC;border-radius:10px;padding:6px 8px;background:#FCF8FD}
+.g-mod-mrp .ej-liq-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;font:800 12px Montserrat,sans-serif;color:#5A1F5C}
+.g-mod-mrp .ej-liq-h em{font:800 9.5px Montserrat,sans-serif;font-style:normal;letter-spacing:1.2px;color:#803889;border:1.2px solid #803889;border-radius:5px;padding:1px 6px}
+.g-mod-mrp .ej-cq{margin:4px 0 0;font-size:10px;color:#6E6075}
+@media (max-width:640px){.g-mod-mrp .ej-liq-g{grid-template-columns:1fr}}
+@media print{body.g-mod-mrp .ej-liq tr,body.g-mod-mrp .ej-liq-e14{break-inside:avoid}}
+/* Con la liquidación, la hoja ejecutiva ocupa 2 páginas: corte limpio antes de "Opciones para conversar" */
+@media print{body.g-mod-mrp .ej-hoja h2.ej-salto{break-before:page;page-break-before:always;margin-top:0}}

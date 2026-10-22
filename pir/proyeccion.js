@@ -318,6 +318,7 @@ function vResumen(){
     +'<div class="kpi acc-RLI"><small>Impuesto proyectado (IDPC)</small>'+det('forecast.idpc','<b>'+clp(idF)+'</b>')+'<p>'+tasaTxt()+'</p></div>'
     +'<div class="kpi acc-PPM"><small>PPM del año</small>'+det('forecast.ppm.imputable','<b>'+clp(ppmF)+'</b>')+'<p>Pagado al corte '+clpT(v('actual.ppm.imputable'))+'</p></div>'
     +'<div class="kpi acc-'+(niv==='rojo'?'PER':niv==='ambar'?'RAI':'REX')+'"><small>Cobertura</small><b class="t-'+(niv==='gris'?'gris':niv)+'">'+pctTxt(cob)+'</b><p>'+esc(SEMAFORO[prioCob(cob)==='gris'?'nd':prioCob(cob)][1])+' · del impuesto cubierto con PPM</p></div></div>';
+  h+=cardLiquidacion();
   h+='<div class="mrp-g2"><div class="card"><div class="h"><h2>¿Cuánto de tu impuesto <span>está cubierto?</span></h2><span class="estado preliminar">Preliminar</span></div>'
     +'<div class="cl"><span>Impuesto proyectado</span><b>'+clp(idF)+'</b></div><div class="cl"><span>PPM del año</span><b>'+clp(ppmF)+'</b></div>'
     +barraCob(cob,sal,true)
@@ -330,6 +331,97 @@ function vResumen(){
     +(al.length?'<div class="mrp-radar-g">'+al.map(radarCard).join('')+'</div>':'<p class="t2">No hay alertas de riesgo ni de revisión en esta corrida.</p>')+'</div>';
   h+=calidadCard();
   return h;
+}
+/* ── Liquidación del impuesto ("Cómo se calcula tu impuesto")
+   SOLO presenta outputs del motor. Las únicas operaciones son restas/sumas de presentación (PPM por pagar = proyectado − al corte;
+   base con incentivo = 1440 − deducción 14 E, igual que en Escenarios; ahorro = IDPC − IDPC con 14 E) y el CUADRE contra el saldo de
+   abril del motor: si las filas no suman exactamente ese saldo, se muestra la diferencia como "Ajustes del motor" (nunca se oculta).
+   La tasa no se calcula: es la que el motor usó (trace de forecast.idpc, regla activa idpc.tasa). */
+function creditosIdpc(){return Object.keys(S.O).filter(function(k){return /^forecast\.credito_idpc\./.test(k);}).sort();}   // convención propuesta para el motor (hoy no existen)
+function tasaNum(t){return t!=null&&t!==''&&isFinite(t)?String(t).replace('.',',')+' %':null;}
+function cuadre(total,partes){   // total del motor vs suma de partes mostradas; null = no se puede verificar (falta un dato)
+  if(total==null||partes.some(function(x){return x==null;}))return null;
+  return Number(total)-partes.reduce(function(s,x){return s+Number(x);},0);
+}
+function liquidacion(){
+  var tI=S.T['forecast.idpc']||{}, base=v('forecast.f22.1440'), tasa=tasaNum(tI.tasa), idF=v('forecast.idpc'),
+      ppmA=v('actual.ppm.imputable'), ppmF=v('forecast.ppm.imputable'), sal=v('forecast.saldo_abril'), m=mesCorte();
+  var M3=function(i){return (MES3[i-1]||'—').toLowerCase();};
+  var filas=[];
+  filas.push({op:'',txt:'Base imponible proyectada',sub:'Código 1440 · determinación de la renta a diciembre',k:'forecast.f22.1440',n:base});
+  filas.push({op:'×',txt:'Tasa de Primera Categoría',sub:'Según la regla activa que usó el motor',txt2:tasa||null});
+  filas.push({op:'=',txt:'Impuesto de Primera Categoría (IDPC)',k:'forecast.idpc',n:idF,cls:'tot'});
+  var creds=creditosIdpc(), pCred=[];
+  if(creds.length)creds.forEach(function(k){var x=o(k);pCred.push(v(k));filas.push({op:'−',txt:(x&&x.explicacion)||k,sub:'Crédito contra el impuesto (motor)',k:k,n:v(k)});});
+  else filas.push({op:'−',txt:'Créditos contra el impuesto',sub:'No considerados en esta proyección (el motor v1 no calcula créditos contra el IDPC)',gris:true});
+  var partes=[idF].concat(pCred.map(function(x){return x==null?null:-x;}));
+  if(ppmA!=null||ppmF==null){
+    var porPagar=(ppmA!=null&&ppmF!=null)?ppmF-ppmA:null;
+    filas.push({op:'−',txt:'PPM pagados al corte',sub:'Imputables de ene a '+M3(m||1)+' (por período tributario)',k:'actual.ppm.imputable',n:ppmA});
+    filas.push({op:'−',txt:'PPM por pagar hasta diciembre',sub:(m&&m<12?'Proyectados de '+M3(m+1)+' a dic':'Sin meses restantes')+' · PPM del año '+clpT(ppmF)+' − pagados al corte',n:porPagar});
+    partes.push(ppmA==null?null:-ppmA, porPagar==null?null:-porPagar);
+  }else{   // sin PPM al corte separado: una sola fila con el PPM del año
+    filas.push({op:'−',txt:'PPM del año (proyectados a diciembre)',k:'forecast.ppm.imputable',n:ppmF});
+    partes.push(-ppmF);
+  }
+  var aj=cuadre(sal,partes);
+  if(aj)filas.push({op:aj<0?'−':'+',txt:'Ajustes del motor',sub:'Diferencia entre el saldo del motor y la suma de las filas (redondeo o componente no expuesto)',n:Math.abs(aj),cls:'aj'});
+  var dev=sal!=null&&sal<0;
+  filas.push({op:'=',txt:dev?'Devolución estimada en abril':'Saldo a pagar en abril',sub:S.caso?'Año tributario '+S.caso.anio_tributario:'',k:'forecast.saldo_abril',n:dev?-sal:sal,cls:'fin'+(dev?' dev':'')});
+  return {filas:filas,aj:aj,dev:dev,baseNeg:base!=null&&base<0,
+    baseDif:(tI.base!=null&&base!=null&&Number(tI.base)!==Math.round(base))?Number(tI.base):null};
+}
+function liquidacionE14(){
+  if(!o('sim.e14.idpc')&&!o('sim.e14.deduccion')&&!o('sim.e14.saldo_abril'))return null;
+  var base=v('forecast.f22.1440'), ded=v('sim.e14.deduccion'), i14=v('sim.e14.idpc'), ppmF=v('forecast.ppm.imputable'), s14=v('sim.e14.saldo_abril'), idF=v('forecast.idpc');
+  var tasa=tasaNum((S.T['forecast.idpc']||{}).tasa), dev=s14!=null&&s14<0;
+  var filas=[{op:'',txt:'Base imponible proyectada',sub:'Código 1440',k:'forecast.f22.1440',n:base},
+    {op:'−',txt:'Deducción 14 E (rebaja 1432)',sub:'Sobre la renta que queda invertida, con tope en UF',k:'sim.e14.deduccion',n:ded},
+    {op:'=',txt:'Base imponible con incentivo',n:(base!=null&&ded!=null)?Math.max(base-ded,0):null,cls:'tot'},
+    {op:'×',txt:'Tasa de Primera Categoría',txt2:tasa||null},
+    {op:'=',txt:'IDPC con incentivo',k:'sim.e14.idpc',n:i14,cls:'tot'},
+    {op:'−',txt:'PPM del año',sub:'Pagados al corte + por pagar hasta diciembre',k:'forecast.ppm.imputable',n:ppmF}];
+  var aj=cuadre(s14,[i14,ppmF==null?null:-ppmF]);
+  if(aj)filas.push({op:aj<0?'−':'+',txt:'Ajustes del motor',sub:'Diferencia entre el saldo simulado del motor y la suma de las filas',n:Math.abs(aj),cls:'aj'});
+  filas.push({op:'=',txt:dev?'Devolución estimada con incentivo':'Saldo de abril con incentivo',k:'sim.e14.saldo_abril',n:dev?-s14:s14,cls:'fin'+(dev?' dev':'')});
+  return {filas:filas,aj:aj,ahorro:(idF!=null&&i14!=null)?idF-i14:null};
+}
+function filasLiqHtml(filas,conDet){
+  return filas.map(function(f){
+    var val=f.gris?'<span class="nd">No considerados</span>':f.txt2!==undefined?(f.txt2==null?'<span class="nd">No disponible</span>':'<b class="liq-tasa">'+esc(f.txt2)+'</b>')
+      :(conDet&&f.k?det(f.k,clp(f.n)):clp(f.n));
+    return '<tr class="'+(f.cls||'')+(f.gris?' gris':'')+'"><td class="op">'+esc(f.op)+'</td><td><span class="liq-t">'+esc(f.txt)+'</span>'+(f.sub?'<small>'+esc(f.sub)+'</small>':'')+'</td><td class="num">'+val+'</td></tr>';}).join('');
+}
+function notaCuadre(aj,fuente){
+  return aj===null?'<p class="nota">'+I('info','ic-amb')+' No se puede verificar el cuadre: falta un dato del motor (se muestra como "No disponible", nunca como $0).</p>'
+    :aj===0?'<p class="nota liq-ok">'+I('check','ic-ver')+' Cuadra exactamente con '+fuente+' calculado por el motor.</p>'
+    :'<p class="nota t-ambar">'+I('alerta','ic-amb')+' Las filas no suman exactamente '+fuente+' del motor: la diferencia ('+clpT(aj)+') se muestra como "Ajustes del motor".</p>';
+}
+function cardLiquidacion(){
+  if(S.caso&&S.caso.regimen==='14D8')return '<div class="card mrp-liq acc-RLI"><div class="h"><h2>Cómo se calcula <span>tu impuesto</span></h2></div>'
+    +'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente (14 D N°8):</b> la empresa no paga impuesto de primera categoría; la base imponible se atribuye a los socios según su porcentaje. La distribución a los socios estará disponible en la siguiente etapa.</span></div></div>';
+  var L=liquidacion(), E=liquidacionE14();
+  var h='<div class="card mrp-liq acc-RLI"><div class="h"><h2>Cómo se calcula <span>tu impuesto</span></h2><span class="estado preliminar">Preliminar</span></div>'
+    +'<div class="liq-g'+(E?'':' solo')+'"><div><div class="tabla-box"><table class="cmp liq-t1"><tbody>'+filasLiqHtml(L.filas,true)+'</tbody></table></div>'
+    +notaCuadre(L.aj,'el saldo de abril')
+    +(L.baseNeg?'<p class="nota">La base imponible proyectada es negativa (pérdida): el motor no calcula impuesto sobre una base negativa.</p>':'')
+    +(L.baseDif!=null?'<p class="nota t-ambar">El motor multiplicó la tasa por una base de '+clpT(L.baseDif)+', distinta del código 1440 mostrado. Revisar en Técnica.</p>':'')
+    +'<p class="nota">El crédito asignado a los retiros (SAC) no rebaja este impuesto: lo usan los socios en su declaración personal. Se ve en Determinación y registros.</p></div>';
+  if(E)h+='<div class="liq-e14"><div class="liq-e14-h"><span class="estado lila">Simulación</span><b>Con incentivo al ahorro · Art. 14 E</b><small>Dejar invertidas las utilidades del año (sin más retiros). No está aplicado en la proyección.</small></div>'
+    +'<div class="tabla-box"><table class="cmp liq-t1"><tbody>'+filasLiqHtml(E.filas,true)+'</tbody></table></div>'
+    +(E.ahorro!=null?'<div class="aviso verde">'+I('hucha','ic-ver')+'<span>Menor impuesto estimado frente a la Base: <b>'+clpT(E.ahorro)+'</b>. Requisitos y efectos en los socios por certificar.</span></div>':'')
+    +notaCuadre(E.aj,'el saldo simulado')+'<button type="button" class="link" data-sec="escenarios">Ver en Escenarios →</button></div>';
+  return h+'</div></div>';
+}
+/* Versión de la hoja ejecutiva (texto plano, mismas filas) */
+function liqHoja(){
+  if(S.caso&&S.caso.regimen==='14D8')return '<h2>¿Cómo se calcula tu impuesto?</h2><p>Régimen transparente (14 D N°8): la distribución a los socios estará disponible en la siguiente etapa.</p>';
+  var L=liquidacion(), E=liquidacionE14();
+  function filas(fs){return fs.map(function(f){var val=f.gris?'No considerados':f.txt2!==undefined?(f.txt2||'No disponible'):clpT(f.n);
+    return '<tr class="'+(f.cls||'')+(f.gris?' gris':'')+'"><td class="op">'+esc(f.op)+'</td><td>'+esc(f.txt)+(f.sub?'<span>'+esc(f.sub)+'</span>':'')+'</td><td class="num">'+esc(val)+'</td></tr>';}).join('');}
+  var cq=function(aj){return aj===null?'Cuadre no verificable: falta un dato del motor.':aj===0?'Cuadra exactamente con el saldo del motor.':'Diferencia con el motor mostrada como "Ajustes del motor": '+clpT(aj)+'.';};
+  return '<h2>¿Cómo se calcula tu impuesto?</h2><div class="ej-liq-g'+(E?'':' solo')+'"><div><table class="ej-liq"><tbody>'+filas(L.filas)+'</tbody></table><p class="ej-cq">'+esc(cq(L.aj))+' Los créditos contra el impuesto no están considerados en esta proyección.</p></div>'
+    +(E?'<div class="ej-liq-e14"><div class="ej-liq-h"><b>Con incentivo al ahorro (14 E)</b><em>SIMULACIÓN</em></div><table class="ej-liq"><tbody>'+filas(E.filas)+'</tbody></table><p class="ej-cq">Ahorro estimado: <b>'+esc(clpT(E.ahorro))+'</b>. No aplicado; exige no retirar más utilidades este año.</p></div>':'')+'</div>';
 }
 function tasaTxt(){var t=S.T['forecast.idpc'];return t&&t.tasa!=null?'Tasa '+String(t.tasa).replace('.',',')+' % según regla activa':'Tasa según regla activa';}
 function clpSaldoT(n){return n!=null&&n<0?'Devolución '+clpT(-n):clpT(n);}
@@ -688,8 +780,9 @@ function hojaEjecutiva(){
     +'<div class="ej-cli"><b>'+esc(nombreCaso(S.caso))+'</b><span>Año comercial '+S.caso.anio_comercial+' · Año tributario '+S.caso.anio_tributario+'</span><span>Contabilidad al '+fFecha(corte())+' · emitido '+fFecha(new Date().toISOString())+'</span></div></div>'
     +'<div class="ej-hero"><div><small>'+(dev?'Devolución estimada en abril ':'Saldo estimado a pagar en abril ')+S.caso.anio_tributario+'</small><b'+(dev?' class="ej-dev"':'')+'>'+clpT(dev?Math.abs(sal):sal)+'</b><p>Impuesto proyectado menos PPM del año, si la situación se mantiene.</p></div>'
     +'<div class="ej-kpis"><div><small>Impuesto proyectado</small><b>'+clpT(idF)+'</b></div><div><small>PPM del año</small><b>'+clpT(ppmF)+'</b></div><div><small>Cobertura con PPM</small><b class="'+(cob!=null&&cob<UMBRAL.COB_VERDE?'ej-ambar':'')+'">'+pctTxt(cob)+'</b></div><div><small>Renta líquida imponible</small><b>'+clpT(v('forecast.f22.1729'))+'</b></div></div></div>'
+    +liqHoja()
     +'<h2>¿Qué está pasando?</h2><ul class="ej-lista">'+pasa.map(function(p){return '<li>'+esc(p)+'</li>';}).join('')+'</ul>'
-    +'<h2>Opciones para conversar</h2><table class="ej-tabla"><thead><tr><th>Opción</th><th>Impuesto</th><th>Saldo en abril</th></tr></thead><tbody>'
+    +'<h2 class="ej-salto">Opciones para conversar</h2><table class="ej-tabla"><thead><tr><th>Opción</th><th>Impuesto</th><th>Saldo en abril</th></tr></thead><tbody>'
     +'<tr><td><b>Seguir igual</b><br><span>Proyección actual, sin decisiones nuevas.</span></td><td>'+clpT(idF)+'</td><td>'+clpSaldoT(sal)+'</td></tr>'
     +'<tr class="ej-dest"><td><b>Incentivo al ahorro (art. 14 E)</b><br><span>Dejar invertidas las utilidades; no retirar más este año.</span></td><td>'+clpT(v('sim.e14.idpc'))+'</td><td>'+clpSaldoT(s14)+'</td></tr>'
     +'<tr><td><b>PPM voluntario</b><br><span>'+clpT(cuota)+' al mes durante '+(12-m)+' meses (anticipa el pago, no lo reduce).</span></td><td>'+clpT(idF)+'</td><td>'+(cuota!=null?'$0':'No disponible')+'</td></tr></tbody></table>'
@@ -1013,7 +1106,7 @@ function filaPorCliente(id){return S.cart.filas.filter(function(f){return f.clie
 function cartProyectar(id,pend){
   var f=filaPorCliente(id);if(!f)return;
   if(!f.caso)return modalInfo('Sin caso de renta · '+f.nombre,'<p>Este cliente todavía no tiene un caso de renta en MiRenta. Para proyectar se necesita crear el caso del año comercial y completar su apertura (contable y tributaria).</p>','<a class="btn" href="index.html">'+I('flecha-der')+'Ir a la apertura de MiRenta</a>');
-  if(f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>','');
+  if(f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>'+(f.caso.regimen==='14D8'?'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente:</b> la distribución a los socios estará disponible en la siguiente etapa.</span></div>':''),'');
   if(f.corrida||f.apertura==='LISTA')return abrirCaso(f.caso.id,pend);
   var puede=f.contOk;
   modalInfo('Falta completar la apertura · '+f.nombre,'<p>Antes de proyectar falta:</p><ul class="mrc-falta">'+f.falta.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'
