@@ -72,8 +72,10 @@ test('PANTALLA · mes en curso: "Así vamos" (registrado) protagonista; el estim
   assert.equal(num(await txt(page, 'pio-r-deb')), 1000000);
   assert.equal(num(await txt(page, 'res-debito')), 1409091);                      // estimado (hotfix)
   assert.equal(num(await txt(page, 'res-f29')), 1409091 - 704545 + ppmEst);
-  assert.match(await txt(page, 'pio-hero-lbl'), /📍 Así vamos/);
-  assert.match(await txt(page, 'pio-ref-f29'), /^Referencia \(referencial\): según tu ritmo actual/);   // sin 4 meses de historial
+  assert.match(await txt(page, 'pio-hero-lbl'), /📍 Así vamos · registrado al 22\/10/);
+  assert.match(await txt(page, 'pio-ref-f29'), /^Referencia estimada: según tu ritmo actual .*\(solo proyección lineal\)/);   // sin 4 meses comparables
+  assert.match(await txt(page, 'pio-ref-lim'), /Limitación: hay 0 de 4 meses cerrados comparables .* carga manual \(conexión con el SII pendiente de activación\)/);
+  assert.doesNotMatch(await page.evaluate(() => document.body.innerText), /intervalo de confianza|predicción|F29 validado/i);
   assert.match(await txt(page, 'pio-sii-chip'), /pendiente de activación/);
   assert.equal(await page.evaluate(() => document.getElementById('pio-sii-btn').disabled), true);
   assert.equal(await page.evaluate(() => document.getElementById('pio-manual').hidden), false);
@@ -82,11 +84,11 @@ test('PANTALLA · mes en curso: "Así vamos" (registrado) protagonista; el estim
   await ctx.close();
 }));
 
-test('PANTALLA · mes cerrado: solo el valor real ("Mes cerrado · valor final"), sin columna estimada', { skip: omitir }, () => conNavegador(async (browser, base) => {
+test('PANTALLA · mes cerrado: solo el valor registrado ("Mes cerrado · valor registrado"), sin columna estimada', { skip: omitir }, () => conNavegador(async (browser, base) => {
   const { ctx, page, errores } = await abrir(browser, base, '/pre-iva/index.html?periodo=2026-09&cliente=1');
   await listo(page);
   await escribir(page, { 'inp-debito': 1900000, 'inp-credito': 900000, 'inp-exento-ventas': 0, 'inp-tasa-ppm': 1.5 });
-  assert.match(await txt(page, 'pio-hero-lbl'), /Mes cerrado · valor final/);
+  assert.match(await txt(page, 'pio-hero-lbl'), /Mes cerrado · valor registrado/);
   assert.equal(num(await txt(page, 'pio-real-f29')), 1150000); assert.equal(num(await txt(page, 'res-f29')), 1150000);
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('th.est')).display), 'none');
   assert.equal(await page.evaluate(() => document.getElementById('pio-ref-f29').hidden), true);

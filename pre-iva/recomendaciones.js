@@ -61,6 +61,8 @@
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   function mesSig(periodo) { var y = +String(periodo).slice(0, 4), m = +String(periodo).slice(5, 7); return MESES[m % 12] + (m === 12 ? ' ' + (y + 1) : ''); }
 
+  // Solo meses CERRADOS y COMPARABLES (registrados por Contable): un Pre-IVA enviado es una estimación y no entra en promedios.
+  function comparables(h) { return (h || []).filter(function (x) { return x && x.comparable !== false; }); }
   function stats(vals) {
     var v = (vals || []).filter(hay).map(Number);
     if (!v.length) return { n: 0, prom: null, desv: null };
@@ -139,7 +141,7 @@
     var a = c.actual || {}; if (a.sinDato) return null;
     var campo = c.exenta ? 'ppm' : 'iva', cur = c.exenta ? a.ppm : a.ivaPagar;
     if (!hay(cur) || !hay(a.f29)) return null;
-    var s = stats((c.historial || []).map(function (h) { return h[campo]; }));
+    var s = stats(comparables(c.historial).map(function (h) { return h[campo]; }));
     if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return null;
     var dif = cur - s.prom;
     if (dif < cfg.minImpacto || cur < s.prom * (1 + cfg.sobrePromedioPct)) return null;
@@ -172,7 +174,7 @@
   function reglaVentasPpm(c, cfg, ya) {
     if (ya.renta_cobertura) return null;
     var a = c.actual || {}; if (a.sinDato || !hay(a.ventasBase) || !(n(a.tasaPPM) > 0)) return null;
-    var hist = (c.historial || []).filter(function (h) { return hay(h.ventas); });
+    var hist = comparables(c.historial).filter(function (h) { return hay(h.ventas); });
     var s = stats(hist.map(function (h) { return h.ventas; }));
     if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return null;
     var tasas = hist.map(function (h) { return n(h.tasa); }).filter(function (t) { return t > 0; });
@@ -194,7 +196,7 @@
     var out = [];
     [['credito', 'compras', 'Las compras'], ['debito', 'ventas', 'Las ventas']].forEach(function (x) {
       var cur = a[x[0]]; if (!hay(cur)) return;
-      var s = stats((c.historial || []).map(function (h) { return h[x[0]]; }));
+      var s = stats(comparables(c.historial).map(function (h) { return h[x[0]]; }));
       if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return;
       var dif = cur - s.prom, z = s.desv > 0 ? dif / s.desv : 0;
       if (Math.abs(dif) < cfg.minImpacto) return;

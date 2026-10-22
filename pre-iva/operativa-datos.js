@@ -6,7 +6,7 @@
      · RPC sapi_frescura (gestoor-backend PR #57, aún NO instalado) → estado de sincronización con el SII
          404 / PGRST202 / 42883 = "Conexión con el SII pendiente de activación" (no es un error)
      · rcv_resumenes + rcv_documentos (snapshot más reciente por período y libro) → documentos y totales del SII
-     · reportes_mensuales (F29 validado por Contable) y preiva_historial (enviados) → historial de 6 meses
+     · reportes_mensuales (F29 registrado por Contable; no existe un estado formal de "validado") y preiva_historial (enviados) → historial de 6 meses
      · renta_casos + RPC renta_e1_proyeccion_vigente (igual que pir/proyeccion.js) → proyección de renta de MiRenta
    ============================================================ */
 (function(){
@@ -115,11 +115,11 @@ function historial(cli,per){
       var a=rm[p], b=pv[p];
       if(a&&(num(a.debito_iva)!=null||num(a.ppm)!=null)){
         var d=num(a.debito_iva),c=num(a.credito_iva),re=num(a.remanente);
-        return {periodo:p,fuente:'Contable',iva:d!=null&&c!=null&&F?F.calcularF29Estimado({debito:d,credito:c,remanente:re||0,ppm:0}).ivaPagar:null,
+        return {periodo:p,fuente:'Contable',comparable:true,iva:d!=null&&c!=null&&F?F.calcularF29Estimado({debito:d,credito:c,remanente:re||0,ppm:0}).ivaPagar:null,
           ppm:num(a.ppm),debito:d,credito:c,ventas:num(a.ppm_base),tasa:num(a.ppm_tasa)};
       }
       if(b){var f=num(b.f29),pp=num(b.ppm);
-        return {periodo:p,fuente:'Pre-IVA enviado',iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:null,tasa:num(b.tasa_ppm)};}   // neto_ventas no es la misma base que ppm_base: no se mezcla
+        return {periodo:p,fuente:'Pre-IVA enviado',comparable:false,iva:f!=null?Math.max(f-(pp||0),0):null,ppm:pp,debito:null,credito:null,ventas:null,tasa:num(b.tasa_ppm)};}   // neto_ventas no es la misma base que ppm_base: no se mezcla
       return {periodo:p,fuente:null,iva:null,ppm:null,debito:null,credito:null,ventas:null,tasa:null};
     });
     return {filas:filas,error:r[0]&&r[0].error?r[0].error:null};

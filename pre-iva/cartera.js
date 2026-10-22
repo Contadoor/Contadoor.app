@@ -342,7 +342,7 @@ function filaHtml(f){
   var sinFila=!h?(f.estado==='SIN_CONFIRMAR'?'No disponible':'—'):null;
   var enCurso=S.per===perHoy();
   var iva=f.exenta?'<span class="nd">No aplica</span>':sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.iva,f.sinLibros?'Sin libros cargados':'No disponible',true)
-    +(enCurso?(f.ivaEst!=null?'<small class="pvc-ref">estimado a fin de mes '+clpT(f.ivaEst)+'</small>':''):(f.iva!=null?'<small class="pvc-ref">mes cerrado · valor final</small>':''));
+    +(enCurso?(f.ivaEst!=null?'<small class="pvc-ref">estimado a fin de mes '+clpT(f.ivaEst)+'</small>':''):(f.iva!=null?'<small class="pvc-ref">mes cerrado · valor registrado</small>':''));
   var ppm=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.ppm,f.sinTasa?'Sin tasa PPM':'No disponible',false);
   if(!sinFila&&enCurso&&f.ppm!=null)ppm+='<small class="pvc-ref">estimado a fin de mes</small>';   // el PPM guardado es el proyectado
   var f29=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.f29,f.sinLibros?'Sin libros cargados':'No disponible',false);

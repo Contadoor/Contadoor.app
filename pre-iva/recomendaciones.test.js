@@ -238,3 +238,11 @@ test('tendencia y signo de notas de crédito', () => {
   const t = R.tendencia([100, 100, 100, 100, 100, 100], 112); assert.equal(Math.round(t.var * 100), 12);
   assert.equal(R.tendencia([100, null], 112), null);
 });
+
+test('RONDA 3 · promedios solo con meses cerrados comparables: un Pre-IVA enviado (estimación) no cuenta', () => {
+  const h = H6([800000, 820000, 850000, 830000, 840000, 870000], (i) => (i < 3 ? { comparable: false } : {}));
+  assert.equal(R.generar(base({ historial: h, actual: Object.assign(base().actual, { ivaPagar: 1500000 }) })).find((y) => y.id === 'reserva'), undefined, '3 comparables (< 4): no hay promedio');
+  const h2 = H6([800000, 820000, 850000, 830000, 840000, 870000], (i) => (i === 0 ? { comparable: false, iva: 5000000 } : {}));
+  const x = R.generar(base({ historial: h2, actual: Object.assign(base().actual, { ivaPagar: 985000 }) })).find((y) => y.id === 'reserva');
+  assert.match(x.detectado, /promedio de 6 meses cerrados \(\$842\.000\)/);   // sin el mes no comparable (que habría inflado el promedio)
+});
