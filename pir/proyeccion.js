@@ -243,7 +243,7 @@ function cargarCaso(){
       if(!aids.length)return;
       return API.get('renta_asientos?select=id,numero,glosa,fecha&id=in.('+aids.join(',')+')').then(function(r){(r||[]).forEach(function(a){S.asientos[a.id]=a;});});
     });
-  }).then(function(){if(!vivo())return;S.cargando=false;render();trasCargarCaso();}).catch(function(e){if((e&&e.obsoleto)||!vivo())return;S.cargando=false;S.error=e;render();});
+  }).then(function(){if(!vivo())return;S.cargando=false;animarBarras();render();trasCargarCaso();}).catch(function(e){if((e&&e.obsoleto)||!vivo())return;S.cargando=false;S.error=e;render();});
 }
 function urlEstado(){
   var p=new URLSearchParams(location.search);
@@ -874,7 +874,7 @@ function cargarCartera(){
         }else{f.apertura='SIN_CASO';f.falta=[];}
         calcPrio(f);
       });
-      C.filas=filas;C.cargando=false;render();comprobarVigencias(tok);
+      C.filas=filas;C.cargando=false;animarBarras();render();comprobarVigencias(tok);
     });
   }).catch(function(e){if(tok!==C.tok)return;C.cargando=false;C.error=e;render();});
 }
@@ -945,6 +945,8 @@ function totalesCartera(fs){
   t.cob=t.sIdpc>0?t.sPpm/t.sIdpc:null;
   return t;
 }
+/* Llenado animado de las barras solo justo después de cargar (no en cada filtro o repintado) */
+function animarBarras(){document.body.classList.add('mrc-animar');clearTimeout(animarBarras.t);animarBarras.t=setTimeout(function(){document.body.classList.remove('mrc-animar');},700);}
 function visTop(){var m=document.querySelector('.mrp-modo');if(m)m.style.display=S.vista==='cartera'?'none':'';}
 function renderCartera(){
   visTop();urlEstado();

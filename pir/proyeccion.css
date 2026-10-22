@@ -393,3 +393,25 @@ body.g-mod-mrp .mrp-doc-bar .g-btn:not(.pri){background:transparent;border-color
 .g-mod-mrp .mrp-modal [hidden],.g-mod-mrp .mrp-doc-bar [hidden]{display:none!important}
 .g-mod-mrp .ej-f22 td:nth-child(2),.g-mod-mrp .ej-f22 th:nth-child(2){text-align:left;white-space:normal}
 .g-mod-mrp a.btn{text-decoration:none}
+/* Barras de cobertura v2: degradado por color del semáforo, riel translúcido, brillo superior y llenado animado */
+.g-mod-mrp .mrc-cob-barra{overflow:visible;background:rgba(8,3,10,.45);border:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 2px rgba(0,0,0,.45);border-radius:999px}
+.g-mod-mrp .mrc-cob-barra i{border-radius:999px;background:linear-gradient(90deg,#6F5A76,#8F6F94);transform-origin:left center}
+.g-mod-mrp.mrc-animar .mrc-cob-barra i{animation:mrc-llenar .6s cubic-bezier(.22,1,.36,1) both}
+.g-mod-mrp .mrc-cob-barra i::after{content:"";position:absolute;left:3px;right:3px;top:1px;height:45%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0))}
+.g-mod-mrp .mrc-cob.rojo .mrc-cob-barra i{background:linear-gradient(90deg,#E07A6E,#F2A194);box-shadow:0 0 8px rgba(224,122,110,.35)}
+.g-mod-mrp .mrc-cob.ambar .mrc-cob-barra i{background:linear-gradient(90deg,#E3A33B,#F2C76B);box-shadow:0 0 8px rgba(227,163,59,.32)}
+.g-mod-mrp .mrc-cob.verde .mrc-cob-barra i{background:linear-gradient(90deg,#3FAF7E,#5FCF9C);box-shadow:0 0 8px rgba(63,175,126,.32)}
+.g-mod-mrp .mrc-cob.exc .mrc-cob-barra i{background:linear-gradient(90deg,#3FAF7E,#5FCF9C 70%,#9BEBC4);box-shadow:0 0 12px rgba(95,207,156,.5)}
+.g-mod-mrp .mrc-cob-barra .mrc-m70,.g-mod-mrp .mrc-cob-barra .mrc-m90{z-index:1;background:rgba(255,255,255,.22)}
+.g-mod-mrp .mrc-cob.grande .mrc-cob-barra i::after{left:6px;right:6px;top:2px}
+.g-mod-mrp .mrc-cob.rojo .mrc-cob-txt b{color:#F2A194}.g-mod-mrp .mrc-cob.ambar .mrc-cob-txt b{color:#F2C76B}.g-mod-mrp .mrc-cob.verde .mrc-cob-txt b{color:#6FDCA8}
+@keyframes mrc-llenar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (prefers-reduced-motion:reduce){.g-mod-mrp.mrc-animar .mrc-cob-barra i{animation:none}}
+@media print{
+  body.g-mod-mrp .mrc-cob-barra{background:#eee!important;box-shadow:inset 0 0 0 1px #bbb!important}
+  body.g-mod-mrp .mrc-cob-barra i{animation:none!important;box-shadow:none!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.g-mod-mrp .mrc-cob-barra i::after{display:none}
+  body.g-mod-mrp .mrc-cob.rojo .mrc-cob-barra i{background:linear-gradient(90deg,#C9574A,#E07A6E)!important}
+  body.g-mod-mrp .mrc-cob.ambar .mrc-cob-barra i{background:linear-gradient(90deg,#C98A22,#E3A33B)!important}
+  body.g-mod-mrp .mrc-cob.verde .mrc-cob-barra i{background:linear-gradient(90deg,#2E8F64,#3FAF7E)!important}
+}
