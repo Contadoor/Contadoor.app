@@ -866,7 +866,13 @@ function _guardarContab(orig,idx,u,marcar,el){
 }
 function eliminarConvenio(id){
   if(!confirm('¿Eliminar este convenio?'))return;
-  _convEscribir('DELETE','convenios?id=eq.'+encodeURIComponent(id)).then(cargarConvenios)
+  // Misma protección de versión: solo se elimina si el convenio sigue como se leyó (1 fila borrada).
+  var prev=_convenios.find(function(x){return String(x.id)===String(id);});
+  if(!prev||!(prev.version>=1)){alert('No se eliminó: '+_convError(new Error('convenio_version_vieja')));return;}
+  sbFetch('convenios?id=eq.'+encodeURIComponent(id)+'&version=eq.'+prev.version,{method:'DELETE',headers:{'Prefer':'return=representation'}})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});return r.json();})
+    .then(function(res){if(!Array.isArray(res)||res.length!==1)throw new Error('convenio_version_vieja');})
+    .then(cargarConvenios)
     .catch(function(e){alert('No se eliminó: '+_convError(e));});
 }
 
