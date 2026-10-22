@@ -237,6 +237,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 </main>
 </div>
 <script src="../supabase.js"></script>
+<script src="f29-formula.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
 var PROXY='https://contafunnel-v2.vercel.app';
@@ -589,14 +590,15 @@ function calcular(){
   var _fechaVenc=new Date(_vencAnio,_vencMes,20);
   var _diasRestReal=Math.max(0,Math.ceil((_fechaVenc-_hoy)/(1000*60*60*24)));
   var diasRest=_diasRestReal;
-  var tasaDiaria=diasT>0?debReg/diasT:0, tasaDiariaC=diasT>0?credReg/diasT:0;
   // Solo el mes en curso se proyecta: un mes ya terminado (abierto desde la cartera con ?periodo=) tiene los libros completos.
   var _esMesActual=(_anio===_hoy.getFullYear()&&_mes===_hoy.getMonth());
-  var diasProy=_esMesActual?diasRest:0;
-  var debProy=Math.round(debReg+tasaDiaria*diasProy), credProy=Math.round(credReg+tasaDiariaC*diasProy);
+  var pry=PreIvaF29.proyectarMes({debitoRegistrado:debReg,creditoRegistrado:credReg,diasTranscurridos:diasT,diasRestantes:diasRest,esMesActual:_esMesActual});
+  var debProy=pry.debito, credProy=pry.credito;
   var ppm=calcularPPM();
-  var f29=Math.max(debProy-credProy-remanente-ppm,0);
-  var nuevoRem=Math.max(credProy+remanente+ppm-debProy,0);
+  // F29 estimado = IVA a pagar (débito − crédito − remanente, nunca negativo) + PPM. El remanente no rebaja el PPM (pre-iva/f29-formula.js).
+  var r29=PreIvaF29.calcularF29Estimado({debito:debProy,credito:credProy,remanente:remanente,ppm:ppm});
+  var f29=r29.total;
+  var nuevoRem=r29.nuevoRemanente;
   var f29Ant=parseInt((document.getElementById('inp-f29-ant')||{}).value)||0;
   var variacion=f29Ant>0?Math.round((f29-f29Ant)/f29Ant*100):0;
   // UI
@@ -614,7 +616,7 @@ function calcular(){
   var maxVal=Math.max(debProy,credProy,1);
   document.getElementById('bar-debito').style.width=Math.min(debProy/maxVal*100,100)+'%';
   document.getElementById('bar-credito').style.width=Math.min(credProy/maxVal*100,100)+'%';
-  generarAcciones(debProy,credProy,remanente,f29,diasRest);
+  generarAcciones(debProy,credProy,remanente,r29.ivaPagar,diasRest);   // las acciones de compras/ventas solo mueven el IVA, no el PPM
 }
 // ── ACCIONES SUGERIDAS ────────────────────────────────────────────────────
 function generarAcciones(deb,cred,rem,f29,diasRest){
@@ -1056,7 +1058,7 @@ function guardarEdicion(){
   var obs=document.getElementById('ed-obs').value||'';
   // Recalcular f29 si se dejó en 0
   var debNum=parseInt(debito)||0,credNum=parseInt(credito)||0,ppmNum=parseInt(ppm)||0,remNum=parseInt(remanente)||0;
-  var f29Calc=f29raw>0?f29raw:Math.max(debNum-credNum-remNum-ppmNum,0);
+  var f29Calc=f29raw>0?f29raw:PreIvaF29.calcularF29Estimado({debito:debNum,credito:credNum,remanente:remNum,ppm:ppmNum}).total;
   // Recolectar acciones
   var acciones=[];
   var bloques=document.querySelectorAll('#ed-acciones > div');
