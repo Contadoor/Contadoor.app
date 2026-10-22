@@ -28,7 +28,8 @@
     {id:74,cliente_id:5004,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'IN_PROGRESS',version:1},
     {id:75,cliente_id:5005,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'IN_PROGRESS',version:1},
     {id:76,cliente_id:5007,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'IN_PROGRESS',version:1},
-    {id:77,cliente_id:5008,anio_comercial:2026,anio_tributario:2027,regimen:'14A',estado:'DRAFT',version:1}
+    {id:77,cliente_id:5008,anio_comercial:2026,anio_tributario:2027,regimen:'14A',estado:'DRAFT',version:1},
+    {id:78,cliente_id:5006,anio_comercial:2026,anio_tributario:2027,regimen:'14D8',estado:'DRAFT',version:1}   // transparente: la liquidación muestra el aviso de la siguiente etapa
   ];
   // Cartera 100 % ficticia: nombres inventados, analistas genéricos y contactos en el dominio reservado .example
   function cli(id,rs,an,anId,email,wa){return {id:id,razon_social:rs,estado:'activo',tiene_contabilidad:true,analista_contable:an,analista_contable_usuario_id:anId,email:email,wa:wa};}
@@ -254,19 +255,27 @@
     74:{corrida:3104,estado:'VIGENTE',cambios:[],factor:0.18,cob:1.12,fin:'2026-10-17T11:05:00Z'},
     75:{corrida:3105,estado:'DESACTUALIZADA',cambios:['movimientos'],factor:0.30,cob:0.93,fin:'2026-10-02T09:30:00Z'},
     76:{corrida:3106,estado:'VIGENTE',cambios:[],factor:0.25,cob:0.96,fin:'2026-10-20T17:20:00Z'},
-    77:{corrida:null}};
+    77:{corrida:null},78:{corrida:null}};
   function simsActivas(caso){var s=SUP.filter(function(x){return x.caso_id===caso&&x.estado==='ACTIVE';})[0];return s&&s.parameters.sim_retiros_adicionales||[];}
   // Escala montos y fija la cobertura del PPM pedida, manteniendo saldo = IDPC − PPM y la cuota de PPM voluntario = saldo / meses restantes
   function escalar(base,f,cob){
     var O=JSON.parse(JSON.stringify(base)), by={};
     O.forEach(function(o){by[o.output_key]=o;if(o.monto!=null&&!/ppm|saldo_abril/.test(o.output_key))o.monto=Math.round(o.monto*f);});
     function set(k,v){if(by[k]&&v!=null)by[k].monto=Math.round(v);}
-    var idF=by['forecast.idpc']&&by['forecast.idpc'].monto, idA=by['actual.idpc']&&by['actual.idpc'].monto, ppmF=idF*cob, ppmA=ppmF*M/12;
+    // IDPC = round(máx(base escalada, 0) × tasa / 100), como el motor; trace con la base y la tasa usadas
+    var fB=by['forecast.f22.1440'].monto, aB=by['actual.f22.1440'].monto;
+    set('forecast.idpc',Math.max(fB,0)*TASA/100);set('actual.idpc',Math.max(aB,0)*TASA/100);
+    by['forecast.idpc'].trace.base=fB;by['actual.idpc'].trace.base=aB;
+    var idF=by['forecast.idpc'].monto, idA=by['actual.idpc'].monto, ppmF=Math.round(idF*cob), ppmA=Math.round(ppmF*M/12);
     set('forecast.ppm.imputable',ppmF);set('actual.ppm.imputable',ppmA);
     if(by['actual.ppm.declarado_no_pagado'])set('actual.ppm.declarado_no_pagado',by['actual.ppm.declarado_no_pagado'].monto*f);
-    set('forecast.saldo_abril',idF-ppmF);set('actual.saldo_abril',idA-ppmA);
+    set('forecast.saldo_abril',idF-ppmF);set('actual.saldo_abril',idA-ppmA);   // saldo = IDPC − PPM exacto (montos ya redondeados)
+    by['forecast.saldo_abril'].trace.idpc=idF;by['forecast.saldo_abril'].trace.ppm=ppmF;
     set('sim.ppm_voluntario.cuota_mensual',Math.max(0,idF-ppmF)/(12-M));
-    if(by['sim.e14.idpc'])set('sim.e14.saldo_abril',by['sim.e14.idpc'].monto-ppmF);
+    if(by['sim.e14.idpc']&&by['sim.e14.deduccion']&&by['sim.e14.deduccion'].monto!=null){
+      set('sim.e14.idpc',Math.max(fB-by['sim.e14.deduccion'].monto,0)*TASA/100);by['sim.e14.idpc'].trace.base=fB;by['sim.e14.idpc'].trace.deduccion=by['sim.e14.deduccion'].monto;
+      set('sim.e14.saldo_abril',by['sim.e14.idpc'].monto-ppmF);
+    }
     return O;
   }
   function recalcular(caso){var st=ST[caso];var b=calcular(simsActivas(caso));return st.factor?escalar(b,st.factor,st.cob):b;}

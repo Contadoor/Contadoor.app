@@ -73,6 +73,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .cli-option:last-child{border-bottom:none;}.cli-option:hover{background:var(--pp);}
 .cli-option-nombre{font-weight:600;color:var(--t1);}.cli-option-rut{font-size:11px;color:var(--tm);}.cli-option-plan{font-size:10px;color:var(--p);margin-left:auto;}
 .sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+.est-guardado{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--bdr);background:var(--sur);color:var(--tm);max-width:520px;}
+.est-ok{background:#e8f5f0;border-color:#bfe3d3;color:var(--green);}
+.est-pendiente,.est-guardando{background:#fef9ec;border-color:#f1dcae;color:var(--amber);}
+.est-error{background:#fdecea;border-color:#f3c2bc;color:var(--red);}
+.est-error button{margin-left:6px;background:var(--red);color:#fff;border:none;border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;}
+.banner-loc{background:#fef9ec;border:1px solid #f1dcae;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--t2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.banner-err{background:#fdecea;border:1px solid #f3c2bc;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--red);}
+.mig-item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--bdr);font-size:12px;}
+.mig-item:last-child{border-bottom:none;}
+.mig-motivo{font-size:11px;margin-top:2px;}
+.mig-res{font-size:11px;font-weight:600;margin-left:auto;white-space:nowrap;}
 @media(max-width:680px){.grid2{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
 </style>
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
@@ -92,7 +103,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
     <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
     <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item on" href="../pre-iva/index.html">📋 Pre-IVA</a>
+    <a class="sb-item on" href="../pre-iva/cartera.html">📋 Pre-IVA</a>
     <a class="sb-item" href="../pir/index.html">📊 PIR</a>
     <div class="sb-sec">Gestión interna</div>
     <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
@@ -117,6 +128,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     </span>
   </div>
   <div class="toolbar">
+    <a id="lnk-volver-cartera" class="btn-calcular" href="cartera.html" style="text-decoration:none;color:var(--p);font-weight:600" title="Volver a la Cartera de Pre-IVA (todos los clientes del mes)">&#8592; Volver a la cartera</a>
     <div id="cliente-seleccionado" style="display:none;background:var(--pp);border:1px solid var(--bdr);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--p);font-weight:600;align-items:center;gap:8px;">
       <span id="cliente-sel-nombre"></span>
       <span id="cliente-sel-rut" style="font-weight:400;color:var(--tm)"></span>
@@ -136,8 +148,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   <div class="content-preiva">
     <div id="panel-empty" style="display:none"></div>
     <div class="panel-simulacion" id="panel-simulacion">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <button id="btn-volver-nomina" style="background:none;border:none;color:var(--p);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0">&#8592; Volver a la nómina</button>
+        <span style="flex:1"></span>
+        <span id="estado-guardado" class="est-guardado est-nuevo">Aún no guardado</span>
+        <button class="btn-calcular" id="btn-guardar-ahora" title="Guarda este Pre-IVA en Gestoor (también se guarda solo al cambiar un dato)">💾 Guardar ahora</button>
       </div>
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-label">F29 proyectado</div><div class="kpi-value" id="kpi-f29" style="color:var(--red)">$0</div><div class="kpi-sub">A pagar el 20</div></div>
@@ -170,7 +185,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             <div class="remanente-info">
               Remanente de <strong id="lbl-periodo-ant">—</strong>:&nbsp;
               <span class="remanente-val" id="lbl-remanente">$0</span>
-              <span style="color:var(--tm)">— leído desde Supabase</span>
+              <span style="color:var(--tm)" id="lbl-remanente-fuente">— desde Contable (F29 del mes anterior)</span>
             </div>
             <div class="inp-row"><span class="inp-label">Débito IVA registrado</span><input class="inp-field" type="number" id="inp-debito" placeholder="0"></div>
             <div class="inp-row"><span class="inp-label">Crédito IVA registrado</span><input class="inp-field" type="number" id="inp-credito" placeholder="0"></div>
@@ -200,7 +215,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <div class="panel-card-body"><div id="acciones-grid"></div></div>
       </div>
       <div class="panel-card">
-        <div class="panel-card-header">📨 Historial de envíos</div>
+        <div class="panel-card-header">📨 Historial de Pre-IVA (guardado en Gestoor)</div>
         <div class="panel-card-body"><div id="historial-envios"><div style="font-size:11px;color:var(--tm)">Sin envíos registrados.</div></div></div>
       </div>
     </div>
@@ -216,6 +231,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <button class="btn-calcular" id="btn-actualizar-nomina">↺ Actualizar</button>
       </div>
     </div>
+    <div id="banner-locales" style="display:none"></div>
     <div id="nomina-preiva"><div style="padding:32px;text-align:center;color:var(--tm);font-size:13px">Cargando nómina...</div></div>
   </div>
 </main>
@@ -249,7 +265,7 @@ var _UF=39700;
 var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
 // ── CARGAR CLIENTES DESDE SUPABASE ────────────────────────────────────────
 function cargarClientes(){
-  return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id&order=razon_social.asc')
+  return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,ppm_tasa_default&order=razon_social.asc')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(data){
       _todosClientes=data.filter(function(c){return c.estado==='activo';}).map(function(c){
@@ -257,12 +273,14 @@ function cargarClientes(){
           id:c.id, rut:c.rut, razonSocial:c.razon_social,
           email:c.email, plan:c.plan, estado:c.estado,
           analistaContable:c.analista_contable, analistaRrhh:c.analista_rrhh,
-          analistaContableUsuarioId:c.analista_contable_usuario_id||null, analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null
+          analistaContableUsuarioId:c.analista_contable_usuario_id||null, analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null,
+          ppmTasaDefault:c.ppm_tasa_default!=null?parseFloat(c.ppm_tasa_default):null
         };
       });
       (typeof gestoorCachearClientes==='function'?gestoorCachearClientes(_todosClientes):localStorage.setItem('clientes_bd',JSON.stringify(_todosClientes)));
       setSyncStatus('ok');
       renderNomina();
+      detectarDatosLocales();
       return _todosClientes;
     })
     .catch(function(err){
@@ -274,66 +292,166 @@ function cargarClientes(){
       renderNomina();
     });
 }
-// ── REMANENTE DESDE SUPABASE ──────────────────────────────────────────────
-function getRemananteSupabase(rut, periodo){
-  return sbFetch('pir_resultados?rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+periodo+'&select=remanente_iva')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(data){return data&&data[0]&&data[0].remanente_iva?parseFloat(data[0].remanente_iva):0;})
-    .catch(function(){
-      // Fallback a localStorage
-      try{var r=JSON.parse(localStorage.getItem('rpt_remanentes')||'{}');return r[rut]&&r[rut][periodo]?r[rut][periodo]:0;}
-      catch(e){return 0;}
-    });
+// ── PERSISTENCIA EN GESTOOR (tabla preiva_historial) ─────────────────────
+// Columnas reales: cliente_rut, periodo ('AAAA-MM', igual que reportes_mensuales y rcv_resumenes), debito_iva y credito_iva
+// (IVA REGISTRADO a la fecha, lo que se escribe en "Datos de entrada"), remanente, f29 (proyectado), ppm, tasa_ppm,
+// neto_ventas, neto_compras, por_tipo_doc_ventas, por_tipo_doc_compras, enviado_por, fecha_envio.
+// Una fila por cliente y período (UNIQUE). fecha_envio = null → borrador; con fecha → enviado al cliente.
+// RLS por cartera: leen quienes ven al cliente; escriben Master, Contable y RRHH activos. No hay borrado.
+var PREIVA_COLS='cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,tasa_ppm,neto_ventas,neto_compras,por_tipo_doc_ventas,por_tipo_doc_compras,enviado_por,fecha_envio';
+function perDb(p){p=String(p||'');return /^\d{6}$/.test(p)?p.slice(0,4)+'-'+p.slice(4,6):p;}
+function perUi(p){return String(p||'').replace('-','');}
+function numDe(v){if(typeof v==='number')return v;return parseInt(String(v||'').replace(/[^0-9]/g,''),10)||0;}
+var _filaPreiva=null;        // fila guardada del cliente/período abierto (null = no existe; undefined = no se pudo leer)
+var _autoTimer=null, _cargando=false, _sucio=false, _colaGuardado=Promise.resolve(), _ultimoModoFallido=null;
+function mensajeErrorSb(status,j){
+  var code=(j&&j.code)||'';
+  if(status===401) return 'Tu sesión expiró. Vuelve a iniciar sesión y reintenta.';
+  if(status===403||code==='42501') return 'No tienes permiso para guardar el Pre-IVA de este cliente (solo Master, Contable o RRHH, y de su cartera).';
+  if(code==='23503') return 'El cliente no existe en Gestoor.';
+  if(code==='23505'||status===409) return 'Ya existe un Pre-IVA guardado para este cliente y período.';
+  if(code==='PGRST204'||code==='42703') return 'La pantalla y la base no calzan ('+(j.message||code)+'). Avisa a soporte.';
+  return 'Error '+status+((j&&j.message)?': '+j.message:'');
 }
-// ── HISTORIAL DESDE SUPABASE ──────────────────────────────────────────────
-function getHistorialSupabase(rut){
-  return sbFetch('preiva_historial?rut=eq.'+encodeURIComponent(rut)+'&order=periodo.desc&limit=12&select=periodo,fecha_envio,f29_proyectado,tasa_ppm,datos')
-    .then(function(r){return r.ok?r.json():[];})
-    .catch(function(){
-      try{return JSON.parse(localStorage.getItem('preiva_enviados_'+rut)||'[]');}
-      catch(e){return[];}
+// sbJson: como sbFetch, pero si la base responde error lo convierte en una excepción con mensaje claro (nunca en silencio).
+function sbJson(path,opts){
+  return sbFetch(path,opts).then(function(r){
+    return r.text().then(function(t){
+      var j=null;try{j=t?JSON.parse(t):null;}catch(e){}
+      if(!r.ok){var e=new Error(mensajeErrorSb(r.status,j||{}));e.status=r.status;e.code=j&&j.code;throw e;}
+      return j;
     });
-}
-function guardarHistorialSupabase(rut, periodo, datos){
-  var row={
-    rut:rut, periodo:periodo,
-    fecha_envio:new Date().toISOString(),
-    f29_proyectado:datos.f29||0,
-    tasa_ppm:datos.tasaPPM||0,
-    debito_iva:datos.debito||0,
-    credito_iva:datos.credito||0,
-    remanente:datos.remanente||0,
-    datos:datos
-  };
-  return sbFetch('preiva_historial', {
-    method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-    body:JSON.stringify(row)
-  }).then(function(r){return r.ok?r.json():null;})
-  .catch(function(){
-    // Fallback localStorage
-    var key='preiva_enviados_'+rut;
-    var arr=[];try{arr=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
-    arr.unshift({periodo:periodo,fecha:tsNow(),f29:ff(datos.f29||0)});
-    localStorage.setItem(key, JSON.stringify(arr.slice(0,12)));
+  },function(e){
+    var x=new Error(e&&e.message==='GESTOOR_NO_SESSION'?mensajeErrorSb(401,{}):'Sin conexión con Gestoor ('+((e&&e.message)||e)+').');
+    x.status=0;throw x;
   });
 }
-function guardarTasaPPM(rut, tasa){
-  if(!rut||!tasa) return;
-  // Guardar en Supabase (upsert en preiva_historial del período actual)
-  sbFetch('preiva_historial', {
-    method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify({rut:rut, periodo:_periodoActual, tasa_ppm:tasa})
-  }).catch(function(){});
-  // También en localStorage como caché rápida
-  localStorage.setItem('preiva_tasa_ppm_'+rut, tasa);
+function getFilaPreiva(rut, periodo){
+  return sbJson('preiva_historial?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+perDb(periodo)+'&select='+PREIVA_COLS)
+    .then(function(rows){return (rows&&rows[0])||null;});
 }
-function getTasaPPM(rut){
-  return sbFetch('preiva_historial?rut=eq.'+encodeURIComponent(rut)+'&order=periodo.desc&limit=1&select=tasa_ppm')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(data){return data&&data[0]&&data[0].tasa_ppm?data[0].tasa_ppm:0;})
-    .catch(function(){return parseFloat(localStorage.getItem('preiva_tasa_ppm_'+rut)||0)||0;});
+// Remanente del mes anterior: lo que Contable dejó al validar el F29 de ese mes (reportes_mensuales).
+function getRemanenteContable(rut, periodoAnt){
+  return sbJson('reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+perDb(periodoAnt)+'&select=iva_remanente_sig,remanente')
+    .then(function(rows){
+      if(!rows||!rows.length) return {valor:0,fuente:'sin'};
+      var r=rows[0], v=r.iva_remanente_sig!=null?parseFloat(r.iva_remanente_sig):parseFloat(r.remanente||0);
+      return {valor:v||0,fuente:'contable'};
+    })
+    .catch(function(e){console.warn('[Pre-IVA] remanente:',e.message);return {valor:0,fuente:'error',error:e.message};});
+}
+function getHistorialSupabase(rut){
+  return sbJson('preiva_historial?cliente_rut=eq.'+encodeURIComponent(rut)+'&order=periodo.desc&limit=12&select=periodo,fecha_envio,f29,tasa_ppm,enviado_por')
+    .then(function(rows){return rows||[];})
+    .catch(function(e){console.warn('[Pre-IVA] historial:',e.message);return null;});
+}
+function filaDesdePantalla(){
+  var f29=_editOverrides.f29!==null?numDe(_editOverrides.f29):numDe(document.getElementById('res-f29').textContent);
+  var ppm=_editOverrides.ppm!==null?numDe(_editOverrides.ppm):(_datos.ppm||0);
+  var rem=_editOverrides.remanente!==null?numDe(_editOverrides.remanente):(_datos.remanente||0);
+  return {
+    cliente_rut:_clienteActual.rut, periodo:perDb(_periodoActual),
+    debito_iva:nv('inp-debito'), credito_iva:nv('inp-credito'), remanente:rem, f29:f29, ppm:ppm, tasa_ppm:nv('inp-tasa-ppm'),
+    neto_ventas:_datos.netoVentas||0, neto_compras:_datos.netoCompras||0,
+    por_tipo_doc_ventas:_datos.porTipoDocVentas||{}, por_tipo_doc_compras:_datos.porTipoDocCompras||{}
+  };
+}
+function fechaCorta(iso){try{return new Date(iso).toLocaleDateString('es-CL');}catch(e){return '';}}
+function estadoGuardado(tipo,msg){
+  var el=document.getElementById('estado-guardado');if(!el)return;
+  var hora=new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  var f=_filaPreiva&&_filaPreiva.fecha_envio?fechaCorta(_filaPreiva.fecha_envio):'';
+  var M={
+    nuevo:['est-nuevo','Aún no guardado en Gestoor'],
+    pendiente:['est-pendiente','Cambios sin guardar…'],
+    guardando:['est-guardando','Guardando en Gestoor…'],
+    ok:['est-ok','Guardado en Gestoor ✓ · borrador '+hora],
+    enviado:['est-ok','Guardado en Gestoor ✓ · enviado el '+f],
+    enviadoCambios:['est-pendiente','Enviado el '+f+' · los cambios nuevos se guardan al re-enviar'],
+    error:['est-error','⚠ No se guardó en Gestoor: '+(msg||'')],
+    errorCarga:['est-error','⚠ No se pudo leer el Pre-IVA guardado: '+(msg||'')+' Recarga la página antes de seguir.']
+  };
+  var s=M[tipo]||M.nuevo;
+  el.className='est-guardado '+s[0];
+  el.textContent=s[1];
+  if(tipo==='error'&&_ultimoModoFallido){
+    var b=document.createElement('button');b.textContent='Reintentar';
+    b.onclick=function(){guardarPreiva(_ultimoModoFallido).catch(function(){});};
+    el.appendChild(b);
+  }
+  var bg=document.getElementById('btn-guardar-ahora');
+  if(bg){var bloq=tipo==='enviado'||tipo==='enviadoCambios'||tipo==='errorCarga';bg.disabled=bloq;bg.style.opacity=bloq?.5:1;
+    bg.title=bloq?(tipo==='errorCarga'?'No se pudo leer lo guardado: recarga la página':'Ya enviado: para cambiarlo, vuelve a enviarlo'):'Guarda este Pre-IVA en Gestoor (también se guarda solo al cambiar un dato)';}
+}
+// guardarPreiva('borrador' | 'envio'). Toma la foto de la pantalla AHORA y la manda en orden (cola), para que un borrador
+// nunca pise un envío. Devuelve la fila guardada, o null si no correspondía guardar (ya enviado / sin cliente).
+function guardarPreiva(modo){
+  if(!_clienteActual) return Promise.resolve(null);
+  if(_filaPreiva===undefined){return Promise.reject(new Error('No se pudo leer el Pre-IVA guardado; recarga la página.'));}
+  if(_autoTimer){clearTimeout(_autoTimer);_autoTimer=null;}
+  var fila=filaDesdePantalla(), base=_filaPreiva, u=getUsuario();
+  var rut=fila.cliente_rut, per=fila.periodo;
+  var mismo=function(){return _clienteActual&&_clienteActual.rut===rut&&perDb(_periodoActual)===per;};
+  if(modo==='borrador'&&base&&base.fecha_envio){if(mismo())estadoGuardado('enviadoCambios');return Promise.resolve(null);}
+  if(mismo())estadoGuardado('guardando');
+  var paso=_colaGuardado.then(function(){
+    if(modo==='envio'){
+      fila.fecha_envio=new Date().toISOString();
+      fila.enviado_por=u.nombre||u.email||null;
+      return sbJson('preiva_historial?on_conflict=cliente_rut,periodo',{method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(fila)});
+    }
+    // Borrador: nunca convierte en borrador un Pre-IVA ya enviado (por esta u otra persona).
+    var cuerpo=Object.assign({},fila);delete cuerpo.cliente_rut;delete cuerpo.periodo;
+    var patch=function(){
+      return sbJson('preiva_historial?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+per+'&fecha_envio=is.null',
+        {method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(cuerpo)})
+        .then(function(rows){
+          if(rows&&rows.length) return rows;
+          return getFilaPreiva(rut,per).then(function(f){
+            if(f&&f.fecha_envio){if(mismo())_filaPreiva=f;var e=new Error('Este Pre-IVA ya fue enviado el '+fechaCorta(f.fecha_envio)+(f.enviado_por?' por '+f.enviado_por:'')+'. Tus cambios no se guardaron; para cambiarlo, vuelve a enviarlo.');e.yaEnviado=true;throw e;}
+            throw new Error('No se encontró la fila para actualizar (o no tienes permiso).');
+          });
+        });
+    };
+    if(base) return patch();
+    fila.fecha_envio=null;fila.enviado_por=null;
+    return sbJson('preiva_historial',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(fila)})
+      .catch(function(e){if(e.code==='23505'||e.status===409) return patch();throw e;});
+  }).then(function(rows){
+    var g=(rows&&rows[0])||null;
+    if(mismo()&&g){_filaPreiva=g;_sucio=false;_ultimoModoFallido=null;estadoGuardado(g.fecha_envio?'enviado':'ok');}
+    return g;
+  },function(e){
+    if(mismo()){
+      if(e.yaEnviado){_sucio=false;estadoGuardado('enviadoCambios');renderHistorial();}
+      else{_ultimoModoFallido=modo;estadoGuardado('error',e.message);}
+    }
+    throw e;
+  });
+  _colaGuardado=paso.catch(function(){});
+  return paso;
+}
+// Guardado automático: 1,5 s después del último cambio hecho por la persona (nunca al abrir un cliente).
+function marcarCambio(){
+  if(_cargando||!_clienteActual) return;
+  if(_filaPreiva===undefined) return;   // ya se muestra el error de lectura: no se guarda nada
+  if(_filaPreiva&&_filaPreiva.fecha_envio){estadoGuardado('enviadoCambios');return;}
+  _sucio=true;estadoGuardado('pendiente');
+  if(_autoTimer)clearTimeout(_autoTimer);
+  _autoTimer=setTimeout(function(){_autoTimer=null;guardarPreiva('borrador').catch(function(){});},1500);
+}
+// Si hay un guardado automático esperando, lo manda ya (antes de cambiar de cliente o volver a la nómina).
+function guardarPendiente(){
+  if(_autoTimer){clearTimeout(_autoTimer);_autoTimer=null;if(_sucio)guardarPreiva('borrador').catch(function(){});}
+}
+// Tasa PPM: la del Pre-IVA guardado → la última usada → la ficha del cliente → (respaldo antiguo de este navegador).
+function tasaPPMInicial(fila, hist){
+  if(fila&&parseFloat(fila.tasa_ppm)>0) return parseFloat(fila.tasa_ppm);
+  var h=(hist||[]).find(function(x){return parseFloat(x.tasa_ppm)>0;});
+  if(h) return parseFloat(h.tasa_ppm);
+  if(_clienteActual&&parseFloat(_clienteActual.ppmTasaDefault)>0) return parseFloat(_clienteActual.ppmTasaDefault);
+  try{return parseFloat(localStorage.getItem('preiva_tasa_ppm_'+(_clienteActual&&_clienteActual.rut))||0)||0;}catch(e){return 0;}
 }
 // ── UF DESDE PERIODOS ─────────────────────────────────────────────────────
 function cargarUF(){
@@ -366,6 +484,7 @@ function filtrarClientes(q){
 function seleccionarCliente(rut){
   var c=_todosClientes.find(function(x){return x.rut===rut;});
   if(!c) return;
+  guardarPendiente();
   _clienteActual=c;
   document.getElementById('inp-buscar-cliente').value='';
   document.getElementById('cliente-dropdown').style.display='none';
@@ -375,17 +494,22 @@ function seleccionarCliente(rut){
   cargarDatos();
 }
 function limpiarCliente(){
-  _clienteActual=null;
+  guardarPendiente();
+  _clienteActual=null;_filaPreiva=null;
   var badge=document.getElementById('cliente-seleccionado');if(badge)badge.style.display='none';
   mostrarPanel(false);
   renderNomina();
 }
 // ── CARGAR DATOS DEL CLIENTE ──────────────────────────────────────────────
+// Lee de Gestoor el Pre-IVA guardado del cliente/período (si existe), el remanente que dejó Contable y el historial.
 function cargarDatos(){
   if(!_clienteActual) return;
-  var rut=_clienteActual.rut;
+  var c=_clienteActual, rut=c.rut;
   var per=_periodoActual;
   var perAnt=getPeriodoAnterior(per);
+  _cargando=true;
+  limpiarSimulacion();            // no arrastrar números del cliente anterior
+  _filaPreiva=null;_sucio=false;_ultimoModoFallido=null;
   // Calcular días
   var hoy=new Date();
   var anio=parseInt(per.slice(0,4)), mes=parseInt(per.slice(4,6))-1;
@@ -397,23 +521,47 @@ function cargarDatos(){
   document.getElementById('lbl-remanente').textContent='cargando...';
   mostrarPanel(true);
   setSyncStatus('syncing');
-  // Cargar remanente y tasa PPM desde Supabase
-  Promise.all([
-    getRemananteSupabase(rut, perAnt),
-    getTasaPPM(rut)
-  ]).then(function(results){
-    var remanente=results[0], tasa=results[1];
-    _datos.remanente=remanente;
-    document.getElementById('lbl-remanente').textContent=ff(remanente);
+  estadoGuardado('guardando');
+  document.getElementById('estado-guardado').textContent='Leyendo desde Gestoor…';
+  var pFila=getFilaPreiva(rut, per).catch(function(e){return {__error:e};});
+  Promise.all([pFila, getRemanenteContable(rut, perAnt), getHistorialSupabase(rut)]).then(function(res){
+    if(_clienteActual!==c) return;   // cambió de cliente mientras cargaba
+    var fila=res[0], rem=res[1], hist=res[2];
+    if(fila&&fila.__error){
+      _filaPreiva=undefined;
+      estadoGuardado('errorCarga',fila.__error.message);
+      setSyncStatus('error');
+      fila=null;
+    }else{
+      _filaPreiva=fila;
+    }
+    // Remanente: el de Contable manda; si Contable no tiene, el que quedó guardado en este Pre-IVA.
+    var fuente=document.getElementById('lbl-remanente-fuente');
+    if(rem.fuente==='contable'){_datos.remanente=rem.valor;if(fuente)fuente.textContent='— desde Contable (F29 de '+formatPeriodo(perAnt)+')';}
+    else if(fila&&parseFloat(fila.remanente)>0){_datos.remanente=parseFloat(fila.remanente);if(fuente)fuente.textContent='— guardado en este Pre-IVA (Contable aún no tiene el F29 de '+formatPeriodo(perAnt)+')';}
+    else{_datos.remanente=0;if(fuente)fuente.textContent=rem.fuente==='error'?'— ⚠ no se pudo leer desde Contable':'— Contable aún no tiene el F29 de '+formatPeriodo(perAnt);}
+    document.getElementById('lbl-remanente').textContent=ff(_datos.remanente);
+    if(fila){
+      document.getElementById('inp-debito').value=parseFloat(fila.debito_iva)||'';
+      document.getElementById('inp-credito').value=parseFloat(fila.credito_iva)||'';
+      _datos.netoVentas=parseFloat(fila.neto_ventas)||0;_datos.netoCompras=parseFloat(fila.neto_compras)||0;
+      _datos.porTipoDocVentas=fila.por_tipo_doc_ventas||{};_datos.porTipoDocCompras=fila.por_tipo_doc_compras||{};
+      var lv=document.getElementById('lbl-libro-ventas'),lc=document.getElementById('lbl-libro-compras');
+      if(lv&&parseFloat(fila.debito_iva)>0){lv.textContent='Recuperado de Gestoor · Débito IVA: '+ff(fila.debito_iva)+' (vuelve a cargar el libro para actualizar)';lv.style.color='var(--p)';}
+      if(lc&&parseFloat(fila.credito_iva)>0){lc.textContent='Recuperado de Gestoor · Crédito IVA: '+ff(fila.credito_iva)+' (vuelve a cargar el libro para actualizar)';lc.style.color='var(--green)';}
+    }
+    var tasa=tasaPPMInicial(fila, hist);
     var inpTasa=document.getElementById('inp-tasa-ppm');
-    if(inpTasa&&tasa) inpTasa.value=tasa;
-    setSyncStatus('ok');
+    if(inpTasa) inpTasa.value=tasa||'';
     calcular();
-    renderHistorial();
-  }).catch(function(){
+    pintarHistorial(hist);
+    if(_filaPreiva!==undefined){setSyncStatus('ok');estadoGuardado(fila?(fila.fecha_envio?'enviado':'ok'):'nuevo');
+      if(fila&&!fila.fecha_envio){var el=document.getElementById('estado-guardado');if(el)el.textContent='Guardado en Gestoor ✓ · borrador';}}
+  }).catch(function(e){
+    console.error('[Pre-IVA] cargarDatos:',e);
     setSyncStatus('error');
     calcular();
-  });
+  }).then(function(){if(_clienteActual===c)_cargando=false;});
 }
 function mostrarPanel(show){
   var p=document.getElementById('panel-simulacion');if(p)p.style.display=show?'block':'none';
@@ -426,7 +574,6 @@ function calcularPPM(){
   var ppm=Math.round(ventasNetas*(tasa/100));
   var elPpm=document.getElementById('res-ppm');if(elPpm)elPpm.textContent=ff(ppm);
   _datos.ppm=ppm;_datos.tasaPPM=tasa;
-  if(_clienteActual&&tasa>0) guardarTasaPPM(_clienteActual.rut, tasa);
   return ppm;
 }
 // ── CÁLCULO ───────────────────────────────────────────────────────────────
@@ -443,7 +590,10 @@ function calcular(){
   var _diasRestReal=Math.max(0,Math.ceil((_fechaVenc-_hoy)/(1000*60*60*24)));
   var diasRest=_diasRestReal;
   var tasaDiaria=diasT>0?debReg/diasT:0, tasaDiariaC=diasT>0?credReg/diasT:0;
-  var debProy=Math.round(debReg+tasaDiaria*diasRest), credProy=Math.round(credReg+tasaDiariaC*diasRest);
+  // Solo el mes en curso se proyecta: un mes ya terminado (abierto desde la cartera con ?periodo=) tiene los libros completos.
+  var _esMesActual=(_anio===_hoy.getFullYear()&&_mes===_hoy.getMonth());
+  var diasProy=_esMesActual?diasRest:0;
+  var debProy=Math.round(debReg+tasaDiaria*diasProy), credProy=Math.round(credReg+tasaDiariaC*diasProy);
   var ppm=calcularPPM();
   var f29=Math.max(debProy-credProy-remanente-ppm,0);
   var nuevoRem=Math.max(credProy+remanente+ppm-debProy,0);
@@ -482,23 +632,25 @@ function generarAcciones(deb,cred,rem,f29,diasRest){
 // ── HISTORIAL ─────────────────────────────────────────────────────────────
 function renderHistorial(){
   if(!_clienteActual) return;
-  getHistorialSupabase(_clienteActual.rut).then(function(enviados){
-    var el=document.getElementById('historial-envios');if(!el) return;
-    if(!enviados||!enviados.length){el.innerHTML='<div style="font-size:11px;color:var(--tm);padding:8px 0">Sin envíos registrados.</div>';return;}
-    var html='';
-    enviados.forEach(function(e){
-      var per=e.periodo?formatPeriodo(e.periodo):'—';
-      var fecha=e.fecha_envio?new Date(e.fecha_envio).toLocaleDateString('es-CL'):(e.fecha||'—');
-      var f29=e.f29_proyectado?ff(e.f29_proyectado):(e.f29||'—');
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:11px">'
-        +'<span style="color:var(--t2)">'+hesc(per)+'</span>'
-        +'<span style="color:var(--tm)">'+hesc(fecha)+'</span>'
-        +'<span style="color:var(--green);font-weight:600">'+hesc(f29)+'</span>'
-        +'<button onclick="abrirModalEdicion()" style="background:var(--pp);color:var(--pd);border:1px solid var(--bdr);border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer">✏️ Editar</button>'
-        +'</div>';
-    });
-    el.innerHTML=html;
+  var c=_clienteActual;
+  getHistorialSupabase(c.rut).then(function(h){if(_clienteActual===c)pintarHistorial(h);});
+}
+function pintarHistorial(enviados){
+  var el=document.getElementById('historial-envios');if(!el) return;
+  if(enviados===null){el.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px 0">⚠ No se pudo leer el historial desde Gestoor.</div>';return;}
+  if(!enviados||!enviados.length){el.innerHTML='<div style="font-size:11px;color:var(--tm);padding:8px 0">Sin Pre-IVA guardados para este cliente.</div>';return;}
+  var html='';
+  enviados.forEach(function(e){
+    var per=e.periodo?formatPeriodo(perUi(e.periodo)):'—';
+    var estado=e.fecha_envio?'Enviado '+fechaCorta(e.fecha_envio)+(e.enviado_por?' · '+e.enviado_por:''):'Borrador (no enviado)';
+    var f29=e.f29!=null?ff(e.f29):'—';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:11px">'
+      +'<span style="color:var(--t2);min-width:110px">'+hesc(per)+'</span>'
+      +'<span style="color:'+(e.fecha_envio?'var(--tm)':'var(--amber)')+';flex:1">'+hesc(estado)+'</span>'
+      +'<span style="color:var(--green);font-weight:600">'+hesc(f29)+'</span>'
+      +'</div>';
   });
+  el.innerHTML=html;
 }
 // ── PARSER LIBRO MASCONTABLE ──────────────────────────────────────────────
 function montoCLP(txt){var t=String(txt||'').trim();if(!t||t==='-')return 0;var n=parseFloat(t.replace(/\./g,'').replace(',','.').replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
@@ -566,6 +718,7 @@ function onLibroChange(input,tipo){
     var desg=document.getElementById(tipo==='ventas'?'desg-ventas':'desg-compras');
     if(desg&&tipos){desg.textContent=tipos;desg.style.display='block';}
     calcular();
+    marcarCambio();
   }).catch(function(err){
     if(lbl){lbl.textContent='Error: '+err.message;lbl.style.color='var(--red)';}
   });
@@ -607,12 +760,14 @@ function enviarPreIVA(){
   .then(function(r){return r.json();})
   .then(function(data){
     if(data.ok||data.id){
-      mostrarToast('✅ Email enviado a '+c.email);
-      var f29val=parseInt(String(f29).replace(/[^0-9]/g,''))||0;
-      guardarHistorialSupabase(c.rut, _periodoActual, {
-        f29:f29val, tasaPPM:_datos.tasaPPM,
-        debito:nv('inp-debito'), credito:nv('inp-credito'), remanente:_datos.remanente
-      }).then(function(){renderHistorial();});
+      // El email ya salió: ahora queda registrado en Gestoor (si falla, se avisa claro y se puede reintentar).
+      return guardarPreiva('envio').then(function(){
+        mostrarToast('✅ Email enviado a '+c.email+' y guardado en Gestoor');
+        renderHistorial();
+        renderNomina();
+      },function(e){
+        alert('El email SÍ se envió a '+c.email+', pero NO quedó guardado en Gestoor:\n\n'+e.message+'\n\nUsa el botón "Reintentar" junto al estado (arriba del Pre-IVA) para guardarlo.');
+      });
     }else{
       alert('Error al enviar: '+(data.error||'Error desconocido'));
     }
@@ -719,29 +874,19 @@ function renderNomina(filtro){
     document.getElementById('nomina-preiva').innerHTML='<div style="padding:32px;text-align:center;color:var(--tm);font-size:13px">Sin clientes con plan Asesoría o Estratégico.</div>';
     return;
   }
-  // Fetch historial masivo para el período
+  // Estado del período desde Gestoor (una sola consulta para toda la nómina). Si falla, se dice claro: no se inventa "Pendiente".
   var ruts=clientes.map(function(c){return c.rut;});
-  sbFetch('preiva_historial?periodo=eq.'+per+'&rut=in.('+ruts.map(function(r){return '"'+r+'"';}).join(',')+')&select=rut,fecha_envio')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(enviados){
+  sbJson('preiva_historial?periodo=eq.'+perDb(per)+'&cliente_rut=in.('+ruts.map(function(r){return '"'+r+'"';}).join(',')+')&select=cliente_rut,fecha_envio')
+    .then(function(filas){
       var enviadosMap={};
-      enviados.forEach(function(e){enviadosMap[e.rut]=e.fecha_envio;});
-      _renderNominaUI(clientes,enviadosMap,per);
+      (filas||[]).forEach(function(e){enviadosMap[e.cliente_rut]=e.fecha_envio||'BORRADOR';});
+      _renderNominaUI(clientes,enviadosMap,per,null);
     })
-    .catch(function(){
-      // Fallback: leer desde localStorage
-      var enviadosMap={};
-      clientes.forEach(function(c){
-        try{
-          var arr=JSON.parse(localStorage.getItem('preiva_enviados_'+c.rut)||'[]');
-          var envPer=arr.find(function(e){return e.periodo===per;});
-          if(envPer) enviadosMap[c.rut]=envPer.fecha;
-        }catch(e){}
-      });
-      _renderNominaUI(clientes,enviadosMap,per);
+    .catch(function(e){
+      _renderNominaUI(clientes,{},per,e.message);
     });
 }
-function _renderNominaUI(clientes,enviadosMap,per){
+function _renderNominaUI(clientes,enviadosMap,per,errorLectura){
   var PLANES={asesoria:'Asesoría',estrategico:'Estratégico'};
   var totalPend=0,totalEnv=0;
   var grupos={};
@@ -750,12 +895,13 @@ function _renderNominaUI(clientes,enviadosMap,per){
   Object.keys(grupos).forEach(function(analista){
     var lista=grupos[analista],envAn=0,pendAn=0;
     var filas=lista.map(function(c){
-      var enviado=!!enviadosMap[c.rut];
+      var borrador=enviadosMap[c.rut]==='BORRADOR';
+      var enviado=!!enviadosMap[c.rut]&&!borrador;
       if(enviado)envAn++;else pendAn++;
       return '<tr><td><div style="font-weight:600;font-size:12px;color:var(--t1)">'+hesc(c.razonSocial||c.rut)+'</div><div style="font-size:10px;color:var(--tm)">'+hesc(c.rut)+'</div></td><td><span style="font-size:10px;font-weight:600;color:var(--p)">'+hesc(PLANES[c.plan]||c.plan||'')+'</span></td><td style="text-align:center">'
-        +(enviado?'<span style="background:#e8f5f0;color:var(--green);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">✓ Enviado</span>':'<span style="background:#fef9ec;color:var(--amber);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">⏳ Pendiente</span>')
+        +(enviado?'<span style="background:#e8f5f0;color:var(--green);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">✓ Enviado</span>':borrador?'<span style="background:#f5eaf5;color:var(--p);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">✎ Borrador guardado</span>':errorLectura?'<span style="color:var(--tm);font-size:10px">¿?</span>':'<span style="background:#fef9ec;color:var(--amber);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">⏳ Pendiente</span>')
         +'</td><td style="font-size:11px;color:var(--tm);text-align:center">'
-        +(enviadosMap[c.rut]?new Date(enviadosMap[c.rut]).toLocaleDateString('es-CL'):'—')
+        +(enviado?new Date(enviadosMap[c.rut]).toLocaleDateString('es-CL'):'—')
         +'</td><td style="text-align:center"><button style="background:var(--pp);color:var(--pd);border:1px solid var(--bdr);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" data-rut-nom="'+c.rut+'">'+(enviado?'Re-enviar':'Preparar')+'</button></td></tr>';
     }).join('');
     totalPend+=pendAn;totalEnv+=envAn;
@@ -765,7 +911,7 @@ function _renderNominaUI(clientes,enviadosMap,per){
   var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"><div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--t1)">'+(totalPend+totalEnv)+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Total</div></div><div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--green)">'+totalEnv+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Enviados</div></div><div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--amber)">'+totalPend+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.4px">Pendientes</div></div></div>';
   var el=document.getElementById('nomina-preiva');
   if(el){
-    el.innerHTML=statsHtml+html;
+    el.innerHTML=(errorLectura?'<div class="banner-err">⚠ No se pudo leer el estado del Pre-IVA desde Gestoor: '+hesc(errorLectura)+' Los estados de abajo no están confirmados.</div>':'')+statsHtml+html;
     el.onclick=function(e){var btn=e.target.closest('[data-rut-nom]');if(btn)seleccionarClienteNomina(btn.dataset.rutNom);};
   }
 }
@@ -931,11 +1077,194 @@ function guardarEdicion(){
   _editOverrides.obs=obs;
   document.getElementById('modal-edicion').remove();
   mostrarToast('✅ Cambios aplicados — usa Vista previa para revisar');
+  marcarCambio();
 }
 function limpiarEdicion(){
   _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
   document.getElementById('modal-edicion').remove();
   mostrarToast('↩️ Reporte restablecido a valores calculados');
+}
+
+// ── SUBIR DATOS GUARDADOS SOLO EN ESTE NAVEGADOR ──────────────────────────
+// La versión anterior de esta pantalla dejaba algunos datos solo en el navegador (localStorage):
+//   · preiva_tasa_ppm_<rut>  → tasa PPM escrita (siempre se guardaba aquí);
+//   · preiva_enviados_<rut>  → [{periodo:'AAAAMM', fecha:'dd-mm-aaaa, hh:mm', f29:'$1.234'}] (solo si falló la conexión al enviar).
+// Aquí se ofrecen para subirlos a Gestoor: solo lo que la persona marque, validando cliente y período, y sin reemplazar
+// nada de Gestoor sin un "sí" explícito. Lo original NO se borra del navegador (queda de respaldo); se recuerda qué se subió.
+var LS_SUBIDOS='preiva_subidos_v1';
+function leerSubidos(){try{var a=JSON.parse(localStorage.getItem(LS_SUBIDOS)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
+function marcarSubido(id){try{var a=leerSubidos();if(a.indexOf(id)<0)a.push(id);localStorage.setItem(LS_SUBIDOS,JSON.stringify(a));}catch(e){}}
+function parseFechaLocal(txt){
+  var m=String(txt||'').match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/);
+  if(!m) return null;
+  var d=new Date(+m[3],+m[2]-1,+m[1],+(m[4]||12),+(m[5]||0));
+  return isNaN(d.getTime())||d.getDate()!==+m[1]?null:d.toISOString();
+}
+function leerLocales(){
+  var items=[],sub=leerSubidos(),vistos={};
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i),m;
+      if((m=k.match(/^preiva_enviados_(.+)$/))){
+        var arr=[];try{arr=JSON.parse(localStorage.getItem(k)||'[]');}catch(e){}
+        if(!Array.isArray(arr)) continue;
+        arr.forEach(function(e){
+          if(!e) return;
+          var per=String(e.periodo||''),id='envio|'+m[1]+'|'+per;
+          if(vistos[id]||sub.indexOf(id)>=0) return;   // el primero es el envío más reciente de ese período
+          vistos[id]=1;
+          items.push({id:id,tipo:'envio',rut:m[1],periodo:per,fechaTxt:String(e.fecha||''),fechaIso:parseFechaLocal(e.fecha),f29:numDe(e.f29)});
+        });
+      }else if((m=k.match(/^preiva_tasa_ppm_(.+)$/))){
+        var t=parseFloat(localStorage.getItem(k)),id2='tasa|'+m[1]+'|'+t;
+        if(sub.indexOf(id2)>=0) continue;
+        items.push({id:id2,tipo:'tasa',rut:m[1],tasa:t});
+      }
+    }
+  }catch(e){console.warn('[Pre-IVA] no se pudo leer el navegador:',e);}
+  return items;
+}
+function detectarDatosLocales(){
+  var el=document.getElementById('banner-locales');if(!el) return;
+  var n=leerLocales().length;
+  if(!n){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='block';
+  el.innerHTML='<div class="banner-loc"><span>💾 Hay <strong>'+n+'</strong> dato(s) de Pre-IVA guardados <strong>solo en este navegador</strong> (de la versión anterior). Súbelos para que queden en Gestoor y los vea tu equipo.</span>'
+    +'<button class="btn-generar" id="btn-subir-locales">Subir mis datos guardados en este navegador</button></div>';
+}
+function textoItem(it){
+  var c=_todosClientes.find(function(x){return x.rut===it.rut;});
+  var nom=c?(c.razonSocial||c.rut):it.rut;
+  if(it.tipo==='envio') return '<strong>'+hesc(nom)+'</strong> · Pre-IVA enviado de '+(/^\d{6}$/.test(it.periodo)?formatPeriodo(it.periodo):hesc(it.periodo))+' · F29 '+ff(it.f29)+' · '+hesc(it.fechaTxt||'sin fecha');
+  return '<strong>'+hesc(nom)+'</strong> · Tasa PPM '+hesc(String(it.tasa))+'%';
+}
+// Valida cada dato contra la cartera visible y contra lo que ya hay en Gestoor. Agrega it.estado:
+//   'bloqueado' (no se puede subir, con motivo) · 'ya' (ya está igual en Gestoor) · 'nuevo' · 'conflicto' (pide reemplazar).
+function validarLocales(items){
+  var cur=perDb(_periodoActual);
+  items.forEach(function(it){
+    it.cliente=_todosClientes.find(function(x){return x.rut===it.rut;})||null;
+    if(!it.cliente){it.estado='bloqueado';it.motivo='El cliente no está activo o no está en tu cartera.';return;}
+    if(it.tipo==='envio'){
+      var y=+it.periodo.slice(0,4),mm=+it.periodo.slice(4,6);
+      if(!/^\d{6}$/.test(it.periodo)||y<2024||y>2030||mm<1||mm>12){it.estado='bloqueado';it.motivo='Período no válido.';return;}
+      if(!it.fechaIso){it.estado='bloqueado';it.motivo='No se entiende la fecha de envío guardada.';return;}
+    }else if(!(it.tasa>0&&it.tasa<=10)){it.estado='bloqueado';it.motivo='Tasa PPM fuera de rango (debe ser mayor que 0 y hasta 10%).';return;}
+    it.estado='pendiente';
+  });
+  var ruts=items.filter(function(it){return it.estado==='pendiente';}).map(function(it){return it.rut;})
+    .filter(function(r,i,a){return a.indexOf(r)===i;});
+  if(!ruts.length) return Promise.resolve(items);
+  return sbJson('preiva_historial?cliente_rut=in.('+ruts.map(function(r){return '"'+r+'"';}).join(',')+')&select=cliente_rut,periodo,f29,fecha_envio,tasa_ppm&order=periodo.desc')
+    .then(function(filas){
+      var mapa={};(filas||[]).forEach(function(f){mapa[f.cliente_rut+'|'+f.periodo]=f;});
+      items.forEach(function(it){
+        if(it.estado!=='pendiente') return;
+        if(it.tipo==='envio'){
+          var ex=mapa[it.rut+'|'+perDb(it.periodo)];
+          if(!ex){it.estado='nuevo';it.accion='insertar';it.motivo='No está en Gestoor: se agregará como enviado.';}
+          else if(ex.fecha_envio&&numDe(ex.f29)===it.f29){it.estado='ya';it.motivo='Ya está en Gestoor (mismo F29).';}
+          else{it.estado='conflicto';it.accion='reemplazar';it.motivo='En Gestoor ya hay '+(ex.fecha_envio?'un envío del '+fechaCorta(ex.fecha_envio):'un borrador')+' con F29 '+ff(ex.f29)+'.';}
+        }else{
+          var ultima=(filas||[]).find(function(f){return f.cliente_rut===it.rut&&parseFloat(f.tasa_ppm)>0;});
+          var exCur=mapa[it.rut+'|'+cur];
+          if(ultima&&parseFloat(ultima.tasa_ppm)===it.tasa){it.estado='ya';it.motivo='Gestoor ya tiene esta tasa.';}
+          else if(exCur&&parseFloat(exCur.tasa_ppm)>0){it.estado='conflicto';it.accion='reemplazar-tasa';it.motivo='El Pre-IVA de '+formatPeriodo(_periodoActual)+' en Gestoor tiene tasa '+exCur.tasa_ppm+'%.';}
+          else if(exCur){it.estado='nuevo';it.accion='tasa-en-fila';it.motivo='Se pondrá en el Pre-IVA de '+formatPeriodo(_periodoActual)+' (que no tenía tasa).';}
+          else{it.estado='nuevo';it.accion='tasa-nueva';it.motivo='Se creará el borrador de '+formatPeriodo(_periodoActual)+' con esta tasa.';}
+        }
+      });
+      return items;
+    });
+}
+var _itemsLocales=[];
+function abrirModalLocales(){
+  var items=leerLocales();
+  var m=document.getElementById('modal-locales');if(m)m.remove();
+  var ov=document.createElement('div');
+  ov.id='modal-locales';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:var(--sur);border-radius:14px;max-width:680px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:700;color:var(--p)">💾 Subir datos guardados en este navegador</div><button id="loc-cerrar" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--tm)">×</button></div>'
+    +'<div style="padding:12px 20px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bdr)">Marca solo lo que quieras subir. Nada de lo que ya está en Gestoor se reemplaza sin que marques <em>"Sí, reemplazar"</em>. Los datos originales quedan en este navegador como respaldo.</div>'
+    +'<div id="loc-lista" style="overflow-y:auto;flex:1;padding:6px 20px"><div style="padding:20px;text-align:center;color:var(--tm);font-size:12px">Revisando contra Gestoor…</div></div>'
+    +'<div style="padding:12px 20px;border-top:1px solid var(--bdr);background:var(--sur2);display:flex;gap:10px;align-items:center"><button id="loc-todos" class="btn-calcular">Marcar todos los nuevos</button><span style="flex:1"></span><button id="loc-cancelar" class="btn-calcular">Cancelar</button><button id="loc-subir" class="btn-generar" disabled>Subir seleccionados</button></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  var cerrar=function(){ov.remove();renderNomina();detectarDatosLocales();if(_clienteActual&&!_sucio&&!_autoTimer)cargarDatos();};
+  document.getElementById('loc-cerrar').onclick=cerrar;
+  document.getElementById('loc-cancelar').onclick=cerrar;
+  validarLocales(items).then(function(v){
+    _itemsLocales=v;
+    v.forEach(function(it){if(it.estado==='ya')marcarSubido(it.id);});  // ya estaban en Gestoor: no se vuelven a ofrecer
+    pintarLocales();
+  }).catch(function(e){
+    document.getElementById('loc-lista').innerHTML='<div class="banner-err">⚠ No se pudo revisar contra Gestoor: '+hesc(e.message)+' No se subió nada.</div>';
+  });
+  document.getElementById('loc-todos').onclick=function(){
+    document.querySelectorAll('#loc-lista .loc-chk').forEach(function(ch){var it=_itemsLocales[+ch.dataset.i];if(it&&it.estado==='nuevo'&&!ch.disabled)ch.checked=true;});
+    actualizarBotonSubir();
+  };
+  document.getElementById('loc-subir').onclick=subirLocales;
+}
+function pintarLocales(){
+  var el=document.getElementById('loc-lista');if(!el) return;
+  if(!_itemsLocales.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--tm);font-size:12px">No hay nada pendiente en este navegador.</div>';return;}
+  el.innerHTML=_itemsLocales.map(function(it,i){
+    var color=it.estado==='nuevo'?'var(--green)':it.estado==='conflicto'?'var(--amber)':'var(--tm)';
+    var puede=it.estado==='nuevo'||it.estado==='conflicto';
+    return '<div class="mig-item"><input type="checkbox" class="loc-chk" data-i="'+i+'"'+(puede&&it.estado!=='conflicto'?'':' disabled')+' style="margin-top:3px">'
+      +'<div style="flex:1"><div>'+textoItem(it)+'</div><div class="mig-motivo" style="color:'+color+'">'+(it.estado==='ya'?'✓ ':it.estado==='bloqueado'?'✗ ':'')+hesc(it.motivo||'')+'</div>'
+      +(it.estado==='conflicto'?'<label style="font-size:11px;color:var(--amber);display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" class="loc-reemp" data-i="'+i+'"> Sí, reemplazar lo que está en Gestoor con este dato</label>':'')
+      +'</div><span class="mig-res" id="loc-res-'+i+'"></span></div>';
+  }).join('');
+  el.onchange=function(e){
+    var r=e.target.closest('.loc-reemp');
+    if(r){var ch=el.querySelector('.loc-chk[data-i="'+r.dataset.i+'"]');if(ch){ch.disabled=!r.checked;if(!r.checked)ch.checked=false;}}
+    actualizarBotonSubir();
+  };
+}
+function actualizarBotonSubir(){
+  var n=document.querySelectorAll('#loc-lista .loc-chk:checked').length;
+  var b=document.getElementById('loc-subir');if(b){b.disabled=!n;b.textContent=n?'Subir seleccionados ('+n+')':'Subir seleccionados';}
+}
+function subirUnLocal(it){
+  var u=getUsuario(),cur=perDb(_periodoActual),rut=encodeURIComponent(it.rut);
+  if(it.tipo==='envio'){
+    var fila={cliente_rut:it.rut,periodo:perDb(it.periodo),f29:it.f29,fecha_envio:it.fechaIso,enviado_por:((u.nombre||u.email||'')+' (subido desde navegador)').trim()};
+    if(it.accion==='reemplazar')
+      return sbJson('preiva_historial?on_conflict=cliente_rut,periodo',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(fila)});
+    return sbJson('preiva_historial',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(fila)});
+  }
+  if(it.accion==='tasa-nueva')
+    return sbJson('preiva_historial',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({cliente_rut:it.rut,periodo:cur,tasa_ppm:it.tasa,fecha_envio:null})});
+  // tasa en la fila del mes: si no tenía tasa, solo se escribe si sigue sin tasa (no pisa algo puesto entre medio).
+  var filtroTasa=it.accion==='tasa-en-fila'?'&tasa_ppm=eq.0':'';
+  return sbJson('preiva_historial?cliente_rut=eq.'+rut+'&periodo=eq.'+cur+filtroTasa,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify({tasa_ppm:it.tasa})})
+    .then(function(rows){if(!rows||!rows.length)throw new Error('El Pre-IVA de este mes cambió mientras tanto. Cierra y vuelve a abrir.');return rows;});
+}
+function subirLocales(){
+  var sel=Array.prototype.map.call(document.querySelectorAll('#loc-lista .loc-chk:checked'),function(ch){return +ch.dataset.i;});
+  if(!sel.length) return;
+  var nReemp=sel.filter(function(i){return _itemsLocales[i].estado==='conflicto';}).length;
+  if(!confirm('Vas a subir '+sel.length+' dato(s) a Gestoor'+(nReemp?' (de ellos, '+nReemp+' REEMPLAZAN lo que hay en Gestoor)':'')+'.\n\n¿Continuar?')) return;
+  var b=document.getElementById('loc-subir');if(b){b.disabled=true;b.textContent='Subiendo…';}
+  document.querySelectorAll('#loc-lista input').forEach(function(x){x.disabled=true;});
+  var ok=0,err=0;
+  sel.reduce(function(p,i){
+    return p.then(function(){
+      var it=_itemsLocales[i],res=document.getElementById('loc-res-'+i);
+      if(res){res.textContent='Subiendo…';res.style.color='var(--tm)';}
+      return subirUnLocal(it).then(function(){
+        ok++;marcarSubido(it.id);if(res){res.textContent='✓ Guardado en Gestoor';res.style.color='var(--green)';}
+      },function(e){
+        err++;if(res){res.textContent='✗ '+e.message;res.style.color='var(--red)';res.style.whiteSpace='normal';}
+      });
+    });
+  },Promise.resolve()).then(function(){
+    if(b){b.textContent=ok+' subido(s)'+(err?' · '+err+' con error':'');}
+    var c=document.getElementById('loc-cancelar');if(c)c.textContent='Cerrar';
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
@@ -944,14 +1273,19 @@ function limpiarEdicion(){
   var sb=document.getElementById('sb-usuario');
   if(sb)sb.textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Admin');
   var now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;
+  // Desde la Cartera de Pre-IVA: ?periodo=AAAA-MM (mes) y ?cliente=<id> (abre ese cliente). Sin parámetros: mes en curso.
+  var _qs=new URLSearchParams(location.search), _perQ=_qs.get('periodo'), _cliQ=_qs.get('cliente');
+  var _esMesEnCurso=true;
+  if(/^\d{4}-(0[1-9]|1[0-2])$/.test(_perQ||'')){var _yq=parseInt(_perQ.slice(0,4),10),_mq=parseInt(_perQ.slice(5,7),10);_esMesEnCurso=(_yq===y&&_mq===m);y=_yq;m=_mq;}
   _periodoActual=String(y)+(m<10?'0':'')+m;
+  var lnkCart=document.getElementById('lnk-volver-cartera');if(lnkCart)lnkCart.href='cartera.html?periodo='+perDb(_periodoActual);
   var lbl=document.getElementById('sel-periodo-label');
   if(lbl){var ms=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];lbl.textContent=ms[m-1]+' '+y;}
   var lc=document.getElementById('lbl-corte');
-  if(lc)lc.textContent='Datos al '+now.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()];
+  if(lc)lc.textContent=_esMesEnCurso?'Datos al '+now.getDate()+' de '+['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][now.getMonth()]:'Mes distinto al en curso (abierto desde la cartera)';
   // Event listeners
   var btnLimpCli=document.getElementById('btn-limpiar-cliente');if(btnLimpCli)btnLimpCli.onclick=limpiarCliente;
-  var btnNuevaSim=document.getElementById('btn-nueva-sim');if(btnNuevaSim)btnNuevaSim.onclick=limpiarSimulacion;
+  var btnNuevaSim=document.getElementById('btn-nueva-sim');if(btnNuevaSim)btnNuevaSim.onclick=function(){limpiarSimulacion();if(_clienteActual){calcular();marcarCambio();}};
   var btnEditar=document.getElementById('btn-editar-reporte');if(btnEditar)btnEditar.onclick=abrirModalEdicion;
   var btnVista=document.getElementById('btn-vista-previa');if(btnVista)btnVista.onclick=generarReporte;
   var btnEnviar=document.getElementById('btn-enviar');if(btnEnviar)btnEnviar.onclick=enviarPreIVA;
@@ -962,13 +1296,24 @@ function limpiarEdicion(){
   var filV=document.getElementById('file-ventas');if(filV)filV.onchange=function(){onLibroChange(this,'ventas');};
   var filC=document.getElementById('file-compras');if(filC)filC.onchange=function(){onLibroChange(this,'compras');};
   // Inputs de cálculo
-  ['inp-debito','inp-credito','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=calcular;});
-  var inpPPM=document.getElementById('inp-tasa-ppm');if(inpPPM)inpPPM.oninput=function(){calcularPPM();calcular();};
+  ['inp-debito','inp-credito','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=function(){calcular();marcarCambio();};});
+  var inpPPM=document.getElementById('inp-tasa-ppm');if(inpPPM)inpPPM.oninput=function(){calcularPPM();calcular();marcarCambio();};
+  var btnGuardarAhora=document.getElementById('btn-guardar-ahora');if(btnGuardarAhora)btnGuardarAhora.onclick=function(){guardarPreiva('borrador').catch(function(){});};
+  window.addEventListener('beforeunload',function(e){if(_sucio||_autoTimer){guardarPendiente();e.preventDefault();e.returnValue='';}});
+  var btnLoc=document.getElementById('banner-locales');if(btnLoc)btnLoc.onclick=function(e){if(e.target.closest('#btn-subir-locales'))abrirModalLocales();};
   // Cerrar dropdown al click fuera
   document.addEventListener('click',function(e){if(!e.target.closest('#inp-buscar-cliente')&&!e.target.closest('#cliente-dropdown')){var dd=document.getElementById('cliente-dropdown');if(dd)dd.style.display='none';}});
   // Cargar datos desde Supabase
   setSyncStatus('syncing');
-  Promise.all([cargarUF(), cargarClientes()]).then(function(){setSyncStatus('ok');}).catch(function(){setSyncStatus('error');});
+  Promise.all([cargarUF(), cargarClientes()]).then(function(){
+    setSyncStatus('ok');
+    // Abrir directo el cliente pedido por la cartera (solo si la RLS lo deja ver y está activo)
+    if(_cliQ){
+      var cq=_todosClientes.find(function(x){return String(x.id)===String(_cliQ);});
+      if(cq)seleccionarCliente(cq.rut);   // sin desplazar la página: que se vea "← Volver a la cartera"
+      else mostrarToast('No se encontró ese cliente en tu cartera (o no está activo).');
+    }
+  }).catch(function(){setSyncStatus('error');});
 })();
 </script>
 <script src="../auth.js"></script>

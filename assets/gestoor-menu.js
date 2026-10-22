@@ -66,7 +66,7 @@
     ['Principal',[['inicio','Dashboard','']]],
     ['Operación mensual',[['clientes','Clientes','clientes'],['panel','Panel de Control','panel-de-control'],['rrhh','RRHH','reportes-rrhh'],
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
-      ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva'],['pir','MiRenta','pir','proyeccion.html']]],
+      ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva','cartera.html'],['pir','MiRenta','pir','proyeccion.html']]],
     ['Gestión interna',[['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación',null],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
       ['correo','Comunicaciones',null],['grafico','Performance',null]]],
@@ -91,7 +91,7 @@
           h+='<a class="sb-item futuro" href="#" style="pointer-events:none" aria-disabled="true">'+ic+esc(it[1])+'</a>';
           return;
         }
-        var href=it[2]===''?'../index.html':'../'+it[2]+'/'+(it[3]||'index.html');   // it[3]: página de entrada del módulo (MiRenta abre la Cartera de Renta)
+        var href=it[2]===''?'../index.html':'../'+it[2]+'/'+(it[3]||'index.html');   // it[3]: página de entrada del módulo (MiRenta abre la Cartera de Renta; Pre-IVA, la Cartera de Pre-IVA)
         var on=(it[2]===activo&&activo!=='')||(activo==='inicio'&&it[2]==='');  // Inicio (raíz) marca Dashboard
         h+='<a class="sb-item'+(on?' on':'')+'" href="'+href+'"'+(on?' aria-current="page"':'')+'>'+ic+esc(it[1])+'</a>';
       });
