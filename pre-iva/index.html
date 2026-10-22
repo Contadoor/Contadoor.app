@@ -1,246 +1,271 @@
-
 <!DOCTYPE html>
 <html lang="es" class="auth-pending">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pre IVA · Gestoor</title>
-<style>
-:root{--p:#904891;--pd:#6D2E6E;--pm:#B06EB1;--pp:#F5EAF5;--deep:#08040f;--bg:#f0ebff;--sur:#fff;--sur2:#FAF7FA;--bdr:#E8DDE8;--t1:#1A0A1B;--t2:#5C4A5D;--tm:#9A849B;--green:#2D9B6F;--amber:#C07A1A;--red:#C0392B;--blue:#3B82F6;--mono:"SF Mono","Consolas",monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;}
-.layout{display:flex;min-height:100vh;}
-.sidebar{width:220px;background:var(--deep);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0;}
-.sb-nav{padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;}
-.sb-nav::-webkit-scrollbar{width:3px;}
-.sb-nav::-webkit-scrollbar-track{background:transparent;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(144,72,145,.3);border-radius:3px;}
-.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.25);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
-.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,.55);transition:.15s;margin-bottom:1px;text-decoration:none;cursor:pointer;}
-.sb-item:hover{background:rgba(144,72,145,.18);color:#fff;}
-.sb-item.on{background:rgba(144,72,145,.3);color:#fff;font-weight:600;}
-.sb-foot{padding:12px 14px;border-top:1px solid rgba(144,72,145,.25);font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0;}
-.main{margin-left:220px;flex:1;min-height:100vh;}
-.topbar{background:var(--deep);padding:10px 20px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--p);position:sticky;top:0;z-index:10;}
-.tb-title{font-size:14px;font-weight:600;color:#fff;flex:1;}
-.toolbar{background:var(--sur2);border-bottom:1px solid var(--bdr);padding:10px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.sel-box{background:var(--sur);border:1px solid var(--bdr);color:var(--t1);border-radius:6px;padding:6px 10px;font-size:12px;min-width:220px;}
-.lbl-corte{font-size:11px;color:var(--tm);margin-left:4px;}
-.btn-generar{background:var(--p);color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;}
-.btn-generar:hover{background:var(--pd);}
-.btn-calcular{background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;}
-.btn-calcular:hover{background:var(--pp);}
-.content-preiva{padding:20px 24px;max-width:960px;}
-.panel-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--tm);gap:10px;}
-.panel-empty-icon{font-size:36px;opacity:.4;}
-.panel-simulacion{display:none;}
-.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
-.kpi-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;}
-.kpi-label{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:600;}
-.kpi-value{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--t1);}
-.kpi-sub{font-size:10px;color:var(--tm);margin-top:3px;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
-.panel-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:14px;}
-.panel-card-header{padding:11px 16px;border-bottom:1px solid var(--bdr);font-size:12px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px;}
-.panel-card-body{padding:14px 16px;}
-.inp-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.inp-row:last-child{margin-bottom:0;}
-.inp-label{font-size:11px;color:var(--tm);width:145px;flex-shrink:0;}
-.inp-field{background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:6px;padding:6px 10px;font-size:12px;flex:1;font-variant-numeric:tabular-nums;}
-.inp-field:focus{outline:none;border-color:var(--p);}
-.res-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:12px;}
-.res-row:last-child{border-bottom:none;}
-.res-label{color:var(--t2);}
-.res-valor{font-weight:600;font-variant-numeric:tabular-nums;color:var(--t1);}
-.res-row.total{border-top:2px solid var(--bdr);padding-top:10px;margin-top:4px;}
-.res-row.total .res-label{color:var(--t1);font-weight:700;}
-.res-row.total .res-valor{color:var(--red);font-size:15px;font-weight:700;}
-.res-row.remanente .res-valor{color:var(--green);}
-.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.bar-label{font-size:11px;color:var(--tm);width:80px;flex-shrink:0;}
-.bar-track{flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:3px;transition:width .4s;}
-.bar-val{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t1);min-width:100px;text-align:right;}
-.accion{background:var(--sur2);border-radius:8px;padding:12px;border-left:3px solid;margin-bottom:8px;}
-.accion.verde{border-color:var(--green);}.accion.amarillo{border-color:var(--amber);}.accion.morado{border-color:var(--p);}
-.ac-titulo{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px;}
-.ac-desc{font-size:11px;color:var(--tm);line-height:1.5;margin-bottom:5px;}
-.ac-monto{font-size:11px;font-weight:600;}
-.accion.verde .ac-monto{color:var(--green);}.accion.amarillo .ac-monto{color:var(--amber);}.accion.morado .ac-monto{color:var(--p);}
-.remanente-info{background:var(--pp);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--t2);display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-.remanente-val{font-weight:700;color:var(--green);font-size:13px;}
-.cli-option{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;}
-.cli-option:last-child{border-bottom:none;}.cli-option:hover{background:var(--pp);}
-.cli-option-nombre{font-weight:600;color:var(--t1);}.cli-option-rut{font-size:11px;color:var(--tm);}.cli-option-plan{font-size:10px;color:var(--p);margin-left:auto;}
-.sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
-.est-guardado{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--bdr);background:var(--sur);color:var(--tm);max-width:520px;}
-.est-ok{background:#e8f5f0;border-color:#bfe3d3;color:var(--green);}
-.est-pendiente,.est-guardando{background:#fef9ec;border-color:#f1dcae;color:var(--amber);}
-.est-error{background:#fdecea;border-color:#f3c2bc;color:var(--red);}
-.est-error button{margin-left:6px;background:var(--red);color:#fff;border:none;border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;}
-.banner-loc{background:#fef9ec;border:1px solid #f1dcae;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--t2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.banner-err{background:#fdecea;border:1px solid #f3c2bc;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--red);}
-.mig-item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--bdr);font-size:12px;}
-.mig-item:last-child{border-bottom:none;}
-.mig-motivo{font-size:11px;margin-top:2px;}
-.mig-res{font-size:11px;font-weight:600;margin-left:auto;white-space:nowrap;}
-@media(max-width:680px){.grid2{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
-</style>
+<title>Pre-IVA · Proyección del cliente · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/preiva-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="operativa.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="../assets/equipo.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (por ejemplo gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js.
+   Candado 2: operativa-demo.js vuelve a revisar el host antes de definir los datos ficticios. Candado 3: no carga auth.js. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.PIO_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
 </head>
-<body>
+<body class="g-shell g-tema-noche g-mod-pio">
+<!-- Pre-IVA · Pantalla 2 (el cálculo de un cliente). Rediseño 22-oct: misma línea que MiRenta y la Cartera de Pre-IVA.
+     SOLO cambió la presentación: los ids que usan el cálculo, el guardado, el envío y las pruebas son los mismos.
+     Las piezas nuevas (ids pio-*) las pinta operativa-vista.js leyendo la pantalla, sin tocar el cálculo. -->
 <div class="layout">
-<aside class="sidebar">
-  <nav class="sb-nav">
-    <div class="sb-sec">Principal</div>
-    <a class="sb-item" href="../index.html">🏠 Dashboard</a>
-    <div class="sb-sec">Operación mensual</div>
-    <a class="sb-item" href="../clientes/index.html">👥 Clientes</a>
-    <a class="sb-item" href="../panel-de-control/index.html">📋 Panel de Control</a>
-    <a class="sb-item" href="../reportes-rrhh/index.html">👥 RRHH</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">👤 Gestión de Personal</a>
-    <a class="sb-item" href="../reportes-contable/index.html">📊 Contable</a>
-    <a class="sb-item" href="../reportes-pagos/index.html">💰 Pagos</a>
-    <a class="sb-item" href="../pagos/index.html">✅ Aprobaciones</a>
-    <a class="sb-item" href="../convenios/index.html">🤝 Convenios</a>
-    <a class="sb-item on" href="../pre-iva/cartera.html">📋 Pre-IVA</a>
-    <a class="sb-item" href="../pir/index.html">📊 PIR</a>
-    <div class="sb-sec">Gestión interna</div>
-    <a class="sb-item" href="../planes/index.html">📋 Planes y Servicios</a>
-    <a class="sb-item" href="../conciliacion/index.html">🏦 Conciliación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📋 CxC / Cobranza</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">🧾 Facturación</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📈 CRM</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📝 Cotizaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📣 Campañas</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">✉️ Comunicaciones</a>
-    <a class="sb-item" href="#" style="opacity:.4;pointer-events:none">📊 Performance</a>
-    <div class="sb-sec">Configuración</div>
-    <a class="sb-item" href="../admin/index.html">⚙️ Admin</a>
-  </nav>
-  <div class="sb-foot" id="sb-usuario">Gestoor v1.0</div>
-</aside>
+<aside class="sidebar" data-gestoor-activo="pre-iva"></aside>
+<script src="../assets/gestoor-menu.js"></script>
 <main class="main">
-  <div class="topbar">
-    <div class="tb-title">📋 Pre-IVA — Proyección mensual</div>
-    <span id="sync-status" style="font-size:11px;color:#C07A1A;display:flex;align-items:center">
-      <span class="sync-dot" style="background:#C07A1A"></span>Conectando...
-    </span>
+  <!-- Barra superior: h1.tb-title es hijo DIRECTO de .topbar y aquí no hay <button>.
+       auth.js (insignia + "Salir") y notifications.js (campana) insertan sus elementos con insertBefore sobre .topbar:
+       así funciona con y sin el arreglo del PR #67. No agregar botones ni anidar el título dentro de esta barra. -->
+  <div class="topbar pio-top">
+    <img class="pio-ico" src="../assets/preiva-icono.svg" alt="" width="40" height="40">
+    <h1 class="tb-title">Pre<span>-IVA</span></h1>
+    <p class="pio-sub">Proyección del mes · el cliente sabe cuánto viene en su F29 antes del día 20</p>
+    <div class="g-espacio"></div>
+    <span class="pio-demo" id="pioDemo" hidden title="Datos ficticios locales: no se conecta a Supabase y nada se guarda ni se envía">DEMO LOCAL · DATOS FICTICIOS</span>
+    <span id="sync-status" class="pio-sync" style="color:#C07A1A"><span class="sync-dot" style="background:#C07A1A"></span>Conectando...</span>
   </div>
-  <div class="toolbar">
-    <a id="lnk-volver-cartera" class="btn-calcular" href="cartera.html" style="text-decoration:none;color:var(--p);font-weight:600" title="Volver a la Cartera de Pre-IVA (todos los clientes del mes)">&#8592; Volver a la cartera</a>
-    <div id="cliente-seleccionado" style="display:none;background:var(--pp);border:1px solid var(--bdr);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--p);font-weight:600;align-items:center;gap:8px;">
-      <span id="cliente-sel-nombre"></span>
-      <span id="cliente-sel-rut" style="font-weight:400;color:var(--tm)"></span>
-      <button id="btn-limpiar-cliente" style="margin-left:8px;background:none;border:none;color:var(--tm);cursor:pointer;font-size:16px;line-height:1">&times;</button>
-    </div>
-    <div style="position:relative">
-      <input type="text" class="sel-box" id="inp-buscar-cliente" placeholder="🔍 Buscar cliente..." oninput="filtrarClientes(this.value)" autocomplete="off">
-      <div id="cliente-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--sur);border:1px solid var(--bdr);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;max-height:260px;overflow-y:auto;margin-top:4px;"></div>
-    </div>
-    <span id="sel-periodo-label" style="font-size:13px;font-weight:600;color:#c9a6e8;background:rgba(144,72,145,.2);border:1px solid rgba(144,72,145,.3);padding:5px 12px;border-radius:6px;"></span>
-    <span class="lbl-corte" id="lbl-corte"></span>
-    <button class="btn-calcular" id="btn-nueva-sim">🔄 Nueva simulación</button>
-    <button class="btn-calcular" id="btn-editar-reporte">✏️ Editar reporte</button>
-    <button class="btn-calcular" id="btn-vista-previa">👁️ Vista previa</button>
-    <button class="btn-generar" id="btn-enviar">✉️ Enviar Pre-IVA</button>
-  </div>
-  <div class="content-preiva">
-    <div id="panel-empty" style="display:none"></div>
-    <div class="panel-simulacion" id="panel-simulacion">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <button id="btn-volver-nomina" style="background:none;border:none;color:var(--p);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0">&#8592; Volver a la nómina</button>
-        <span style="flex:1"></span>
-        <span id="estado-guardado" class="est-guardado est-nuevo">Aún no guardado</span>
-        <button class="btn-calcular" id="btn-guardar-ahora" title="Guarda este Pre-IVA en Gestoor (también se guarda solo al cambiar un dato)">💾 Guardar ahora</button>
+  <div class="content">
+  <div class="pio-app">
+    <!-- Navegación: volver a la cartera, mes y buscador de cliente -->
+    <div class="pio-nav">
+      <a id="lnk-volver-cartera" class="btn sec chico" href="cartera.html" title="Volver a la Cartera de Pre-IVA (todos los clientes del mes)">&#8592; Volver a la cartera</a>
+      <span class="pio-per"><span data-g-ic="calendario"></span><span id="sel-periodo-label"></span></span>
+      <span class="lbl-corte" id="lbl-corte"></span>
+      <div class="pio-buscar">
+        <i class="ic"><span data-g-ic="clientes"></span></i>
+        <input type="text" class="sel-box" id="inp-buscar-cliente" placeholder="Cambiar de cliente: nombre o RUT…" oninput="filtrarClientes(this.value)" autocomplete="off" aria-label="Buscar otro cliente">
+        <div id="cliente-dropdown" style="display:none"></div>
       </div>
-      <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-label">F29 proyectado</div><div class="kpi-value" id="kpi-f29" style="color:var(--red)">$0</div><div class="kpi-sub">A pagar el 20</div></div>
-        <div class="kpi-card"><div class="kpi-label">vs. mes anterior</div><div class="kpi-value" id="kpi-var">—</div><div class="kpi-sub">Comparativa F29</div></div>
-        <div class="kpi-card"><div class="kpi-label">PPM del período</div><div class="kpi-value" id="kpi-ppm" style="color:var(--p)">$0</div><div class="kpi-sub" id="kpi-ppm-sub">Incluido en F29</div></div>
-        <div class="kpi-card"><div class="kpi-label">Días para actuar</div><div class="kpi-value" id="kpi-dias" style="color:var(--p)">—</div><div class="kpi-sub">Hasta cierre</div></div>
-        <div class="kpi-card"><div class="kpi-label">Nuevo remanente</div><div class="kpi-value" id="kpi-remanente" style="color:var(--green)">$0</div><div class="kpi-sub">Si hay saldo a favor</div></div>
-      </div>
-      <div class="grid2">
-        <div class="panel-card">
-          <div class="panel-card-header">📅 Datos de entrada</div>
-          <div class="panel-card-body">
-            <div class="panel-card" style="margin-bottom:14px;">
-              <div class="panel-card-header">📂 Cargar libros MasContable</div>
-              <div class="panel-card-body">
-                <div class="inp-row">
-                  <span class="inp-label">Libro de ventas</span>
-                  <input type="file" accept=".xls,.xlsx,.html,.htm" class="inp-field" style="padding:4px" id="file-ventas">
-                </div>
-                <div style="font-size:11px;margin:2px 0 2px 145px;color:var(--tm)" id="lbl-libro-ventas">Sin archivo cargado</div>
-                <div style="font-size:10px;margin:0 0 10px 145px;color:var(--tm);display:none" id="desg-ventas"></div>
-                <div class="inp-row">
-                  <span class="inp-label">Libro de compras</span>
-                  <input type="file" accept=".xls,.xlsx,.html,.htm" class="inp-field" style="padding:4px" id="file-compras">
-                </div>
-                <div style="font-size:11px;margin:2px 0 2px 145px;color:var(--tm)" id="lbl-libro-compras">Sin archivo cargado</div>
-                <div style="font-size:10px;margin:0 0 0 145px;color:var(--tm);display:none" id="desg-compras"></div>
-              </div>
-            </div>
-            <div class="remanente-info">
-              Remanente de <strong id="lbl-periodo-ant">—</strong>:&nbsp;
-              <span class="remanente-val" id="lbl-remanente">$0</span>
-              <span style="color:var(--tm)" id="lbl-remanente-fuente">— desde Contable (F29 del mes anterior)</span>
-            </div>
-            <div class="inp-row"><span class="inp-label">Débito IVA registrado</span><input class="inp-field" type="number" id="inp-debito" placeholder="0"></div>
-            <div class="inp-row"><span class="inp-label">Crédito IVA registrado</span><input class="inp-field" type="number" id="inp-credito" placeholder="0"></div>
-            <div class="inp-row"><span class="inp-label">Ventas exentas (neto)</span><input class="inp-field" type="number" id="inp-exento-ventas" min="0" placeholder="Del libro; vacío = sin dato" title="Base del PPM = neto afecto + exento. Si queda vacío, el PPM se marca como estimado sin ventas exentas."></div>
-            <div class="inp-row"><span class="inp-label">Días transcurridos</span><input class="inp-field" type="number" id="inp-dias-transc" min="1" max="31"></div>
-            <div class="inp-row"><span class="inp-label">Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31" readonly title="Días reales del período (calendario): no se editan"></div>
-            <div class="inp-row"><span class="inp-label">Tasa PPM (%)</span><input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10"></div>
-            <div class="inp-row"><span class="inp-label">F29 mes anterior</span><input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa"></div>
-            <div id="aviso-entradas" role="alert" style="display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px;margin-top:8px"></div>
+    </div>
+
+    <!-- Sin cliente abierto -->
+    <div id="panel-empty" class="card" style="display:none">
+      <span class="pio-cli-ico"><span data-g-ic="iva"></span></span>
+      <b>Elige un cliente</b>
+      <p>Abre el Pre-IVA desde la <a href="cartera.html" style="color:var(--lila2);font-weight:700">Cartera de Pre-IVA</a> o busca al cliente arriba, en "Cambiar de cliente".</p>
+    </div>
+
+    <div class="panel-simulacion pio-sim" id="panel-simulacion" style="display:none">
+      <!-- Tarjeta del cliente: nombre, RUT, período, responsable con foto, estado y fuente + acciones -->
+      <section class="card pio-cab" aria-label="Cliente">
+        <div id="cliente-seleccionado" class="pio-cli" style="display:none">
+          <span class="pio-cli-ico" aria-hidden="true"><span data-g-ic="edificio"></span></span>
+          <div class="pio-cli-n">
+            <h2 id="cliente-sel-nombre"></h2>
+            <small>RUT <b id="cliente-sel-rut"></b> · <span id="pio-plan">—</span></small>
+          </div>
+          <button id="btn-limpiar-cliente" type="button" title="Cerrar este cliente" aria-label="Cerrar este cliente">&times;</button>
+        </div>
+        <div class="pio-franja">
+          <div class="pio-f"><small>Período</small><b id="pio-periodo">—</b><span class="pio-f-sub" id="pio-venc">—</span></div>
+          <div class="pio-f"><small>Responsable</small><span id="pio-resp"><span class="nd">Sin asignar</span></span></div>
+          <div class="pio-f"><small>Estado</small><span id="pio-estado" class="estado gris">—</span><span class="pio-f-sub" id="pio-estado-sub"></span></div>
+          <div class="pio-f"><small>Fuente</small><span id="pio-fuente" class="estado gris">Manual</span><span class="pio-f-sub">SII automático: próximamente</span></div>
+        </div>
+        <!-- Sincronización con el SII (sapi_frescura, conector SimpleAPI). Mientras no esté instalada: "pendiente de activación". -->
+        <div class="pio-sii" id="pio-sii">
+          <span class="pio-sii-ico"><span data-g-ic="repetir"></span></span>
+          <div class="pio-sii-txt"><span id="pio-sii-chip" class="estado gris">Revisando la conexión con el SII…</span><small id="pio-sii-det"></small></div>
+          <button type="button" class="btn sec chico" id="pio-sii-btn" disabled aria-describedby="pio-sii-nota"><span data-g-ic="repetir"></span>Actualizar desde el SII</button>
+          <small class="pio-sii-nota" id="pio-sii-nota">Bolsa manual: hasta 10 actualizaciones por cliente al mes.</small>
+        </div>
+        <div class="pio-barra-acc">
+          <span id="estado-guardado" class="est-guardado est-nuevo">Aún no guardado</span>
+          <button class="btn sec chico" id="btn-guardar-ahora" type="button" title="Guarda este Pre-IVA en Gestoor (también se guarda solo al cambiar un dato)"><span data-g-ic="check"></span>Guardar ahora</button>
+          <button id="btn-volver-nomina" type="button">&#8592; Volver a la nómina</button>
+          <small class="pio-correo-envia" id="pio-correo-envia" hidden></small>
+          <div class="pio-acciones">
+            <button class="btn sec" id="btn-nueva-sim" type="button"><span data-g-ic="repetir"></span>Nueva simulación</button>
+            <button class="btn sec" id="btn-editar-reporte" type="button"><span data-g-ic="lapiz"></span>Editar reporte</button>
+            <button class="btn sec" id="btn-vista-previa" type="button"><span data-g-ic="ver"></span>Vista previa del correo</button>
+            <button class="btn pri" id="btn-enviar" type="button">✉️ Enviar Pre-IVA</button>
           </div>
         </div>
-        <div class="panel-card">
-          <div class="panel-card-header">📊 Resultado proyectado al cierre</div>
-          <div class="panel-card-body">
-            <div class="bar-row"><span class="bar-label">Débito IVA</span><div class="bar-track"><div class="bar-fill" id="bar-debito" style="width:0%;background:var(--p)"></div></div><span class="bar-val" id="res-debito">$0</span></div>
-            <div class="bar-row" style="margin-bottom:14px"><span class="bar-label">Crédito IVA</span><div class="bar-track"><div class="bar-fill" id="bar-credito" style="width:0%;background:var(--green)"></div></div><span class="bar-val" id="res-credito">$0</span></div>
-            <div class="res-row remanente"><span class="res-label">Remanente período anterior</span><span class="res-valor" id="res-remanente">$0</span></div>
-            <div class="res-row"><span class="res-label">PPM del período</span><span class="res-valor" id="res-ppm" style="color:var(--p)">$0</span></div>
-            <div id="res-ppm-aviso" style="display:none;font-size:11px;color:var(--amber);margin:-2px 0 6px"></div>
-            <div class="res-row total"><span class="res-label">F29 estimado a pagar</span><span class="res-valor" id="res-f29">$0</span></div>
-            <div id="res-f29-alcance" style="font-size:10.5px;color:var(--tm);margin:4px 0 0">Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29 (lo valida Contable).</div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:11px">
-              <span style="color:var(--tm)">Días restantes para actuar</span>
-              <span style="color:var(--p);font-weight:600" id="res-dias-rest">—</span>
-            </div>
-          </div>
+      </section>
+
+      <!-- Cifras principales (como los KPI de MiRenta). "No disponible" nunca $0: lo maneja la vista con clases. -->
+      <div class="aviso lila pio-exenta-av" id="pio-exenta" hidden><span data-g-ic="alerta"></span><span><b>Empresa exenta de IVA · el F29 corresponde solo al PPM.</b> Base del PPM = ingresos exentos (+ otros computables) × tasa. Débito, crédito, remanente e IVA a pagar no aplican.</span></div>
+      <div class="aviso gris" id="pio-iva-sin-dato" hidden><span data-g-ic="alerta"></span><span>La ficha del cliente no indica si es afecto o exento de IVA: se muestra el cálculo normal. Complétalo en la ficha (condición de IVA).</span></div>
+      <div class="pio-kpis" id="pio-kpis">
+        <div class="kpi hero">
+          <small id="pio-hero-lbl">📍 Así vamos · F29</small>
+          <b class="kv" id="pio-real-f29">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato" id="pio-corte-txt"><span id="pio-corte-et">Registrado a la fecha</span> · vence el <span id="pio-venc-corto">20</span> · quedan <b id="kpi-dias">—</b></p>
+          <p class="p-dato pio-ref" id="pio-ref-f29"></p>
+          <p class="p-dato pio-ref pio-ref-lim" id="pio-ref-lim" hidden></p>
+          <p class="p-dato pio-ref-mini pio-solo-curso">Estimado lineal a fin de mes: <span id="kpi-f29">$0</span><span id="pio-var-linea" hidden> · <span id="pio-var-ic">↗</span> <span id="kpi-var">—</span> vs <span id="pio-var-mes">el mes anterior</span> (<span id="pio-f29-ant">—</span>)</span></p>
+          <p class="p-nd" id="pio-hero-nd">Carga los libros o escribe el débito y el crédito del mes.</p>
+        </div>
+        <div class="kpi k-iva">
+          <small>📍 IVA a pagar · así vamos</small>
+          <b class="kv" id="pio-real-iva">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato">Débito − crédito − remanente</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="pio-kpi-iva">$0</span></p><p class="p-nd">Sin datos del mes</p>
+        </div>
+        <div class="kpi k-ppm" id="pio-kpi-ppm">
+          <small>📍 PPM · así vamos</small>
+          <b class="kv" id="pio-real-ppm">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato" id="kpi-ppm-sub">Incluido en F29</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="kpi-ppm">$0</span></p><p class="p-nd" id="pio-ppm-nd">Sin datos del mes</p>
+        </div>
+        <div class="kpi k-rem">
+          <small>📍 Remanente nuevo · así vamos</small>
+          <b class="kv" id="pio-real-rem">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato">Crédito a favor para el mes siguiente</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="kpi-remanente">$0</span></p><p class="p-nd">Sin datos del mes</p>
         </div>
       </div>
-      <div class="panel-card">
-        <div class="panel-card-header">⚡ Zona de acción — sugerencias para el cliente</div>
-        <div class="panel-card-body"><div id="acciones-grid"></div></div>
+
+      <!-- Avance del mes -->
+      <section class="card pio-av" aria-label="Avance del mes">
+        <div class="pio-av-txt">
+          <span>Avance del mes: <b id="pio-av-pct">—</b> <span id="pio-av-det"></span></span>
+          <span class="der">Quedan <b id="res-dias-rest">—</b> días para el cierre (<span id="pio-av-venc">día 20</span>)</span>
+        </div>
+        <div class="pio-av-barra" id="pio-av-barra" role="progressbar" aria-label="Avance del mes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="pio-av-fill" style="width:0%"></i></div>
+      </section>
+
+      <div class="pio-g2">
+        <!-- Cómo se calcula tu F29 (formato liquidación, como "Cómo se calcula tu impuesto" de MiRenta) -->
+        <section class="card acc-F29 pio-liq" id="pio-liq" aria-label="Cómo se calcula tu F29">
+          <div class="h"><h2>Cómo se calcula <span>tu F29</span></h2><small id="pio-liq-sub">Así vamos (registrado) y estimado a fin de mes</small></div>
+          <div class="tabla-box"><table class="liq liq2"><thead><tr><th></th><th></th><th class="num" id="pio-th-real">📍 Así vamos</th><th class="num est pio-solo-curso">Estimado a fin de mes</th></tr></thead><tbody>
+            <tr class="sd fila-iva"><td class="op"></td><td><span class="liq-t">Débito IVA</span><small>IVA de tus ventas</small><span class="mini"><i class="bar-fill" id="bar-debito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-deb">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-debito">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd fila-iva"><td class="op">−</td><td><span class="liq-t">Crédito IVA</span><small>IVA de tus compras</small><span class="mini"><i class="bar-fill" id="bar-credito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-cred">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-credito">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="fila-iva"><td class="op">−</td><td><span class="liq-t">Remanente anterior</span><small>Crédito que quedó del mes pasado</small></td><td class="num" style="color:var(--verde)"><span id="pio-r-rem">$0</span></td><td class="num est pio-solo-curso"><span id="res-remanente">$0</span></td></tr>
+            <tr class="tot sd fila-iva"><td class="op">=</td><td><span class="liq-t">IVA a pagar</span><small>Si da negativo, paga $0 y queda remanente</small></td><td class="num"><span id="pio-r-iva">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="pio-liq-iva">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="fin sd"><td class="op">=</td><td><span class="liq-t">F29</span></td><td class="num"><span id="pio-r-f29">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-f29">$0</span><span class="nd-alt">—</span></td></tr>
+          </tbody></table></div>
+          <div class="pio-chips" id="pio-chips">
+            <span class="chip lila pio-solo-curso" id="pio-chip-lineal"><span data-g-ic="alerta"></span><span>El estimado es una proyección lineal y puede cambiar.</span></span>
+            <span class="chip ambar" id="res-ppm-aviso" style="display:none"></span>
+            <span class="chip gris" id="res-f29-alcance"><span data-g-ic="alerta"></span><span>Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29 (lo valida Contable).</span></span>
+          </div>
+        </section>
+
+        <!-- Datos del mes: libros y montos de entrada -->
+        <section class="card acc-DAT" aria-label="Datos del mes">
+          <div class="h"><h2>Datos <span>del mes</span></h2><small>Al cambiar un dato se guarda solo</small></div>
+          <!-- Carga manual de libros: respaldo TEMPORAL mientras se activa la conexión con el SII.
+               Interruptor: PIO_CONFIG.cargaManual en operativa-vista.js ('auto' = se oculta cuando la conexión SII está activa). -->
+          <details class="pio-manual" id="pio-manual">
+          <summary><span data-g-ic="subir"></span>Carga manual <small>(temporal, mientras se activa la conexión con el SII)</small><i class="pio-chev" aria-hidden="true"></i></summary>
+          <div class="pio-sub-t"><span data-g-ic="subir"></span>Libros de MasContable (.xls)</div>
+          <div class="pio-libros">
+            <label class="pio-libro"><b><i class="ic ic-mor"><span data-g-ic="contable"></span></i>Libro de ventas</b>
+              <input type="file" accept=".xls,.xlsx,.html,.htm" id="file-ventas">
+              <span class="pio-libro-lbl" id="lbl-libro-ventas">Sin archivo cargado</span>
+              <span class="pio-libro-desg" id="desg-ventas" style="display:none"></span>
+            </label>
+            <label class="pio-libro"><b><i class="ic ic-ver"><span data-g-ic="contable"></span></i>Libro de compras</b>
+              <input type="file" accept=".xls,.xlsx,.html,.htm" id="file-compras">
+              <span class="pio-libro-lbl" id="lbl-libro-compras">Sin archivo cargado</span>
+              <span class="pio-libro-desg" id="desg-compras" style="display:none"></span>
+            </label>
+          </div>
+          </details>
+          <div class="remanente-info fila-iva">
+            <span>Remanente de <strong id="lbl-periodo-ant">—</strong>:</span>
+            <span class="remanente-val" id="lbl-remanente">$0</span>
+            <span id="lbl-remanente-fuente">— desde Contable (F29 del mes anterior)</span>
+          </div>
+          <div class="pio-sub-t"><span data-g-ic="lapiz"></span>Montos registrados a la fecha</div>
+          <div class="pio-campos">
+            <label class="pio-campo campo-iva"><span>Débito IVA registrado</span><input class="inp-field" type="number" id="inp-debito" placeholder="0" inputmode="numeric"></label>
+            <label class="pio-campo campo-iva"><span>Crédito IVA registrado</span><input class="inp-field" type="number" id="inp-credito" placeholder="0" inputmode="numeric"></label>
+            <label class="pio-campo"><span id="pio-lbl-exento">Ventas exentas (neto)</span><input class="inp-field" type="number" id="inp-exento-ventas" min="0" placeholder="Del libro; vacío = sin dato" title="Base del PPM = neto afecto + exento. Si queda vacío, el PPM se marca como estimado sin ventas exentas." inputmode="numeric"></label>
+            <label class="pio-campo"><span>Tasa PPM (%)</span><input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10" inputmode="decimal"></label>
+            <label class="pio-campo"><span>Días transcurridos</span><input class="inp-field" type="number" id="inp-dias-transc" min="1" max="31" inputmode="numeric"></label>
+            <label class="pio-campo"><span>Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31" inputmode="numeric" readonly title="Días reales del período (calendario): no se editan"></label>
+            <label class="pio-campo" style="grid-column:1/-1"><span>F29 del mes anterior <em>(para comparar)</em></span><input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa" inputmode="numeric"></label>
+          </div>
+          <div id="aviso-entradas" class="aviso rojo" role="alert" style="display:none"></div>
+        </section>
       </div>
-      <div class="panel-card">
-        <div class="panel-card-header">📨 Historial de Pre-IVA (guardado en Gestoor)</div>
-        <div class="panel-card-body"><div id="historial-envios"><div style="font-size:11px;color:var(--tm)">Sin envíos registrados.</div></div></div>
+
+      <!-- Qué puedes hacer: motor de recomendaciones (pre-iva/recomendaciones.js, interruptor PIO_CONFIG.recomendacionesNuevas).
+           #acciones-grid (acciones del sistema anterior) se mantiene: es lo que HOY lee el correo (buildReporteHTML) y "Editar reporte". -->
+      <section class="card acc-ACC" aria-label="Qué puede hacer el cliente" id="pio-recos-card">
+        <div class="h"><h2>Qué puedes <span>hacer</span></h2><small id="pio-recos-sub">Recomendaciones con los datos de este cliente</small></div>
+        <div class="pio-renta" id="pio-renta" hidden><span data-g-ic="pir"></span><span id="pio-renta-txt"></span><a id="pio-renta-link" href="../pir/proyeccion.html">Ver proyección de renta →</a></div>
+        <div id="pio-recos" class="pio-recos"></div>
+        <details class="pio-correo-acc" id="pio-correo-acc">
+          <summary>Acciones que van hoy en el correo <small>(sistema anterior · se reemplazan por las recomendaciones cuando se apruebe el motor)</small><i class="pio-chev" aria-hidden="true"></i></summary>
+          <div id="acciones-grid"></div>
+        </details>
+      </section>
+
+      <div class="pio-g2">
+        <!-- Historial de 6 meses: IVA a pagar (o PPM en exentas) con su promedio y el mes en curso estimado -->
+        <section class="card acc-F29" aria-label="Historial de 6 meses" id="pio-hist">
+          <div class="h"><h2 id="pio-hist-tit">Tu IVA <span>de los últimos 6 meses</span></h2><small id="pio-hist-cmp"></small></div>
+          <div id="pio-hist-graf" class="pio-graf"></div>
+          <p class="nota" id="pio-hist-fuente"></p>
+          <details class="pio-correo-acc pio-traz" id="pio-hist-traz"></details>
+        </section>
+        <!-- Tendencias de ventas y compras netas (6 meses + mes en curso) -->
+        <section class="card acc-DAT" aria-label="Ventas y compras" id="pio-tend">
+          <div class="h"><h2>Ventas y compras <span>· 6 meses</span></h2><small id="pio-tend-res"></small></div>
+          <div id="pio-tend-graf" class="pio-graf"></div>
+          <p class="nota" id="pio-tend-fuente"></p>
+        </section>
       </div>
+
+      <!-- Documentos del período (RCV del SII): ventas emitidas y compras recibidas -->
+      <section class="card acc-DAT" aria-label="Documentos del período" id="pio-docs">
+        <div class="h"><h2>Documentos <span>del período</span></h2><small id="pio-docs-fuente"></small></div>
+        <div class="pio-docs-bar">
+          <div class="g-seg pio-tabs" role="tablist" aria-label="Libro">
+            <button type="button" class="fb on" role="tab" aria-selected="true" data-libro="ventas">Ventas emitidas <b id="pio-n-ventas">0</b></button>
+            <button type="button" class="fb" role="tab" aria-selected="false" data-libro="compras">Compras recibidas <b id="pio-n-compras">0</b></button>
+          </div>
+          <input type="search" id="pio-docs-q" placeholder="Buscar folio, RUT o razón social…" aria-label="Buscar documentos">
+          <select id="pio-docs-tipo" aria-label="Filtrar por tipo de documento"><option value="">Todos los tipos</option></select>
+          <select id="pio-docs-acuse" aria-label="Filtrar por estado de acuse" hidden><option value="">Todos los acuses</option><option value="pendiente">Pendientes (en plazo)</option><option value="aceptada">Aceptadas</option><option value="tacita">Aceptadas (plazo vencido)</option><option value="reclamada">Reclamadas</option></select>
+        </div>
+        <div id="pio-docs-tot" class="pio-docs-tot"></div>
+        <div id="pio-docs-tabla"></div>
+      </section>
+
+      <section class="card acc-HIS" aria-label="Historial">
+        <div class="h"><h2>Historial <span>del Pre-IVA</span></h2><small>Guardado en Gestoor</small></div>
+        <div id="historial-envios"><div style="font-size:11px;color:var(--tm)">Sin envíos registrados.</div></div>
+      </section>
     </div>
+
+    <!-- Nómina rápida del mes (la vista completa es la Cartera de Pre-IVA) -->
+    <details class="card pio-nom" id="anchor-nomina">
+      <summary>Nómina rápida del mes <small>Planes Asesoría y Estratégico · la vista completa está en la Cartera</small><i class="pio-chev" aria-hidden="true"></i></summary>
+      <div class="pio-nom-cuerpo">
+        <div class="pio-nom-fil">
+          <input type="text" class="sel-box" id="inp-buscar-nomina" placeholder="Buscar por nombre o RUT…" aria-label="Buscar en la nómina">
+          <button class="btn-calcular" id="btn-actualizar-nomina" type="button">↺ Actualizar</button>
+        </div>
+        <div id="banner-locales" style="display:none"></div>
+        <div id="nomina-preiva"><div style="padding:32px;text-align:center;color:var(--tm);font-size:13px">Cargando nómina...</div></div>
+      </div>
+    </details>
   </div>
-  <div id="anchor-nomina" style="padding:0 24px 32px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--p);text-transform:uppercase;margin-bottom:3px">Nómina Pre-IVA</div>
-        <div style="font-size:13px;font-weight:600;color:var(--t1)">Planes Asesoría y Estratégico</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" class="sel-box" id="inp-buscar-nomina" placeholder="🔍 Buscar por nombre..." style="min-width:220px">
-        <button class="btn-calcular" id="btn-actualizar-nomina">↺ Actualizar</button>
-      </div>
-    </div>
-    <div id="banner-locales" style="display:none"></div>
-    <div id="nomina-preiva"><div style="padding:32px;text-align:center;color:var(--tm);font-size:13px">Cargando nómina...</div></div>
   </div>
 </main>
 </div>
 <script src="../supabase.js"></script>
+<script src="../assets/equipo.js"></script>
+<script>if(window.PIO_DEMO)document.write('<script src="operativa-demo.js"><\/script>');</script>
 <script src="f29-formula.js"></script>
 <script src="proyeccion.js"></script>
 <script>
@@ -898,7 +923,19 @@ function generarReporte(){
   var waMsg=encodeURIComponent('Hola, vi mi proyección IVA de '+periodo+' y tengo una consulta.');
   var contacto=c.contacto||c.razonSocial||(c.rut||'Cliente');
   var now=new Date();
-  var full='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Proyección IVA '+periodo+'</title><style>*{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}</style></head><body><div style="max-width:680px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.15)"><div style="background:linear-gradient(135deg,#6D2E6E 0%,#904891 100%);padding:18px 28px;display:flex;align-items:center;justify-content:space-between"><img src="https://assets.cdn.filesafe.space/kfq1F3czdejkInyTMLkO/media/6982b1a12dd9857339e39ae1.png" style="height:28px;filter:brightness(0) invert(1)" alt="Contadoor"><span style="font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:12px">Proyección de IVA · '+periodo+'</span></div><div style="padding:22px 28px;border-bottom:1px solid #eee"><p style="font-size:15px;color:#1a1a1a;font-weight:600;margin:0 0 3px">Hola '+hesc(contacto)+',</p><p style="font-size:13px;color:#333;line-height:1.7;margin:0 0 12px">Preparamos tu <strong style="color:#904891">Proyección de IVA · '+periodo+'</strong>. Revisa el F29 estimado y las acciones antes del cierre.</p><a href="https://wa.me/'+waNum+'?text='+waMsg+'" style="display:inline-block;background:#25d366;color:#fff;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;text-decoration:none">💬 WhatsApp</a></div>'+html+'<div style="padding:14px 28px;background:#1a0a1b;border-top:3px solid #904891;text-align:center"><p style="font-size:11px;color:#c9a6e8;margin:0 0 3px">'+hesc(u.nombre||'Contadoor')+' · Asesorías Contadoor Ltda.</p><p style="font-size:10px;color:#4a3060;margin:0">Esta proyección es informativa y puede variar al cierre del período.</p></div></div></body></html>';
+  // Vista previa (solo pantalla, no se envía): marco de la plantilla de correo aprobada (cabecera oscura, franja del cliente,
+  // saludo y pie). El detalle del medio es EXACTAMENTE buildReporteHTML(), el mismo HTML que va en el correo.
+  var logo=new URL('../assets/logo-blanco.png',location.href).href, perMin=periodo.toLowerCase();
+  var full='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vista previa · Proyección IVA '+periodo+'</title><style>*{box-sizing:border-box}body{margin:0;padding:16px 8px;background:#EFE8F0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif}</style></head><body>'
+    +'<div style="max-width:600px;margin:0 auto 10px;font-size:11.5px;color:#6E6075;text-align:center">Vista previa interna · los montos y el detalle son los mismos que se enviarán al cliente</div>'
+    +'<div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #E8DDE8;border-radius:18px;overflow:hidden">'
+    +'<div style="background:#17091A;background-image:radial-gradient(120% 90% at 85% 0%,#4A1E52 0%,#17091A 60%)"><div style="height:6px;background:linear-gradient(135deg,#803889 0%,#A4599C 100%)"></div><div style="padding:22px 28px 24px"><img src="'+logo+'" style="height:28px;display:block;margin-bottom:18px" alt="Contadoor"><div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:#E3B5E5;text-transform:uppercase;margin-bottom:6px">📊 Proyección de IVA</div><div style="font-size:24px;font-weight:800;color:#fff;line-height:1.25">Tu F29 de <span style="color:#C77BC9">'+perMin+'</span> estimado</div></div></div>'
+    +'<div style="padding:12px 28px;background:#FAF7FA;border-bottom:1px solid #EEE4EF;font-size:12.5px;color:#5C4A5D"><strong style="color:#1A0A1B">🏢 '+hesc(c.razonSocial||c.rut)+'</strong> · RUT '+hesc(c.rut)+' · 📅 '+perMin+'</div>'
+    +'<div style="padding:22px 28px 18px;border-bottom:1px solid #eee"><p style="font-size:16px;color:#1A0A1B;font-weight:700;margin:0 0 6px">Hola '+hesc(contacto)+' 👋</p><p style="font-size:13.5px;color:#4A3B4D;line-height:1.65;margin:0 0 14px">Preparamos tu <strong style="color:#924893">Proyección de IVA · '+periodo+'</strong> con la información disponible a hoy, para que sepas <strong>cuánto pagarías</strong> y decidas <strong>a tiempo</strong>.</p><a href="https://wa.me/'+waNum+'?text='+waMsg+'" style="display:inline-block;border:1.5px solid #D9C6DC;color:#924893;border-radius:999px;padding:9px 18px;font-size:13px;font-weight:700;text-decoration:none">💬 WhatsApp</a></div>'
+    +html
+    +'<div style="padding:16px 28px;background:#FAF7FA;border-top:1px solid #EEE4EF"><div style="font-size:15px;font-weight:700;color:#1A0A1B">'+hesc(u.nombre||'Contadoor')+'</div><div style="font-size:12.5px;color:#5C4A5D;margin-top:2px">Tu analista en Contadoor</div></div>'
+    +'<div style="padding:14px 28px;background:#17091A;color:#E3CFE5;font-size:11px;line-height:1.6"><strong style="color:#fff">Asesorías Contadoor Ltda.</strong> · contadoor.cl<br>Esta proyección es informativa y puede variar al cierre del período.</div>'
+    +'</div></body></html>';
   var w=window.open('','_blank');
   if(w){w.document.write(full);w.document.close();}
   else{var blob=new Blob([full],{type:'text/html'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pre-iva-'+c.rut+'-'+_periodoActual+'.html';a.click();}
@@ -1368,6 +1405,9 @@ function subirLocales(){
   }).catch(function(){setSyncStatus('error');});
 })();
 </script>
-<script src="../auth.js"></script>
+<script src="recomendaciones.js"></script>
+<script src="operativa-datos.js"></script>
+<script src="operativa-vista.js"></script>
+<script>if(!window.PIO_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
 </body>
 </html>
