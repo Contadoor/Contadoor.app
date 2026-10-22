@@ -194,6 +194,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
             <div class="inp-row"><span class="inp-label">Días totales del mes</span><input class="inp-field" type="number" id="inp-dias-tot" value="31" min="28" max="31"></div>
             <div class="inp-row"><span class="inp-label">Tasa PPM (%)</span><input class="inp-field" type="number" id="inp-tasa-ppm" placeholder="ej: 1.3" step="0.1" min="0" max="10"></div>
             <div class="inp-row"><span class="inp-label">F29 mes anterior</span><input class="inp-field" type="number" id="inp-f29-ant" placeholder="Para comparativa"></div>
+            <div id="aviso-entradas" role="alert" style="display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px;margin-top:8px"></div>
           </div>
         </div>
         <div class="panel-card">
@@ -245,6 +246,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
 var PROXY='https://contafunnel-v2.vercel.app';
 // Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
+// Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
+var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
+var CAMPOS_TRIB_EDICION=[['ed-debito','Débito IVA'],['ed-credito','Crédito IVA'],['ed-ppm','PPM'],['ed-remanente','Remanente'],['ed-f29','F29 a pagar (manual)']];
+function erroresCampos(lista){
+  var errs=[];
+  lista.forEach(function(c){var e=document.getElementById(c[0]);if(!e)return;
+    var m=PreIvaF29.validarMonto(e.value,{badInput:!!(e.validity&&e.validity.badInput)});
+    e.style.borderColor=m?'#d92d20':'';e.setAttribute('aria-invalid',m?'true':'false');
+    if(m)errs.push(c[1]+': '+m);});
+  return errs;
+}
+function revisarEntradas(){
+  var errs=erroresCampos(CAMPOS_TRIB);_datos.erroresEntrada=errs;
+  var el=document.getElementById('aviso-entradas');
+  if(el){el.textContent=errs.length?'⚠ Corrige antes de enviar · '+errs.join(' · '):'';el.style.display=errs.length?'block':'none';}
+  return errs;
+}
 var F29_ALCANCE='Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29.';
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -268,7 +286,7 @@ var _periodoActual='';
 var _datos={debitoRegistrado:0,creditoRegistrado:0,remanente:0,diasTranscurridos:22,diasTotales:31,ppm:0,tasaPPM:0};
 var _todosClientes=[];
 var _UF=39700;
-var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+var _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
 // ── CARGAR CLIENTES DESDE SUPABASE ────────────────────────────────────────
 function cargarClientes(){
   return sbFetch('clientes?select=id,rut,razon_social,email,plan,estado,analista_contable,analista_rrhh,analista_contable_usuario_id,analista_rrhh_usuario_id,ppm_tasa_default&order=razon_social.asc')
@@ -595,6 +613,7 @@ function calcularPPM(proy){
 }
 // ── CÁLCULO ───────────────────────────────────────────────────────────────
 function calcular(){
+  revisarEntradas();
   var debReg=nv('inp-debito'), credReg=nv('inp-credito');
   var diasT=nv('inp-dias-transc')||22, diasTot=nv('inp-dias-tot')||31;
   var remanente=_datos.remanente;
@@ -746,9 +765,11 @@ function enviarPreIVA(){
   if(!c.email){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
   var u=getUsuario();
   if(!u.nombre){alert('No hay usuario activo en sesión.');return;}
+  var errEnt=revisarEntradas();
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
   var periodo=formatPeriodo(_periodoActual);
   var f29=document.getElementById('res-f29').textContent;
-  if(!confirm('¿Enviar proyección IVA de '+periodo+' a '+hesc(c.razonSocial||c.rut)+'?\n\nEmail: '+c.email+'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+((_datos.ppmAvisos||[]).length&&_editOverrides.ppm===null?'\n\n⚠ PPM no definitivo: '+_datos.ppmAvisos.join(' · ')+'. El correo lo mostrará como estimado.':'')))return;
+  if(!confirm('¿Enviar proyección IVA de '+periodo+' a '+hesc(c.razonSocial||c.rut)+'?\n\nEmail: '+c.email+'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+(ppmAvisoReporte()?'\n\n⚠ PPM no definitivo: '+ppmAvisoReporte()+'. El correo lo mostrará como estimado.':'')))return;
   var btn=document.getElementById('btn-enviar');
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   var htmlReporte=buildReporteHTML();
@@ -797,6 +818,14 @@ function mostrarToast(msg){
   t.textContent=msg;document.body.appendChild(t);
   setTimeout(function(){t.remove();},4000);
 }
+// Aviso de PPM no definitivo para el reporte/correo y la confirmación: se CONSERVA aunque el PPM se edite a mano,
+// y solo desaparece si el analista marca "PPM verificado con antecedentes completos" en "Editar reporte".
+function ppmAvisoReporte(){
+  if(_editOverrides.ppmVerificado) return '';
+  var av=(_datos.ppmAvisos||[]).slice();
+  if(_editOverrides.ppm!==null&&numDe(_editOverrides.ppm)!==(_datos.ppm||0)) av.push('PPM editado a mano sin verificar');
+  return av.join(' · ');
+}
 // ── REPORTE HTML ──────────────────────────────────────────────────────────
 function buildDesgloseHTML(porTipoDoc,titulo,colorAccento){
   if(!porTipoDoc||!Object.keys(porTipoDoc).length)return '';
@@ -826,7 +855,7 @@ function buildReporteHTML(){
   var periodo=formatPeriodo(_periodoActual);
   var tasaPPM=_datos.tasaPPM||0;
   // PPM no definitivo (sin exento o neto estimado): el cliente lo ve marcado como estimado, salvo que el analista lo haya cambiado en "Editar reporte".
-  var ppmEst=((_datos.ppmAvisos||[]).length&&(_editOverrides.ppm===null||numDe(_editOverrides.ppm)===(_datos.ppm||0)))?_datos.ppmAvisos.join(' · '):'';
+  var ppmEst=ppmAvisoReporte();
   var contacto=c.contacto||c.razonSocial||(c.rut||'Cliente').split(' ')[0];
   var f29Ant=nv('inp-f29-ant');
   var f29Num=parseInt(String(f29).replace(/[^0-9]/g,''))||0;
@@ -958,7 +987,7 @@ function limpiarSimulacion(){
   document.getElementById('acciones-grid').innerHTML='';
   _datos.debitoRegistrado=0;_datos.creditoRegistrado=0;_datos.ppm=0;
   _datos.netoVentas=0;_datos.exentoVentas=0;_datos.debitoDeLibro=null;_datos.ppmAvisos=[];
-  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
 }
 // ── MODAL EDITAR REPORTE ─────────────────────────────────────────────────
 function abrirModalEdicion(){
@@ -1016,6 +1045,8 @@ function abrirModalEdicion(){
     +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">PPM</div><input id="ed-ppm" class="inp-field" value="'+fmtNum(ppm)+'" type="number" style="width:100%"></div>'
     +'<div><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">Remanente</div><input id="ed-remanente" class="inp-field" value="'+fmtNum(rem)+'" type="number" style="width:100%"></div>'
     +'<div style="grid-column:1/-1"><div style="font-size:10px;color:var(--tm);font-weight:600;text-transform:uppercase;margin-bottom:4px">F29 a pagar (manual)</div><input id="ed-f29" class="inp-field" value="'+fmtNum(f29)+'" type="number" style="width:100%"><div style="font-size:10px;color:var(--tm);margin-top:3px">Si lo dejas en 0, se recalcula automáticamente</div></div>'
+    +'<label style="grid-column:1/-1;display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--t2);cursor:pointer"><input type="checkbox" id="ed-ppm-verificado"'+(_editOverrides.ppmVerificado?' checked':'')+' style="margin-top:2px"><span><strong>PPM verificado con antecedentes completos</strong> (neto afecto, exento y otros ingresos del período). Si no lo marcas, el correo muestra el PPM como estimado.</span></label>'
+    +'<div id="ed-errores" role="alert" style="grid-column:1/-1;display:none;background:#fdecea;border:1px solid #f5c2bd;color:#b42318;border-radius:8px;padding:8px 10px;font-size:11.5px"></div>'
     +'</div>'
     // Acciones
     +'<div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">⚡ Acciones sugeridas</div>'
@@ -1067,6 +1098,9 @@ function eliminarAccion(idx){
   if(items[idx]) items[idx].remove();
 }
 function guardarEdicion(){
+  var errEd=erroresCampos(CAMPOS_TRIB_EDICION);
+  var boxErr=document.getElementById('ed-errores');
+  if(errEd.length){if(boxErr){boxErr.textContent='⚠ No se aplicaron los cambios. Corrige: '+errEd.join(' · ');boxErr.style.display='block';}return false;}
   var debito=document.getElementById('ed-debito').value;
   var credito=document.getElementById('ed-credito').value;
   var ppm=document.getElementById('ed-ppm').value;
@@ -1094,12 +1128,13 @@ function guardarEdicion(){
   _editOverrides.f29=ff(f29Calc);
   _editOverrides.acciones=acciones;
   _editOverrides.obs=obs;
+  var chkV=document.getElementById('ed-ppm-verificado');_editOverrides.ppmVerificado=!!(chkV&&chkV.checked);
   document.getElementById('modal-edicion').remove();
   mostrarToast('✅ Cambios aplicados — usa Vista previa para revisar');
   marcarCambio();
 }
 function limpiarEdicion(){
-  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:''};
+  _editOverrides={debito:null,credito:null,f29:null,ppm:null,remanente:null,acciones:[],obs:'',ppmVerificado:false};
   document.getElementById('modal-edicion').remove();
   mostrarToast('↩️ Reporte restablecido a valores calculados');
 }

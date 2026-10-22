@@ -189,3 +189,85 @@ test('INTEGRACIÓN · no regresión: carga sin errores, KPIs, remanente, accione
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
+
+test('INTEGRACIÓN R4 · aviso de PPM estimado: editado sin confirmar → con aviso; editado y confirmado → sin aviso', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const { ctx, page, cap } = await abrir(browser, base, { remanente: 0 });
+    await escribir(page, { 'inp-debito': 1900000, 'inp-credito': 900000, 'inp-tasa-ppm': 1.5 });   // sin exento ni libro → PPM estimado
+    // 1) PPM editado a mano (distinto del automático), casilla SIN marcar (viene desmarcada por defecto)
+    const porDefecto = await page.evaluate(() => { abrirModalEdicion(); const c = document.getElementById('ed-ppm-verificado').checked; document.getElementById('ed-ppm').value = 175000; document.getElementById('ed-f29').value = 0; guardarEdicion(); return c; });
+    assert.equal(porDefecto, false);
+    let rep = await page.evaluate(() => buildReporteHTML());
+    assert.match(rep, /Estimado: [^<]*PPM estimado sin ventas exentas/);
+    assert.match(rep, /PPM editado a mano sin verificar/);
+    assert.equal(f29DeReporte(rep), 1000000 + 175000);
+    // 2) Mismo PPM, ahora con la casilla marcada → sin aviso de PPM (el aviso de alcance del F29 se mantiene)
+    await page.evaluate(() => { abrirModalEdicion(); document.getElementById('ed-ppm-verificado').checked = true; guardarEdicion(); });
+    rep = await page.evaluate(() => buildReporteHTML());
+    assert.doesNotMatch(rep, /Estimado: /);
+    assert.match(rep, /no es el total definitivo/);
+    // 3) Al reabrir, la casilla refleja lo confirmado; al desmarcarla vuelve el aviso
+    const sigue = await page.evaluate(() => { abrirModalEdicion(); const c = document.getElementById('ed-ppm-verificado').checked; document.getElementById('ed-ppm-verificado').checked = false; guardarEdicion(); return c; });
+    assert.equal(sigue, true);
+    assert.match(await page.evaluate(() => buildReporteHTML()), /Estimado: /);
+    // 4) "Restablecer" (limpiarEdicion) vuelve a desmarcar
+    await page.evaluate(() => { abrirModalEdicion(); document.getElementById('ed-ppm-verificado').checked = true; guardarEdicion(); abrirModalEdicion(); limpiarEdicion(); });
+    assert.equal(await page.evaluate(() => _editOverrides.ppmVerificado), false);
+    // El correo preparado lleva el mismo aviso que el reporte
+    await page.evaluate(() => { abrirModalEdicion(); document.getElementById('ed-ppm').value = 175000; document.getElementById('ed-f29').value = 0; guardarEdicion(); });
+    await page.click('#btn-enviar');
+    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
+    await page.waitForTimeout(300);
+    assert.match(cap.correos[0].htmlReporte, /Estimado: /);
+    assert.match(cap.dialogos.join('\n'), /PPM no definitivo: [^\n]*PPM editado a mano sin verificar/);
+    await ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
+
+test('INTEGRACIÓN R4 · montos inválidos: se marcan, "Editar reporte" no los aplica y el envío queda BLOQUEADO', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const { ctx, page, cap } = await abrir(browser, base, { remanente: 0 });
+    await escribir(page, { 'inp-debito': 1900000, 'inp-credito': 900000, 'inp-exento-ventas': 0, 'inp-tasa-ppm': 1.5 });
+    const intentarEnvio = async () => { await page.click('#btn-enviar'); await page.waitForTimeout(400); };
+    // a) Negativo en débito → aviso visible y envío bloqueado (ni correo ni guardado de envío)
+    await escribir(page, { 'inp-debito': -5 });
+    let av = await page.evaluate(() => ({ t: document.getElementById('aviso-entradas').textContent, v: getComputedStyle(document.getElementById('aviso-entradas')).display, inv: document.getElementById('inp-debito').getAttribute('aria-invalid') }));
+    assert.match(av.t, /Débito IVA registrado: no puede ser negativo/); assert.notEqual(av.v, 'none'); assert.equal(av.inv, 'true');
+    await intentarEnvio();
+    assert.equal(cap.correos.length, 0); assert.equal(cap.guardados.filter((g) => g.cuerpo.fecha_envio).length, 0);
+    assert.match(cap.dialogos.pop(), /No se puede enviar: hay montos inválidos/);
+    // b) Texto no numérico en crédito (el navegador marca badInput) → bloqueado
+    await escribir(page, { 'inp-debito': 1900000 });
+    await page.fill('#inp-credito', '');
+    await page.focus('#inp-credito'); await page.keyboard.type('9e');
+    await page.evaluate(() => document.getElementById('inp-credito').dispatchEvent(new Event('input', { bubbles: true })));
+    av = await page.evaluate(() => document.getElementById('aviso-entradas').textContent);
+    assert.match(av, /Crédito IVA registrado: no es un número válido/);
+    await intentarEnvio();
+    assert.equal(cap.correos.length, 0);
+    // c) Decimales en ventas exentas → bloqueado
+    await page.fill('#inp-credito', '900000'); await escribir(page, { 'inp-credito': 900000, 'inp-exento-ventas': '12.5' });
+    assert.match(await page.evaluate(() => document.getElementById('aviso-entradas').textContent), /Ventas exentas \(neto\): debe ser un monto en pesos sin decimales/);
+    await intentarEnvio();
+    assert.equal(cap.correos.length, 0);
+    // d) "Editar reporte" con PPM negativo, remanente con decimales o F29 manual negativo → no se aplica nada
+    await escribir(page, { 'inp-exento-ventas': 0 });
+    const antes = await page.evaluate(() => JSON.stringify(_editOverrides));
+    for (const [id, val, msg] of [['ed-ppm', '-1', /PPM: no puede ser negativo/], ['ed-remanente', '10.5', /Remanente: debe ser un monto en pesos sin decimales/], ['ed-f29', '-100', /F29 a pagar \(manual\): no puede ser negativo/], ['ed-debito', '-2', /Débito IVA: no puede ser negativo/], ['ed-credito', '-3', /Crédito IVA: no puede ser negativo/]]) {
+      const r = await page.evaluate(([i, v]) => { abrirModalEdicion(); document.getElementById(i).value = v; guardarEdicion(); const box = document.getElementById('ed-errores'); const out = { abierto: !!document.getElementById('modal-edicion'), err: box ? box.textContent : '' }; document.getElementById('modal-edicion').remove(); return out; }, [id, val]);
+      assert.equal(r.abierto, true, id + ': el modal queda abierto'); assert.match(r.err, msg);
+      assert.equal(await page.evaluate(() => JSON.stringify(_editOverrides)), antes, id + ': no se aplicó nada');
+    }
+    // e) Corregido todo → el envío funciona
+    assert.equal(await page.evaluate(() => document.getElementById('aviso-entradas').style.display), 'none');
+    await page.click('#btn-enviar');
+    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
+    await page.waitForTimeout(300);
+    assert.equal(cap.correos.length, 1);
+    await ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});

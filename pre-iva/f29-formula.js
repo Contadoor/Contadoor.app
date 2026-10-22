@@ -60,7 +60,22 @@
     return a;
   }
 
-  var api = { proyectarMes: proyectarMes, calcularF29Estimado: calcularF29Estimado, calcularBasePPM: calcularBasePPM,
+  // Validación de un campo tributario editable (n() convierte en 0 lo inválido sin avisar; por eso se valida ANTES):
+  // vacío = sin dato (válido); si no, debe ser un número entero de pesos, finito y no negativo.
+  // badInput = el navegador recibió texto que no es número (input type=number lo deja en '').
+  function validarMonto(raw, opts) {
+    if (opts && opts.badInput) return 'no es un número válido';
+    var t = String(raw == null ? '' : raw).trim();
+    if (t === '') return null;
+    if (!/^-?\d+(\.\d+)?$/.test(t)) return 'no es un número válido';
+    var v = Number(t);
+    if (!isFinite(v)) return 'no es un número válido';
+    if (v < 0) return 'no puede ser negativo';
+    if (Math.floor(v) !== v) return 'debe ser un monto en pesos sin decimales';
+    return null;
+  }
+
+  var api = { validarMonto: validarMonto, proyectarMes: proyectarMes, calcularF29Estimado: calcularF29Estimado, calcularBasePPM: calcularBasePPM,
               calcularPPM: calcularPPM, f29DesdeEdicion: f29DesdeEdicion, accionesSugeridas: accionesSugeridas };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.PreIvaF29 = api;

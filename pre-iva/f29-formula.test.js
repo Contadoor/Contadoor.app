@@ -247,3 +247,15 @@ test('R3 · coherencia con Contable: mismos datos → mismo PPM (copia literal d
   const d = 2380000, c = 1190000, r = 100000, ppm = ppmContable({ totalNeto: 12526316, totalExento: 0 }, 1.5);
   assert.equal(F.calcularF29Estimado({ debito: d, credito: c, remanente: r, ppm }).total, Math.max(0, d - c - r) + ppm);
 });
+
+// ── Ronda 4 ────────────────────────────────────────────────────────────────
+test('R4 · validarMonto: vacío y enteros ≥ 0 válidos; texto, negativos, decimales y badInput rechazados', () => {
+  for (const ok of ['', '  ', '0', '100', '1900000', ' 7 ', '12.0', null, undefined]) assert.equal(F.validarMonto(ok), null, String(ok));
+  assert.equal(F.validarMonto('abc'), 'no es un número válido');
+  assert.equal(F.validarMonto('1e3'), 'no es un número válido');
+  assert.equal(F.validarMonto('1.900.000'), 'no es un número válido');
+  assert.equal(F.validarMonto('$5000'), 'no es un número válido');
+  assert.equal(F.validarMonto('-5'), 'no puede ser negativo');
+  assert.equal(F.validarMonto('12.5'), 'debe ser un monto en pesos sin decimales');
+  assert.equal(F.validarMonto('', { badInput: true }), 'no es un número válido');
+});
