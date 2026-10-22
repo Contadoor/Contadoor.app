@@ -40,8 +40,8 @@
   <main class="content" id="fxMain">
     <div class="fx-aviso" role="note">
       <i class="ic placa ic-cel" data-ic="candado"></i>
-      <div><b>La emisión real está bloqueada hasta F1d.</b>
-        <p>Esta pantalla prepara, revisa y aprueba grupos. En F1c el botón "Emitir" funcionará solo contra el ambiente de pruebas de OpenFactura (sin SII), con correos únicamente a info@contadoor.cl. La primera factura real sale con el GO de producción (F1d).</p></div>
+      <div><b>La emisión real está bloqueada hasta el GO de producción.</b>
+        <p>Grupos FIJO y VARIABLE: preparar, revisar y aprobar. Facturación adicional: crear, aprobar y emitir en el ambiente de pruebas de OpenFactura (sin SII, correos solo a info@contadoor.cl). La primera factura real sale solo con el GO de producción y el OK expreso de Luciano.</p></div>
     </div>
 
     <div class="barra-lote">
@@ -165,6 +165,7 @@
 <script>if(window.FX_DEMO)document.write('<script src="demo-datos.js"><\/script>');</script>
 <script src="facturacion.js"></script>
 <script src="adicional.js"></script>
+<script src="adicional-real.js"></script>
 <script>if(!window.FX_DEMO)document.write('<script src="../auth.js"><\/script>');</script>
 </body>
 </html>
