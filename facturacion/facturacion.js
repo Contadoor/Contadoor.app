@@ -199,7 +199,7 @@ function errorCarga(m){
 }
 function cargar(){
   S.cargando=true;S.sel=null;cerrarDrawer();
-  if(S.vista==='ADICIONAL'){S.cargando=false;render();return Promise.resolve();}
+  if(S.vista==='ADICIONAL'||S.vista==='HISTORIAL'){S.cargando=false;render();return Promise.resolve();}
   if(!S.periodo){S.lote=null;S.lineas=[];S.cargando=false;render();return Promise.resolve();}
   $('fxEstado').innerHTML='<p class="ninguna">Cargando el grupo '+esc(S.vista)+' de '+esc(mesTxt(S.periodo))+'…</p>';
   return API.get('facturacion_lotes?select=*&periodo=eq.'+encodeURIComponent(S.periodo)+'&tipo=eq.'+S.vista+'&modo=eq.'+MODO+'&order=id.desc&limit=10').then(function(lotes){
@@ -252,10 +252,11 @@ function btn(o){
 
 /* ── Render ── */
 function render(){
-  var ad=S.vista==='ADICIONAL';
-  $('vistaGrupo').hidden=ad;$('vistaAdic').hidden=!ad;$('fxPeriodoBox').hidden=false;
-  $('tbSub').textContent=ad?'adicional':'mensual';
+  var ad=S.vista==='ADICIONAL', hi=S.vista==='HISTORIAL';
+  $('vistaGrupo').hidden=ad||hi;$('vistaAdic').hidden=!ad;$('vistaHist').hidden=!hi;$('fxPeriodoBox').hidden=hi;
+  $('tbSub').textContent=hi?'historial por cliente':(ad?'adicional':'mensual');
   document.querySelectorAll('[data-vista]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-vista')===S.vista);b.setAttribute('aria-pressed',b.getAttribute('data-vista')===S.vista?'true':'false');});
+  if(hi){if(window.FX_HISTORIAL)window.FX_HISTORIAL.render({demo:DEMO});return;}
   if(ad){if(window.FX_ADICIONAL)window.FX_ADICIONAL.render({demo:DEMO,rol:esMaster()?'master':(esFact()?'facturador':'lectura'),periodo:S.periodo,uf:ufPeriodo()});return;}
   renderHero();renderPasos();renderAcciones();renderTabla();renderAnalisis();renderNoFact();renderBitacora();
   if(S.sel)renderDrawer();

@@ -49,6 +49,7 @@
         <button type="button" class="fb on" data-vista="FIJO" aria-pressed="true"><i class="ic ic-ver" data-ic="calendario"></i>Grupo FIJO · día 1</button>
         <button type="button" class="fb" data-vista="VARIABLE" aria-pressed="false"><i class="ic ic-cel" data-ic="personas"></i>Grupo VARIABLE · días 10–15</button>
         <button type="button" class="fb" data-vista="ADICIONAL" aria-pressed="false"><i class="ic ic-ama" data-ic="factura"></i>Facturación adicional</button>
+        <button type="button" class="fb" data-vista="HISTORIAL" aria-pressed="false"><i class="ic ic-cel" data-ic="reloj"></i>Historial por cliente</button>
       </div>
       <label class="sim" id="fxPeriodoBox"><span class="sim-tag">PERÍODO</span> Período contable
         <select id="selPeriodo" aria-label="Período contable"><option value="">Cargando…</option></select>
@@ -106,6 +107,8 @@
         <ul class="bit" id="bitLote"></ul>
       </section>
     </div>
+
+    <section class="g-card" id="vistaHist" hidden></section>
 
     <section class="g-card" id="vistaAdic" hidden>
       <div class="g-sec-h"><i class="ic placa ic-ama" data-ic="factura"></i><h2>Facturación <span>adicional</span></h2><small>Servicios puntuales, fuera de los grupos mensuales · siempre factura exenta (DTE 34)</small></div>
@@ -166,6 +169,7 @@
 <script src="facturacion.js"></script>
 <script src="adicional.js"></script>
 <script src="adicional-real.js"></script>
+<script src="historial.js"></script>
 <script>if(!window.FX_DEMO)document.write('<script src="../auth.js"><\/script>');</script>
 </body>
 </html>
