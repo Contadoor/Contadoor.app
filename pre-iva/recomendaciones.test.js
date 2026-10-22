@@ -34,8 +34,8 @@ test('estructura: detectado → impacto → acción → quién; nunca "honorario
 test('reserva: IVA 18 % sobre el promedio de 6 meses → cifra, promedio y fecha del F29', () => {
   const l = R.generar(base({ historial: H6([800000, 820000, 850000, 830000, 840000, 870000]), actual: Object.assign(base().actual, { ivaPagar: 985000 }) }));
   const x = l.find((y) => y.id === 'reserva');
-  assert.ok(x); assert.match(x.detectado, /\$985\.000\) está 18 % sobre tu promedio de 6 meses \(\$835\.000\)/);
-  assert.match(x.accion, /Reserva \$985\.000 .* antes del 20-11/); assert.equal(x.monto, 150000);
+  assert.ok(x); assert.match(x.detectado, /\$985\.000\) está 18 % sobre tu promedio de 6 meses cerrados \(\$835\.000\)/);
+  assert.match(x.accion, /Reserva \$985\.000 antes del 20-11/); assert.equal(x.monto, 150000);
 });
 
 test('reserva: con menos de 4 meses de historial no se dispara', () => {
@@ -74,7 +74,7 @@ test('MiRenta: cobertura del PPM con escenario de PPM voluntario, fechas de la c
   assert.match(x.accion, /con \$9\.611\.393 al mes hasta diciembre podrías llegar a abril sin saldo/); assert.equal(x.monto, 28834179);
   x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', outputs: Object.assign({}, out, { 'sim.ppm_voluntario.cuota_mensual': null }) } })).find((y) => y.id === 'renta_cobertura');
   assert.doesNotMatch(x.accion, /\$/);
-  x = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', outputs: { 'forecast.idpc': 1000, 'forecast.ppm.imputable': 2000, 'forecast.saldo_abril': -1000 } } })).find((y) => y.id === 'renta_desact');
+  x = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', outputs: out } })).find((y) => y.id === 'renta_desact');
   assert.match(x.detectado, /datos al 31-07 y ya hay datos nuevos/);
   assert.ok(R.generar(base({ renta: { estado: 'sin_caso', regimen: '14D3', planIncluye: true } })).find((y) => y.id === 'renta_activar'));
   assert.equal(R.generar(base({ renta: { estado: 'sin_caso', regimen: '14D8', planIncluye: true } })).length, 0);
@@ -104,7 +104,7 @@ test('razonabilidad: compras 45 % bajo el promedio → ¿faltan facturas?; dentr
   const h = H6([800000, 800000, 800000, 800000, 800000, 800000], () => ({ credito: 2000000 }));
   let l = R.generar(base({ historial: h, actual: Object.assign(base().actual, { credito: 1100000 }) }));
   const x = l.find((y) => y.id === 'raz_compras');
-  assert.match(x.detectado, /Las compras de este mes \(\$1\.100\.000 de IVA, proyectado al cierre\) están 45 % bajo tu promedio de 6 meses \(\$2\.000\.000\)/);
+  assert.match(x.detectado, /Las compras de este mes \(\$1\.100\.000 de IVA\) están 45 % bajo tu promedio de 6 meses cerrados \(\$2\.000\.000\)/);
   l = R.generar(base({ historial: h, actual: Object.assign(base().actual, { credito: 1900000 }) }));
   assert.equal(l.find((y) => y.id === 'raz_compras'), undefined);
 });
@@ -116,9 +116,10 @@ test('recurrentes: proveedor presente → nada; ausente después de su día habi
     m.ventas.push(doc({ rut: 'DEMO-T02', razon: 'Cliente Ficticio Grande SpA', fecha: k + '-10', iva: 950000, total: 5950000 })); });
   let l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [] } } }));
   const p = l.find((y) => y.id.startsWith('rec_prov')); const c = l.find((y) => y.id.startsWith('rec_cli'));
-  assert.match(p.detectado, /Todos los meses le compras a Arriendos Ficticios Ltda\. \(6 de 6 meses, unos \$380\.000 de IVA/);
-  assert.match(p.accion, /antes del 31-10/);
-  assert.match(c.detectado, /le facturas a Cliente Ficticio Grande SpA .* y este mes aún no hay factura emitida/);
+  assert.match(p.detectado, /En los registros disponibles de este mes no aparece una factura de Arriendos Ficticios Ltda\., que sí aparece en 6 de 6 meses anteriores/);
+  assert.equal(p.accion, 'Confirma la emisión y recepción de la factura para revisar su tratamiento tributario.');
+  assert.doesNotMatch(p.accion + p.impacto, /perder/);
+  assert.match(c.detectado, /no aparece una factura emitida a Cliente Ficticio Grande SpA/);
   l = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [], compras: [doc({ rut: 'DEMO-T07', fecha: '2026-10-05', iva: 380000 })] } } }));
   assert.equal(l.find((y) => y.id.startsWith('rec_prov')), undefined);
   l = R.generar(base({ hoy: '2026-10-06', docs: { disponible: true, previos, actual: { ventas: [], compras: [] } } }));
@@ -147,30 +148,87 @@ test('sin documentos previos suficientes no hay reglas de comportamiento (nadie 
 });
 
 const RES = (o) => o;   // resumen del RCV por tipo de DTE: {tipo: {n, neto, exento, iva, total}}
-test('posible doble IVA: comprobantes de pago electrónico + boletas SIN coincidencias → alerta prudente y de prioridad alta', () => {
+test('comprobantes de pago + boletas SIN coincidencias → nivel A: aviso preventivo SIN monto (texto de ChatGPT)', () => {
   const l = R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: [] }, resumenActual: RES({ 48: { n: 120, total: 3570000 }, 39: { n: 300, total: 5950000, neto: 5000000, iva: 950000 } }) } }));
-  const x = l[0];
-  assert.equal(x.id, 'dup_voucher');
-  assert.match(x.detectado, /comprobantes de pago electrónico \(\$3\.570\.000\) y también boletas \(\$5\.950\.000\)/);
-  assert.match(x.impacto, /^Posible duplicado, a revisar: hasta \$570\.000 de IVA/);
-  assert.match(x.accion, /Si cambiaste de sistema de emisión o usas ambos/);
+  const x = l.find((y) => y.id === 'dup_voucher');
+  assert.equal(x.nivel, 'A'); assert.equal(x.monto, 0); assert.equal(x.tier, 2);
+  assert.equal(x.detectado, 'Detectamos comprobantes de pago electrónico y boletas en el mismo período.');
+  assert.equal(x.impacto, 'Esto puede ser normal, pero conviene verificar que una misma venta no esté incluida dos veces en el cálculo del IVA.');
+  assert.equal(x.accion, 'Revisaremos las coincidencias antes de confirmar el F29.');
+  assert.doesNotMatch(JSON.stringify(l), /podría estar declarado dos veces/);
 });
-test('solo boletas → sin alerta de duplicado; cambio de patrón → se menciona', () => {
+test('solo boletas → sin aviso; cambio de patrón → se menciona', () => {
   assert.equal(R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: [] }, resumenActual: RES({ 39: { n: 300, total: 5950000 } }) } })).find((y) => y.id === 'dup_voucher'), undefined);
   const prev = { '2026-07': { 39: { n: 1, total: 100 } }, '2026-08': { 39: { n: 1, total: 100 } }, '2026-09': { 39: { n: 1, total: 100 } } };
   const x = R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: [] }, resumenActual: RES({ 48: { n: 10, total: 1190000 }, 39: { n: 300, total: 5950000 } }), resumenPrevios: prev } })).find((y) => y.id === 'dup_voucher');
   assert.match(x.detectado, /Desde octubre aparecen comprobantes de pago electrónico que antes no tenías/);
 });
-test('voucher que coincide con una factura del mismo día (±1 %) → detalle dentro de la alerta; duplicado exacto; NC sin documento asociado', () => {
-  const ventas = [doc({ tipo_dte: 48, folio: 'v1', rut: '', fecha: '2026-10-07', total: 1190000, iva: 0 }), doc({ tipo_dte: 33, folio: '501', rut: 'DEMO-T04', fecha: '2026-10-07', total: 1195000, iva: 190800 })];
+test('coincidencia del mismo día: nivel B solo con los códigos DTE confirmados; en modo prudente queda como nivel A sin monto', () => {
+  const ventas = [doc({ tipo_dte: 48, folio: 'v1', rut: '', fecha: '2026-10-07', total: 1190000, iva: 0 }), doc({ tipo_dte: 33, folio: '501', rut: 'DEMO-T90', fecha: '2026-10-07', total: 1195000, iva: 190800 })];
   let x = R.generar(base({ docs: { disponible: true, actual: { ventas, compras: [] }, resumenActual: {} } })).find((y) => y.id === 'dup_voucher');
-  assert.match(x.detectado, /Detectamos \$1\.190\.000 en comprobantes de pago electrónico que coinciden con facturas o boletas del mismo día/);
-  const rep = [doc({ folio: '777', rut: 'DEMO-T09', iva: 200000 }), doc({ folio: '777', rut: 'DEMO-T09', iva: 200000 })];
-  x = R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: rep } } })).find((y) => y.id === 'dup_exacto_compras');
-  assert.match(x.detectado, /aparece dos veces con el mismo tipo, folio y contraparte \(por ejemplo, folio 777\)/);
-  const previos = previosCon((m, k) => { m.ventas.push(doc({ rut: 'DEMO-T01', fecha: k + '-03' })); });
-  x = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [doc({ tipo_dte: 61, folio: '88', rut: 'DEMO-T05', iva: 120000, total: 714000 })], compras: [] } } })).find((y) => y.id.startsWith('nc_sin_ref'));
+  assert.equal(x.nivel, 'A'); assert.equal(x.monto, 0);
+  x = R.generar(base({ docs: { disponible: true, actual: { ventas, compras: [] }, resumenActual: {} } }), { dteConfirmadoSimpleApi: true }).find((y) => y.id === 'dup_voucher');
+  assert.equal(x.nivel, 'B'); assert.equal(x.tier, 0); assert.equal(x.monto, 1190000);
+  assert.match(x.impacto, /Operaciones coincidentes por \$1\.190\.000\. Esto no demuestra una duplicación\./);
+});
+test('duplicado exacto y nota de crédito sin documento asociado visible (prudente)', () => {
+  const rep = [doc({ folio: '777', rut: 'DEMO-T91', iva: 200000 }), doc({ folio: '777', rut: 'DEMO-T91', iva: 200000 })];
+  let x = R.generar(base({ docs: { disponible: true, actual: { ventas: [], compras: rep } } })).find((y) => y.id === 'dup_exacto_compras');
+  assert.match(x.impacto, /^Posible duplicado, a revisar/);
+  const previos = previosCon((m, k) => { m.ventas.push(doc({ rut: 'DEMO-T92', fecha: k + '-03' })); });
+  x = R.generar(base({ docs: { disponible: true, previos, actual: { ventas: [doc({ tipo_dte: 61, folio: '88', rut: 'DEMO-T93', iva: 120000, total: 714000 })], compras: [] } } })).find((y) => y.id.startsWith('nc_sin_ref'));
   assert.match(x.impacto, /^Posible nota de crédito sin la referencia correcta/);
+});
+
+test('NEGATIVAS · error de lectura o snapshot incompleto ≠ ausencia de documentos: sin falsos positivos', () => {
+  const previos = previosCon((m, k) => { m.compras.push(doc({ rut: 'DEMO-T94', razon: 'Arriendos Ficticios Ltda.', fecha: k + '-05', iva: 380000, total: 2380000 })); });
+  const nuevo = doc({ rut: 'DEMO-T95', folio: '9', fecha_recepcion: '2026-10-21', iva: 950000, total: 5950000 });
+  const rep = [doc({ folio: '777', rut: 'DEMO-T96', iva: 200000 }), doc({ folio: '777', rut: 'DEMO-T96', iva: 200000 })];
+  // a) error de lectura
+  let l = R.generar(base({ docs: { disponible: false, error: 'HTTP 500', actual: { ventas: [], compras: [] }, previos: {} } }));
+  assert.equal(l.length, 0);
+  // b) lectura incompleta (más documentos que los leídos): ni recurrentes ausentes, ni proveedor nuevo, ni duplicados
+  l = R.generar(base({ docs: { disponible: true, incompleto: true, previos, actual: { ventas: [], compras: [nuevo].concat(rep) } } }));
+  assert.equal(l.filter((y) => /^(rec_|nuevo|atipico|dup_exacto|nc_sin)/.test(y.id)).length, 0);
+  // c) meses previos SIN snapshot no cuentan como "no hubo documentos"
+  const sinSnap = previosCon((m, k, i) => { if (i < 3) m.conSnapshot = false; else m.compras.push(doc({ rut: 'DEMO-T94', fecha: k + '-05', iva: 380000 })); });
+  l = R.generar(base({ docs: { disponible: true, previos: sinSnap, actual: { ventas: [], compras: [nuevo] } } }));
+  assert.ok(l.find((y) => y.id.startsWith('nuevo')), 'con 3 meses válidos sí se evalúa');
+  assert.equal(l.find((y) => y.id.startsWith('rec_')), undefined, 'el proveedor está en 3 de 3 meses válidos (< 4): no es recurrente');
+});
+
+test('ASÍ VAMOS vs REFERENCIA ESTIMADA: el mes en curso usa la referencia y lo dice; un mes cerrado usa lo real', () => {
+  const actual = { sinDato: false, tasaPPM: 1.5,
+    real: { ivaPagar: 600000, ppm: 120000, f29: 720000, nuevoRemanente: 0, debito: 1800000, credito: 1200000, ventasBase: 9000000 },
+    est: { ivaPagar: 985000, ppm: 185000, f29: 1170000, nuevoRemanente: 0, debito: 2850000, credito: 1930000, ventasBase: 15000000 } };
+  const h = H6([800000, 820000, 850000, 830000, 840000, 870000]);
+  let x = R.generar(base({ actual, historial: h })).find((y) => y.id === 'reserva');
+  assert.equal(x.usa, 'estimado'); assert.match(x.detectado, /^Según la referencia estimada, tu IVA a fin de mes \(cerca de \$985\.000\) estaría 18 %/);
+  assert.match(x.accion, /Reserva cerca de \$1\.170\.000/);
+  x = R.generar(base({ actual, historial: h, mesEnCurso: false, periodo: '2026-09' })).find((y) => y.id === 'reserva');
+  assert.equal(x, undefined, 'mes cerrado: lo real ($600.000) no está sobre el promedio');
+  const acuse = R.generar(base({ actual, docs: { disponible: true, actual: { ventas: [], compras: [doc({ fecha_recepcion: '2026-10-20', iva: 600000 })] } } })).find((y) => y.id === 'acuse');
+  assert.equal(acuse.usa, 'real');
+  assert.equal(acuse.impacto, '$600.000 de IVA asociado a facturas pendientes de revisión; su utilización debe verificarse.');
+});
+
+test('orden: los avisos sin monto no desplazan a las 2 observaciones de mayor impacto (y son a lo más 1)', () => {
+  const compras = [doc({ folio: '1', fecha_recepcion: '2026-10-20', iva: 900000 }), doc({ folio: '2', fecha_recepcion: '2026-10-01', fecha_reclamo: '2026-10-05', iva: 400000 })];
+  const l = R.generar(base({ historial: H6([800000, 820000, 850000, 830000, 840000, 870000]), actual: Object.assign(base().actual, { ivaPagar: 1200000, f29: 1385000 }),
+    renta: { estado: 'sin_caso', regimen: '14D3', planIncluye: true },
+    docs: { disponible: true, actual: { ventas: [], compras }, resumenActual: RES({ 48: { n: 1, total: 100000 }, 39: { n: 1, total: 100000 } }) } }));
+  assert.deepEqual(l.slice(0, 2).map((y) => y.id), ['acuse', 'reclamadas']);
+  assert.equal(l.filter((y) => !(y.monto > 0)).length, 1);
+  assert.ok(l.length <= 4);
+});
+
+test('MiRenta: desactualizada → solo el aviso de actualizar (sin montos); otro año comercial → nada; vigente → "sujeta a cambios"', () => {
+  const out = { 'forecast.idpc': 53400000, 'forecast.ppm.imputable': 24565821, 'forecast.saldo_abril': 28834179, 'sim.ppm_voluntario.cuota_mensual': 9611393 };
+  let l = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', anioComercial: 2026, outputs: out } }));
+  assert.deepEqual(l.map((y) => y.id), ['renta_desact']); assert.doesNotMatch(l[0].detectado + l[0].impacto + l[0].accion, /\$/);
+  assert.equal(R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2025, outputs: out } })).length, 0);
+  const x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2026, outputs: out } }))[0];
+  assert.match(x.accion, /proyección sujeta a cambios/); assert.equal(x.usa, 'mirenta');
 });
 
 test('tendencia y signo de notas de crédito', () => {

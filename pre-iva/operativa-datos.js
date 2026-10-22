@@ -78,14 +78,15 @@ function documentos(cli,per){
     });
     var ids=Object.keys(snap).map(function(k){return snap[k];}).filter(function(x){return x!=null;});
     var base={disponible:!!resumen[per],resumen:resumen,consultaAt:consulta,actual:{ventas:[],compras:[]},previos:{},meses:pers};
-    previos(per).forEach(function(p){base.previos[p]={ventas:[],compras:[]};});
+    // Solo cuenta como "mes con documentos" el que tiene snapshot: un mes sin snapshot NO es un mes sin compras ni ventas.
+    previos(per).forEach(function(p){base.previos[p]={ventas:[],compras:[],conSnapshot:!!resumen[p]};});
     if(!ids.length)return base;
     var docs=[];
     function pagina(i){
       return get('rcv_documentos?snapshot_id=in.('+ids.join(',')+')&select='+COLS_DOC+'&order=snapshot_id.asc,posicion.asc&limit='+PAG+'&offset='+(i*PAG)).then(function(r){
         r=r||[];docs=docs.concat(r);
         if(r.length===PAG&&i+1<MAX_PAG)return pagina(i+1);
-        base.truncado=r.length===PAG;
+        base.truncado=r.length===PAG;base.incompleto=base.truncado;
       });
     }
     return pagina(0).then(function(){
@@ -95,7 +96,7 @@ function documentos(cli,per){
       });
       return base;
     });
-  }).catch(function(e){return {disponible:false,error:e.message,actual:{ventas:[],compras:[]},previos:{},resumen:{}};});
+  }).catch(function(e){return {disponible:false,error:e.message||'error de lectura',actual:{ventas:[],compras:[]},previos:{},resumen:{}};});
 }
 
 /* ── Historial de 6 meses: reportes_mensuales (Contable) y, si falta, el Pre-IVA enviado. Sin dato = null (nunca 0). ── */
@@ -139,7 +140,7 @@ function renta(cli,ex){
     return rpc('renta_e1_proyeccion_vigente',{p_caso_id:caso.id}).then(function(vg){
       vg=vg||{};var o={};
       (vg.outputs||[]).forEach(function(x){if(OUT_KEYS.indexOf(x.output_key)>=0)o[x.output_key]=(x.estado_dato==='PENDING'||x.estado_dato==='PARAM_UNAVAILABLE')?null:num(x.monto);});
-      return {estado:vg.estado||'SIN_PROYECCION',casoId:caso.id,anioTributario:caso.anio_tributario,outputs:o,
+      return {estado:vg.estado||'SIN_PROYECCION',casoId:caso.id,anioTributario:caso.anio_tributario,anioComercial:caso.anio_comercial,outputs:o,
         finalizado:vg.corrida&&vg.corrida.finalizado_at||null,corte:vg.corrida&&vg.corrida.cutoff_date||null,regimen:ex.regimen,planIncluye:planIncluye};
     });
   }).catch(function(e){return {estado:'error',error:e.message};});   // sin permiso a MiRenta (no contable) o error: no se recomienda nada

@@ -103,26 +103,27 @@
       <div class="aviso gris" id="pio-iva-sin-dato" hidden><span data-g-ic="alerta"></span><span>La ficha del cliente no indica si es afecto o exento de IVA: se muestra el cálculo normal. Complétalo en la ficha (condición de IVA).</span></div>
       <div class="pio-kpis" id="pio-kpis">
         <div class="kpi hero">
-          <small id="pio-hero-lbl">F29 estimado a pagar</small>
-          <b class="kv" id="kpi-f29">$0</b><span class="nd-alt">No disponible</span>
-          <p class="p-dato" id="pio-var-linea" hidden><span id="pio-var-ic">↗</span> <span id="kpi-var">—</span> vs <span id="pio-var-mes">el mes anterior</span> (<span id="pio-f29-ant">—</span>)</p>
-          <p class="p-dato">A pagar el <span id="pio-venc-corto">20</span> · quedan <b id="kpi-dias">—</b></p>
+          <small id="pio-hero-lbl">📍 Así vamos · F29 a la fecha</small>
+          <b class="kv" id="pio-real-f29">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato" id="pio-corte-txt"><span id="pio-corte-et">Registrado a la fecha</span> · vence el <span id="pio-venc-corto">20</span> · quedan <b id="kpi-dias">—</b></p>
+          <p class="p-dato pio-ref" id="pio-ref-f29"></p>
+          <p class="p-dato pio-ref-mini pio-solo-curso">Estimado lineal a fin de mes: <span id="kpi-f29">$0</span><span id="pio-var-linea" hidden> · <span id="pio-var-ic">↗</span> <span id="kpi-var">—</span> vs <span id="pio-var-mes">el mes anterior</span> (<span id="pio-f29-ant">—</span>)</span></p>
           <p class="p-nd" id="pio-hero-nd">Carga los libros o escribe el débito y el crédito del mes.</p>
         </div>
         <div class="kpi k-iva">
-          <small>IVA a pagar</small>
-          <b class="kv" id="pio-kpi-iva">$0</b><span class="nd-alt">No disponible</span>
-          <p class="p-dato">Débito − crédito − remanente</p><p class="p-nd">Sin datos del mes</p>
+          <small>📍 IVA a pagar · así vamos</small>
+          <b class="kv" id="pio-real-iva">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato">Débito − crédito − remanente</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="pio-kpi-iva">$0</span></p><p class="p-nd">Sin datos del mes</p>
         </div>
         <div class="kpi k-ppm" id="pio-kpi-ppm">
-          <small>PPM del período</small>
-          <b class="kv" id="kpi-ppm">$0</b><span class="nd-alt">No disponible</span>
-          <p class="p-dato" id="kpi-ppm-sub">Incluido en F29</p><p class="p-nd" id="pio-ppm-nd">Sin datos del mes</p>
+          <small>📍 PPM · así vamos</small>
+          <b class="kv" id="pio-real-ppm">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato" id="kpi-ppm-sub">Incluido en F29</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="kpi-ppm">$0</span></p><p class="p-nd" id="pio-ppm-nd">Sin datos del mes</p>
         </div>
         <div class="kpi k-rem">
-          <small>Remanente nuevo</small>
-          <b class="kv" id="kpi-remanente">$0</b><span class="nd-alt">No disponible</span>
-          <p class="p-dato">Crédito a favor para el mes siguiente</p><p class="p-nd">Sin datos del mes</p>
+          <small>📍 Remanente nuevo · así vamos</small>
+          <b class="kv" id="pio-real-rem">$0</b><span class="nd-alt">No disponible</span>
+          <p class="p-dato">Crédito a favor para el mes siguiente</p><p class="p-dato pio-ref-mini pio-solo-curso">Estimado a fin de mes: <span id="kpi-remanente">$0</span></p><p class="p-nd">Sin datos del mes</p>
         </div>
       </div>
 
@@ -138,16 +139,17 @@
       <div class="pio-g2">
         <!-- Cómo se calcula tu F29 (formato liquidación, como "Cómo se calcula tu impuesto" de MiRenta) -->
         <section class="card acc-F29 pio-liq" id="pio-liq" aria-label="Cómo se calcula tu F29">
-          <div class="h"><h2>Cómo se calcula <span>tu F29</span></h2><small>Proyectado al cierre</small></div>
-          <div class="tabla-box"><table class="liq"><tbody>
-            <tr class="sd fila-iva"><td class="op"></td><td><span class="liq-t">Débito IVA</span><small>IVA de tus ventas</small><span class="mini"><i class="bar-fill" id="bar-debito" style="width:0%"></i></span></td><td class="num"><span id="res-debito">$0</span><span class="nd-alt">No disponible</span></td></tr>
-            <tr class="sd fila-iva"><td class="op">−</td><td><span class="liq-t">Crédito IVA</span><small>IVA de tus compras</small><span class="mini"><i class="bar-fill" id="bar-credito" style="width:0%"></i></span></td><td class="num"><span id="res-credito">$0</span><span class="nd-alt">No disponible</span></td></tr>
-            <tr class="fila-iva"><td class="op">−</td><td><span class="liq-t">Remanente anterior</span><small>Crédito que quedó del mes pasado</small></td><td class="num" style="color:var(--verde)"><span id="res-remanente">$0</span></td></tr>
-            <tr class="tot sd fila-iva"><td class="op">=</td><td><span class="liq-t">IVA a pagar</span><small>Si da negativo, paga $0 y queda remanente</small></td><td class="num"><span id="pio-liq-iva">$0</span><span class="nd-alt">No disponible</span></td></tr>
-            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small></td><td class="num"><span id="res-ppm">$0</span><span class="nd-alt">No disponible</span></td></tr>
-            <tr class="fin sd"><td class="op">=</td><td><span class="liq-t">F29 estimado</span></td><td class="num"><span id="res-f29">$0</span><span class="nd-alt">No disponible</span></td></tr>
+          <div class="h"><h2>Cómo se calcula <span>tu F29</span></h2><small id="pio-liq-sub">Así vamos (registrado) y estimado a fin de mes</small></div>
+          <div class="tabla-box"><table class="liq liq2"><thead><tr><th></th><th></th><th class="num" id="pio-th-real">📍 Así vamos</th><th class="num est pio-solo-curso">Estimado a fin de mes</th></tr></thead><tbody>
+            <tr class="sd fila-iva"><td class="op"></td><td><span class="liq-t">Débito IVA</span><small>IVA de tus ventas</small><span class="mini"><i class="bar-fill" id="bar-debito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-deb">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-debito">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd fila-iva"><td class="op">−</td><td><span class="liq-t">Crédito IVA</span><small>IVA de tus compras</small><span class="mini"><i class="bar-fill" id="bar-credito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-cred">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-credito">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="fila-iva"><td class="op">−</td><td><span class="liq-t">Remanente anterior</span><small>Crédito que quedó del mes pasado</small></td><td class="num" style="color:var(--verde)"><span id="pio-r-rem">$0</span></td><td class="num est pio-solo-curso"><span id="res-remanente">$0</span></td></tr>
+            <tr class="tot sd fila-iva"><td class="op">=</td><td><span class="liq-t">IVA a pagar</span><small>Si da negativo, paga $0 y queda remanente</small></td><td class="num"><span id="pio-r-iva">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="pio-liq-iva">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="fin sd"><td class="op">=</td><td><span class="liq-t">F29</span></td><td class="num"><span id="pio-r-f29">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-f29">$0</span><span class="nd-alt">—</span></td></tr>
           </tbody></table></div>
           <div class="pio-chips" id="pio-chips">
+            <span class="chip lila pio-solo-curso" id="pio-chip-lineal"><span data-g-ic="alerta"></span><span>El estimado es una proyección lineal y puede cambiar.</span></span>
             <span class="chip ambar" id="res-ppm-aviso" style="display:none"></span>
             <span class="chip gris" id="res-f29-alcance"><span data-g-ic="alerta"></span><span>Estimado de IVA + PPM. No incluye retenciones de boletas de terceros, impuesto único de trabajadores ni imputaciones especiales: no es el total definitivo del F29 (lo valida Contable).</span></span>
           </div>

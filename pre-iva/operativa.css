@@ -163,7 +163,7 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-pio table.liq .nd-alt{display:none;font:600 12.5px var(--txt);font-style:italic;color:var(--t3)}
 .g-mod-pio .pio-sin-dato table.liq tr.sd .num>[id],.g-mod-pio table.liq tr.sin-tasa .num>[id]{display:none}
 .g-mod-pio .pio-sin-dato table.liq tr.sd .nd-alt,.g-mod-pio table.liq tr.sin-tasa .nd-alt{display:inline}
-.g-mod-pio .pio-liq #res-ppm{color:#8FDBFF!important}
+
 .g-mod-pio #res-ppm-aviso{margin:0}
 .g-mod-pio #res-f29-alcance{margin:0}
 /* Datos del mes: libros + campos */
@@ -348,3 +348,17 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
   body.g-mod-pio .sidebar,body.g-mod-pio .topbar,body.g-mod-pio .pio-nav,body.g-mod-pio .pio-barra-acc,body.g-mod-pio .pio-nom{display:none!important}
 }
 .g-mod-pio .pio-docs-tot table.pio-t{min-width:620px}
+
+/* ── Ronda 2: "📍 Así vamos" protagonista; el estimado es referencia secundaria (más chico y tenue) ── */
+.g-mod-pio .pio-ref{font-size:12px!important;opacity:.82;font-style:italic}
+.g-mod-pio .pio-ref-mini{font-size:11.5px!important;opacity:.7}
+.g-mod-pio .kpi.hero .pio-ref,.g-mod-pio .kpi.hero .pio-ref-mini{color:rgba(255,255,255,.82)!important}
+.g-mod-pio .pio-ref-mini span{font-weight:700}
+.g-mod-pio .pio-mes-cerrado .pio-solo-curso{display:none!important}
+.g-mod-pio table.liq2 thead th{font:700 10px var(--txt);letter-spacing:.8px;text-transform:uppercase;color:var(--t2);padding:4px 8px 8px;border-bottom:1px solid var(--borde)}
+.g-mod-pio table.liq2 th.num,.g-mod-pio table.liq2 td.num{text-align:right}
+.g-mod-pio table.liq2 td.est,.g-mod-pio table.liq2 th.est{font:600 12px var(--txt)!important;color:var(--t3)!important;opacity:.85}
+.g-mod-pio table.liq2 td.est span{color:var(--t3)!important}
+.g-mod-pio table.liq2 tr.fin td.est{font-size:13px!important}
+.g-mod-pio .reco-usa{margin:0;font:700 10.5px var(--txt);letter-spacing:.3px;color:var(--t3)}
+@media (max-width:640px){.g-mod-pio table.liq2 td.est,.g-mod-pio table.liq2 th.est{font-size:11px!important}}

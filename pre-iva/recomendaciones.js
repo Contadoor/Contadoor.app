@@ -11,8 +11,11 @@
 (function (raiz) {
   'use strict';
 
-  // ── Umbrales: configuración ÚNICA (documentada en descargas/PRE_IVA_OPERATIVA.md) ──
+  // ── Umbrales: configuración ÚNICA de PILOTO (ronda 2 de ChatGPT: se calibran con el uso; documentados en descargas/PRE_IVA_OPERATIVA.md) ──
   var CONFIG = {
+    piloto: true,
+    maxSinMonto: 1,                 // alertas sin monto (avisos preventivos): como máximo 1 y nunca antes de las 2 de mayor impacto
+    dteConfirmadoSimpleApi: false,  // códigos 48/boletas aún sin contrastar con lo que devuelve SimpleAPI → regla de comprobantes en modo prudente (solo aviso A)
     max: 4,                         // recomendaciones como máximo
     mesesHist: 6,                   // ventana del historial (últimos 6 meses cerrados)
     minMesesPromedio: 4,            // meses con dato para usar promedios o desviaciones
@@ -97,10 +100,10 @@
   // Frescura del SII (solo si la conexión está activa): va primero porque condiciona todo lo demás.
   function reglaSii(c) {
     var s = c.sii || {};
-    if (s.estado === 'desactualizado') return r({ id: 'sii', tier: 0, color: 'ambar', frase: '¿Estos números están al día?',
+    if (s.estado === 'desactualizado') return r({ id: 'sii', tier: 0, usa: 'sii', color: 'ambar', frase: '¿Estos números están al día?',
       detectado: s.ultima ? 'No hay datos del SII desde el ' + dia(s.ultima) + (s.motivo ? ' (' + s.motivo + ')' : '') + '.' : 'Los datos del SII están desactualizados.',
       impacto: 'Las cifras de este Pre-IVA pueden cambiar.', accion: 'Actualiza desde el SII antes de decidir o enviar.', plazo: null, quien: 'Tu analista' });
-    if (s.estado === 'sin_datos') return r({ id: 'sii', tier: 0, color: 'ambar', frase: '¿Estos números están al día?',
+    if (s.estado === 'sin_datos') return r({ id: 'sii', tier: 0, usa: 'sii', color: 'ambar', frase: '¿Estos números están al día?',
       detectado: 'Aún no hay datos del SII para este período.', impacto: 'El Pre-IVA se calcula solo con lo cargado a mano.',
       accion: 'Actualiza desde el SII antes de decidir o enviar.', plazo: null, quien: 'Tu analista' });
     return null;
@@ -115,7 +118,7 @@
     var vence = pend.map(function (x) { return x.a.vence; }).sort()[0];
     return r({ id: 'acuse', monto: iva, color: 'verde', frase: '¿Qué facturas de compra debo revisar?',
       detectado: 'Tienes ' + pend.length + ' factura' + (pend.length === 1 ? '' : 's') + ' de compra con ' + clp(iva) + ' de IVA en plazo de reclamo; el primer plazo vence el ' + dia(vence) + '.',
-      impacto: clp(iva) + ' de crédito que ya baja tu F29 si son correctas.',
+      impacto: clp(iva) + ' de IVA asociado a facturas pendientes de revisión; su utilización debe verificarse.',
       accion: 'Revisa que correspondan a compras de tu empresa; si alguna no corresponde, avísanos antes del ' + dia(vence) + '.', plazo: vence, quien: 'Tú' });
   }
 
@@ -127,8 +130,8 @@
     if (iva < 1) return null;
     return r({ id: 'reclamadas', monto: iva, color: 'rojo', frase: '¿Por qué no cuenta esta factura?',
       detectado: rec.length + ' factura' + (rec.length === 1 ? '' : 's') + ' de compra de este mes fue' + (rec.length === 1 ? '' : 'ron') + ' reclamada' + (rec.length === 1 ? '' : 's') + ' (' + clp(iva) + ' de IVA).',
-      impacto: clp(iva) + ' que no suman crédito este mes.',
-      accion: 'Pide a tu proveedor la nota de crédito o la factura corregida antes del ' + dia(c.finMes) + '.', plazo: c.finMes, quien: 'Tú' });
+      impacto: clp(iva) + ' de IVA en documentos reclamados.',
+      accion: 'Revisa el motivo del reclamo y coordina con el proveedor la documentación que corresponda.', plazo: null, quien: 'Tú' });
   }
 
   // IVA (o PPM en exentas) del mes sobre el promedio de 6 meses → reservar el pago.
@@ -140,11 +143,11 @@
     if (s.n < cfg.minMesesPromedio || !(s.prom > 0)) return null;
     var dif = cur - s.prom;
     if (dif < cfg.minImpacto || cur < s.prom * (1 + cfg.sobrePromedioPct)) return null;
-    var que = c.exenta ? 'Tu PPM' : 'Tu IVA';
+    var que = c.exenta ? 'tu PPM' : 'tu IVA';
     return r({ id: 'reserva', monto: dif, color: 'ambar', frase: '¿Cuánto debo reservar este mes?',
-      detectado: que + ' de este mes (' + clp(cur) + ') está ' + pct(dif / s.prom) + ' sobre tu promedio de 6 meses (' + clp(s.prom) + ').',
-      impacto: clp(dif) + ' más que en un mes normal.',
-      accion: 'Reserva ' + clp(a.f29) + ' (tu F29 estimado) antes del ' + dia(c.vencF29) + ' para pagar sin atrasos.', plazo: c.vencF29, quien: 'Tú' });
+      detectado: (c._est ? 'Según la referencia estimada, ' + que + ' a fin de mes (cerca de ' + clp(cur) + ') estaría ' : que.charAt(0).toUpperCase() + que.slice(1) + ' de este mes (' + clp(cur) + ') está ') + pct(dif / s.prom) + ' sobre tu promedio de 6 meses cerrados (' + clp(s.prom) + ').',
+      impacto: clp(dif) + ' más que en un mes normal' + (c._est ? ' (referencial: puede cambiar).' : '.'),
+      accion: 'Reserva ' + (c._est ? 'cerca de ' : '') + clp(a.f29) + ' antes del ' + dia(c.vencF29) + ' para pagar sin atrasos.', plazo: c.vencF29, quien: 'Tú' });
   }
 
   function reglaVencimiento(c, cfg, ya) {
@@ -152,7 +155,7 @@
     var a = c.actual || {}; if (a.sinDato || !(n(a.f29) > 0)) return null;
     var d = difDias(c.vencF29, c.hoy); if (d === null || d < 0 || d > cfg.vencCercanoDias) return null;
     return r({ id: 'vencimiento', monto: a.f29, color: 'ambar', frase: '¿Cuándo tengo que pagar?',
-      detectado: (d === 0 ? 'Hoy vence' : 'En ' + d + ' día' + (d === 1 ? '' : 's') + ' vence') + ' tu F29 (' + dia(c.vencF29) + ') y el estimado es ' + clp(a.f29) + '.',
+      detectado: (d === 0 ? 'Hoy vence' : 'En ' + d + ' día' + (d === 1 ? '' : 's') + ' vence') + ' tu F29 (' + dia(c.vencF29) + ')' + (c._est ? ' y, según la referencia estimada, rondaría ' : ' y el monto es ') + clp(a.f29) + '.',
       impacto: clp(a.f29) + ' a pagar; un pago atrasado suma reajustes, intereses y multas.',
       accion: 'Deja el pago programado o los fondos listos antes del ' + dia(c.vencF29) + '.', plazo: c.vencF29, quien: 'Tú' });
   }
@@ -160,8 +163,8 @@
   function reglaRemanente(c, cfg) {
     var a = c.actual || {}; if (c.exenta || a.sinDato || !(n(a.nuevoRemanente) >= cfg.minImpacto)) return null;
     return r({ id: 'remanente', monto: a.nuevoRemanente, color: 'verde', frase: '¿Por qué este mes no pago IVA?',
-      detectado: 'Este mes el crédito de tus compras más el remanente del mes anterior superan el débito de tus ventas: no pagas IVA y te queda un crédito a favor de ' + clp(a.nuevoRemanente) + '.',
-      impacto: clp(a.nuevoRemanente) + ' que se descuentan del IVA de ' + mesSig(c.periodo) + '.',
+      detectado: (c.mesEnCurso ? 'A la fecha, el crédito de tus compras más el remanente del mes anterior superan el débito de tus ventas: por ahora no pagarías IVA y te quedaría un crédito a favor de ' : 'Este mes el crédito de tus compras más el remanente del mes anterior superan el débito de tus ventas: no pagas IVA y te queda un crédito a favor de ') + clp(a.nuevoRemanente) + '.',
+      impacto: clp(a.nuevoRemanente) + ' que se descontarían del IVA de ' + mesSig(c.periodo) + (c.mesEnCurso ? ' (puede cambiar hasta el cierre del mes).' : '.'),
       accion: 'No tienes que hacer nada: lo aplicamos en tu próximo F29.' + (n(a.ppm) > 0 ? ' El PPM (' + clp(a.ppm) + ') se paga igual el ' + dia(c.vencF29) + '.' : ''), plazo: n(a.ppm) > 0 ? c.vencF29 : null, quien: 'Tu analista' });
   }
 
@@ -179,7 +182,7 @@
     var ppmDif = Math.round(dif * n(a.tasaPPM) / 100);
     if (ppmDif < 1) return null;
     return r({ id: 'ventas_ppm', monto: ppmDif, color: 'morado', frase: '¿Me alcanzará para la renta de abril?',
-      detectado: 'Tus ventas del mes (' + clp(a.ventasBase) + ') están ' + pct(dif / s.prom) + ' sobre tu promedio de 6 meses (' + clp(s.prom) + ') y tu tasa de PPM sigue en ' + String(a.tasaPPM).replace('.', ',') + ' %.',
+      detectado: (c._est ? 'Según la referencia estimada, tus ventas a fin de mes (cerca de ' + clp(a.ventasBase) + ') estarían ' : 'Tus ventas del mes (' + clp(a.ventasBase) + ') están ') + '' + pct(dif / s.prom) + ' sobre tu promedio de 6 meses (' + clp(s.prom) + ') y tu tasa de PPM sigue en ' + String(a.tasaPPM).replace('.', ',') + ' %.',
       impacto: 'Si el alza se mantiene, tu impuesto de abril podría ser mayor que lo que cubren tus PPM (este mes ' + clp(dif) + ' de ventas sobre lo habitual).',
       accion: 'Revisemos tu tasa de PPM en la próxima reunión.', plazo: null, quien: 'Tu analista' });
   }
@@ -198,9 +201,9 @@
       if (Math.abs(dif) < s.prom * cfg.razonabilidadPct && Math.abs(z) < cfg.razonabilidadZ) return;
       var bajo = dif < 0;
       if (x[1] === 'ventas' && !bajo) return;   // ventas al alza: lo cubre la regla de reserva
-      var det = x[2] + ' de este mes (' + clp(cur) + ' de IVA' + (c.mesEnCurso ? ', proyectado al cierre' : '') + ') están ' + pct(dif / s.prom) + (bajo ? ' bajo' : ' sobre') + ' tu promedio de 6 meses (' + clp(s.prom) + ').';
+      var det = (c._est ? 'Según la referencia estimada, ' + x[2].toLowerCase() + ' a fin de mes (cerca de ' + clp(cur) + ' de IVA) estarían ' : x[2] + ' de este mes (' + clp(cur) + ' de IVA) están ') + pct(dif / s.prom) + (bajo ? ' bajo' : ' sobre') + ' tu promedio de 6 meses cerrados (' + clp(s.prom) + ').';
       if (x[1] === 'compras' && bajo) out.push(r({ id: 'raz_compras', monto: -dif, color: 'ambar', frase: '¿Me faltan facturas de compra?', detectado: det,
-        impacto: 'Hasta ' + clp(-dif) + ' de crédito que podría faltar este mes.', accion: 'Revisa si tienes facturas de compra por recibir y pídelas antes del ' + dia(c.finMes) + '.', plazo: c.finMes, quien: 'Tú' }));
+        impacto: 'Hasta ' + clp(-dif) + ' de IVA de compras bajo lo habitual (referencial).', accion: 'Revisa si tienes facturas de compra por recibir antes del ' + dia(c.finMes) + '.', plazo: c.finMes, quien: 'Tú' }));
       else if (x[1] === 'compras') out.push(r({ id: 'raz_compras', monto: dif, color: 'ambar', frase: '¿Están bien mis compras?', detectado: det,
         impacto: clp(dif) + ' de crédito sobre lo habitual.', accion: 'Revisa que todas correspondan a tu empresa; las que no, se reclaman dentro de 8 días desde su recepción.', plazo: null, quien: 'Tú' }));
       else out.push(r({ id: 'raz_ventas', monto: -dif, color: 'ambar', frase: '¿Me falta emitir facturas?', detectado: det,
@@ -211,8 +214,9 @@
 
   // Comportamiento de los últimos 6 meses (documentos del SII): recurrentes ausentes, documento atípico, proveedor nuevo.
   function previosValidos(c, cfg) {
-    if (!c.docs || !c.docs.disponible || !c.docs.previos) return null;
-    var meses = Object.keys(c.docs.previos).sort().slice(-cfg.mesesHist);
+    // Error o lectura incompleta ≠ ausencia de documentos: sin datos completos no hay reglas de comportamiento.
+    if (!c.docs || !c.docs.disponible || !c.docs.previos || c.docs.error || c.docs.incompleto) return null;
+    var meses = Object.keys(c.docs.previos).filter(function (p) { return c.docs.previos[p] && c.docs.previos[p].conSnapshot !== false; }).sort().slice(-cfg.mesesHist);
     var conDocs = meses.filter(function (p) { var x = c.docs.previos[p] || {}; return (x.compras || []).length || (x.ventas || []).length; });
     return conDocs.length >= cfg.minMesesDocs ? meses : null;
   }
@@ -237,11 +241,11 @@
         var habitual = mediana(e.dias); if (habitual === null || hoyDia === null || hoyDia <= habitual + cfg.margenDiasRecurrente) return;
         var prom = e.iva / e.meses; if (prom < cfg.minImpacto) return;
         if (x[0] === 'compras') out.push(r({ id: 'rec_prov_' + k, monto: prom, color: 'verde', frase: '¿Me falta alguna factura de compra?',
-          detectado: 'Todos los meses le compras a ' + e.razon + ' (' + e.meses + ' de ' + meses.length + ' meses, unos ' + clp(prom) + ' de IVA al mes; su factura suele llegar cerca del día ' + habitual + '). Este mes aún no está.',
-          impacto: 'Unos ' + clp(prom) + ' de crédito que no estarían en tu F29.', accion: 'Pídele la factura antes del ' + dia(c.finMes) + ' para no perder ese crédito este mes.', plazo: c.finMes, quien: 'Tú' }));
+          detectado: 'En los registros disponibles de este mes no aparece una factura de ' + e.razon + ', que sí aparece en ' + e.meses + ' de ' + meses.length + ' meses anteriores (suele emitirse cerca del día ' + habitual + ').',
+          impacto: 'Referencia: unos ' + clp(prom) + ' de IVA al mes en los meses anteriores.', accion: 'Confirma la emisión y recepción de la factura para revisar su tratamiento tributario.', plazo: null, quien: 'Tú' }));
         else out.push(r({ id: 'rec_cli_' + k, monto: prom, color: 'ambar', frase: '¿Me falta emitir alguna factura?',
-          detectado: 'Todos los meses le facturas a ' + e.razon + ' (' + e.meses + ' de ' + meses.length + ' meses, unos ' + clp(prom) + ' de IVA al mes) y este mes aún no hay factura emitida.',
-          impacto: 'Unos ' + clp(prom) + ' de IVA de una venta habitual que no aparece.', accion: 'Revisa si falta emitirla antes del ' + dia(c.finMes) + '.', plazo: c.finMes, quien: 'Tú' }));
+          detectado: 'En los registros disponibles de este mes no aparece una factura emitida a ' + e.razon + ', que sí aparece en ' + e.meses + ' de ' + meses.length + ' meses anteriores.',
+          impacto: 'Referencia: unos ' + clp(prom) + ' de IVA al mes en los meses anteriores.', accion: 'Revisa si corresponde emitirla este mes.', plazo: null, quien: 'Tú' }));
       });
     });
     return out;
@@ -290,7 +294,7 @@
     return t;
   }
   function reglaDuplicados(c, cfg) {
-    if (c.exenta || !c.docs || !c.docs.disponible) return [];
+    if (c.exenta || !c.docs || !c.docs.disponible || c.docs.error) return [];
     var out = [], res = c.docs.resumenActual || {}, ventas = c.docs.actual.ventas || [];
     var V = totTipos(res, cfg.tiposVoucher, cfg.ivaTasa), B = totTipos(res, cfg.tiposBoleta, cfg.ivaTasa);
     // Coincidencias del mismo día (solo si el SII entrega el detalle de los comprobantes con fecha)
@@ -304,7 +308,6 @@
         if (Math.abs(n(o.total) - n(v.total)) <= tol) { usados[i] = 1; coincide += n(v.total); coincideIva += n(o.iva) > 0 ? n(o.iva) : Math.round(n(v.total) / (1 + cfg.ivaTasa) * cfg.ivaTasa); break; }
       }
     });
-    var detalle = coincide > 0 ? ' Además, ' + clp(coincide) + ' en comprobantes coinciden en fecha y monto con facturas o boletas del mismo día.' : '';
     // Cambio de patrón respecto de los meses anteriores
     var prev = c.docs.resumenPrevios || {}, mesesP = Object.keys(prev).sort().slice(-cfg.mesesHist), cambio = '';
     if (mesesP.length >= cfg.minMesesDocs) {
@@ -314,20 +317,24 @@
       if (V.total > 0 && !antesV) cambio = ' Desde ' + mesTxt + ' aparecen comprobantes de pago electrónico que antes no tenías.';
       else if (B.total > 0 && !antesB) cambio = ' Desde ' + mesTxt + ' aparecen boletas que antes no tenías.';
     }
-    if (V.total > 0 && B.total > 0) {
-      var posible = Math.min(V.iva, B.iva);
-      out.push(r({ id: 'dup_voucher', tier: 0, monto: posible, color: 'rojo', frase: '¿Estoy pagando dos veces el IVA de una venta?',
-        detectado: 'Este mes tienes comprobantes de pago electrónico (' + clp(V.total) + ') y también boletas (' + clp(B.total) + ').' + cambio + detalle,
-        impacto: 'Posible duplicado, a revisar: hasta ' + clp(posible) + ' de IVA podría estar declarado dos veces.',
-        accion: 'Si cambiaste de sistema de emisión o usas ambos, revisemos que no se esté declarando dos veces la misma venta antes del ' + dia(c.vencF29) + '.', plazo: c.vencF29, quien: 'Tu analista' }));
-    } else if (coincide > 0) {
-      out.push(r({ id: 'dup_voucher', tier: 0, monto: coincideIva, color: 'rojo', frase: '¿Estoy pagando dos veces el IVA de una venta?',
-        detectado: 'Detectamos ' + clp(coincide) + ' en comprobantes de pago electrónico que coinciden con facturas o boletas del mismo día.' + cambio,
-        impacto: 'Posible duplicado, a revisar: podrías estar declarando dos veces ' + clp(coincideIva) + ' de IVA.',
-        accion: 'Revísalo con tu analista antes del ' + dia(c.vencF29) + '.', plazo: c.vencF29, quien: 'Tu analista' }));
+    // Nivel A · coexistencia (sin coincidencias o con códigos sin confirmar): aviso preventivo SIN monto.
+    // Nivel B · coincidencias de fecha y monto (solo con el detalle del SII y los códigos confirmados): revisión prioritaria con el
+    //           importe de las operaciones coincidentes; NO demuestra una duplicación.
+    // Nivel C · duplicación comprobada: solo tras revisión manual del analista (nunca automática).
+    var nivelB = coincide > 0 && cfg.dteConfirmadoSimpleApi;
+    if (nivelB) {
+      out.push(r({ id: 'dup_voucher', tier: 0, monto: coincide, color: 'rojo', frase: '¿Se está contando dos veces una venta?', nivel: 'B',
+        detectado: 'Detectamos ' + clp(coincide) + ' en comprobantes de pago electrónico que coinciden en fecha y monto con facturas o boletas del mismo día.' + cambio,
+        impacto: 'Operaciones coincidentes por ' + clp(coincide) + '. Esto no demuestra una duplicación.',
+        accion: 'Revisaremos esas operaciones antes de confirmar el F29 (' + dia(c.vencF29) + ').', plazo: c.vencF29, quien: 'Tu analista' }));
+    } else if ((V.total > 0 && B.total > 0) || coincide > 0) {
+      out.push(r({ id: 'dup_voucher', tier: 2, monto: 0, color: 'ambar', frase: '¿Se está contando dos veces una venta?', nivel: 'A',
+        detectado: 'Detectamos comprobantes de pago electrónico y boletas en el mismo período.' + cambio,
+        impacto: 'Esto puede ser normal, pero conviene verificar que una misma venta no esté incluida dos veces en el cálculo del IVA.',
+        accion: 'Revisaremos las coincidencias antes de confirmar el F29.', plazo: c.vencF29, quien: 'Tu analista' }));
     }
     // Documentos repetidos (mismo tipo, folio y contraparte) dentro del mismo libro
-    ['ventas', 'compras'].forEach(function (lib) {
+    if (!c.docs.incompleto) ['ventas', 'compras'].forEach(function (lib) {
       var vistos = {}, rep = [];
       (c.docs.actual[lib] || []).forEach(function (d) { if (!d.folio) return; var k = d.tipo_dte + '|' + d.folio + '|' + String(d.rut || '').trim(); if (vistos[k]) rep.push(d); else vistos[k] = 1; });
       if (!rep.length) return;
@@ -371,44 +378,62 @@
     var R = c.renta; if (!R) return null;
     if (R.estado === 'sin_caso') {
       if (R.regimen !== '14D3' || !R.planIncluye) return null;
-      return r({ id: 'renta_activar', monto: 0, color: 'morado', frase: '¿Mis PPM alcanzan para la renta?',
+      return r({ id: 'renta_activar', tier: 2, monto: 0, color: 'morado', usa: 'mirenta', frase: '¿Mis PPM alcanzan para la renta?',
         detectado: 'Aún no tenemos tu proyección de renta.', impacto: 'Sin ella no sabemos si tus PPM cubren el impuesto de abril.',
         accion: 'Pídele a tu analista activarla.', plazo: null, quien: 'Tu analista' });
     }
     if (R.estado !== 'VIGENTE' && R.estado !== 'DESACTUALIZADA') return null;
+    if (R.estado === 'DESACTUALIZADA') return r({ id: 'renta_desact', tier: 2, monto: 0, color: 'morado', frase: '¿Mi proyección de renta sigue vigente?',
+      detectado: 'Tu proyección de renta tiene datos al ' + dia(R.corte) + ' y ya hay datos nuevos.', impacto: 'Mientras no se actualice, no la usamos para recomendarte montos.',
+      accion: 'Pídele a tu analista actualizarla para decidir el PPM.', plazo: null, quien: 'Tu analista', usa: 'mirenta' });
+    if (hay(R.anioComercial) && +R.anioComercial !== +String(c.periodo).slice(0, 4)) return null;   // corrida de otro año comercial
     var o = R.outputs || {}, idpc = o['forecast.idpc'], ppm = o['forecast.ppm.imputable'], saldo = o['forecast.saldo_abril'];
     var fechas = 'actualizada el ' + dia(R.finalizado) + ', datos al ' + dia(R.corte);
-    var desact = R.estado === 'DESACTUALIZADA';
+    var desact = false;
     if (hay(idpc) && hay(ppm) && hay(saldo) && n(idpc) > 0 && n(saldo) > 0 && n(ppm) / n(idpc) < cfg.coberturaMin) {
       var cuota = o['sim.ppm_voluntario.cuota_mensual'];
       return r({ id: 'renta_cobertura', monto: saldo, color: 'morado', frase: '¿Me alcanzará para la renta de abril?',
         detectado: 'Según tu proyección de renta (' + fechas + '), tus PPM cubren el ' + Math.round(n(ppm) / n(idpc) * 100) + ' % del impuesto de abril: faltarían ' + clp(saldo) + '.' + (desact ? ' Ojo: la proyección está desactualizada.' : ''),
         impacto: clp(saldo) + ' a pagar en abril si nada cambia.',
-        accion: (hay(cuota) && n(cuota) > 0 ? 'Revisemos un PPM voluntario: según tu escenario de MiRenta, con ' + clp(cuota) + ' al mes hasta diciembre podrías llegar a abril sin saldo.' : 'Revisemos tu PPM y la opción de un PPM voluntario en la próxima reunión.') + (desact ? ' Antes, actualizamos la proyección.' : ''),
-        plazo: null, quien: 'Tu analista' });
+        accion: (hay(cuota) && n(cuota) > 0 ? 'Revisemos un PPM voluntario: según tu escenario de MiRenta, con ' + clp(cuota) + ' al mes hasta diciembre podrías llegar a abril sin saldo (proyección sujeta a cambios).' : 'Revisemos tu PPM y la opción de un PPM voluntario en la próxima reunión (proyección sujeta a cambios).'),
+        plazo: null, quien: 'Tu analista', usa: 'mirenta' });
     }
-    if (desact) return r({ id: 'renta_desact', monto: 0, color: 'morado', frase: '¿Mi proyección de renta sigue vigente?',
-      detectado: 'Tu proyección de renta tiene datos al ' + dia(R.corte) + ' y ya hay datos nuevos.', impacto: 'Las cifras de abril pueden haber cambiado.',
-      accion: 'Pídele a tu analista actualizarla para decidir el PPM.', plazo: null, quien: 'Tu analista' });
     return null;
   }
 
   var FAMILIAS = ['rec_prov', 'rec_cli', 'dup_voucher', 'dup_exacto', 'nc_sin_ref', 'raz_compras', 'raz_ventas', 'atipico', 'nuevo', 'renta'];
   function familia(id) { for (var i = 0; i < FAMILIAS.length; i++) if (id.indexOf(FAMILIAS[i]) === 0) return FAMILIAS[i]; return id; }
+  // ctx.actual = {sinDato, tasaPPM, real:{debito, credito, ivaPagar, ppm, f29, nuevoRemanente, ventasBase}, est:{…}}
+  //   real = "Así vamos" (registrado a la fecha de corte); est = referencia estimada a fin de mes (proyección lineal corregida).
+  //   Compatibilidad: si no vienen real/est, los campos planos valen para ambos (mes cerrado: real = est).
+  function vista(c, usarEst) {
+    var a = c.actual || {}, src = a.real ? (usarEst && c.mesEnCurso && a.est ? a.est : a.real) : a;
+    var v = Object.create(c); v.actual = Object.assign({}, src, { sinDato: a.sinDato, tasaPPM: a.tasaPPM != null ? a.tasaPPM : src.tasaPPM });
+    v._est = !!(a.real && usarEst && c.mesEnCurso && a.est); return v;
+  }
+  function marcar(x, usa) { if (!x) return x; (Array.isArray(x) ? x : [x]).forEach(function (y) { if (y && !y.usa) y.usa = usa; }); return x; }
   function generar(ctx, cfgParcial) {
     var cfg = Object.assign({}, CONFIG, cfgParcial || {}), c = ctx || {};
     if (!c.hoy || !c.periodo) return [];
+    var R = vista(c, false), E = vista(c, true), usaE = E._est ? 'estimado' : 'real';
     var lista = [], ya = {};
     function add(x) { if (!x) return; (Array.isArray(x) ? x : [x]).forEach(function (y) { if (y) { lista.push(y); ya[y.id] = true; } }); }
-    add(reglaSii(c)); add(reglaRenta(c, cfg)); add(reglaReserva(c, cfg));
-    if (!c.exenta) { add(reglaAcuse(c, cfg)); add(reglaReclamadas(c)); add(reglaRemanente(c, cfg)); add(reglaRazonabilidad(c, cfg));
-      add(reglaDocumentos(c, cfg)); add(reglaConcentracion(c, cfg)); add(reglaDuplicados(c, cfg)); }
-    add(reglaRecurrentes(c, cfg)); add(reglaVentasPpm(c, cfg, ya)); add(reglaVencimiento(c, cfg, ya));
+    add(reglaSii(c)); add(reglaRenta(c, cfg)); add(marcar(reglaReserva(E, cfg), usaE));
+    if (!c.exenta) { add(marcar(reglaAcuse(R, cfg), 'real')); add(marcar(reglaReclamadas(R), 'real')); add(marcar(reglaRemanente(R, cfg), 'real'));
+      add(marcar(reglaRazonabilidad(E, cfg), usaE)); add(marcar(reglaDocumentos(R, cfg), 'real')); add(marcar(reglaConcentracion(R, cfg), 'real'));
+      add(marcar(reglaDuplicados(R, cfg), 'real')); }
+    add(marcar(reglaRecurrentes(R, cfg), 'real')); add(marcar(reglaVentasPpm(E, cfg, ya), usaE)); add(marcar(reglaVencimiento(E, cfg, ya), usaE));
     // Una sola por familia (la de mayor impacto) para no repetir el mismo mensaje.
     var porFam = {};
     lista.forEach(function (x) { var f = familia(x.id); if (!porFam[f] || porFam[f].monto < x.monto) porFam[f] = x; });
-    return Object.keys(porFam).map(function (k) { return porFam[k]; })
-      .sort(function (a, b) { return a.tier - b.tier || b.monto - a.monto; }).slice(0, cfg.max);
+    var todas = Object.keys(porFam).map(function (k) { return porFam[k]; });
+    // Orden (documentado): 1) tier 0 = críticas (SII desactualizado, coincidencias de comprobantes) · 2) las 2 de mayor impacto en pesos ·
+    // 3) a lo más cfg.maxSinMonto aviso(s) sin monto (tier 2: preventivos) · 4) el resto por monto. Así un aviso sin monto no desplaza
+    // sistemáticamente a las observaciones con impacto.
+    var crit = todas.filter(function (x) { return x.tier === 0; }).sort(function (a, b) { return b.monto - a.monto; });
+    var conMonto = todas.filter(function (x) { return x.tier !== 0 && x.tier !== 2 && x.monto > 0; }).sort(function (a, b) { return b.monto - a.monto; });
+    var sinMonto = todas.filter(function (x) { return x.tier === 2 || (x.tier !== 0 && !(x.monto > 0)); });
+    return crit.concat(conMonto.slice(0, 2), sinMonto.slice(0, cfg.maxSinMonto), conMonto.slice(2)).slice(0, cfg.max);
   }
 
   // Tendencia de ventas y compras netas (6 meses) para el gráfico y su resumen en texto.
