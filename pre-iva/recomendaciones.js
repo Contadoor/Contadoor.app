@@ -360,7 +360,7 @@
   }
   // Un cliente concentra la mitad del débito del mes: el IVA se paga el 20 aunque ese cliente pague tarde.
   function reglaConcentracion(c, cfg) {
-    if (c.exenta || !c.docs || !c.docs.disponible) return null;
+    if (c.exenta || !c.docs || !c.docs.disponible || c.docs.incompleto || c.docs.error) return null;   // datos parciales: no se concluye concentración
     var m = porContraparte(c.docs.actual.ventas), ks = Object.keys(m);
     if (ks.length < cfg.concentracionMinContrapartes) return null;
     var tot = sumaIva(c.docs.actual.ventas) + totTipos(c.docs.resumenActual || {}, cfg.tiposBoleta, cfg.ivaTasa).iva;   // las boletas (solo totales) también cuentan
@@ -383,17 +383,17 @@
         accion: 'Pídele a tu analista activarla.', plazo: null, quien: 'Tu analista' });
     }
     if (R.estado !== 'VIGENTE' && R.estado !== 'DESACTUALIZADA') return null;
+    // Solo una corrida del año comercial del período (sin el año no se puede verificar: no se usa)
+    if (!hay(R.anioComercial) || +R.anioComercial !== +String(c.periodo).slice(0, 4)) return null;
     if (R.estado === 'DESACTUALIZADA') return r({ id: 'renta_desact', tier: 2, monto: 0, color: 'morado', frase: '¿Mi proyección de renta sigue vigente?',
       detectado: 'Tu proyección de renta tiene datos al ' + dia(R.corte) + ' y ya hay datos nuevos.', impacto: 'Mientras no se actualice, no la usamos para recomendarte montos.',
       accion: 'Pídele a tu analista actualizarla para decidir el PPM.', plazo: null, quien: 'Tu analista', usa: 'mirenta' });
-    if (hay(R.anioComercial) && +R.anioComercial !== +String(c.periodo).slice(0, 4)) return null;   // corrida de otro año comercial
     var o = R.outputs || {}, idpc = o['forecast.idpc'], ppm = o['forecast.ppm.imputable'], saldo = o['forecast.saldo_abril'];
     var fechas = 'actualizada el ' + dia(R.finalizado) + ', datos al ' + dia(R.corte);
-    var desact = false;
     if (hay(idpc) && hay(ppm) && hay(saldo) && n(idpc) > 0 && n(saldo) > 0 && n(ppm) / n(idpc) < cfg.coberturaMin) {
       var cuota = o['sim.ppm_voluntario.cuota_mensual'];
       return r({ id: 'renta_cobertura', monto: saldo, color: 'morado', frase: '¿Me alcanzará para la renta de abril?',
-        detectado: 'Según tu proyección de renta (' + fechas + '), tus PPM cubren el ' + Math.round(n(ppm) / n(idpc) * 100) + ' % del impuesto de abril: faltarían ' + clp(saldo) + '.' + (desact ? ' Ojo: la proyección está desactualizada.' : ''),
+        detectado: 'Según tu proyección de renta (' + fechas + '), tus PPM cubren el ' + Math.round(n(ppm) / n(idpc) * 100) + ' % del impuesto de abril: faltarían ' + clp(saldo) + '.',
         impacto: clp(saldo) + ' a pagar en abril si nada cambia.',
         accion: (hay(cuota) && n(cuota) > 0 ? 'Revisemos un PPM voluntario: según tu escenario de MiRenta, con ' + clp(cuota) + ' al mes hasta diciembre podrías llegar a abril sin saldo (proyección sujeta a cambios).' : 'Revisemos tu PPM y la opción de un PPM voluntario en la próxima reunión (proyección sujeta a cambios).'),
         plazo: null, quien: 'Tu analista', usa: 'mirenta' });

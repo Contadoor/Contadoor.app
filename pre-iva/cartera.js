@@ -344,6 +344,7 @@ function filaHtml(f){
   var iva=f.exenta?'<span class="nd">No aplica</span>':sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.iva,f.sinLibros?'Sin libros cargados':'No disponible',true)
     +(enCurso?(f.ivaEst!=null?'<small class="pvc-ref">estimado a fin de mes '+clpT(f.ivaEst)+'</small>':''):(f.iva!=null?'<small class="pvc-ref">mes cerrado · valor final</small>':''));
   var ppm=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.ppm,f.sinTasa?'Sin tasa PPM':'No disponible',false);
+  if(!sinFila&&enCurso&&f.ppm!=null)ppm+='<small class="pvc-ref">estimado a fin de mes</small>';   // el PPM guardado es el proyectado
   var f29=sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.f29,f.sinLibros?'Sin libros cargados':'No disponible',false);
   // Fuente del dato + última consulta al SII + facturas recibidas (acuse). Hoy: "Manual" y facturas en blanco.
   var fuente=f.auto?'<span class="estado cel pvc-chip">SII automático'+(h.calculado_at?' (RCV del '+esc(fCorta(h.calculado_at))+')':'')+'</span>':(h?'<span class="estado gris pvc-chip">Manual</span>':'<span class="nd">—</span>');

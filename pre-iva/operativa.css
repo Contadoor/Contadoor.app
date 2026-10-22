@@ -362,3 +362,4 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-pio table.liq2 tr.fin td.est{font-size:13px!important}
 .g-mod-pio .reco-usa{margin:0;font:700 10.5px var(--txt);letter-spacing:.3px;color:var(--t3)}
 @media (max-width:640px){.g-mod-pio table.liq2 td.est,.g-mod-pio table.liq2 th.est{font-size:11px!important}}
+.g-mod-pio .pio-correo-envia{flex:1 1 100%;order:3;font-size:11.5px;color:#F6DFA9;background:rgba(255,200,90,.07);border:1px dashed rgba(255,200,90,.4);border-radius:12px;padding:6px 10px}

@@ -60,7 +60,7 @@ test('máximo 4 y ordenadas por impacto (la alerta de posible doble IVA y la fre
   const compras = [doc({ folio: '10', fecha_recepcion: '2026-10-20', iva: 2000000 })];
   const c = base({ sii: { estado: 'desactualizado', ultima: '2026-10-02T12:00:00Z' }, historial: H6([800000, 820000, 850000, 830000, 840000, 870000]),
     actual: Object.assign(base().actual, { ivaPagar: 1985000, f29: 2170000, nuevoRemanente: 0 }), docs: { disponible: true, actual: { ventas: [], compras } },
-    renta: { estado: 'VIGENTE', finalizado: '2026-10-21T15:00:00Z', corte: '2026-09-30', outputs: { 'forecast.idpc': 53400000, 'forecast.ppm.imputable': 24565821, 'forecast.saldo_abril': 28834179 } } });
+    renta: { estado: 'VIGENTE', finalizado: '2026-10-21T15:00:00Z', corte: '2026-09-30', anioComercial: 2026, outputs: { 'forecast.idpc': 53400000, 'forecast.ppm.imputable': 24565821, 'forecast.saldo_abril': 28834179 } } });
   const l = R.generar(c);
   assert.ok(l.length <= 4);
   assert.equal(l[0].id, 'sii'); assert.match(l[0].detectado, /desde el 02-10/);
@@ -69,12 +69,12 @@ test('máximo 4 y ordenadas por impacto (la alerta de posible doble IVA y la fre
 
 test('MiRenta: cobertura del PPM con escenario de PPM voluntario, fechas de la corrida; desactualizada; sin caso solo 14 D N°3 con plan', () => {
   const out = { 'forecast.idpc': 53400000, 'forecast.ppm.imputable': 24565821, 'forecast.saldo_abril': 28834179, 'sim.ppm_voluntario.cuota_mensual': 9611393 };
-  let x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21T15:00:00Z', corte: '2026-09-30', outputs: out } })).find((y) => y.id === 'renta_cobertura');
+  let x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21T15:00:00Z', corte: '2026-09-30', anioComercial: 2026, outputs: out } })).find((y) => y.id === 'renta_cobertura');
   assert.match(x.detectado, /actualizada el 21-10, datos al 30-09\), tus PPM cubren el 46 % del impuesto de abril: faltarían \$28\.834\.179/);
   assert.match(x.accion, /con \$9\.611\.393 al mes hasta diciembre podrías llegar a abril sin saldo/); assert.equal(x.monto, 28834179);
-  x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', outputs: Object.assign({}, out, { 'sim.ppm_voluntario.cuota_mensual': null }) } })).find((y) => y.id === 'renta_cobertura');
+  x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2026, outputs: Object.assign({}, out, { 'sim.ppm_voluntario.cuota_mensual': null }) } })).find((y) => y.id === 'renta_cobertura');
   assert.doesNotMatch(x.accion, /\$/);
-  x = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', outputs: out } })).find((y) => y.id === 'renta_desact');
+  x = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', anioComercial: 2026, outputs: out } })).find((y) => y.id === 'renta_desact');
   assert.match(x.detectado, /datos al 31-07 y ya hay datos nuevos/);
   assert.ok(R.generar(base({ renta: { estado: 'sin_caso', regimen: '14D3', planIncluye: true } })).find((y) => y.id === 'renta_activar'));
   assert.equal(R.generar(base({ renta: { estado: 'sin_caso', regimen: '14D8', planIncluye: true } })).length, 0);
@@ -85,7 +85,7 @@ test('empresa EXENTA: solo PPM, pago y renta (nada de IVA)', () => {
   const compras = [doc({ folio: '10', fecha_recepcion: '2026-10-20', iva: 600000 })];
   const c = base({ exenta: true, actual: { ivaPagar: 0, ppm: 240000, f29: 240000, nuevoRemanente: 500000, debito: 0, credito: 0, ventasBase: 16000000, tasaPPM: 1.5, sinDato: false },
     historial: H6([0, 0, 0, 0, 0, 0], () => ({ ppm: 180000 })), docs: { disponible: true, actual: { ventas: [], compras } },
-    renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', outputs: { 'forecast.idpc': 10000000, 'forecast.ppm.imputable': 4000000, 'forecast.saldo_abril': 6000000 } } });
+    renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2026, outputs: { 'forecast.idpc': 10000000, 'forecast.ppm.imputable': 4000000, 'forecast.saldo_abril': 6000000 } } });
   const l = R.generar(c);
   assert.deepEqual(ids(l).sort(), ['renta_cobertura', 'reserva']);
   assert.match(l.find((y) => y.id === 'reserva').detectado, /^Tu PPM de este mes/);
@@ -227,6 +227,7 @@ test('MiRenta: desactualizada → solo el aviso de actualizar (sin montos); otro
   let l = R.generar(base({ renta: { estado: 'DESACTUALIZADA', finalizado: '2026-09-01', corte: '2026-07-31', anioComercial: 2026, outputs: out } }));
   assert.deepEqual(l.map((y) => y.id), ['renta_desact']); assert.doesNotMatch(l[0].detectado + l[0].impacto + l[0].accion, /\$/);
   assert.equal(R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2025, outputs: out } })).length, 0);
+  assert.equal(R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', outputs: out } })).length, 0, 'sin año comercial no se verifica: no se usa');
   const x = R.generar(base({ renta: { estado: 'VIGENTE', finalizado: '2026-10-21', corte: '2026-09-30', anioComercial: 2026, outputs: out } }))[0];
   assert.match(x.accion, /proyección sujeta a cambios/); assert.equal(x.usa, 'mirenta');
 });

@@ -168,6 +168,9 @@ function pintar(){
   if(vl){oculto(vl,!(f29Ant>0));
     if(f29Ant>0){var v=txt('kpi-var').trim();pon('pio-var-ic',/^\+0%$|^0%$/.test(v)?'=':v.charAt(0)==='-'?'↘':'↗');pon('pio-f29-ant',clp(f29Ant));}}
 
+  // ── Lo que HOY envía el correo (no cambia en este PR): F29 estimado y acciones del sistema anterior ──
+  pon('pio-correo-envia',cerrado?'El correo enviará el F29 de este mes: '+txt('res-f29')+'.':'Ojo: el correo de hoy enviará el F29 estimado a fin de mes ('+txt('res-f29')+') y las acciones del sistema anterior. Revísalo en la vista previa.');
+  oculto($('pio-correo-envia'),sinDato);
   // ── Chips de aviso extra ──
   chip('pio-chip-tasa','ambar','alerta',sinTasa?'Falta la tasa PPM: el F29 estimado aún no incluye PPM':'');
   chip('pio-chip-rem','ambar','alerta',!exenta&&/no se pudo leer/i.test(txt('lbl-remanente-fuente'))?'No se pudo leer el remanente desde Contable: se usó $0':'');
