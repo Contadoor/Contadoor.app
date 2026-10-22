@@ -3,8 +3,9 @@
 // Decisión 22-oct-2026: todo correo a un cliente sale desde Gestoor con "De: Contadoor <reportes@contadoor.cl>",
 // "Responder a: el analista del cliente" y queda registrado. Reemplaza al proxy de Vercel (contafunnel-v2).
 //
-// El navegador SOLO manda: tipo, cliente_id, periodo (AAAA-MM), una clave de intención y el contenido HTML.
-// Destinatarios (ficha del cliente), asunto, remitente y responder-a los decide el servidor.
+// Ronda 2 (decisión de Luciano 22-oct): el correo lo GENERA el servidor con la plantilla aprobada. El navegador manda tipo, cliente_id,
+// periodo (AAAA-MM), una clave de intención y los DATOS (montos). Solo el Master puede mandar contenido editado (contenido_html).
+// Destinatarios (ficha del cliente), asunto, remitente, responder-a y franja de empresa/RUT/período los decide el servidor.
 // Requiere supabase.js antes (SB_URL, SB_KEY, _gestoorAccessToken). Sin sesión → error, nunca la clave anon como Bearer.
 // ═══════════════════════════════════════════════════════════════════════
 (function(){
@@ -34,7 +35,8 @@
   // Mensaje claro para el analista según el resultado.
   function mensaje(d){
     if(d.ok&&d.estado==='ya_enviado')return 'Este correo ya se había enviado: no se duplicó.';
-    if(d.ok)return d.modo==='PRUEBA'?'Enviado en modo PRUEBA (llegó solo a info@contadoor.cl).':'Correo enviado.';
+    // "enviado" = Microsoft aceptó el correo para envío (no es confirmación de lectura ni de entrega).
+    if(d.ok)return d.modo==='PRUEBA'?'Microsoft aceptó el correo en modo PRUEBA (va solo a info@contadoor.cl).':'Microsoft aceptó el correo para envío.';
     var t={
       SESION:'Tu sesión expiró: vuelve a ingresar.',
       NO_ASIGNADO:'Solo el analista asignado a este cliente (o el Master) puede enviarle este correo.',
@@ -45,6 +47,8 @@
       LIMITE_USUARIO:'Llegaste al límite diario de correos. Avisa al Master.',
       LIMITE_CLIENTE:'Este cliente ya recibió varios correos hoy. Avisa al Master.',
       CONTENIDO_NO_PERMITIDO:'El contenido del correo no pasó la revisión de seguridad.',
+      SOLO_MASTER_EDITA:'Solo el Master puede enviar un correo con texto o montos editados. Quita la edición o pídele al Master que lo envíe.',
+      DATOS_INVALIDOS:'Hay montos inválidos en el correo. Revisa el reporte antes de enviar.',
       ENVIO_INCIERTO:'Microsoft no confirmó el envío. NO lo reenvíes: el Master lo revisa en Enviados de reportes@.',
       ENVIO_FALLIDO:'Microsoft rechazó el envío. Puedes reintentar.'
     };
@@ -54,7 +58,7 @@
   window.GestoorCorreo={
     nuevaClave:nuevaClave,
     mensaje:mensaje,
-    // o = {tipo, cliente_id, periodo:'AAAA-MM', clave, contenido_html, referencia?, reenvio?}
+    // o = {tipo, cliente_id, periodo:'AAAA-MM', clave, datos, referencia?, reenvio?}  (contenido_html en vez de datos: solo Master)
     enviar:function(o){return llamar(Object.assign({accion:'enviar'},o));},
     vistaPrevia:function(o){return llamar(Object.assign({accion:'vista_previa'},o));}
   };

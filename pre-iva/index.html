@@ -784,16 +784,27 @@ function enviarPreIVA(){
   // El servidor toma el destinatario de la ficha, arma el asunto, agrega el marco común (logo, firma con foto) y registra el envío.
   var kClave=c.id+'|'+_periodoActual;
   if(!_clavePreiva||_clavePreiva.k!==kClave)_clavePreiva={k:kClave,v:GestoorCorreo.nuevaClave('preiva')};
-  var saludo='<div style="padding:22px 28px;border-bottom:1px solid #eee"><p style="font-size:15px;color:#1a1a1a;font-weight:600;margin:0 0 3px">Hola '+hesc(c.contacto||c.razonSocial||c.rut)+',</p>'
-    +'<p style="font-size:13px;color:#333;line-height:1.7;margin:0">Preparamos tu <strong style="color:#924893">Proyección de IVA · '+hesc(periodo)+'</strong>. Revisa el F29 estimado y las acciones antes del cierre.'
-    +(varComp?'<br><span style="color:#5c4a5d">'+hesc(varComp)+'</span>':'')+'</p></div>';
-  GestoorCorreo.enviar({
-    tipo:'preiva',
-    cliente_id:c.id,
-    periodo:String(_periodoActual).slice(0,4)+'-'+String(_periodoActual).slice(4,6),
-    clave:_clavePreiva.v,
-    contenido_html:minHTML(saludo+htmlReporte)
-  })
+  // Ronda 2 (decisión de Luciano 22-oct): el correo lo GENERA el servidor con la plantilla aprobada; aquí solo van los montos
+  // (los que el analista revisó según las reglas del módulo). El servidor recalcula el F29 con la misma fórmula (f29-formula.js).
+  // Texto libre (observación o acciones editadas) o F29 distinto al calculado: solo el Master (el servidor lo exige).
+  function pesos(t){return parseInt(String(t==null?'':t).replace(/[^0-9]/g,''),10)||0;}
+  function valor(ov,id){return pesos(ov!==null&&ov!==undefined?ov:(document.getElementById(id)||{}).textContent);}
+  var datosCorreo={
+    debito:valor(_editOverrides.debito,'res-debito'),
+    credito:valor(_editOverrides.credito,'res-credito'),
+    remanente:valor(_editOverrides.remanente,'res-remanente'),
+    ppm:valor(_editOverrides.ppm,'kpi-ppm'),
+    f29_anterior:Math.max(0,Math.round(f29Ant)||0),
+    dias_restantes:Math.min(31,pesos((document.getElementById('res-dias-rest')||{}).textContent)),
+    ppm_no_definitivo:!!ppmAvisoReporte()
+  };
+  if(_editOverrides.f29!==null)datosCorreo.f29_manual=pesos(_editOverrides.f29);
+  if(_editOverrides.obs&&String(_editOverrides.obs).trim())datosCorreo.observacion=String(_editOverrides.obs).trim();
+  var accionesEditadas=_editOverrides.acciones&&_editOverrides.acciones.length>0;
+  var pedido={tipo:'preiva', cliente_id:c.id, periodo:String(_periodoActual).slice(0,4)+'-'+String(_periodoActual).slice(4,6), clave:_clavePreiva.v};
+  // Acciones reescritas a mano = contenido editado: va como HTML libre y el servidor solo lo acepta si quien envía es el Master.
+  if(accionesEditadas)pedido.contenido_html=minHTML(htmlReporte);else pedido.datos=datosCorreo;
+  GestoorCorreo.enviar(pedido)
   .then(function(data){
     if(data.ok){
       _clavePreiva=null;

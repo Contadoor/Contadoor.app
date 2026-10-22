@@ -1958,8 +1958,7 @@ function enviarReporteParcial(){
     }
   });
 }
-function buildPreReporteRrhhHTML(r,data,opts){
-  var sinMarco=!!(opts&&opts.sinMarco); // Correos unificados: el marco común (logo, firma con foto, pie) lo agrega la Edge
+function buildPreReporteRrhhHTML(r,data){
   var periodo=formatPeriodo(r.periodo);
   var u=getUsuario();
   var partes=String(r.periodo||'').split('-');
@@ -2008,10 +2007,10 @@ function buildPreReporteRrhhHTML(r,data,opts){
   var mailPost='mailto:'+analistaEmail+'?subject='+encodeURIComponent('Quiero postergar cotizaciones '+periodo+' — '+(r.clienteNombre||r.rut))+'&body='+encodeURIComponent('Hola '+analistaNombre+', necesito postergar el pago de cotizaciones de '+periodo+'. Motivo: ');
     var AVISO='Asesorías Contadoor Ltda. no se hace responsable de multas, intereses ni recargos generados por el pago fuera de plazo. La recepción de este aviso constituye notificación formal de las obligaciones y fechas límite vigentes. Para coordinar postergaciones, contáctenos antes del plazo indicado.';
   return '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto">'
-  // Header: fondo morado + logo blanco (se omite cuando lo envuelve el marco común)
-  +(sinMarco?'':'<div style="background:#904891;padding:18px 24px;text-align:center">'
+  // Header: fondo morado + logo blanco
+  +'<div style="background:#904891;padding:18px 24px;text-align:center">'
   +'<img src="'+LOGO_EMAIL+'" width="160" style="display:block;margin:0 auto;max-height:40px;object-fit:contain" alt="Contadoor">'
-  +'</div>')
+  +'</div>'
   // Saludo
   +'<div style="padding:18px 24px 14px;border-bottom:1px solid #f0ebf0">'
   +'<p style="font-size:15px;font-weight:600;color:#1a0a1b;margin:0 0 6px">Hola '+contacto+',</p>'
@@ -2074,8 +2073,7 @@ function buildPreReporteRrhhHTML(r,data,opts){
   +'<div style="padding:12px 24px;background:#f5f0f8;border-top:1px solid #e8dde8;border-bottom:1px solid #e8dde8">'
   +'<p style="font-size:10px;color:#9a849b;line-height:1.6;margin:0;font-style:italic">'+AVISO+'</p>'
   +'</div>'
-  // Footer (se omite cuando lo envuelve el marco común: ahí va la firma con foto del analista)
-  +(sinMarco?'':''
+  // Footer
   +'<div style="padding:14px 24px;background:#f5f0f8;border-top:1px solid #e8dde8">'
   +'<div style="font-size:11px;font-weight:600;color:#904891;margin-bottom:8px">Tu asesor de remuneraciones</div>'
   +'<div style="display:flex;align-items:center;gap:12px">'
@@ -2088,7 +2086,7 @@ function buildPreReporteRrhhHTML(r,data,opts){
   +'<div style="padding:12px 24px;background:#1a0a1b;text-align:center">'
   +'<p style="font-size:11px;color:#c9a6e8;margin:0 0 2px">'+analistaNombre+' · Asesorías Contadoor Ltda.</p>'
   +'<p style="font-size:10px;color:#4a3060;margin:0">reportes@contadoor.cl · contadoor.cl · +56 9 7988 1891</p>'
-  +'</div>')
+  +'</div>'
   +'</div>';
 }
 // ── VALIDACIÓN PREVIA AL ENVÍO DE AVISO DE COTIZACIONES ────────────────────
@@ -2143,6 +2141,27 @@ function validarParaEnvioAviso(r){
 // enviarAvisoRrhhCore(r, opciones)
 // opciones.datosLibro : objeto _remuData para enriquecer el email (opcional)
 // Retorna Promise<{ok:true, email:'...'} | {ok:false, motivo:'...'}>
+// Correos unificados · ronda 2 (decisión de Luciano 22-oct): el correo lo GENERA el servidor con la plantilla aprobada.
+// El navegador solo manda los montos (mismas fuentes que buildPreReporteRrhhHTML). Si el total no cuadra con el detalle, no se envía.
+function datosCotizacionesRrhh(r,data){
+  var t={afp:0,apv:0,salud:0,ces_trab:0,sis:0,mutual:0,ces_emp:0,cap_ind:0,exp_vida:0,rent_prot:0},nomina=0,nActivos=0;
+  if(data&&data.trabajadores&&data.trabajadores.length){
+    data.trabajadores.forEach(function(x){
+      t.afp+=x.dctoAfp||0;t.apv+=(x.apv1!=null)?(x.apv1||0)+(x.apv2||0):(x.apv||0);t.salud+=x.dctoSalud||0;t.ces_trab+=x.cesTrab||0;
+      t.sis+=x.sis||0;t.mutual+=x.mutual||0;t.ces_emp+=x.cesEmp||0;t.cap_ind+=x.capInd||0;t.exp_vida+=x.expVida||0;t.rent_prot+=x.rentProt||0;
+    });
+    nomina=data.nomina||data.liquidoPagar||0;nActivos=data.nTrabActivos||data.nTrab||0;
+  }else{
+    t.afp=r.afp||0;t.apv=r.apv||0;t.salud=r.salud||0;t.ces_trab=r.cesTrab||0;t.sis=r.sis||0;t.mutual=r.mutual||0;t.ces_emp=r.cesEmp||0;
+    t.cap_ind=r.capInd||0;t.exp_vida=r.expVida||0;t.rent_prot=r.rentProt||0;nomina=r.liquidoPagar||0;nActivos=r.nTrab||0;
+  }
+  var detalle={},suma=0;
+  Object.keys(t).forEach(function(k){var v=Math.round(Number(t[k])||0);if(v<0)throw new Error('Monto negativo en '+k);if(v>0){detalle[k]=v;suma+=v;}});
+  var oficial=Math.round(Number(r.totalCot||r.totalCotizaciones)||0);
+  if(oficial>0&&oficial!==suma)throw new Error('El total de cotizaciones ('+oficial+') no cuadra con el detalle ('+suma+'). Revisa el reporte antes de enviar.');
+  if(suma<=0)throw new Error('El reporte no tiene montos de cotizaciones.');
+  return {trabajadores_activos:Math.max(0,Math.round(Number(nActivos)||0)),nomina_liquida:Math.max(0,Math.round(Number(nomina)||0)),revision:r.revision||1,detalle:detalle};
+}
 function enviarAvisoRrhhCore(r, opciones){
   opciones=opciones||{};
   // ── 1. Validar ───────────────────────────────────────────────
@@ -2157,17 +2176,11 @@ function enviarAvisoRrhhCore(r, opciones){
       data=_remuData;
     }
   }
-  var htmlContent;
-  try{htmlContent=buildPreReporteRrhhHTML(r,data,{sinMarco:true});}
+  var datosCorreo;
+  try{datosCorreo=datosCotizacionesRrhh(r,data);}
   catch(buildErr){
-    console.error('[RRHH CORE] Error build email:',buildErr);
-    return Promise.resolve({ok:false, motivo:'Error al generar el email: '+buildErr.message});
-  }
-  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-    +'<body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
-  htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
-  if(htmlEmail.length>300000){
-    return Promise.resolve({ok:false, motivo:'El HTML del email es muy largo ('+Math.round(htmlEmail.length/1024)+'KB). Contacta soporte.'});
+    console.error('[RRHH CORE] Error datos del correo:',buildErr);
+    return Promise.resolve({ok:false, motivo:buildErr.message});
   }
   // ── 3. Enviar al endpoint ────────────────────────────────────
   var u=getUsuario();
@@ -2177,12 +2190,11 @@ function enviarAvisoRrhhCore(r, opciones){
   console.log('[RRHH EMAIL] destino (ficha):',val.email);
   console.log('[RRHH EMAIL] totalCot:',r.totalCot||r.totalCotizaciones||0);
   console.log('[RRHH EMAIL] nTrab:',r.nTrab||0);
-  console.log('[RRHH EMAIL] htmlReporte:',htmlEmail.length,'bytes ('+Math.round(htmlEmail.length/1024)+'KB)');
   console.log('[RRHH EMAIL] llamando endpoint...');
   // Correos unificados (22-oct): Edge gestoor-correo-enviar. Destinatario = ficha del cliente; De: Contadoor <reportes@>; Responder a: analista RRHH.
   if(!_cli||!_cli.id) return Promise.resolve({ok:false, emailEnviado:false, estadoActualizado:false, motivo:'No se encontró el cliente (RUT '+r.rut+') en la nómina.'});
   var claveAviso=opciones.clave||GestoorCorreo.nuevaClave('rrhh-aviso');
-  return GestoorCorreo.enviar({tipo:'cotizaciones_rrhh', cliente_id:_cli.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rev'+(r.revision||1), clave:claveAviso, contenido_html:htmlEmail})
+  return GestoorCorreo.enviar({tipo:'cotizaciones_rrhh', cliente_id:_cli.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rev'+(r.revision||1), clave:claveAviso, datos:datosCorreo})
   .then(function(d){
     {
       console.log('[RRHH EMAIL] respuesta:',d&&d.estado,d&&d.codigo);
@@ -2261,16 +2273,14 @@ function reenviarAviso(id){
   // Al reenviar: estado permanece aviso_enviado, solo actualiza fecha
   var u=getUsuario();
   var periodo=formatPeriodo(r.periodo);
-  var htmlContent;
-  try{htmlContent=buildPreReporteRrhhHTML(r,null,{sinMarco:true});}
-  catch(e){alert('Error generando email: '+e.message);return;}
-  var htmlEmail='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:16px;background:#f4f4f4">'+htmlContent+'</body></html>';
-  htmlEmail=htmlEmail.replace(/\s{2,}/g,' ').replace(/> </g,'><');
+  var datosCorreo;
+  try{datosCorreo=datosCotizacionesRrhh(r,null);}
+  catch(e){alert('No se puede reenviar: '+e.message);return;}
   console.log('[RRHH REENVÍO] reporte_id:',r.id,'| rev:',_rev,'| email:',_email);
   // Correos unificados (22-oct): reenvío explícito por la Edge (reenvio:true permite el mismo contenido; queda registrado como envío aparte).
   if(!_cli||!_cli.id){alert('No se encontró el cliente (RUT '+r.rut+') en la nómina.');return;}
   GestoorCorreo.enviar({tipo:'cotizaciones_rrhh', cliente_id:_cli.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rev'+_rev+':reenvio',
-                        clave:GestoorCorreo.nuevaClave('rrhh-reenvio'), contenido_html:htmlEmail, reenvio:true})
+                        clave:GestoorCorreo.nuevaClave('rrhh-reenvio'), datos:datosCorreo, reenvio:true})
   .then(function(d){
     console.log('[RRHH REENV\u00cdO] respuesta:',d&&d.estado,d&&d.codigo);
     if(d&&d.ok){
@@ -2603,14 +2613,12 @@ function enviarRecordatorioRrhh(id, forzar){
   }
   var esUrgente=diasSinPagar>=10;
   var u=getUsuario();
-  var htmlRec=buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente);
   var periodo=formatPeriodo(r.periodo);
-  function minH(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
   // Correos unificados (22-oct): Edge gestoor-correo-enviar (tipo recordatorio_rrhh). Solo manual (forzar): ver verificarRecordatoriosRrhh.
   var _cliRec=getClientes().find(function(x){return x.rut===r.rut;});
   if(!_cliRec||!_cliRec.id){if(forzar)alert('No se encontró el cliente (RUT '+r.rut+') en la nómina.');return;}
   GestoorCorreo.enviar({tipo:'recordatorio_rrhh', cliente_id:_cliRec.id, periodo:r.periodo, referencia:'reporte:'+r.id+':rec'+((r.nRecordatorios||0)+1),
-                        clave:GestoorCorreo.nuevaClave('rrhh-rec'), contenido_html:minH(htmlRec)})
+                        clave:GestoorCorreo.nuevaClave('rrhh-rec'), datos:{total_cotizaciones:Math.round(Number(r.totalCot||r.totalCotizaciones)||0)}})
   .then(function(data){
     if(data.ok){
       // Registrar envío
