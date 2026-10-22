@@ -231,8 +231,9 @@ var MODULOS_DISPONIBLES = [
   // Financiero
   {id:'pagos',             nombre:'Aprobaciones',          icon:'✅', grupo:'Financiero'},
   {id:'conciliacion',      nombre:'Conciliación',          icon:'🏦', grupo:'Financiero'},
-  {id:'cobranza',          nombre:'CxC / Cobranza',        icon:'📋', grupo:'Financiero'},
+  {id:'cobranza',          nombre:'Cobranza (gestiona y confirma pagos)', icon:'📋', grupo:'Financiero'},
   {id:'facturacion',       nombre:'Facturación',           icon:'🧾', grupo:'Financiero'},
+  {id:'trabajos_especiales', nombre:'Trabajos especiales (responsable)', icon:'🛠️', grupo:'Financiero'},
   // Comercial
   {id:'crm',               nombre:'CRM',                   icon:'📈', grupo:'Comercial'},
   {id:'cotizaciones',      nombre:'Cotizaciones',          icon:'📝', grupo:'Comercial'},
@@ -264,18 +265,32 @@ var MODULOS_ADICIONALES_PERMITIDOS = [
   'pir','pre-iva','pagos','conciliacion','convenios',
   // Facturación (F1, 19-oct-2026): permiso para preparar y emitir lotes (p. ej. un contable que además factura).
   // Aprobar sigue siendo solo del Master (se valida en el servidor). La pantalla del módulo llega en F1b.
-  'facturacion'
+  'facturacion',
+  // Cobranza C1 (22-oct-2026): gestiona la cartera, registra y confirma pagos. Requiere que la base acepte el módulo (PR backend #51).
+  'cobranza',
+  // Trabajos especiales T1 (22-oct-2026): puede quedar como responsable de un trabajo especial. Requiere PR backend #51.
+  'trabajos_especiales'
 ];
 
 // ── MÓDULOS QUE NUNCA SE PRE-MARCAN DESDE public.usuarios.modulos ─────────
 // public.usuarios.modulos trae valores antiguos sin sincronizar (p. ej. 'facturacion' en fichas que nadie habilitó) y la UI no puede
 // leer usuarios_sistema.modulos (la RLS solo deja ver la fila propia). Por eso estas casillas se abren SIEMPRE desmarcadas y solo
 // se marcan con un clic explícito del Master; al guardar se pide confirmación. La autorización real está en el servidor.
-var MODULOS_SIN_PRECARGA = ['facturacion'];
+// Cobranza (22-oct-2026): hay fichas con un 'cobranza' antiguo de la pantalla anterior; pre-marcarlo daría la gestión de pagos sin querer.
+var MODULOS_SIN_PRECARGA = ['facturacion','cobranza','trabajos_especiales'];
+
+// ── CONFIRMACIÓN AL HABILITAR UN MÓDULO SENSIBLE ─────────────────────────
+// Se pide al guardar (alta o edición) si la casilla quedó marcada. Cancelar no envía nada.
+var MODULOS_CONFIRMAR = {
+  facturacion: 'Podrá preparar lotes, enviarlos a revisión y emitir. Aprobar sigue siendo solo del Master.',
+  cobranza: 'Podrá gestionar la cartera de cobranza, registrar pagos y confirmarlos.',
+  trabajos_especiales: 'Podrá quedar como responsable de trabajos especiales (constituciones, formalizaciones y modificaciones).'
+};
+var MODULOS_NOMBRE_CORTO = {facturacion:'Facturación', cobranza:'Cobranza', trabajos_especiales:'Trabajos especiales'};
 
 // ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
 var MODULOS_FUTUROS_IDS = [
-  'gestion-personal','cobranza',
+  'gestion-personal',
   'crm','cotizaciones','campanas','comunicaciones','performance'
 ];
 
@@ -465,6 +480,15 @@ function modulosAdicionalesDeUsuario(u){
 function fichaRegistraFacturacion(u){
   return !!(u && Array.isArray(u.modulos) && u.modulos.indexOf('facturacion')>=0);
 }
+// Pide confirmación por cada módulo sensible marcado (en el orden de MODULOS_CONFIRMAR). false = el Master canceló.
+function confirmarModulosSensibles(mods, nombre){
+  var ids=Object.keys(MODULOS_CONFIRMAR);
+  for(var i=0;i<ids.length;i++){
+    if(mods.indexOf(ids[i])>=0 &&
+       !confirm('Vas a habilitar '+MODULOS_NOMBRE_CORTO[ids[i]]+' para '+nombre+'.\n\n'+MODULOS_CONFIRMAR[ids[i]]+'\n\n¿Confirmas?')) return false;
+  }
+  return true;
+}
 
 // ── ROL CHANGE ────────────────────────────────────────────────────────────
 function onRolChange(){
@@ -633,8 +657,7 @@ function crearUsuario(){
   if(typeof window.gestoorGetModulosBaseRol!=='function'){ adminToast('❌ Error de configuración: recarga la página.','error'); return; }
   if(!confirm('¿Crear la ficha de '+nombre+' ('+email+')?\n\nDespués: "Enviar invitación" y, cuando cree su contraseña, "Activar en Gestoor".')) return;
   var modsNuevo=getAdicionalesSeleccionadosDesdeDom();
-  if(modsNuevo.indexOf('facturacion')>=0 &&
-     !confirm('Vas a habilitar Facturación para '+nombre+'.\n\nPodrá preparar lotes, enviarlos a revisión y emitir. Aprobar sigue siendo solo del Master.\n\n¿Confirmas?')) return;
+  if(!confirmarModulosSensibles(modsNuevo, nombre)) return;
   _creando=true;
   sbFetch('rpc/admin_crear_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     p_nombre:nombre, p_iniciales:sv('f-iniciales')||null, p_rol:rol, p_wa:wa||null, p_modulos:modsNuevo, p_email:email
@@ -676,11 +699,20 @@ function guardarUsuario(){
   }
   var adicionalesFinal=getAdicionalesSeleccionadosDesdeDom();
   var uActual=_admUsuarios.find(function(x){ return String(x.id)===String(_editId); });
-  // Facturación: la casilla se abre siempre desmarcada (MODULOS_SIN_PRECARGA); habilitarla exige confirmación explícita.
-  if(adicionalesFinal.indexOf('facturacion')>=0){
-    if(!confirm('Vas a habilitar Facturación para '+nombre+'.\n\nPodrá preparar lotes, enviarlos a revisión y emitir. Aprobar sigue siendo solo del Master.\n\n¿Confirmas?')) return;
-  } else if(fichaRegistraFacturacion(uActual)){
+  // Facturación, Cobranza y Trabajos especiales: las casillas se abren siempre desmarcadas (MODULOS_SIN_PRECARGA);
+  // habilitarlas exige confirmación explícita.
+  if(!confirmarModulosSensibles(adicionalesFinal, nombre)) return;
+  if(adicionalesFinal.indexOf('facturacion')<0 && fichaRegistraFacturacion(uActual)){
     if(!confirm('La ficha de '+nombre+' registra Facturación, pero la casilla está desmarcada: al guardar, Facturación quedará deshabilitada.\n\nSi debe seguir facturando, cancela y marca la casilla.\n\n¿Guardar sin Facturación?')) return;
+  }
+  // Cobranza y Trabajos especiales: mismo aviso si la ficha los registra y la casilla quedó desmarcada (se quitarán al guardar).
+  var baseRol=modulosBaseDelRol(rol)||[];
+  var quitar=['cobranza','trabajos_especiales'].filter(function(m){
+    return adicionalesFinal.indexOf(m)<0 && baseRol.indexOf(m)<0 && uActual && Array.isArray(uActual.modulos) && uActual.modulos.indexOf(m)>=0;
+  });
+  for(var qi=0;qi<quitar.length;qi++){
+    var nc=MODULOS_NOMBRE_CORTO[quitar[qi]];
+    if(!confirm('La ficha de '+nombre+' registra '+nc+', pero la casilla está desmarcada: al guardar, '+nc+' quedará deshabilitado.\n\nSi debe conservarlo, cancela y marca la casilla.\n\n¿Guardar sin '+nc+'?')) return;
   }
 
   sbFetch('rpc/admin_actualizar_usuario',{
