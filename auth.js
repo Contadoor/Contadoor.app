@@ -305,7 +305,7 @@
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
         if(btnEnTopbar.style.display==='none') btnEnTopbar.style.display='';
-        topbar.insertBefore(badge,btnEnTopbar);
+        btnEnTopbar.parentNode.insertBefore(badge,btnEnTopbar);   // el botón puede estar anidado (no hijo directo de .topbar)
       }else{
         var btnNuevo=document.createElement('button');
         btnNuevo.className='g-salir';  // solo estilo
@@ -314,7 +314,7 @@
         btnNuevo.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
-        var lastBtn=topbar.querySelector('button:last-child');
+        var lastBtn=topbar.querySelector(':scope > button:last-child');   // solo hijos directos: insertBefore exige un hijo de .topbar
         if(lastBtn) topbar.insertBefore(badge,lastBtn);
         else topbar.appendChild(badge);
         topbar.appendChild(btnNuevo);
