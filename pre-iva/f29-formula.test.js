@@ -165,3 +165,85 @@ test('R2 · base PPM del mes en curso se proyecta igual que el débito; mes pasa
   assert.equal(F.proyectarMes({ debitoRegistrado: b, creditoRegistrado: 0, diasTranscurridos: 10, diasRestantes: 5, esMesActual: true }).debito, 9000000);
   assert.equal(F.proyectarMes({ debitoRegistrado: b, creditoRegistrado: 0, diasTranscurridos: 10, diasRestantes: 5, esMesActual: false }).debito, 6000000);
 });
+
+// ── Ronda 3 (instrucción técnica ChatGPT) ──────────────────────────────────
+test('R3 · PPM positivo con IVA determinado negativo: F29 = PPM y el remanente no absorbe el PPM', () => {
+  const x = F.calcularF29Estimado({ debito: 400000, credito: 650000, remanente: 0, ppm: 60000 });
+  assert.equal(x.ivaDeterminado, -250000);
+  assert.equal(x.ivaPagar, 0);
+  assert.equal(x.nuevoRemanente, 250000);
+  assert.equal(x.total, 60000);
+});
+
+test('R3 · PPM positivo con IVA determinado exactamente 0: F29 = PPM, sin remanente', () => {
+  const x = F.calcularF29Estimado({ debito: 700000, credito: 500000, remanente: 200000, ppm: 33333 });
+  assert.equal(x.ivaDeterminado, 0);
+  assert.equal(x.ivaPagar, 0);
+  assert.equal(x.nuevoRemanente, 0);
+  assert.equal(x.total, 33333);
+});
+
+test('R3 · remanente anterior mayor que el IVA del período: se arrastra la diferencia, el PPM se paga', () => {
+  const x = F.calcularF29Estimado({ debito: 1000000, credito: 600000, remanente: 1500000, ppm: 90000 });
+  assert.equal(x.ivaPagar, 0);
+  assert.equal(x.nuevoRemanente, 1100000);
+  assert.equal(x.total, 90000);
+});
+
+test('R3 · datos vacíos y ceros: todo 0, sin NaN', () => {
+  for (const v of [{}, { debito: 0, credito: 0, remanente: 0, ppm: 0 }, { debito: '', credito: '', remanente: '', ppm: '' }, { debito: null, credito: undefined }]) {
+    const x = F.calcularF29Estimado(v);
+    assert.deepEqual(x, { ivaDeterminado: 0, ivaPagar: 0, nuevoRemanente: 0, ppm: 0, total: 0 });
+  }
+});
+
+test('R3 · negativos inválidos: remanente y PPM negativos se tratan como 0 (nunca restan ni suman al revés)', () => {
+  const x = F.calcularF29Estimado({ debito: 1000000, credito: 400000, remanente: -300000, ppm: -50000 });
+  assert.equal(x.ivaPagar, 600000);
+  assert.equal(x.ppm, 0);
+  assert.equal(x.total, 600000);
+});
+
+test('R3 · entradas no numéricas: se ignoran (0) y no generan NaN', () => {
+  const x = F.calcularF29Estimado({ debito: 'abc', credito: {}, remanente: 'x', ppm: NaN });
+  assert.equal(Number.isNaN(x.total), false);
+  assert.equal(x.total, 0);
+  const b = F.calcularBasePPM({ debito: 'abc', netoAfecto: 'no', exento: 'tampoco' });
+  assert.equal(b.base, 0);
+  assert.equal(b.netoEstimado, true);   // un texto no es un neto conocido
+  assert.equal(b.sinExento, true);
+  assert.equal(F.calcularPPM('x', 'y'), 0);
+});
+
+test('R3 · redondeos: PPM al peso más cercano (igual que Contable) y neto estimado redondeado', () => {
+  assert.equal(F.calcularPPM(1000033, 1.5), 15000);     // 15.000,495 → 15.000
+  assert.equal(F.calcularPPM(1000034, 1.5), 15001);     // 15.000,51 → 15.001
+  assert.equal(F.calcularPPM(3333333, 0.25), 8333);     // 8.333,33
+  assert.equal(F.calcularBasePPM({ debito: 100 }).netoAfecto, 526);   // 526,3 → 526
+  assert.equal(F.proyectarMes({ debitoRegistrado: 100, creditoRegistrado: 0, diasTranscurridos: 3, diasRestantes: 1, esMesActual: true }).debito, 133);
+});
+
+test('R3 · ventas afectas + exentas: base = neto afecto + exento', () => {
+  const b = F.calcularBasePPM({ debito: 950000, netoAfecto: 5000000, exento: 3000000 });
+  assert.equal(b.base, 8000000);
+  assert.equal(F.calcularPPM(b.base, 1), 80000);
+  // empresa 100 % exenta (débito 0, neto 0 conocido): la base es solo el exento
+  assert.equal(F.calcularBasePPM({ debito: 0, netoAfecto: 0, exento: 4000000 }).base, 4000000);
+});
+
+test('R3 · coherencia con Contable: mismos datos → mismo PPM (copia literal de reportes-contable/index.html:613-636)', () => {
+  // Fórmula de Contable (buildBorradorF29), copiada tal cual para comparar.
+  function ppmContable(libV, tasa) {
+    const ppmBase = Number((libV || {}).totalNeto || 0) + Number((libV || {}).totalExento || 0);
+    return (tasa !== null && ppmBase > 0) ? Math.round(ppmBase * tasa / 100) : 0;
+  }
+  const casos = [[10000000, 2000000, 1.5], [5000000, 0, 0.25], [0, 4000000, 1], [1234567, 89012, 2.7], [0, 0, 1.5], [7777777, 3333, 0.1]];
+  for (const [neto, ex, t] of casos) {
+    const b = F.calcularBasePPM({ debito: 0, netoAfecto: neto, exento: ex });
+    assert.equal(F.calcularPPM(b.base, t), ppmContable({ totalNeto: neto, totalExento: ex }, t), `neto ${neto} exento ${ex} tasa ${t}`);
+    assert.equal(b.definitivo, true);
+  }
+  // Y el F29: Contable = máx(0, débito − crédito − remanente) + PPM (+ retenciones que esta pantalla no tiene)
+  const d = 2380000, c = 1190000, r = 100000, ppm = ppmContable({ totalNeto: 12526316, totalExento: 0 }, 1.5);
+  assert.equal(F.calcularF29Estimado({ debito: d, credito: c, remanente: r, ppm }).total, Math.max(0, d - c - r) + ppm);
+});
