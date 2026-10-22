@@ -85,6 +85,10 @@ function textoError(e){
   return 'Gestoor respondió: '+m;
 }
 
+/* Respaldo si assets/equipo.js no cargó (por ejemplo, un HTML antiguo en caché): la cartera sigue funcionando sin fotos ni filtro por responsable */
+if(!window.GEquipo)window.GEquipo={TODOS:'todos',SIN:'sin',leerUrl:function(){return 'todos';},escribirUrl:function(){},valida:function(){return 'todos';},pasa:function(){return true;},
+  opciones:function(){return [];},filtroHtml:function(){return '';},nombreDe:function(){return null;},
+  celda:function(n){n=String(n||'').trim();return n?n.replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}):'<span class="nd">Sin asignar</span>';}};
 /* ── Estado ── */
 var URLP=new URLSearchParams(location.search);
 var perPedido=URLP.get('periodo');
@@ -92,7 +96,8 @@ var S={
   per:RE_PER.test(perPedido||'')?perPedido:perHoy(),
   periodos:[], planes:null, errPlanes:null, clientes:null, hist:{}, errHist:null,
   cargando:true, cargandoMes:false, error:null, tok:0, tokMes:0, rcv:{}, errRcv:null,
-  q:'', filtro:'todos', orden:'prioridad', mis:false
+  q:'', filtro:'todos', orden:'prioridad', mis:false,
+  resp:window.GEquipo.leerUrl()   // filtro por responsable (?resp=, componente común assets/equipo.js)
 };
 /* Semáforo: color + texto (nunca solo color) + orden de prioridad */
 var EST={
@@ -209,10 +214,12 @@ function pasaFiltro(f,filtro){
   return true;
 }
 function pasaMis(f){var id=miUsId();return !S.mis||id==null||Number(f.resp_id)===Number(id);}
+function pasaResp(f){return window.GEquipo.pasa(f,S.resp);}
 function visibles(todas){
   var q=norm(S.q.trim());
   var r=todas.filter(function(f){
     if(!pasaMis(f))return false;
+    if(!pasaResp(f))return false;
     if(q&&norm(f.nombre+' '+f.rut+' '+f.resp).indexOf(q)<0)return false;
     return pasaFiltro(f,S.filtro);
   });
@@ -243,7 +250,7 @@ function totales(fs){
 /* ── Pantalla ── */
 function animarBarras(){document.body.classList.add('pvc-animar');clearTimeout(animarBarras.t);animarBarras.t=setTimeout(function(){document.body.classList.remove('pvc-animar');},700);}
 function urlEstado(){
-  try{var p=new URLSearchParams(location.search);p.set('periodo',S.per);p.delete('q');/* la búsqueda no va a la URL */history.replaceState(null,'',location.pathname+'?'+p.toString());}catch(e){}
+  try{var p=new URLSearchParams(location.search);p.set('periodo',S.per);window.GEquipo.escribirUrl(p,S.resp);p.delete('q');/* la búsqueda no va a la URL */history.replaceState(null,'',location.pathname+'?'+p.toString());}catch(e){}
 }
 function opcionesMes(){
   var hoy=perHoy(), set={}, l=[];
@@ -264,14 +271,19 @@ function render(){
   var h=cabecera();
   if(S.error){app(h+'<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>No se pudo leer la cartera: '+esc(textoError(S.error))+'</span> <button type="button" class="btn sec chico" data-act="recargar">Reintentar</button></div>');return;}
   if(S.cargando||S.cargandoMes){app(h+'<div class="aviso lila"><span class="pvc-spin"></span>Cargando la cartera de Pre-IVA de '+esc(perTxt(S.per))+'…</div>');return;}
-  var todas=filas(), fs=visibles(todas), t=totales(fs);
+  var todas=filas(), EQ=window.GEquipo;
+  // Filtro por responsable: opciones = analistas presentes (respetando "Mis clientes"); contador = clientes en la vista (estado y Mis clientes, sin la búsqueda)
+  var rOpts=EQ.opciones(todas.filter(pasaMis),function(f){return pasaFiltro(f,S.filtro);});
+  if(S.resp!==EQ.TODOS&&!rOpts.some(function(x){return x.clave===S.resp;})){S.resp=EQ.TODOS;urlEstado();}
+  var rTot=rOpts.reduce(function(s,x){return s+x.n;},0), rNom=EQ.nombreDe(rOpts,S.resp);
+  var fs=visibles(todas), t=totales(fs);
   var venc=vencF29(S.per), dias=diasA(venc);
   var vencTxt=dias>1?entero(dias)+' días':dias===1?'1 día':dias===0?'Vence hoy':'Vencido';
   var vencSub=(dias<0?'venció el ':'vence el ')+DIAS[venc.getDay()]+' '+fDia(venc)+' (F29 de '+perTxt(S.per).toLowerCase()+')';
   var incluidos=t.n-t.noinc, sinIva=t.conFila-t.nIva, sinF29=t.conFila-t.nF29;
   var pct=function(x){return incluidos>0?(x/incluidos*100):0;};
   h+='<section class="pvc-tot" aria-label="Totales de la cartera">'
-    +'<div class="pvc-k"><small>Clientes</small><b>'+entero(t.n)+'</b><span>'+entero(incluidos)+' con Pre-IVA en su plan'+(t.noinc?' · '+entero(t.noinc)+' no incluido'+(t.noinc===1?'':'s'):'')+'</span></div>'
+    +'<div class="pvc-k"><small>Clientes</small><b>'+entero(t.n)+'</b><span>'+(rNom?'de '+esc(rNom)+' · ':'')+entero(incluidos)+' con Pre-IVA en su plan'+(t.noinc?' · '+entero(t.noinc)+' no incluido'+(t.noinc===1?'':'s'):'')+'</span></div>'
     +'<div class="pvc-k verde"><small>Enviados</small><b>'+entero(t.env)+'</b><span>ya los tiene el cliente</span></div>'
     +'<div class="pvc-k ambar"><small>Borradores</small><b>'+entero(t.bor)+'</b><span>guardados, falta enviarlos'+(t.rev?' · '+entero(t.rev)+' por revisar (SII)':'')+'</span></div>'
     +'<div class="pvc-k rojo"><small>Pendientes</small><b>'+entero(t.pend)+'</b><span>sin Pre-IVA este mes'+(t.sinc?' · '+entero(t.sinc)+' sin confirmar':'')+'</span></div>'
@@ -291,8 +303,9 @@ function render(){
   var id=miUsId();
   h+='<div class="pvc-filtros"><label class="pvc-buscar"><span class="sr">Buscar cliente, RUT o responsable</span>'+I('lupa','ic-cel')+'<input type="search" id="pvBuscar" placeholder="Buscar cliente, RUT o responsable…" value="'+esc(S.q)+'" autocomplete="off"></label>'
     +(esMaster()&&id!=null?'<div class="g-seg pvc-seg" role="group" aria-label="Clientes"><button type="button" class="fb'+(S.mis?' on':'')+'" aria-pressed="'+S.mis+'" data-mis="1">Mis clientes</button><button type="button" class="fb'+(!S.mis?' on':'')+'" aria-pressed="'+!S.mis+'" data-mis="0">Todos</button></div>':'')
+    +(rOpts.length?EQ.filtroHtml(rOpts,S.resp,rTot):'')
     +'<div class="g-seg pvc-seg" role="group" aria-label="Filtrar">'+FILTROS.map(function(x){
-      var n=x[0]==='todos'?null:todas.filter(function(f){return pasaMis(f)&&pasaFiltro(f,x[0]);}).length;
+      var n=x[0]==='todos'?null:todas.filter(function(f){return pasaMis(f)&&pasaResp(f)&&pasaFiltro(f,x[0]);}).length;
       return '<button type="button" class="fb'+(S.filtro===x[0]?' on':'')+'" aria-pressed="'+(S.filtro===x[0])+'" data-filtro="'+x[0]+'">'+esc(x[1])+(n!=null?' <b>'+n+'</b>':'')+'</button>';}).join('')+'</div>'
     +'<label class="pvc-orden"><span>Orden</span><select id="pvOrden">'+ORDENES.map(function(x){return '<option value="'+x[0]+'"'+(S.orden===x[0]?' selected':'')+'>'+esc(x[1])+'</option>';}).join('')+'</select></label>'
     +'<button type="button" class="btn sec chico" data-act="csv">'+I('descargar','ic-ver')+'Descargar cartera (Excel/CSV)</button></div>';
@@ -344,7 +357,7 @@ function filaHtml(f){
     +'<td data-l="IVA del mes" class="num"><div class="pvc-col der">'+iva+'</div></td>'
     +'<td data-l="PPM del mes" class="num"><div class="pvc-col der">'+ppm+'</div></td>'
     +'<td data-l="F29 estimado" class="num"><div class="pvc-col der">'+f29+'</div></td>'
-    +'<td data-l="Responsable">'+(f.resp?esc(f.resp):'<span class="nd">Sin asignar</span>')+'</td>'
+    +'<td data-l="Responsable">'+window.GEquipo.celda(f.resp)+'</td>'
     +'<td class="pvc-accs"><div class="pvc-accs-in">'+bot+'</div></td></tr>';
 }
 
@@ -372,6 +385,7 @@ function descargarCsv(){
 document.addEventListener('click',function(e){
   var fl=e.target.closest('[data-filtro]');if(fl){S.filtro=fl.getAttribute('data-filtro');render();return;}
   var mi=e.target.closest('[data-mis]');if(mi){S.mis=mi.getAttribute('data-mis')==='1';render();return;}
+  var rp=e.target.closest('[data-resp]');if(rp){S.resp=window.GEquipo.valida(rp.getAttribute('data-resp'));render();return;}
   var a=e.target.closest('[data-act]');if(!a)return;
   var act=a.getAttribute('data-act');
   if(act==='recargar')iniciar();
@@ -381,6 +395,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('change',function(e){
   if(e.target.id==='pvMes'){var p=e.target.value;if(RE_PER.test(p)&&p!==S.per){S.per=p;cargarMes();}}
   else if(e.target.id==='pvOrden'){S.orden=e.target.value;render();}
+  else if(e.target.classList&&e.target.classList.contains('geq-sel-in')){S.resp=window.GEquipo.valida(e.target.value);render();}
 });
 document.addEventListener('input',function(e){if(e.target.id==='pvBuscar'){S.q=e.target.value;render();}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
