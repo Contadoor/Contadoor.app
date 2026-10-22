@@ -407,7 +407,7 @@ function _convRowToObj(r){
     valorUltima:cs.length?Number(cs[cs.length-1].monto)||0:0,responsable:r.analista_responsable||'',
     obs:r.obs||'',estado:r.estado||'activo',cuotas:cs,
     deudaCapital:Number(r.deuda_capital)||0,pie:r.pie&&typeof r.pie==='object'&&!Array.isArray(r.pie)?r.pie:null,
-    version:Number(r.version)};
+    version:Number(r.version),borradoSolicitado:r.borrado_solicitado===true};
 }
 function _convObjToRow(c){
   var cs=c.cuotas||[];
@@ -427,6 +427,7 @@ function _convEscribir(method,path,row){
 }
 function _convError(e){
   var m=String(e&&e.message||e);
+  if(m.indexOf('convenio_borrado_no_solicitado')>=0)return 'La base de datos rechazó el borrado: falta la solicitud de eliminación. Recarga la página (F5) y vuelve a intentarlo.';
   if(m.indexOf('convenio_version_vieja')>=0)return 'Otra persona (o un proceso) modificó este convenio después de que abriste la página. Recarga la página (F5) y vuelve a intentarlo. No se guardó ningún cambio.';
   if(m.indexOf('convenios_cliente_rut_fkey')>=0)return 'El cliente no existe en Gestoor (créalo primero en Clientes).';
   if(m.indexOf('n_convenio')>=0||m.indexOf('periodo_deuda')>=0||m.indexOf('analista_responsable')>=0)return 'La base de datos aún no tiene habilitado el módulo de convenios.';
@@ -864,16 +865,34 @@ function _guardarContab(orig,idx,u,marcar,el){
   // La promesa se rechaza si la BD falla (quien llama decide); no se recarga ni cambia nada en pantalla.
   return _convGuardarObj(conv).catch(function(e){if(el)el.checked=!el.checked;alert('No se guardó la contabilización: '+_convError(e));throw e;});
 }
+// Borrado en 2 pasos (SQL 202610221800: trigger trg_convenios_borrado). La base rechaza todo DELETE de un convenio
+// que no tenga borrado_solicitado = true, así que una pestaña antigua (que borra solo por id) nunca puede borrar.
+// Paso 1: marcar (PATCH con versión leída → leída + 1, exige 1 fila). Paso 2: DELETE por id + versión + marca (1 fila).
+// Si el paso 2 falla, el convenio queda visible con "Eliminación pendiente" y se puede reintentar o cancelar.
+function _convFila(res){if(!Array.isArray(res)||res.length!==1)throw new Error('convenio_version_vieja');return res[0];}
+function _convJson(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});return r.json();}
 function eliminarConvenio(id){
-  if(!confirm('¿Eliminar este convenio?'))return;
-  // Misma protección de versión: solo se elimina si el convenio sigue como se leyó (1 fila borrada).
   var prev=_convenios.find(function(x){return String(x.id)===String(id);});
+  if(!confirm(prev&&prev.borradoSolicitado?'Este convenio tiene una eliminación pendiente. ¿Eliminarlo ahora?':'¿Eliminar este convenio?'))return;
   if(!prev||!(prev.version>=1)){alert('No se eliminó: '+_convError(new Error('convenio_version_vieja')));return;}
-  sbFetch('convenios?id=eq.'+encodeURIComponent(id)+'&version=eq.'+prev.version,{method:'DELETE',headers:{'Prefer':'return=representation'}})
-    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});return r.json();})
-    .then(function(res){if(!Array.isArray(res)||res.length!==1)throw new Error('convenio_version_vieja');})
+  var paso1=prev.borradoSolicitado?Promise.resolve(prev.version)
+    :sbFetch('convenios?id=eq.'+encodeURIComponent(id)+'&version=eq.'+prev.version,{method:'PATCH',headers:{'Prefer':'return=representation'},
+       body:JSON.stringify({borrado_solicitado:true,version:prev.version+1,updated_at:new Date().toISOString()})})
+      .then(_convJson).then(_convFila).then(function(f){return Number(f.version);});
+  var marcado=false;
+  paso1.then(function(v){marcado=true;
+    return sbFetch('convenios?id=eq.'+encodeURIComponent(id)+'&version=eq.'+v+'&borrado_solicitado=eq.true',{method:'DELETE',headers:{'Prefer':'return=representation'}})
+      .then(_convJson).then(_convFila);})
     .then(cargarConvenios)
-    .catch(function(e){alert('No se eliminó: '+_convError(e));});
+    .catch(function(e){alert('No se eliminó: '+_convError(e)+(marcado?'\n\nEl convenio quedó con "Eliminación pendiente": puedes reintentar con el botón Eliminar o cancelarla.':''));cargarConvenios();});
+}
+function cancelarEliminacion(id){
+  var prev=_convenios.find(function(x){return String(x.id)===String(id);});
+  if(!prev||!prev.borradoSolicitado||!(prev.version>=1))return;
+  sbFetch('convenios?id=eq.'+encodeURIComponent(id)+'&version=eq.'+prev.version,{method:'PATCH',headers:{'Prefer':'return=representation'},
+    body:JSON.stringify({borrado_solicitado:false,version:prev.version+1,updated_at:new Date().toISOString()})})
+    .then(_convJson).then(_convFila).then(cargarConvenios)
+    .catch(function(e){alert('No se canceló la eliminación: '+_convError(e));});
 }
 
 // ── IMPORTAR PLANILLA (Plantilla_Convenios_Gestoor.xlsx) ───────────────────
@@ -1164,7 +1183,7 @@ function renderConvenios(){
       +'<div class="g-cv-txt"><b>'+pagadas+' de '+total+' cuotas pagadas</b> · '+(total-pagadas>0?'quedan '+(total-pagadas)+(piePend?' · <span class="g-cv-atr">pie pendiente</span>':''):piePend?'<span class="g-cv-atr">pie pendiente</span>':'convenio pagado')+(prox?(prox.vencimiento<h?' · <span class="g-cv-atr">atrasada desde '+prox.vencimiento+'</span>':' · próxima '+prox.vencimiento+' por '+ff(prox.monto)):'')+'</div>'
       +'<div class="g-cv-fin">'+(rs.plan?'<span>Capital pendiente <b>'+ff(rs.capitalPend)+'</b></span><span>Intereses pendientes <b class="int">'+ff(rs.interesPend)+'</b></span>'+(rs.recargoPagado?'<span>Recargos pagados <b class="int">'+ff(rs.recargoPagado)+'</b></span>':''):'<span>Capital confirmado <b>'+ff(rs.capitalConfirmado)+'</b></span>')+'<span>Intereses pagados <b class="int">'+ff(rs.interesPagado)+'</b>'+(rs.sinDesglose?'<i class="g-sin-des" title="'+rs.sinDesglose+' pago(s) sin desglose">*</i>':'')+'</span><span>Contabilizadas <b'+(rs.porContab?' class="pend"':'')+'>'+rs.contab+'/'+rs.pagos+'</b></span></div></div>'
       +'<div class="g-cv-saldo"><strong>'+ff(rs.saldoPorPagar)+'</strong><small>'+(rs.plan?'saldo total':'saldo por pagar')+' · '+pct+'%</small></div>'
-      +'<div class="g-cv-est">'+badgeEst+(rs.porContab?'<span class="badge b-vencido">'+gIcon('alerta')+' '+rs.porContab+' por contabilizar</span>':'')+'<span class="g-cv-ver">'+(isExp?'Ocultar':'Ver cuotas')+'</span></div>'
+      +'<div class="g-cv-est">'+(conv.borradoSolicitado?'<span class="badge b-vencido">'+gIcon('basura')+' Eliminación pendiente</span>':'')+badgeEst+(rs.porContab?'<span class="badge b-vencido">'+gIcon('alerta')+' '+rs.porContab+' por contabilizar</span>':'')+'<span class="g-cv-ver">'+(isExp?'Ocultar':'Ver cuotas')+'</span></div>'
       +'</div>'
       +'<div class="conv-body'+(isExp?' on':'')+'">'
       +(conv.conceptos?'<div style="padding:10px 16px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bdr);background:var(--sur2)"><strong>Origen de la deuda:</strong> '+hesc(conv.conceptos)+'</div>':'')
@@ -1173,6 +1192,7 @@ function renderConvenios(){
       +(waHref?'<a class="btn-wa btn-sm" href="'+waHref+'" target="_blank">'+gIcon('chat')+' WhatsApp</a>':'')
       +'<button class="btn-s btn-sm" onclick="verAmortizacion('+conv.id+')">'+gIcon('grafico')+' Tabla amortización</button>'
       +'<button class="btn-s btn-sm" onclick="abrirModalEditar('+conv.id+')">'+gIcon('lapiz')+' Editar</button>'
+      +(conv.borradoSolicitado?'<button class="btn-s btn-sm" onclick="cancelarEliminacion('+conv.id+')">Cancelar eliminación</button>':'')
       +'<button class="btn-danger btn-sm" onclick="eliminarConvenio('+conv.id+')" title="Eliminar">'+gIcon('basura')+'</button>'
       +'</div></div></div>';
     }).join('');
