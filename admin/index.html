@@ -288,6 +288,13 @@ var MODULOS_CONFIRMAR = {
 };
 var MODULOS_NOMBRE_CORTO = {facturacion:'Facturación', cobranza:'Cobranza', trabajos_especiales:'Trabajos especiales'};
 
+// ── BARRERA TEMPORAL (22-oct-2026) · módulos visibles pero NO asignables todavía ─────────────
+// Hasta que se publiquen las pantallas nuevas de Cobranza y Trabajos especiales, estas casillas se muestran deshabilitadas
+// y el guardado rechaza asignarlas. Lo que una ficha ya tenga se conserva tal cual (no se quita al guardar).
+// Para levantar la barrera en un PR posterior: dejar esta lista vacía ([]). Nada más cambia.
+var MODULOS_EN_ESPERA = ['cobranza','trabajos_especiales'];
+var NOTA_EN_ESPERA = 'Disponible cuando se publiquen las pantallas nuevas';
+
 // ── MÓDULOS FUTUROS — visibles como Próximamente, sin checkbox ────────────
 var MODULOS_FUTUROS_IDS = [
   'gestion-personal',
@@ -480,6 +487,18 @@ function modulosAdicionalesDeUsuario(u){
 function fichaRegistraFacturacion(u){
   return !!(u && Array.isArray(u.modulos) && u.modulos.indexOf('facturacion')>=0);
 }
+// Barrera temporal: rechaza asignar módulos en espera que la ficha no tenga y conserva los que ya tenga.
+// Devuelve {mods:[...]} con el payload final, o {error:'...'} si el payload trae una asignación nueva bloqueada.
+function aplicarBarreraEnEspera(mods, uActual, rol){
+  var existentes=(uActual && Array.isArray(uActual.modulos)) ? uActual.modulos : [];
+  var nuevos=mods.filter(function(m){ return MODULOS_EN_ESPERA.indexOf(m)>=0 && existentes.indexOf(m)<0; });
+  if(nuevos.length){
+    return {error:'Todavía no se puede asignar '+nuevos.map(function(m){ return MODULOS_NOMBRE_CORTO[m]||m; }).join(' ni ')+'. '+NOTA_EN_ESPERA+'.'};
+  }
+  var base=modulosBaseDelRol(rol)||[];
+  var conservar=MODULOS_EN_ESPERA.filter(function(m){ return existentes.indexOf(m)>=0 && mods.indexOf(m)<0 && base.indexOf(m)<0; });
+  return {mods:mods.concat(conservar)};
+}
 // Pide confirmación por cada módulo sensible marcado (en el orden de MODULOS_CONFIRMAR). false = el Master canceló.
 function confirmarModulosSensibles(mods, nombre){
   var ids=Object.keys(MODULOS_CONFIRMAR);
@@ -528,6 +547,11 @@ function renderFormularioModulos(rol){
   Object.keys(grupos).forEach(function(g){
     html+='<div style="margin-bottom:10px"><div style="font-size:9.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid #e8dde8">'+g+'</div><div class="modulos-grid">';
     grupos[g].forEach(function(m){
+      if(MODULOS_EN_ESPERA.indexOf(m.id)>=0){
+        // Barrera temporal: casilla deshabilitada y nunca marcada; la nota explica por qué.
+        html+='<div class="mod-check-item mod-en-espera" title="'+NOTA_EN_ESPERA+'" style="opacity:.6;cursor:not-allowed"><input type="checkbox" id="mod-'+m.id+'" value="'+m.id+'" disabled><span class="mod-icon">'+m.icon+'</span><label for="mod-'+m.id+'" style="cursor:not-allowed">'+m.nombre+'<span style="display:block;font-size:10px;font-weight:500;color:var(--tm);margin-top:2px">'+NOTA_EN_ESPERA+'</span></label></div>';
+        return;
+      }
       var checked=_draftModulosAdicionales.indexOf(m.id)>=0;
       html+='<div class="mod-check-item"><input type="checkbox" id="mod-'+m.id+'" value="'+m.id+'"'+(checked?' checked':'')+' ><span class="mod-icon">'+m.icon+'</span><label for="mod-'+m.id+'">'+m.nombre+'</label></div>';
     });
@@ -657,6 +681,9 @@ function crearUsuario(){
   if(typeof window.gestoorGetModulosBaseRol!=='function'){ adminToast('❌ Error de configuración: recarga la página.','error'); return; }
   if(!confirm('¿Crear la ficha de '+nombre+' ('+email+')?\n\nDespués: "Enviar invitación" y, cuando cree su contraseña, "Activar en Gestoor".')) return;
   var modsNuevo=getAdicionalesSeleccionadosDesdeDom();
+  var barreraN=aplicarBarreraEnEspera(modsNuevo, null, rol);
+  if(barreraN.error){ adminToast('❌ '+barreraN.error,'error'); return; }
+  modsNuevo=barreraN.mods;
   if(!confirmarModulosSensibles(modsNuevo, nombre)) return;
   _creando=true;
   sbFetch('rpc/admin_crear_usuario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
@@ -699,9 +726,13 @@ function guardarUsuario(){
   }
   var adicionalesFinal=getAdicionalesSeleccionadosDesdeDom();
   var uActual=_admUsuarios.find(function(x){ return String(x.id)===String(_editId); });
+  var barreraE=aplicarBarreraEnEspera(adicionalesFinal, uActual, rol);
+  if(barreraE.error){ adminToast('❌ '+barreraE.error,'error'); return; }
+  var conservados=barreraE.mods.filter(function(m){ return adicionalesFinal.indexOf(m)<0; });
+  adicionalesFinal=barreraE.mods;
   // Facturación, Cobranza y Trabajos especiales: las casillas se abren siempre desmarcadas (MODULOS_SIN_PRECARGA);
   // habilitarlas exige confirmación explícita.
-  if(!confirmarModulosSensibles(adicionalesFinal, nombre)) return;
+  if(!confirmarModulosSensibles(adicionalesFinal.filter(function(m){ return conservados.indexOf(m)<0; }), nombre)) return;
   if(adicionalesFinal.indexOf('facturacion')<0 && fichaRegistraFacturacion(uActual)){
     if(!confirm('La ficha de '+nombre+' registra Facturación, pero la casilla está desmarcada: al guardar, Facturación quedará deshabilitada.\n\nSi debe seguir facturando, cancela y marca la casilla.\n\n¿Guardar sin Facturación?')) return;
   }

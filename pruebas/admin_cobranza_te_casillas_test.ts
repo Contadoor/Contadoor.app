@@ -1,4 +1,4 @@
-// Administración · casillas Cobranza y Trabajos especiales · prueba LOCAL con mocks (no toca Supabase ni producción).
+// Administración · casillas Cobranza y Trabajos especiales (barrera levantada) · prueba LOCAL con mocks (no toca Supabase ni producción).
 // Mismo arnés que admin_facturacion_casilla_test.ts: admin/index.html en jsdom con supabase.js / auth.js / menú reemplazados por mocks.
 // Verifica: 'cobranza' y 'trabajos_especiales' son casillas asignables (ya no "Próximamente"); nunca se pre-marcan desde
 // public.usuarios.modulos (fichas con un 'cobranza' antiguo); habilitarlas pide confirmación con el nombre y cancelar no envía nada;
@@ -7,7 +7,12 @@
 import { JSDOM } from 'npm:jsdom@24.1.0';
 
 const RAIZ = new URL('../', import.meta.url);
-const html0 = Deno.readTextFileSync(new URL('admin/index.html', RAIZ));
+// Esta prueba valida el comportamiento CON LA BARRERA LEVANTADA (MODULOS_EN_ESPERA = []), que es lo que quedará al publicar las pantallas nuevas.
+// La barrera temporal se prueba en admin_cobranza_te_barrera_test.ts.
+const html0src = Deno.readTextFileSync(new URL('admin/index.html', RAIZ));
+const BARRERA = "var MODULOS_EN_ESPERA = ['cobranza','trabajos_especiales'];";
+if (!html0src.includes(BARRERA)) throw new Error('No se encontró la constante de la barrera');
+const html0 = html0src.replace(BARRERA, 'var MODULOS_EN_ESPERA = [];');
 const authJs = Deno.readTextFileSync(new URL('auth.js', RAIZ));
 const mpr = authJs.match(/var MODULOS_POR_ROL=(\{[\s\S]*?\});/)![1];
 
