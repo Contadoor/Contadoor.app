@@ -406,7 +406,8 @@ function _convRowToObj(r){
     montoTotal:Number(r.monto_total)||0,nCuotas:r.n_cuotas||cs.length,valorCuota:Number(r.monto_cuota)||0,
     valorUltima:cs.length?Number(cs[cs.length-1].monto)||0:0,responsable:r.analista_responsable||'',
     obs:r.obs||'',estado:r.estado||'activo',cuotas:cs,
-    deudaCapital:Number(r.deuda_capital)||0,pie:r.pie&&typeof r.pie==='object'&&!Array.isArray(r.pie)?r.pie:null};
+    deudaCapital:Number(r.deuda_capital)||0,pie:r.pie&&typeof r.pie==='object'&&!Array.isArray(r.pie)?r.pie:null,
+    version:Number(r.version)};
 }
 function _convObjToRow(c){
   var cs=c.cuotas||[];
@@ -426,6 +427,7 @@ function _convEscribir(method,path,row){
 }
 function _convError(e){
   var m=String(e&&e.message||e);
+  if(m.indexOf('convenio_version_vieja')>=0)return 'Otra persona (o un proceso) modificó este convenio después de que abriste la página. Recarga la página (F5) y vuelve a intentarlo. No se guardó ningún cambio.';
   if(m.indexOf('convenios_cliente_rut_fkey')>=0)return 'El cliente no existe en Gestoor (créalo primero en Clientes).';
   if(m.indexOf('n_convenio')>=0||m.indexOf('periodo_deuda')>=0||m.indexOf('analista_responsable')>=0)return 'La base de datos aún no tiene habilitado el módulo de convenios.';
   if(m.indexOf('ck_convenios')>=0)return 'Datos fuera de rango (revisa montos, cuotas y estado).';
@@ -433,10 +435,18 @@ function _convError(e){
   if(m.indexOf('uq_convenios_numero')>=0)return 'Ya existe un convenio con ese N° para el cliente e institución.';
   return m.slice(0,200);
 }
+// Protección de versión (SQL 202610221800_convenios_version): cada edición envía version = versión leída + 1 y
+// solo aplica si la fila sigue en la versión leída. Si otra persona o un proceso la cambió, no se guarda nada
+// (la base también lo rechaza con el trigger trg_convenios_version) y se pide recargar.
 function _convGuardarObj(conv){
-  var existe=_convenios.some(function(x){return String(x.id)===String(conv.id);});
-  var p=existe?_convEscribir('PATCH','convenios?id=eq.'+encodeURIComponent(conv.id),_convObjToRow(conv))
-              :_convEscribir('POST','convenios',_convObjToRow(conv));
+  var prev=_convenios.find(function(x){return String(x.id)===String(conv.id);});
+  var p;
+  if(prev){
+    if(!(prev.version>=1))return Promise.reject(new Error('convenio_version_vieja'));
+    var row=_convObjToRow(conv);row.version=prev.version+1;
+    p=_convEscribir('PATCH','convenios?id=eq.'+encodeURIComponent(conv.id)+'&version=eq.'+prev.version,row)
+      .then(function(res){if(!Array.isArray(res)||res.length!==1)throw new Error('convenio_version_vieja');return res;});
+  }else p=_convEscribir('POST','convenios',_convObjToRow(conv));
   return p.then(function(){return cargarConvenios();});
 }
 function cargarConvenios(){
