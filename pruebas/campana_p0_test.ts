@@ -51,7 +51,7 @@ const FILAS = () => [
 async function montar(o: { falla?: boolean; avisos?: boolean; dos?: boolean } = {}) {
   const llamadas: { fn: string; body: any }[] = [];
   const dom = new JSDOM('<!doctype html><html><head></head><body class="g-shell"><div class="layout"><div class="topbar"><h1 class="tb-title">Facturación</h1></div></div></body></html>', {
-    runScripts: 'dangerously', url: 'https://gestoor.contadoor.cl/facturacion/index.html', pretendToBeVisual: true,
+    runScripts: 'dangerously', url: 'https://gestoor.contadoor.cl/index.html', pretendToBeVisual: true,   // Inicio: sin filtro de módulo
     beforeParse(w: any) {
       w._sbAuthReady = true;
       w.localStorage.setItem('notificaciones_sistema', JSON.stringify([{ id: 9, modulo: 'rrhh', mensaje: 'V1 vieja', ejecutado: false }]));
@@ -78,7 +78,7 @@ res('2.1 al cargar pide rpc/mis_alertas (límite 100)', llamadas[0]?.fn === 'mis
 res('2.2 insignia = 4 pendientes de TODOS los módulos (facturación, contable, seguridad y uno desconocido); la V1 de localStorage no cuenta', d.getElementById('notBadge').textContent === '4', d.getElementById('notBadge').textContent);
 d.getElementById('notBtn').click(); await espera(30);
 const panel = d.getElementById('notPanel');
-const tabs = [...panel.querySelectorAll('.not-tab')].map((t: any) => t.textContent.replace(/\s+/g, ' ').trim());
+const tabs = [...panel.querySelectorAll('.not-chip')].map((t: any) => t.textContent.replace(/\s+/g, ' ').trim());
 res('2.3 pestañas por módulo con avisos: Facturación, Contable (contable/impuestos), Seguridad y Sistema (módulo desconocido); nada oculto',
     ['Facturación', 'Contable', 'Seguridad', 'Sistema'].every((m) => tabs.some((t) => t.startsWith(m))) && tabs[0].startsWith('Todos'), tabs);
 const txt = panel.textContent;
