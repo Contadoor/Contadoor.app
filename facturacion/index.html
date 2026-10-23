@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="../assets/equipo.css">
 <link rel="stylesheet" href="facturacion.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <script>
@@ -42,7 +43,7 @@
     <div class="fx-aviso" role="note">
       <i class="ic placa ic-cel" data-ic="candado"></i>
       <div><b>La emisión real está bloqueada hasta el GO de producción.</b>
-        <p>Grupos FIJO y VARIABLE: preparar, revisar y aprobar. Facturación adicional: crear, aprobar y emitir en el ambiente de pruebas de OpenFactura (sin SII, correos solo a info@contadoor.cl). La primera factura real sale solo con el GO de producción y el OK expreso de Luciano.</p></div>
+        <p>Grupos FIJO y VARIABLE: preparar, revisar y aprobar. Facturación adicional: la factura nueva es siempre real (SII); se puede crear y aprobar, y se emite cuando la emisión esté activada. Para practicar se usa el entorno local/DEV, no esta pantalla. La primera factura real sale solo con el GO de producción y el OK expreso de Luciano.</p></div>
     </div>
 
     <div class="barra-lote">
@@ -165,6 +166,7 @@
 
 <script src="../supabase.js"></script>
 <script>if(window.FX_DEMO)document.write('<script src="demo-datos.js"><\/script>');</script>
+<script src="../assets/equipo.js"></script>
 <script src="facturacion.js"></script>
 <script src="adicional.js"></script>
 <script src="adicional-real.js"></script>
