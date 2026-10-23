@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cobranza · Cartera por cliente · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor-cartera.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js.
+   Candado 2: cartera-demo.js vuelve a revisar el host. Candado 3: cartera.js exige ambos. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.GC_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-gc">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="cobranza"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar gc-top">
+    <div class="gc-marca">
+      <span class="gc-ico" aria-hidden="true"><span data-g-ic="cobranza"></span></span>
+      <div><h1 class="tb-title">Cobranza <span>de servicios</span></h1><p>Cartera por cliente · pagos · repactación · avisos (modo prueba)</p></div>
+    </div>
+    <div class="g-espacio"></div>
+    <span class="gc-demo" id="gcDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+  </div>
+  <div class="content">
+    <div id="gcApp" class="gc-app"><div class="aviso lila"><span class="gc-spin"></span>Cargando la cartera…</div></div>
+  </div>
+</main>
+</div>
+
+<!-- Ficha de cobranza del cliente (ventana lateral) -->
+<div class="gc-velo" id="gcVelo"></div>
+<aside class="gc-det" id="gcDet" role="dialog" aria-modal="true" aria-label="Ficha de cobranza del cliente" hidden>
+  <div class="gc-det-bar"><button type="button" class="gc-cerrar" id="gcDetCerrar" aria-label="Cerrar ficha"><i class="ic" data-gc-ic="cerrar"></i></button></div>
+  <div id="gcDetCuerpo"></div>
+</aside>
+<div class="gc-toast" id="gcToast" role="status" aria-live="polite"></div>
+
+<script src="../supabase.js"></script>
+<script src="../assets/gestoor-cartera.js"></script>
+<script>if(window.GC_DEMO)document.write('<script src="cartera-demo.js"><\/script>');</script>
+<script src="cartera.js"></script>
+<script>if(!window.GC_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>

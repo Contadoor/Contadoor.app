@@ -52,6 +52,7 @@
     fuego:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     trofeo:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
     basura:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+    maletin:'<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
     lista:'<path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/>'
   };
   // Ícono de línea (estilo Lucide). Nombre desconocido → vacío (nunca rompe la página).
@@ -66,7 +67,7 @@
     ['Operación mensual',[['clientes','Clientes','clientes'],['panel','Panel de Control','panel-de-control'],['rrhh','RRHH','reportes-rrhh'],
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
       ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva','cartera.html'],['pir','MiRenta','pir','proyeccion.html']]],
-    ['Gestión interna',[['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','CxC / Cobranza',null],
+    ['Gestión interna',[['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
       ['correo','Comunicaciones',null],['grafico','Performance',null]]],
     ['Configuración',[['admin','Admin','admin']]]

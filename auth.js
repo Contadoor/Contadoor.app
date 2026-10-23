@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&
+    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&!path.includes('/trabajos-especiales/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -33,6 +33,7 @@
     if(path.includes('/pagos/'))             return 'pagos';
     if(path.includes('/conciliacion/'))      return 'conciliacion';
     if(path.includes('/cobranza/'))          return 'cobranza';
+    if(path.includes('/trabajos-especiales/')) return 'trabajos_especiales';
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
@@ -52,16 +53,22 @@
     admin:    ['*'],
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
-    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','facturacion'], // facturacion: el rol pagos es facturador (F1a); el motor re-verifica con facturacion_yo()
+    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','facturacion','cobranza','trabajos_especiales'], // facturacion: el rol pagos es facturador (F1a; el motor re-verifica con facturacion_yo()). Cobranza C1 y Trabajos especiales T1: Pagos lee (la RLS re-verifica)
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
     comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
   };
 
+  // Módulos cuyo acceso a la PÁGINA decide el servidor (usuarios_sistema.modulos), no public.usuarios.modulos.
+  var RPC_ACCESO_SERVIDOR={cobranza:'cobranza_yo',trabajos_especiales:'te_yo'};
+
   function puedeVerModulo(perfil,modulo){
+    if(perfil.accesoServidor&&perfil.accesoServidor[modulo]===true) return true; // ya confirmado por el servidor en esta página
     if(perfil.es_master||perfil.esMaster) return true;
     var permisos=MODULOS_POR_ROL[perfil.rol]||perfil.modulos||[];
     if(permisos[0]==='*') return true;
     if(modulo==='dashboard') return true;
+    // Trabajos especiales T1: Facturación (módulo facturacion) prepara la factura DTE 34 y ve los trabajos (la RLS re-verifica).
+    if(modulo==='trabajos_especiales'&&(perfil.modulos||[]).includes('facturacion')) return true;
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
@@ -155,8 +162,6 @@
       return;
     }
 
-    // Cobranza: sidebar con diseño diferente — no interferir
-    if(typeof MODULO_ACTUAL!=='undefined'&&MODULO_ACTUAL==='cobranza') return;
 
     document.querySelectorAll('.sidebar a[href]').forEach(function(link){
       // FUTUROS: href="#" + pointer-events:none inline → conservar intactos, sin candado
@@ -168,8 +173,10 @@
       var modId;
       if(href==='../index.html'){
         modId='dashboard';
-      }else if(href.startsWith('../')&&href.endsWith('/index.html')){
-        modId=href.slice(3,href.length-'/index.html'.length);
+      }else if(/^\.\.\/[a-z0-9-]+\/[a-z0-9-]+\.html$/.test(href)){
+        // ../<modulo>/<pagina>.html (index.html o páginas de entrada como cobranza/cartera.html)
+        modId=href.slice(3,href.indexOf('/',3));
+        if(modId==='trabajos-especiales') modId='trabajos_especiales';
       }else{
         return;  // href='#' sin pointer-events (edge case) → no tocar
       }
@@ -395,11 +402,20 @@
             return base.slice();
           };
 
-          // Control de acceso al módulo actual
-          if(!puedeVerModulo(perfil,MODULO_ACTUAL)){
+          // Control de acceso al módulo actual.
+          // Cobranza C1 y Trabajos especiales T1: decide el SERVIDOR (cobranza_yo / te_yo leen usuarios_sistema.modulos, lo mismo que
+          // validan sus RPC y su RLS). public.usuarios.modulos puede estar desfasado y no se usa para estas dos páginas. Fail-closed:
+          // error, sin fila operativa o puede_leer distinto de true → Acceso denegado.
+          var rpcAcceso=RPC_ACCESO_SERVIDOR[MODULO_ACTUAL];
+          var decision=rpcAcceso
+            ? client.rpc(rpcAcceso).then(function(r){return !r.error&&!!r.data&&r.data.puede_leer===true;}).catch(function(){return false;})
+            : Promise.resolve(puedeVerModulo(perfil,MODULO_ACTUAL));
+          return decision.then(function(permitido){
+          if(!permitido){
             mostrarAccesoDenegado(); // revelar + mensaje (no redirige al login)
             return;
           }
+          if(rpcAcceso){ sesion.accesoServidor={}; sesion.accesoServidor[MODULO_ACTUAL]=true; }
 
   // ── DASHBOARD-ROL-1: Permisos del Dashboard ──────────────────────────────────
   // Solo actúa cuando MODULO_ACTUAL === 'dashboard'.
@@ -444,6 +460,7 @@
             revelarContenido();                   // 3. retirar auth-pending
             inyectarTopbar(sesion);              // 4. badge de usuario
           });
+          }); // fin decision.then
 
         }).catch(function(e){
           console.error('[auth.js] Error cargando perfil:',e);
