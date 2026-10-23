@@ -4,7 +4,9 @@
 // · Fuente única: RPC mis_alertas() → SOLO las alertas del usuario (destinatario = yo; la difusión a un rol se reparte al crear, una
 //   fila por persona; constancias sin destinatario solo el Master). Títulos ≤ 120 y textos ≤ 300 se muestran COMPLETOS (sin recorte CSS);
 //   en el historial, la línea abreviada lleva el texto completo en title. Corrige H3 (el Master veía las de todos) sin depender de la RLS.
-// · Todos los módulos se muestran (H1): un módulo desconocido aparece como "Sistema"; nunca se oculta.
+// · Todos los módulos se muestran (H1): un módulo desconocido aparece como "Sistema"; nunca se oculta. Por módulo (Luciano 23-oct):
+//   chips con contador de no leídas (solo módulos con avisos; la elección se recuerda), avisos agrupados Hoy / Ayer / Anteriores,
+//   y en la página de un módulo la campana abre filtrada por él con "Ver todos".
 // · Marcar = RPC alerta_marcar(id, 'leida'|'ejecutada'); sin PATCH directo a la tabla.
 // · Enlaces normalizados a rutas absolutas /modulo/… (H7); cualquier otra cosa (http:, javascript:, //) se descarta.
 // · V1 (localStorage) retirada: crearNotificacion() ahora solo muestra un aviso breve (toast) a quien hizo la acción.
@@ -22,7 +24,6 @@ var BASE=(function(){                         // carpeta raíz del sitio, según
 var _cache=[];        // filas de mis_alertas
 var _cargando=false;
 var _yaCargo=false;
-var _activeTab='todos';
 
 // ── RPC ─────────────────────────────────────────────────────
 function rpc(fn,args){
@@ -75,23 +76,37 @@ function cargarAlertas(){
 window.gestoorCampanaRecargar=cargarAlertas;
 
 // ── Módulos (todos visibles; desconocido = Sistema) ─────────
+// Ícono de línea con color propio sobre placa con tinte suave (regla gestoor-iconos-color). ic = nombre de gIcon (assets/gestoor-menu.js);
+// si la página no tiene el menú, se usa el emoji (em).
 var MOD_CONFIG={
-  facturacion:{label:'Facturación',    em:'📄', color:'#0E8FCF', bg:'#E3F4FC'},
-  trabajos:   {label:'Trabajos esp.',  em:'🛠️',         color:'#B7791F', bg:'#FDF3E1'},
-  cobranza:   {label:'Cobranza',       em:'💳',      color:'#924893', bg:'#F5EAF5'},
-  pagos:      {label:'Pagos',          em:'💸',  color:'#2F6FDB', bg:'#E6F0FC'},
-  impuestos:  {label:'Contable',       em:'🧾',   color:'#B7791F', bg:'#FAEEDA'},
-  rrhh:       {label:'RRHH',           em:'👥',        color:'#1D9E75', bg:'#E1F5EE'},
-  seguridad:  {label:'Seguridad',      em:'🔒',         color:'#C2410C', bg:'#FDEBE1'},
-  simpleapi:  {label:'SimpleAPI',      em:'🔌',         color:'#0F766E', bg:'#DDF4F1'},
-  mirenta:    {label:'MiRenta',        em:'📊',   color:'#7C3AED', bg:'#EFE7FD'},
-  comercial:  {label:'Comercial',      em:'🎯',       color:'#BE185D', bg:'#FCE7F1'},
-  agenda:     {label:'Agenda',         em:'📅',     color:'#4338CA', bg:'#E8E7FB'},
-  sistema:    {label:'Sistema',        em:'⚙️',     color:'#5c4a5d', bg:'#f0ebff'}
+  facturacion:{label:'Facturación',   ic:'factura',    em:'📄', color:'#0E8FCF'},
+  cobranza:   {label:'Cobranza',      ic:'cobranza',   em:'💳', color:'#924893'},
+  trabajos:   {label:'Trabajos esp.', ic:'lista',      em:'🛠️', color:'#B7791F'},
+  pagos:      {label:'Pagos',         ic:'pagos',      em:'💸', color:'#2F6FDB'},
+  impuestos:  {label:'Contable',      ic:'contable',   em:'🧾', color:'#B7791F'},
+  preiva:     {label:'Pre-IVA',       ic:'iva',        em:'🧮', color:'#1D9E75'},
+  rrhh:       {label:'RRHH',          ic:'rrhh',       em:'👥', color:'#0F8A6A'},
+  seguridad:  {label:'Seguridad',     ic:'candado',    em:'🔒', color:'#C2410C'},
+  simpleapi:  {label:'SimpleAPI',     ic:'transferir', em:'🔌', color:'#0F766E'},
+  mirenta:    {label:'MiRenta',       ic:'grafico',    em:'📊', color:'#7C3AED'},
+  comercial:  {label:'Comercial',     ic:'objetivo',   em:'🎯', color:'#BE185D'},
+  agenda:     {label:'Agenda',        ic:'calendario', em:'📅', color:'#4338CA'},
+  sistema:    {label:'Sistema',       ic:'admin',      em:'⚙️', color:'#5c4a5d'}
 };
+var ORDEN_MOD=['facturacion','cobranza','trabajos','pagos','impuestos','preiva','rrhh','seguridad','simpleapi','mirenta','comercial','agenda','sistema'];
 var ALIAS={contable:'impuestos',reportes:'impuestos',trabajos_especiales:'trabajos',te:'trabajos',prospectos:'comercial',crm:'comercial',
-           asistente:'sistema',correos:'sistema',convenios:'pagos',aprobaciones:'pagos',preiva:'impuestos','pre-iva':'impuestos'};
+           asistente:'sistema',correos:'sistema',convenios:'pagos',aprobaciones:'pagos','pre-iva':'preiva',pre_iva:'preiva'};
 function modKey(m){m=String(m||'sistema').toLowerCase();m=ALIAS[m]||m;return MOD_CONFIG[m]?m:'sistema';}
+// Página actual → módulo (la campana abre filtrada por él).
+var PAGINA_MOD={'facturacion':'facturacion','cobranza':'cobranza','trabajos-especiales':'trabajos','pagos':'pagos','reportes-pagos':'pagos',
+  'convenios':'pagos','conciliacion':'pagos','reportes-contable':'impuestos','tributario-contable':'impuestos','pre-iva':'preiva',
+  'reportes-rrhh':'rrhh','pir':'mirenta','prospectos':'comercial'};
+function moduloDePagina(){try{var seg=(location.pathname.split('/')[1]||'').toLowerCase();return PAGINA_MOD[seg]||null;}catch(e){return null;}}
+function tinte(hex,a){var h=hex.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}
+function icono(k,tam){
+  var c=MOD_CONFIG[k], svg=(typeof window.gIcon==='function')?window.gIcon(c.ic):'';
+  return '<span class="not-ic" aria-hidden="true" style="width:'+tam+'px;height:'+tam+'px;background:'+tinte(c.color,.16)+';color:'+c.color+'">'+(svg||c.em)+'</span>';
+}
 function modCfg(m){return MOD_CONFIG[modKey(m)];}
 var TIPO_CONFIG={
   accion_requerida:{label:'Acción requerida', color:'#C0392B', bg:'#fee2e2'},
@@ -101,6 +116,7 @@ var TIPO_CONFIG={
 };
 
 function pendientes(mod){return _cache.filter(function(n){return n.pendiente&&(!mod||modKey(n.modulo)===mod);});}
+function noLeidas(mod){return pendientes(mod).filter(function(n){return !n.leida;});}
 
 // ── Insignia ────────────────────────────────────────────────
 function renderBadge(){
@@ -180,7 +196,7 @@ function tarjeta(n){
   var m=modCfg(n.modulo), t=TIPO_CONFIG[n.tipo]||TIPO_CONFIG.info, nid=JSON.stringify(n.id);
   var h='<div class="not-card" style="border-left:3px solid '+m.color+'">';
   h+='<div style="display:flex;align-items:flex-start;gap:10px">';
-  h+='<div aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:'+m.bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;line-height:1">'+m.em+'</div>';
+  h+=icono(modKey(n.modulo),32);
   h+='<div style="flex:1;min-width:0">';
   h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">';
   h+='<span style="font-size:10px;font-weight:700;color:'+m.color+'">'+hesc(m.label)+'</span>';
@@ -202,29 +218,49 @@ function tarjeta(n){
   return h;
 }
 
+// Grupo por fecha local: Hoy / Ayer / Anteriores.
+function grupoFecha(ts){
+  var d=new Date(ts), hoy=new Date(); hoy.setHours(0,0,0,0);
+  var t=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(), h0=hoy.getTime();
+  if(t>=h0) return 'Hoy'; if(t>=h0-86400000) return 'Ayer'; return 'Anteriores';
+}
+var _modPagina=moduloDePagina();
+var _verTodos=false;                 // en la página de un módulo: el usuario pidió "Ver todos"
+var CLAVE_TAB='gestoor.campana.modulo';
+function leerTab(){try{return localStorage.getItem(CLAVE_TAB)||'todos';}catch(e){return 'todos';}}
+function guardarTab(t){try{localStorage.setItem(CLAVE_TAB,t);}catch(e){}}
+var _activeTab=leerTab();
+
 function renderPanel(){
   var panel=document.getElementById('notPanel');
   if(!panel) return;
-  // Pestañas: Todos + cada módulo que tenga avisos del usuario (nada se oculta por rol).
-  var mods=[]; _cache.forEach(function(n){var k=modKey(n.modulo);if(mods.indexOf(k)<0)mods.push(k);});
-  if(_activeTab!=='todos'&&mods.indexOf(_activeTab)<0) _activeTab='todos';
-  var tabs='<div class="not-tabs" role="tablist">';
-  tabs+='<button type="button" role="tab" class="not-tab'+(_activeTab==='todos'?' not-tab-on':'')+'" onclick="notSetTab(\'todos\')">Todos <span style="font-size:10px;opacity:.75">('+pendientes().length+')</span></button>';
+  // Chips: Todos + cada módulo con avisos (orden fijo), cada uno con su contador de NO leídas.
+  var mods=ORDEN_MOD.filter(function(k){return _cache.some(function(n){return modKey(n.modulo)===k;});});
+  var tab=_activeTab;
+  if(_modPagina&&!_verTodos&&mods.indexOf(_modPagina)>=0) tab=_modPagina;      // en la página del módulo, abre filtrada
+  if(tab!=='todos'&&mods.indexOf(tab)<0) tab='todos';
+  var html='';
+  if(_modPagina&&tab===_modPagina&&!_verTodos){
+    html+='<div class="not-filtro"><span>Mostrando avisos de <b>'+hesc(MOD_CONFIG[_modPagina].label)+'</b></span><button type="button" class="not-b" onclick="notVerTodos()">Ver todos</button></div>';
+  }
+  var nl=noLeidas().length;
+  html+='<div class="not-chips" role="tablist" aria-label="Módulos">';
+  html+='<button type="button" role="tab" aria-selected="'+(tab==='todos')+'" class="not-chip'+(tab==='todos'?' on':'')+'" onclick="notSetTab(\'todos\')">Todos'+(nl?' <span class="not-cnt">'+nl+'</span>':'')+'</button>';
   mods.forEach(function(k){
-    var cfg=MOD_CONFIG[k], cnt=pendientes(k).length;
-    tabs+='<button type="button" role="tab" class="not-tab'+(_activeTab===k?' not-tab-on':'')+'" onclick="notSetTab(\''+k+'\')">'+cfg.label+(cnt>0?' <span class="not-cnt" style="background:'+cfg.color+'">'+cnt+'</span>':'')+'</button>';
+    var cfg=MOD_CONFIG[k], cnt=noLeidas(k).length, on=tab===k;
+    html+='<button type="button" role="tab" aria-selected="'+on+'" class="not-chip'+(on?' on':'')+'" data-mod="'+k+'" onclick="notSetTab(\''+k+'\')"'+(on?' style="border-color:'+cfg.color+';background:'+tinte(cfg.color,.12)+';color:'+cfg.color+'"':'')+'>'
+      +'<i class="not-dot" style="background:'+cfg.color+'"></i>'+cfg.label+(cnt>0?' <span class="not-cnt" style="background:'+cfg.color+'">'+cnt+'</span>':'')+'</button>';
   });
-  tabs+='</div>';
+  html+='</div>';
 
-  var lista=_cache.filter(function(n){return _activeTab==='todos'||modKey(n.modulo)===_activeTab;});
-  var pend=lista.filter(function(n){return n.pendiente;});
+  var lista=_cache.filter(function(n){return tab==='todos'||modKey(n.modulo)===tab;});
+  var pend=lista.filter(function(n){return n.pendiente;}).sort(function(a,b){return b.ts-a.ts;});
   var hechas=lista.filter(function(n){return !n.pendiente;}).slice(0,10);
-  var html=tabs;
   if(pend.length>0){
     var hayInfo=pend.some(function(n){return !n.accionRequerida;});
-    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">';
     html+='<div class="not-sec">'+pend.length+' pendiente'+(pend.length!==1?'s':'')+'</div>';
-    if(hayInfo) html+='<button type="button" class="not-b" onclick="marcarTodasEjecutadas(\''+(_activeTab==='todos'?'':_activeTab)+'\')">Marcar informativas como leídas</button>';
+    if(hayInfo) html+='<button type="button" class="not-b" onclick="marcarTodasEjecutadas(\''+(tab==='todos'?'':tab)+'\')">Marcar informativas como leídas</button>';
     html+='</div>';
   }
   if(!_yaCargo&&_cache.length===0){
@@ -232,7 +268,12 @@ function renderPanel(){
   }else if(pend.length===0&&hechas.length===0){
     html+='<div class="not-vacio"><div aria-hidden="true" style="font-size:28px;margin-bottom:8px">🔕</div>Sin notificaciones</div>';
   }
-  pend.forEach(function(n){html+=tarjeta(n);});
+  var grupoActual=null;
+  pend.forEach(function(n){
+    var g=grupoFecha(n.ts);
+    if(g!==grupoActual){grupoActual=g;html+='<div class="not-fecha">'+g+'</div>';}
+    html+=tarjeta(n);
+  });
   if(hechas.length>0){
     html+='<div class="not-sec" style="margin:12px 0 8px;color:#9a849b">Historial reciente</div>';
     hechas.forEach(function(n){
@@ -245,8 +286,10 @@ function renderPanel(){
     });
   }
   panel.innerHTML=html;
+  panel.setAttribute('data-tab',tab);
 }
-window.notSetTab=function(tab){_activeTab=tab;renderPanel();};
+window.notSetTab=function(t){_activeTab=t;guardarTab(t);if(_modPagina)_verTodos=(t!==_modPagina);renderPanel();};
+window.notVerTodos=function(){_verTodos=true;_activeTab='todos';guardarTab('todos');renderPanel();};
 
 window.toggleNotPanel=function(e){
   if(e) e.stopPropagation();
@@ -255,7 +298,7 @@ window.toggleNotPanel=function(e){
   var abrir=!wrap.classList.contains('on');
   wrap.classList.toggle('on',abrir);
   var btn=document.getElementById('notBtn'); if(btn) btn.setAttribute('aria-expanded',abrir?'true':'false');
-  if(abrir){ renderPanel(); cargarAlertas(); montarAvisosCelular(); }
+  if(abrir){ _verTodos=false; renderPanel(); cargarAlertas(); montarAvisosCelular(); }   // cada apertura en la página de un módulo vuelve a filtrar por él
 };
 
 // ── Botón "Activar avisos en este celular" (cualquier usuario) ──
@@ -309,9 +352,15 @@ function injectNotUI(){
       +'#notPanelWrap.on{display:block!important}'
       +'.not-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e8dde8}'
       +'.not-avisos{width:100%;justify-content:center;margin-bottom:12px}'
-      +'.not-tabs{display:flex;gap:2px;background:#f0ebff;border-radius:8px;padding:3px;margin-bottom:12px;flex-wrap:wrap}'
-      +'.not-tab{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;color:#5c4a5d;white-space:nowrap;transition:.15s;border:0;background:none;font-family:inherit}'
-      +'.not-tab:hover{background:rgba(146,72,147,.1)}.not-tab-on,.not-tab-on:hover{background:#924893;color:#fff;font-weight:600}'
+      +'.not-chips{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}'
+      +'.not-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid #e8dde8;background:#fff;color:#5c4a5d;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}'
+      +'.not-chip:hover{background:#faf5fa}.not-chip.on{border-color:#924893;background:rgba(146,72,147,.1);color:#924893}'
+      +'.not-chip .not-cnt{background:#924893}'
+      +'.not-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}'
+      +'.not-ic{display:inline-flex;align-items:center;justify-content:center;border-radius:9px;flex-shrink:0;font-size:15px;line-height:1}'
+      +'.not-ic svg{width:17px;height:17px}'
+      +'.not-fecha{font-size:10.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.7px;margin:10px 0 6px}'
+      +'.not-filtro{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#faf5fa;border:1px solid #efe3ef;border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#5c4a5d}'
       +'.not-cnt{color:#fff;border-radius:10px;padding:1px 6px;font-size:9px}'
       +'.not-card{background:#fff;border:1px solid #e8dde8;border-radius:10px;padding:12px 14px;margin-bottom:8px}'
       +'.not-tit{font-size:13px;font-weight:600;color:#1a0a1b;line-height:1.4;margin-bottom:2px;overflow-wrap:anywhere}'
