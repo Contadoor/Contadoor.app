@@ -36,6 +36,7 @@ function sbH(){return {'Content-Type':'application/json',Authorization:'Bearer x
 function resp(o,st){return Promise.resolve(new Response(JSON.stringify(o),{status:st||200,headers:{'Content-Type':'application/json'}}));}
 function sbFetch(path,opts){
   if(path.indexOf('rpc/facturacion_yo')===0)return resp({usuario_id:1,es_master:true,puede_preparar:false,puede_aprobar:true,puede_leer:true});
+  if(path.indexOf('rpc/fact_clientes_lista')===0)return resp([{id:1,rut:'11111111-1',razon_social:'Cliente Ficticio SpA',estado:'activo'}]);
   if(path.indexOf('rpc/')===0){window.__llamadas.push({fn:path.slice(4),body:JSON.parse(opts&&opts.body||'{}')});return resp({estado:'APROBADA',avisos:2});}
   return resp([]);
 }
