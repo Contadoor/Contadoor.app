@@ -37,7 +37,7 @@ function nuevo(o){
     condicion_pago:'CONTADO',n_cuotas:1,valor_catalogo:s&&s.tipo==='puntual'&&!s.precio_hasta?s.precio:null,valor_base:null,descuento_pct:null,valor:null,responsable_usuario_id:MIGUEL,
     etapa:'BORRADOR',etapa_desde:ts(-1),estatus:'EN_CURSO',estatus_motivo:null,huella_revision:null,devolucion_comentario:null,vigencia_hasta:null,enviado_at:null,aceptado_at:null,
     aceptacion_medio:null,iniciado_at:null,inicio_autorizado_motivo:null,retener_entrega:false,entrega_estado:'PENDIENTE',terminado_at:null,cerrado_at:null,cierre_tipo:null,cierre_motivo:null,
-    cierre_detalle:null,rechazo_motivo:null,creado_at:ts(-10),_cuotas:[],_fact:[],_pasos:[],_docs:[],_ev:[],_tareas:[]},o);
+    cierre_detalle:null,rechazo_motivo:null,creado_at:ts(-10),_cuotas:[],_fact:[],_pasos:[],_docs:[],_ev:[],_tareas:[],_fa:[]},o);
   ev(t,'BORRADOR_CREADO',-10);T.push(t);return t;
 }
 function ev(t,tipo,d){t._ev.unshift({id:++eid,tipo:tipo,actor:'usuario',creado_at:d==null?new Date().toISOString():ts(d)});}
@@ -47,7 +47,9 @@ function montos(v,c,n){if(c==='CONTADO')return [v];if(c==='CINCUENTA'){var b=Mat
 function aceptar(t,d){t.etapa='ACEPTADA';t.aceptado_at=ts(d);t.aceptacion_medio='CORREO';
   montos(t.valor,t.condicion_pago,t.n_cuotas).forEach(function(m,i){t._cuotas.push({id:++cid,n:i+1,cuotas_total:t.n_cuotas,es_inicio:i===0,monto:m,fecha_vencimiento:t.condicion_pago==='CINCUENTA'&&i===1?null:addD(HOY,d+5+30*i),estado:'PENDIENTE',pagada_fecha:null,pago_referencia:null});});
   t._fact.push({id:++fid,modo:'PRUEBA',tipo_dte:34,estado:'PENDIENTE',total:t.valor,snapshot_hash:null,of_folio:null,fecha_emision_dte:null,devolucion:null,creado_at:ts(d)});ev(t,'COTIZACION_ACEPTADA',d);}
-function emitir(t){var f=t._fact[0];f.estado='EMITIDA';f.of_folio=String(7000+t.id);f.fecha_emision_dte=addD(HOY,-3);t.etapa='FACTURADA';ev(t,'FACTURA_EMITIDA',-3);}
+var faid=0;
+function faNueva(t,estado){var fa={factura_id:++faid,codigo:'FA-2026-'+String(20+faid).padStart(4,'0'),estado:estado,modo:'PRUEBA',total:t.valor,folio:null,creado_at:ts(-3),espejo:null};t._fa.unshift(fa);ev(t,'FACTURA_ADICIONAL_CREADA',-4);return fa;}
+function emitir(t){var fa=faNueva(t,'EMITIDA');fa.folio=String(7000+t.id);fa.espejo='OK';var f=t._fact[0];f.estado='EMITIDA';f.of_folio=fa.folio;f.fecha_emision_dte=addD(HOY,-3);t.etapa='FACTURADA';ev(t,'FACTURA_EMITIDA',-3);}
 function pagar(t,n,d){var c=t._cuotas[n-1];c.estado='PAGADA';c.pagada_fecha=addD(HOY,d);c.pago_referencia='cobranza_pagos:demo';ev(t,'CUOTA_PAGADA',d);}
 function iniciar(t){t.etapa='EN_EJECUCION';t.iniciado_at=ts(-2);PLANT.forEach(function(p,i){t._pasos.push({id:++pid,orden:(i+1)*10,origen:'PLANTILLA',nombre:p[0],plazo_dias:p[1],requiere_documento:p[2],tipo_documento:p[3],obligatorio:p[4],es_entrega:p[5],avisa_cliente:i===3,estado:'PENDIENTE',hecho_at:null,saltado_motivo:null});});ev(t,'TRABAJO_INICIADO',-2);}
 function hecho(t,i){var p=t._pasos[i];if(p.requiere_documento)t._docs.push({id:++did,paso_id:p.id,tipo:'PASO',storage_path:t.id+'/paso-'+p.id+'/demo-'+did+'.pdf',nombre:'documento-ficticio-'+did+'.pdf',mime:'application/pdf',bytes:1000,vigente:true,subido_at:ts(-1)});p.estado='HECHO';p.hecho_at=ts(-1);}
@@ -61,6 +63,8 @@ var f=nuevo({cliente_id:203,servicio_id:'srv-demo-constitucion'});aprobar(f,1800
 var g=nuevo({cliente_id:201,servicio_id:'srv-demo-constitucion',condicion_pago:'CINCUENTA',n_cuotas:2,responsable_usuario_id:MIGUEL});aprobar(g,180000);g.enviado_at=ts(-25);g.vigencia_hasta=addD(HOY,-10);aceptar(g,-20);emitir(g);pagar(g,1,-15);iniciar(g);hecho(g,0);hecho(g,1);
 var i2=nuevo({prospecto_nombre:'Agencia Viajes Mundo Claro',servicio_id:'srv-demo-modificacion',responsable_usuario_id:OTRA,estatus:'EN_ESPERA',estatus_motivo:'Esperando antecedentes de un socio'});aprobar(i2,150000);i2.enviado_at=ts(-30);i2.vigencia_hasta=addD(HOY,-15);aceptar(i2,-28);emitir(i2);pagar(i2,1,-25);iniciar(i2);hecho(i2,0);
 var j=nuevo({cliente_id:202,servicio_id:'srv-demo-formalizacion',condicion_pago:'CINCUENTA',n_cuotas:2,retener_entrega:true});aprobar(j,90000);j.enviado_at=ts(-40);j.vigencia_hasta=addD(HOY,-25);aceptar(j,-38);emitir(j);pagar(j,1,-35);iniciar(j);[0,1,2,3].forEach(function(k){hecho(j,k);});j.etapa='TERMINADO';j.terminado_at=ts(-1);j.entrega_estado='RETENIDA';j._cuotas[1].fecha_vencimiento=addD(HOY,-1);
+var m=nuevo({cliente_id:203,servicio_id:'srv-demo-modificacion',condicion_pago:'CUOTAS',n_cuotas:3});aprobar(m,150000);m.enviado_at=ts(-6);m.vigencia_hasta=addD(HOY,9);aceptar(m,-3);faNueva(m,'EN_REVISION');
+var pz=nuevo({prospecto_nombre:'Florería Pétalo Azul',servicio_id:'srv-demo-formalizacion'});aprobar(pz,90000);pz.enviado_at=ts(-5);pz.vigencia_hasta=addD(HOY,10);aceptar(pz,-1);
 var k=nuevo({cliente_id:203,servicio_id:'srv-demo-formalizacion'});aprobar(k,90000);aceptar(k,-60);emitir(k);pagar(k,1,-55);iniciar(k);[0,1,2,3,4].forEach(function(x){hecho(k,x);});k.etapa='TERMINADO';k.entrega_estado='ENTREGADO';k.cerrado_at=ts(-30);k.cierre_tipo='COMPLETO';k.cierre_motivo='COMPLETO';
 
 function saldo(t){return t._cuotas.filter(function(c){return c.estado==='PENDIENTE';}).reduce(function(s,c){return s+c.monto;},0);}
@@ -81,7 +85,24 @@ function abierto(t){if(!t)return err('TRABAJO_NO_EXISTE');if(t.cerrado_at)return
 function master(){return ROLES[ROL].es_master?null:err('SOLO_MASTER');}
 function etapa(t,e){t.etapa=e;t.etapa_desde=new Date().toISOString();}
 
+function fmt(n){return '$'+String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function faViva(t){return t._fa.find(function(v){return v.estado!=='ANULADA';});}
+function prellenado(t){var f=t._fact.find(function(x){return x.estado!=='ANULADA';}),fp=t.condicion_pago==='CONTADO'?1:2,ult=null,nulos=false;
+  t._cuotas.forEach(function(c){if(!c.fecha_vencimiento)nulos=true;else if(!ult||c.fecha_vencimiento>ult)ult=c.fecha_vencimiento;});
+  var tope=addD(HOY,90),fv=fp===1?null:(nulos||!ult||ult>tope)?tope:(ult>addD(HOY,1)?ult:addD(HOY,1));
+  var cond=t.condicion_pago==='CONTADO'?'contado (100 % antes de iniciar)':t.condicion_pago==='CINCUENTA'?'50 % al inicio y 50 % al terminar':t.n_cuotas+' cuotas (la 1.ª es el inicio)';
+  var plan=t._cuotas.map(function(c){return 'Cuota '+c.n+': '+fmt(c.monto)+(c.fecha_vencimiento?' vence '+c.fecha_vencimiento.split('-').reverse().join('-'):' al terminar');}).join(' · ');
+  return {cliente_id:t.cliente_id,modo:f?f.modo:'PRUEBA',forma_pago:fp,fecha_emision:HOY,fecha_vencimiento:fv,
+    lineas:[{glosa:(srvDe(t)||{}).nombre||'Trabajo especial',detalle:'Trabajo especial '+t.codigo+' · '+t.descripcion_que+' · Condición de pago: '+cond+' · '+plan,cantidad:1,precio:t.valor}]};}
+function resumen(t){var r=ROLES[ROL],f=t._fact.find(function(x){return x.estado!=='ANULADA';}),bloq=t.cerrado_at?'TRABAJO_CERRADO':['ACEPTADA','FACTURADA','EN_EJECUCION','TERMINADO'].indexOf(t.etapa)<0?'TRABAJO_NO_ACEPTADO'
+    :!f?'SIN_INSTRUCCION':f.estado==='EMITIDA'?'YA_FACTURADO':faViva(t)?'FACTURA_VINCULADA':!t.cliente_id?'PROSPECTO_SIN_FICHA':null;
+  return {trabajo_id:t.id,te_factura:f?{id:f.id,estado:f.estado,modo:f.modo,total:f.total,folio:f.of_folio}:null,vinculos:t._fa,puede_crear:!bloq&&(r.es_master||r.facturador),bloqueo:bloq,prellenado:bloq?null:prellenado(t)};}
 var RPC={
+  te_fa_resumen:function(x){var t=tr(x.p_trabajo);if(!t||!visible(t))return err('SIN_PERMISO');return resumen(t);},
+  te_fa_crear:function(x){var r=ROLES[ROL];if(!(r.es_master||r.facturador))return err('SOLO_FACTURADOR');var t=tr(x.p_trabajo),e=abierto(t);if(e)return e;var v=faViva(t);
+    if(v)return {resultado:'existente',factura_id:v.factura_id,codigo:v.codigo,estado:v.estado,total:v.total};var rs=resumen(t);if(rs.bloqueo)return err(rs.bloqueo);
+    var fa=faNueva(t,'BORRADOR');fa.creado_at=new Date().toISOString();t._ev[0].creado_at=fa.creado_at;return {resultado:'creada',factura_id:fa.factura_id,codigo:fa.codigo,estado:'BORRADOR',total:fa.total};},
+  te_fa_espejo_reintentar:function(){return master()||{resultado:'existente'};},
   te_cotizacion_crear:function(x){var r=ROLES[ROL];if(!r.responsable)return err('SIN_MODULO');var p=x.p;
     var t=nuevo({cliente_id:p.cliente_id||null,prospecto_nombre:p.prospecto?p.prospecto.nombre:null,servicio_id:p.servicio_id||null,servicio_solicitado:p.servicio_solicitado||null,condicion_pago:p.condicion_pago,
       n_cuotas:p.condicion_pago==='CONTADO'?1:p.condicion_pago==='CINCUENTA'?2:p.n_cuotas,descripcion_que:p.que,descripcion_alcance:p.alcance,descripcion_antecedentes:p.antecedentes||null,responsable_usuario_id:r.usuario_id,creado_at:new Date().toISOString(),etapa_desde:new Date().toISOString()});
@@ -127,7 +148,7 @@ window.TE_DEMO_API={
   yo:function(){return ok(ROLES[ROL]);},
   tablero:function(){return ok({trabajos:T.filter(visible).map(fila).sort(function(x,y){return y.id-x.id;}),parametros:{modo_factura:'PRUEBA',produccion_habilitada:false,avisos_habilitados:false,avisos_modo:'PRUEBA',vigencia_cotizacion_dias:15,responsable_ve_todos:false},usuarios:USU});},
   ficha:function(id){var t=tr(id);if(!t||!visible(t))return ok({t:null});var o={};Object.keys(t).forEach(function(k){if(k[0]!=='_')o[k]=t[k];});
-    return ok({t:o,cuotas:t._cuotas,facturas:t._fact,pasos:t._pasos.filter(function(p){return p.estado!=='QUITADO';}),docs:t._docs,eventos:t._ev,tareas:t._tareas});},
+    return ok({t:o,cuotas:t._cuotas,facturas:t._fact,pasos:t._pasos.filter(function(p){return p.estado!=='QUITADO';}),docs:t._docs,eventos:t._ev,tareas:t._tareas,fa:resumen(t)});},
   servicios:function(){return ok(SRV);},
   clientes:function(){return ok(CLIS);},
   rpc:function(fn,args){if(!RPC[fn])return err('NO_DISPONIBLE_EN_DEMO');try{var r=RPC[fn](args);return r&&typeof r.then==='function'?r:ok(r);}catch(e){return Promise.reject(e);}},

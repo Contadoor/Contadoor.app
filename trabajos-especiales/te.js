@@ -23,7 +23,7 @@ var MIMES=['application/pdf','image/png','image/jpeg','image/webp','application/
 
 var ERR={
   SIN_SESION:'No hay una sesión activa.',SIN_MODULO:'Necesitas el módulo Trabajos especiales (Administración).',SOLO_MASTER:'Solo el Master puede hacer esta acción.',
-  SOLO_RESPONSABLE:'Solo el responsable del trabajo (o el Master) puede hacer esta acción.',SOLO_FACTURADOR:'Solo Facturación prepara la factura (el Master aprueba).',
+  SOLO_RESPONSABLE:'Solo el responsable del trabajo (o el Master) puede hacer esta acción.',SOLO_FACTURADOR:'Solo Facturación (o el Master) crea la factura del trabajo.',
   PRECIO_NO_PERMITIDO:'El precio no se escribe aquí: sale del catálogo o lo fija el Master al aprobar.',CAMPO_NO_PERMITIDO:'Hay un campo no permitido.',
   CLIENTE_O_PROSPECTO:'Indica un cliente de la cartera o los datos del prospecto.',SERVICIO_O_SOLICITUD:'Elige un servicio del catálogo o describe el servicio nuevo.',
   CLIENTE_NO_EXISTE:'El cliente no existe.',SERVICIO_NO_EXISTE:'El servicio no existe.',SERVICIO_INACTIVO:'El servicio está inactivo.',SERVICIO_NO_CLP:'El servicio no está en pesos.',
@@ -44,7 +44,11 @@ var ERR={
   TRABAJO_NO_ACEPTADO:'El trabajo no está aceptado.',TOTAL_NO_CUADRA:'El total de la factura no cuadra con el valor aprobado.',NO_LISTA:'La factura no está lista para aprobar.',
   REVISION_OBLIGATORIA:'Marca «Revisado con el analista».',CIERRE_REQUIERE_OTRA_PERSONA:'El responsable no cierra su propio trabajo.',CIERRE_INCOMPLETO:'Faltan requisitos para cerrar.',
   NO_SALTABLE:'Ese paso no se puede saltar.',ENTREGA_NO_SE_SALTA:'El paso de entrega no se salta.',MOTIVO_INVALIDO:'Elige un motivo válido.',TRABAJO_CERRADO:'El trabajo está cerrado (solo lectura).',TRABAJO_NO_EXISTE:'El trabajo no existe.',
-  DTE_33_NO_IMPLEMENTADO:'La factura afecta (DTE 33) aún no está implementada.',RESPONSABLE_SIN_MODULO:'La persona asignada no tiene el módulo.'
+  DTE_33_NO_IMPLEMENTADO:'La factura afecta (DTE 33) aún no está implementada.',RESPONSABLE_SIN_MODULO:'La persona asignada no tiene el módulo.',
+  // TE-F1C (factura adicional desde el trabajo)
+  PROSPECTO_SIN_FICHA:'El cliente es un prospecto sin ficha: la factura adicional exige la ficha del cliente.',FACTURA_VINCULADA_F1C:'Este trabajo se factura en Facturación adicional: anula primero esa factura.',
+  YA_FACTURADO:'El trabajo ya tiene su factura emitida.',FACTURA_EN_CURSO_T1:'La instrucción de factura está en curso por otro camino; resuélvela antes.',SIN_INSTRUCCION:'El trabajo aún no tiene instrucción de facturación.',
+  FACTURA_DE_TRABAJO_ESPECIAL:'El total, el cliente y el modo vienen del trabajo: anula la factura y créala de nuevo.',SIN_VINCULO:'La factura no está vinculada a un trabajo.',FA_NO_EMITIDA:'La factura adicional aún no está emitida.'
 };
 function mErr(e){return G.msgError(e,ERR);}
 
@@ -72,8 +76,10 @@ var REAL={
       A.get('te_pasos?trabajo_id=eq.'+i+'&select=id,orden,origen,nombre,plazo_dias,requiere_documento,tipo_documento,obligatorio,es_entrega,avisa_cliente,estado,hecho_at,saltado_motivo&estado=neq.QUITADO&order=orden.asc'),
       A.get('te_documentos?trabajo_id=eq.'+i+'&select=id,paso_id,tipo,storage_path,nombre,mime,bytes,vigente,subido_at&order=subido_at.desc'),
       A.get('te_eventos?trabajo_id=eq.'+i+'&select=id,tipo,actor,creado_at&order=creado_at.desc&limit=40'),
-      A.get('te_tareas?trabajo_id=eq.'+i+'&estado=eq.ABIERTA&select=id,tipo,creada_at')
-    ]).then(function(r){return {t:r[0][0]||null,cuotas:r[1],facturas:r[2],pasos:r[3],docs:r[4],eventos:r[5],tareas:r[6]};});
+      A.get('te_tareas?trabajo_id=eq.'+i+'&estado=eq.ABIERTA&select=id,tipo,creada_at'),
+      // TE-F1C: factura adicional vinculada (si la función aún no está instalada, se muestra la vista anterior de T1)
+      A.rpc('te_fa_resumen',{p_trabajo:Number(id)}).catch(function(e){console.warn('[te] te_fa_resumen no disponible; vista de factura de T1.',e&&e.message);return null;})
+    ]).then(function(r){return {t:r[0][0]||null,cuotas:r[1],facturas:r[2],pasos:r[3],docs:r[4],eventos:r[5],tareas:r[6],fa:r[7]||null};});
   },
   servicios:function(){return A.get('servicios_adicionales?select=id,nombre,descripcion,precio,precio_hasta,moneda,tipo&activo=eq.true&moneda=eq.CLP&tipo=in.(puntual,por_propuesta)&order=nombre.asc');},
   clientes:function(){return A.get('clientes?select=id,razon_social&order=razon_social.asc&limit=3000').catch(function(){return [];});},
@@ -100,7 +106,7 @@ var EV={BORRADOR_CREADO:'Borrador creado',BORRADOR_EDITADO:'Borrador editado',EN
   COTIZACION_ENVIADA:'Enviada al cliente (aviso en cola)',COTIZACION_RENOVADA:'Renovada',COTIZACION_ACEPTADA:'Aceptada',COTIZACION_RECHAZADA:'Rechazada por el cliente',FACTURA_PREPARADA:'Factura preparada',
   FACTURA_APROBADA:'Factura aprobada',FACTURA_EMITIDA:'Factura emitida',CUOTA_PAGADA:'Cuota pagada (Cobranza)',CUOTA_PAGO_REVERTIDO:'Pago de cuota revertido (Cobranza)',TRABAJO_INICIADO:'Trabajo iniciado',
   INICIO_AUTORIZADO_SIN_PAGO:'Inicio autorizado sin pago (Master)',PASO_HECHO:'Paso hecho',PASO_SALTADO:'Paso saltado',DOCUMENTO_SUBIDO:'Documento subido',DOCUMENTO_REEMPLAZADO:'Documento reemplazado',
-  TRABAJO_TERMINADO:'Trabajo terminado',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado'};
+  TRABAJO_TERMINADO:'Trabajo terminado',FACTURA_ADICIONAL_CREADA:'Factura adicional creada (Facturación)',FACTURA_ADICIONAL_TOTAL_DIFIERE:'Factura emitida con total distinto',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado'};
 var FAC={PENDIENTE:{t:'Instrucción pendiente',c:'ambar'},LISTA:{t:'Lista · espera aprobación del Master',c:'cel'},APROBADA:{t:'Aprobada · por emitir',c:'lila'},EMITIENDO:{t:'Emitiendo',c:'cel'},
   INCIERTO:{t:'Incierto · por conciliar',c:'naranja'},EMITIDA:{t:'Emitida',c:'verde'},ERROR:{t:'Error',c:'rojo'},ANULADA:{t:'Anulada',c:'gris'}};
 
@@ -111,8 +117,14 @@ function respNombre(id){if(S.yo&&String(id)===String(S.yo.usuario_id))return 'T�
 /* ── Carga ── */
 function cargar(){
   return D.yo().then(function(yo){S.yo=yo;if(!yo.puede_leer){render();return;}
-    return D.tablero().then(function(d){S.trab=d.trabajos||[];S.par=d.parametros;S.usuarios=d.usuarios||{};render();});
+    return D.tablero().then(function(d){S.trab=d.trabajos||[];S.par=d.parametros;S.usuarios=d.usuarios||{};render();abrirDesdeEnlace();});
   }).catch(function(e){S.err=mErr(e);render();});
+}
+// Enlace de los avisos de la campana: /trabajos-especiales/index.html?trabajo=<id> abre la ficha (una sola vez; el servidor decide si la ve).
+var ENLACE_USADO=false;
+function abrirDesdeEnlace(){
+  if(ENLACE_USADO)return;ENLACE_USADO=true;
+  var m=/(?:^|[?&])trabajo=(\d{1,18})(?:&|$)/.exec(location.search.slice(1));if(m)abrirFicha(m[1]);
 }
 function recargar(msg,abrirId){return D.tablero().then(function(d){S.trab=d.trabajos||[];S.par=d.parametros;S.usuarios=d.usuarios||{};render();if(msg)G.toast(msg);if(abrirId)abrirFicha(abrirId);}).catch(function(e){G.toast(mErr(e),true);});}
 
@@ -246,7 +258,8 @@ function fichaHtml(f){
   h+='</section>';
   // Factura
   h+='<section><h4>🧾 Factura DTE 34 (exenta)</h4>';
-  if(!fac)h+='<p class="t3">La instrucción de facturación se crea al aceptar la cotización.</p>';
+  if(f.fa)h+=facturaF1cHtml(f,fac);
+  else if(!fac)h+='<p class="t3">La instrucción de facturación se crea al aceptar la cotización.</p>';
   else h+='<div class="cl"><span>'+'<span class="estado '+(FAC[fac.estado]||{c:'gris'}).c+'">'+esc((FAC[fac.estado]||{t:fac.estado}).t)+'</span> · modo '+esc(fac.modo)+(fac.of_folio?' · folio '+esc(fac.of_folio)+' del '+G.fFecha(fac.fecha_emision_dte):'')+(fac.devolucion?'<br><small class="t-ambar">Devuelta: '+esc(fac.devolucion)+'</small>':'')+'</span><b>'+clp(fac.total)+'</b></div>'
     +(fac.estado==='APROBADA'?'<p class="nota">La emisión la hace la Edge de Facturación (F1c), paquete aparte. Hasta entonces el trabajo no pasa a «Facturada».</p>':'');
   h+='</section>';
@@ -290,10 +303,16 @@ function accionesHtml(f,ed,fac){
     case 'APROBADA':if(ed)b+=btn('enviar-cli','Enviar al cliente','','enviar')+btn('renovar','Volver a borrador','sec');nota='En modo prueba el aviso al cliente queda en cola (no se envía). Comparte la cotización por tu canal habitual y registra su respuesta.';break;
     case 'ENVIADA':if(ed){if(tbVencida(f))b+=btn('renovar','Renovar (vencida)','');else b+=btn('aceptacion','Registrar aceptación','verde','check');b+=btn('rechazo','Registrar rechazo','peligro');}else nota='Esperando la respuesta del cliente.';break;
     case 'ACEPTADA':
+      if(f.fa){   // TE-F1C: la factura se crea en Facturación adicional (F1c); el camino propio de T1 queda bloqueado por el servidor
+        if(f.fa.puede_crear)b+=btn('fa-crear','Crear factura adicional','','factura');
+        var viva=faViva(f);if(viva&&(yo.facturador||yo.es_master))b+='<a class="btn sec" href="'+esc(urlFa(viva.factura_id))+'">'+I('factura')+'Abrir '+esc(viva.codigo)+'</a>';
+      }else{
       if(fac&&(fac.estado==='PENDIENTE')&&yo.facturador)b+=btn('fac-preparar','Preparar factura','','factura');
       if(fac&&fac.estado==='LISTA'&&yo.es_master)b+=btn('fac-aprobar','Aprobar factura','verde','check')+btn('fac-devolver','Devolver factura','sec');
+      }
       if(yo.es_master&&f.cuotas.some(function(c){return c.es_inicio&&c.estado==='PENDIENTE';})&&!t.inicio_autorizado_motivo)b+=btn('autorizar','Autorizar inicio sin pago','sec');
-      nota='La factura DTE 34 se emite antes de iniciar: Facturación prepara, el Master aprueba y la Edge emite (paquete aparte).';break;
+      nota=f.fa?'La factura DTE 34 se emite antes de iniciar: Facturación la crea con un clic (todo prellenado desde el trabajo), el Master la aprueba en Facturación adicional y, al emitirse, el trabajo pasa solo a «Facturada».'
+        :'La factura DTE 34 se emite antes de iniciar: Facturación prepara, el Master aprueba y la Edge emite (paquete aparte).';break;
     case 'FACTURADA':
       if(ed)b+=btn('iniciar','Iniciar trabajo','verde','check');
       if(yo.es_master&&!t.inicio_autorizado_motivo&&f.cuotas.some(function(c){return c.es_inicio&&c.estado==='PENDIENTE';}))b+=btn('autorizar','Autorizar inicio sin pago','sec');
@@ -347,6 +366,8 @@ function accion(a,el){
   else if(a==='fac-preparar')confirmar('Preparar factura','Se arma el borrador de la factura DTE 34 por '+clpT(t.valor)+' para que el Master la apruebe.','te_factura_preparar',{p_factura:Number(facVig(f).id)},'Factura preparada: espera la aprobación del Master.');
   else if(a==='fac-aprobar'){var fa=facVig(f);confirmar('Aprobar factura','Apruebas la factura DTE 34 por '+clpT(fa.total)+' (modo '+esc(fa.modo)+'). La emisión la hace Facturación con la Edge.','te_factura_aprobar',{p_factura:Number(fa.id),p_huella:fa.snapshot_hash},'Factura aprobada.','verde');}
   else if(a==='fac-devolver')conMotivo('Devolver factura','Facturación la vuelve a preparar.',3,'te_factura_devolver',function(v){return {p_factura:Number(facVig(f).id),p_comentario:v};},'Factura devuelta.','peligro');
+  else if(a==='fa-crear')abrirCrearFa(f);
+  else if(a==='fa-reintentar'){var fr=el.getAttribute('data-fa');confirmar('Reintentar actualización del trabajo','La factura ya está emitida. Se vuelve a marcar el trabajo como facturado con su folio (no se emite nada nuevo).','te_fa_espejo_reintentar',{p_fa:Number(fr)},'Trabajo actualizado con la factura emitida.','verde');}
   else if(a==='autorizar')conMotivo('Autorizar inicio sin pago de inicio','Excepción del Master: queda una alerta «en ejecución sin pago de inicio».',10,'te_trabajo_autorizar_inicio',function(v){return {p_trabajo:Number(t.id),p_motivo:v};},'Inicio autorizado sin pago.');
   else if(a==='iniciar')confirmar('Iniciar trabajo','Se copia el checklist vigente del servicio (versión congelada) y el aviso de inicio queda en cola.','te_trabajo_iniciar',{p_trabajo:Number(t.id)},'Trabajo iniciado.','verde');
   else if(a==='terminar')confirmar('Marcar terminado','Exige los pasos obligatorios hechos. En 50/50, el 50 % final vence hoy y lo cobra Cobranza.','te_trabajo_terminar',{p_trabajo:Number(t.id)},function(r){return r&&r.entrega_retenida?'Terminado · entrega retenida hasta el pago final.':'Trabajo terminado.';},'verde');
@@ -361,6 +382,42 @@ function accion(a,el){
   else if(a==='ver-doc'){var ruta=el.getAttribute('data-ruta');var w=window.open('about:blank','_blank');D.urlFirmada(ruta).then(function(u){if(w){w.opener=null;w.location.href=u;}else location.href=u;}).catch(function(e){if(w)w.close();G.toast(mErr(e),true);});}
 }
 function facVig(f){return f.facturas.find(function(x){return x.estado!=='ANULADA';});}
+
+/* ── TE-F1C · factura adicional vinculada ── */
+var FA_EST={BORRADOR:{t:'Borrador · Facturación la envía al Master',c:'ambar'},EN_REVISION:{t:'En revisión del Master',c:'cel'},DEVUELTA:{t:'Devuelta a Facturación',c:'naranja'},
+  APROBADA:{t:'Aprobada · por emitir',c:'lila'},EMITIENDO:{t:'Emitiendo',c:'cel'},INCIERTO:{t:'Incierta · el Master concilia',c:'naranja'},ERROR:{t:'Rechazada · revisar',c:'rojo'},
+  EMITIDA:{t:'Emitida',c:'verde'},ANULADA:{t:'Anulada',c:'gris'}};
+var BLOQ={PROSPECTO_SIN_FICHA:'El cliente es un prospecto sin ficha: la factura adicional exige la ficha del cliente. Mientras, la factura se registra como emitida fuera de Gestoor.',
+  TRABAJO_NO_ACEPTADO:'La factura se crea cuando el cliente acepta la cotización.',SIN_INSTRUCCION:'La instrucción de facturación se crea al aceptar la cotización.',
+  TRABAJO_CERRADO:'Trabajo cerrado (solo lectura).',FACTURA_EN_CURSO_T1:'La instrucción está en curso por el camino anterior de T1.'};
+var FPAGO={1:'Contado',2:'Crédito'};
+function faViva(f){return (f.fa&&f.fa.vinculos||[]).find(function(v){return v.estado!=='ANULADA';})||null;}
+function urlFa(id){return '../facturacion/index.html?tab=adicional&fa='+encodeURIComponent(id);}
+function facturaF1cHtml(f,fac){
+  var r=f.fa,yo=S.yo,h='',vs=r.vinculos||[];
+  vs.forEach(function(v){var e=FA_EST[v.estado]||{t:v.estado,c:'gris'},puedeAbrir=yo.facturador||yo.es_master;
+    h+='<div class="cl"><span><b>'+esc(v.codigo)+'</b> · <span class="estado '+e.c+'">'+esc(e.t)+'</span>'+(v.modo==='PRUEBA'?' <span class="estado gris">prueba</span>':'')
+      +(v.folio?'<br><small class="t3">Folio '+esc(v.folio)+'</small>':'')+(puedeAbrir?'<br><small><a class="link" href="'+esc(urlFa(v.factura_id))+'">Abrir en Facturación adicional →</a></small>':'')+'</span><b>'+clp(v.total)+'</b></div>';
+    if(v.espejo==='ERROR'||v.espejo==='TOTAL_DIFIERE')h+='<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>'+(v.espejo==='ERROR'?'La factura se emitió, pero el trabajo no se actualizó. ':'La factura se emitió con un total distinto al del trabajo: revisar (nota de crédito o corrección). ')+'</span>'
+      +(yo.es_master&&v.espejo==='ERROR'?'<button type="button" class="btn chico sec" data-act="fa-reintentar" data-fa="'+esc(v.factura_id)+'">Reintentar</button>':'')+'</div>';
+  });
+  if(r.puede_crear&&r.prellenado){var p=r.prellenado,l=(p.lineas||[])[0]||{};
+    h+='<div class="te-fa-prev"><small>Así se creará la factura adicional (todo sale del trabajo aprobado; nadie escribe montos)</small>'
+      +'<div class="cl"><span><b>'+esc(l.glosa||'—')+'</b><br><small class="t3">'+esc(FPAGO[p.forma_pago]||p.forma_pago)+(p.fecha_vencimiento?' · vence el '+G.fFecha(p.fecha_vencimiento):' · vence el día de emisión')+' · modo '+esc(p.modo)+'</small></span><b>'+clp(l.precio)+'</b></div>'
+      +'<p class="nota">'+esc(l.detalle||'')+'</p></div>';
+  }else if(!vs.length&&r.bloqueo&&BLOQ[r.bloqueo])h+='<p class="t3">'+esc(BLOQ[r.bloqueo])+'</p>';
+  else if(!vs.length&&!r.puede_crear&&r.te_factura&&r.te_factura.estado!=='EMITIDA')h+='<p class="t3">Por facturar: la crea Facturación (o el Master) desde este trabajo.</p>';
+  if(r.te_factura&&r.te_factura.estado==='EMITIDA'&&!vs.some(function(v){return v.estado==='EMITIDA';}))h+='<div class="cl"><span><span class="estado verde">Emitida</span> · folio '+esc(r.te_factura.folio)+' (registrada fuera de Facturación adicional)</span><b>'+clp(r.te_factura.total)+'</b></div>';
+  return h;
+}
+function abrirCrearFa(f){
+  var p=f.fa&&f.fa.prellenado,l=p&&(p.lineas||[])[0];if(!p||!l){G.toast('No se puede crear la factura en este estado.',true);return;}
+  G.modal({titulo:'Crear factura adicional',ok:'Crear borrador',
+    html:'<p>Se crea en <b>Facturación adicional</b> el borrador de la factura exenta (DTE 34) del trabajo <b>'+esc(f.t.codigo)+'</b>:</p>'
+      +'<div class="cl"><span><b>'+esc(l.glosa)+'</b><br><small class="t3">'+esc(FPAGO[p.forma_pago]||'')+(p.fecha_vencimiento?' · vence el '+G.fFecha(p.fecha_vencimiento):' · vence el día de emisión')+' · modo '+esc(p.modo)+'</small></span><b>'+clp(l.precio)+'</b></div>'
+      +'<p class="nota">Después: la envías al Master desde Facturación adicional, él la aprueba y se emite. Al emitirse, este trabajo pasa solo a «Facturada» y las cuotas entran a Cobranza.</p>',
+    alAceptar:function(){return D.rpc('te_fa_crear',{p_trabajo:Number(f.t.id)}).then(function(r){recargar((r&&r.resultado==='existente'?'Ya existía: ':'Factura ')+(r&&r.codigo||'')+(r&&r.resultado==='existente'?' (no se duplicó).':' creada en borrador.'),f.t.id);return true;}).catch(function(e){throw new Error(mErr(e));});}});
+}
 
 function abrirAprobar(f){
   var t=f.t, srv=null;

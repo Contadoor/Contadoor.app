@@ -190,6 +190,9 @@ body.g-mod-gc{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--li
 .g-mod-gc .te-card .c3{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11.5px;color:var(--t3)}
 .g-mod-gc .te-card .c3 b{font:800 14px var(--tit);color:var(--t1)}
 .g-mod-gc .tag-pros{display:inline-block;font:700 10.5px var(--txt);padding:2px 8px;border-radius:999px;background:rgba(92,200,255,.15);color:var(--cel);margin-left:4px;vertical-align:1px}
+.g-mod-gc .te-fa-prev{margin-top:8px;padding:10px 12px;border:1px dashed rgba(199,123,201,.55);border-radius:14px;background:rgba(146,72,147,.08)}
+.g-mod-gc .te-fa-prev>small{display:block;color:var(--t3);font:600 11.5px var(--txt);margin-bottom:4px}
+.g-mod-gc .te-fa-prev .nota{margin:6px 0 0;overflow-wrap:anywhere}
 .g-mod-gc .te-check{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .g-mod-gc .te-check li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--borde);border-radius:14px;background:rgba(255,255,255,.02)}
 .g-mod-gc .te-check li.hecho{border-color:rgba(95,207,156,.45)}.g-mod-gc .te-check li.saltado{opacity:.7;border-style:dashed}
