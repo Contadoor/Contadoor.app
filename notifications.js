@@ -1,580 +1,350 @@
 // ═══════════════════════════════════════════════════════════
-// CONTADOOR — CENTRO DE NOTIFICACIONES
-// notifications.js — cargar en todos los módulos
+// GESTOOR — CAMPANA DE NOTIFICACIONES (P0-Campana, catálogo de notificaciones §3.6)
+// notifications.js — se carga en TODAS las páginas del menú (assets/gestoor-menu.js la agrega sola si la página no la trae).
+// · Fuente única: RPC mis_alertas() → SOLO las alertas del usuario (destinatario = yo, o difusión a mi rol; constancias sin
+//   destinatario solo el Master). Corrige H3 (el Master veía las de todos) sin depender de la RLS.
+// · Todos los módulos se muestran (H1): un módulo desconocido aparece como "Sistema"; nunca se oculta.
+// · Marcar = RPC alerta_marcar(id, 'leida'|'ejecutada'); sin PATCH directo a la tabla.
+// · Enlaces normalizados a rutas absolutas /modulo/… (H7); cualquier otra cosa (http:, javascript:, //) se descarta.
+// · V1 (localStorage) retirada: crearNotificacion() ahora solo muestra un aviso breve (toast) a quien hizo la acción.
+// · Botón "Activar avisos en este celular" dentro del panel, para cualquier usuario (usa avisos-push.js).
 // ═══════════════════════════════════════════════════════════
-// B13: Fuente principal migrada a public.alertas (Supabase).
-//      localStorage se mantiene para alertas V1 legacy.
-//      Sin INSERT directo — creación solo mediante RPC server-side.
-// ═══════════════════════════════════════════════════════════
-
 (function(){
+if(window.__gestoorCampana) return;          // idempotente: la página y el menú pueden cargarla los dos
+window.__gestoorCampana=true;
 
-// ── ESTADO V2 (Supabase) ────────────────────────────────────
-var _v2Cache   = [];    // alertas V2 mapeadas desde public.alertas
-var _v2Loading = false; // evitar fetchs concurrentes
+var BASE=(function(){                         // carpeta raíz del sitio, según dónde se cargó este archivo
+  try{var s=document.currentScript&&document.currentScript.src;if(s)return s.replace(/notifications\.js(\?.*)?$/,'');}catch(e){}
+  return '/';
+})();
 
-// ── STORAGE V1 (legacy localStorage) ────────────────────────
-function getNots(){
-  try{return JSON.parse(localStorage.getItem('notificaciones_sistema')||'[]');}
-  catch(e){return[];}
-}
-function setNots(arr){
-  // Escribe solo alertas V1 en localStorage — V2 nunca se almacena aquí
-  localStorage.setItem('notificaciones_sistema',JSON.stringify(arr));
-  renderBadge();
-  var wrap=document.getElementById('notPanelWrap');
-  if(wrap&&wrap.classList.contains('on')) renderPanel();
-}
+var _cache=[];        // filas de mis_alertas
+var _cargando=false;
+var _yaCargo=false;
+var _activeTab='todos';
 
-// ── FUENTE UNIFICADA V2 + V1 ─────────────────────────────────
-// V2 lidera (más reciente); V1 legacy al final.
-// No hay riesgo de duplicados: fuentes de creación son distintas.
-function getAllNots(){
-  return _v2Cache.concat(getNots());
+// ── RPC ─────────────────────────────────────────────────────
+function rpc(fn,args){
+  if(typeof sbFetch!=='function') return Promise.reject(new Error('SIN_SUPABASE'));
+  return sbFetch('rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(args||{})})
+    .then(function(r){return r.json().catch(function(){return null;}).then(function(j){
+      if(!r.ok) throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));
+      return j;
+    });});
 }
 
-// ── MAPEO Supabase row → formato UI ──────────────────────────
-function mapAlertaSupabase(row){
+// ── Enlaces: solo rutas absolutas del sitio ─────────────────
+// '/facturacion/index.html?fa=1' → igual · '../reportes-contable/' → '/reportes-contable/' · 'facturacion/' → '/facturacion/'
+function normEnlace(u){
+  if(!u||typeof u!=='string') return null;
+  u=u.trim();
+  if(/^[a-z][a-z0-9+.-]*:/i.test(u)||u.indexOf('//')===0||u.indexOf('\\')>=0) return null;   // http:, javascript:, //host
+  while(u.indexOf('../')===0) u=u.slice(3);
+  if(u.indexOf('./')===0) u=u.slice(2);
+  if(u.charAt(0)!=='/') u='/'+u;
+  if(!/^\/[a-z0-9-]+\/[A-Za-z0-9._~\/?&=%#-]*$/.test(u)||u.indexOf('..')>=0||u.indexOf('//')>=0) return null;
+  return u;
+}
+
+// ── Mapeo fila → UI ─────────────────────────────────────────
+function mapRow(row){
   return {
-    id:           row.id,
-    _src:         'v2',                          // marca de fuente V2
-    modulo:       row.modulo       || 'sistema',
-    tipo:         row.tipo         || 'info',
-    prioridad:    row.prioridad    || 'media',
-    clienteNombre:'',    // no disponible en alertas — no inventar
-    clienteRut:   row.cliente_rut  || '',
-    periodo:      row.periodo      || '',
-    titulo:       row.titulo       || '',
-    mensaje:      row.descripcion  || row.titulo || '',
-    accion:       row.accion       || null,
-    accionLabel:  'Marcar ejecutado',
-    accionUrl:    row.accion_url   || null,
-    ejecutado:    row.estado !== 'pendiente',
-    ejecutadoPor: row.resuelta_por || null,
-    ejecutadoTs:  row.resuelta_at
-                    ? new Date(row.resuelta_at).getTime()
-                    : null,
-    ts:           row.created_at
-                    ? new Date(row.created_at).getTime()
-                    : Date.now(),
-    creadaPor:    row.creada_por   || null,
-    destinatarioNombre: row.asignado_a  || ''
+    id:row.id, modulo:row.modulo||'sistema', tipo:row.tipo||'info', prioridad:row.prioridad||'media',
+    clienteRut:row.cliente_rut||'', periodo:row.periodo||'', titulo:row.titulo||'', mensaje:row.descripcion||'',
+    url:normEnlace(row.accion_url), pendiente:(row.estado||'pendiente')==='pendiente', leida:!!row.leida_at,
+    accionRequerida:row.tipo==='accion_requerida'||row.tipo==='reapertura',
+    resueltaPor:row.resuelta_por||'', resueltaTs:row.resuelta_at?new Date(row.resuelta_at).getTime():null,
+    ts:row.created_at?new Date(row.created_at).getTime():Date.now(), creadaPor:row.creada_por||'', difusion:!!row.difusion
   };
 }
 
-// ── CARGA DESDE Supabase (async) ─────────────────────────────
-// RLS decide qué filas recibe el usuario — no hay filtro adicional aquí.
+// ── Carga ───────────────────────────────────────────────────
 function cargarAlertas(){
-  if(typeof sbGet!=='function') return; // supabase.js no cargado aún
-  if(_v2Loading) return;
-  _v2Loading=true;
-  sbGet('alertas?select=*&order=created_at.desc&limit=200')
-    .then(function(rows){
-      _v2Loading=false;
-      _v2Cache=(Array.isArray(rows)?rows:[])
-        .filter(function(row){ return row.estado!=='ignorada'; })
-        .map(mapAlertaSupabase);
-      renderBadge();
-      var wrap=document.getElementById('notPanelWrap');
-      if(wrap&&wrap.classList.contains('on')) renderPanel();
-    })
-    .catch(function(e){
-      _v2Loading=false;
-      console.warn('[Notif] Error cargando alertas Supabase:',e);
-    });
-}
-
-// ── CREAR NOTIFICACIÓN (función global — V1 localStorage) ────
-// V2 se crea EXCLUSIVAMENTE mediante RPC crear_alerta_responsable_cliente.
-// Esta función conserva compatibilidad con módulos existentes (V1).
-// No escribe en Supabase. No duplica alertas V2.
-window.crearNotificacion=function(opts){
-  var arr=getNots(); // solo V1
-  arr.unshift({
-    id:Date.now(),
-    modulo:opts.modulo||'sistema',
-    tipo:opts.tipo||'info',
-    prioridad:opts.prioridad||'media',
-    clienteNombre:opts.clienteNombre||'',
-    clienteRut:opts.clienteRut||'',
-    periodo:opts.periodo||'',
-    mensaje:opts.mensaje||'',
-    accion:opts.accion||null,
-    accionLabel:opts.accionLabel||'Marcar ejecutado',
-    accionUrl:opts.accionUrl||null,
-    ejecutado:false,
-    ejecutadoPor:null,
-    ejecutadoTs:null,
-    ts:Date.now()
-  });
-  if(arr.length>500) arr.splice(500);
-  setNots(arr); // escribe solo V1 en localStorage
-};
-
-// ── ROL / IDENTIDAD ──────────────────────────────────────────
-function getRol(){
-  try{
-    if(window._contadoorSesion&&window._contadoorSesion.rol)
-      return window._contadoorSesion.rol;
-    var ss=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(ss&&ss.rol) return ss.rol;
-    return '';
-  }catch(e){return'';}
-}
-function getNombre(){
-  try{
-    if(window._contadoorSesion&&window._contadoorSesion.nombre)
-      return window._contadoorSesion.nombre;
-    var ss=JSON.parse(sessionStorage.getItem('usuario_activo')||'null');
-    if(ss&&ss.nombre) return ss.nombre;
-    return 'Usuario';
-  }catch(e){return'Usuario';}
-}
-
-// Módulos visibles por rol
-var ROL_MODULOS={
-  master:   ['rrhh','impuestos','pagos','cobranza','sistema'],
-  admin:    ['rrhh','impuestos','pagos','cobranza','sistema'],
-  rrhh:     ['rrhh'],
-  contable: ['impuestos'],
-  pagos:    ['pagos','cobranza'],
-  cobranza: ['cobranza']
-};
-// "impuestos" es el módulo Contable — no existe módulo "contable"
-
-function modulosDelRol(){
-  var rol=getRol();
-  return ROL_MODULOS[rol]||['sistema'];
-}
-function canVerModulo(mod){
-  return modulosDelRol().indexOf(mod)>=0;
-}
-
-// ── FILTRAR PENDIENTES (V2 + V1) ─────────────────────────────
-function getPendientes(modulo){
-  return getAllNots().filter(function(n){
-    if(n.ejecutado) return false;
-    if(modulo&&n.modulo!==modulo) return false;
-    if(!canVerModulo(n.modulo)) return false;
-    return true;
+  if(typeof sbFetch!=='function'||_cargando) return;
+  _cargando=true;
+  rpc('mis_alertas',{p_limite:100}).then(function(rows){
+    _cargando=false; _yaCargo=true;
+    _cache=(Array.isArray(rows)?rows:[]).map(mapRow);
+    renderBadge(); if(panelAbierto()) renderPanel();
+  }).catch(function(e){
+    _cargando=false;
+    if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Campana] No se pudieron cargar las alertas:',e&&e.message||e);
   });
 }
+window.gestoorCampanaRecargar=cargarAlertas;
 
-// ── BADGE COUNT ──────────────────────────────────────────────
+// ── Módulos (todos visibles; desconocido = Sistema) ─────────
+var MOD_CONFIG={
+  facturacion:{label:'Facturación',    em:'📄', color:'#0E8FCF', bg:'#E3F4FC'},
+  trabajos:   {label:'Trabajos esp.',  em:'🛠️',         color:'#B7791F', bg:'#FDF3E1'},
+  cobranza:   {label:'Cobranza',       em:'💳',      color:'#924893', bg:'#F5EAF5'},
+  pagos:      {label:'Pagos',          em:'💸',  color:'#2F6FDB', bg:'#E6F0FC'},
+  impuestos:  {label:'Contable',       em:'🧾',   color:'#B7791F', bg:'#FAEEDA'},
+  rrhh:       {label:'RRHH',           em:'👥',        color:'#1D9E75', bg:'#E1F5EE'},
+  seguridad:  {label:'Seguridad',      em:'🔒',         color:'#C2410C', bg:'#FDEBE1'},
+  simpleapi:  {label:'SimpleAPI',      em:'🔌',         color:'#0F766E', bg:'#DDF4F1'},
+  mirenta:    {label:'MiRenta',        em:'📊',   color:'#7C3AED', bg:'#EFE7FD'},
+  comercial:  {label:'Comercial',      em:'🎯',       color:'#BE185D', bg:'#FCE7F1'},
+  agenda:     {label:'Agenda',         em:'📅',     color:'#4338CA', bg:'#E8E7FB'},
+  sistema:    {label:'Sistema',        em:'⚙️',     color:'#5c4a5d', bg:'#f0ebff'}
+};
+var ALIAS={contable:'impuestos',reportes:'impuestos',trabajos_especiales:'trabajos',te:'trabajos',prospectos:'comercial',crm:'comercial',
+           asistente:'sistema',correos:'sistema',convenios:'pagos',aprobaciones:'pagos',preiva:'impuestos','pre-iva':'impuestos'};
+function modKey(m){m=String(m||'sistema').toLowerCase();m=ALIAS[m]||m;return MOD_CONFIG[m]?m:'sistema';}
+function modCfg(m){return MOD_CONFIG[modKey(m)];}
+var TIPO_CONFIG={
+  accion_requerida:{label:'Acción requerida', color:'#C0392B', bg:'#fee2e2'},
+  reapertura:      {label:'Acción requerida', color:'#C0392B', bg:'#fee2e2'},
+  alerta:          {label:'Alerta',           color:'#C07A1A', bg:'#fef3c7'},
+  info:            {label:'Info',             color:'#5c4a5d', bg:'#f0ebff'}
+};
+
+function pendientes(mod){return _cache.filter(function(n){return n.pendiente&&(!mod||modKey(n.modulo)===mod);});}
+
+// ── Insignia ────────────────────────────────────────────────
 function renderBadge(){
   var badge=document.getElementById('notBadge');
   if(!badge) return;
-  var count=getPendientes().length;
+  var count=pendientes().length;
   badge.textContent=count>99?'99+':count;
   badge.style.display=count>0?'flex':'none';
+  var btn=document.getElementById('notBtn');
+  if(btn) btn.setAttribute('aria-label',count>0?('Notificaciones: '+count+' pendiente'+(count!==1?'s':'')):'Notificaciones');
 }
 
-// ── HELPERS ─────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────
 var MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function timeAgo(ts){
   if(!ts) return '';
   var diff=Math.floor((Date.now()-ts)/1000);
-  if(diff<60) return'Hace un momento';
-  if(diff<3600) return'Hace '+Math.floor(diff/60)+' min';
-  if(diff<86400) return'Hace '+Math.floor(diff/3600)+' h';
-  if(diff<604800) return'Hace '+Math.floor(diff/86400)+' días';
-  var d=new Date(ts);
-  return d.getDate()+' '+MESES[d.getMonth()];
+  if(diff<60) return 'Hace un momento';
+  if(diff<3600) return 'Hace '+Math.floor(diff/60)+' min';
+  if(diff<86400) return 'Hace '+Math.floor(diff/3600)+' h';
+  if(diff<604800){var dd=Math.floor(diff/86400);return 'Hace '+dd+(dd===1?' día':' días');}
+  var d=new Date(ts); return d.getDate()+' '+MESES[d.getMonth()];
 }
-
-var MOD_CONFIG={
-  rrhh:     {label:'RRHH',      icon:'ti-users',        color:'#1D9E75', bg:'#E1F5EE'},
-  impuestos:{label:'Impuestos', icon:'ti-file-invoice', color:'#BA7517', bg:'#FAEEDA'},
-  pagos:    {label:'Pagos',     icon:'ti-credit-card',  color:'#3B82F6', bg:'#E6F1FB'},
-  cobranza: {label:'Cobranza',  icon:'ti-receipt',      color:'#904891', bg:'#F5EAF5'},
-  sistema:  {label:'Sistema',   icon:'ti-settings',     color:'#5c4a5d', bg:'#f0ebff'}
-};
-var TIPO_CONFIG={
-  accion_requerida:{label:'Acción requerida', color:'#C0392B', bg:'#fee2e2'},
-  alerta:          {label:'Alerta',           color:'#C07A1A', bg:'#fef3c7'},
-  info:            {label:'Info',             color:'#5c4a5d', bg:'#f0ebff'}
-};
 function hesc(s){
-  if(!s) return '';
-  return String(s).replace(/&/g,'\x26amp;').replace(/</g,'\x26lt;').replace(/>/g,'\x26gt;');
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function notToast(msg){
+  if(typeof window.toast==='function'){try{window.toast(msg);return;}catch(e){}}
+  var t=document.getElementById('notToast');
+  if(!t){t=document.createElement('div');t.id='notToast';t.setAttribute('role','status');t.setAttribute('aria-live','polite');
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(92vw,520px);background:#1a0a1b;color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;line-height:1.45;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,.25);display:none';
+    document.body.appendChild(t);}
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},5000);
 }
 
-// ── EJECUTAR NOTIFICACIÓN ─────────────────────────────────────
-window.ejecutarNotificacion=function(id){
-  // ── V2: UPDATE en Supabase ──────────────────────────────
-  var v2=_v2Cache.find(function(n){return n.id===id&&n._src==='v2';});
-  if(v2){
-    if(typeof sbFetch!=='function') return;
-    // Identidad desde sesión activa, no desde parámetro de UI
-    var resolvedBy=getNombre();
-    var resolvedAt=new Date().toISOString();
-    sbFetch('alertas?id=eq.'+id,{
-      method:'PATCH',
-      headers:{'Prefer':'return=representation'},
-      body:JSON.stringify({
-        estado:'resuelta',
-        resuelta_por:resolvedBy,
-        resuelta_at:resolvedAt
-      })
-    })
-    .then(function(r){
-      if(!r.ok){
-        console.error('[Notif] PATCH ejecutar alerta id='+id+' → HTTP '+r.status);
-        return null;
-      }
-      return r.json();
-    })
-    .then(function(rows){
-      if(rows&&rows.length>0){
-        // Supabase confirmó el UPDATE — marcar en caché y re-renderizar
-        // El panel permanece abierto; la alerta pasa al historial
-        var idx=_v2Cache.findIndex(function(n){return n.id===id;});
-        if(idx>=0){
-          _v2Cache[idx].ejecutado=true;
-          _v2Cache[idx].ejecutadoPor=resolvedBy;
-          _v2Cache[idx].ejecutadoTs=new Date(resolvedAt).getTime();
-        }
-        renderBadge();
-        renderPanel();
-      }else{
-        // Sin confirmación — mantener pendiente y mostrar error
-        console.warn('[Notif] PATCH ejecutar alerta id='+id+' → respuesta vacía o null');
-        if(typeof toast==='function')
-          toast('⚠️ No se pudo marcar la alerta. Verifica tu conexión e intenta nuevamente.');
-      }
-    })
-    .catch(function(e){
-      console.error('[Notif] Error al ejecutar alerta V2 id='+id+':',e);
-      if(typeof toast==='function')
-        toast('⚠️ Error al ejecutar la alerta. Intenta nuevamente.');
-    });
-    return;
-  }
-  // ── V1: localStorage ───────────────────────────────────
-  var arr=getNots();
-  var idx=arr.findIndex(function(n){return n.id===id;});
-  if(idx<0) return;
-  arr[idx].ejecutado=true;
-  arr[idx].ejecutadoPor=getNombre();
-  arr[idx].ejecutadoTs=Date.now();
-  setNots(arr);
-};
-
-window.eliminarNotificacion=function(id){
-  // ── V2: remoción local de caché (no persiste en Supabase) ──
-  // Nota: reaparecerá en el próximo ciclo de polling a menos que esté resuelta.
-  // Para eliminación persistente use ejecutarNotificacion() que marca 'resuelta'.
-  var v2idx=_v2Cache.findIndex(function(n){return n.id===id&&n._src==='v2';});
-  if(v2idx>=0){
-    _v2Cache.splice(v2idx,1);
-    renderBadge();
-    renderPanel();
-    return;
-  }
-  // ── V1: localStorage ───────────────────────────────────
-  setNots(getNots().filter(function(n){return n.id!==id;}));
-};
-
-// ── IGNORAR NOTIFICACIÓN ──────────────────────────────────────
-// V2: PATCH estado='ignorada' → persistente, no reaparece en polling.
-// V1: eliminar permanentemente de localStorage.
-window.ignorarNotificacion=function(id){
-  // ── V2: PATCH persistente ───────────────────────────────
-  var v2=_v2Cache.find(function(n){return n.id===id&&n._src==='v2';});
-  if(v2){
-    if(typeof sbFetch!=='function') return;
-    var resolvedBy=getNombre();
-    var resolvedAt=new Date().toISOString();
-    sbFetch('alertas?id=eq.'+id,{
-      method:'PATCH',
-      headers:{'Prefer':'return=representation'},
-      body:JSON.stringify({
-        estado:'ignorada',
-        resuelta_por:resolvedBy,
-        resuelta_at:resolvedAt
-      })
-    })
-    .then(function(r){
-      if(!r.ok){
-        console.error('[Notif] PATCH ignorar alerta id='+id+' → HTTP '+r.status);
-        return null;
-      }
-      return r.json();
-    })
-    .then(function(rows){
-      if(rows&&rows.length>0){
-        // Confirmado: quitar del caché; badge y panel actualizan; panel sigue abierto
-        var idx=_v2Cache.findIndex(function(n){return n.id===id;});
-        if(idx>=0) _v2Cache.splice(idx,1);
-        renderBadge();
-        renderPanel();
-      }else{
-        console.warn('[Notif] PATCH ignorar alerta id='+id+' → respuesta vacía o null');
-        if(typeof toast==='function')
-          toast('⚠️ No se pudo ignorar la alerta. Verifica tu conexión e intenta nuevamente.');
-      }
-    })
-    .catch(function(e){
-      console.error('[Notif] Error al ignorar alerta V2 id='+id+':',e);
-      if(typeof toast==='function')
-        toast('⚠️ Error al ignorar la alerta. Intenta nuevamente.');
-    });
-    return;
-  }
-  // ── V1: eliminar permanentemente de localStorage ────────
-  setNots(getNots().filter(function(n){return n.id!==id;}));
-};
-
-window.marcarTodasEjecutadas=function(modulo){
-  // ── V2: batch PATCH en Supabase ───────────────────────
-  var v2Pending=_v2Cache.filter(function(n){
-    if(n.ejecutado) return false;
-    if(modulo&&n.modulo!==modulo) return false;
-    if(!canVerModulo(n.modulo)) return false;
-    return true;
+// ── Marcar ──────────────────────────────────────────────────
+function aplicar(id,res){
+  var n=_cache.find(function(x){return x.id===id;}); if(!n||!res) return;
+  n.pendiente=(res.estado||'pendiente')==='pendiente'; n.leida=!!res.leida_at;
+  n.resueltaPor=res.resuelta_por||n.resueltaPor; n.resueltaTs=res.resuelta_at?new Date(res.resuelta_at).getTime():n.resueltaTs;
+}
+window.notMarcar=function(id,accion){
+  return rpc('alerta_marcar',{p_id:id,p_accion:accion}).then(function(res){
+    aplicar(id,res); renderBadge(); if(panelAbierto()) renderPanel(); return res;
+  }).catch(function(e){
+    console.warn('[Campana] alerta_marcar',id,accion,e&&e.message||e);
+    notToast('⚠️ No se pudo marcar el aviso. Revisa tu conexión e intenta de nuevo.');
   });
-  if(v2Pending.length>0&&typeof sbFetch==='function'){
-    var ids=v2Pending.map(function(n){return n.id;}).join(',');
-    var resolvedBy=getNombre();
-    var resolvedAt=new Date().toISOString();
-    sbFetch('alertas?id=in.('+ids+')',{
-      method:'PATCH',
-      headers:{'Prefer':'return=representation'},
-      body:JSON.stringify({
-        estado:'resuelta',
-        resuelta_por:resolvedBy,
-        resuelta_at:resolvedAt
-      })
-    })
-    .then(function(r){return r.ok?r.json():null;})
-    .then(function(rows){
-      if(rows&&rows.length>0){
-        rows.forEach(function(row){
-          var idx=_v2Cache.findIndex(function(n){return n.id===row.id;});
-          if(idx>=0){
-            _v2Cache[idx].ejecutado=true;
-            _v2Cache[idx].ejecutadoPor=resolvedBy;
-            _v2Cache[idx].ejecutadoTs=new Date(resolvedAt).getTime();
-          }
-        });
-        renderBadge(); renderPanel();
-      }else{
-        // Re-cargar desde Supabase para estado consistente
-        cargarAlertas();
-      }
-    })
-    .catch(function(e){
-      console.error('[Notif] Error en marcarTodasEjecutadas V2:',e);
-    });
-  }
-  // ── V1: localStorage ───────────────────────────────────
-  var arr=getNots();
-  var changed=false;
-  arr.forEach(function(n){
-    if(!n.ejecutado&&(!modulo||n.modulo===modulo)&&canVerModulo(n.modulo)){
-      n.ejecutado=true; n.ejecutadoPor=getNombre(); n.ejecutadoTs=Date.now();
-      changed=true;
-    }
-  });
-  if(changed) setNots(arr);
+};
+// Compatibilidad con llamadas antiguas desde otras páginas
+window.ejecutarNotificacion=function(id){return window.notMarcar(id,'ejecutada');};
+window.ignorarNotificacion=function(id){return window.notMarcar(id,'leida');};
+window.eliminarNotificacion=function(id){return window.notMarcar(id,'leida');};
+// "Marcar todas como leídas": solo las informativas (las de acción requerida se marcan una a una al ejecutarlas).
+window.marcarTodasEjecutadas=function(mod){
+  var ids=pendientes(mod||null).filter(function(n){return !n.accionRequerida;}).map(function(n){return n.id;});
+  return Promise.all(ids.map(function(id){return rpc('alerta_marcar',{p_id:id,p_accion:'leida'}).then(function(r){aplicar(id,r);}).catch(function(){});}))
+    .then(function(){renderBadge();if(panelAbierto())renderPanel();});
+};
+window.notIr=function(id){        // "Ver →": una informativa queda leída al abrirla
+  var n=_cache.find(function(x){return x.id===id;});
+  if(n&&n.pendiente&&!n.accionRequerida) rpc('alerta_marcar',{p_id:id,p_accion:'leida'}).catch(function(){});
+  return true;
 };
 
-// ── RENDER PANEL (V2 + V1) ────────────────────────────────────
-var _activeTab='todos';
+// ── V1 retirada: solo aviso breve a quien hizo la acción ────
+window.crearNotificacion=function(opts){
+  var o=opts||{}; var m=o.mensaje||o.titulo||''; if(m) notToast(m);
+};
+
+// ── Panel ───────────────────────────────────────────────────
+function panelAbierto(){var w=document.getElementById('notPanelWrap');return !!(w&&w.classList.contains('on'));}
+
+function tarjeta(n){
+  var m=modCfg(n.modulo), t=TIPO_CONFIG[n.tipo]||TIPO_CONFIG.info, nid=JSON.stringify(n.id);
+  var h='<div class="not-card" style="border-left:3px solid '+m.color+'">';
+  h+='<div style="display:flex;align-items:flex-start;gap:10px">';
+  h+='<div aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:'+m.bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;line-height:1">'+m.em+'</div>';
+  h+='<div style="flex:1;min-width:0">';
+  h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">';
+  h+='<span style="font-size:10px;font-weight:700;color:'+m.color+'">'+hesc(m.label)+'</span>';
+  h+='<span style="font-size:10px;font-weight:700;background:'+t.bg+';color:'+t.color+';border-radius:20px;padding:2px 8px">'+t.label+'</span>';
+  if(n.prioridad==='alta') h+='<span style="font-size:9px;font-weight:700;background:#fee2e2;color:#C0392B;border-radius:20px;padding:1px 7px">● Alta</span>';
+  h+='<span style="font-size:10px;color:#9a849b">'+timeAgo(n.ts)+'</span>';
+  if(n.periodo) h+='<span style="font-size:9px;background:#f0ebff;color:#5c4a5d;border-radius:20px;padding:1px 7px">'+hesc(n.periodo)+'</span>';
+  if(n.difusion) h+='<span style="font-size:9px;background:#f4f1f4;color:#5c4a5d;border-radius:20px;padding:1px 7px">Para el equipo</span>';
+  h+='</div>';
+  h+='<div class="not-tit">'+hesc(n.titulo)+'</div>';
+  if(n.mensaje&&n.mensaje!==n.titulo) h+='<div class="not-msg">'+hesc(n.mensaje)+'</div>';
+  if(n.clienteRut) h+='<div style="font-size:10px;color:#9a849b;margin-bottom:4px">RUT '+hesc(n.clienteRut)+'</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
+  if(n.accionRequerida) h+='<button type="button" class="not-b pri" onclick="notMarcar('+nid+',\'ejecutada\')">✅ Marcar ejecutado</button>';
+  else h+='<button type="button" class="not-b pri" onclick="notMarcar('+nid+',\'leida\')">✓ Marcar leída</button>';
+  if(n.url) h+='<a class="not-b" href="'+hesc(n.url)+'" onclick="return notIr('+nid+')">Ver →</a>';
+  if(n.accionRequerida&&n.leida) h+='<span style="font-size:10px;color:#9a849b;align-self:center">Leída · falta ejecutar</span>';
+  h+='</div></div></div></div>';
+  return h;
+}
 
 function renderPanel(){
   var panel=document.getElementById('notPanel');
   if(!panel) return;
-  var mods=modulosDelRol();
-  var todos=getAllNots().filter(function(n){return canVerModulo(n.modulo);});
-
-  // Tabs
-  var tabs='<div style="display:flex;gap:2px;background:#f0ebff;border-radius:8px;padding:3px;margin-bottom:12px;flex-wrap:wrap;">';
-  tabs+='<div class="not-tab'+((_activeTab==='todos')?' not-tab-on':'')+'" onclick="notSetTab(\'todos\')">Todos <span style="font-size:10px;opacity:.7">('+todos.filter(function(n){return!n.ejecutado;}).length+')</span></div>';
-  mods.forEach(function(m){
-    var cfg=MOD_CONFIG[m]||MOD_CONFIG.sistema;
-    var cnt=getPendientes(m).length;
-    tabs+='<div class="not-tab'+((_activeTab===m)?' not-tab-on':'')+'" onclick="notSetTab(\''+m+'\')" style="">'+cfg.label+(cnt>0?' <span style="background:'+cfg.color+';color:#fff;border-radius:10px;padding:1px 6px;font-size:9px">'+cnt+'</span>':'')+'</div>';
+  // Pestañas: Todos + cada módulo que tenga avisos del usuario (nada se oculta por rol).
+  var mods=[]; _cache.forEach(function(n){var k=modKey(n.modulo);if(mods.indexOf(k)<0)mods.push(k);});
+  if(_activeTab!=='todos'&&mods.indexOf(_activeTab)<0) _activeTab='todos';
+  var tabs='<div class="not-tabs" role="tablist">';
+  tabs+='<button type="button" role="tab" class="not-tab'+(_activeTab==='todos'?' not-tab-on':'')+'" onclick="notSetTab(\'todos\')">Todos <span style="font-size:10px;opacity:.75">('+pendientes().length+')</span></button>';
+  mods.forEach(function(k){
+    var cfg=MOD_CONFIG[k], cnt=pendientes(k).length;
+    tabs+='<button type="button" role="tab" class="not-tab'+(_activeTab===k?' not-tab-on':'')+'" onclick="notSetTab(\''+k+'\')">'+cfg.label+(cnt>0?' <span class="not-cnt" style="background:'+cfg.color+'">'+cnt+'</span>':'')+'</button>';
   });
   tabs+='</div>';
 
-  var filtered=todos.filter(function(n){
-    if(_activeTab==='todos') return true;
-    return n.modulo===_activeTab;
-  });
-
-  var pendientes=filtered.filter(function(n){return!n.ejecutado;});
-  var ejecutadas=filtered.filter(function(n){return n.ejecutado;}).slice(0,10);
-
+  var lista=_cache.filter(function(n){return _activeTab==='todos'||modKey(n.modulo)===_activeTab;});
+  var pend=lista.filter(function(n){return n.pendiente;});
+  var hechas=lista.filter(function(n){return !n.pendiente;}).slice(0,10);
   var html=tabs;
-
-  if(pendientes.length>0){
+  if(pend.length>0){
+    var hayInfo=pend.some(function(n){return !n.accionRequerida;});
     html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    html+='<div style="font-size:11px;font-weight:700;color:#5c4a5d;text-transform:uppercase;letter-spacing:.7px">'+pendientes.length+' pendiente'+(pendientes.length!==1?'s':'')+'</div>';
-    html+='<button onclick="marcarTodasEjecutadas(\''+(_activeTab==='todos'?'':_activeTab)+'\')" style="background:none;border:1px solid #e8dde8;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:#5c4a5d">Marcar todas ejecutadas</button>';
+    html+='<div class="not-sec">'+pend.length+' pendiente'+(pend.length!==1?'s':'')+'</div>';
+    if(hayInfo) html+='<button type="button" class="not-b" onclick="marcarTodasEjecutadas(\''+(_activeTab==='todos'?'':_activeTab)+'\')">Marcar informativas como leídas</button>';
     html+='</div>';
   }
-
-  if(pendientes.length===0&&ejecutadas.length===0){
-    html+='<div style="text-align:center;padding:32px 16px;color:#9a849b"><i class="ti ti-bell-off" style="font-size:32px;display:block;margin-bottom:8px"></i><div style="font-size:13px">Sin notificaciones</div></div>';
+  if(!_yaCargo&&_cache.length===0){
+    html+='<div class="not-vacio">Cargando avisos…</div>';
+  }else if(pend.length===0&&hechas.length===0){
+    html+='<div class="not-vacio"><div aria-hidden="true" style="font-size:28px;margin-bottom:8px">🔕</div>Sin notificaciones</div>';
   }
-
-  // Pendientes
-  pendientes.forEach(function(n){
-    var mCfg=MOD_CONFIG[n.modulo]||MOD_CONFIG.sistema;
-    var tCfg=TIPO_CONFIG[n.tipo]||TIPO_CONFIG.info;
-    var nid=JSON.stringify(n.id); // seguro para V2 (int) y V1 (int grande)
-    html+='<div style="background:#fff;border:1px solid #e8dde8;border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:3px solid '+mCfg.color+'">';
-    html+='<div style="display:flex;align-items:flex-start;gap:10px">';
-    html+='<div style="width:32px;height:32px;border-radius:8px;background:'+mCfg.bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti '+mCfg.icon+'" style="font-size:15px;color:'+mCfg.color+'"></i></div>';
-    html+='<div style="flex:1;min-width:0">';
-    html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">';
-    html+='<span style="font-size:10px;font-weight:700;background:'+tCfg.bg+';color:'+tCfg.color+';border-radius:20px;padding:2px 8px">'+tCfg.label+'</span>';
-    if(n.prioridad==='alta')  html+='<span style="font-size:9px;font-weight:700;background:#fee2e2;color:#C0392B;border-radius:20px;padding:1px 7px">● Alta</span>';
-    if(n.prioridad==='media') html+='<span style="font-size:9px;color:#C07A1A;background:#fef3c7;border-radius:20px;padding:1px 7px">● Media</span>';
-    html+='<span style="font-size:10px;color:#9a849b">'+timeAgo(n.ts)+'</span>';
-    if(n.clienteNombre) html+='<span style="font-size:10px;font-weight:600;color:#5c4a5d">'+hesc(n.clienteNombre)+'</span>';
-    if(n.clienteRut) html+='<span style="font-size:10px;color:#9a849b">'+hesc(n.clienteRut)+'</span>';
-    if(n.periodo) html+='<span style="font-size:9px;background:#f0ebff;color:#5c4a5d;border-radius:20px;padding:1px 7px">'+hesc(n.periodo)+'</span>';
-    html+='</div>';
-    if(n.titulo&&n.titulo!==n.mensaje)
-      html+='<div style="font-size:11px;font-weight:600;color:#5c4a5d;margin-bottom:2px">'+hesc(n.titulo)+'</div>';
-    html+='<div style="font-size:12.5px;color:#1a0a1b;line-height:1.5;margin-bottom:6px">'+hesc(n.mensaje)+'</div>';
-    if(n.creadaPor) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:4px">Creado por '+hesc(n.creadaPor)+'</div>';
-    if(n.destinatarioNombre) html+='<div style="font-size:10px;color:#9a849b;margin-bottom:6px">Asignado a: '+hesc(n.destinatarioNombre)+'</div>';
-    html+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
-    html+='<button onclick="ejecutarNotificacion('+nid+')" style="background:#904891;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">✅ '+hesc(n.accionLabel)+'</button>';
-    if(n.accionUrl){
-      // Botón "Ver" usa accion_url directamente (no modifica estado)
-      html+='<a href="'+hesc(n.accionUrl)+'" style="background:transparent;color:#904891;border:1px solid #e8dde8;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none">Ver →</a>';
-    }
-    html+='<button onclick="ignorarNotificacion('+nid+')" style="background:transparent;color:#9a849b;border:1px solid #e8dde8;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Ignorar</button>';
-    html+='</div></div>';
-    html+='<button onclick="'+(n._src==='v2'?'ignorarNotificacion':'eliminarNotificacion')+'('+nid+')" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:14px;flex-shrink:0;padding:0">✕</button>';
-    html+='</div></div>';
-  });
-
-  // Historial
-  if(ejecutadas.length>0){
-    html+='<div style="font-size:11px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.7px;margin:12px 0 8px">Historial reciente</div>';
-    ejecutadas.forEach(function(n){
-      var mCfg=MOD_CONFIG[n.modulo]||MOD_CONFIG.sistema;
-      var nid=JSON.stringify(n.id);
-      html+='<div style="padding:8px 12px;margin-bottom:6px;border-radius:8px;background:#faf7fa;border:1px solid #e8dde8;display:flex;align-items:center;gap:10px;opacity:.65">';
-      html+='<i class="ti ti-check" style="font-size:14px;color:'+mCfg.color+';flex-shrink:0"></i>';
-      html+='<div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#5c4a5d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hesc(n.mensaje)+'</div>';
-      html+='<div style="font-size:10px;color:#9a849b">Ejecutado por '+hesc(n.ejecutadoPor||'')+'  · '+timeAgo(n.ejecutadoTs)+'</div></div>';
-      html+='<button onclick="eliminarNotificacion('+nid+')" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:13px;flex-shrink:0">✕</button>';
+  pend.forEach(function(n){html+=tarjeta(n);});
+  if(hechas.length>0){
+    html+='<div class="not-sec" style="margin:12px 0 8px;color:#9a849b">Historial reciente</div>';
+    hechas.forEach(function(n){
+      var m=modCfg(n.modulo);
+      html+='<div class="not-hecha"><span aria-hidden="true" style="font-size:13px;color:'+m.color+';flex-shrink:0;font-weight:700">✓</span>';
+      html+='<div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#5c4a5d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hesc(n.titulo||n.mensaje)+'</div>';
+      html+='<div style="font-size:10px;color:#9a849b">'+(n.resueltaPor?'Marcada por '+hesc(n.resueltaPor)+' · ':'')+timeAgo(n.resueltaTs||n.ts)+'</div></div>';
+      if(n.url) html+='<a class="not-b" href="'+hesc(n.url)+'">Ver →</a>';
       html+='</div>';
     });
   }
-
   panel.innerHTML=html;
 }
+window.notSetTab=function(tab){_activeTab=tab;renderPanel();};
 
-window.notSetTab=function(tab){
-  _activeTab=tab;
-  renderPanel();
-};
-
-// ── TOGGLE PANEL ─────────────────────────────────────────────
-// Corregido respecto al original: toggle aplica 'on' a notPanelWrap (wrapper
-// visible por CSS) en lugar de notPanel (cuerpo interno, no controlado por CSS).
-// Además dispara cargarAlertas() al abrir para datos frescos de Supabase.
 window.toggleNotPanel=function(e){
   if(e) e.stopPropagation();
   var wrap=document.getElementById('notPanelWrap');
   if(!wrap) return;
-  var isOn=wrap.classList.contains('on');
-  wrap.classList.toggle('on',!isOn);
-  if(!isOn){
-    renderPanel();    // mostrar inmediatamente con caché actual
-    cargarAlertas();  // luego refrescar desde Supabase → re-renderiza al completar
-  }
+  var abrir=!wrap.classList.contains('on');
+  wrap.classList.toggle('on',abrir);
+  var btn=document.getElementById('notBtn'); if(btn) btn.setAttribute('aria-expanded',abrir?'true':'false');
+  if(abrir){ renderPanel(); cargarAlertas(); montarAvisosCelular(); }
 };
 
-// ── INYECTAR UI EN EL TOPBAR ─────────────────────────────────
+// ── Botón "Activar avisos en este celular" (cualquier usuario) ──
+var _avisosMontado=false;
+function montarAvisosCelular(){
+  var btn=document.getElementById('notAvisosBtn');
+  if(!btn||_avisosMontado) return;
+  var montar=function(){
+    if(!window.GestoorAvisosPush||_avisosMontado) return;
+    _avisosMontado=true;
+    window.GestoorAvisosPush.montar(btn,notToast);
+  };
+  if(window.GestoorAvisosPush){montar();return;}
+  if(document.querySelector('script[data-gestoor-avisos-push]')) return;
+  var s=document.createElement('script'); s.src=BASE+'avisos-push.js'; s.async=true; s.setAttribute('data-gestoor-avisos-push','1');
+  s.onload=montar; document.head.appendChild(s);
+}
+
+// ── Inyectar la campana en el topbar ────────────────────────
 function injectNotUI(){
   var topbar=document.querySelector('.topbar');
   if(!topbar) return;
-
-  // ── Campana: reutilizar si ya existe, crear si no ─────────
-  // Módulos como Contable ya tienen #notBtn propio — no crear una segunda campana.
   var btn=document.getElementById('notBtn');
-  if(btn){
-    // Reutilizar la campana existente: reasignar handler a la Central V2
-    btn.onclick=window.toggleNotPanel;
-  }else{
-    btn=document.createElement('div');
-    btn.id='notBtn';
-    btn.onclick=window.toggleNotPanel;
-    btn.style.cssText='position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.08);transition:.15s;flex-shrink:0;';
+  if(btn){ btn.onclick=window.toggleNotPanel; }        // páginas con campana propia (p. ej. Aprobaciones): se reutiliza
+  else{
+    btn=document.createElement('button');
+    btn.type='button'; btn.id='notBtn'; btn.onclick=window.toggleNotPanel;
+    btn.style.cssText='position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:0;padding:0;background:rgba(255,255,255,.08);transition:.15s;flex-shrink:0;';
     btn.innerHTML='<i class="ti ti-bell" style="font-size:18px;color:rgba(255,255,255,.75)"></i>'
       +'<div id="notBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid #08040f;"></div>';
     var tbTitle=topbar.querySelector('.tb-title');
-    if(tbTitle&&tbTitle.parentNode===topbar){topbar.insertBefore(btn,tbTitle.nextSibling);}   // título anidado → al final
+    if(tbTitle&&tbTitle.parentNode===topbar){topbar.insertBefore(btn,tbTitle.nextSibling);}
     else{topbar.appendChild(btn);}
   }
-
-  // ── Panel: crear solo si no existe ya ────────────────────
-  if(!document.getElementById('notPanelWrap')){
-    var panel=document.createElement('div');
-    panel.style.cssText='display:none;position:absolute;top:54px;right:12px;width:420px;max-height:80vh;overflow-y:auto;background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.15);';
-
-    var panelHdr=document.createElement('div');
-    panelHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8dde8;';
-    panelHdr.innerHTML='<div style="font-size:14px;font-weight:700;color:#1a0a1b"><i class="ti ti-bell" style="font-size:16px;vertical-align:-2px;margin-right:6px;color:#904891"></i>Notificaciones</div>'
-      +'<button onclick="toggleNotPanel(event)" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:18px;line-height:1">✕</button>';
-    panel.appendChild(panelHdr);
-
-    var panelBody=document.createElement('div');
-    panelBody.id='notPanel';
-    panelBody.style.cssText='';
-    panel.id='notPanelWrap';
-    panel.appendChild(panelBody);
-
-    var style=document.createElement('style');
-    style.textContent='.not-tab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;color:#5c4a5d;white-space:nowrap;transition:.15s;}'
-      +'.not-tab:hover{background:rgba(144,72,145,.1);}'
-      +'.not-tab-on{background:#904891;color:#fff;font-weight:600;}'
-      +'#notPanelWrap.on{display:block!important;}';
-    document.head.appendChild(style);
-
-    var layout=document.querySelector('.layout')||document.body;
-    layout.style.position='relative';
-    layout.appendChild(panel);
-    // Detener propagación de clics internos al documento para que el panel no se cierre
-    // al usar tabs, botones o cualquier elemento dentro del panel.
-    panel.onclick=function(e){ e.stopPropagation(); };
-
-    document.addEventListener('click',function(e){
-      var wrap=document.getElementById('notPanelWrap');
-      var b=document.getElementById('notBtn');
-      if(wrap&&b&&!wrap.contains(e.target)&&!b.contains(e.target)){
-        wrap.classList.remove('on');
-      }
-    });
+  btn.setAttribute('aria-haspopup','dialog'); btn.setAttribute('aria-expanded','false'); btn.setAttribute('aria-label','Notificaciones');
+  if(!document.getElementById('notBadge')){
+    var b=document.createElement('div'); b.id='notBadge';
+    b.style.cssText='display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;background:#C0392B;border-radius:20px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 4px;';
+    btn.appendChild(b);
   }
 
-  // stopPropagation idempotente: se aplica al wrap final (nuevo o preexistente)
-  // Evita que clics internos cierren el panel sin duplicar addEventListener
-  var wrapFinal=document.getElementById('notPanelWrap');
-  if(wrapFinal){ wrapFinal.onclick=function(e){e.stopPropagation();}; }
-
+  if(!document.getElementById('notPanelWrap')){
+    var panel=document.createElement('div');
+    panel.id='notPanelWrap'; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Notificaciones');
+    panel.innerHTML='<div class="not-hdr"><div style="font-size:14px;font-weight:700;color:#1a0a1b">Notificaciones</div>'
+      +'<button type="button" aria-label="Cerrar" onclick="toggleNotPanel(event)" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:18px;line-height:1">✕</button></div>'
+      +'<button type="button" id="notAvisosBtn" class="not-b not-avisos" hidden>🔔 Activar avisos en este celular</button>'
+      +'<div id="notPanel"></div>';
+    var style=document.createElement('style');
+    style.textContent='#notPanelWrap{display:none;position:absolute;top:54px;right:12px;width:420px;max-width:calc(100vw - 24px);max-height:80vh;overflow-y:auto;background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.15);box-sizing:border-box;text-align:left;font-family:Inter,system-ui,sans-serif}'
+      +'#notPanelWrap.on{display:block!important}'
+      +'.not-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e8dde8}'
+      +'.not-avisos{width:100%;justify-content:center;margin-bottom:12px}'
+      +'.not-tabs{display:flex;gap:2px;background:#f0ebff;border-radius:8px;padding:3px;margin-bottom:12px;flex-wrap:wrap}'
+      +'.not-tab{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;color:#5c4a5d;white-space:nowrap;transition:.15s;border:0;background:none;font-family:inherit}'
+      +'.not-tab:hover{background:rgba(146,72,147,.1)}.not-tab-on,.not-tab-on:hover{background:#924893;color:#fff;font-weight:600}'
+      +'.not-cnt{color:#fff;border-radius:10px;padding:1px 6px;font-size:9px}'
+      +'.not-card{background:#fff;border:1px solid #e8dde8;border-radius:10px;padding:12px 14px;margin-bottom:8px}'
+      +'.not-tit{font-size:13px;font-weight:600;color:#1a0a1b;line-height:1.4;margin-bottom:2px;overflow-wrap:anywhere}'
+      +'.not-msg{font-size:12px;color:#5c4a5d;line-height:1.5;margin-bottom:4px;overflow-wrap:anywhere}'
+      +'.not-sec{font-size:11px;font-weight:700;color:#5c4a5d;text-transform:uppercase;letter-spacing:.7px}'
+      +'.not-b{display:inline-flex;align-items:center;gap:4px;background:transparent;color:#924893;border:1px solid #e8dde8;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none;font-family:inherit}'
+      +'.not-b.pri{background:#924893;color:#fff;border-color:#924893}.not-b:disabled{opacity:.6;cursor:default}'
+      +'.not-hecha{padding:8px 12px;margin-bottom:6px;border-radius:8px;background:#faf7fa;border:1px solid #e8dde8;display:flex;align-items:center;gap:10px}'
+      +'.not-vacio{text-align:center;padding:32px 16px;color:#9a849b;font-size:13px}'
+      +'@media (max-width:600px){#notPanelWrap{position:fixed;top:64px;left:12px;right:12px;width:auto;max-height:calc(100vh - 80px)}}';
+    document.head.appendChild(style);
+    var layout=document.querySelector('.layout')||document.body;
+    if(getComputedStyle(layout).position==='static') layout.style.position='relative';
+    layout.appendChild(panel);
+    panel.addEventListener('click',function(e){e.stopPropagation();});
+    document.addEventListener('click',function(e){
+      var w=document.getElementById('notPanelWrap'), b2=document.getElementById('notBtn');
+      if(w&&b2&&w.classList.contains('on')&&!w.contains(e.target)&&!b2.contains(e.target)){w.classList.remove('on');b2.setAttribute('aria-expanded','false');}
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape'&&panelAbierto()){window.toggleNotPanel();var b3=document.getElementById('notBtn');if(b3&&b3.focus)b3.focus();}
+    });
+  }
   renderBadge();
 }
 
-// ── INIT ─────────────────────────────────────────────────────
+// ── Inicio ──────────────────────────────────────────────────
 function init(){
   injectNotUI();
-  cargarAlertas();              // carga inicial V2 desde Supabase
-  setInterval(cargarAlertas,30000); // polling V2 cada 30 s (reemplaza renderBadge poll)
+  if(window._sbAuthReady===true) cargarAlertas();
+  window.addEventListener('gestoor-auth-ready',cargarAlertas);
+  setInterval(function(){ if(!document.hidden) cargarAlertas(); },30000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) cargarAlertas(); });
 }
-
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',init);
-}else{
-  init();
-}
-
+window.__gestoorCampanaNorm=normEnlace;   // expuesto para pruebas
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
