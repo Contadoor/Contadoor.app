@@ -34,6 +34,7 @@
       <button type="button" class="fb on" data-rol="facturador" aria-pressed="true"><i class="ic ic-ama" data-ic="factura"></i>Facturador</button>
       <button type="button" class="fb" data-rol="master" aria-pressed="false"><i class="ic ic-cel" data-ic="escudo"></i>Master</button>
     </div>
+    <button type="button" class="g-btn sm" id="as-avisos" hidden>🔔 Activar avisos en este celular</button>
     <span class="usuario-fx"><b id="nomRol">…</b><small id="subRol"></small></span>
   </div>
 
@@ -149,6 +150,7 @@
   <div class="mf" id="mFoot"></div>
 </div>
 <div class="fx-toast" id="toast" role="status" aria-live="polite"></div>
+<div class="fx-toast" id="as-aviso" role="status" aria-live="polite"></div>
 
 <!-- Editor completo de la factura (Facturación adicional · solo demo) -->
 <div class="ed" id="ed" role="dialog" aria-modal="true" aria-labelledby="edTitulo">
@@ -166,6 +168,7 @@
 <script src="facturacion.js"></script>
 <script src="adicional.js"></script>
 <script src="adicional-real.js"></script>
+<script>if(!window.FX_DEMO)document.write('<script src="../avisos-push.js"><\/script>');</script>
 <script>if(!window.FX_DEMO)document.write('<script src="../auth.js"><\/script>');</script>
 </body>
 </html>
