@@ -166,3 +166,6 @@ body.g-mod-piv{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 @media print{
   body.g-mod-piv .sidebar,body.g-mod-piv .topbar,body.g-mod-piv .pvc-filtros,body.g-mod-piv .pvc-accs{display:none!important}
 }
+
+/* Ronda 2: el estimado es referencia secundaria (chico y tenue) bajo el "Así vamos" */
+.g-mod-piv .pvc-col small.pvc-ref{font-size:10.5px;color:var(--t3);font-style:italic;opacity:.85}

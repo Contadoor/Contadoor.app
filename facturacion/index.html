@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facturación · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="../assets/equipo.css">
+<link rel="stylesheet" href="facturacion.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración: SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1]. En cualquier otro host
+   (por ejemplo gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.FX_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-fact">
+
+<aside class="sidebar" data-gestoor-activo="facturacion"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+
+<div class="wrap">
+  <div class="topbar">
+    <h1 class="tb-title">Facturación <span id="tbSub">mensual</span></h1>
+    <span class="prueba" title="Modo PRUEBA: emisión en el ambiente de pruebas de OpenFactura (sin SII) y correos solo a info@contadoor.cl"><i class="ic ic-amb" data-ic="probeta"></i>MODO PRUEBA</span>
+    <span class="prueba" id="fxDemo" hidden style="background:rgba(92,200,255,.12);border-color:rgba(92,200,255,.45);color:var(--cel)" title="Datos ficticios locales: no se conecta a Supabase y nada se guarda"><i class="ic ic-cel" data-ic="probeta"></i>DEMO LOCAL · DATOS FICTICIOS</span>
+    <span class="g-espacio"></span>
+    <div class="g-seg" id="verComo" role="group" aria-label="Ver como (solo demo)" hidden>
+      <button type="button" class="fb on" data-rol="facturador" aria-pressed="true"><i class="ic ic-ama" data-ic="factura"></i>Facturador</button>
+      <button type="button" class="fb" data-rol="master" aria-pressed="false"><i class="ic ic-cel" data-ic="escudo"></i>Master</button>
+    </div>
+    <button type="button" class="g-btn sm" id="as-avisos" hidden>🔔 Activar avisos en este celular</button>
+    <span class="usuario-fx"><b id="nomRol">…</b><small id="subRol"></small></span>
+  </div>
+
+  <main class="content" id="fxMain">
+    <div class="fx-aviso" role="note">
+      <i class="ic placa ic-cel" data-ic="candado"></i>
+      <div><b>La emisión real está bloqueada hasta el GO de producción.</b>
+        <p>Grupos FIJO y VARIABLE: preparar, revisar y aprobar. Facturación adicional: la factura nueva es siempre real (SII); se puede crear y aprobar, y se emite cuando la emisión esté activada. Para practicar se usa el entorno local/DEV, no esta pantalla. La primera factura real sale solo con el GO de producción y el OK expreso de Luciano.</p></div>
+    </div>
+
+    <div class="barra-lote">
+      <div class="g-seg" role="group" aria-label="Grupo">
+        <button type="button" class="fb on" data-vista="FIJO" aria-pressed="true"><i class="ic ic-ver" data-ic="calendario"></i>Grupo FIJO · día 1</button>
+        <button type="button" class="fb" data-vista="VARIABLE" aria-pressed="false"><i class="ic ic-cel" data-ic="personas"></i>Grupo VARIABLE · días 10–15</button>
+        <button type="button" class="fb" data-vista="ADICIONAL" aria-pressed="false"><i class="ic ic-ama" data-ic="factura"></i>Facturación adicional</button>
+      </div>
+      <label class="sim" id="fxPeriodoBox"><span class="sim-tag">PERÍODO</span> Período contable
+        <select id="selPeriodo" aria-label="Período contable"><option value="">Cargando…</option></select>
+      </label>
+    </div>
+
+    <div id="fxEstado"></div>
+    <section class="fx-hero" id="hero"></section>
+
+    <div id="vistaGrupo">
+      <div class="g-card fx-pasos" id="pasos"></div>
+      <div class="g-card fx-acc" id="acciones"></div>
+
+      <div class="fx-tabs" role="tablist">
+        <button type="button" class="fx-tab on" data-tab="lineas" role="tab" aria-selected="true"><i class="ic ic-mor" data-ic="lista"></i>Líneas del grupo <span class="cnt" id="cntLineas">0</span></button>
+        <button type="button" class="fx-tab" data-tab="analisis" role="tab" aria-selected="false"><i class="ic ic-cel" data-ic="grafico"></i>Análisis y alertas <span class="cnt" id="cntAlertas">0</span></button>
+        <button type="button" class="fx-tab" data-tab="nofact" role="tab" aria-selected="false"><i class="ic ic-amb" data-ic="pausa"></i>No facturan este mes <span class="cnt" id="cntNF">0</span></button>
+        <button type="button" class="fx-tab" data-tab="bitacora" role="tab" aria-selected="false"><i class="ic ic-ver" data-ic="reloj"></i>Bitácora del grupo</button>
+      </div>
+
+      <section class="fx-panel on g-card" id="p-lineas">
+        <div class="g-sec-h"><i class="ic placa ic-mor" data-ic="factura"></i><h2>Líneas del <span id="tLote">grupo FIJO</span></h2><span id="porResolver"></span><small>Clic en una fila para ver la glosa del DTE, el cálculo y el historial</small></div>
+        <div class="tabla-box">
+          <table>
+            <thead><tr>
+              <th>Cliente</th><th>Plan base</th><th>Trabajadores<span class="sub" style="letter-spacing:0;text-transform:none;font-weight:500">liq. / incl. / adic.</span></th>
+              <th class="num">Adicionales mes</th><th class="num">Monto</th><th class="num">Dif. vs mes ant.</th><th>Alertas</th><th>Estado</th><th><span class="sr">Acciones</span></th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pie-tabla" id="pie"></div>
+      </section>
+
+      <section class="fx-panel" id="p-analisis">
+        <div class="grid2">
+          <div class="g-card">
+            <div class="g-sec-h"><i class="ic placa ic-cel" data-ic="grafico"></i><h2>¿Por qué cambia el <span>monto</span>?</h2><small id="tExplMes">vs mes anterior</small></div>
+            <div class="expl" id="expl"></div>
+          </div>
+          <div class="g-card">
+            <div class="g-sec-h"><i class="ic placa ic-amb" data-ic="alerta"></i><h2>Alertas del <span>grupo</span></h2></div>
+            <div class="alist" id="alist"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="fx-panel g-card" id="p-nofact">
+        <div class="g-sec-h"><i class="ic placa ic-amb" data-ic="pausa"></i><h2>No facturan <span>este mes</span></h2><small>No generan factura ni alerta de faltante</small></div>
+        <div class="nf-grid" id="nfgrid"></div>
+      </section>
+
+      <section class="fx-panel g-card" id="p-bitacora">
+        <div class="g-sec-h"><i class="ic placa ic-ver" data-ic="reloj"></i><h2>Bitácora del <span>grupo</span></h2><small>Cada acción queda con actor y hora</small></div>
+        <ul class="bit" id="bitLote"></ul>
+      </section>
+    </div>
+
+    <section class="g-card" id="vistaAdic" hidden>
+      <div class="g-sec-h"><i class="ic placa ic-ama" data-ic="factura"></i><h2>Facturación <span>adicional</span></h2><small>Servicios puntuales, fuera de los grupos mensuales · siempre factura exenta (DTE 34)</small></div>
+      <div class="ind-top"><span class="prox"><i class="ic" data-ic="reloj"></i>Próximamente: se conecta con el módulo Cotizaciones</span></div>
+      <div class="flujo" aria-label="Camino normal">
+        <span class="fp"><i class="ic ic-ver" data-ic="aprobar"></i><b>Cotización aprobada</b></span><span class="fl">→</span>
+        <span class="fp"><i class="ic ic-ama" data-ic="lista"></i><b>Instrucción de facturación</b><span class="sub" style="display:inline">con condiciones de pago</span></span><span class="fl">→</span>
+        <span class="fp"><i class="ic ic-cel" data-ic="lapiz"></i><b>Editor de la factura</b></span><span class="fl">→</span>
+        <span class="fp"><i class="ic ic-mor" data-ic="escudo"></i><b>Aprobación del Master</b></span><span class="fl">→</span>
+        <span class="fp"><i class="ic ic-amb" data-ic="candado"></i><b>Factura</b><span class="sub" style="display:inline">emisión bloqueada hasta F1c/F1d</span></span>
+      </div>
+      <div class="sep-manual" style="border-top:0;padding-top:0"><span><b style="color:var(--t1)">Desde cotización</b> · el camino normal</span></div>
+      <div class="cot-grid" id="cotGrid"></div>
+      <div class="sep-manual" id="sepManual"></div>
+      <div class="cot-grid" id="manGrid"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Panel lateral de detalle -->
+<div class="fx-velo" id="velo"></div>
+<aside class="fx-drawer" id="drawer" aria-hidden="true" aria-labelledby="drTitulo" role="dialog">
+  <div class="dr-h">
+    <div><small id="drSub">Detalle de línea</small><h3 id="drTitulo">Cliente</h3><div id="drChips" class="chips" style="margin-top:8px;max-width:none"></div></div>
+    <button type="button" class="g-ico x" id="drCerrar" aria-label="Cerrar detalle"><i class="ic" data-ic="cerrar"></i></button>
+  </div>
+  <div class="dr-tabs" role="tablist">
+    <button type="button" class="fx-tab on" data-dtab="glosa" role="tab"><i class="ic ic-mor" data-ic="factura"></i>Glosa DTE 34</button>
+    <button type="button" class="fx-tab" data-dtab="calculo" role="tab"><i class="ic ic-cel" data-ic="calc"></i>Cálculo</button>
+    <button type="button" class="fx-tab" data-dtab="historial" role="tab"><i class="ic ic-ver" data-ic="grafico"></i>Historial</button>
+    <button type="button" class="fx-tab" data-dtab="eventos" role="tab"><i class="ic ic-amb" data-ic="reloj"></i>Bitácora</button>
+  </div>
+  <div class="dr-body" id="drBody"></div>
+</aside>
+
+<!-- Ventana de confirmación -->
+<div class="fx-velo fx-modal-velo" id="mvelo"></div>
+<div class="fx-modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitulo">
+  <div class="mh"><i class="ic placa ic-mor" id="mIc"></i><h3 id="mTitulo">Acción</h3></div>
+  <div class="mb" id="mBody"></div>
+  <div class="mf" id="mFoot"></div>
+</div>
+<div class="fx-toast" id="toast" role="status" aria-live="polite"></div>
+<div class="fx-toast" id="as-aviso" role="status" aria-live="polite"></div>
+
+<!-- Editor completo de la factura (Facturación adicional · solo demo) -->
+<div class="ed" id="ed" role="dialog" aria-modal="true" aria-labelledby="edTitulo">
+  <div class="ed-h" id="edHead"></div>
+  <div class="ed-body"><div class="ed-doc" id="edDoc"></div></div>
+  <div class="ed-f" id="edFoot"></div>
+</div>
+<div class="pdf" id="pdf" role="dialog" aria-modal="true" aria-label="Vista previa del PDF">
+  <div class="pdf-bar"><span><i class="ic ic-cel" data-ic="ver"></i> Vista previa: así se verá el PDF de la factura. El folio y el timbre del SII se agregan al emitir.</span><button type="button" class="g-btn sm" id="pdfCerrar"><i class="ic" data-ic="cerrar"></i>Cerrar vista previa</button></div>
+  <div class="hoja" id="hoja"></div>
+</div>
+
+<script src="../supabase.js"></script>
+<script>if(window.FX_DEMO)document.write('<script src="demo-datos.js"><\/script>');</script>
+<script src="../assets/equipo.js"></script>
+<script src="facturacion.js"></script>
+<script src="adicional.js"></script>
+<script src="adicional-real.js"></script>
+<script>if(!window.FX_DEMO)document.write('<script src="../avisos-push.js"><\/script>');</script>
+<script>if(!window.FX_DEMO)document.write('<script src="../notifications.js"><\/script>');</script>
+<script>if(!window.FX_DEMO)document.write('<script src="../auth.js"><\/script>');</script>
+</body>
+</html>

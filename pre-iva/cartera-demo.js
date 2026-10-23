@@ -12,6 +12,8 @@
   var futuro=/(?:^|[?&])futuro=1(?:&|$)/.test(location.search.slice(1));
 
   var A={id:9101,n:'Analista Demo A'}, B={id:9102,n:'Analista Demo B'}, C={id:9103,n:'Analista Demo C'};
+  // Filtro por responsable (assets/equipo.js): foto GENÉRICA para un analista ficticio; los demás muestran iniciales
+  if(window.GEquipo)window.GEquipo.fotoDemo(A.n,'../assets/equipo/demo-generica.svg');
   // [id, razón social ficticia, plan, analista]
   var CLI=[
     [1,'Panadería Demo Los Aromos SpA','asesoria',A],[2,'Transportes Demo Cordillera Ltda.','estrategico',A],
@@ -71,7 +73,8 @@
       return new Promise(function(res,rej){setTimeout(function(){
         try{
           if(/^clientes\?/.test(path))return res(pagina(visibles().map(function(c){return {id:c[0],rut:rut(c[0]),razon_social:c[1],plan:c[2],estado:'activo',
-            analista_contable:c[3]?c[3].n:null,analista_contable_usuario_id:c[3]?c[3].id:null};}),path));
+            analista_contable:c[3]?c[3].n:null,analista_contable_usuario_id:c[3]?c[3].id:null,
+            iva_condicion:c[0]===9?'exento':c[0]===14?null:'afecto'};}),path));   // 9 = exenta de IVA (solo PPM); 14 = sin dato en la ficha
           if(/^planes\?/.test(path))return res(json(PLANES));
           if(/^periodos\?/.test(path)){var p=new Date(hoy.getFullYear(),hoy.getMonth()-3,1);return res([{periodo:p.getFullYear()+'-'+z(p.getMonth()+1),estado:'activo'}]);}
           if(/^rcv_consultas\?/.test(path)){

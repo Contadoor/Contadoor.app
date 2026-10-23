@@ -166,13 +166,17 @@ var CAMBIO={contrato:'contrato',caso:'datos del caso',corte:'corte',entrada_huel
   meses_declarados:'meses declarados',marcas:'marcas del analista',supuesto:'supuesto de proyección',layout:'formato F22',uf_cierre:'UF de cierre',uf_corte:'UF del corte',
   reglas:'reglas tributarias',precondiciones:'condiciones previas (revisa los datos)'};
 
+/* Respaldo si assets/equipo.js no cargó (por ejemplo, un HTML antiguo en caché): la cartera sigue funcionando sin fotos ni filtro por responsable */
+if(!window.GEquipo)window.GEquipo={TODOS:'todos',SIN:'sin',leerUrl:function(){return 'todos';},escribirUrl:function(){},valida:function(){return 'todos';},pasa:function(){return true;},
+  opciones:function(){return [];},filtroHtml:function(){return '';},nombreDe:function(){return null;},
+  celda:function(n){n=String(n||'').trim();return n?n.replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}):'<span class="nd">Sin asignar</span>';}};
 /* ── Estado ── */
 var URLP=new URLSearchParams(location.search);
 var S={modo:URLP.get('modo')==='tecnico'?'ASESOR':'CLIENTE',sec:URLP.get('sec')||'resumen',casos:[],clientes:{},caso:null,yo:null,v:null,O:{},T:{},
   items:[],IT:{},reg:'RLI',esc:'base',verCod:false,cargando:true,error:null,meses:[],marcas:[],sups:[],asientos:{},filtroOut:'',detAncho:false,
   // Pantalla 1 (Cartera de Renta) es la vista por defecto; ?caso=ID abre directo la Pantalla 2 (proyección de un cliente)
   vista:URLP.get('caso')?'caso':'cartera',pend:null,
-  cart:{filas:[],cargando:true,error:null,q:'',filtro:'todos',orden:'prioridad',mis:false,tok:0}};
+  cart:{filas:[],cargando:true,error:null,q:'',filtro:'todos',orden:'prioridad',mis:false,tok:0,resp:window.GEquipo.leerUrl()}};   // resp: filtro por responsable (?resp=)
 var SECS=[['resumen','Resumen','¿Cuánto proyecto, cuánto tengo cubierto y cuánto falta?'],['proyeccion','Proyección','¿Cómo se proyecta el año desde lo real?'],
   ['escenarios','Escenarios','¿Qué pasa si tomo una decisión antes del 31-12?'],['registros','Determinación y registros','¿Cómo se determina la renta y qué saldos tributarios acumulo?'],
   ['radar','Radar','¿Qué debemos revisar?'],['f22','Formato F22','Mismos códigos e ítems del F22, para completar la declaración (solo asesor).',true],
@@ -247,7 +251,7 @@ function cargarCaso(){
 }
 function urlEstado(){
   var p=new URLSearchParams(location.search);
-  if(S.vista==='cartera'){p.delete('caso');p.delete('sec');p.delete('modo');}
+  if(S.vista==='cartera'){p.delete('caso');p.delete('sec');p.delete('modo');window.GEquipo.escribirUrl(p,S.cart.resp);}
   else{if(S.caso)p.set('caso',S.caso.id);p.set('sec',S.sec);if(tecnico())p.set('modo','tecnico');else p.delete('modo');}
   var qs=p.toString();
   try{history.replaceState(null,'',location.pathname+(qs?'?'+qs:''));}catch(e){}
@@ -1007,6 +1011,7 @@ function filasVisibles(){
   var C=S.cart, q=C.q.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   var r=C.filas.filter(function(f){
     if(C.mis&&f.resp_id!==(S.yo&&S.yo.id))return false;
+    if(!window.GEquipo.pasa(f,C.resp))return false;
     if(q&&(f.nombre+' '+f.resp).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').indexOf(q)<0)return false;
     switch(C.filtro){
       case 'rojo':return f.prio==='rojo';
@@ -1049,9 +1054,14 @@ function renderCartera(){
     app(h+(t==='MOTOR_NO_INSTALADO'?'<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>El motor de proyección no está disponible en este ambiente. La cartera se mostrará cuando esté instalado.</span></div>'
       :'<div class="aviso rojo fuerte">'+I('alerta','ic-roj')+'<span>'+t+'</span> <button type="button" class="btn sec chico" data-act="recargar">Reintentar</button></div>'));return;}
   if(C.cargando){app(h+'<div class="aviso lila"><span class="mrp-spin"></span>Cargando la cartera de renta…</div>');return;}
+  // Filtro por responsable: opciones = analistas presentes (respetando "Mis clientes"); contador = clientes en la vista (estado y Mis clientes, sin la búsqueda)
+  var EQ=window.GEquipo, base=C.filas.filter(function(f){return !C.mis||f.resp_id===(S.yo&&S.yo.id);});
+  var rOpts=EQ.opciones(base,function(f){var g=C.resp;C.resp=EQ.TODOS;var ok=filtroUno(f);C.resp=g;return ok;});
+  if(C.resp!==EQ.TODOS&&!rOpts.some(function(x){return x.clave===C.resp;})){C.resp=EQ.TODOS;urlEstado();}
+  var rTot=rOpts.reduce(function(s,x){return s+x.n;},0), rNom=EQ.nombreDe(rOpts,C.resp);
   var fs=filasVisibles(), t=totalesCartera(fs), sinDato=t.sinSaldo?' · '+t.sinSaldo+' sin dato':'', pend=C.filas.some(function(f){return f.corrida&&!f.vig;});
   h+='<section class="mrc-tot" aria-label="Totales de la cartera">'
-    +'<div class="mrc-k"><small>Clientes</small><b>'+t.n.toLocaleString('es-CL')+'</b><span>'+t.proy.toLocaleString('es-CL')+' con proyección</span></div>'
+    +'<div class="mrc-k"><small>Clientes</small><b>'+t.n.toLocaleString('es-CL')+'</b><span>'+t.proy.toLocaleString('es-CL')+' con proyección'+(rNom?' · de '+esc(rNom):'')+'</span></div>'
     +'<div class="mrc-k rojo"><small>En rojo</small><b>'+t.rojo.toLocaleString('es-CL')+'</b><span>para revisar primero</span></div>'
     +'<div class="mrc-k ambar"><small>Aperturas pendientes</small><b>'+t.apPend.toLocaleString('es-CL')+'</b><span>contable o tributaria</span></div>'
     +'<div class="mrc-k"><small>Impuesto total a pagar en abril</small><b>'+(t.nSaldo?clpT(t.pagar):'No disponible')+'</b><span>suma de saldos a pagar proyectados'+sinDato+'</span></div>'
@@ -1060,6 +1070,7 @@ function renderCartera(){
     +'</section>';
   h+='<div class="mrc-filtros"><label class="mrc-buscar"><span class="sr">Buscar cliente o responsable</span>'+I('lupa','ic-cel')+'<input type="search" id="mrcBuscar" placeholder="Buscar cliente o responsable…" value="'+esc(C.q)+'" autocomplete="off"></label>'
     +(S.yo&&S.yo.es_master?'<div class="g-seg mrc-seg" role="group" aria-label="Clientes"><button type="button" class="fb'+(C.mis?' on':'')+'" aria-pressed="'+C.mis+'" data-mis="1">Mis clientes</button><button type="button" class="fb'+(!C.mis?' on':'')+'" aria-pressed="'+!C.mis+'" data-mis="0">Todos</button></div>':'')
+    +(rOpts.length?EQ.filtroHtml(rOpts,C.resp,rTot):'')
     +'<div class="g-seg mrc-seg" role="group" aria-label="Filtrar">'+FILTROS.map(function(x){var n=x[0]==='todos'?null:C.filas.filter(function(f){var g=C.filtro;C.filtro=x[0];var ok=filtroUno(f);C.filtro=g;return ok;}).length;
       return '<button type="button" class="fb'+(C.filtro===x[0]?' on':'')+'" aria-pressed="'+(C.filtro===x[0])+'" data-filtro="'+x[0]+'">'+esc(x[1])+(n!=null?' <b>'+n+'</b>':'')+'</button>';}).join('')+'</div>'
     +'<label class="mrc-orden"><span>Orden</span><select id="mrcOrden">'+ORDENES.map(function(x){return '<option value="'+x[0]+'"'+(C.orden===x[0]?' selected':'')+'>'+esc(x[1])+'</option>';}).join('')+'</select></label>'
@@ -1074,6 +1085,7 @@ function renderCartera(){
 }
 function filtroUno(f){
   var C=S.cart;if(C.mis&&f.resp_id!==(S.yo&&S.yo.id))return false;
+  if(!window.GEquipo.pasa(f,C.resp))return false;
   switch(C.filtro){case 'rojo':return f.prio==='rojo';case 'cobbaja':return f.cob!=null&&f.cob<UMBRAL.COB_ROJO;case 'apertura':return f.apertura==='PENDIENTE';case 'desact':return f.vig==='DESACTUALIZADA';case 'sinproy':return !f.corrida;}
   return true;
 }
@@ -1094,7 +1106,7 @@ function filaCartera(f){
   return '<tr class="mrc-fila p-'+sem[0]+'">'
     +'<td data-l="Cliente"><div class="mrc-cli"><span class="mrc-sem '+sem[0]+'" title="'+esc(f.motivos.join(' · '))+'"><i aria-hidden="true"></i>'+sem[1]+'</span><b>'+esc(f.nombre)+'</b>'
       +(f.motivos.length?'<small class="mrc-mot">'+esc(f.motivos.join(' · '))+'</small>':'')+(f.sug?'<small class="mrc-sug">'+I('info','ic-cel')+esc(f.sug)+'</small>':'')+'<span class="estado preliminar mini">Preliminar</span></div></td>'
-    +'<td data-l="Responsable">'+(f.resp?esc(f.resp):'<span class="nd">Sin asignar</span>')+'</td>'
+    +'<td data-l="Responsable">'+window.GEquipo.celda(f.resp)+'</td>'
     +'<td data-l="Última proyección"><div class="mrc-fecha">'+fecha+'</div></td>'
     +'<td data-l="Saldo en abril" class="num"><div class="mrc-saldo">'+saldo+'</div></td>'
     +'<td data-l="Cobertura del PPM">'+cob+'</td>'
@@ -1200,6 +1212,7 @@ document.addEventListener('click',function(e){
   var es=e.target.closest('[data-esc]');if(es){S.esc=es.getAttribute('data-esc');render();return;}
   var fl=e.target.closest('[data-filtro]');if(fl){S.cart.filtro=fl.getAttribute('data-filtro');renderCartera();return;}
   var mi=e.target.closest('[data-mis]');if(mi){S.cart.mis=mi.getAttribute('data-mis')==='1';renderCartera();return;}
+  var rp=e.target.closest('[data-resp]');if(rp){S.cart.resp=window.GEquipo.valida(rp.getAttribute('data-resp'));renderCartera();return;}
   if(e.target.closest('#mrcBorrador')){setTimeout(cerrarModal,300);return;}
   var a=e.target.closest('[data-act]');if(!a||a.disabled)return;
   var act=a.getAttribute('data-act');
@@ -1225,6 +1238,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('change',function(e){
   if(e.target.id==='mrCaso'){var id=+e.target.value;S.caso=S.casos.filter(function(c){return c.id===id;})[0];S.esc='base';cargarCaso();}
   else if(e.target.id==='mrcOrden'){S.cart.orden=e.target.value;renderCartera();}
+  else if(e.target.classList&&e.target.classList.contains('geq-sel-in')){S.cart.resp=window.GEquipo.valida(e.target.value);renderCartera();}
   else if(e.target.id==='mrDocDet'&&!$('mrDoc').hidden)abrirEjecutivo();
   else if(e.target.name==='mrcCanal'){var c=canalEnvio();
     document.querySelectorAll('.mrc-canal .fb').forEach(function(l){l.classList.toggle('on',l.querySelector('input').checked);});
