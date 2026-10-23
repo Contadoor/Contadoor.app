@@ -166,13 +166,17 @@ var CAMBIO={contrato:'contrato',caso:'datos del caso',corte:'corte',entrada_huel
   meses_declarados:'meses declarados',marcas:'marcas del analista',supuesto:'supuesto de proyección',layout:'formato F22',uf_cierre:'UF de cierre',uf_corte:'UF del corte',
   reglas:'reglas tributarias',precondiciones:'condiciones previas (revisa los datos)'};
 
+/* Respaldo si assets/equipo.js no cargó (por ejemplo, un HTML antiguo en caché): la cartera sigue funcionando sin fotos ni filtro por responsable */
+if(!window.GEquipo)window.GEquipo={TODOS:'todos',SIN:'sin',leerUrl:function(){return 'todos';},escribirUrl:function(){},valida:function(){return 'todos';},pasa:function(){return true;},
+  opciones:function(){return [];},filtroHtml:function(){return '';},nombreDe:function(){return null;},
+  celda:function(n){n=String(n||'').trim();return n?n.replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}):'<span class="nd">Sin asignar</span>';}};
 /* ── Estado ── */
 var URLP=new URLSearchParams(location.search);
 var S={modo:URLP.get('modo')==='tecnico'?'ASESOR':'CLIENTE',sec:URLP.get('sec')||'resumen',casos:[],clientes:{},caso:null,yo:null,v:null,O:{},T:{},
   items:[],IT:{},reg:'RLI',esc:'base',verCod:false,cargando:true,error:null,meses:[],marcas:[],sups:[],asientos:{},filtroOut:'',detAncho:false,
   // Pantalla 1 (Cartera de Renta) es la vista por defecto; ?caso=ID abre directo la Pantalla 2 (proyección de un cliente)
   vista:URLP.get('caso')?'caso':'cartera',pend:null,
-  cart:{filas:[],cargando:true,error:null,q:'',filtro:'todos',orden:'prioridad',mis:false,tok:0}};
+  cart:{filas:[],cargando:true,error:null,q:'',filtro:'todos',orden:'prioridad',mis:false,tok:0,resp:window.GEquipo.leerUrl()}};   // resp: filtro por responsable (?resp=)
 var SECS=[['resumen','Resumen','¿Cuánto proyecto, cuánto tengo cubierto y cuánto falta?'],['proyeccion','Proyección','¿Cómo se proyecta el año desde lo real?'],
   ['escenarios','Escenarios','¿Qué pasa si tomo una decisión antes del 31-12?'],['registros','Determinación y registros','¿Cómo se determina la renta y qué saldos tributarios acumulo?'],
   ['radar','Radar','¿Qué debemos revisar?'],['f22','Formato F22','Mismos códigos e ítems del F22, para completar la declaración (solo asesor).',true],
@@ -247,7 +251,7 @@ function cargarCaso(){
 }
 function urlEstado(){
   var p=new URLSearchParams(location.search);
-  if(S.vista==='cartera'){p.delete('caso');p.delete('sec');p.delete('modo');}
+  if(S.vista==='cartera'){p.delete('caso');p.delete('sec');p.delete('modo');window.GEquipo.escribirUrl(p,S.cart.resp);}
   else{if(S.caso)p.set('caso',S.caso.id);p.set('sec',S.sec);if(tecnico())p.set('modo','tecnico');else p.delete('modo');}
   var qs=p.toString();
   try{history.replaceState(null,'',location.pathname+(qs?'?'+qs:''));}catch(e){}
@@ -318,6 +322,7 @@ function vResumen(){
     +'<div class="kpi acc-RLI"><small>Impuesto proyectado (IDPC)</small>'+det('forecast.idpc','<b>'+clp(idF)+'</b>')+'<p>'+tasaTxt()+'</p></div>'
     +'<div class="kpi acc-PPM"><small>PPM del año</small>'+det('forecast.ppm.imputable','<b>'+clp(ppmF)+'</b>')+'<p>Pagado al corte '+clpT(v('actual.ppm.imputable'))+'</p></div>'
     +'<div class="kpi acc-'+(niv==='rojo'?'PER':niv==='ambar'?'RAI':'REX')+'"><small>Cobertura</small><b class="t-'+(niv==='gris'?'gris':niv)+'">'+pctTxt(cob)+'</b><p>'+esc(SEMAFORO[prioCob(cob)==='gris'?'nd':prioCob(cob)][1])+' · del impuesto cubierto con PPM</p></div></div>';
+  h+=cardLiquidacion();
   h+='<div class="mrp-g2"><div class="card"><div class="h"><h2>¿Cuánto de tu impuesto <span>está cubierto?</span></h2><span class="estado preliminar">Preliminar</span></div>'
     +'<div class="cl"><span>Impuesto proyectado</span><b>'+clp(idF)+'</b></div><div class="cl"><span>PPM del año</span><b>'+clp(ppmF)+'</b></div>'
     +barraCob(cob,sal,true)
@@ -330,6 +335,97 @@ function vResumen(){
     +(al.length?'<div class="mrp-radar-g">'+al.map(radarCard).join('')+'</div>':'<p class="t2">No hay alertas de riesgo ni de revisión en esta corrida.</p>')+'</div>';
   h+=calidadCard();
   return h;
+}
+/* ── Liquidación del impuesto ("Cómo se calcula tu impuesto")
+   SOLO presenta outputs del motor. Las únicas operaciones son restas/sumas de presentación (PPM por pagar = proyectado − al corte;
+   base con incentivo = 1440 − deducción 14 E, igual que en Escenarios; ahorro = IDPC − IDPC con 14 E) y el CUADRE contra el saldo de
+   abril del motor: si las filas no suman exactamente ese saldo, se muestra la diferencia como "Ajustes del motor" (nunca se oculta).
+   La tasa no se calcula: es la que el motor usó (trace de forecast.idpc, regla activa idpc.tasa). */
+function creditosIdpc(){return Object.keys(S.O).filter(function(k){return /^forecast\.credito_idpc\./.test(k);}).sort();}   // convención propuesta para el motor (hoy no existen)
+function tasaNum(t){return t!=null&&t!==''&&isFinite(t)?String(t).replace('.',',')+' %':null;}
+function cuadre(total,partes){   // total del motor vs suma de partes mostradas; null = no se puede verificar (falta un dato)
+  if(total==null||partes.some(function(x){return x==null;}))return null;
+  return Number(total)-partes.reduce(function(s,x){return s+Number(x);},0);
+}
+function liquidacion(){
+  var tI=S.T['forecast.idpc']||{}, base=v('forecast.f22.1440'), tasa=tasaNum(tI.tasa), idF=v('forecast.idpc'),
+      ppmA=v('actual.ppm.imputable'), ppmF=v('forecast.ppm.imputable'), sal=v('forecast.saldo_abril'), m=mesCorte();
+  var M3=function(i){return (MES3[i-1]||'—').toLowerCase();};
+  var filas=[];
+  filas.push({op:'',txt:'Base imponible proyectada',sub:'Código 1440 · determinación de la renta a diciembre',k:'forecast.f22.1440',n:base});
+  filas.push({op:'×',txt:'Tasa de Primera Categoría',sub:'Según la regla activa que usó el motor',txt2:tasa||null});
+  filas.push({op:'=',txt:'Impuesto de Primera Categoría (IDPC)',k:'forecast.idpc',n:idF,cls:'tot'});
+  var creds=creditosIdpc(), pCred=[];
+  if(creds.length)creds.forEach(function(k){var x=o(k);pCred.push(v(k));filas.push({op:'−',txt:(x&&x.explicacion)||k,sub:'Crédito contra el impuesto (motor)',k:k,n:v(k)});});
+  else filas.push({op:'−',txt:'Créditos contra el impuesto',sub:'No considerados en esta proyección (el motor v1 no calcula créditos contra el IDPC)',gris:true});
+  var partes=[idF].concat(pCred.map(function(x){return x==null?null:-x;}));
+  if(ppmA!=null||ppmF==null){
+    var porPagar=(ppmA!=null&&ppmF!=null)?ppmF-ppmA:null;
+    filas.push({op:'−',txt:'PPM pagados al corte',sub:'Imputables de ene a '+M3(m||1)+' (por período tributario)',k:'actual.ppm.imputable',n:ppmA});
+    filas.push({op:'−',txt:'PPM por pagar hasta diciembre',sub:(m&&m<12?'Proyectados de '+M3(m+1)+' a dic':'Sin meses restantes')+' · PPM del año '+clpT(ppmF)+' − pagados al corte',n:porPagar});
+    partes.push(ppmA==null?null:-ppmA, porPagar==null?null:-porPagar);
+  }else{   // sin PPM al corte separado: una sola fila con el PPM del año
+    filas.push({op:'−',txt:'PPM del año (proyectados a diciembre)',k:'forecast.ppm.imputable',n:ppmF});
+    partes.push(-ppmF);
+  }
+  var aj=cuadre(sal,partes);
+  if(aj)filas.push({op:aj<0?'−':'+',txt:'Ajustes del motor',sub:'Diferencia entre el saldo del motor y la suma de las filas (redondeo o componente no expuesto)',n:Math.abs(aj),cls:'aj'});
+  var dev=sal!=null&&sal<0;
+  filas.push({op:'=',txt:dev?'Devolución estimada en abril':'Saldo a pagar en abril',sub:S.caso?'Año tributario '+S.caso.anio_tributario:'',k:'forecast.saldo_abril',n:dev?-sal:sal,cls:'fin'+(dev?' dev':'')});
+  return {filas:filas,aj:aj,dev:dev,baseNeg:base!=null&&base<0,
+    baseDif:(tI.base!=null&&base!=null&&Number(tI.base)!==Math.round(base))?Number(tI.base):null};
+}
+function liquidacionE14(){
+  if(!o('sim.e14.idpc')&&!o('sim.e14.deduccion')&&!o('sim.e14.saldo_abril'))return null;
+  var base=v('forecast.f22.1440'), ded=v('sim.e14.deduccion'), i14=v('sim.e14.idpc'), ppmF=v('forecast.ppm.imputable'), s14=v('sim.e14.saldo_abril'), idF=v('forecast.idpc');
+  var tasa=tasaNum((S.T['forecast.idpc']||{}).tasa), dev=s14!=null&&s14<0;
+  var filas=[{op:'',txt:'Base imponible proyectada',sub:'Código 1440',k:'forecast.f22.1440',n:base},
+    {op:'−',txt:'Deducción 14 E (rebaja 1432)',sub:'Sobre la renta que queda invertida, con tope en UF',k:'sim.e14.deduccion',n:ded},
+    {op:'=',txt:'Base imponible con incentivo',n:(base!=null&&ded!=null)?Math.max(base-ded,0):null,cls:'tot'},
+    {op:'×',txt:'Tasa de Primera Categoría',txt2:tasa||null},
+    {op:'=',txt:'IDPC con incentivo',k:'sim.e14.idpc',n:i14,cls:'tot'},
+    {op:'−',txt:'PPM del año',sub:'Pagados al corte + por pagar hasta diciembre',k:'forecast.ppm.imputable',n:ppmF}];
+  var aj=cuadre(s14,[i14,ppmF==null?null:-ppmF]);
+  if(aj)filas.push({op:aj<0?'−':'+',txt:'Ajustes del motor',sub:'Diferencia entre el saldo simulado del motor y la suma de las filas',n:Math.abs(aj),cls:'aj'});
+  filas.push({op:'=',txt:dev?'Devolución estimada con incentivo':'Saldo de abril con incentivo',k:'sim.e14.saldo_abril',n:dev?-s14:s14,cls:'fin'+(dev?' dev':'')});
+  return {filas:filas,aj:aj,ahorro:(idF!=null&&i14!=null)?idF-i14:null};
+}
+function filasLiqHtml(filas,conDet){
+  return filas.map(function(f){
+    var val=f.gris?'<span class="nd">No considerados</span>':f.txt2!==undefined?(f.txt2==null?'<span class="nd">No disponible</span>':'<b class="liq-tasa">'+esc(f.txt2)+'</b>')
+      :(conDet&&f.k?det(f.k,clp(f.n)):clp(f.n));
+    return '<tr class="'+(f.cls||'')+(f.gris?' gris':'')+'"><td class="op">'+esc(f.op)+'</td><td><span class="liq-t">'+esc(f.txt)+'</span>'+(f.sub?'<small>'+esc(f.sub)+'</small>':'')+'</td><td class="num">'+val+'</td></tr>';}).join('');
+}
+function notaCuadre(aj,fuente){
+  return aj===null?'<p class="nota">'+I('info','ic-amb')+' No se puede verificar el cuadre: falta un dato del motor (se muestra como "No disponible", nunca como $0).</p>'
+    :aj===0?'<p class="nota liq-ok">'+I('check','ic-ver')+' Cuadra exactamente con '+fuente+' calculado por el motor.</p>'
+    :'<p class="nota t-ambar">'+I('alerta','ic-amb')+' Las filas no suman exactamente '+fuente+' del motor: la diferencia ('+clpT(aj)+') se muestra como "Ajustes del motor".</p>';
+}
+function cardLiquidacion(){
+  if(S.caso&&S.caso.regimen==='14D8')return '<div class="card mrp-liq acc-RLI"><div class="h"><h2>Cómo se calcula <span>tu impuesto</span></h2></div>'
+    +'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente (14 D N°8):</b> la empresa no paga impuesto de primera categoría; la base imponible se atribuye a los socios según su porcentaje. La distribución a los socios estará disponible en la siguiente etapa.</span></div></div>';
+  var L=liquidacion(), E=liquidacionE14();
+  var h='<div class="card mrp-liq acc-RLI"><div class="h"><h2>Cómo se calcula <span>tu impuesto</span></h2><span class="estado preliminar">Preliminar</span></div>'
+    +'<div class="liq-g'+(E?'':' solo')+'"><div><div class="tabla-box"><table class="cmp liq-t1"><tbody>'+filasLiqHtml(L.filas,true)+'</tbody></table></div>'
+    +notaCuadre(L.aj,'el saldo de abril')
+    +(L.baseNeg?'<p class="nota">La base imponible proyectada es negativa (pérdida): el motor no calcula impuesto sobre una base negativa.</p>':'')
+    +(L.baseDif!=null?'<p class="nota t-ambar">El motor multiplicó la tasa por una base de '+clpT(L.baseDif)+', distinta del código 1440 mostrado. Revisar en Técnica.</p>':'')
+    +'<p class="nota">El crédito asignado a los retiros (SAC) no rebaja este impuesto: lo usan los socios en su declaración personal. Se ve en Determinación y registros.</p></div>';
+  if(E)h+='<div class="liq-e14"><div class="liq-e14-h"><span class="estado lila">Simulación</span><b>Con incentivo al ahorro · Art. 14 E</b><small>Dejar invertidas las utilidades del año (sin más retiros). No está aplicado en la proyección.</small></div>'
+    +'<div class="tabla-box"><table class="cmp liq-t1"><tbody>'+filasLiqHtml(E.filas,true)+'</tbody></table></div>'
+    +(E.ahorro!=null?'<div class="aviso verde">'+I('hucha','ic-ver')+'<span>Menor impuesto estimado frente a la Base: <b>'+clpT(E.ahorro)+'</b>. Requisitos y efectos en los socios por certificar.</span></div>':'')
+    +notaCuadre(E.aj,'el saldo simulado')+'<button type="button" class="link" data-sec="escenarios">Ver en Escenarios →</button></div>';
+  return h+'</div></div>';
+}
+/* Versión de la hoja ejecutiva (texto plano, mismas filas) */
+function liqHoja(){
+  if(S.caso&&S.caso.regimen==='14D8')return '<h2>¿Cómo se calcula tu impuesto?</h2><p>Régimen transparente (14 D N°8): la distribución a los socios estará disponible en la siguiente etapa.</p>';
+  var L=liquidacion(), E=liquidacionE14();
+  function filas(fs){return fs.map(function(f){var val=f.gris?'No considerados':f.txt2!==undefined?(f.txt2||'No disponible'):clpT(f.n);
+    return '<tr class="'+(f.cls||'')+(f.gris?' gris':'')+'"><td class="op">'+esc(f.op)+'</td><td>'+esc(f.txt)+(f.sub?'<span>'+esc(f.sub)+'</span>':'')+'</td><td class="num">'+esc(val)+'</td></tr>';}).join('');}
+  var cq=function(aj){return aj===null?'Cuadre no verificable: falta un dato del motor.':aj===0?'Cuadra exactamente con el saldo del motor.':'Diferencia con el motor mostrada como "Ajustes del motor": '+clpT(aj)+'.';};
+  return '<h2>¿Cómo se calcula tu impuesto?</h2><div class="ej-liq-g'+(E?'':' solo')+'"><div><table class="ej-liq"><tbody>'+filas(L.filas)+'</tbody></table><p class="ej-cq">'+esc(cq(L.aj))+' Los créditos contra el impuesto no están considerados en esta proyección.</p></div>'
+    +(E?'<div class="ej-liq-e14"><div class="ej-liq-h"><b>Con incentivo al ahorro (14 E)</b><em>SIMULACIÓN</em></div><table class="ej-liq"><tbody>'+filas(E.filas)+'</tbody></table><p class="ej-cq">Ahorro estimado: <b>'+esc(clpT(E.ahorro))+'</b>. No aplicado; exige no retirar más utilidades este año.</p></div>':'')+'</div>';
 }
 function tasaTxt(){var t=S.T['forecast.idpc'];return t&&t.tasa!=null?'Tasa '+String(t.tasa).replace('.',',')+' % según regla activa':'Tasa según regla activa';}
 function clpSaldoT(n){return n!=null&&n<0?'Devolución '+clpT(-n):clpT(n);}
@@ -688,8 +784,9 @@ function hojaEjecutiva(){
     +'<div class="ej-cli"><b>'+esc(nombreCaso(S.caso))+'</b><span>Año comercial '+S.caso.anio_comercial+' · Año tributario '+S.caso.anio_tributario+'</span><span>Contabilidad al '+fFecha(corte())+' · emitido '+fFecha(new Date().toISOString())+'</span></div></div>'
     +'<div class="ej-hero"><div><small>'+(dev?'Devolución estimada en abril ':'Saldo estimado a pagar en abril ')+S.caso.anio_tributario+'</small><b'+(dev?' class="ej-dev"':'')+'>'+clpT(dev?Math.abs(sal):sal)+'</b><p>Impuesto proyectado menos PPM del año, si la situación se mantiene.</p></div>'
     +'<div class="ej-kpis"><div><small>Impuesto proyectado</small><b>'+clpT(idF)+'</b></div><div><small>PPM del año</small><b>'+clpT(ppmF)+'</b></div><div><small>Cobertura con PPM</small><b class="'+(cob!=null&&cob<UMBRAL.COB_VERDE?'ej-ambar':'')+'">'+pctTxt(cob)+'</b></div><div><small>Renta líquida imponible</small><b>'+clpT(v('forecast.f22.1729'))+'</b></div></div></div>'
+    +liqHoja()
     +'<h2>¿Qué está pasando?</h2><ul class="ej-lista">'+pasa.map(function(p){return '<li>'+esc(p)+'</li>';}).join('')+'</ul>'
-    +'<h2>Opciones para conversar</h2><table class="ej-tabla"><thead><tr><th>Opción</th><th>Impuesto</th><th>Saldo en abril</th></tr></thead><tbody>'
+    +'<h2 class="ej-salto">Opciones para conversar</h2><table class="ej-tabla"><thead><tr><th>Opción</th><th>Impuesto</th><th>Saldo en abril</th></tr></thead><tbody>'
     +'<tr><td><b>Seguir igual</b><br><span>Proyección actual, sin decisiones nuevas.</span></td><td>'+clpT(idF)+'</td><td>'+clpSaldoT(sal)+'</td></tr>'
     +'<tr class="ej-dest"><td><b>Incentivo al ahorro (art. 14 E)</b><br><span>Dejar invertidas las utilidades; no retirar más este año.</span></td><td>'+clpT(v('sim.e14.idpc'))+'</td><td>'+clpSaldoT(s14)+'</td></tr>'
     +'<tr><td><b>PPM voluntario</b><br><span>'+clpT(cuota)+' al mes durante '+(12-m)+' meses (anticipa el pago, no lo reduce).</span></td><td>'+clpT(idF)+'</td><td>'+(cuota!=null?'$0':'No disponible')+'</td></tr></tbody></table>'
@@ -914,6 +1011,7 @@ function filasVisibles(){
   var C=S.cart, q=C.q.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   var r=C.filas.filter(function(f){
     if(C.mis&&f.resp_id!==(S.yo&&S.yo.id))return false;
+    if(!window.GEquipo.pasa(f,C.resp))return false;
     if(q&&(f.nombre+' '+f.resp).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').indexOf(q)<0)return false;
     switch(C.filtro){
       case 'rojo':return f.prio==='rojo';
@@ -956,9 +1054,14 @@ function renderCartera(){
     app(h+(t==='MOTOR_NO_INSTALADO'?'<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>El motor de proyección no está disponible en este ambiente. La cartera se mostrará cuando esté instalado.</span></div>'
       :'<div class="aviso rojo fuerte">'+I('alerta','ic-roj')+'<span>'+t+'</span> <button type="button" class="btn sec chico" data-act="recargar">Reintentar</button></div>'));return;}
   if(C.cargando){app(h+'<div class="aviso lila"><span class="mrp-spin"></span>Cargando la cartera de renta…</div>');return;}
+  // Filtro por responsable: opciones = analistas presentes (respetando "Mis clientes"); contador = clientes en la vista (estado y Mis clientes, sin la búsqueda)
+  var EQ=window.GEquipo, base=C.filas.filter(function(f){return !C.mis||f.resp_id===(S.yo&&S.yo.id);});
+  var rOpts=EQ.opciones(base,function(f){var g=C.resp;C.resp=EQ.TODOS;var ok=filtroUno(f);C.resp=g;return ok;});
+  if(C.resp!==EQ.TODOS&&!rOpts.some(function(x){return x.clave===C.resp;})){C.resp=EQ.TODOS;urlEstado();}
+  var rTot=rOpts.reduce(function(s,x){return s+x.n;},0), rNom=EQ.nombreDe(rOpts,C.resp);
   var fs=filasVisibles(), t=totalesCartera(fs), sinDato=t.sinSaldo?' · '+t.sinSaldo+' sin dato':'', pend=C.filas.some(function(f){return f.corrida&&!f.vig;});
   h+='<section class="mrc-tot" aria-label="Totales de la cartera">'
-    +'<div class="mrc-k"><small>Clientes</small><b>'+t.n.toLocaleString('es-CL')+'</b><span>'+t.proy.toLocaleString('es-CL')+' con proyección</span></div>'
+    +'<div class="mrc-k"><small>Clientes</small><b>'+t.n.toLocaleString('es-CL')+'</b><span>'+t.proy.toLocaleString('es-CL')+' con proyección'+(rNom?' · de '+esc(rNom):'')+'</span></div>'
     +'<div class="mrc-k rojo"><small>En rojo</small><b>'+t.rojo.toLocaleString('es-CL')+'</b><span>para revisar primero</span></div>'
     +'<div class="mrc-k ambar"><small>Aperturas pendientes</small><b>'+t.apPend.toLocaleString('es-CL')+'</b><span>contable o tributaria</span></div>'
     +'<div class="mrc-k"><small>Impuesto total a pagar en abril</small><b>'+(t.nSaldo?clpT(t.pagar):'No disponible')+'</b><span>suma de saldos a pagar proyectados'+sinDato+'</span></div>'
@@ -967,6 +1070,7 @@ function renderCartera(){
     +'</section>';
   h+='<div class="mrc-filtros"><label class="mrc-buscar"><span class="sr">Buscar cliente o responsable</span>'+I('lupa','ic-cel')+'<input type="search" id="mrcBuscar" placeholder="Buscar cliente o responsable…" value="'+esc(C.q)+'" autocomplete="off"></label>'
     +(S.yo&&S.yo.es_master?'<div class="g-seg mrc-seg" role="group" aria-label="Clientes"><button type="button" class="fb'+(C.mis?' on':'')+'" aria-pressed="'+C.mis+'" data-mis="1">Mis clientes</button><button type="button" class="fb'+(!C.mis?' on':'')+'" aria-pressed="'+!C.mis+'" data-mis="0">Todos</button></div>':'')
+    +(rOpts.length?EQ.filtroHtml(rOpts,C.resp,rTot):'')
     +'<div class="g-seg mrc-seg" role="group" aria-label="Filtrar">'+FILTROS.map(function(x){var n=x[0]==='todos'?null:C.filas.filter(function(f){var g=C.filtro;C.filtro=x[0];var ok=filtroUno(f);C.filtro=g;return ok;}).length;
       return '<button type="button" class="fb'+(C.filtro===x[0]?' on':'')+'" aria-pressed="'+(C.filtro===x[0])+'" data-filtro="'+x[0]+'">'+esc(x[1])+(n!=null?' <b>'+n+'</b>':'')+'</button>';}).join('')+'</div>'
     +'<label class="mrc-orden"><span>Orden</span><select id="mrcOrden">'+ORDENES.map(function(x){return '<option value="'+x[0]+'"'+(C.orden===x[0]?' selected':'')+'>'+esc(x[1])+'</option>';}).join('')+'</select></label>'
@@ -981,6 +1085,7 @@ function renderCartera(){
 }
 function filtroUno(f){
   var C=S.cart;if(C.mis&&f.resp_id!==(S.yo&&S.yo.id))return false;
+  if(!window.GEquipo.pasa(f,C.resp))return false;
   switch(C.filtro){case 'rojo':return f.prio==='rojo';case 'cobbaja':return f.cob!=null&&f.cob<UMBRAL.COB_ROJO;case 'apertura':return f.apertura==='PENDIENTE';case 'desact':return f.vig==='DESACTUALIZADA';case 'sinproy':return !f.corrida;}
   return true;
 }
@@ -1001,7 +1106,7 @@ function filaCartera(f){
   return '<tr class="mrc-fila p-'+sem[0]+'">'
     +'<td data-l="Cliente"><div class="mrc-cli"><span class="mrc-sem '+sem[0]+'" title="'+esc(f.motivos.join(' · '))+'"><i aria-hidden="true"></i>'+sem[1]+'</span><b>'+esc(f.nombre)+'</b>'
       +(f.motivos.length?'<small class="mrc-mot">'+esc(f.motivos.join(' · '))+'</small>':'')+(f.sug?'<small class="mrc-sug">'+I('info','ic-cel')+esc(f.sug)+'</small>':'')+'<span class="estado preliminar mini">Preliminar</span></div></td>'
-    +'<td data-l="Responsable">'+(f.resp?esc(f.resp):'<span class="nd">Sin asignar</span>')+'</td>'
+    +'<td data-l="Responsable">'+window.GEquipo.celda(f.resp)+'</td>'
     +'<td data-l="Última proyección"><div class="mrc-fecha">'+fecha+'</div></td>'
     +'<td data-l="Saldo en abril" class="num"><div class="mrc-saldo">'+saldo+'</div></td>'
     +'<td data-l="Cobertura del PPM">'+cob+'</td>'
@@ -1013,7 +1118,7 @@ function filaPorCliente(id){return S.cart.filas.filter(function(f){return f.clie
 function cartProyectar(id,pend){
   var f=filaPorCliente(id);if(!f)return;
   if(!f.caso)return modalInfo('Sin caso de renta · '+f.nombre,'<p>Este cliente todavía no tiene un caso de renta en MiRenta. Para proyectar se necesita crear el caso del año comercial y completar su apertura (contable y tributaria).</p>','<a class="btn" href="index.html">'+I('flecha-der')+'Ir a la apertura de MiRenta</a>');
-  if(f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>','');
+  if(f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>'+(f.caso.regimen==='14D8'?'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente:</b> la distribución a los socios estará disponible en la siguiente etapa.</span></div>':''),'');
   if(f.corrida||f.apertura==='LISTA')return abrirCaso(f.caso.id,pend);
   var puede=f.contOk;
   modalInfo('Falta completar la apertura · '+f.nombre,'<p>Antes de proyectar falta:</p><ul class="mrc-falta">'+f.falta.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'
@@ -1107,6 +1212,7 @@ document.addEventListener('click',function(e){
   var es=e.target.closest('[data-esc]');if(es){S.esc=es.getAttribute('data-esc');render();return;}
   var fl=e.target.closest('[data-filtro]');if(fl){S.cart.filtro=fl.getAttribute('data-filtro');renderCartera();return;}
   var mi=e.target.closest('[data-mis]');if(mi){S.cart.mis=mi.getAttribute('data-mis')==='1';renderCartera();return;}
+  var rp=e.target.closest('[data-resp]');if(rp){S.cart.resp=window.GEquipo.valida(rp.getAttribute('data-resp'));renderCartera();return;}
   if(e.target.closest('#mrcBorrador')){setTimeout(cerrarModal,300);return;}
   var a=e.target.closest('[data-act]');if(!a||a.disabled)return;
   var act=a.getAttribute('data-act');
@@ -1132,6 +1238,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('change',function(e){
   if(e.target.id==='mrCaso'){var id=+e.target.value;S.caso=S.casos.filter(function(c){return c.id===id;})[0];S.esc='base';cargarCaso();}
   else if(e.target.id==='mrcOrden'){S.cart.orden=e.target.value;renderCartera();}
+  else if(e.target.classList&&e.target.classList.contains('geq-sel-in')){S.cart.resp=window.GEquipo.valida(e.target.value);renderCartera();}
   else if(e.target.id==='mrDocDet'&&!$('mrDoc').hidden)abrirEjecutivo();
   else if(e.target.name==='mrcCanal'){var c=canalEnvio();
     document.querySelectorAll('.mrc-canal .fb').forEach(function(l){l.classList.toggle('on',l.querySelector('input').checked);});

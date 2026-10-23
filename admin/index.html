@@ -137,6 +137,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
   <div class="content">
     <div class="warn-box">⚠️ Esta sección solo está disponible para el usuario Master. Los cambios aquí afectan el acceso de todo el equipo al sistema.</div>
+    <!-- Carga masiva de claves: visible solo para el Master (la Edge carga-masiva-credenciales lo vuelve a exigir en el servidor). -->
+    <a id="lnkCargaClaves" class="btn-s btn-sm" href="carga-claves.html" style="display:none;margin-bottom:14px;text-decoration:none">🔑 Carga masiva de claves</a>
     <div id="listaUsuarios"></div>
   </div>
 </main>
@@ -339,6 +341,7 @@ function adminCargar(){
     _admIdent = null;
     var bn=document.getElementById('btnNuevoUsuario'); var sesB=window._contadoorSesion||getUsuario();
     if(bn) bn.style.display=(sesB&&sesB.esMaster===true)?'':'none';
+    var lk=document.getElementById('lnkCargaClaves'); if(lk) lk.style.display=(sesB&&sesB.esMaster===true)?'inline-flex':'none';
     renderUsuarios();
     var ses = window._contadoorSesion || getUsuario();
     if(ses && ses.esMaster === true){

@@ -1,0 +1,370 @@
+/* ============================================================
+   pre-iva/operativa.css — Pre-IVA · Pantalla 2 (el cálculo del cliente)
+   Misma línea que el detalle de MiRenta (pir/proyeccion.css) y la Cartera de Pre-IVA (pre-iva/cartera.css):
+   tema TODO OSCURO de Gestoor (gestoor.css · g-tema-noche), Montserrat en títulos e Inter en texto,
+   cifras con tabular-nums, tarjetas 20px con barra de color, chips de aviso y barras con degradado.
+   SOLO presentación: los ids que usa el cálculo (index.html) y las pruebas no cambian.
+   Todo va acotado a body.g-mod-pio para no tocar otros módulos.
+   ============================================================ */
+body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--lila2:#E39BE5;--borde:#4A2B50;--borde2:#7A4A82;
+  --t1:#F3E9F4;--t2:#C9A8CC;--t3:#8F6F94;--verde:#5FCF9C;--ambar:#FFC85A;--rojo:#E07A6E;--cel:#5CC8FF;--ama:#FFD24D;
+  --tit:"Montserrat",system-ui,sans-serif;--txt:"Inter",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+/* Shell (como los demás módulos; gestoor.css lo re-viste y maneja el menú en celular) */
+.layout{display:flex;min-height:100vh}
+.sidebar{display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0}
+.main{flex:1;min-height:100vh;min-width:0}
+.topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.content{padding:18px 28px 70px}
+.g-mod-pio .pio-app{display:flex;flex-direction:column;gap:16px;max-width:1240px;min-width:0}
+.g-mod-pio .pio-app *,.g-mod-pio #modal-edicion *,.g-mod-pio #modal-locales *{box-sizing:border-box}
+/* #panel-simulacion lo muestra el código con style.display="block": el espacio entre tarjetas va con margen, no con gap */
+.g-mod-pio .pio-sim{min-width:0}.g-mod-pio .pio-sim>*+*{margin-top:16px}
+/* Barra superior.
+   OJO (bug del 22-oct): auth.js y notifications.js insertan la insignia, "Salir" y la campana en .topbar con insertBefore.
+   Por eso h1.tb-title es hijo DIRECTO de .topbar y la barra no lleva ningún <button> (las acciones van en la tarjeta del cliente). */
+.g-mod-pio .pio-ico{width:40px;height:40px;border-radius:12px;flex:none;box-shadow:0 6px 18px rgba(128,56,137,.45)}
+.g-mod-pio .topbar>.tb-title{font:900 22px/1 var(--tit);color:#fff;margin:0}.g-mod-pio .topbar>.tb-title span{color:#C77BC9}
+.g-mod-pio .pio-sub{margin:0;font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;max-width:440px}
+.g-mod-pio .pio-sync{display:inline-flex;align-items:center;font:600 11.5px var(--txt);white-space:nowrap}
+.g-mod-pio .sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+/* Íconos con matices */
+.g-mod-pio .ic{display:inline-flex;align-items:center;justify-content:center;font-style:normal;line-height:0}
+.g-mod-pio .ic .g-ic{width:16px;height:16px}
+.g-mod-pio .ic-cel{color:var(--cel)}.g-mod-pio .ic-amb{color:var(--ambar)}.g-mod-pio .ic-ver{color:var(--verde)}.g-mod-pio .ic-ama{color:var(--ama)}
+.g-mod-pio .ic-mor{color:var(--lila2)}.g-mod-pio .ic-roj{color:var(--rojo)}
+/* Textos */
+.g-mod-pio .t2{color:var(--t2)}.g-mod-pio .t3{color:var(--t3)}
+.g-mod-pio .nd{color:var(--t3);font-weight:600;font-style:italic;font-size:.88em}
+.g-mod-pio .nota{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.5}
+/* Tarjetas, estados, avisos, botones (idénticos a MiRenta / Cartera) */
+.g-mod-pio .card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid rgba(74,43,80,.75);border-radius:20px;box-shadow:0 12px 30px rgba(0,0,0,.28);padding:0 20px 18px;min-width:0;color:var(--t1)}
+.g-mod-pio .card .h{display:flex;align-items:center;gap:10px;padding:16px 0 10px;flex-wrap:wrap}
+.g-mod-pio .card .h h2{position:relative;margin:0;padding-left:13px;font:800 17px/1.25 var(--tit);color:var(--t1)}
+.g-mod-pio .card .h h2::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:5px;border-radius:4px;background:var(--acc,var(--grad))}
+.g-mod-pio .card .h h2 span{color:var(--acc,var(--lila2))}
+.g-mod-pio .card .h>small{margin-left:auto;color:var(--t2);font-size:12px}
+.g-mod-pio .card[class*="acc-"]{border-top:3px solid var(--acc);background:linear-gradient(180deg,var(--acc-bg),rgba(26,14,31,.94) 55%)}
+.g-mod-pio .acc-F29{--acc:#C77BC9;--acc-bg:rgba(199,123,201,.14)}.g-mod-pio .acc-DAT{--acc:#5CC8FF;--acc-bg:rgba(92,200,255,.10)}
+.g-mod-pio .acc-ACC{--acc:#FFC85A;--acc-bg:rgba(255,200,90,.10)}.g-mod-pio .acc-HIS{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.10)}
+.g-mod-pio .estado{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font:700 11.5px var(--txt);white-space:nowrap}
+.g-mod-pio .estado.verde{background:rgba(95,207,156,.14);color:var(--verde)}.g-mod-pio .estado.lila{background:rgba(199,123,201,.18);color:var(--lila2)}
+.g-mod-pio .estado.ambar{background:rgba(255,200,90,.14);color:var(--ambar)}.g-mod-pio .estado.rojo{background:rgba(224,122,110,.15);color:var(--rojo)}
+.g-mod-pio .estado.gris{background:rgba(255,255,255,.06);color:var(--t2)}.g-mod-pio .estado.cel{background:rgba(92,200,255,.12);color:var(--cel)}
+.g-mod-pio .aviso{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+.g-mod-pio .aviso>span{flex:1;min-width:200px}
+.g-mod-pio .aviso.ambar{background:rgba(255,200,90,.07);border:1px dashed rgba(255,200,90,.45);color:#F6DFA9}
+.g-mod-pio .aviso.rojo{background:rgba(224,122,110,.10);border:1px solid rgba(224,122,110,.5);color:#F5C2BB}
+.g-mod-pio .aviso.gris{background:rgba(255,255,255,.04);border:1px dashed var(--borde);color:var(--t2)}
+.g-mod-pio .aviso.lila{background:rgba(199,123,201,.10);border:1px solid rgba(199,123,201,.45);color:var(--lila2)}
+.g-mod-pio .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 18px;border-radius:999px;border:1.5px solid transparent;background:var(--grad);color:#fff;font:700 13px var(--txt);cursor:pointer;white-space:nowrap;text-decoration:none}
+.g-mod-pio .btn.sec{background:transparent;border-color:var(--lila);color:var(--t1)}.g-mod-pio .btn.chico{min-height:34px;padding:0 13px;font-size:12px}
+.g-mod-pio .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.g-mod-pio .btn.pri{box-shadow:0 8px 22px rgba(146,72,147,.35)}
+@media (hover:hover) and (pointer:fine){.g-mod-pio .btn:not(:disabled):hover{filter:brightness(1.12)}.g-mod-pio .btn.sec:not(:disabled):hover{background:rgba(199,123,201,.12)}}
+/* Chips de aviso (mismo estilo que los avisos del correo aprobado y de MiRenta) */
+.g-mod-pio .pio-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.g-mod-pio .chip{display:inline-flex;align-items:flex-start;gap:6px;padding:5px 11px;border-radius:999px;font:600 11.5px/1.4 var(--txt);max-width:100%}
+.g-mod-pio .chip .g-ic{width:13px;height:13px;flex:none;margin-top:2px}
+.g-mod-pio .chip.ambar{background:rgba(255,200,90,.10);border:1px solid rgba(255,200,90,.42);color:#F6DFA9}
+.g-mod-pio .chip.gris{background:rgba(255,255,255,.04);border:1px solid var(--borde);color:var(--t2);border-radius:14px}
+.g-mod-pio .chip.lila{background:rgba(199,123,201,.12);border:1px solid rgba(199,123,201,.45);color:var(--lila2)}
+.g-mod-pio .chip.verde{background:rgba(95,207,156,.10);border:1px solid rgba(95,207,156,.42);color:#BDEFD6}
+.g-mod-pio .chip.rojo{background:rgba(224,122,110,.10);border:1px solid rgba(224,122,110,.5);color:#F5C2BB}
+.g-mod-pio .chip[hidden],.g-mod-pio [hidden]{display:none!important}
+/* ── Navegación: volver, período, buscador ── */
+.g-mod-pio .pio-nav{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap}
+.g-mod-pio .pio-per{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(199,123,201,.16);color:var(--t1);font:800 13px var(--tit);white-space:nowrap}
+.g-mod-pio .pio-per .g-ic{width:15px;height:15px;color:var(--lila2)}
+.g-mod-pio .lbl-corte{font-size:12px;color:var(--t2)}
+.g-mod-pio .pio-buscar{position:relative;margin-left:auto;flex:0 1 300px;min-width:0}
+.g-mod-pio .pio-buscar .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--t3)}
+.g-mod-pio .pio-buscar input{width:100%;min-height:38px;padding:0 12px 0 36px;border-radius:999px;font:500 13.5px var(--txt)}
+.g-mod-pio #cliente-dropdown{position:absolute;top:100%;left:0;right:0;margin-top:6px;background:#1B0D20;border:1px solid var(--borde2);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.5);z-index:50;max-height:280px;overflow-y:auto}
+.g-mod-pio .cli-option{padding:9px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid rgba(74,43,80,.5);display:flex;align-items:center;gap:8px;color:var(--t1)}
+.g-mod-pio .cli-option:last-child{border-bottom:none}
+@media (hover:hover){.g-mod-pio .cli-option:hover{background:rgba(199,123,201,.12)}}
+.g-mod-pio .cli-option-nombre{font-weight:700;color:var(--t1)}.g-mod-pio .cli-option-rut{font-size:11px;color:var(--t3)}.g-mod-pio .cli-option-plan{font-size:10.5px;color:var(--lila2);margin-left:auto;font-weight:700}
+/* ── Tarjeta del cliente ── */
+.g-mod-pio .pio-cab{padding-top:16px}
+.g-mod-pio .pio-cli{display:flex;align-items:center;gap:12px;min-width:0}
+.g-mod-pio .pio-cli-ico{width:44px;height:44px;border-radius:14px;flex:none;display:grid;place-items:center;background:var(--grad);color:#fff;box-shadow:0 8px 20px rgba(128,56,137,.35)}
+.g-mod-pio .pio-cli-ico .g-ic{width:20px;height:20px}
+.g-mod-pio .pio-cli-n{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.g-mod-pio .pio-cli-n h2{margin:0;font:800 21px/1.2 var(--tit);color:var(--t1);overflow-wrap:anywhere}
+.g-mod-pio .pio-cli-n small{font-size:12.5px;color:var(--t2)}
+.g-mod-pio .pio-cli-n small b{font-weight:700;color:var(--t1)}
+.g-mod-pio #btn-limpiar-cliente{flex:none;width:36px;height:36px;border-radius:12px;border:1px solid var(--borde);background:transparent;color:var(--t2);font-size:20px;line-height:1;cursor:pointer}
+@media (hover:hover){.g-mod-pio #btn-limpiar-cliente:hover{border-color:var(--lila);color:#fff}}
+.g-mod-pio .pio-franja{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.g-mod-pio .pio-f{border:1px solid rgba(74,43,80,.6);border-radius:14px;background:rgba(255,255,255,.025);padding:10px 12px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.g-mod-pio .pio-f>small{font:700 10px var(--txt);letter-spacing:1px;text-transform:uppercase;color:var(--t2)}
+.g-mod-pio .pio-f>b{font:800 14px var(--tit);color:var(--t1)}
+.g-mod-pio .pio-f .estado{align-self:flex-start}
+.g-mod-pio .pio-f .pio-f-sub{font-size:11px;color:var(--t3);line-height:1.35}
+.g-mod-pio .pio-barra-acc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid rgba(74,43,80,.55)}
+.g-mod-pio .pio-acciones{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.g-mod-pio .est-guardado{display:inline-flex;align-items:center;gap:4px;font:700 11.5px var(--txt);padding:6px 12px;border-radius:999px;border:1px solid var(--borde);background:rgba(255,255,255,.04);color:var(--t2);max-width:520px;line-height:1.35}
+.g-mod-pio .est-ok{background:rgba(95,207,156,.10);border-color:rgba(95,207,156,.42);color:var(--verde)}
+.g-mod-pio .est-pendiente,.g-mod-pio .est-guardando{background:rgba(255,200,90,.08);border-color:rgba(255,200,90,.42);color:var(--ambar)}
+.g-mod-pio .est-error{background:rgba(224,122,110,.10);border-color:rgba(224,122,110,.5);color:#F5C2BB}
+.g-mod-pio .est-error button{margin-left:6px;background:var(--rojo);color:#1A0A1B;border:none;border-radius:999px;padding:3px 10px;font:700 10.5px var(--txt);cursor:pointer}
+.g-mod-pio #btn-volver-nomina{display:none}
+/* ── KPIs (como los de MiRenta: el F29 destacado, el resto con su color) ── */
+.g-mod-pio .pio-kpis{display:grid;grid-template-columns:1.5fr repeat(3,minmax(0,1fr));gap:14px}
+.g-mod-pio .kpi{border-radius:20px;padding:16px 18px;border:1px solid var(--borde);border-top:3px solid var(--acc,var(--borde));background:linear-gradient(180deg,var(--acc-bg,rgba(255,255,255,.03)),rgba(26,14,31,.94) 70%);min-width:0}
+.g-mod-pio .kpi small{display:block;font:700 10.5px var(--txt);letter-spacing:1.2px;text-transform:uppercase;color:var(--t2)}
+.g-mod-pio .kpi .kv{display:block;font:900 26px/1.15 var(--tit);margin:6px 0 4px;color:var(--t1);overflow-wrap:anywhere}
+.g-mod-pio .kpi p{margin:0;font-size:12px;color:var(--t3);line-height:1.45}
+.g-mod-pio .kpi.k-iva{--acc:#FFC85A;--acc-bg:rgba(255,200,90,.10)}.g-mod-pio .kpi.k-iva .kv{color:#F2C76B}
+.g-mod-pio .kpi.k-ppm{--acc:#5CC8FF;--acc-bg:rgba(92,200,255,.10)}.g-mod-pio .kpi.k-ppm .kv{color:#8FDBFF}
+.g-mod-pio .kpi.k-rem{--acc:#5FCF9C;--acc-bg:rgba(95,207,156,.10)}.g-mod-pio .kpi.k-rem .kv{color:var(--verde)}
+.g-mod-pio .kpi.hero{border:0;background:linear-gradient(135deg,#8E2F55 0%,#6E2A6F 60%,#3B1640 100%);box-shadow:0 16px 36px rgba(142,47,85,.35)}
+.g-mod-pio .kpi.hero small{color:rgba(255,255,255,.85)}.g-mod-pio .kpi.hero .kv{font-size:38px;color:#fff}.g-mod-pio .kpi.hero p{color:rgba(255,255,255,.85);font-size:13px}
+.g-mod-pio .kpi.hero p b{font-weight:800;color:#fff}
+.g-mod-pio .kpi.hero #kpi-var{color:#fff!important;font-weight:800}
+.g-mod-pio .kpi .nd-alt{display:none;font:800 20px/1.3 var(--tit);color:var(--t2);font-style:italic;margin:8px 0 6px}
+.g-mod-pio .kpi.hero .nd-alt{color:rgba(255,255,255,.88);font-size:24px}
+/* "No disponible" nunca $0: sin datos de entrada o con montos inválidos se oculta la cifra (el texto calculado sigue en el DOM) */
+.g-mod-pio .pio-sin-dato .kpi .kv,.g-mod-pio .kpi.sin-tasa .kv{display:none}
+.g-mod-pio .pio-sin-dato .kpi .nd-alt,.g-mod-pio .kpi.sin-tasa .nd-alt{display:block}
+.g-mod-pio .pio-sin-dato .kpi .p-dato,.g-mod-pio .kpi.sin-tasa .p-dato{display:none}
+.g-mod-pio .kpi .p-nd{display:none}
+.g-mod-pio .pio-sin-dato .kpi .p-nd,.g-mod-pio .kpi.sin-tasa .p-nd{display:block}
+/* ── Avance del mes (barra con degradado y brillo, como la cobertura de MiRenta) ── */
+.g-mod-pio .pio-av{padding:14px 20px 16px}
+.g-mod-pio .pio-av-txt{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-size:13px;color:var(--t2)}
+.g-mod-pio .pio-av-txt b{font:800 15px var(--tit);color:var(--t1)}
+.g-mod-pio .pio-av-txt .der{margin-left:auto}
+.g-mod-pio .pio-av-barra{position:relative;height:14px;border-radius:999px;margin-top:10px;background:rgba(8,3,10,.45);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 2px rgba(0,0,0,.45)}
+.g-mod-pio .pio-av-barra i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,#803889,#A4599C 55%,#E39BE5);box-shadow:0 0 10px rgba(199,123,201,.4);transform-origin:left center;transition:width .5s cubic-bezier(.22,1,.36,1)}
+.g-mod-pio .pio-av-barra i::after{content:"";position:absolute;left:4px;right:4px;top:2px;height:42%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0))}
+.g-mod-pio .pio-av-barra.cerrado i{background:linear-gradient(90deg,#3FAF7E,#5FCF9C 70%,#9BEBC4);box-shadow:0 0 10px rgba(95,207,156,.4)}
+@media (prefers-reduced-motion:reduce){.g-mod-pio .pio-av-barra i{transition:none}}
+/* ── Dos columnas: liquidación + datos del mes ── */
+.g-mod-pio .pio-g2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
+/* "Cómo se calcula tu F29" (formato liquidación, igual que "Cómo se calcula tu impuesto" de MiRenta) */
+.g-mod-pio .tabla-box{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.g-mod-pio table.liq{width:100%;border-collapse:collapse;font-size:13px}
+.g-mod-pio table.liq td{padding:10px 8px;border-bottom:1px solid rgba(74,43,80,.42);color:var(--t1);vertical-align:middle}
+.g-mod-pio table.liq td.op{width:26px;padding-right:0;text-align:center;font:900 17px/1 var(--tit);color:var(--lila2)}
+.g-mod-pio table.liq .liq-t{color:var(--t1);font-weight:600}
+.g-mod-pio table.liq td small{display:block;margin-top:2px;color:var(--t3);font-size:11.5px;line-height:1.4}
+.g-mod-pio table.liq td.num{text-align:right;white-space:nowrap;font:800 14px var(--tit)}
+.g-mod-pio table.liq tr.tot td{border-top:1px solid var(--borde2);background:rgba(199,123,201,.06)}
+.g-mod-pio table.liq tr.tot .liq-t{font-weight:800}
+.g-mod-pio table.liq tr.fin td{border-top:2px solid var(--lila);border-bottom:0;background:rgba(199,123,201,.12)}
+.g-mod-pio table.liq tr.fin .liq-t{font:800 15px var(--tit)}
+.g-mod-pio table.liq tr.fin td.num{font:900 20px var(--tit);color:var(--lila2)}
+.g-mod-pio table.liq tr.fin td:first-child{border-bottom-left-radius:14px}.g-mod-pio table.liq tr.fin td:last-child{border-bottom-right-radius:14px}
+.g-mod-pio table.liq .mini{display:block;height:5px;margin-top:6px;border-radius:999px;background:rgba(8,3,10,.45);overflow:hidden;max-width:220px}
+.g-mod-pio table.liq .mini i{display:block;height:100%;border-radius:999px;transition:width .4s}
+.g-mod-pio #bar-debito{background:linear-gradient(90deg,#A4599C,#E39BE5)!important}
+.g-mod-pio #bar-credito{background:linear-gradient(90deg,#3FAF7E,#5FCF9C)!important}
+.g-mod-pio table.liq .nd-alt{display:none;font:600 12.5px var(--txt);font-style:italic;color:var(--t3)}
+.g-mod-pio .pio-sin-dato table.liq tr.sd .num>[id],.g-mod-pio table.liq tr.sin-tasa .num>[id]{display:none}
+.g-mod-pio .pio-sin-dato table.liq tr.sd .nd-alt,.g-mod-pio table.liq tr.sin-tasa .nd-alt{display:inline}
+
+.g-mod-pio #res-ppm-aviso{margin:0}
+.g-mod-pio #res-f29-alcance{margin:0}
+/* Datos del mes: libros + campos */
+.g-mod-pio .pio-sub-t{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font:800 12.5px var(--tit);color:var(--lila2);letter-spacing:.2px}
+.g-mod-pio .pio-libros{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g-mod-pio .pio-libro{position:relative;border:1.5px dashed var(--borde2);border-radius:16px;padding:12px;background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:6px;min-width:0}
+.g-mod-pio .pio-libro>b{display:flex;align-items:center;gap:7px;font:700 13px var(--txt);color:var(--t1)}
+.g-mod-pio .pio-libro input[type=file]{width:100%;min-width:0;font-size:11.5px;color:var(--t2);padding:4px;border-radius:10px}
+.g-mod-pio .pio-libro input[type=file]::file-selector-button{margin-right:8px;border:1.5px solid var(--lila);background:transparent;color:var(--t1);border-radius:999px;padding:5px 12px;font:700 11.5px var(--txt);cursor:pointer}
+.g-mod-pio .pio-libro-lbl{font-size:11.5px;color:var(--t3);line-height:1.4;overflow-wrap:anywhere}
+.g-mod-pio .pio-libro-desg{font-size:10.5px;color:var(--t3)}
+.g-mod-pio .remanente-info{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;margin:12px 0 4px;padding:10px 14px;border-radius:14px;background:rgba(95,207,156,.07);border:1px solid rgba(95,207,156,.32);font-size:12.5px;color:var(--t2)}
+.g-mod-pio .remanente-info strong{color:var(--t1)}
+.g-mod-pio .remanente-val{font:800 14px var(--tit);color:var(--verde)}
+.g-mod-pio .pio-campos{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.g-mod-pio .pio-campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.g-mod-pio .pio-campo>span{font:700 10.5px var(--txt);letter-spacing:.8px;text-transform:uppercase;color:var(--t2)}
+.g-mod-pio .pio-campo>span em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500;color:var(--t3)}
+.g-mod-pio .inp-field{width:100%;min-height:40px;padding:0 12px;border-radius:12px;font:700 14px var(--tit);font-variant-numeric:tabular-nums}
+.g-mod-pio .inp-field[aria-invalid="true"]{border-color:#E07A6E!important;box-shadow:0 0 0 3px rgba(224,122,110,.22);background:rgba(224,122,110,.08)}
+.g-mod-pio #aviso-entradas{margin-top:10px}
+/* ── Acciones sugeridas: tarjetas en voz Contadoor ── */
+.g-mod-pio #acciones-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.g-mod-pio .accion{position:relative;border:1px solid rgba(74,43,80,.7);border-radius:16px;padding:14px 14px 14px 58px;background:rgba(255,255,255,.03);min-width:0}
+.g-mod-pio .accion::before{content:"";position:absolute;left:14px;top:14px;width:32px;height:32px;border-radius:10px;background:var(--a-bg)}
+.g-mod-pio .accion::after{content:"";position:absolute;left:22px;top:22px;width:16px;height:16px;background:var(--a-c);-webkit-mask:var(--a-ic) center/contain no-repeat;mask:var(--a-ic) center/contain no-repeat}
+.g-mod-pio .accion.verde{--a-c:#5FCF9C;--a-bg:rgba(95,207,156,.14);--a-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='21' r='1'/%3E%3Ccircle cx='19' cy='21' r='1'/%3E%3Cpath d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12'/%3E%3C/svg%3E")}
+.g-mod-pio .accion.amarillo{--a-c:#FFC85A;--a-bg:rgba(255,200,90,.14);--a-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect width='18' height='18' x='3' y='4' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E")}
+.g-mod-pio .accion.morado{--a-c:#E39BE5;--a-bg:rgba(199,123,201,.16);--a-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='M16 13H8'/%3E%3Cpath d='M16 17H8'/%3E%3C/svg%3E")}
+.g-mod-pio .ac-titulo{font:800 14px/1.3 var(--tit);color:var(--t1);margin-bottom:4px}
+.g-mod-pio .ac-desc{font-size:12.5px;color:var(--t2);line-height:1.5;margin-bottom:6px}
+.g-mod-pio .ac-monto{font:700 12.5px var(--txt);color:var(--a-c)}
+/* Historial y nómina (las filas las dibuja el código existente con variables de color: aquí solo el marco) */
+.g-mod-pio #historial-envios>div{border-bottom-color:rgba(74,43,80,.45)!important;font-size:12.5px!important;padding:9px 0!important}
+.g-mod-pio .pio-nom{padding-bottom:0}
+.g-mod-pio .pio-nom>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;font:800 15px var(--tit);color:var(--t1)}
+.g-mod-pio .pio-nom>summary::-webkit-details-marker{display:none}
+.g-mod-pio .pio-nom>summary small{font:500 12px var(--txt);color:var(--t2)}
+.g-mod-pio .pio-chev{margin-left:auto;width:9px;height:9px;flex:none;border-right:2px solid var(--lila2);border-bottom:2px solid var(--lila2);transform:rotate(-45deg);transition:transform .2s}
+.g-mod-pio .pio-nom[open]>summary .pio-chev{transform:rotate(45deg)}
+.g-mod-pio .pio-nom-cuerpo{padding-bottom:18px}
+.g-mod-pio .pio-nom-fil{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.g-mod-pio .pio-nom-fil input{flex:1 1 220px;min-width:0;min-height:38px;padding:0 14px;border-radius:999px;font:500 13px var(--txt)}
+.g-mod-pio #nomina-preiva table{min-width:560px}
+.g-mod-pio #nomina-preiva{overflow-x:auto}
+.g-mod-pio #nomina-preiva [style*="#e8f5f0"]{background:rgba(95,207,156,.14)!important}
+.g-mod-pio #nomina-preiva [style*="#fef9ec"]{background:rgba(255,200,90,.14)!important}
+.g-mod-pio #nomina-preiva [style*="#f5eaf5"]{background:rgba(199,123,201,.18)!important}
+.g-mod-pio .banner-loc{background:rgba(255,200,90,.07);border:1px dashed rgba(255,200,90,.45);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#F6DFA9;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.g-mod-pio .banner-err{background:rgba(224,122,110,.10);border:1px solid rgba(224,122,110,.5);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#F5C2BB}
+.g-mod-pio .btn-generar,.g-mod-pio .btn-calcular{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;font:700 12.5px var(--txt);cursor:pointer;white-space:nowrap}
+.g-mod-pio .btn-generar{background:var(--grad);border:1.5px solid transparent;color:#fff}
+.g-mod-pio .btn-calcular{background:transparent;border:1.5px solid var(--lila);color:var(--t1)}
+.g-mod-pio .btn-generar:disabled,.g-mod-pio .btn-calcular:disabled{opacity:.45;cursor:not-allowed}
+.g-mod-pio .mig-item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(74,43,80,.45);font-size:12.5px;color:var(--t1)}
+.g-mod-pio .mig-item:last-child{border-bottom:none}
+.g-mod-pio .mig-motivo{font-size:11.5px;margin-top:2px}
+.g-mod-pio .mig-res{font-size:11.5px;font-weight:700;margin-left:auto;white-space:nowrap}
+/* Ventanas "Editar reporte" y "Subir datos del navegador": formularios de Gestoor en oscuro (las arma el código existente) */
+.g-mod-pio #modal-edicion,.g-mod-pio #modal-locales{background:rgba(12,7,14,.72)!important;backdrop-filter:blur(4px)}
+.g-mod-pio #modal-edicion>div,.g-mod-pio #modal-locales>div{background:linear-gradient(180deg,#221027,#170A1B)!important;border:1px solid var(--borde);border-radius:24px!important;box-shadow:0 30px 80px rgba(0,0,0,.6)!important;color:var(--t1)}
+.g-mod-pio #modal-edicion>div>div:first-child>div:first-child{font:800 17px var(--tit)!important;color:var(--t1)!important}
+.g-mod-pio #modal-edicion>div>div:last-child,.g-mod-pio #modal-locales>div>div:last-child{background:transparent!important}
+.g-mod-pio #modal-edicion select.inp-field{font:600 12.5px var(--txt)}
+.g-mod-pio #modal-edicion input.ac-titulo,.g-mod-pio #modal-edicion input.ac-desc,.g-mod-pio #modal-edicion input.ac-monto{font:500 13px var(--txt)}
+.g-mod-pio #modal-edicion #ed-btn-guardar{border-radius:999px!important;background:var(--grad)!important;min-height:40px;padding:0 18px!important}
+.g-mod-pio #modal-edicion #ed-btn-cancelar{border-radius:999px!important;border-color:var(--lila)!important;color:var(--t1)!important;min-height:40px}
+.g-mod-pio #modal-edicion #ed-btn-restablecer{border-radius:999px!important;background:rgba(224,122,110,.16)!important;color:var(--rojo)!important;min-height:40px}
+.g-mod-pio #modal-edicion #ed-errores,.g-mod-pio #modal-edicion .ed-btn-elim,.g-mod-pio #modal-edicion .ed-rm-btn{background:rgba(224,122,110,.12)!important;color:#F5C2BB!important;border-color:rgba(224,122,110,.5)!important}
+.g-mod-pio #modal-edicion label strong{color:var(--t1)}
+/* Vacío (sin cliente abierto) */
+.g-mod-pio #panel-empty{flex-direction:column;align-items:center;text-align:center;gap:10px;padding:46px 20px}
+.g-mod-pio #panel-empty .pio-cli-ico{width:56px;height:56px;border-radius:18px}
+.g-mod-pio #panel-empty b{font:800 18px var(--tit);color:var(--t1)}
+.g-mod-pio #panel-empty p{margin:0;color:var(--t2);font-size:13.5px;max-width:460px;line-height:1.55}
+/* ── Demo local ── */
+.g-mod-pio .pio-demo{padding:6px 12px;border-radius:999px;border:1px dashed var(--borde2);background:rgba(92,200,255,.10);color:var(--cel);font:800 11px var(--txt);letter-spacing:1px;white-space:nowrap}
+/* ── Sincronización con el SII ── */
+.g-mod-pio .pio-sii{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border-radius:14px;border:1px solid rgba(92,200,255,.28);background:rgba(92,200,255,.06)}
+.g-mod-pio .pio-sii-ico{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(92,200,255,.14);color:var(--cel);flex:none}
+.g-mod-pio .pio-sii-txt{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 220px}
+.g-mod-pio .pio-sii-txt .estado{align-self:flex-start;white-space:normal}
+.g-mod-pio .pio-sii-txt small{font-size:11.5px;color:var(--t2)}
+.g-mod-pio .pio-sii-nota{flex:1 1 100%;font-size:11px;color:var(--t3)}
+@media (min-width:981px){.g-mod-pio .pio-sii-nota{flex:0 1 240px}}
+/* ── Carga manual temporal (plegada) ── */
+.g-mod-pio .pio-manual{border:1px dashed var(--borde2);border-radius:16px;padding:0 12px;margin:4px 0 6px;background:rgba(255,255,255,.02)}
+.g-mod-pio .pio-manual>summary,.g-mod-pio .pio-correo-acc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 0;font:800 13px var(--tit);color:var(--t1)}
+.g-mod-pio .pio-manual>summary::-webkit-details-marker,.g-mod-pio .pio-correo-acc>summary::-webkit-details-marker{display:none}
+.g-mod-pio .pio-manual>summary small,.g-mod-pio .pio-correo-acc>summary small{font:500 11.5px var(--txt);color:var(--t2)}
+.g-mod-pio .pio-manual[open]>summary .pio-chev,.g-mod-pio .pio-correo-acc[open]>summary .pio-chev{transform:rotate(45deg)}
+.g-mod-pio .pio-manual[open]{padding-bottom:12px}
+/* ── Empresa exenta de IVA: solo PPM ── */
+.g-mod-pio .pio-exenta-av .g-ic{flex:none}
+.g-mod-pio .pio-modo-exenta .k-iva,.g-mod-pio .pio-modo-exenta .k-rem,.g-mod-pio .pio-modo-exenta .fila-iva,.g-mod-pio .pio-modo-exenta .campo-iva:not(.con-valor){display:none!important}
+.g-mod-pio .pio-modo-exenta .pio-kpis{grid-template-columns:1.5fr 1fr}
+/* ── Recomendaciones ── */
+.g-mod-pio .pio-renta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:9px 12px;border-radius:12px;background:rgba(199,123,201,.10);border:1px solid rgba(199,123,201,.35);font-size:12.5px;color:var(--t2)}
+.g-mod-pio .pio-renta .g-ic{color:var(--lila2)}
+.g-mod-pio .pio-renta a{margin-left:auto;color:var(--lila2);font-weight:800;text-decoration:none}
+.g-mod-pio .pio-recos{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.g-mod-pio .reco{border:1px solid rgba(74,43,80,.7);border-left:4px solid var(--rc,var(--lila));border-radius:16px;padding:13px 14px;background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:7px;min-width:0}
+.g-mod-pio .reco.c-verde{--rc:var(--verde)}.g-mod-pio .reco.c-ambar{--rc:var(--ambar)}.g-mod-pio .reco.c-rojo{--rc:var(--rojo)}.g-mod-pio .reco.c-morado{--rc:var(--lila)}
+.g-mod-pio .reco-h{display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
+.g-mod-pio .reco-h b{font:800 14px/1.3 var(--tit);color:var(--t1)}
+.g-mod-pio .reco-h .estado{flex:none;font-size:10.5px;padding:3px 9px}
+.g-mod-pio .reco-det{margin:0;font-size:13px;color:var(--t1);line-height:1.5}
+.g-mod-pio .reco-l{margin:0;font-size:12.5px;color:var(--t2);line-height:1.5}
+.g-mod-pio .reco-l>span{display:inline-block;min-width:74px;margin-right:6px;font:700 10px var(--txt);letter-spacing:.8px;text-transform:uppercase;color:var(--rc,var(--lila2))}
+.g-mod-pio .reco-plazo{font-style:normal;font-weight:700;color:var(--t1);white-space:nowrap}
+.g-mod-pio .pio-correo-acc{margin-top:12px;border-top:1px solid rgba(74,43,80,.55)}
+.g-mod-pio .pio-correo-acc.solo>summary{display:none}
+.g-mod-pio .pio-correo-acc.solo{border-top:0;margin-top:0}
+/* ── Gráficos (SVG con degradado de marca) ── */
+.g-mod-pio .pio-graf{min-width:0}
+.g-mod-pio .pio-svg{width:100%;height:auto;display:block}
+.g-mod-pio .pio-svg .sv-v{font:800 11px var(--tit);fill:#F3E9F4}
+.g-mod-pio .pio-svg .sv-m{font:700 11px var(--txt);fill:#C9A8CC}.g-mod-pio .pio-svg .sv-m.act{fill:#F3E9F4}
+.g-mod-pio .pio-svg .sv-s{font:600 10px var(--txt);fill:#8F6F94;font-style:italic}
+.g-mod-pio .pio-svg .sv-nd{font:600 10px var(--txt);fill:#8F6F94;font-style:italic}
+.g-mod-pio .pio-svg .sv-prom{stroke:#FFC85A;stroke-width:1.5;stroke-dasharray:6 4}
+.g-mod-pio .pio-svg .sv-pt{font:800 11px var(--txt);fill:#FFC85A}
+.g-mod-pio .pio-ley{display:flex;gap:14px;font-size:11.5px;color:var(--t2);margin-bottom:4px}
+.g-mod-pio .pio-ley i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.g-mod-pio .pio-ley i.l{background:linear-gradient(#E39BE5,#803889)}.g-mod-pio .pio-ley i.c{background:linear-gradient(#9FDBFF,#2A7FB8)}
+.g-mod-pio #pio-hist-cmp,.g-mod-pio #pio-tend-res{font-weight:700;color:var(--t1)}
+/* ── Documentos del período ── */
+.g-mod-pio .pio-docs-bar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px}
+.g-mod-pio .pio-tabs{flex-wrap:wrap;border-radius:16px}
+.g-mod-pio .pio-tabs .fb{border:0;border-radius:999px;padding:6px 12px;min-height:34px;font:600 12.5px var(--txt);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.g-mod-pio .pio-tabs .fb b{font-weight:800;opacity:.8}
+.g-mod-pio .pio-docs-bar input,.g-mod-pio .pio-docs-bar select{min-height:38px;padding:0 12px;border-radius:999px;font:500 13px var(--txt)}
+.g-mod-pio .pio-docs-bar input{flex:1 1 220px;min-width:0}
+.g-mod-pio .pio-docs-bar select{flex:0 1 220px;min-width:0}
+.g-mod-pio .pio-tbox{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(74,43,80,.6);border-radius:14px;margin-bottom:10px}
+.g-mod-pio table.pio-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.g-mod-pio table.pio-t th{text-align:left;color:var(--t2);font:700 10px var(--txt);letter-spacing:.8px;text-transform:uppercase;padding:9px 10px;border-bottom:1px solid var(--borde);white-space:nowrap;background:rgba(255,255,255,.02)}
+.g-mod-pio table.pio-t td{padding:8px 10px;border-bottom:1px solid rgba(74,43,80,.4);color:var(--t1);vertical-align:top}
+.g-mod-pio table.pio-t .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.g-mod-pio table.pio-t td small{display:block;font-size:10.5px}
+.g-mod-pio table.pio-t td .estado{font-size:10.5px;padding:3px 8px}
+.g-mod-pio table.pio-t tfoot td{font-weight:800;border-bottom:0;background:rgba(199,123,201,.06)}
+.g-mod-pio table.pio-t tr.nc td{color:#F2A194}
+.g-mod-pio table.pio-t-docs{min-width:820px}
+.g-mod-pio .pio-mas{margin-top:2px}
+/* ── Responsivo ── */
+@media (max-width:1240px){.g-mod-pio .pio-kpis{grid-template-columns:1fr 1fr}}
+@media (max-width:1100px){.g-mod-pio .pio-g2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:980px){
+  .content{padding:12px 16px 60px}
+  .g-mod-pio .topbar{gap:8px}.g-mod-pio .pio-sub{display:none}
+  .g-mod-pio .pio-franja{grid-template-columns:1fr 1fr}
+}
+@media (max-width:640px){
+  .g-mod-pio .card{padding:0 14px 14px}
+  .g-mod-pio .pio-av{padding:12px 14px 14px}
+  .g-mod-pio .pio-kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .g-mod-pio .kpi{padding:12px 13px;border-radius:16px}
+  .g-mod-pio .kpi.hero{grid-column:1/-1}.g-mod-pio .kpi.hero .kv{font-size:32px}
+  .g-mod-pio .kpi .kv{font-size:19px}.g-mod-pio .kpi .nd-alt{font-size:15px}
+  .g-mod-pio .kpi small{font-size:9.5px;letter-spacing:.8px}
+  .g-mod-pio .kpi p{font-size:11px}
+  .g-mod-pio .pio-buscar{flex:1 1 100%;margin-left:0}
+  .g-mod-pio .pio-cli-n h2{font-size:18px}
+  .g-mod-pio .pio-franja{gap:8px}
+  .g-mod-pio .pio-f{padding:9px 10px}
+  .g-mod-pio .pio-acciones{margin-left:0;width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .g-mod-pio .pio-acciones .btn{padding:0 10px;font-size:12px;white-space:normal;text-align:center;line-height:1.2}
+  .g-mod-pio .pio-acciones #btn-enviar{grid-column:1/-1;min-height:44px;font-size:13.5px}
+  .g-mod-pio .est-guardado{max-width:100%}
+  .g-mod-pio .pio-libros,.g-mod-pio .pio-campos{grid-template-columns:1fr}
+  .g-mod-pio table.liq td{padding:9px 6px}.g-mod-pio table.liq td.op{width:18px;font-size:15px}
+  .g-mod-pio table.liq td.num{font-size:13px}.g-mod-pio table.liq tr.fin td.num{font-size:17px}
+  .g-mod-pio .pio-av-txt .der{margin-left:0}
+  .g-mod-pio #acciones-grid{grid-template-columns:1fr}
+  .g-mod-pio .pio-recos{grid-template-columns:1fr}.g-mod-pio .reco-l>span{display:block;margin-bottom:2px}
+  .g-mod-pio .pio-docs-bar select{flex:1 1 100%}.g-mod-pio .pio-renta a{margin-left:0}
+  .g-mod-pio .pio-modo-exenta .pio-kpis{grid-template-columns:1fr 1fr}
+  .g-mod-pio #modal-edicion>div>div:nth-child(2)>div:nth-child(2){grid-template-columns:1fr!important}
+}
+@media print{
+  body.g-mod-pio .sidebar,body.g-mod-pio .topbar,body.g-mod-pio .pio-nav,body.g-mod-pio .pio-barra-acc,body.g-mod-pio .pio-nom{display:none!important}
+}
+.g-mod-pio .pio-docs-tot table.pio-t{min-width:620px}
+
+/* ── Ronda 2: "📍 Así vamos" protagonista; el estimado es referencia secundaria (más chico y tenue) ── */
+.g-mod-pio .pio-ref{font-size:12px!important;opacity:.82;font-style:italic}
+.g-mod-pio .pio-ref-mini{font-size:11.5px!important;opacity:.7}
+.g-mod-pio .kpi.hero .pio-ref,.g-mod-pio .kpi.hero .pio-ref-mini{color:rgba(255,255,255,.82)!important}
+.g-mod-pio .pio-ref-mini span{font-weight:700}
+.g-mod-pio .pio-mes-cerrado .pio-solo-curso{display:none!important}
+.g-mod-pio table.liq2 thead th{font:700 10px var(--txt);letter-spacing:.8px;text-transform:uppercase;color:var(--t2);padding:4px 8px 8px;border-bottom:1px solid var(--borde)}
+.g-mod-pio table.liq2 th.num,.g-mod-pio table.liq2 td.num{text-align:right}
+.g-mod-pio table.liq2 td.est,.g-mod-pio table.liq2 th.est{font:600 12px var(--txt)!important;color:var(--t3)!important;opacity:.85}
+.g-mod-pio table.liq2 td.est span{color:var(--t3)!important}
+.g-mod-pio table.liq2 tr.fin td.est{font-size:13px!important}
+.g-mod-pio .reco-usa{margin:0;font:700 10.5px var(--txt);letter-spacing:.3px;color:var(--t3)}
+@media (max-width:640px){.g-mod-pio table.liq2 td.est,.g-mod-pio table.liq2 th.est{font-size:11px!important}}
+.g-mod-pio .pio-correo-envia{flex:1 1 100%;order:3;font-size:11.5px;color:#F6DFA9;background:rgba(255,200,90,.07);border:1px dashed rgba(255,200,90,.4);border-radius:12px;padding:6px 10px}
+.g-mod-pio .pio-ref-lim{font-style:normal!important;opacity:.9}
+.g-mod-pio .kpi.hero .pio-ref-lim{color:#F6DFA9!important}
+.g-mod-pio .pio-traz table.pio-t td small{display:block;font-size:10.5px;margin-top:2px}
+.g-mod-pio .pio-traz table.pio-t{font-size:12px}
+.g-mod-pio .pio-traz{overflow-x:auto}

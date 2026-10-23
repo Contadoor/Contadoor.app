@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Política de contenido: solo Supabase de Gestoor, SheetJS servido desde este mismo sitio (con integridad) y el SDK que carga supabase.js.
+     'unsafe-inline' se mantiene porque el shell común (auth.js, notifications.js, menú) usa estilos y manejadores en línea. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://ulxoxqbuxiuylaolaqxj.supabase.co; connect-src https://ulxoxqbuxiuylaolaqxj.supabase.co wss://ulxoxqbuxiuylaolaqxj.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Admin · Carga masiva de claves · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="carga-claves.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (gestoor.contadoor.cl) es imposible activarlo y la página exige sesión de Master con auth.js.
+   Candado 2: carga-claves-demo.js vuelve a revisar el host antes de definir los datos ficticios. Candado 3: no carga auth.js ni supabase.js. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.CCL_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-ccl">
+<!-- Carga masiva de claves (solo Master). Va en Admin: es una herramienta de configuración del Master, no del trabajo diario
+     de la cartera; así el código que maneja claves en texto plano queda aislado en una página propia, fuera de Clientes
+     (que usa todo el equipo). El Excel se lee AQUÍ, en el navegador: nunca se sube completo a ningún servidor ni storage. -->
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="admin"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <!-- h1.tb-title hijo DIRECTO de .topbar y sin <button> (auth.js y notifications.js insertan con insertBefore). -->
+  <div class="topbar ccl-top">
+    <i class="ccl-ico" aria-hidden="true"><span data-g-ic="llave"></span></i>
+    <h1 class="tb-title">Carga masiva de <span>claves</span></h1>
+    <p class="ccl-sub">Solo Master · el Excel se lee en tu computador, no se sube a ningún lado</p>
+    <div class="g-espacio"></div>
+    <span class="ccl-demo" id="cclDemo" hidden title="Datos ficticios locales: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+  </div>
+  <div class="content">
+    <div class="ccl-app" id="cclApp">
+      <a class="ccl-volver" href="index.html"><i class="ic ic-mor"><span data-g-ic="admin"></span></i>Volver a Admin</a>
+
+      <div class="aviso lila" id="cclCargando"><span class="ccl-spin"></span><span>Revisando tu sesión y la cartera…</span></div>
+      <div class="aviso rojo" id="cclNoMaster" hidden><i class="ic ic-roj"><span data-g-ic="candado"></span></i><span><b>Solo el Master puede cargar claves.</b> Si crees que es un error, pide al Master que revise tu usuario.</span></div>
+
+      <div id="cclMain" hidden>
+        <div class="aviso cel"><i class="ic ic-cel"><span data-g-ic="candado"></span></i>
+          <span><b>Cómo se protege:</b> el archivo se abre en este navegador; a Gestoor solo viajan, por conexión segura y en grupos de hasta 50 clientes,
+          las claves que se van a guardar. Se cifran en el servidor y cada una queda en el registro de accesos. Nada se muestra en pantalla.</span></div>
+
+        <!-- Paso 1 -->
+        <section class="tarjeta" aria-labelledby="p1t">
+          <div class="paso"><span class="num">1</span><div><h2 id="p1t">Descarga la plantilla</h2>
+            <p class="t2">Una fila por cliente activo, con las columnas de claves <b>vacías</b>. La columna “¿ya tiene?” solo dice sí o no: nunca trae claves.</p></div></div>
+          <div class="kpis" id="cclKpiCartera"></div>
+          <div class="acciones"><button class="btn" id="cclBtnPlantilla" type="button"><i class="ic"><span data-g-ic="descargar"></span></i>Descargar plantilla</button></div>
+        </section>
+
+        <!-- Paso 2 -->
+        <section class="tarjeta" aria-labelledby="p2t">
+          <div class="paso"><span class="num">2</span><div><h2 id="p2t">Sube el Excel completado</h2>
+            <p class="t2">Llena solo lo que quieras cargar. <b>Celda vacía = no se toca.</b> La clave se guarda <b>exactamente</b> como la escribas (también los espacios). Máximo 2 MB y 1.000 filas.</p></div></div>
+          <label class="zona" id="cclZona" for="cclArchivo">
+            <i class="ic ic-mor"><span data-g-ic="subir"></span></i>
+            <span><b>Elige el archivo</b> o arrástralo aquí</span>
+            <small class="t3">.xlsx descargado en el paso 1</small>
+            <input type="file" id="cclArchivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="sr">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="cclReemplazar">
+            <span><b>Reemplazar existentes</b><small class="t3">Desmarcado: solo se llenan las claves que hoy están vacías. Marcado: también se sobrescriben las que ya existen.</small></span>
+          </label>
+          <div class="aviso rojo" id="cclErrArchivo" hidden></div>
+        </section>
+
+        <!-- Paso 3 -->
+        <section class="tarjeta" id="cclPaso3" hidden aria-labelledby="p3t">
+          <div class="paso"><span class="num">3</span><div><h2 id="p3t">Revisa y carga</h2>
+            <p class="t2">Vista previa sin claves: solo qué pasará con cada tipo.</p></div></div>
+          <div class="kpis" id="cclKpiPrevia"></div>
+          <div class="filtros" role="group" aria-label="Filtrar vista previa">
+            <button type="button" class="chip on" data-f="cambios">Con cambios</button>
+            <button type="button" class="chip" data-f="errores">Con error</button>
+            <button type="button" class="chip" data-f="todos">Todos</button>
+          </div>
+          <div class="lista" id="cclLista"></div>
+          <div class="acciones">
+            <button class="btn sec" id="cclBtnCancelar" type="button"><i class="ic"><span data-g-ic="basura"></span></i>Cancelar y olvidar el archivo</button>
+            <button class="btn" id="cclBtnCargar" type="button"><i class="ic"><span data-g-ic="llave"></span></i><span id="cclTxtCargar">Cargar claves</span></button>
+          </div>
+          <div class="progreso" id="cclProgreso" hidden><div class="barra"><i id="cclBarra"></i></div><span id="cclTxtProg" class="t2"></span></div>
+        </section>
+
+        <!-- Resultado -->
+        <section class="tarjeta" id="cclResultado" hidden aria-live="polite" aria-labelledby="rt">
+          <div class="paso"><span class="num ok"><i class="ic"><span data-g-ic="check"></span></i></span><div><h2 id="rt">Resultado</h2>
+            <p class="t2" id="cclResumen"></p></div></div>
+          <div class="kpis" id="cclKpiRes"></div>
+          <div class="pendientes" id="cclPend" aria-live="polite"></div>
+          <div class="lista" id="cclErrRes"></div>
+          <div class="aviso ambar fuerte"><i class="ic ic-amb"><span data-g-ic="alerta"></span></i>
+            <span><b>Borra el archivo Excel de tu computador después de cargarlo</b> (y vacía la papelera). Las claves ya quedaron cifradas en Gestoor;
+            el archivo es la única copia en texto plano. <span id="cclMemoria">Gestoor ya olvidó el archivo en esta pantalla.</span></span></div>
+          <div class="acciones"><button class="btn sec" id="cclBtnOtra" type="button">Cargar otro archivo</button></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+<div class="ccl-toast" id="cclToast" role="status" aria-live="polite"></div>
+
+<!-- SheetJS 0.20.3 (corrige CVE-2023-30533 y CVE-2024-22363), copia EXACTA de cdn.sheetjs.com/xlsx-0.20.3 (dist/xlsx.mini.min.js),
+     verificada contra el paquete oficial xlsx-0.20.3.tgz (sha256 0cb353f830d7288385492c83d277b058ddeac664ca51cf1393aa1fd3e2b70939). -->
+<script src="vendor/xlsx-0.20.3.mini.min.js" integrity="sha384-NG/W3xvO3ynQEcDQYIOcZTXRtwUs83cLv1FIl9PuqWPDuNhsMRF6wutlNLFwlb71"></script>
+<script src="carga-claves-nucleo.js"></script>
+<script>if(!window.CCL_DEMO)document.write('<script src="../supabase.js"><\/script>');</script>
+<script>if(window.CCL_DEMO)document.write('<script src="carga-claves-demo.js"><\/script>');</script>
+<script src="carga-claves.js"></script>
+<script>if(!window.CCL_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>

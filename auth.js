@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&
+    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -36,6 +36,7 @@
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
+    if(path.includes('/facturacion/'))       return 'facturacion';
     if(path.includes('/portal/'))            return 'portal';
     if(path.includes('/planes/'))            return 'planes';
     if(path.includes('/admin/'))             return 'admin';
@@ -51,7 +52,7 @@
     admin:    ['*'],
     rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
-    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos'],
+    pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','facturacion'], // facturacion: el rol pagos es facturador (F1a); el motor re-verifica con facturacion_yo()
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
     comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
   };
@@ -305,7 +306,7 @@
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
         if(btnEnTopbar.style.display==='none') btnEnTopbar.style.display='';
-        topbar.insertBefore(badge,btnEnTopbar);
+        btnEnTopbar.parentNode.insertBefore(badge,btnEnTopbar);   // el botón puede estar anidado (no hijo directo de .topbar)
       }else{
         var btnNuevo=document.createElement('button');
         btnNuevo.className='g-salir';  // solo estilo
@@ -314,7 +315,7 @@
         btnNuevo.onclick=function(){
           if(confirm('\u00bfCerrar sesi\u00f3n?')) cerrarSesionGestoor();
         };
-        var lastBtn=topbar.querySelector('button:last-child');
+        var lastBtn=topbar.querySelector(':scope > button:last-child');   // solo hijos directos: insertBefore exige un hijo de .topbar
         if(lastBtn) topbar.insertBefore(badge,lastBtn);
         else topbar.appendChild(badge);
         topbar.appendChild(btnNuevo);
