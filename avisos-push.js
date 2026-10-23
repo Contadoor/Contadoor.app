@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // GESTOOR — AVISOS PUSH AL CELULAR (Web Push, mismo modelo que CreeSiente)
-// avisos-push.js — botón "Activar avisos" en la bandeja del asistente.
+// avisos-push.js — botón "Activar avisos en este celular" (bandeja del asistente y Facturación; cualquier usuario activo).
 // Registra /sw.js, pide permiso, suscribe el dispositivo y lo guarda por RPC (gestoor_push_suscribir).
 // Requiere supabase.js (sbPost con JWT). En iPhone solo funciona con Gestoor instalado en la pantalla de inicio.
 // ═══════════════════════════════════════════════════════════
@@ -33,7 +33,7 @@
     if (estado === 'activos') { btn.textContent = '🔔 Avisos activos · Probar'; btn.dataset.estado = 'activos'; btn.title = 'Te llegará un aviso de prueba a este dispositivo'; }
     else if (estado === 'bloqueados') { btn.textContent = '🔕 Avisos bloqueados'; btn.dataset.estado = 'bloqueados'; btn.title = 'Permite las notificaciones de Gestoor en los ajustes del celular/navegador'; }
     else if (estado === 'instalar') { btn.textContent = '📲 Instala Gestoor para recibir avisos'; btn.dataset.estado = 'instalar'; btn.title = 'En iPhone: Compartir → Agregar a inicio, y abre Gestoor desde ese ícono'; }
-    else { btn.textContent = '🔔 Activar avisos'; btn.dataset.estado = 'activar'; btn.title = 'Recibe una notificación cuando una persona necesite tu apoyo'; }
+    else { btn.textContent = '🔔 Activar avisos en este celular'; btn.dataset.estado = 'activar'; btn.title = 'Recibe en este dispositivo los avisos urgentes de Gestoor (facturas por aprobar, aprobadas, inciertas…)'; }
   }
   function avisar(t) { var a = document.getElementById('as-aviso'); if (a) { a.textContent = t; a.classList.add('on'); setTimeout(function () { a.classList.remove('on'); }, 4500); } else alert(t); }
 
