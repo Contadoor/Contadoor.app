@@ -124,6 +124,9 @@ const malNorm = casos.filter(([i, o]) => norm(i) !== o);
 res('2.18 normEnlace: 8 casos (absolutos, relativos, //, javascript:, data:, ..)', malNorm.length === 0, malNorm.map(([i]) => [i, norm(i)]));
 dom.window.close();
 
+res('2.19 largos 120/300 sin recorte silencioso: título y texto de la tarjeta sin ellipsis/line-clamp; el historial lleva el texto completo en title',
+    !/\.not-(tit|msg)\{[^}]*(text-overflow|line-clamp|nowrap)/.test(JS) && /<div title="'\+hesc\(n\.titulo\|\|n\.mensaje\)/.test(JS));
+
 // ── 3. avisos-push.js expone montar() y sigue montando #as-avisos ──
 const AP = leer('avisos-push.js');
 res('3.1 avisos-push.js expone window.GestoorAvisosPush.montar y monta #as-avisos con el mismo código', /window\.GestoorAvisosPush = \{ montar: montar \}/.test(AP) && /montar\(document\.getElementById\('as-avisos'\)\)/.test(AP));

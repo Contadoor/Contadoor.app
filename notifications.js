@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // GESTOOR — CAMPANA DE NOTIFICACIONES (P0-Campana, catálogo de notificaciones §3.6)
 // notifications.js — se carga en TODAS las páginas del menú (assets/gestoor-menu.js la agrega sola si la página no la trae).
-// · Fuente única: RPC mis_alertas() → SOLO las alertas del usuario (destinatario = yo, o difusión a mi rol; constancias sin
-//   destinatario solo el Master). Corrige H3 (el Master veía las de todos) sin depender de la RLS.
+// · Fuente única: RPC mis_alertas() → SOLO las alertas del usuario (destinatario = yo; la difusión a un rol se reparte al crear, una
+//   fila por persona; constancias sin destinatario solo el Master). Títulos ≤ 120 y textos ≤ 300 se muestran COMPLETOS (sin recorte CSS);
+//   en el historial, la línea abreviada lleva el texto completo en title. Corrige H3 (el Master veía las de todos) sin depender de la RLS.
 // · Todos los módulos se muestran (H1): un módulo desconocido aparece como "Sistema"; nunca se oculta.
 // · Marcar = RPC alerta_marcar(id, 'leida'|'ejecutada'); sin PATCH directo a la tabla.
 // · Enlaces normalizados a rutas absolutas /modulo/… (H7); cualquier otra cosa (http:, javascript:, //) se descarta.
@@ -237,7 +238,7 @@ function renderPanel(){
     hechas.forEach(function(n){
       var m=modCfg(n.modulo);
       html+='<div class="not-hecha"><span aria-hidden="true" style="font-size:13px;color:'+m.color+';flex-shrink:0;font-weight:700">✓</span>';
-      html+='<div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#5c4a5d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hesc(n.titulo||n.mensaje)+'</div>';
+      html+='<div style="flex:1;min-width:0"><div title="'+hesc(n.titulo||n.mensaje)+'" style="font-size:11.5px;color:#5c4a5d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hesc(n.titulo||n.mensaje)+'</div>';
       html+='<div style="font-size:10px;color:#9a849b">'+(n.resueltaPor?'Marcada por '+hesc(n.resueltaPor)+' · ':'')+timeAgo(n.resueltaTs||n.ts)+'</div></div>';
       if(n.url) html+='<a class="not-b" href="'+hesc(n.url)+'">Ver →</a>';
       html+='</div>';
