@@ -124,7 +124,7 @@ function cajaHtml(f,ctx){
   var tip=!esOp()?'Las crean Facturación o el Master; el Master aprueba.':(s.disponible<=0?'La factura no tiene saldo disponible para otra nota de crédito.':(prod?'Nota de crédito REAL (SII): pasa por la aprobación del Master.':'Nota de crédito de prueba (sin SII).'));
   return '<div class="fa-caja fa-nc" data-nc-caja="'+f.id+'"><h4>'+I('devolver','ic-amb')+'Nota de crédito</h4>'
    +(s.anulada?'<div class="mot" style="background:rgba(224,122,110,.1)"><b>Factura anulada con nota de crédito.</b> El documento sigue existiendo en el SII; la nota lo deja sin efecto.</div>':'')
-   +'<div class="fila"><span>Saldo no anulado</span><span class="cifra"><b>'+clp(s.noAnulado)+'</b> de '+clp(+f.total)+'</span></div>'
+   +'<div class="fa-dato"><span>Saldo no anulado</span><b class="cifra">'+clp(s.noAnulado)+' de '+clp(+f.total)+'</b></div>'
    +lista.map(filaNc).join('')
    +'<div class="fa-det-acc" style="margin-top:8px">'+bot('nueva',f.id,s.hay?'Nueva nota de crédito':'Anular con nota de crédito','basura',puede&&prod?'fa-btn-real':'',puede,tip)+'</div></div>';
 }
