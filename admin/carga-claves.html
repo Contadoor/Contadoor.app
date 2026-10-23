@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Política de contenido: solo Supabase de Gestoor, SheetJS (cdnjs, versión fija con integridad) y el SDK que carga supabase.js.
+<!-- Política de contenido: solo Supabase de Gestoor, SheetJS servido desde este mismo sitio (con integridad) y el SDK que carga supabase.js.
      'unsafe-inline' se mantiene porque el shell común (auth.js, notifications.js, menú) usa estilos y manejadores en línea. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://ulxoxqbuxiuylaolaqxj.supabase.co; connect-src https://ulxoxqbuxiuylaolaqxj.supabase.co wss://ulxoxqbuxiuylaolaqxj.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://ulxoxqbuxiuylaolaqxj.supabase.co; connect-src https://ulxoxqbuxiuylaolaqxj.supabase.co wss://ulxoxqbuxiuylaolaqxj.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Admin · Carga masiva de claves · Gestoor</title>
 <link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
@@ -63,7 +63,7 @@
         <!-- Paso 2 -->
         <section class="tarjeta" aria-labelledby="p2t">
           <div class="paso"><span class="num">2</span><div><h2 id="p2t">Sube el Excel completado</h2>
-            <p class="t2">Llena solo lo que quieras cargar. <b>Celda vacía = no se toca.</b> Máximo 2 MB y 1.000 filas.</p></div></div>
+            <p class="t2">Llena solo lo que quieras cargar. <b>Celda vacía = no se toca.</b> La clave se guarda <b>exactamente</b> como la escribas (también los espacios). Máximo 2 MB y 1.000 filas.</p></div></div>
           <label class="zona" id="cclZona" for="cclArchivo">
             <i class="ic ic-mor"><span data-g-ic="subir"></span></i>
             <span><b>Elige el archivo</b> o arrástralo aquí</span>
@@ -113,7 +113,10 @@
 </div>
 <div class="ccl-toast" id="cclToast" role="status" aria-live="polite"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- SheetJS 0.20.3 (corrige CVE-2023-30533 y CVE-2024-22363), copia EXACTA de cdn.sheetjs.com/xlsx-0.20.3 (dist/xlsx.mini.min.js),
+     verificada contra el paquete oficial xlsx-0.20.3.tgz (sha256 0cb353f830d7288385492c83d277b058ddeac664ca51cf1393aa1fd3e2b70939). -->
+<script src="vendor/xlsx-0.20.3.mini.min.js" integrity="sha384-NG/W3xvO3ynQEcDQYIOcZTXRtwUs83cLv1FIl9PuqWPDuNhsMRF6wutlNLFwlb71"></script>
+<script src="carga-claves-nucleo.js"></script>
 <script>if(!window.CCL_DEMO)document.write('<script src="../supabase.js"><\/script>');</script>
 <script>if(window.CCL_DEMO)document.write('<script src="carga-claves-demo.js"><\/script>');</script>
 <script src="carga-claves.js"></script>

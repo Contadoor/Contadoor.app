@@ -3,7 +3,8 @@
    · Plantilla: Excel generado en el navegador (SheetJS) con la cartera activa y columnas de claves VACÍAS.
      La columna "¿ya tiene?" dice solo sí/no (viene de la Edge, que nunca entrega valores).
    · Subida: el archivo se lee AQUÍ (FileReader + SheetJS). No se sube a ningún storage; solo viajan a la Edge
-     carga-masiva-credenciales los lotes (≤ 50 clientes) con las claves que se van a escribir.
+     carga-masiva-credenciales los lotes (≤ 50 clientes y ≤ 200.000 bytes) con las claves que se van a escribir.
+   · La clave viaja EXACTA como está en la celda (sin trim). SheetJS 0.20.3 vendorizado (admin/vendor) con SRI.
    · Vista previa sin claves. "Reemplazar existentes" desmarcado por defecto.
    · Al terminar o cancelar se olvida todo (variables en null, input reseteado).
    · Este archivo NO usa console.* (ni siquiera para errores): nada de claves en consola.
@@ -11,32 +12,22 @@
 (function(){
   'use strict';
 
-  // Mismo catálogo que la Edge (slugs FIX2.2). 'extra' no entra: no tiene slug fijo.
-  var TIPOS=[
-    {t:'sii',      n:'SII',              u:'rut',   uh:'RUT de acceso'},
-    {t:'previred', n:'Previred',         u:'texto', uh:'usuario'},
-    {t:'cu',       n:'Clave Única',      u:'rut',   uh:'RUT de acceso'},
-    {t:'fact',     n:'Facturación',      u:'texto', uh:'usuario'},
-    {t:'lic',      n:'Portal Licencias', u:'texto', uh:'usuario'},
-    {t:'tgr',      n:'Tesorería (TGR)',  u:null},
-    {t:'banco',    n:'Banco',            u:null}
-  ];
-  var MAX_BYTES=2*1024*1024, MAX_FILAS=1000, LOTE=50, MAX_CLAVE=1000, MAX_USUARIO=200;
-  var HOJA='Claves';
-  var COL={id:'id', rut:'RUT', razon:'Razón social'};
-  function colTiene(x){return x.n+' · ¿ya tiene?';}
-  function colUsuario(x){return x.n+' · '+x.uh;}
-  function colClave(x){return x.n+' · clave';}
+  // Catálogo, límites, validación y lotes viven en el núcleo puro (carga-claves-nucleo.js), probado en Node.
+  var N=window.CCLNucleo;
+  var TIPOS=N.TIPOS, COL=N.COL, HOJA=N.HOJA, colTiene=N.colTiene, colUsuario=N.colUsuario, colClave=N.colClave;
+  var MAX_BYTES=N.LIM.MAX_BYTES_ARCHIVO;
 
   var MOTIVOS={
-    cliente_no_activo:'El id no está en la cartera activa', rut_no_calza:'El RUT no calza con el id', rut_invalido:'RUT inválido',
+    rut_no_calza:'El RUT no calza con el id', rut_invalido:'RUT inválido',
     cliente_id_invalido:'id vacío o inválido', fila_duplicada:'Cliente repetido en el archivo', cliente_no_existe:'El cliente no existe',
     falta_clave:'Falta la clave', usuario_requerido:'Falta el usuario / RUT de acceso', usuario_rut_invalido:'RUT de acceso inválido',
     usuario_no_aplica:'Este tipo no lleva usuario', clave_muy_larga:'Clave demasiado larga', usuario_muy_largo:'Usuario demasiado largo',
     tipo_invalido:'Tipo de clave no válido', formato_invalido:'Formato no válido', sin_claves:'Fila sin claves',
+    clave_no_texto:'La celda de la clave no está en formato texto (Excel pudo cambiarla): escríbela de nuevo en la plantilla',
+    cliente_no_activo:'El cliente no está activo', slug_ocupado:'Hay otra clave con ese nombre interno: corrígelo a mano en su ficha',
+    respuesta_desconocida:'Respuesta inesperada del servidor (se detuvo)',
     varias_claves_tipo:'El cliente tiene más de una clave de este tipo: corrígelo a mano en su ficha',
-    lectura_fallo:'No se pudo leer la bóveda (se detuvo)', guardar_fallo:'No se pudo guardar (se detuvo)',
-    auditoria_fallo:'Guardada, pero el registro de accesos falló (se detuvo): avisar', conector_sii_fallo:'Guardada, pero el conector SII no se actualizó (se detuvo): avisar',
+    guardar_fallo:'Esta clave NO se guardó (ni su registro ni el aviso SII) y la carga se detuvo: vuelve a subir el archivo',
     http:'El servidor rechazó el lote (se detuvo)'
   };
 
@@ -48,13 +39,6 @@
   var enviando=false;
 
   // ── Utilidades ──
-  function normRut(r){var s=String(r==null?'':r).replace(/[^0-9kK]/g,'').toUpperCase();return s.length<2?s:s.slice(0,-1)+'-'+s.slice(-1);}
-  function rutOk(r){
-    var x=normRut(r); if(!/^[0-9]{7,8}-[0-9K]$/.test(x)) return false;
-    var num=x.split('-')[0], dv=x.split('-')[1], suma=0, mul=2;
-    for(var i=num.length-1;i>=0;i--){suma+=parseInt(num[i],10)*mul;mul=mul===7?2:mul+1;}
-    var res=11-(suma%11); return (res===11?'0':res===10?'K':String(res))===dv;
-  }
   function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
   function ico(nombre,color){
     var i=el('i','ic'+(color?' '+color:''));var s=el('span');s.setAttribute('data-g-ic',nombre);i.appendChild(s);
@@ -139,6 +123,7 @@
       ['2. No cambies las columnas id, RUT ni Razón social (se usan para calzar cada cliente).'],
       ['3. SII y Clave Única: el usuario es un RUT (con o sin puntos).'],
       ['4. TGR y Banco solo llevan clave.'],
+      ['   La clave se guarda EXACTAMENTE como la escribas (también espacios al inicio o al final). No cambies el formato Texto de las celdas.'],
       ['5. "¿ya tiene?" dice si HOY hay clave de ese tipo. Sin "Reemplazar existentes", esas no se tocan.'],
       ['6. Sube el archivo en Admin → Carga masiva de claves.'],
       ['7. Al terminar, BORRA este archivo de tu computador y vacía la papelera.']
@@ -165,13 +150,13 @@
     fr.onload=function(){
       var wb=null, aoa=null;
       try{
-        wb=XLSX.read(new Uint8Array(fr.result),{type:'array',cellFormula:false,cellHTML:false,cellStyles:false,cellDates:false,bookVBA:false,WTF:false});
+        wb=XLSX.read(new Uint8Array(fr.result),{type:'array',cellFormula:false,cellHTML:false,cellStyles:false,cellDates:false,cellText:false,bookVBA:false,WTF:false});
         var ws=wb.Sheets[HOJA]||wb.Sheets[wb.SheetNames[0]];
         if(!ws) throw new Error('hoja');
-        aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:'',blankrows:false});
+        aoa=N.hojaAMatriz(XLSX,ws);                                   // celdas crudas: la clave queda EXACTA (sin trim)
       }catch(e){ errArchivo('El archivo no se pudo abrir como Excel. Usa la plantilla del paso 1.'); resetInput(); return; }
       finally{ wb=null; fr=null; }
-      var r=validar(aoa); aoa=null;
+      var r=N.validar(aoa,porId); aoa=null;
       if(r.error){ errArchivo(r.error); resetInput(); return; }
       plan=r.filas;
       filtro='cambios';
@@ -180,69 +165,7 @@
     fr.readAsArrayBuffer(file);
   }
 
-  // Valida el archivo completo. Devuelve {filas:[...]} o {error:'...'}. Las claves quedan SOLO en plan (memoria).
-  function validar(aoa){
-    if(!aoa||aoa.length<2) return {error:'El archivo no tiene filas de clientes.'};
-    if(aoa.length-1>MAX_FILAS) return {error:'El archivo tiene más de '+fmt(MAX_FILAS)+' filas.'};
-    var cab=aoa[0].map(function(h){return String(h).trim();});
-    var idx=function(n){return cab.indexOf(n);};
-    if(idx(COL.id)<0||idx(COL.rut)<0) return {error:'Faltan las columnas "id" y "RUT". Usa la plantilla del paso 1 sin cambiar los encabezados.'};
-    var cols=TIPOS.map(function(x){return {x:x, u:x.u?idx(colUsuario(x)):-1, c:idx(colClave(x))};});
-    if(cols.every(function(k){return k.c<0;})) return {error:'No se encontraron columnas de claves. Usa la plantilla del paso 1.'};
-    var faltan=cols.filter(function(k){return k.c<0||(k.x.u&&k.u<0);}).map(function(k){return k.x.n;});
-    if(faltan.length) return {error:'Faltan columnas de: '+faltan.join(', ')+'. Usa la plantilla del paso 1 sin cambiar los encabezados.'};
-    var filas=[], vistos={};
-    for(var i=1;i<aoa.length;i++){
-      var a=aoa[i], numFila=i+1;
-      var celda=function(j){return j<0?'':String(a[j]==null?'':a[j]);};
-      var idTxt=celda(idx(COL.id)).trim(), rutTxt=celda(idx(COL.rut)).trim();
-      var f={fila:numFila, clienteId:/^[0-9]+$/.test(idTxt)?Number(idTxt):null, rut:normRut(rutTxt), cli:null, error:null, tipos:[]};
-      var hayDatos=false;
-      cols.forEach(function(k){
-        var u=k.u>=0?celda(k.u).trim():'', c=celda(k.c).trim();
-        if(!u&&!c) return;                                             // vacío = no tocar
-        hayDatos=true;
-        var t={t:k.x.t, n:k.x.n, accion:null, motivo:null, usuario:null, clave:null};
-        if(!c) t.motivo='falta_clave';
-        else if(c.length>MAX_CLAVE) t.motivo='clave_muy_larga';
-        else if(k.x.u&&!u) t.motivo='usuario_requerido';
-        else if(k.x.u&&u.length>MAX_USUARIO) t.motivo='usuario_muy_largo';
-        else if(k.x.u==='rut'&&!rutOk(u)) t.motivo='usuario_rut_invalido';
-        if(!t.motivo){ t.usuario=k.x.u?(k.x.u==='rut'?normRut(u):u):null; t.clave=c; }
-        f.tipos.push(t);
-      });
-      if(!hayDatos) continue;                                          // fila sin claves: no se envía ni se muestra
-      if(f.clienteId===null) f.error='cliente_id_invalido';
-      else if(!rutOk(rutTxt)) f.error='rut_invalido';
-      else if(!porId[f.clienteId]) f.error='cliente_no_activo';
-      else if(normRut(porId[f.clienteId].rut)!==f.rut) f.error='rut_no_calza';
-      else if(vistos[f.clienteId]) f.error='fila_duplicada';
-      if(f.clienteId!==null){ if(vistos[f.clienteId]&&!vistos[f.clienteId].error) vistos[f.clienteId].error='fila_duplicada'; vistos[f.clienteId]=vistos[f.clienteId]||f; }
-      f.cli=f.clienteId!==null?porId[f.clienteId]||null:null;
-      filas.push(f);
-    }
-    if(!filas.length) return {error:'El archivo no trae ninguna clave para cargar (todas las celdas de claves están vacías).'};
-    return {filas:filas};
-  }
-
-  // Decide la acción de cada tipo según "Reemplazar existentes" (sin tocar las claves).
-  function decidir(){
-    var reemplazar=$('cclReemplazar').checked;
-    var tot={carga:0,reemplazo:0,igual:0,error:0,clientes:0};
-    plan.forEach(function(f){
-      var cambia=false;
-      f.tipos.forEach(function(t){
-        if(f.error){ t.accion='error'; return; }
-        if(t.motivo){ t.accion='error'; tot.error++; return; }
-        var tiene=f.cli&&f.cli.tipos.indexOf(t.t)>=0;
-        t.accion=!tiene?'carga':(reemplazar?'reemplazo':'igual');
-        tot[t.accion]++; if(t.accion!=='igual') cambia=true;
-      });
-      if(f.error) tot.error++;
-      f.cambia=cambia; if(cambia) tot.clientes++;
-    });
-    return tot;
-  }
+  function decidir(){ return N.decidir(plan,$('cclReemplazar').checked); }
 
   var ETQ={carga:'se cargará',reemplazo:'se reemplazará',igual:'sin cambio',error:'error'};
   function pintarPrevia(){
@@ -287,16 +210,8 @@
     pintarIconos($('cclPaso3'));
   }
 
-  // ── Paso 3: envío en lotes ──
-  function lotes(){
-    var filas=plan.filter(function(f){return !f.error&&f.cambia;}).map(function(f){
-      var claves={};
-      f.tipos.forEach(function(t){ if(t.accion==='carga'||t.accion==='reemplazo'){ claves[t.t]=t.usuario!=null?{usuario:t.usuario,clave:t.clave}:{clave:t.clave}; } });
-      return {fila:f.fila, clienteId:f.clienteId, rut:f.rut, claves:claves};
-    });
-    var out=[]; for(var i=0;i<filas.length;i+=LOTE) out.push(filas.slice(i,i+LOTE));
-    return out;
-  }
+  // ── Paso 3: envío en lotes (≤ 50 clientes y ≤ 200.000 bytes por lote) ──
+  function lotes(){ return N.armarLotes(plan,$('cclReemplazar').checked); }
 
   function cargar(){
     if(!plan||enviando) return;
@@ -305,7 +220,8 @@
     var reemplazar=$('cclReemplazar').checked;
     var msg='Se guardarán '+n+' clave(s) de '+tot.clientes+' cliente(s)'+(tot.reemplazo?(', y se REEMPLAZARÁN '+tot.reemplazo+' que ya existían'):'')+'.\n\n¿Continuar?';
     if(!window.confirm(msg)) return;
-    var grupos=lotes();
+    var grupos;
+    try{ grupos=lotes(); }catch(e){ toast('Una fila es demasiado grande para enviarse. Revisa el archivo.'); return; }
     enviando=true;
     $('cclBtnCargar').disabled=true; $('cclBtnCancelar').disabled=true; $('cclArchivo').disabled=true; $('cclReemplazar').disabled=true;
     $('cclProgreso').hidden=false;
@@ -344,7 +260,7 @@
     var sinCambio=res.sin_cambio+sinCambioPrevio;
     $('cclPaso3').hidden=true; $('cclResultado').hidden=false;
     $('cclResumen').textContent=fmt(res.cargadas)+' cargadas, '+fmt(res.reemplazadas)+' reemplazadas, '+fmt(errores.length)+' con error'
-      +(res.detenido?'. La carga se DETUVO por un problema del servidor: lo ya guardado quedó bien; puedes volver a subir el mismo archivo (lo cargado aparecerá como "sin cambio").':'.');
+      +(res.detenido?'. La carga se DETUVO. Cada clave se guarda completa (clave + registro + aviso SII) o no se guarda; las contadas arriba como cargadas o reemplazadas quedaron completas. Si el corte fue de conexión, la última respuesta pudo perderse: revisa esos clientes en "Ver claves" y vuelve a subir el mismo archivo SIN "Reemplazar" para terminar (lo ya guardado saldrá "sin cambio").':'.');
     kpis($('cclKpiRes'),[
       {i:'llave',ic:'ic-ver',v:res.cargadas,l:'cargadas',c:'verde'},
       {i:'repetir',ic:'ic-amb',v:res.reemplazadas,l:'reemplazadas',c:'ambar'},
