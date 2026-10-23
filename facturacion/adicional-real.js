@@ -61,6 +61,8 @@ var ERR={
   AUTOAPROBACION_REQUIERE_CONFIRMACION:'Creaste esta factura: usa "Auto-aprobar", que pide confirmar y reescribir el total.',
   CONFIRMACION_OBLIGATORIA:'Marca la casilla: estás aprobando una factura que creaste tú.',
   TOTAL_CONFIRMADO_NO_COINCIDE:'El total que escribiste no coincide con el de la factura.',
+  TOTAL_CONFIRMADO_FORMATO:'Escribe el total solo con números, por ejemplo 10000 o 10.000 (sin signo, decimales, comas ni letras).',
+  TOTAL_CONFIRMADO_VACIO:'Reescribe el total de la factura para confirmar.',
   NO_ES_TUYA:'Solo puedes auto-aprobar facturas que creaste tú; esta se aprueba con "Aprobar".',
   CONFIG_DEV_INCOMPLETA:'Falta configurar el ambiente de pruebas en el servidor. Avisa a soporte.'
 };
@@ -107,6 +109,18 @@ function cli(id){var c=CTX.clientes[id];return c?c.razon_social:'Cliente #'+id;}
 function rutCli(id){var c=CTX.clientes[id];return c?c.rut:'';}
 function esF(){return CTX.rol==='facturador';}
 function esM(){return CTX.rol==='master';}
+/* @total-confirmado-inicio · Total reescrito en la auto-aprobación: se valida el texto COMPLETO (sin quitar caracteres).
+   Formato chileno permitido: solo dígitos ("10000") o miles con punto ("10.000"); sin signo, decimales, comas, letras ni espacios
+   internos; se recortan solo los espacios de los extremos. Devuelve {ok:true,valor} o {ok:false,motivo}. */
+function totalConfirmadoDesdeTexto(txt){
+  var t=String(txt==null?'':txt).trim();
+  if(t==='')return {ok:false,motivo:'VACIO'};
+  if(!/^(?:[1-9][0-9]*|[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/.test(t))return {ok:false,motivo:'FORMATO'};
+  var n=Number(t.replace(/\./g,''));
+  if(!Number.isSafeInteger(n)||n<=0)return {ok:false,motivo:'FORMATO'};
+  return {ok:true,valor:n};
+}
+/* @total-confirmado-fin */
 // F1c-M (Luciano 23-oct): el Master también crea, edita, envía y emite. La aprobación sigue siendo un paso aparte.
 function esOp(){return esF()||esM();}
 function esMia(x){return CTX.yo!==null&&+x.creado_por===CTX.yo;}
@@ -269,11 +283,13 @@ function accion(act,id){
   if(act==='autoaprobar')return modal({t:'Auto-aprobar factura',ic:'escudo',icc:'ic-amb',
       b:'<p style="color:var(--amb)"><b>Estás aprobando una factura que creaste tú.</b> Quedará marcada como auto-aprobada y Facturación y los demás Masters recibirán un aviso.</p>'+resumenRevision(x)
        +'<label style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin-top:10px"><input type="checkbox" id="faConf" style="width:18px;height:18px;flex:none;margin:0"> Confirmo que revisé la factura y la apruebo</label>'
-       +'<label style="margin-top:8px;display:block">Reescribe el total exento (solo números)<input id="faTotConf" inputmode="numeric" placeholder="Ej.: 10000" autocomplete="off"></label>',
+       +'<label style="margin-top:8px;display:block">Reescribe el total exento (ej.: 10000 o 10.000)<input id="faTotConf" inputmode="numeric" placeholder="Ej.: 10.000" autocomplete="off"></label>',
       ok:'Auto-aprobar',cb:function(){
         if(!$('faConf').checked){modal.error(ERR.CONFIRMACION_OBLIGATORIA);return false;}
-        var t=Number(String($('faTotConf').value).replace(/[^0-9]/g,''));
-        if(!t||t!==+x.total){modal.error(ERR.TOTAL_CONFIRMADO_NO_COINCIDE);return false;}
+        var tc=totalConfirmadoDesdeTexto($('faTotConf').value);
+        if(!tc.ok){modal.error(tc.motivo==='VACIO'?ERR.TOTAL_CONFIRMADO_VACIO:ERR.TOTAL_CONFIRMADO_FORMATO);return false;}
+        var t=tc.valor;
+        if(t!==Number(x.total)){modal.error(ERR.TOTAL_CONFIRMADO_NO_COINCIDE);return false;}
         correr(rpc('factura_adicional_autoaprobar',{p_factura:x.id,p_huella:x.snapshot_hash,p_total_confirmado:t,p_confirmo:true}),function(r){return 'Auto-aprobada. Se avisó a '+(r&&r.avisos||0)+' persona(s). Ahora puedes emitirla en un paso aparte.';},true);return false;}});
   if(act==='devolver')return modal({t:'Devolver al facturador',ic:'devolver',icc:'ic-amb',b:'<label>¿Qué hay que corregir?<textarea id="faCom" rows="3" maxlength="2000"></textarea></label>',ok:'Devolver',cls:'',cb:function(){var t=$('faCom').value.trim();if(t.length<5){modal.error(ERR.COMENTARIO_OBLIGATORIO);return false;}correr(rpc('factura_adicional_devolver',{p_factura:x.id,p_comentario:t}),'Devuelta al facturador.',true);return false;}});
   if(act==='anular')return modal({t:'Anular factura',ic:'basura',icc:'ic-roj',b:'<label>Motivo de la anulación (mínimo 10 caracteres)<textarea id="faAnu" rows="3" maxlength="1000"></textarea></label>',ok:'Anular',cls:'',cb:function(){var t=$('faAnu').value.trim();if(t.length<10){modal.error(ERR.MOTIVO_ANULACION);return false;}correr(rpc('factura_adicional_anular',{p_factura:x.id,p_motivo:t}),'Anulada.',true);return false;}});
