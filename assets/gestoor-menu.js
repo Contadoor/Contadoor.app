@@ -119,8 +119,16 @@
     });
   };
 
+  // Campana de notificaciones en TODAS las páginas del menú (P0-Campana): si la página no carga notifications.js, se agrega aquí,
+  // al terminar de leer la página (después de supabase.js). Misma carpeta raíz que este archivo. No en el modo demo de Facturación.
+  var RAIZ=(function(){try{var s=document.currentScript&&document.currentScript.src;if(s)return s.replace(/assets\/gestoor-menu\.js(\?.*)?$/,'');}catch(e){}return '../';})();
+  function cargarCampana(){
+    if(window.FX_DEMO||window.__gestoorCampana||document.querySelector('script[src*="notifications.js"]'))return;
+    var s=document.createElement('script');s.src=RAIZ+'notifications.js';document.body.appendChild(s);
+  }
+
   var a=document.querySelector('aside.sidebar[data-gestoor-activo]');
   if(a)dibujar(a);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){gIconos();});
-  else gIconos();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){gIconos();if(a)cargarCampana();});
+  else{gIconos();if(a)cargarCampana();}
 })();
