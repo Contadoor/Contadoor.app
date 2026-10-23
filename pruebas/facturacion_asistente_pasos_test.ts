@@ -1,9 +1,10 @@
-// Facturación adicional · rediseño 23-oct · asistente "Nueva factura" en pasos y confirmación REAL · prueba LOCAL con mocks
-// (no toca Supabase ni producción; datos FICTICIOS).
+// Facturación adicional · rediseño 23-oct (+ ajuste PR #84: sin opción Prueba al crear) · asistente "Nueva factura" y confirmación REAL
+// Prueba LOCAL con mocks (no toca Supabase ni producción; datos FICTICIOS).
 // 1) Función pura palabraRealOk (extraída del archivo real entre @palabra-real-inicio/fin).
-// 2) De punta a punta en jsdom: no se avanza sin elegir tipo; con la emisión real apagada la tarjeta Real está deshabilitada;
-//    crear una REAL exige escribir REAL (sin eso no se llama a factura_adicional_crear); una PRUEBA se crea sin escribir nada;
-//    emitir una REAL exige REAL + total correcto (sin eso no se llama a la Edge); emitir una PRUEBA es un clic.
+// 2) De punta a punta en jsdom: el asistente NO ofrece la opción Prueba (Cliente → Detalle → Revisar) y siempre crea con modo PRODUCCION;
+//    la franja roja está en todo el flujo; crear exige escribir REAL; con la emisión desactivada se crea igual pero "Emitir" queda
+//    deshabilitado con su motivo; "Ocultar pruebas" (por defecto) esconde el histórico de pruebas cerradas;
+//    emitir una REAL exige REAL + total correcto (sin eso no se llama a la Edge).
 // Uso: deno run --allow-read --allow-env --allow-sys --allow-net=registry.npmjs.org pruebas/facturacion_asistente_pasos_test.ts
 import { JSDOM } from 'npm:jsdom@24.1.0';
 
@@ -36,7 +37,7 @@ function sbFetch(path,opts){
   return resp([]);
 }
 function sbGet(path){
-  if(path.indexOf('facturas_adicionales?')===0)return Promise.resolve([${JSON.stringify(fac(7, 'PRODUCCION', 'APROBADA'))},${JSON.stringify(fac(8, 'PRUEBA', 'APROBADA'))}]);
+  if(path.indexOf('facturas_adicionales?')===0)return Promise.resolve([${JSON.stringify(fac(7, 'PRODUCCION', 'APROBADA'))},${JSON.stringify(fac(8, 'PRUEBA', 'APROBADA'))},${JSON.stringify(fac(9, 'PRUEBA', 'EMITIDA'))}]);
   if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([{produccion_habilitada:${prod}}]);
   if(path.indexOf('periodos')===0)return Promise.resolve([{periodo:'2026-10',uf:39000}]);
   return Promise.resolve([]);
@@ -59,10 +60,8 @@ async function abrir(prod = true) {
 }
 const set = (d: any, el: any, v: string) => { el.value = v; el.dispatchEvent(new d.defaultView.Event('input', { bubbles: true })); };
 const paso = (d: any) => d.querySelector('.fa-pasos li.actual')?.textContent || '';
-async function hastaRevisar(d: any, modo: string) {
+async function hastaRevisar(d: any) {
   d.querySelector('[data-fa="nueva"]').click(); await espera(20);
-  d.querySelector(`[data-fa-modo="${modo}"]`).click(); await espera(20);
-  d.getElementById('faWizSig').click(); await espera(20);
   d.querySelector('[data-fa-cli="1"]').click(); await espera(20);
   d.getElementById('faWizSig').click(); await espera(20);
   set(d, d.getElementById('faMot'), 'Trabajo adicional solicitado por el cliente (ficticio)');
@@ -70,38 +69,34 @@ async function hastaRevisar(d: any, modo: string) {
   d.getElementById('faWizSig').click(); await espera(20);
 }
 
-// 2a. Sin elegir tipo no se avanza
+// 2a. El asistente no ofrece "Prueba": parte en Cliente, con franja roja desde el inicio
 let dom = await abrir(); let w: any = dom.window, d = w.document;
 d.querySelector('[data-fa="nueva"]').click(); await espera(20);
-const ningunaMarcada = [...d.querySelectorAll('[data-fa-modo]')].every((b: any) => b.getAttribute('aria-checked') === 'false');
-res('2a el asistente parte en el paso 1 (Tipo) y ninguna tarjeta viene marcada', /1\s*Tipo/.test(paso(d)) && ningunaMarcada, paso(d));
+const pasosTxt = [...d.querySelectorAll('.fa-pasos li')].map((li: any) => li.textContent.replace(/\s+/g, '').trim());
+res('2a el asistente tiene 3 pasos (Cliente → Detalle → Revisar) y parte en Cliente', pasosTxt.join('|') === '1Cliente|2Detalle|3Revisar' && /1\s*Cliente/.test(paso(d)), pasosTxt);
+res('2a no existe la opción Prueba al crear (ni tarjetas de tipo ni el texto "Prueba (sin SII)")', d.querySelectorAll('[data-fa-modo]').length === 0 && !/Prueba \(sin SII\)/.test(d.getElementById('vistaAdic').textContent));
+res('2a franja roja "FACTURA REAL · se enviará al SII" desde el primer paso; nunca la celeste', d.body.classList.contains('fa-franja-real') && /FACTURA REAL/.test(d.getElementById('faFranja').textContent) && !d.getElementById('faFranja').hidden && !/sin validez tributaria/.test(d.getElementById('faFranja').textContent));
 d.getElementById('faWizSig').click(); await espera(20);
-res('2a "Siguiente" sin elegir tipo → sigue en el paso 1 con el mensaje "Elige el tipo"', /1\s*Tipo/.test(paso(d)) && /Elige el tipo de factura/.test(d.getElementById('faWizErr').textContent) && !d.getElementById('faWizErr').hidden, d.getElementById('faWizErr').textContent);
-res('2a sin tipo no hay franja REAL ni PRUEBA', !d.body.classList.contains('fa-con-franja') && d.getElementById('faFranja').hidden);
-d.querySelector('[data-fa-modo="PRODUCCION"]').click(); await espera(20);
-res('2a al elegir REAL aparece la franja roja "FACTURA REAL · se enviará al SII"', d.body.classList.contains('fa-franja-real') && /FACTURA REAL/.test(d.getElementById('faFranja').textContent) && /SII/.test(d.getElementById('faFranja').textContent));
-d.querySelector('[data-fa-modo="PRUEBA"]').click(); await espera(20);
-res('2a al cambiar a PRUEBA la franja pasa a celeste "PRUEBA · sin validez tributaria"', d.body.classList.contains('fa-franja-prueba') && !d.body.classList.contains('fa-franja-real') && /sin validez tributaria/.test(d.getElementById('faFranja').textContent));
-d.getElementById('faWizSig').click(); await espera(20);
-d.getElementById('faWizSig').click(); await espera(20);
-res('2a sin elegir cliente no se pasa del paso 2', /2\s*Cliente/.test(paso(d)) && /Elige un cliente/.test(d.getElementById('faWizErr').textContent), paso(d));
+res('2a sin elegir cliente no se pasa del paso Cliente', /1\s*Cliente/.test(paso(d)) && /Elige un cliente/.test(d.getElementById('faWizErr').textContent), paso(d));
 d.querySelector('[data-vista="FIJO"]').click(); await espera(20);
 res('2a al ir al grupo FIJO se quita la franja', !d.body.classList.contains('fa-con-franja'));
 dom.window.close();
 
-// 2b. Emisión real apagada → tarjeta Real deshabilitada con su motivo
+// 2b. Emisión desactivada: se crea igual (REAL), pero Emitir queda deshabilitado con su motivo
 dom = await abrir(false); w = dom.window; d = w.document;
-d.querySelector('[data-fa="nueva"]').click(); await espera(20);
-const real = d.querySelector('[data-fa-modo="PRODUCCION"]');
-res('2b emisión real apagada → tarjeta Real deshabilitada y con el motivo "falta el GO de producción"', real.disabled && /GO de producción/.test(real.textContent));
-real.click(); await espera(20);
-res('2b clic en la tarjeta deshabilitada no elige REAL', !d.body.classList.contains('fa-franja-real') && /1\s*Tipo/.test(paso(d)));
+const bEm = d.querySelector('#vistaAdic [data-fa-card="7"] [data-fa="emitir"]');
+res('2b emisión desactivada → "Emitir factura real" visible pero deshabilitado con "La emisión está desactivada; pide al Master activarla"', !!bEm && bEm.disabled && /La emisión está desactivada; pide al Master activarla/.test(bEm.closest('.tipw').getAttribute('data-tip')), bEm && bEm.closest('.tipw').getAttribute('data-tip'));
+await hastaRevisar(d);
+res('2b emisión desactivada → "Nueva factura" igual llega a Revisar y avisa que la emisión está desactivada', /3\s*Revisar/.test(paso(d)) && /emisión está desactivada/.test(d.querySelector('.fa-wiz').textContent), paso(d));
+set(d, d.getElementById('faWizReal'), 'REAL'); d.getElementById('faWizCrear').click(); await espera(80);
+const cOff = w.__llamadas.filter((x: any) => x.fn === 'factura_adicional_crear');
+res('2b emisión desactivada → el borrador se crea con modo PRODUCCION', cOff.length === 1 && cOff[0].body.p.modo === 'PRODUCCION', cOff);
 dom.window.close();
 
 // 2c. Crear una REAL exige la palabra REAL
 dom = await abrir(); w = dom.window; d = w.document;
-await hastaRevisar(d, 'PRODUCCION');
-res('2c llega al paso 4 (Revisar) con vista previa tipo factura y total en grande', /4\s*Revisar/.test(paso(d)) && /\$30\.000/.test(d.querySelector('.fa-doc-tot').textContent) && !!d.getElementById('faWizReal'), paso(d));
+await hastaRevisar(d);
+res('2c llega al paso 3 (Revisar) con vista previa tipo factura y total en grande', /3\s*Revisar/.test(paso(d)) && /\$30\.000/.test(d.querySelector('.fa-doc-tot').textContent) && !!d.getElementById('faWizReal'), paso(d));
 d.getElementById('faWizCrear').click(); await espera(50);
 res('2c REAL sin escribir la palabra → no llama a factura_adicional_crear y pide escribir REAL', w.__llamadas.filter((x: any) => x.fn === 'factura_adicional_crear').length === 0 && /escribe la palabra REAL/.test(d.getElementById('faWizErr').textContent), w.__llamadas);
 set(d, d.getElementById('faWizReal'), 'SI'); d.getElementById('faWizCrear').click(); await espera(50);
@@ -112,13 +107,15 @@ res('2c con REAL escrita → llama UNA vez a factura_adicional_crear con modo PR
   && cr[0].body.p.lineas[0].cantidad === 2 && cr[0].body.p.lineas[0].precio === 15000 && Object.keys(cr[0].body.p).sort().join() === 'cliente_id,fecha_emision,fecha_vencimiento,forma_pago,lineas,modo,motivo', cr);
 dom.window.close();
 
-// 2d. Una PRUEBA se crea sin escribir nada
+// 2d. Cartera: "Ocultar pruebas" activado por defecto (oculta el histórico cerrado; la prueba en curso se sigue viendo con su chip)
 dom = await abrir(); w = dom.window; d = w.document;
-await hastaRevisar(d, 'PRUEBA');
-res('2d PRUEBA: el paso 4 no pide la palabra REAL', !d.getElementById('faWizReal'));
-d.getElementById('faWizCrear').click(); await espera(80);
-const cp = w.__llamadas.filter((x: any) => x.fn === 'factura_adicional_crear');
-res('2d PRUEBA: un clic → factura_adicional_crear con modo PRUEBA', cp.length === 1 && cp[0].body.p.modo === 'PRUEBA', cp);
+const ids = () => [...d.querySelectorAll('#vistaAdic [data-fa-card]')].map((e: any) => e.getAttribute('data-fa-card')).join();
+const sw = d.querySelector('[data-fa-ocultar]');
+res('2d "Ocultar pruebas" viene activado y esconde la PRUEBA emitida (9); se ven la REAL (7) y la PRUEBA en curso (8)', sw && sw.getAttribute('aria-checked') === 'true' && ids() === '7,8', ids());
+res('2d la PRUEBA en curso conserva su chip PRUEBA', /PRUEBA/.test(d.querySelector('#vistaAdic [data-fa-card="8"] .fa-tipo').textContent));
+sw.click(); await espera(20);
+res('2d al desactivar el filtro aparece el histórico (9) con su chip PRUEBA', ids() === '7,8,9' && /PRUEBA/.test(d.querySelector('#vistaAdic [data-fa-card="9"] .fa-tipo').textContent), ids());
+res('2d no hay ningún botón para crear una prueba', ![...d.querySelectorAll('#vistaAdic button, #hero button')].some((b: any) => /crear.*prueba|nueva prueba/i.test(b.textContent)));
 dom.window.close();
 
 // 2e. Emitir una REAL exige REAL + total; una PRUEBA, un clic
@@ -137,7 +134,7 @@ res('2e REAL + 10.000 → llama UNA vez a la Edge con accion emitir y la factura
 dom.window.close();
 dom = await abrir(); w = dom.window; d = w.document;
 d.querySelector('#vistaAdic [data-fa-card="8"] [data-fa="emitir"]').click(); await espera(30);
-res('2e emitir PRUEBA: sin recuadros que escribir', !d.getElementById('faRealPal') && !d.getElementById('faRealTot'));
+res('2e emitir una PRUEBA antigua ya aprobada (el servidor la sigue aceptando): sin recuadros que escribir', !d.getElementById('faRealPal') && !d.getElementById('faRealTot'));
 d.querySelector('#mFoot [data-m="si"]').click(); await espera(80);
 res('2e emitir PRUEBA: un clic → llama a la Edge con la factura 8', w.__edge.length === 1 && w.__edge[0].body.factura_id === 8, w.__edge);
 dom.window.close();

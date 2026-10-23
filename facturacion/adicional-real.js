@@ -8,10 +8,13 @@
    Solo se activa fuera del modo demo; en demo sigue el editor de adicional.js. Sin datos reales en este archivo.
 
    Rediseño visual (23-oct, pedido de Luciano tras emitir una factura REAL creyendo que era de prueba):
-   · Cartera (línea MiRenta): totales, semáforo, buscador, filtros (estado, tipo, cliente, creador con foto), CSV y tarjetas en celular.
-   · "Nueva factura" como asistente en 4 pasos: Tipo → Cliente → Detalle → Revisar. El TIPO va primero y NO viene preseleccionado.
-   · Franja fija roja "FACTURA REAL · se enviará al SII" o celeste "PRUEBA · sin validez tributaria" mientras se trabaja una factura.
-   · Emitir una REAL exige escribir la palabra REAL y reescribir el total. Una PRUEBA se confirma con un clic.
+   · Cartera (línea MiRenta): totales, semáforo, buscador, filtros (estado, "Ocultar pruebas", cliente, creador con foto), CSV y tarjetas en celular.
+   · "Nueva factura" como asistente en 3 pasos: Cliente → Detalle → Revisar. Desde la pantalla la factura nueva es SIEMPRE REAL (SII):
+     la opción "Prueba" se quitó (Luciano, PR #84). El servidor sigue aceptando modo PRUEBA para las pruebas automáticas y DEV:
+     para practicar se usa el entorno local/DEV. Las PRUEBAS antiguas se ven en la cartera con su chip (filtro "Ocultar pruebas").
+   · Franja fija roja "FACTURA REAL · se enviará al SII" mientras se crea, revisa o emite una factura real.
+   · Crear pide escribir la palabra REAL; emitir una REAL exige la palabra REAL y reescribir el total. Con la emisión desactivada
+     (produccion_habilitada=false) se pueden crear y aprobar borradores, pero "Emitir" queda deshabilitado con su motivo.
    · Detalle con línea de tiempo, folio, PDF/XML, estado en Cobranza y espacio para la futura nota de crédito.
    Las RPC, los permisos y los mensajes de error son los mismos de antes: aquí cambia solo la presentación y el flujo de pantalla.
    ============================================================ */
@@ -24,7 +27,7 @@ var modal=UI.modal, toast=UI.toast, cerrarModal=UI.cerrarModal;
 var EDGE=(typeof SB_URL!=='undefined'?SB_URL:'')+'/functions/v1/facturacion-emitir';
 var CTX={yo:null,yoNombre:'',rol:'lectura',lista:[],clientes:{},clientesLista:[],prodHabilitada:false,ocupado:false,cargado:false,
   usuarios:{},eventos:{},vista:'cartera',detId:null,wiz:null,franjaModal:null,resaltada:null,fuera:false,
-  f:{q:'',est:'todos',tipo:'todos',cli:'',resp:'todos'}};
+  f:{q:'',est:'todos',ocultarPruebas:true,cli:'',resp:'todos'}};
 function $(id){return document.getElementById(id);}
 function hoyCL(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,10);}
 function sumarDias(iso,n){var t=new Date(iso+'T12:00:00');t.setDate(t.getDate()+n);return t.toISOString().slice(0,10);}
@@ -66,7 +69,7 @@ var ERR={
   NO_DEVOLVIBLE:'Ya no se puede devolver: hubo un intento de emisión.',
   NO_ANULABLE:'No se puede anular: pudo llegar a OpenFactura (concilia primero) o ya está emitida (se corrige con nota de crédito).',
   SIN_APROBACION:'Falta la aprobación del Master.',
-  PRODUCCION_DESHABILITADA:'La emisión real está apagada: requiere el GO de producción.',
+  PRODUCCION_DESHABILITADA:'La emisión está desactivada; pide al Master activarla.',
   PRODUCCION_NO_HABILITADA_EN_EDGE:'La emisión real está apagada en el servidor (falta el GO de producción).',
   YA_EMITIDA:'Esta factura ya está emitida: no se vuelve a emitir.',
   REQUIERE_CONCILIACION:'Resultado incierto: el Master debe conciliar con OpenFactura antes de cualquier reintento.',
@@ -83,8 +86,7 @@ var ERR={
   NO_ES_TUYA:'Solo puedes auto-aprobar facturas que creaste tú; esta se aprueba con "Aprobar".',
   CONFIG_DEV_INCOMPLETA:'Falta configurar el ambiente de pruebas en el servidor. Avisa a soporte.',
   // Mensajes propios de la pantalla (no vienen del motor)
-  TIPO_OBLIGATORIO:'Elige el tipo de factura para continuar: Factura real (SII) o Prueba (sin SII).',
-  TIPO_REAL_APAGADO:'La emisión real está apagada: requiere el GO de producción. Por ahora solo se pueden crear pruebas.',
+  EMISION_DESACTIVADA:'La emisión está desactivada; pide al Master activarla.',
   PALABRA_REAL:'Para confirmar una factura REAL escribe la palabra REAL en el recuadro.'
 };
 function msg(e){
@@ -117,6 +119,7 @@ var CAMPOS='id,codigo,modo,estado,cliente_id,creado_por,auto_aprobada_master,mot
    RLS del usuario (si no la ve, no existe para él): primero en la lista cargada y, si no está (más antigua que las 200), por id.
    Rediseño: además de resaltar su fila en la cartera, se abre directo su detalle. */
 var ENLACE_FA=(function(){try{var v=new URLSearchParams(location.search).get('fa');return v&&/^[0-9]{1,18}$/.test(v)?+v:null;}catch(e){return null;}})();
+if(ENLACE_FA!==null)CTX.f.ocultarPruebas=false;
 function irAFacturaEnlace(){
   if(ENLACE_FA===null)return Promise.resolve();
   var id=ENLACE_FA;ENLACE_FA=null;
@@ -219,7 +222,7 @@ function accionesLista(x){
   if(esM()&&x.estado==='APROBADA')A('devolver','Devolver','devolver','',true,'Solo si aún no hubo intento de emisión.');
   if(x.estado==='APROBADA'||x.estado==='ERROR'||x.estado==='EN_REVISION'||x.estado==='BORRADOR'||x.estado==='DEVUELTA'){
     var puede=esOp()&&(x.estado==='APROBADA'||x.estado==='ERROR')&&(!prod||CTX.prodHabilitada);
-    var tip=!esOp()?'Emite el facturador o el Master.':(x.estado!=='APROBADA'&&x.estado!=='ERROR'?'Bloqueado: falta la aprobación del Master.':(prod&&!CTX.prodHabilitada?'Bloqueado: la emisión real requiere el GO de producción.':(prod?'Emite la factura REAL en el SII.':'Emite en el ambiente de pruebas de OpenFactura (sin SII).')));
+    var tip=!esOp()?'Emite el facturador o el Master.':(x.estado!=='APROBADA'&&x.estado!=='ERROR'?'Bloqueado: falta la aprobación del Master.':(prod&&!CTX.prodHabilitada?ERR.EMISION_DESACTIVADA:(prod?'Emite la factura REAL en el SII.':'Emite en el ambiente de pruebas de OpenFactura (sin SII).')));
     A('emitir',prod?'Emitir factura real':'Emitir (prueba)','enviar',puede?(prod?'pri fa-btn-real':'pri'):'',puede,tip);
   }
   if(esM()&&x.estado==='INCIERTO')A('conciliar','Conciliar con OpenFactura','repetir','pri',true,'Busca el documento con la misma clave; nunca emite dos veces.');
@@ -229,6 +232,12 @@ function accionesLista(x){
   return a;
 }
 function accionPrincipal(x){return accionesLista(x).filter(function(a){return a.ok&&/\bpri\b/.test(a.cls);})[0]||null;}
+/* Con la emisión desactivada, la fila de una REAL lista para emitir muestra "Emitir" DESHABILITADO con su motivo (se ve, no se esconde). */
+function accionFila(x){
+  var pr=accionPrincipal(x);if(pr)return pr;
+  if(x.modo==='PRODUCCION'&&!CTX.prodHabilitada&&esOp()&&(x.estado==='APROBADA'||x.estado==='ERROR'))return accionesLista(x).filter(function(a){return a.act==='emitir';})[0]||null;
+  return null;
+}
 
 /* ── Vista previa tipo factura (wizard paso 4, detalle y ventanas de aprobar/emitir) ── */
 function facturaHtml(o){
@@ -269,11 +278,11 @@ function modoActivo(){
 function pintarFranja(){
   var m=modoActivo(), b=document.body, f=$('faFranja');
   if(!f){f=document.createElement('div');f.id='faFranja';f.className='fa-franja';f.setAttribute('role','status');f.setAttribute('aria-live','polite');b.appendChild(f);}
-  b.classList.toggle('fa-con-franja',!!m);b.classList.toggle('fa-franja-real',m==='PRODUCCION');b.classList.toggle('fa-franja-prueba',m==='PRUEBA');
-  f.className='fa-franja'+(m==='PRODUCCION'?' real':(m==='PRUEBA'?' pru':''));
+  b.classList.toggle('fa-con-franja',m==='PRODUCCION');b.classList.toggle('fa-franja-real',m==='PRODUCCION');
+  f.className='fa-franja'+(m==='PRODUCCION'?' real':'');   // la franja celeste de PRUEBA se quitó junto con la opción Prueba
   f.innerHTML=m==='PRODUCCION'?ic('factura')+'<b>FACTURA REAL</b><span>· se enviará al SII a nombre de '+esc(EMISOR_NOMBRE)+'</span>'
-    :(m==='PRUEBA'?ic('probeta')+'<b>PRUEBA</b><span>· sin validez tributaria (ambiente de pruebas, no va al SII)</span>':'');
-  f.hidden=!m;
+    :'';
+  f.hidden=m!=='PRODUCCION';
 }
 // Al cambiar a los grupos FIJO/VARIABLE se quita la franja (la pestaña adicional queda oculta).
 document.addEventListener('click',function(e){var b=e.target.closest('[data-vista]');if(b){CTX.fuera=b.getAttribute('data-vista')!=='ADICIONAL';pintarFranja();}},true);
@@ -292,8 +301,13 @@ function render(){
   pintarFranja();
   if(foco){var q=$('faBuscar');if(q){q.focus();try{q.setSelectionRange(q.value.length,q.value.length);}catch(e){}}}
 }
+/* "Ocultar pruebas" (activado por defecto): esconde el histórico de PRUEBAS cerradas (emitidas o anuladas, p. ej. FA-0001..0003).
+   Una PRUEBA que aún está en curso (borrador, en revisión, aprobada, incierta, con error) se sigue mostrando para que alguien la cierre. */
+function visible(x){return !CTX.f.ocultarPruebas||x.modo!=='PRUEBA'||(x.estado!=='EMITIDA'&&x.estado!=='ANULADA');}
+function listaVisible(){return CTX.lista.filter(visible);}
+function nPruebasOcultas(){return CTX.lista.length-listaVisible().length;}
 function totales(){
-  var L=CTX.lista, mes=hoyCL().slice(0,7);
+  var L=listaVisible(), mes=hoyCL().slice(0,7);
   function suma(a){return a.reduce(function(s,x){return s+ +x.total;},0);}
   var rev=L.filter(function(x){return x.estado==='EN_REVISION';}), emi=L.filter(function(x){return x.estado==='APROBADA'||x.estado==='EMITIENDO';});
   var mesE=L.filter(function(x){return x.estado==='EMITIDA'&&String(x.emitida_at||'').slice(0,7)===mes;});
@@ -312,17 +326,17 @@ function renderHero(){
   var t=totales(), mes=t.mesE, real=mes.filter(function(x){return x.modo==='PRODUCCION';}).length;
   function k(grupo,cls,icn,icc,l,n,monto,sub){var on=CTX.f.est===grupo;
     return '<button type="button" class="fa-k '+cls+(on?' on':'')+'" data-fa-grupo="'+grupo+'" aria-pressed="'+on+'"><span class="l">'+I(icn,icc)+esc(l)+'</span><span class="v cifra">'+n+'</span><span class="m cifra">'+clp(monto)+'</span><span class="s">'+sub+'</span></button>';}
-  var vivas=CTX.lista.filter(function(x){return x.estado!=='ANULADA';}), nV=vivas.length||1;
+  var vivas=listaVisible().filter(function(x){return x.estado!=='ANULADA';}), nV=vivas.length||1;
   var nEm=vivas.filter(function(x){return x.estado==='EMITIDA';}).length, nPr=t.prob.length, nBo=vivas.filter(function(x){return x.estado==='BORRADOR'||x.estado==='DEVUELTA';}).length, nEs=vivas.length-nEm-nPr-nBo;
   function pc(n){return (n*100/nV).toFixed(2)+'%';}
   h.innerHTML='<div class="hero-top"><div><small class="k">Facturas excepcionales</small><h2>Facturación <span>adicional</span></h2>'
    +'<div class="meta"><span class="it">'+I('factura','ic-mor')+'Factura exenta <b>DTE 34</b></span><span class="it">'+I('escudo','ic-cel')+'Siempre con aprobación del Master</span>'
-   +'<span class="it">'+I(CTX.prodHabilitada?'aprobar':'candado',CTX.prodHabilitada?'ic-ver':'ic-amb')+'Emisión real: <b style="color:'+(CTX.prodHabilitada?'var(--ver)':'var(--amb)')+'">'+(CTX.prodHabilitada?'habilitada':'apagada (GO pendiente)')+'</b></span></div></div>'
+   +'<span class="it">'+I(CTX.prodHabilitada?'aprobar':'candado',CTX.prodHabilitada?'ic-ver':'ic-amb')+'Emisión real: <b style="color:'+(CTX.prodHabilitada?'var(--ver)':'var(--amb)')+'">'+(CTX.prodHabilitada?'activada':'desactivada · pide al Master activarla')+'</b></span></div></div>'
    +'<div class="estado-lote">'+(esOp()?'<button type="button" class="g-btn pri" data-fa="nueva" data-id="0">'+I('mas')+'Nueva factura</button>':'<span class="sub">Las crean Facturación o el Master; el Master las aprueba.</span>')+'</div></div>'
    +'<div class="fa-kpis">'
    +k('revision','ambar','escudo','ic-mor','Por aprobar',t.rev.length,t.suma(t.rev),'Esperan al Master')
    +k('emitir','cel','enviar','ic-cel','Por emitir',t.emi.length,t.suma(t.emi),'Aprobadas, listas para emitir')
-   +k('emitidas','verde','aprobar','ic-ver','Emitidas del mes',mes.length,t.suma(mes),real+' real · '+(mes.length-real)+' prueba')
+   +k('emitidas','verde','aprobar','ic-ver','Emitidas del mes',mes.length,t.suma(mes),real+' real'+(mes.length-real?' · '+(mes.length-real)+' prueba':''))
    +k('problemas','rojo','alerta','ic-roj','Inciertas o con error',t.prob.length,t.suma(t.prob),t.prob.length?'Revisar antes de reintentar':'Sin problemas')
    +'</div>'
    +'<div class="fa-av" aria-label="Avance de las facturas vigentes"><div class="fa-av-barra"><i class="verde" style="width:'+pc(nEm)+'"></i><i class="ambar" style="width:'+pc(nEs)+'"></i><i class="rojo" style="width:'+pc(nPr)+'"></i><i class="gris" style="width:'+pc(nBo)+'"></i></div>'
@@ -331,13 +345,11 @@ function renderHero(){
 
 /* ── Cartera ── */
 function filas(){
-  return CTX.lista.map(function(x){return {x:x,resp:nombreUsuario(x.creado_por)||('Usuario #'+x.creado_por),resp_id:x.creado_por};});
+  return listaVisible().map(function(x){return {x:x,resp:nombreUsuario(x.creado_por)||('Usuario #'+x.creado_por),resp_id:x.creado_por};});
 }
 function pasaSinResp(f){
   var x=f.x, F=CTX.f, g=GRUPOS[F.est]||GRUPOS.todos;
   if(g[1]&&g[1].indexOf(x.estado)<0)return false;
-  if(F.tipo==='real'&&x.modo!=='PRODUCCION')return false;
-  if(F.tipo==='prueba'&&x.modo!=='PRUEBA')return false;
   if(F.cli&&String(x.cliente_id)!==F.cli)return false;
   if(F.q){var q=F.q.toLowerCase(), t=(x.codigo+' '+cli(x.cliente_id)+' '+rutCli(x.cliente_id)+' '+String(rutCli(x.cliente_id)).replace(/\./g,'')+' '+glosaPrincipal(x)+' '+f.resp+' '+(x.of_folio||'')).toLowerCase();if(t.indexOf(q)<0)return false;}
   return true;
@@ -360,9 +372,8 @@ function htmlCartera(){
    +'<div class="fa-filtros">'
    +'<label class="fa-buscar"><span class="sr">Buscar por código, cliente, RUT, glosa o folio</span>'+I('buscar','ic-cel')+'<input type="search" id="faBuscar" placeholder="Buscar código, cliente, RUT, glosa o folio…" value="'+esc(F.q)+'" autocomplete="off"></label>'
    +'<label class="fa-sel"><span class="sr">Cliente</span><select id="faFCli" aria-label="Filtrar por cliente"><option value="">Cliente: todos</option>'+cliIds.map(function(id){return '<option value="'+id+'"'+(F.cli===String(id)?' selected':'')+'>'+esc(cli(id))+'</option>';}).join('')+'</select></label>'
-   +'<div class="g-seg fa-seg" role="group" aria-label="Tipo"><button type="button" class="fb'+(F.tipo==='todos'?' on':'')+'" data-fa-tipo="todos" aria-pressed="'+(F.tipo==='todos')+'">Todos</button>'
-   +'<button type="button" class="fb fa-fb-real'+(F.tipo==='real'?' on':'')+'" data-fa-tipo="real" aria-pressed="'+(F.tipo==='real')+'">'+I('factura','ic-roj')+'Real</button>'
-   +'<button type="button" class="fb fa-fb-prueba'+(F.tipo==='prueba'?' on':'')+'" data-fa-tipo="prueba" aria-pressed="'+(F.tipo==='prueba')+'">'+I('probeta','ic-cel')+'Prueba</button></div>'
+   +'<button type="button" class="g-btn sm fa-ocultar'+(F.ocultarPruebas?' on':'')+'" data-fa-ocultar="1" role="switch" aria-checked="'+F.ocultarPruebas+'" title="Oculta las PRUEBAS ya emitidas o anuladas (histórico). Las pruebas aún en curso se siguen mostrando.">'
+     +'<span class="fa-sw" aria-hidden="true"></span>Ocultar pruebas'+(nPruebasOcultas()?' <b class="cifra">'+nPruebasOcultas()+'</b>':'')+'</button>'
    +'<button type="button" class="g-btn sm" data-fa="csv" data-id="0">'+I('bajar','ic-ver')+'CSV</button>'
    +'</div>'
    +'<div class="fa-filtros"><div class="g-seg fa-seg" role="group" aria-label="Estado">'+Object.keys(GRUPOS).map(function(g){return '<button type="button" class="fb'+(F.est===g?' on':'')+'" data-fa-grupo="'+g+'" aria-pressed="'+(F.est===g)+'">'+esc(GRUPOS[g][0])+' <b class="cifra">'+nG(g)+'</b></button>';}).join('')+'</div></div>'
@@ -372,7 +383,7 @@ function htmlCartera(){
    +'<tbody id="faTbody"></tbody></table></div><p class="fa-pie" id="faPie"></p>';
 }
 function filaHtml(f){
-  var x=f.x, s=SEM[x.estado]||['gris',x.estado], pr=accionPrincipal(x), real=x.modo==='PRODUCCION';
+  var x=f.x, s=SEM[x.estado]||['gris',x.estado], pr=accionFila(x), real=x.modo==='PRODUCCION';
   var res=CTX.resaltada===x.id;
   return '<tr class="fa-fila p-'+s[0]+(real?' es-real':'')+(res?' fa-resaltada':'')+'" data-fa-card="'+x.id+'"'+(res?' style="outline:2px solid var(--ama);outline-offset:3px"':'')+' tabindex="0" aria-label="'+esc(x.codigo+' · '+cli(x.cliente_id)+' · '+(real?'REAL':'PRUEBA')+' · '+s[1])+'">'
    +'<td data-l="Estado"><span class="fa-sem '+s[0]+'"><i></i>'+esc(s[1])+'</span>'+(x.auto_aprobada_master?'<small class="fa-mini">auto-aprobada</small>':'')+((x.alertas||[]).length?'<small class="fa-mini amb">'+I('alerta','ic-amb')+(x.alertas||[]).length+' alerta'+((x.alertas||[]).length>1?'s':'')+'</small>':'')+'</td>'
@@ -388,7 +399,8 @@ function pintarTabla(){
   var tb=$('faTbody');if(!tb)return;
   var fs=filtradas();
   tb.innerHTML=fs.map(filaHtml).join('')||(CTX.cargado?'<tr class="fa-vacia"><td colspan="8"><p class="ninguna">'+(CTX.lista.length?'Ninguna factura cumple los filtros.':'No hay facturas adicionales.')+'</p></td></tr>':'');
-  var p=$('faPie');if(p){var tot=fs.reduce(function(s,f){return s+ +f.x.total;},0);p.innerHTML='Mostrando <b class="cifra">'+fs.length+'</b> de <b class="cifra">'+CTX.lista.length+'</b> · total <b class="cifra">'+clp(tot)+'</b> (últimas 200)';}
+  var p=$('faPie');if(p){var tot=fs.reduce(function(s,f){return s+ +f.x.total;},0);p.innerHTML='Mostrando <b class="cifra">'+fs.length+'</b> de <b class="cifra">'+CTX.lista.length+'</b> · total <b class="cifra">'+clp(tot)+'</b> (últimas 200)'+(nPruebasOcultas()?' · <span class="sub" style="display:inline">'+nPruebasOcultas()+' prueba(s) del histórico ocultas</span>':'')
+    +' · <span class="sub" style="display:inline">Para practicar se usa el entorno local/DEV, no esta pantalla.</span>';}
 }
 function csv(){
   var fs=filtradas();
@@ -400,9 +412,12 @@ function csv(){
   var a=document.createElement('a');a.href=url;a.download='facturacion-adicional-'+hoyCL()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);
 }
 
-/* ── Asistente "Nueva factura" (Tipo → Cliente → Detalle → Revisar) ── */
-var PASOS=['Tipo','Cliente','Detalle','Revisar'];
-function wizNuevo(){var hoy=hoyCL();return {paso:1,modo:null,cliente:null,qCli:'',motivo:'',fe:hoy,fp:2,fv:sumarDias(hoy,20),lineas:[{glosa:'',cantidad:1,precio:'',detalle:''}],real:'',err:'',edit:null};}
+/* ── Asistente "Nueva factura" (Cliente → Detalle → Revisar) ──
+   Decisión de Luciano (23-oct, PR #84): desde la pantalla la factura nueva es SIEMPRE REAL (SII); la opción "Prueba" se quitó.
+   El servidor sigue aceptando modo PRUEBA (lo usan las pruebas automáticas y DEV): para practicar se usa el entorno local/DEV,
+   nunca Gestoor en producción. Los pasos internos son 2..4 (el 1 era "Tipo") para no tocar las validaciones por etapa. */
+var PASOS=[[2,'Cliente'],[3,'Detalle'],[4,'Revisar']];
+function wizNuevo(){var hoy=hoyCL();return {paso:2,modo:'PRODUCCION',cliente:null,qCli:'',motivo:'',fe:hoy,fp:2,fv:sumarDias(hoy,20),lineas:[{glosa:'',cantidad:1,precio:'',detalle:''}],real:'',err:'',edit:null};}
 function wizEditar(x){
   return {paso:3,modo:x.modo,cliente:x.cliente_id,qCli:'',motivo:x.motivo||'',fe:String(x.fecha_emision).slice(0,10),fp:x.forma_pago===1?1:2,fv:String(x.fecha_vencimiento).slice(0,10),
     lineas:(x.lineas||[]).map(function(l){return {glosa:l.glosa||'',cantidad:l.cantidad||1,precio:l.precio||'',detalle:l.detalle||''};}),real:'',err:'',edit:x};
@@ -411,13 +426,13 @@ function wizTotal(w){return w.lineas.reduce(function(s,l){var q=parseInt(l.canti
 function htmlWizard(){
   var w=CTX.wiz;if(!w)return '';
   var real=w.modo==='PRODUCCION', cls=w.modo?(real?' real':' pru'):'';
-  var pasos='<ol class="fa-pasos" aria-label="Pasos">'+PASOS.map(function(n,i){var k=i+1, est=k<w.paso?'hecho':(k===w.paso?'actual':'');
+  var pasos='<ol class="fa-pasos" aria-label="Pasos">'+PASOS.map(function(pp,i){var k=pp[0], n=pp[1], est=k<w.paso?'hecho':(k===w.paso?'actual':'');
       var bloqueado=w.edit&&k<3, puede=k<w.paso&&!bloqueado;
-      return '<li class="'+est+'"><button type="button" '+(puede?'data-fa-paso="'+k+'"':'disabled')+' aria-current="'+(k===w.paso?'step':'false')+'"><span class="n">'+(k<w.paso?ic('check'):k)+'</span><span class="t">'+esc(n)+'</span></button></li>';}).join('')+'</ol>';
-  var cuerpo=w.paso===1?wizPaso1(w):(w.paso===2?wizPaso2(w):(w.paso===3?wizPaso3(w):wizPaso4(w)));
-  var atras=w.paso>1&&!(w.edit&&w.paso===3)?'<button type="button" class="g-btn sm" data-fa="wiz-atras" data-id="0">'+I('devolver','ic-cel')+'Atrás</button>':'';
+      return '<li class="'+est+'"><button type="button" '+(puede?'data-fa-paso="'+k+'"':'disabled')+' aria-current="'+(k===w.paso?'step':'false')+'"><span class="n">'+(k<w.paso?ic('check'):(i+1))+'</span><span class="t">'+esc(n)+'</span></button></li>';}).join('')+'</ol>';
+  var cuerpo=w.paso===2?wizPaso2(w):(w.paso===3?wizPaso3(w):wizPaso4(w));
+  var atras=w.paso>2&&!(w.edit&&w.paso===3)?'<button type="button" class="g-btn sm" data-fa="wiz-atras" data-id="0">'+I('devolver','ic-cel')+'Atrás</button>':'';
   var sig;
-  if(w.paso<4)sig='<button type="button" class="g-btn sm pri" data-fa="wiz-sig" data-id="0" id="faWizSig"'+(w.paso===1&&!w.modo?' aria-disabled="true"':'')+'>Siguiente'+I('enviar')+'</button>';
+  if(w.paso<4)sig='<button type="button" class="g-btn sm pri" data-fa="wiz-sig" data-id="0" id="faWizSig">Siguiente'+I('enviar')+'</button>';
   else sig='<button type="button" class="g-btn pri'+(real?' fa-btn-real':'')+'" data-fa="wiz-crear" data-id="0" id="faWizCrear"'+(CTX.ocupado?' disabled':'')+'>'+I(real?'factura':'probeta')+(w.edit?'Guardar cambios':(real?'Crear borrador de factura REAL':'Crear borrador de prueba'))+'</button>';
   return '<section class="fa-wiz'+cls+'" aria-label="Nueva factura adicional">'
    +'<div class="fa-wiz-h"><button type="button" class="g-btn sm" data-fa="cartera" data-id="0">'+I('devolver','ic-cel')+'Volver a la cartera</button><h3>'+(w.edit?'Editar '+esc(w.edit.codigo):'Nueva factura adicional')+'</h3>'+(w.modo?chipTipo(w.modo,true):'')+'</div>'
@@ -426,21 +441,11 @@ function htmlWizard(){
    +'<div class="m-err fa-wiz-err" id="faWizErr" role="alert"'+(w.err?'':' hidden')+'>'+esc(w.err)+'</div>'
    +'<div class="fa-wiz-f">'+atras+'<span class="g-espacio" style="flex:1"></span>'+sig+'</div></section>';
 }
-function wizPaso1(w){
-  var apagado=!CTX.prodHabilitada;
-  return '<h4 class="fa-wiz-t">1 · ¿Qué tipo de factura vas a crear?</h4><p class="sub">Elige con calma: este paso define si el documento va al SII. Ninguna opción viene marcada.</p>'
-   +'<div class="fa-tipos" role="radiogroup" aria-label="Tipo de factura">'
-   +'<button type="button" role="radio" class="fa-tipo-card real'+(w.modo==='PRODUCCION'?' on':'')+'" data-fa-modo="PRODUCCION" aria-checked="'+(w.modo==='PRODUCCION')+'"'+(apagado?' disabled aria-disabled="true"':'')+'>'
-     +'<span class="emo" aria-hidden="true">🧾</span><b>Factura real (SII)</b><span>Se emite en el SII a nombre de '+esc(EMISOR_NOMBRE)+' Tiene validez tributaria y solo se corrige con nota de crédito.</span>'
-     +(apagado?'<em class="fa-motivo">'+I('candado','ic-amb')+'No disponible: la emisión real está apagada (falta el GO de producción).</em>':'<em class="fa-aviso-real">Para crearla y para emitirla tendrás que escribir la palabra REAL.</em>')+'</button>'
-   +'<button type="button" role="radio" class="fa-tipo-card pru'+(w.modo==='PRUEBA'?' on':'')+'" data-fa-modo="PRUEBA" aria-checked="'+(w.modo==='PRUEBA')+'">'
-     +'<span class="emo" aria-hidden="true">🧪</span><b>Prueba (sin SII)</b><span>Ambiente de pruebas de OpenFactura: documento "sin validez tributaria", no va al SII y el correo llega solo a info@contadoor.cl.</span><em>Ideal para practicar o revisar cómo queda.</em></button>'
-   +'</div>';
-}
 function wizPaso2(w){
   var q=String(w.qCli||'').toLowerCase().trim();
   var lista=CTX.clientesLista.filter(function(c){return !q||(c.razon_social+' '+c.rut+' '+String(c.rut).replace(/\./g,'')).toLowerCase().indexOf(q)>=0;}).slice(0,60);
-  return '<h4 class="fa-wiz-t">2 · ¿A qué cliente se le factura?</h4>'
+  return '<h4 class="fa-wiz-t">1 · ¿A qué cliente se le factura?</h4>'
+   +(CTX.prodHabilitada?'':'<div class="fa-aviso-off">'+I('candado','ic-amb')+'<span><b>La emisión está desactivada.</b> Puedes crear el borrador y enviarlo a aprobación; para emitirlo pide al Master activarla.</span></div>')
    +'<label class="fa-buscar"><span class="sr">Buscar cliente por nombre o RUT</span>'+I('buscar','ic-cel')+'<input type="search" id="faWizQ" placeholder="Buscar cliente por nombre o RUT…" value="'+esc(w.qCli)+'" autocomplete="off"></label>'
    +'<div class="fa-clis" role="radiogroup" aria-label="Cliente" id="faWizClis">'+(lista.map(function(c){var on=w.cliente===c.id;
       return '<button type="button" role="radio" class="fa-cli'+(on?' on':'')+'" data-fa-cli="'+c.id+'" aria-checked="'+on+'">'+I(on?'aprobar':'edificio',on?'ic-ver':'ic-mor')+'<span><b>'+esc(c.razon_social)+'</b><small class="cifra">'+esc(c.rut)+'</small></span></button>';}).join('')
@@ -456,7 +461,7 @@ function wizLinea(l,i){
    +'<input class="fa-d" maxlength="1000" placeholder="Detalle (opcional)" value="'+esc(l.detalle||'')+'" aria-label="Detalle línea '+(i+1)+'"></div>';
 }
 function wizPaso3(w){
-  return '<h4 class="fa-wiz-t">3 · Detalle de la factura</h4>'
+  return '<h4 class="fa-wiz-t">2 · Detalle de la factura</h4>'
    +'<div class="fa-form">'
    +'<label>Motivo (por qué es una factura excepcional)<textarea id="faMot" rows="2" maxlength="500" placeholder="Ej.: trabajo adicional solicitado por el cliente en octubre">'+esc(w.motivo)+'</textarea></label>'
    +'<div class="fa-form-3"><label>Fecha de emisión<input id="faFe" type="date" value="'+esc(w.fe)+'"></label>'
@@ -473,11 +478,11 @@ function wizPaso4(w){
   var real=w.modo==='PRODUCCION', lin=w.lineas.map(function(l){var q=parseInt(l.cantidad,10)||0,p=Number(l.precio)||0;return {glosa:l.glosa,detalle:l.detalle,cantidad:q,precio:p,monto:q*p};});
   var doc=facturaHtml({modo:w.modo,codigo:w.edit?w.edit.codigo:'',receptor:cli(w.cliente),rut:rutCli(w.cliente),recNota:real?'Giro, dirección y correo se toman de la ficha del cliente al enviar a aprobación.':'En prueba, OpenFactura usa un receptor de demostración y el correo va solo a info@contadoor.cl.',
     fecha:w.fe,condicion:w.fp===1?'Contado':'Crédito',venc:w.fp===1?null:w.fv,lineas:lin,total:wizTotal(w)});
-  return '<h4 class="fa-wiz-t">4 · Revisa antes de '+(w.edit?'guardar':'crear')+'</h4>'
+  return '<h4 class="fa-wiz-t">3 · Revisa antes de '+(w.edit?'guardar':'crear')+'</h4>'
    +'<div class="fa-rev">'+doc
    +'<aside class="fa-rev-lado"><div class="fa-rev-caja'+(real?' real':' pru')+'">'+(real
-      ?'<b>'+I('factura','ic-roj')+'Esta es una FACTURA REAL</b><p>Después de crear el borrador, sigue el camino de siempre: enviar a aprobación → el Master aprueba → se emite en el SII. Emitirla pedirá otra vez la palabra REAL y el total.</p>'
-       +'<label for="faWizReal">Escribe <b>REAL</b> para confirmar el tipo</label><input id="faWizReal" autocomplete="off" spellcheck="false" placeholder="REAL" value="'+esc(w.real)+'">'
+      ?'<b>'+I('factura','ic-roj')+'Esta es una FACTURA REAL</b><p>Después de crear el borrador, sigue el camino de siempre: enviar a aprobación → el Master aprueba → se emite en el SII. Emitirla pedirá otra vez la palabra REAL y el total.'+(CTX.prodHabilitada?'':' <b>Hoy la emisión está desactivada:</b> pide al Master activarla.')+'</p>'
+       +'<label for="faWizReal">Escribe <b>REAL</b> para confirmar que es una factura real</label><input id="faWizReal" autocomplete="off" spellcheck="false" placeholder="REAL" value="'+esc(w.real)+'">'
       :'<b>'+I('probeta','ic-cel')+'Esta es una PRUEBA</b><p>No va al SII ni tiene validez tributaria. Igual pasa por aprobación del Master antes de emitirse en el ambiente de pruebas.</p>')
    +'</div><div class="fa-rev-mot"><small>Motivo</small><p>'+esc(w.motivo)+'</p></div>'
    +'<p class="sub">¿Algo no cuadra? Vuelve al paso que corresponda con los números de arriba.</p></aside></div>';
@@ -499,8 +504,6 @@ function wizDatos(w){
   return o;
 }
 function wizValidar(w,hasta){
-  if(hasta>=1&&!w.modo&&!w.edit)return ERR.TIPO_OBLIGATORIO;
-  if(hasta>=1&&w.modo==='PRODUCCION'&&!w.edit&&!CTX.prodHabilitada)return ERR.TIPO_REAL_APAGADO;
   if(hasta>=2&&!w.cliente&&!w.edit)return ERR.CLIENTE_NO_EXISTE;
   if(hasta>=3){
     var o=wizDatos(w);
@@ -523,8 +526,8 @@ function wizCrear(){
   var w=CTX.wiz;if(!w)return;wizSync();
   var m=wizValidar(w,4);if(m){wizError(m);var r=$('faWizReal');if(r&&m===ERR.PALABRA_REAL)r.focus();return;}
   var o=wizDatos(w), nuevo=!w.edit;
-  if(nuevo){o.cliente_id=+w.cliente;o.modo=w.modo;}
-  correr(nuevo?rpc('factura_adicional_crear',{p:o}):rpc('factura_adicional_editar',{p_factura:w.edit.id,p:o}),nuevo?(w.modo==='PRODUCCION'?'Borrador de factura REAL creado. Siguiente paso: enviarlo a aprobación.':'Borrador de prueba creado. Siguiente paso: enviarlo a aprobación.'):'Cambios guardados.',false,
+  if(nuevo){o.cliente_id=+w.cliente;o.modo='PRODUCCION';}   // desde la pantalla, siempre REAL
+  correr(nuevo?rpc('factura_adicional_crear',{p:o}):rpc('factura_adicional_editar',{p_factura:w.edit.id,p:o}),nuevo?'Borrador de factura REAL creado. Siguiente paso: enviarlo a aprobación.':'Cambios guardados.',false,
     function(r){var id=r&&r.factura_id!=null?+r.factura_id:(w.edit?w.edit.id:null);CTX.wiz=null;if(id!=null&&porId(id))abrirDetalle(id);else irCartera();});
 }
 function abrirNueva(){CTX.wiz=wizNuevo();CTX.vista='nueva';render();var s=document.querySelector('.fa-wiz');if(s&&s.scrollIntoView)s.scrollIntoView({block:'start'});}
@@ -594,7 +597,9 @@ function htmlDetalle(x){
    +(alertas.length?'<div class="mot" style="background:rgba(255,210,77,.08)"><b>Alertas:</b> '+alertas.join(' · ')+'</div>':'')
    +(x.estado==='INCIERTO'?'<div class="mot" style="background:rgba(255,210,77,.1)"><b>No reemitir.</b> OpenFactura no confirmó el resultado. El Master concilia: Gestoor busca el documento con la misma clave (nunca emite dos veces).</div>':'')
    +'</div><div class="fa-det-lado">'
-   +'<div class="fa-caja"><h4>'+I('lista','ic-mor')+'Acciones</h4><div class="fa-det-acc">'+(acc.map(function(a){return bot(a,x.id);}).join('')||'<span class="sub">No hay acciones disponibles para ti en este estado.</span>')+'</div></div>'
+   +'<div class="fa-caja"><h4>'+I('lista','ic-mor')+'Acciones</h4>'
+     +(prod&&!CTX.prodHabilitada&&['BORRADOR','DEVUELTA','EN_REVISION','APROBADA','ERROR'].indexOf(x.estado)>=0?'<div class="fa-aviso-off">'+I('candado','ic-amb')+'<span><b>'+esc(ERR.EMISION_DESACTIVADA)+'</b> El resto del camino (enviar, aprobar, devolver) funciona igual.</span></div>':'')
+     +'<div class="fa-det-acc">'+(acc.map(function(a){return bot(a,x.id);}).join('')||'<span class="sub">No hay acciones disponibles para ti en este estado.</span>')+'</div></div>'
    +'<div class="fa-caja"><h4>'+I('reloj','ic-ver')+'Línea de tiempo</h4>'+htmlLinea(x)+'</div>'
    +'<div class="fa-caja"><h4>'+I('factura','ic-ama')+'Folio y documentos</h4><div class="fa-dato"><span>Folio</span><b class="cifra">'+(x.of_folio?'N° '+esc(x.of_folio):'—')+'</b></div>'
      +(x.total_dte!=null&&+x.total_dte!==+x.total?'<div class="fa-dato"><span>Total DTE</span><span class="fx-est roj">'+clp(+x.total_dte)+' (difiere)</span></div>':'')
@@ -697,9 +702,8 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-fa]');
   if(b){if(b.disabled)return;e.stopPropagation();accion(b.getAttribute('data-fa'),+b.getAttribute('data-id'));return;}
   var g=e.target.closest('[data-fa-grupo]');if(g){var k=g.getAttribute('data-fa-grupo');CTX.f.est=CTX.f.est===k&&g.classList.contains('fa-k')?'todos':k;render();return;}
-  var tp=e.target.closest('[data-fa-tipo]');if(tp){CTX.f.tipo=tp.getAttribute('data-fa-tipo');render();return;}
+  var oc=e.target.closest('[data-fa-ocultar]');if(oc){CTX.f.ocultarPruebas=!CTX.f.ocultarPruebas;render();var b2=document.querySelector('[data-fa-ocultar]');if(b2)b2.focus();return;}
   var rp=e.target.closest('[data-resp]');if(rp){var EQ=window.GEquipo;CTX.f.resp=EQ&&EQ.valida?EQ.valida(rp.getAttribute('data-resp')):rp.getAttribute('data-resp');render();return;}
-  var md=e.target.closest('[data-fa-modo]');if(md&&CTX.wiz){if(md.disabled)return;var nm=md.getAttribute('data-fa-modo');if(nm==='PRODUCCION'&&!CTX.prodHabilitada){wizError(ERR.TIPO_REAL_APAGADO);return;}if(CTX.wiz.modo!==nm)CTX.wiz.real='';CTX.wiz.modo=nm;CTX.wiz.err='';render();var c=document.querySelector('[data-fa-modo="'+nm+'"]');if(c)c.focus();return;}
   var cl=e.target.closest('[data-fa-cli]');if(cl&&CTX.wiz){wizSync();CTX.wiz.cliente=+cl.getAttribute('data-fa-cli');CTX.wiz.err='';render();var c2=document.querySelector('[data-fa-cli="'+CTX.wiz.cliente+'"]');if(c2)c2.focus();return;}
   var fp=e.target.closest('[data-fa-fp]');if(fp&&CTX.wiz){wizSync();CTX.wiz.fp=+fp.getAttribute('data-fa-fp');render();return;}
   var ps=e.target.closest('[data-fa-paso]');if(ps&&CTX.wiz){wizIr(+ps.getAttribute('data-fa-paso'));return;}
