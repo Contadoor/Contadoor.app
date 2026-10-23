@@ -134,7 +134,102 @@ test('carga-claves.js: sin console.*, sin trim sobre claves, usa el núcleo para
   const s = fs.readFileSync(path.join(__dirname, 'carga-claves.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   assert.ok(!/console\./.test(s));
   assert.ok(!/clave[^;\n]*\.trim\(/.test(s));
-  assert.ok(s.includes('N.validar(') && s.includes('N.armarLotes(') && s.includes('N.hojaAMatriz('));
+  assert.ok(s.includes('N.validar(') && s.includes('N.lotesDeItems(') && s.includes('N.hojaAMatriz('));
   const n = fs.readFileSync(path.join(__dirname, 'carga-claves-nucleo.js'), 'utf8');
   assert.ok(!/s\.clave\.trim|clave\)\.trim|secreto\([^)]*\)\.trim/.test(n));
+});
+
+// ── Ronda 3 (ChatGPT): recuperación de reemplazos y resultados no confirmados ──
+// Plan de 3 clientes: cliente 11 ya tiene SII (reemplazo), 10 y 12 nuevas.
+function planR3(reemplazar) {
+  const cart = { 10: { id: 10, rut: '76086428-5', tipos: [] }, 11: { id: 11, rut: '77166269-2', tipos: ['sii'] }, 12: { id: 12, rut: '96790240-3', tipos: [] } };
+  const plan = [
+    { fila: 2, clienteId: 10, rut: '76086428-5', error: null, cli: cart[10], tipos: [{ t: 'sii', usuario: '76086428-5', clave: 'n10', motivo: null }, { t: 'tgr', usuario: null, clave: 't10', motivo: null }] },
+    { fila: 3, clienteId: 11, rut: '77166269-2', error: null, cli: cart[11], tipos: [{ t: 'sii', usuario: '77166269-2', clave: 'r11', motivo: null }] },
+    { fila: 4, clienteId: 12, rut: '96790240-3', error: null, cli: cart[12], tipos: [{ t: 'banco', usuario: null, clave: 'b12', motivo: null }] },
+  ];
+  N.decidir(plan, reemplazar);
+  return { plan, cart };
+}
+const resp = (confirmadas, errores, abortado) => ({ status: 200, json: { ok: true, cargadas: 0, reemplazadas: 0, sin_cambio: 0, confirmadas, errores, abortado } });
+const ids = (l) => l.map((it) => `${it.fila}:${it.tipo}`);
+
+test('Reemplazo FALLIDO (rollback): va a "reemplazos" y se reintenta CON Reemplazar; nunca se ofrece como reintento sin Reemplazar', () => {
+  const { plan } = planR3(true);
+  const items = N.itemsDePlan(plan);
+  const [g] = N.lotesDeItems(items, true);
+  N.evaluarLote(g.items, resp([{ fila: 2, tipo: 'sii', resultado: 'cargada' }, { fila: 2, tipo: 'tgr', resultado: 'cargada' }],
+    [{ fila: 3, clienteId: 11, tipo: 'sii', codigo: 'guardar_fallo' }], true));
+  const p = N.pendientes(items);
+  assert.deepEqual(ids(p.reemplazos), ['3:sii']);
+  assert.deepEqual(ids(p.nuevas), ['4:banco']);                       // no procesada (el lote se detuvo antes)
+  assert.equal(p.inciertas.length, 0);
+  // Los lotes de reintento llevan la bandera correcta.
+  const rr = N.lotesDeItems(p.reemplazos, true);
+  assert.equal(N.bytes({ accion: 'cargar', reemplazar: true, filas: rr[0].filas }) > 0, true);
+  assert.deepEqual(rr[0].filas.map((f) => Object.keys(f.claves)), [['sii']]);
+  assert.deepEqual(N.lotesDeItems(p.nuevas, false)[0].filas.map((f) => f.fila), [4]);
+});
+
+test('Reemplazo NO PROCESADO (el lote se detuvo antes de llegar): también queda en "reemplazos", no en "nuevas"', () => {
+  const { plan } = planR3(true);
+  const items = N.itemsDePlan(plan);
+  const [g] = N.lotesDeItems(items, true);
+  N.evaluarLote(g.items, resp([], [{ fila: 2, clienteId: 10, tipo: 'sii', codigo: 'guardar_fallo' }], true));
+  const p = N.pendientes(items);
+  assert.deepEqual(ids(p.reemplazos), ['3:sii']);
+  assert.deepEqual(ids(p.nuevas).sort(), ['2:sii', '2:tgr', '4:banco']);
+  assert.equal(items.find((i) => i.fila === 3).codigo, 'no_procesada');
+});
+
+test('Respuesta PERDIDA (resultado_incierto, red caída o 5xx): "no confirmado", sin reintento hasta verificar con estado', () => {
+  for (const r of ['incierto', 0, 504, 500]) {
+    const { plan } = planR3(false);
+    const items = N.itemsDePlan(plan);
+    const [g] = N.lotesDeItems(items, false);
+    N.evaluarLote(g.items, r === 'incierto' ? resp([], [{ fila: 2, clienteId: 10, tipo: 'sii', codigo: 'resultado_incierto' }], true) : { status: r });
+    const p = N.pendientes(items);
+    assert.ok(p.inciertas.some((it) => it.fila === 2 && it.tipo === 'sii'), String(r));
+    assert.ok(p.inciertas.every((it) => it.codigo === 'resultado_incierto'));
+  }
+  // Rechazos ANTES de escribir (400/401/403/405/413) → no procesada, no incierta.
+  const { plan } = planR3(false);
+  const items = N.itemsDePlan(plan);
+  N.evaluarLote(N.lotesDeItems(items, false)[0].items, { status: 413 });
+  assert.equal(N.pendientes(items).inciertas.length, 0);
+  assert.equal(N.pendientes(items).nuevas.length, 3);
+});
+
+test('Verificar con estado: incierta+nueva ya activa → verificada (no se reintenta); ausente → nueva; incierta+reemplazo → reemplazo no confirmado (CON Reemplazar)', () => {
+  const { plan } = planR3(true);
+  const items = N.itemsDePlan(plan);
+  N.evaluarLote(N.lotesDeItems(items, true)[0].items, { status: 0 });   // todo el lote sin respuesta
+  assert.equal(N.pendientes(items).inciertas.length, 4);
+  const fresco = { 10: { id: 10, tipos: ['sii'] }, 11: { id: 11, tipos: ['sii'] }, 12: { id: 12, tipos: [] } };   // SII de 10 sí quedó; TGR de 10 y banco de 12 no
+  const p = N.reverificar(items, fresco);
+  assert.equal(p.inciertas.length, 0);
+  assert.equal(items.find((i) => i.fila === 2 && i.tipo === 'sii').estado, 'verificada');
+  assert.deepEqual(ids(p.nuevas).sort(), ['2:tgr', '4:banco']);
+  assert.deepEqual(ids(p.reemplazos), ['3:sii']);
+  assert.equal(items.find((i) => i.fila === 3).estado, 'reemplazo_no_confirmado');
+});
+
+test('Memoria: tras un lote se sueltan las claves de lo confirmado y quedan solo las pendientes; "todos" las suelta todas', () => {
+  const { plan } = planR3(true);
+  const items = N.itemsDePlan(plan);
+  N.evaluarLote(N.lotesDeItems(items, true)[0].items, resp([{ fila: 2, tipo: 'sii', resultado: 'cargada' }], [{ fila: 2, clienteId: 10, tipo: 'tgr', codigo: 'guardar_fallo' }], true));
+  N.soltarClaves(items, false);
+  assert.equal(items.find((i) => i.fila === 2 && i.tipo === 'sii').clave, null);
+  assert.equal(items.find((i) => i.fila === 2 && i.tipo === 'tgr').clave, 't10');
+  N.soltarClaves(items, true);
+  assert.ok(items.every((i) => i.clave === null && i.usuario === null));
+});
+
+test('Mensajes de la página: guardar_fallo ≠ resultado_incierto; ya no se promete que reintentar sin Reemplazar "termina" todo', () => {
+  const s = fs.readFileSync(path.join(__dirname, 'carga-claves.js'), 'utf8');
+  assert.ok(s.includes("resultado_incierto:'No se pudo confirmar el resultado de esta clave; la carga se detuvo. Verifica antes de reintentar'"));
+  assert.ok(!/SIN "Reemplazar" para terminar/.test(s));
+  assert.ok(s.includes('volver a subir el archivo SIN "Reemplazar" NO los aplica'));
+  assert.ok(s.includes("reintentar(p.reemplazos,true)") && s.includes("reintentar(p.nuevas,false)"));
+  assert.ok(/refrescar\(\)\.then\(function\(p\)\{\s*if\(p\.inciertas\.length\)/.test(s), 'reintentar verifica primero con estado');
 });

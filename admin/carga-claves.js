@@ -27,7 +27,8 @@
     cliente_no_activo:'El cliente no está activo', slug_ocupado:'Hay otra clave con ese nombre interno: corrígelo a mano en su ficha',
     respuesta_desconocida:'Respuesta inesperada del servidor (se detuvo)',
     varias_claves_tipo:'El cliente tiene más de una clave de este tipo: corrígelo a mano en su ficha',
-    guardar_fallo:'Esta clave NO se guardó (ni su registro ni el aviso SII) y la carga se detuvo: vuelve a subir el archivo',
+    guardar_fallo:'La base rechazó esta clave: no quedó (ni su registro ni el aviso SII)',
+    resultado_incierto:'No se pudo confirmar el resultado de esta clave; la carga se detuvo. Verifica antes de reintentar',
     http:'El servidor rechazó el lote (se detuvo)'
   };
 
@@ -211,7 +212,9 @@
   }
 
   // ── Paso 3: envío en lotes (≤ 50 clientes y ≤ 200.000 bytes por lote) ──
-  function lotes(){ return N.armarLotes(plan,$('cclReemplazar').checked); }
+  // ejec = la carga en curso o terminada: ítems (una clave cada uno), errores de validación previos y nombres por fila.
+  // Mientras haya PENDIENTES se conservan SOLO sus claves (para reintentar lo pendiente); todo lo demás se suelta al terminar.
+  var ejec=null;
 
   function cargar(){
     if(!plan||enviando) return;
@@ -220,67 +223,141 @@
     var reemplazar=$('cclReemplazar').checked;
     var msg='Se guardarán '+n+' clave(s) de '+tot.clientes+' cliente(s)'+(tot.reemplazo?(', y se REEMPLAZARÁN '+tot.reemplazo+' que ya existían'):'')+'.\n\n¿Continuar?';
     if(!window.confirm(msg)) return;
-    var grupos;
-    try{ grupos=lotes(); }catch(e){ toast('Una fila es demasiado grande para enviarse. Revisa el archivo.'); return; }
-    enviando=true;
+    var items=N.itemsDePlan(plan), grupos;
+    try{ grupos=N.lotesDeItems(items,reemplazar); }catch(e){ toast('Una fila es demasiado grande para enviarse. Revisa el archivo.'); return; }
+    var previos={sinCambio:0, errores:[]}, nombres={};
+    plan.forEach(function(f){
+      nombres[f.fila]=f.cli?f.cli.razon_social:(f.clienteId!=null?'Cliente #'+f.clienteId:null);
+      if(f.error) previos.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:null,codigo:f.error});
+      else f.tipos.forEach(function(t){ if(t.accion==='igual') previos.sinCambio++; if(t.accion==='error') previos.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:t.t,codigo:t.motivo}); });
+    });
+    ejec={items:items, previos:previos, nombres:nombres};
+    olvidar(true);                                  // el plan (y su copia de las claves) ya no hace falta: solo quedan los ítems
     $('cclBtnCargar').disabled=true; $('cclBtnCancelar').disabled=true; $('cclArchivo').disabled=true; $('cclReemplazar').disabled=true;
+    $('cclPaso3').hidden=false;
+    enviar(grupos,reemplazar,function(){ $('cclPaso3').hidden=true; pintarResultado(); });
+  }
+
+  // Envía los grupos en orden; se detiene al primer lote detenido. Nunca muestra ni registra valores.
+  function enviar(grupos,reemplazar,listo){
+    enviando=true;
     $('cclProgreso').hidden=false;
-    var res={cargadas:0,reemplazadas:0,sin_cambio:0,errores:[],detenido:false};
     var i=0;
     function sig(){
       $('cclBarra').style.width=Math.round(i/grupos.length*100)+'%';
       $('cclTxtProg').textContent='Lote '+Math.min(i+1,grupos.length)+' de '+grupos.length+'…';
-      if(i>=grupos.length) return fin(res);
+      if(i>=grupos.length) return terminar();
       var g=grupos[i];
-      edge({accion:'cargar',reemplazar:reemplazar,filas:g}).then(function(r){
-        g=null; grupos[i]=null;                                         // el lote ya enviado se suelta de inmediato
-        if(r.status!==200||!r.json||r.json.ok!==true){ res.errores.push({fila:null,clienteId:null,tipo:null,codigo:'http',status:r.status}); res.detenido=true; return fin(res); }
-        var j=r.json;
-        res.cargadas+=j.cargadas||0; res.reemplazadas+=j.reemplazadas||0; res.sin_cambio+=j.sin_cambio||0;
-        (j.errores||[]).forEach(function(e){res.errores.push(e);});
-        if(j.abortado){ res.detenido=true; return fin(res); }
+      edge({accion:'cargar',reemplazar:reemplazar,filas:g.filas}).then(function(r){
+        var ev=N.evaluarLote(g.items,r); g.filas=null;
+        if(ev.detenido) return terminar();
         i++; sig();
-      }).catch(function(e){ res.errores.push({fila:null,clienteId:null,tipo:null,codigo:'http',status:e&&e.status}); res.detenido=true; fin(res); });
+      },function(){ N.evaluarLote(g.items,{status:0}); terminar(); });   // red caída: resultado NO confirmado
+    }
+    function terminar(){
+      grupos.forEach(function(g){ N.marcarNoProcesadas(g.items); g.filas=null; });
+      N.soltarClaves(ejec.items,false);                                   // solo quedan en memoria las claves pendientes
+      enviando=false;
+      $('cclProgreso').hidden=true; $('cclBarra').style.width='0';
+      listo();
     }
     sig();
   }
 
-  function fin(res){
-    var sinCambioPrevio=0;
-    if(plan) plan.forEach(function(f){f.tipos.forEach(function(t){if(t.accion==='igual')sinCambioPrevio++;});});
-    var erroresPrevios=[];
-    if(plan) plan.forEach(function(f){
-      if(f.error) erroresPrevios.push({fila:f.fila,clienteId:f.clienteId,tipo:null,codigo:f.error});
-      else f.tipos.forEach(function(t){ if(t.accion==='error') erroresPrevios.push({fila:f.fila,clienteId:f.clienteId,tipo:t.t,codigo:t.motivo}); });
-    });
-    var nombres={}; if(plan) plan.forEach(function(f){ nombres[f.fila]=f.cli?f.cli.razon_social:null; });
-    olvidar(true);                                                        // ← limpieza de la memoria del navegador
-    enviando=false;
-    var errores=erroresPrevios.concat(res.errores);
-    var sinCambio=res.sin_cambio+sinCambioPrevio;
-    $('cclPaso3').hidden=true; $('cclResultado').hidden=false;
-    $('cclResumen').textContent=fmt(res.cargadas)+' cargadas, '+fmt(res.reemplazadas)+' reemplazadas, '+fmt(errores.length)+' con error'
-      +(res.detenido?'. La carga se DETUVO. Cada clave se guarda completa (clave + registro + aviso SII) o no se guarda; las contadas arriba como cargadas o reemplazadas quedaron completas. Si el corte fue de conexión, la última respuesta pudo perderse: revisa esos clientes en "Ver claves" y vuelve a subir el mismo archivo SIN "Reemplazar" para terminar (lo ya guardado saldrá "sin cambio").':'.');
+  var NOMBRE_TIPO={}; TIPOS.forEach(function(x){NOMBRE_TIPO[x.t]=x.n;});
+  function filaItem(it,clase,texto){
+    var d=el('div','fila '+(clase||''));
+    var cab=el('div','fila-cab');
+    cab.appendChild(el('span','n t3',it.fila?'Fila '+it.fila:'Lote'));
+    cab.appendChild(el('b','razon',(it.fila&&ejec.nombres[it.fila])||(it.clienteId?'Cliente #'+it.clienteId:'Servidor')));
+    if(it.tipo) cab.appendChild(el('span','est '+(clase==='mal'?'rojo':clase==='duda'?'ambar':'gris'),NOMBRE_TIPO[it.tipo]||it.tipo));
+    d.appendChild(cab);
+    if(texto) d.appendChild(el('div','motivo t2',texto));
+    return d;
+  }
+
+  function pintarResultado(){
+    var its=ejec.items, cnt={cargada:0,reemplazada:0,sin_cambio:0};
+    its.forEach(function(it){ if(it.estado==='ok') cnt[it.resultado]++; });
+    var verificadas=its.filter(function(it){return it.estado==='verificada';});
+    var errores=ejec.previos.errores.concat(its.filter(function(it){return it.estado==='error';}).map(function(it){return {fila:it.fila,clienteId:it.clienteId,tipo:it.tipo,codigo:it.codigo};}));
+    var p=N.pendientes(its), nPend=p.nuevas.length+p.reemplazos.length+p.inciertas.length;
+    $('cclResultado').hidden=false;
+    $('cclResumen').textContent=fmt(cnt.cargada+verificadas.length)+' cargadas, '+fmt(cnt.reemplazada)+' reemplazadas, '+fmt(errores.length)+' con error'
+      +(nPend?(', '+fmt(nPend)+' pendientes. Cada clave se guarda completa (clave + registro + aviso SII) o no se guarda; revisa abajo qué hacer con las pendientes.'):'.');
     kpis($('cclKpiRes'),[
-      {i:'llave',ic:'ic-ver',v:res.cargadas,l:'cargadas',c:'verde'},
-      {i:'repetir',ic:'ic-amb',v:res.reemplazadas,l:'reemplazadas',c:'ambar'},
-      {i:'check',ic:'ic-cel',v:sinCambio,l:'sin cambio'},
-      {i:'alerta',ic:'ic-roj',v:errores.length,l:'con error',c:'rojo'}
+      {i:'llave',ic:'ic-ver',v:cnt.cargada+verificadas.length,l:'cargadas',c:'verde'},
+      {i:'repetir',ic:'ic-amb',v:cnt.reemplazada,l:'reemplazadas',c:'ambar'},
+      {i:'check',ic:'ic-cel',v:cnt.sin_cambio+ejec.previos.sinCambio,l:'sin cambio'},
+      {i:'alerta',ic:'ic-roj',v:errores.length+nPend,l:'con error o pendientes',c:'rojo'}
     ]);
+    // Pendientes, cada caso con su opción correcta.
+    var pc=$('cclPend'); pc.textContent='';
+    if(p.inciertas.length){
+      var a=el('div','aviso ambar fuerte'); a.appendChild(ico('alerta','ic-amb'));
+      a.appendChild(el('span',null,p.inciertas.length+' clave(s) con resultado NO confirmado: se perdió la respuesta del servidor y pudieron quedar guardadas (con su registro y aviso SII). Verifica antes de reintentar.'));
+      pc.appendChild(a);
+      p.inciertas.forEach(function(it){ pc.appendChild(filaItem(it,'duda','Resultado no confirmado · '+(it.accion==='reemplazo'?'era un reemplazo':'era una clave nueva'))); });
+      pc.appendChild(boton('Verificar estado ahora','ver',verificar));
+    } else {
+      if(p.nuevas.length){
+        var b=el('div','aviso lila'); b.appendChild(ico('llave','ic-mor'));
+        b.appendChild(el('span',null,p.nuevas.length+' clave(s) NUEVA(S) no quedaron guardadas o no alcanzaron a procesarse. Se reintentan SIN "Reemplazar": solo llenan tipos que siguen vacíos.'));
+        pc.appendChild(b);
+        p.nuevas.forEach(function(it){ pc.appendChild(filaItem(it,'',it.codigo==='no_procesada'?'No alcanzó a procesarse':'No se guardó')); });
+        pc.appendChild(boton('Reintentar '+p.nuevas.length+' clave(s) nueva(s) · sin Reemplazar','llave',function(){ reintentar(p.nuevas,false); }));
+      }
+      if(p.reemplazos.length){
+        var c=el('div','aviso ambar'); c.appendChild(ico('repetir','ic-amb'));
+        c.appendChild(el('span',null,p.reemplazos.length+' REEMPLAZO(S) no se aplicaron o no se pudo confirmar que se aplicaran: la clave anterior puede seguir vigente. Ojo: volver a subir el archivo SIN "Reemplazar" NO los aplica (saldrían "sin cambio"). Se reintentan CON "Reemplazar", solo estas filas.'));
+        pc.appendChild(c);
+        p.reemplazos.forEach(function(it){ pc.appendChild(filaItem(it,'duda',it.estado==='reemplazo_no_confirmado'?'Reemplazo no confirmado: reintentar vuelve a escribir el valor del archivo':it.codigo==='no_procesada'?'No alcanzó a procesarse':'No se aplicó (la anterior sigue vigente)')); });
+        pc.appendChild(boton('Reintentar '+p.reemplazos.length+' reemplazo(s) · CON Reemplazar','repetir',function(){ reintentar(p.reemplazos,true); }));
+      }
+    }
+    if(nPend) pc.appendChild(boton('Olvidar pendientes (no reintentar)','basura',function(){ N.soltarClaves(ejec.items,true); ejec.items.forEach(function(it){ if(['incierta','no_guardada','no_procesada','reemplazo_no_confirmado'].indexOf(it.estado)>=0){ it.estado='olvidada'; } }); pintarResultado(); toast('Gestoor olvidó las claves pendientes.'); },'sec'));
+    // Errores definitivos (datos).
     var cont=$('cclErrRes'); cont.textContent='';
-    var nombreTipo={}; TIPOS.forEach(function(x){nombreTipo[x.t]=x.n;});
-    errores.forEach(function(e){
-      var d=el('div','fila mal');
-      var cab=el('div','fila-cab');
-      cab.appendChild(el('span','n t3',e.fila?'Fila '+e.fila:'Lote'));
-      cab.appendChild(el('b','razon',(e.fila&&nombres[e.fila])||(e.clienteId?'Cliente #'+e.clienteId:'Servidor')));
-      if(e.tipo) cab.appendChild(el('span','est rojo',nombreTipo[e.tipo]||e.tipo));
-      d.appendChild(cab);
-      d.appendChild(el('div','motivo t2',(MOTIVOS[e.codigo]||e.codigo)+(e.status?' (HTTP '+e.status+')':'')));
-      cont.appendChild(d);
-    });
+    errores.forEach(function(e){ cont.appendChild(filaItem(e,'mal',MOTIVOS[e.codigo]||e.codigo)); });
+    its.filter(function(it){return it.estado==='olvidada';}).forEach(function(it){ cont.appendChild(filaItem(it,'mal','Pendiente olvidada: no se reintentó')); });
+    if(!nPend){ N.soltarClaves(ejec.items,true); }
+    $('cclMemoria').textContent=nPend?('Mientras haya pendientes, esta pantalla guarda en memoria SOLO esas '+nPend+' clave(s) para reintentarlas; al reintentar, olvidar o salir de la página se borran.'):'Gestoor ya olvidó el archivo en esta pantalla.';
     pintarIconos($('cclResultado'));
     $('cclResultado').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function boton(txt,icono,fn,clase){
+    var w=el('div','acciones'); var b=el('button','btn'+(clase?' '+clase:'')); b.type='button';
+    b.appendChild(ico(icono)); b.appendChild(el('span',null,txt)); b.addEventListener('click',function(){ if(!enviando) fn(); }); w.appendChild(b); return w;
+  }
+
+  // Refresca la cartera con 'estado' (tipos con clave activa, sin valores) y reclasifica los pendientes.
+  function refrescar(){
+    return edge({accion:'estado'}).then(function(r){
+      if(r.status!==200||!r.json||!Array.isArray(r.json.clientes)) throw {status:r.status};
+      cartera=r.json.clientes; porId={}; cartera.forEach(function(c){porId[c.id]=c;});
+      return N.reverificar(ejec.items,porId);
+    });
+  }
+  function verificar(){
+    refrescar().then(function(){ pintarResultado(); toast('Estado verificado. Revisa qué quedó pendiente.'); },
+      function(e){ toast('No se pudo verificar el estado'+(e&&e.status?' (HTTP '+e.status+')':'')+'. Intenta de nuevo.'); });
+  }
+
+  function reintentar(lista,reemplazar){
+    if(!lista.length) return;
+    var msg=reemplazar?('Se volverán a escribir '+lista.length+' clave(s) CON "Reemplazar" (sobrescriben la clave actual con la del archivo).\n\n¿Continuar?')
+                      :('Se reintentarán '+lista.length+' clave(s) nueva(s) SIN "Reemplazar".\n\n¿Continuar?');
+    if(!window.confirm(msg)) return;
+    refrescar().then(function(p){
+      if(p.inciertas.length){ pintarResultado(); return; }
+      var hoy=(reemplazar?p.reemplazos:p.nuevas).filter(function(it){return lista.indexOf(it)>=0;});
+      if(!hoy.length){ pintarResultado(); toast('Ya no queda nada pendiente de ese tipo.'); return; }
+      hoy.forEach(function(it){ it.estado='pendiente'; it.codigo=null; it.accion=reemplazar?'reemplazo':'carga'; });
+      var grupos; try{ grupos=N.lotesDeItems(hoy,reemplazar); }catch(e){ toast('Una fila es demasiado grande.'); return; }
+      $('cclResultado').hidden=true; $('cclPaso3').hidden=false; $('cclLista').textContent='';
+      enviar(grupos,reemplazar,function(){ $('cclPaso3').hidden=true; pintarResultado(); });
+    },function(e){ toast('No se pudo verificar el estado antes de reintentar'+(e&&e.status?' (HTTP '+e.status+')':'')+'.'); });
   }
 
   // ── Limpieza: soltar las claves de la memoria y resetear el input ──
@@ -307,9 +384,9 @@
     $('cclReemplazar').addEventListener('change',function(){ if(plan) pintarPrevia(); });
     $('cclBtnCargar').addEventListener('click',cargar);
     $('cclBtnCancelar').addEventListener('click',function(){ olvidar(false); errArchivo(''); toast('Listo: Gestoor olvidó el archivo. Bórralo también de tu computador.'); });
-    $('cclBtnOtra').addEventListener('click',function(){ $('cclResultado').hidden=true; $('cclZona').scrollIntoView({behavior:'smooth'}); });
+    $('cclBtnOtra').addEventListener('click',function(){ if(ejec){ N.soltarClaves(ejec.items,true); ejec=null; } $('cclResultado').hidden=true; $('cclZona').scrollIntoView({behavior:'smooth'}); });
     document.querySelectorAll('#cclPaso3 .chip').forEach(function(b){ b.addEventListener('click',function(){ filtro=b.getAttribute('data-f'); pintarPrevia(); }); });
-    window.addEventListener('pagehide',function(){ olvidar(false); });
+    window.addEventListener('pagehide',function(){ olvidar(false); if(ejec) N.soltarClaves(ejec.items,true); });
     window.addEventListener('beforeunload',function(e){ if(enviando){ e.preventDefault(); e.returnValue=''; } });
     pintarIconos(document);
   });

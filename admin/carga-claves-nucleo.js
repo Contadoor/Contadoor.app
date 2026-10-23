@@ -138,25 +138,103 @@
     return unescape(encodeURIComponent(s)).length;
   };
 
-  // Grupos para la Edge: ≤ LOTE_FILAS filas y cuerpo JSON (con accion/reemplazar) ≤ LOTE_BYTES. Solo viajan las claves que cambian.
-  N.armarLotes=function(plan,reemplazar){
-    var filas=plan.filter(function(f){return !f.error&&f.cambia;}).map(function(f){
-      var claves={};
-      f.tipos.forEach(function(t){ if(t.accion==='carga'||t.accion==='reemplazo'){ claves[t.t]=t.usuario!=null?{usuario:t.usuario,clave:t.clave}:{clave:t.clave}; } });
-      return {fila:f.fila, clienteId:f.clienteId, rut:f.rut, claves:claves};
+  // ── Envío y recuperación (ronda 3) ──
+  // Cada clave a enviar es un "ítem": {fila, clienteId, rut, tipo, accion:'carga'|'reemplazo', usuario, clave, estado, codigo, resultado}.
+  N.itemsDePlan=function(plan){
+    var out=[];
+    plan.filter(function(f){return !f.error&&f.cambia;}).forEach(function(f){
+      f.tipos.forEach(function(t){ if(t.accion==='carga'||t.accion==='reemplazo') out.push({fila:f.fila, clienteId:f.clienteId, rut:f.rut, tipo:t.t, accion:t.accion, usuario:t.usuario, clave:t.clave, estado:'pendiente', codigo:null, resultado:null}); });
+    });
+    return out;
+  };
+
+  // Lotes: ≤ LOTE_FILAS filas y cuerpo JSON (con accion/reemplazar) ≤ LOTE_BYTES. Devuelve [{filas:[payload], items:[ítems]}].
+  N.lotesDeItems=function(items,reemplazar){
+    var porFila={}, orden=[];
+    items.forEach(function(it){
+      if(!porFila[it.fila]){ porFila[it.fila]={payload:{fila:it.fila, clienteId:it.clienteId, rut:it.rut, claves:{}}, items:[]}; orden.push(it.fila); }
+      porFila[it.fila].payload.claves[it.tipo]=it.usuario!=null?{usuario:it.usuario,clave:it.clave}:{clave:it.clave};
+      porFila[it.fila].items.push(it);
     });
     // Tamaño exacto sin re-serializar todo: JSON de {accion, reemplazar, filas:[]} + cada fila + una coma entre filas.
     var base=N.bytes({accion:'cargar',reemplazar:!!reemplazar,filas:[]});
-    var grupos=[], actual=[], tam=base;
-    filas.forEach(function(fl){
-      var b=N.bytes(fl);
+    var grupos=[], actual=null, tam=base;
+    orden.forEach(function(fila){
+      var x=porFila[fila], b=N.bytes(x.payload);
       if(base+b>N.LIM.LOTE_BYTES) throw new Error('FILA_MUY_GRANDE');            // imposible con los máximos (7 × 1.000)
-      var nuevo=tam+b+(actual.length?1:0);
-      if(actual.length>=N.LIM.LOTE_FILAS||nuevo>N.LIM.LOTE_BYTES){ grupos.push(actual); actual=[fl]; tam=base+b; }
-      else { actual.push(fl); tam=nuevo; }
+      var nuevo=tam+b+(actual&&actual.filas.length?1:0);
+      if(!actual||actual.filas.length>=N.LIM.LOTE_FILAS||nuevo>N.LIM.LOTE_BYTES){ actual={filas:[x.payload],items:x.items.slice()}; grupos.push(actual); tam=base+b; }
+      else { actual.filas.push(x.payload); actual.items=actual.items.concat(x.items); tam=nuevo; }
     });
-    if(actual.length) grupos.push(actual);
     return grupos;
+  };
+  // Compatibilidad: lotes desde el plan (solo los payloads).
+  N.armarLotes=function(plan,reemplazar){ return N.lotesDeItems(N.itemsDePlan(plan),reemplazar).map(function(g){return g.filas;}); };
+
+  // Asigna a cada ítem del lote lo que pasó, con la respuesta de la Edge ({status, json}) o un fallo de red (status 0/undefined).
+  //   ok           → confirmado por la base (cargada / reemplazada / sin_cambio)
+  //   no_guardada  → la base lo rechazó (rollback confirmado): no quedó
+  //   incierta     → no se sabe (respuesta perdida, timeout, 5xx): pudo quedar guardada → verificar antes de reintentar
+  //   error        → error de datos definitivo (rut, cliente inactivo, dos claves del tipo…)
+  //   no_procesada → no se intentó (el lote se detuvo antes, o el servidor rechazó el lote antes de escribir: 400/401/403/405/413)
+  N.evaluarLote=function(items,r){
+    var ok=r&&r.status===200&&r.json&&r.json.ok===true;
+    if(!ok){
+      var antes=!!r&&[400,401,403,405,413].indexOf(r.status)>=0;
+      items.forEach(function(it){ it.estado=antes?'no_procesada':'incierta'; it.codigo=antes?'http':'resultado_incierto'; it.status=r?r.status:0; });
+      return {detenido:true};
+    }
+    var j=r.json, conf={}, err={}, errFila={};
+    (j.confirmadas||[]).forEach(function(c){conf[c.fila+':'+c.tipo]=c.resultado;});
+    (j.errores||[]).forEach(function(e){ if(e.tipo) err[e.fila+':'+e.tipo]=e.codigo; else errFila[e.fila]=e.codigo; });
+    items.forEach(function(it){
+      var k=it.fila+':'+it.tipo; it.status=null;
+      if(conf[k]){ it.estado='ok'; it.resultado=conf[k]; it.codigo=null; }
+      else if(err[k]==='guardar_fallo'){ it.estado='no_guardada'; it.codigo='guardar_fallo'; }
+      else if(err[k]==='resultado_incierto'){ it.estado='incierta'; it.codigo='resultado_incierto'; }
+      else if(err[k]){ it.estado='error'; it.codigo=err[k]; }
+      else if(errFila[it.fila]){ it.estado='error'; it.codigo=errFila[it.fila]; }
+      else { it.estado='no_procesada'; it.codigo='no_procesada'; }
+    });
+    return {detenido:!!j.abortado};
+  };
+  N.marcarNoProcesadas=function(items){ items.forEach(function(it){ if(it.estado==='pendiente'){ it.estado='no_procesada'; it.codigo='no_procesada'; } }); };
+
+  // Pendientes, cada grupo con la opción CORRECTA de reintento:
+  //   nuevas     → reintentar SIN "Reemplazar" (solo llena tipos vacíos)
+  //   reemplazos → reintentar CON "Reemplazar" (sin él saldrían "sin cambio" y la clave nueva NO se aplicaría)
+  //   inciertas  → primero VERIFICAR (acción 'estado'); no se puede reintentar todavía
+  N.pendientes=function(items){
+    var p={nuevas:[],reemplazos:[],inciertas:[]};
+    items.forEach(function(it){
+      if(it.estado==='incierta') p.inciertas.push(it);
+      else if(it.estado==='no_guardada'||it.estado==='no_procesada'||it.estado==='reemplazo_no_confirmado'){
+        (it.accion==='reemplazo'?p.reemplazos:p.nuevas).push(it);
+      }
+    });
+    return p;
+  };
+
+  // Verificación con el estado fresco de la cartera (tipos con clave activa, sin valores):
+  //   incierta + era carga     → si el tipo YA está activo: quedó guardada ('verificada'); si no: no se guardó → nueva pendiente
+  //   incierta + era reemplazo → el tipo existe antes y después: no se puede saber si el valor nuevo quedó → 'reemplazo_no_confirmado'
+  //                              (se ofrece reintentar CON Reemplazar, que reescribe el valor del archivo, con confirmación)
+  N.reverificar=function(items,porId){
+    items.forEach(function(it){
+      if(it.estado!=='incierta') return;
+      var c=porId[it.clienteId], tiene=!!c&&c.tipos.indexOf(it.tipo)>=0;
+      if(it.accion==='carga'){ if(tiene){ it.estado='verificada'; it.codigo=null; } else { it.estado='no_guardada'; it.codigo='verificada_ausente'; } }
+      else { it.estado='reemplazo_no_confirmado'; it.codigo='reemplazo_no_confirmado'; }
+    });
+    return N.pendientes(items);
+  };
+
+  // Suelta las claves de los ítems que ya no están pendientes (o de todos).
+  N.soltarClaves=function(items,todos){
+    items.forEach(function(it){
+      var pend=it.estado==='incierta'||it.estado==='no_guardada'||it.estado==='no_procesada'||it.estado==='reemplazo_no_confirmado';
+      if(todos||!pend){ it.clave=null; it.usuario=null; }
+    });
   };
 
   if(typeof module!=='undefined'&&module.exports) module.exports=N; else raiz.CCLNucleo=N;

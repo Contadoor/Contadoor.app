@@ -93,6 +93,10 @@ body.g-mod-ccl{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-ccl .est.ambar{background:rgba(255,200,90,.14);color:var(--ambar)}
 .g-mod-ccl .est.rojo{background:rgba(224,122,110,.15);color:var(--rojo)}
 .g-mod-ccl .est.gris{background:rgba(255,255,255,.06);color:var(--t2)}
+/* Pendientes (ronda 3): cada caso con su opción de reintento */
+.g-mod-ccl .pendientes{display:flex;flex-direction:column;gap:8px}
+.g-mod-ccl .pendientes:empty{display:none}
+.g-mod-ccl .fila.duda{border-color:rgba(255,200,90,.45);background:rgba(255,200,90,.05)}
 /* Progreso */
 .g-mod-ccl .progreso{display:flex;flex-direction:column;gap:6px}
 .g-mod-ccl .progreso[hidden]{display:none}

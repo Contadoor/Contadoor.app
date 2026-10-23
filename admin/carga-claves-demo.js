@@ -23,15 +23,23 @@
     return new Promise(function(ok){ setTimeout(function(){
       if(body.accion==='estado') return ok({status:200,json:{ok:true,clientes:CLIENTES.map(function(c){return {id:c.id,rut:c.rut,razon_social:c.razon_social,tipos:vault[c.id].slice()};})}});
       if(body.accion!=='cargar') return ok({status:400,json:{ok:false,error:'accion inválida'}});
-      var r={ok:true,cargadas:0,reemplazadas:0,sin_cambio:0,errores:[],abortado:false};
-      body.filas.forEach(function(f){
-        Object.keys(f.claves).forEach(function(t){
-          if(f.clienteId===103&&t==='sii'){ r.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:t,codigo:'varias_claves_tipo'}); return; }
+      var r={ok:true,cargadas:0,reemplazadas:0,sin_cambio:0,errores:[],abortado:false,confirmadas:[]};
+      // ?falla=reemplazo → el reemplazo de SII de 101 lo rechaza la base (rollback) y el lote se detiene.
+      // ?falla=incierto  → la SII de 102 se GUARDA pero la respuesta "se pierde" (resultado_incierto) y el lote se detiene.
+      var falla=(location.search.match(/[?&]falla=([a-z]+)/)||[])[1]||'';
+      for(var i=0;i<body.filas.length&&!r.abortado;i++){
+        var f=body.filas[i], tipos=Object.keys(f.claves);
+        for(var k=0;k<tipos.length;k++){
+          var t=tipos[k];
+          if(f.clienteId===103&&t==='sii'){ r.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:t,codigo:'varias_claves_tipo'}); continue; }
           var tiene=vault[f.clienteId].indexOf(t)>=0;
-          if(tiene&&!body.reemplazar){ r.sin_cambio++; return; }
-          if(tiene) r.reemplazadas++; else { r.cargadas++; vault[f.clienteId].push(t); }
-        });
-      });
+          if(tiene&&!body.reemplazar){ r.sin_cambio++; r.confirmadas.push({fila:f.fila,tipo:t,resultado:'sin_cambio'}); continue; }
+          if(falla==='reemplazo'&&tiene&&f.clienteId===101&&t==='sii'&&!window.CCL_DEMO_FALLO_USADO){ window.CCL_DEMO_FALLO_USADO=1; r.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:t,codigo:'guardar_fallo'}); r.abortado=true; break; }
+          if(tiene){ r.reemplazadas++; r.confirmadas.push({fila:f.fila,tipo:t,resultado:'reemplazada'}); }
+          else { vault[f.clienteId].push(t); r.cargadas++; r.confirmadas.push({fila:f.fila,tipo:t,resultado:'cargada'}); }
+          if(falla==='incierto'&&f.clienteId===102&&t==='sii'&&!window.CCL_DEMO_FALLO_USADO){ window.CCL_DEMO_FALLO_USADO=1; r.cargadas--; r.confirmadas.pop(); r.errores.push({fila:f.fila,clienteId:f.clienteId,tipo:t,codigo:'resultado_incierto'}); r.abortado=true; break; }
+        }
+      }
       // La demo deja ver en la página de prueba QUÉ llegó a la "Edge" (sin valores), para comprobar que no viaja el archivo completo.
       window.CCL_DEMO_RECIBIDO=(window.CCL_DEMO_RECIBIDO||[]).concat([{filas:body.filas.length,reemplazar:body.reemplazar,campos:Object.keys(body).sort().join(','),bytes:JSON.stringify(body).length}]);
       ok({status:200,json:r});
