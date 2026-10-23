@@ -57,6 +57,7 @@ var ERR={
   NO_INCIERTA:'Solo se concilian facturas inciertas.',
   TOKEN_INVALIDO:'El token debe tener 64 caracteres (letras a–f y números).',
   SIN_SESION:'Tu sesión no está activa. Vuelve a ingresar.',
+  SOLO_FACTURACION:'No tienes acceso a la lista de clientes de Facturación (Master, Pagos, Cobranza o módulo Facturación).',
   CONFIG_DEV_INCOMPLETA:'Falta configurar el ambiente de pruebas en el servidor. Avisa a soporte.'
 };
 function msg(e){
@@ -86,7 +87,7 @@ function cargar(){
   return Promise.all([
     sbGet('facturas_adicionales?select=id,codigo,modo,estado,cliente_id,motivo,lineas,total,fecha_emision,fecha_vencimiento,forma_pago,alertas,snapshot,snapshot_hash,comentario_devolucion,of_folio,of_track_id,total_dte,error,doc_estado,correo_estado,cobranza_documento_id,creado_at,aprobada_at,emitida_at&order=creado_at.desc&limit=200'),
     sbGet('facturacion_parametros?select=produccion_habilitada&id=eq.1'),
-    CTX.clientesLista.length?Promise.resolve(null):sbGet('clientes?select=id,rut,razon_social,estado&order=razon_social.asc&limit=2000')
+    CTX.clientesLista.length?Promise.resolve(null):rpc('fact_clientes_lista',{p_incluir_inactivos:true})   // RPC: Facturación ve todos los clientes sin abrir la RLS de clientes; el selector filtra 'activo' abajo
   ]).then(function(r){
     CTX.lista=r[0]||[];CTX.prodHabilitada=!!(r[1]&&r[1][0]&&r[1][0].produccion_habilitada);
     if(r[2]){CTX.clientesLista=r[2].filter(function(c){return String(c.estado||'').toLowerCase()==='activo';});r[2].forEach(function(c){CTX.clientes[c.id]=c;});}
