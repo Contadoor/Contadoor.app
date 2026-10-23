@@ -169,6 +169,8 @@ function enEmision(){return !!S.lote&&['EMITIENDO','EMITIDO','EMITIDO_PARCIAL'].
 /* ── Carga ── */
 function iniciar(){
   pintarIconosEstaticos();
+  // Enlace de los avisos (F1c-N): ?tab=adicional abre directo "Facturación adicional"; adicional-real.js ubica ?fa=<id>.
+  try{if(new URLSearchParams(location.search).get('tab')==='adicional')S.vista='ADICIONAL';}catch(e){}
   if(DEMO){
     $('fxDemo').hidden=false;$('verComo').hidden=false;
     document.documentElement.classList.remove('auth-pending');

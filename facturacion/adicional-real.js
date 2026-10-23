@@ -89,9 +89,26 @@ function edge(accion,id,extra){
     return r.json().catch(function(){return {};}).then(function(j){if(!r.ok){var e=new Error(j.error||('HTTP '+r.status));e.codigo=j.error;throw e;}return j;});
   });
 }
+var CAMPOS='id,codigo,modo,estado,cliente_id,creado_por,auto_aprobada_master,motivo,lineas,total,fecha_emision,fecha_vencimiento,forma_pago,alertas,snapshot,snapshot_hash,comentario_devolucion,of_folio,of_track_id,total_dte,error,doc_estado,correo_estado,cobranza_documento_id,creado_at,aprobada_at,emitida_at';
+/* Enlace de los avisos de la campana: ?tab=adicional&fa=<id>. Se lee UNA vez; solo un id numérico. La factura se busca con la misma
+   RLS del usuario (si no la ve, no existe para él): primero en la lista cargada y, si no está (más antigua que las 200), por id. */
+var ENLACE_FA=(function(){try{var v=new URLSearchParams(location.search).get('fa');return v&&/^[0-9]{1,18}$/.test(v)?+v:null;}catch(e){return null;}})();
+function irAFacturaEnlace(){
+  if(ENLACE_FA===null)return Promise.resolve();
+  var id=ENLACE_FA;ENLACE_FA=null;
+  var ya=CTX.lista.filter(function(x){return x.id===id;})[0];
+  var p=ya?Promise.resolve(ya):sbGet('facturas_adicionales?select='+CAMPOS+'&id=eq.'+id).then(function(r){var x=r&&r[0];if(x){CTX.lista.push(x);render();}return x||null;});
+  return p.then(function(x){
+    if(!x){toast(I('alerta','ic-amb')+' No encontramos la factura del aviso (#'+id+'): no existe o no tienes acceso.');return;}
+    var el=document.querySelector('#vistaAdic [data-fa-card="'+x.id+'"]');
+    if(el){if(el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('fa-resaltada');el.style.outline='2px solid var(--ama)';el.style.outlineOffset='3px';el.setAttribute('tabindex','-1');try{el.focus({preventScroll:true});}catch(e){}
+      setTimeout(function(){el.style.outline='';el.classList.remove('fa-resaltada');},6000);}
+    toast(I('factura','ic-ama')+' '+esc(x.codigo)+' · '+esc((EST[x.estado]||[x.estado])[0]));
+  });
+}
 function cargar(){
   return Promise.all([
-    sbGet('facturas_adicionales?select=id,codigo,modo,estado,cliente_id,creado_por,auto_aprobada_master,motivo,lineas,total,fecha_emision,fecha_vencimiento,forma_pago,alertas,snapshot,snapshot_hash,comentario_devolucion,of_folio,of_track_id,total_dte,error,doc_estado,correo_estado,cobranza_documento_id,creado_at,aprobada_at,emitida_at&order=creado_at.desc&limit=200'),
+    sbGet('facturas_adicionales?select='+CAMPOS+'&order=creado_at.desc&limit=200'),
     sbGet('facturacion_parametros?select=produccion_habilitada&id=eq.1'),
     CTX.yo!==null?Promise.resolve(null):rpc('facturacion_yo',{}).catch(function(){return null;}),
     CTX.clientesLista.length?Promise.resolve(null):rpc('fact_clientes_lista',{p_incluir_inactivos:true})   // RPC: Facturación ve todos los clientes sin abrir la RLS de clientes; el selector filtra 'activo' abajo
@@ -146,7 +163,7 @@ function acciones(x){
 }
 function tarjeta(x){
   var prod=x.modo==='PRODUCCION', lin=x.lineas||[];
-  return '<div class="cot manual"><div class="h"><span class="chip c-manualf" title="Factura excepcional: motivo obligatorio y aprobación del Master">'+esc(x.codigo)+'</span>'
+  return '<div class="cot manual" data-fa-card="'+x.id+'"><div class="h"><span class="chip c-manualf" title="Factura excepcional: motivo obligatorio y aprobación del Master">'+esc(x.codigo)+'</span>'
    +'<span class="'+(prod?'fx-est roj':'fx-est cel')+'" title="'+(prod?'Factura real (SII)':'Ambiente de pruebas, sin SII')+'">'+(prod?'REAL':'PRUEBA')+'</span>'+chipEst(x.estado)+'</div>'
    +'<b class="sv">'+esc(lin.length?lin[0].glosa+(lin.length>1?' + '+(lin.length-1)+' más':''):'—')+'</b>'
    +'<div class="fila"><span>Cliente</span><span>'+esc(cli(x.cliente_id))+'<span class="sub">'+esc(rutCli(x.cliente_id))+'</span></span></div>'
@@ -179,7 +196,7 @@ function render(){
    +'<div class="fx-kpi"><span class="l">Inciertas</span><span class="v cifra" style="color:'+(inc?'var(--ama)':'inherit')+'">'+inc+'</span><span class="s">El Master concilia</span></div>'
    +'<div class="fx-kpi"><span class="l">Emitido</span><span class="v cifra">'+clp(emit)+'</span><span class="s">Prueba + real</span></div></div>';
 }
-function recargar(){return cargar().then(render).catch(function(e){toast(I('alerta','ic-amb')+' '+esc(msg(e)));});}
+function recargar(){return cargar().then(render).then(irAFacturaEnlace).catch(function(e){toast(I('alerta','ic-amb')+' '+esc(msg(e)));});}
 
 /* ── Formulario (crear / editar) ── */
 function filaLinea(l,i){
