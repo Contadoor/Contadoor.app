@@ -14,7 +14,7 @@ var U=window.FX_UTIL, UI=window.FX_UI;
 var ic=U.ic, I=U.I, esc=U.esc, clp=U.clp;
 var modal=UI.modal, toast=UI.toast, cerrarModal=UI.cerrarModal;
 var EDGE=(typeof SB_URL!=='undefined'?SB_URL:'')+'/functions/v1/facturacion-emitir';
-var CTX={rol:'lectura',lista:[],clientes:{},clientesLista:[],prodHabilitada:false,ocupado:false,cargado:false,sel:null};
+var CTX={yo:null,rol:'lectura',lista:[],clientes:{},clientesLista:[],prodHabilitada:false,ocupado:false,cargado:false,sel:null};
 function $(id){return document.getElementById(id);}
 function hoyCL(){var d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,10);}
 function sumarDias(iso,n){var t=new Date(iso+'T12:00:00');t.setDate(t.getDate()+n);return t.toISOString().slice(0,10);}
@@ -58,6 +58,10 @@ var ERR={
   TOKEN_INVALIDO:'El token debe tener 64 caracteres (letras a–f y números).',
   SIN_SESION:'Tu sesión no está activa. Vuelve a ingresar.',
   SOLO_FACTURACION:'No tienes acceso a la lista de clientes de Facturación (Master, Pagos, Cobranza o módulo Facturación).',
+  AUTOAPROBACION_REQUIERE_CONFIRMACION:'Creaste esta factura: usa "Auto-aprobar", que pide confirmar y reescribir el total.',
+  CONFIRMACION_OBLIGATORIA:'Marca la casilla: estás aprobando una factura que creaste tú.',
+  TOTAL_CONFIRMADO_NO_COINCIDE:'El total que escribiste no coincide con el de la factura.',
+  NO_ES_TUYA:'Solo puedes auto-aprobar facturas que creaste tú; esta se aprueba con "Aprobar".',
   CONFIG_DEV_INCOMPLETA:'Falta configurar el ambiente de pruebas en el servidor. Avisa a soporte.'
 };
 function msg(e){
@@ -85,12 +89,14 @@ function edge(accion,id,extra){
 }
 function cargar(){
   return Promise.all([
-    sbGet('facturas_adicionales?select=id,codigo,modo,estado,cliente_id,motivo,lineas,total,fecha_emision,fecha_vencimiento,forma_pago,alertas,snapshot,snapshot_hash,comentario_devolucion,of_folio,of_track_id,total_dte,error,doc_estado,correo_estado,cobranza_documento_id,creado_at,aprobada_at,emitida_at&order=creado_at.desc&limit=200'),
+    sbGet('facturas_adicionales?select=id,codigo,modo,estado,cliente_id,creado_por,auto_aprobada_master,motivo,lineas,total,fecha_emision,fecha_vencimiento,forma_pago,alertas,snapshot,snapshot_hash,comentario_devolucion,of_folio,of_track_id,total_dte,error,doc_estado,correo_estado,cobranza_documento_id,creado_at,aprobada_at,emitida_at&order=creado_at.desc&limit=200'),
     sbGet('facturacion_parametros?select=produccion_habilitada&id=eq.1'),
+    CTX.yo!==null?Promise.resolve(null):rpc('facturacion_yo',{}).catch(function(){return null;}),
     CTX.clientesLista.length?Promise.resolve(null):rpc('fact_clientes_lista',{p_incluir_inactivos:true})   // RPC: Facturación ve todos los clientes sin abrir la RLS de clientes; el selector filtra 'activo' abajo
   ]).then(function(r){
     CTX.lista=r[0]||[];CTX.prodHabilitada=!!(r[1]&&r[1][0]&&r[1][0].produccion_habilitada);
-    if(r[2]){CTX.clientesLista=r[2].filter(function(c){return String(c.estado||'').toLowerCase()==='activo';});r[2].forEach(function(c){CTX.clientes[c.id]=c;});}
+    if(r[2]&&r[2].usuario_id!=null)CTX.yo=+r[2].usuario_id;
+    if(r[3]){CTX.clientesLista=r[3].filter(function(c){return String(c.estado||'').toLowerCase()==='activo';});r[3].forEach(function(c){CTX.clientes[c.id]=c;});}
     CTX.cargado=true;
   });
 }
@@ -101,17 +107,21 @@ function cli(id){var c=CTX.clientes[id];return c?c.razon_social:'Cliente #'+id;}
 function rutCli(id){var c=CTX.clientes[id];return c?c.rut:'';}
 function esF(){return CTX.rol==='facturador';}
 function esM(){return CTX.rol==='master';}
+// F1c-M (Luciano 23-oct): el Master también crea, edita, envía y emite. La aprobación sigue siendo un paso aparte.
+function esOp(){return esF()||esM();}
+function esMia(x){return CTX.yo!==null&&+x.creado_por===CTX.yo;}
 function bot(act,id,txt,icn,cls,ok,tip){
   return '<span class="tipw" tabindex="'+(ok?'-1':'0')+'" data-tip="'+esc(tip||'')+'"><button type="button" class="g-btn sm '+(cls||'')+'" data-fa="'+act+'" data-id="'+id+'"'+(ok&&!CTX.ocupado?'':' disabled')+'>'+I(icn,ok?'':'')+esc(txt)+'</button></span>';
 }
 function acciones(x){
   var a=[], prod=x.modo==='PRODUCCION';
-  if(esF()&&(x.estado==='BORRADOR'||x.estado==='DEVUELTA')){a.push(bot('editar',x.id,'Editar','lapiz','',true,''));a.push(bot('enviar',x.id,'Enviar a aprobación','enviar','pri',true,'Congela el contenido y lo envía al Master.'));}
-  if(esM()&&x.estado==='EN_REVISION'){a.push(bot('aprobar',x.id,'Aprobar','aprobar','pri',true,'Apruebas exactamente lo que ves (huella).'));a.push(bot('devolver',x.id,'Devolver','devolver','',true,''));}
+  if(esOp()&&(x.estado==='BORRADOR'||x.estado==='DEVUELTA')){a.push(bot('editar',x.id,'Editar','lapiz','',true,''));a.push(bot('enviar',x.id,'Enviar a aprobación','enviar','pri',true,'Congela el contenido y lo envía al Master.'));}
+  if(esM()&&x.estado==='EN_REVISION'&&esMia(x)){a.push(bot('autoaprobar',x.id,'Auto-aprobar (la creaste tú)','escudo','pri',true,'Paso aparte: confirmas y reescribes el total. Queda marcada y se avisa al equipo.'));a.push(bot('devolver',x.id,'Devolver','devolver','',true,''));}
+  else if(esM()&&x.estado==='EN_REVISION'){a.push(bot('aprobar',x.id,'Aprobar','aprobar','pri',true,'Apruebas exactamente lo que ves (huella).'));a.push(bot('devolver',x.id,'Devolver','devolver','',true,''));}
   if(esM()&&x.estado==='APROBADA')a.push(bot('devolver',x.id,'Devolver','devolver','',true,'Solo si aún no hubo intento de emisión.'));
   if(x.estado==='APROBADA'||x.estado==='ERROR'||x.estado==='EN_REVISION'||x.estado==='BORRADOR'||x.estado==='DEVUELTA'){
-    var puede=esF()&&(x.estado==='APROBADA'||x.estado==='ERROR')&&(!prod||CTX.prodHabilitada);
-    var tip=!esF()?'Emite el facturador.':(x.estado!=='APROBADA'&&x.estado!=='ERROR'?'Bloqueado: falta la aprobación del Master.':(prod&&!CTX.prodHabilitada?'Bloqueado: la emisión real requiere el GO de producción.':(prod?'Emite la factura REAL en el SII.':'Emite en el ambiente de pruebas de OpenFactura (sin SII).')));
+    var puede=esOp()&&(x.estado==='APROBADA'||x.estado==='ERROR')&&(!prod||CTX.prodHabilitada);
+    var tip=!esOp()?'Emite el facturador o el Master.':(x.estado!=='APROBADA'&&x.estado!=='ERROR'?'Bloqueado: falta la aprobación del Master.':(prod&&!CTX.prodHabilitada?'Bloqueado: la emisión real requiere el GO de producción.':(prod?'Emite la factura REAL en el SII.':'Emite en el ambiente de pruebas de OpenFactura (sin SII).')));
     a.push(bot('emitir',x.id,prod?'Emitir factura real':'Emitir (prueba)','enviar',puede?'pri':'',puede,tip));
   }
   if(esM()&&x.estado==='INCIERTO')a.push(bot('conciliar',x.id,'Conciliar con OpenFactura','repetir','pri',true,'Busca el documento con la misma clave; nunca emite dos veces.'));
@@ -130,6 +140,7 @@ function tarjeta(x){
    +'<div class="fila"><span>Monto exento (DTE 34)</span><span class="monto cifra">'+clp(+x.total)+'</span></div>'
    +(x.of_folio?'<div class="fila"><span>Folio</span><span class="cifra"><b>N° '+esc(x.of_folio)+'</b>'+(x.total_dte!=null&&+x.total_dte!==+x.total?' <span class="fx-est roj">total DTE '+clp(+x.total_dte)+'</span>':'')+'</span></div>':'')
    +'<div class="mot"><b>Motivo:</b> '+esc(x.motivo)+'</div>'
+   +(x.auto_aprobada_master?'<div class="mot" style="background:rgba(92,200,255,.08)"><b>Auto-aprobada por el Master</b> (la creó y la aprobó él, con confirmación del total). Se avisó al equipo.</div>':'')
    +(x.comentario_devolucion&&x.estado==='DEVUELTA'?'<div class="mot" style="background:rgba(224,122,110,.08)"><b>Comentario del Master:</b> '+esc(x.comentario_devolucion)+'</div>':'')
    +((x.alertas||[]).length?'<div class="mot" style="background:rgba(255,210,77,.08)"><b>Alertas:</b> '+(x.alertas||[]).map(function(a){return esc({POSIBLE_DUPLICADO:'posible duplicado (mismo cliente y monto en 30 días)',TOTAL_DTE_DIFIERE:'el total del DTE difiere del aprobado',COBRANZA_NO_REGISTRADA:'no entró a Cobranza: registrarla a mano'}[a.codigo]||a.codigo);}).join(' · ')+'</div>':'')
    +(x.estado==='INCIERTO'?'<div class="mot" style="background:rgba(255,210,77,.1)"><b>No reemitir.</b> OpenFactura no confirmó el resultado. El Master concilia: Gestoor busca el documento con la misma clave (nunca emite dos veces).</div>':'')
@@ -138,9 +149,9 @@ function tarjeta(x){
 }
 function render(){
   var v=$('vistaAdic');if(!v)return;
-  var nuevo=esF()?'<button type="button" class="g-btn sm pri" data-fa="nueva" data-id="0">'+I('mas')+'Nueva factura adicional</button>':'<span class="sub">Las crea el facturador; el Master las aprueba.</span>';
+  var nuevo=esOp()?'<button type="button" class="g-btn sm pri" data-fa="nueva" data-id="0">'+I('mas')+'Nueva factura adicional</button>':'<span class="sub">Las crean Facturación o el Master; el Master las aprueba.</span>';
   v.innerHTML='<div class="g-sec-h"><i class="ic placa ic-ama" data-ic="factura"></i><h2>Facturación <span>adicional</span></h2><small>Factura puntual excepcional · siempre exenta (DTE 34) · motivo obligatorio y aprobación del Master</small></div>'
-   +'<div class="flujo" aria-label="Pasos"><span class="fp">'+I('lapiz','ic-cel')+'<b>Facturador la crea</b></span><span class="fl">→</span><span class="fp">'+I('escudo','ic-mor')+'<b>Master aprueba</b></span><span class="fl">→</span><span class="fp">'+I('enviar','ic-ver')+'<b>Facturador emite</b></span><span class="fl">→</span><span class="fp">'+I('factura','ic-ama')+'<b>Folio, PDF y XML</b></span></div>'
+   +'<div class="flujo" aria-label="Pasos"><span class="fp">'+I('lapiz','ic-cel')+'<b>Facturación o Master la crea</b></span><span class="fl">→</span><span class="fp">'+I('escudo','ic-mor')+'<b>Master aprueba</b></span><span class="fl">→</span><span class="fp">'+I('enviar','ic-ver')+'<b>Facturación o Master emite</b></span><span class="fl">→</span><span class="fp">'+I('factura','ic-ama')+'<b>Folio, PDF y XML</b></span></div>'
    +'<div style="display:flex;gap:10px;align-items:center;margin:6px 0 14px">'+nuevo+'<span class="g-espacio" style="flex:1"></span><span class="sub">Emisión real: <b style="color:'+(CTX.prodHabilitada?'var(--ver)':'var(--amb)')+'">'+(CTX.prodHabilitada?'habilitada':'apagada (GO pendiente)')+'</b></span></div>'
    +(CTX.cargado?'':'<p class="ninguna">Cargando…</p>')
    +'<div class="cot-grid">'+(CTX.lista.map(tarjeta).join('')||(CTX.cargado?'<p class="ninguna">No hay facturas adicionales.</p>':''))+'</div>';
@@ -255,6 +266,15 @@ function accion(act,id){
   if(act==='editar')return abrirForm(x);
   if(act==='enviar')return modal({t:'Enviar a aprobación',ic:'enviar',b:'<p>Se congela el contenido de <b>'+esc(x.codigo)+'</b> ('+clp(+x.total)+') y se envía al Master. Si falta algo en la ficha del cliente, se te avisará.</p>',ok:'Enviar',cb:function(){correr(rpc('factura_adicional_enviar',{p_factura:x.id}),'Enviada al Master.',true);return false;}});
   if(act==='aprobar')return modal({t:'Aprobar factura',ic:'escudo',b:resumenRevision(x),ok:'Aprobar',cb:function(){correr(rpc('factura_adicional_aprobar',{p_factura:x.id,p_huella:x.snapshot_hash}),'Aprobada. El facturador ya puede emitir.',true);return false;}});
+  if(act==='autoaprobar')return modal({t:'Auto-aprobar factura',ic:'escudo',icc:'ic-amb',
+      b:'<p style="color:var(--amb)"><b>Estás aprobando una factura que creaste tú.</b> Quedará marcada como auto-aprobada y Facturación y los demás Masters recibirán un aviso.</p>'+resumenRevision(x)
+       +'<label style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin-top:10px"><input type="checkbox" id="faConf" style="width:18px;height:18px;flex:none;margin:0"> Confirmo que revisé la factura y la apruebo</label>'
+       +'<label style="margin-top:8px;display:block">Reescribe el total exento (solo números)<input id="faTotConf" inputmode="numeric" placeholder="Ej.: 10000" autocomplete="off"></label>',
+      ok:'Auto-aprobar',cb:function(){
+        if(!$('faConf').checked){modal.error(ERR.CONFIRMACION_OBLIGATORIA);return false;}
+        var t=Number(String($('faTotConf').value).replace(/[^0-9]/g,''));
+        if(!t||t!==+x.total){modal.error(ERR.TOTAL_CONFIRMADO_NO_COINCIDE);return false;}
+        correr(rpc('factura_adicional_autoaprobar',{p_factura:x.id,p_huella:x.snapshot_hash,p_total_confirmado:t,p_confirmo:true}),function(r){return 'Auto-aprobada. Se avisó a '+(r&&r.avisos||0)+' persona(s). Ahora puedes emitirla en un paso aparte.';},true);return false;}});
   if(act==='devolver')return modal({t:'Devolver al facturador',ic:'devolver',icc:'ic-amb',b:'<label>¿Qué hay que corregir?<textarea id="faCom" rows="3" maxlength="2000"></textarea></label>',ok:'Devolver',cls:'',cb:function(){var t=$('faCom').value.trim();if(t.length<5){modal.error(ERR.COMENTARIO_OBLIGATORIO);return false;}correr(rpc('factura_adicional_devolver',{p_factura:x.id,p_comentario:t}),'Devuelta al facturador.',true);return false;}});
   if(act==='anular')return modal({t:'Anular factura',ic:'basura',icc:'ic-roj',b:'<label>Motivo de la anulación (mínimo 10 caracteres)<textarea id="faAnu" rows="3" maxlength="1000"></textarea></label>',ok:'Anular',cls:'',cb:function(){var t=$('faAnu').value.trim();if(t.length<10){modal.error(ERR.MOTIVO_ANULACION);return false;}correr(rpc('factura_adicional_anular',{p_factura:x.id,p_motivo:t}),'Anulada.',true);return false;}});
   if(act==='emitir'){
