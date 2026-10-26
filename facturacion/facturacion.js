@@ -166,6 +166,21 @@ function esMaster(){return !!(S.yo&&S.yo.puede_aprobar);}
 function editable(){return !!S.lote&&(S.lote.estado==='BORRADOR'||S.lote.estado==='DEVUELTO');}
 function enEmision(){return !!S.lote&&['EMITIENDO','EMITIDO','EMITIDO_PARCIAL'].indexOf(S.lote.estado)>=0;}
 
+/* ── Modo de emisión: la etiqueta refleja facturacion_parametros.produccion_habilitada (antes era texto fijo) ── */
+function modoTxt(){return S.prodHabilitada?'MODO REAL':'MODO PRUEBA';}
+function pintarModo(){
+  if(DEMO)return;
+  API.get('facturacion_parametros?select=produccion_habilitada&id=eq.1').then(function(r){
+    S.prodHabilitada=!!(r&&r[0]&&r[0].produccion_habilitada);
+    var b=$('fxModo');if(!b)return;
+    b.classList.toggle('real',S.prodHabilitada);
+    b.innerHTML=ic(S.prodHabilitada?'factura':'probeta')+(S.prodHabilitada?'EMISIÓN REAL ACTIVA':'MODO PRUEBA');
+    b.title=S.prodHabilitada?'La emisión real está habilitada: las facturas aprobadas se emiten al SII.'
+      :'La emisión real está apagada: se puede preparar, revisar y aprobar, pero no se emite al SII.';
+    if(S.periodos)render();
+  }).catch(function(){});   // si no se puede leer, queda "MODO PRUEBA" (falla segura)
+}
+
 /* ── Carga ── */
 function iniciar(){
   pintarIconosEstaticos();
@@ -179,6 +194,7 @@ function iniciar(){
     S.yo=yo||{};
     if(!S.yo.puede_leer){sinPermiso();return;}
     pintarQuien();
+    pintarModo();
     return API.get('periodos?select=periodo,uf&order=periodo.desc&limit=12').then(function(rows){
       S.periodos=(rows||[]).filter(function(r){return r&&r.periodo;});
       var sel=$('selPeriodo');
@@ -269,7 +285,7 @@ function renderHero(){
     var uf=ufPeriodo();
     $('hero').innerHTML='<div class="hero-top"><div><small class="k">Período contable</small><h2>'+esc(mesTxt(per,true)||'Sin período')+' · <span>Grupo '+S.vista+'</span></h2>'
       +'<div class="meta"><span class="it">'+I('grafico','ic-cel')+(uf?'UF <b class="cifra">$'+ufFmt(uf)+'</b> (día 1 del mes siguiente)':'<b>Sin UF</b>: abre el período en Panel de Control')+'</span><span class="it">'+I('factura','ic-mor')+'Factura exenta <b>DTE 34</b></span></div></div>'
-      +'<div class="estado-lote"><span class="fx-est gris grande">Sin preparar</span><span class="prueba">'+ic('probeta')+'MODO PRUEBA</span></div></div>'
+      +'<div class="estado-lote"><span class="fx-est gris grande">Sin preparar</span><span class="prueba'+(S.prodHabilitada?' real':'')+'">'+ic(S.prodHabilitada?'factura':'probeta')+modoTxt()+'</span></div></div>'
       +'<div class="desfase">'+I('alerta','ic-cel')+'<span>'+(esFact()?'Aún no se prepara este grupo. Usa "Preparar grupo": el motor toma los clientes activos del grupo '+S.vista+' y calcula cada línea.':'Aún no se prepara este grupo. Lo prepara el facturador.')+'</span></div>';
     return;
   }
