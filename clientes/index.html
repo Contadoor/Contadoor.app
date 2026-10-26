@@ -1037,6 +1037,20 @@ function guardarCliente() {
     alert('Ya existe un cliente con RUT ' + rut); return;
   }
 
+  // Socios obligatorios al CREAR un cliente empresa (Luciano, 26-oct): al menos uno, con nombre, RUT y % que sumen 100.
+  // Persona natural (RUT bajo 50.000.000) no lo exige. En la edición de clientes existentes no se exige (se completa de a poco).
+  if (!esEdicion) {
+    var _rutNum = parseInt(String(rut || '').replace(/[^0-9kK]/g, '').slice(0, -1), 10) || 0;
+    if (_rutNum >= 50000000) {
+      var _soc = getSocios();
+      var _incompleto = _soc.some(function (x) { return !String(x.rut || '').trim() || !(x.pct > 0); });
+      var _suma = Math.round(_soc.reduce(function (t, x) { return t + (x.pct || 0); }, 0) * 100) / 100;
+      if (!_soc.length) { alert('Agrega los socios de la empresa (sección "Socios / Propietarios") con su RUT y % de participación.'); return; }
+      if (_incompleto) { alert('Cada socio debe tener nombre, RUT y % de participación.'); return; }
+      if (Math.abs(_suma - 100) > 0.01) { alert('Los % de participación de los socios deben sumar 100 (hoy suman ' + _suma + ').'); return; }
+    }
+  }
+
   // Cliente existente: fuente de las asignaciones si el catálogo de usuarios no cargó
   var _existente = esEdicion
     ? getClientes().find(function(x){ return Number(x.id) === Number(_editId); })
