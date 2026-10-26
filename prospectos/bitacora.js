@@ -91,7 +91,7 @@ function pintar(){
     +'<button type="button" class="link" id="btnTodos">'+(Object.keys(ABIERTOS).length>=G.BLOQUES.length?'Contraer todo':'Abrir todo')+'</button></div>'
     +'<p class="nd" style="margin:0 0 4px">Empieza entendiendo, no ofreciendo planes. 🧩 = alimenta el onboarding si acepta.</p>'
     +G.BLOQUES.map(function(b,i){return bloqueHTML(b,i);}).join('')
-    +'<div class="campo"><label for="nota_general">🗒️ Nota libre (lo que no calza en el guion)</label><textarea class="inp" id="nota_general" data-nota="general" maxlength="4000" placeholder="Ej.: decide con su socia; le preocupa la fiscalización del año pasado…"'+(EDIT?'':' disabled')+'>'+esc(N.general||'')+'</textarea></div></div>';
+    +'<div class="campo"><label for="nota_general">🗒️ Nota libre (lo que no calza en el guion) <span class="sin-claves">🔐 No registres claves aquí</span></label><textarea class="inp" id="nota_general" data-nota="general" maxlength="4000" placeholder="Ej.: decide con su socia; le preocupa la fiscalización del año pasado…"'+(EDIT?'':' disabled')+'>'+esc(N.general||'')+'</textarea></div></div>';
   // Cierre
   h+=cerrada?resumenCierre():(EDIT?cierreHTML():'');
   // Línea de tiempo
@@ -113,7 +113,7 @@ function bloqueHTML(b,i){
 }
 function cuerpoBloque(b){
   return '<div class="frase" style="--c:'+b.c+'">'+esc(b.f)+'</div>'+b.campos.map(function(c){return campoHTML(c,b.c);}).join('')
-    +'<div class="campo"><label for="nota_'+b.id+'">Nota del bloque</label><textarea class="inp" id="nota_'+b.id+'" data-nota="'+b.id+'" maxlength="4000" placeholder="Apunte rápido…"'+(EDIT?'':' disabled')+'>'+esc(N[b.id]||'')+'</textarea></div>';
+    +'<div class="campo"><label for="nota_'+b.id+'">Nota del bloque <span class="sin-claves">🔐 No registres claves aquí</span></label><textarea class="inp" id="nota_'+b.id+'" data-nota="'+b.id+'" maxlength="4000" placeholder="Apunte rápido…"'+(EDIT?'':' disabled')+'>'+esc(N[b.id]||'')+'</textarea></div>';
 }
 function campoHTML(c,color){
   if(!G.visible(S,c))return '';
@@ -125,7 +125,7 @@ function campoHTML(c,color){
       var on=c.t==='chk'?(Array.isArray(S[c.k])&&S[c.k].indexOf(o[0])>=0):S[c.k]===o[0];
       return '<button type="button" class="op'+(on?' on':'')+'" data-k="'+c.k+'" data-t="'+c.t+'" data-o="'+esc(o[0])+'" aria-pressed="'+on+'"'+dis+'>'+(c.t==='chk'?(on?'☑ ':'☐ '):'')+esc(o[1])+'</button>';}).join('')+'</div>';
   }else if(c.t==='area'){
-    h+='<label for="'+id+'">'+lab+'</label><textarea class="inp" id="'+id+'" data-k="'+c.k+'" maxlength="2000" placeholder="'+esc(c.ph||'')+'"'+dis+'>'+esc(S[c.k]||'')+'</textarea>';
+    h+='<label for="'+id+'">'+lab+' <span class="sin-claves">🔐 No registres claves aquí</span></label><textarea class="inp" id="'+id+'" data-k="'+c.k+'" maxlength="2000" placeholder="'+esc(c.ph||'')+'"'+dis+'>'+esc(S[c.k]||'')+'</textarea>';
   }else{
     h+='<label for="'+id+'">'+lab+'</label><input class="inp" id="'+id+'" data-k="'+c.k+'" maxlength="200" autocomplete="off" placeholder="'+esc(c.ph||'')+'" value="'+esc(S[c.k]||'')+'"'+dis+'>';
   }
@@ -248,7 +248,7 @@ function guardar(){
     guardando=false;
     if(/VERSION_CONFLICTO/.test(e.message)){BLOQ=true;escribirCache();pintarGuardado();pintar();return;}
     if(/BITACORA_CERRADA|SIN_PERMISO|NO_EXISTE|NO_SESSION/.test(e.message)){BLOQ=true;pintarGuardado(D.mensaje(e));return;}
-    if(/CLAVE_PROHIBIDA|SII_SOLO|CAMPO|NOTA/.test(e.message)){pintarGuardado(D.mensaje(e));return;}
+    if(/CLAVE_PROHIBIDA|SII_SOLO|CAMPO|NOTA/.test(e.message)){pintarGuardado(D.mensaje(e));D.toast('🔐 '+D.mensaje(e));return;}
     reintento=Math.min(reintento+1,6);pintarGuardado('Sin conexión · reintentando');programar(2000*reintento);
   });
 }

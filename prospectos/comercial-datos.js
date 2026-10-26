@@ -26,7 +26,7 @@ var MSJ={NO_SESSION:'Tu sesión expiró. Vuelve a ingresar.',GESTOOR_NO_SESSION:
   SIN_PERMISO:'Este módulo es solo para Master, Comercial y Pagos.',SIN_IDENTIDAD:'Tu usuario no está activo en Gestoor. Pídele al Master que lo revise.',
   SIN_PERMISO_ESCRITURA:'Solo el Master o el equipo Comercial pueden abrir y editar bitácoras.',NO_EXISTE:'No encontramos esa reunión (o no está asignada a ti).',
   RESERVA_NO_VIGENTE:'Esa reserva fue cancelada: no se puede abrir una bitácora.',BITACORA_CERRADA:'La bitácora ya está cerrada.',
-  VERSION_CONFLICTO:'Esta bitácora se guardó desde otra pestaña o equipo.',CLAVE_PROHIBIDA:'Las claves nunca se anotan en la bitácora.',
+  VERSION_CONFLICTO:'Esta bitácora se guardó desde otra pestaña o equipo.',CLAVE_PROHIBIDA:'No registres claves aquí: borra la clave, token o contraseña para que se pueda guardar.',
   SII_SOLO_SI_NO:'Para el SII solo se anota si tiene acceso (sí / no).',FALTA_TEMPERATURA:'Elige la temperatura del prospecto.',
   FALTA_PROXIMO_PASO:'Falta el próximo paso y su fecha (nunca “cualquier cosa me avisas”).',FALTA_MOTIVO_PERDIDA:'Elige el motivo de pérdida.',
   FECHA_INVALIDA:'La fecha del próximo paso debe ser de hoy en adelante.',NOMBRE_INVALIDO:'Escribe el nombre del prospecto (mínimo 2 letras).',

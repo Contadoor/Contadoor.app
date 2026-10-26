@@ -82,7 +82,7 @@ var F={
   },
   com_bitacora_guardar:function(a){
     var b=bit(a.p_id);if(!b)return err('NO_EXISTE');if(b.estado!=='abierta')return err('BITACORA_CERRADA');
-    var txt=JSON.stringify(a.p_campos);if(/"[a-z0-9_]*(clave|password|contrasena)[a-z0-9_]*"\s*:/.test(txt))return err('CLAVE_PROHIBIDA');
+    var txt=JSON.stringify(a.p_campos);if(/"[a-z0-9_]*(clave|password|contrasena|previred|api_?key|token)[a-z0-9_]*"\s*:/.test(txt)||/(clave|contrase(n|ñ)a|password|pwd|token)[^:=\n]{0,25}[:=]\s*(?=\S*\d)\S{6,}|eyJ[\w-]{8,}\.[\w-]{8,}/i.test(txt+JSON.stringify(a.p_notas)))return err('CLAVE_PROHIBIDA');
     if(JSON.stringify(b.campos)===txt&&JSON.stringify(b.notas)===JSON.stringify(a.p_notas)&&b.reloj_seg===a.p_reloj_seg)return ok({id:b.id,version:b.version,sin_cambios:true});
     if(a.p_version!==b.version)return err('VERSION_CONFLICTO');
     b.campos=clon(a.p_campos);b.notas=clon(a.p_notas);b.reloj_seg=a.p_reloj_seg;b.version++;persistir();return ok({id:b.id,version:b.version,sin_cambios:false});

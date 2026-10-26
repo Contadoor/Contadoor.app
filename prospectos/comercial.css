@@ -157,6 +157,7 @@ body.g-mod-com{--grad:linear-gradient(160deg,#A4599C,#803889);--marca:#924893;--
 .g-mod-com .campo>label,.g-mod-com .campo>.l{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--t2);font-weight:600;margin-bottom:7px}
 .g-mod-com .onb{font-size:13px;cursor:help}
 .g-mod-com .pre{display:inline-flex;font-size:10.5px;font-weight:700;color:var(--cel);background:rgba(92,200,255,.12);border-radius:999px;padding:1px 8px}
+.g-mod-com .sin-claves{display:inline-flex;font-size:10.5px;font-weight:700;color:#FFB3A8;background:rgba(224,122,110,.12);border:1px solid rgba(224,122,110,.35);border-radius:999px;padding:1px 8px}
 .g-mod-com .pista{display:inline-flex;font-size:10.5px;font-weight:700;color:var(--ambar);background:rgba(255,200,90,.12);border-radius:999px;padding:1px 8px}
 .g-mod-com .opts{display:flex;gap:6px;flex-wrap:wrap}
 .g-mod-com .op{min-height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--borde);background:rgba(255,255,255,.04);color:var(--t1);cursor:pointer;font:600 13px var(--txt)}
