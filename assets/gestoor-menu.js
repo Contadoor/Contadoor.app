@@ -1,6 +1,7 @@
 /* ============================================================
    gestoor-menu.js — menú lateral común de Gestoor (rediseño 2026-09)
    Uso: <aside class="sidebar" data-gestoor-activo="panel-de-control"></aside>
+        (opcional) data-gestoor-pagina="reuniones.html" cuando un módulo tiene dos entradas en el menú
         <script src="../assets/gestoor-menu.js"></script>   ← justo después
    Se dibuja al cargar (antes que auth.js), así auth.js aplica candados
    por rol sobre los mismos enlaces "../<modulo>/index.html" de siempre.
@@ -67,7 +68,7 @@
     ['Operación mensual',[['clientes','Clientes','clientes'],['panel','Panel de Control','panel-de-control'],['rrhh','RRHH','reportes-rrhh'],
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
       ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva','cartera.html'],['pir','MiRenta','pir','proyeccion.html']]],
-    ['Gestión interna',[['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
+    ['Gestión interna',[['calendario','Reuniones','prospectos','reuniones.html'],['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['chat','CRM',null],['lista','Cotizaciones',null],['campana','Campañas',null],
       ['correo','Comunicaciones',null],['grafico','Performance',null]]],
     ['Configuración',[['admin','Admin','admin']]]
@@ -77,6 +78,7 @@
 
   function dibujar(aside){
     var activo=aside.getAttribute('data-gestoor-activo')||'';
+    var pagina=aside.getAttribute('data-gestoor-pagina')||'';   // opcional: distingue dos entradas del mismo módulo (Reuniones / Prospectos)
     // Logo Gestoor (ícono A · Tablero, aprobado por Luciano 25-sep): aro blanco suave sobre el morado
     var logo='<svg class="g-logo" viewBox="0 0 196 46" role="img" aria-label="Gestoor"><circle cx="23" cy="23" r="23" fill="rgba(255,255,255,.22)"/>'
       +'<image href="../assets/gestoor-icono.svg" x="2" y="2" width="42" height="42"/>'
@@ -92,7 +94,7 @@
           return;
         }
         var href=it[2]===''?'../index.html':'../'+it[2]+'/'+(it[3]||'index.html');   // it[3]: página de entrada del módulo (MiRenta abre la Cartera de Renta; Pre-IVA, la Cartera de Pre-IVA)
-        var on=(it[2]===activo&&activo!=='')||(activo==='inicio'&&it[2]==='');  // Inicio (raíz) marca Dashboard
+        var on=(it[2]===activo&&activo!==''&&(!pagina||(it[3]||'index.html')===pagina))||(activo==='inicio'&&it[2]==='');  // Inicio (raíz) marca Dashboard
         h+='<a class="sb-item'+(on?' on':'')+'" href="'+href+'"'+(on?' aria-current="page"':'')+'>'+ic+esc(it[1])+'</a>';
       });
     });

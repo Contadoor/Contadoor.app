@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reuniones · Comercial · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="../assets/equipo.css">
+<link rel="stylesheet" href="comercial.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En gestoor.contadoor.cl es imposible activarlo y la página exige sesión con auth.js.
+   Candado 2: comercial-demo.js vuelve a revisar el host. Candado 3: comercial-datos.js exige ambos. */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.COM_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+  if(window.COM_DEMO)window.__gestoorCampana=true;   // en la demo no se carga la campana (no hay sesión)
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-com">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="prospectos" data-gestoor-pagina="reuniones.html"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar">
+    <div class="cm-marca">
+      <span class="cm-ico" aria-hidden="true"><span data-g-ic="calendario"></span></span>
+      <div><h1 class="tb-title">Reu<span>niones</span></h1><p>Agenda de diagnósticos · abre la bitácora desde cada reunión</p></div>
+    </div>
+    <div class="g-espacio"></div>
+    <span class="cm-demo" id="cmDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+    <span class="tb-analista" id="tb-analista-nombre"></span>
+  </div>
+  <div class="content">
+    <div id="cmApp" class="cm-app"><div class="aviso lila"><span class="cm-spin"></span>Cargando la agenda…</div></div>
+  </div>
+</main>
+</div>
+<script src="../supabase.js"></script>
+<script src="../assets/equipo.js"></script>
+<script src="comercial-datos.js"></script>
+<script>if(window.COM_DEMO)document.write('<script src="comercial-demo.js"><\/script>');</script>
+<script src="reuniones.js"></script>
+<script>if(!window.COM_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>

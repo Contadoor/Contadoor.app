@@ -96,12 +96,13 @@
 </head>
 <body class="g-shell g-tema-noche g-mod-pros">
 <div class="layout">
-<aside class="sidebar" data-gestoor-activo="prospectos"></aside>
+<aside class="sidebar" data-gestoor-activo="prospectos" data-gestoor-pagina="index.html"></aside>
 <script src="../assets/gestoor-menu.js"></script>
 <main class="main">
   <div class="topbar">
     <h1 class="tb-title">Pros<span>pectos</span></h1>
     <span class="g-chip-per">Agenda · agenda.contadoor.cl</span>
+    <a class="g-chip-per" href="reuniones.html" style="text-decoration:none">📅 Reuniones y bitácoras</a>
     <div class="g-espacio"></div>
     <span class="tb-analista" id="tb-analista-nombre"></span>
   </div>
@@ -267,6 +268,7 @@ function abrir(id){
     (p.reuniones||[]).forEach(function(x){var s=x.seguimiento||{};
       h+='<div class="reu"><b style="color:#F3E9F4">'+esc(fecha(x.inicio,true))+'</b> · <span class="chip e-'+(x.estado==='confirmada'?'agendado':x.estado==='realizada'?'reunion_realizada':'no_asistio')+'">'+esc(x.estado)+'</span>'
         +(x.teams?' · <a href="'+esc(x.teams)+'" target="_blank" rel="noopener" style="color:#E39BE5;font-weight:700">Abrir Teams</a>':'')
+        +(x.estado!=='cancelada'&&x.estado!=='inconsistente'?' · <a href="bitacora.html?reserva='+Number(x.id)+'" style="color:#E39BE5;font-weight:700">📝 Bitácora</a>':'')
         +'<div class="pasos">'+Object.keys(PASOS).map(function(k){var ok=s[k]&&s[k]!=='error';return '<span class="paso'+(ok?' ok':'')+'">'+(ok?'✓ ':'')+esc(PASOS[k])+'</span>';}).join('')+'</div></div>';});
     h+='</div>';
     var px=p.proxima||{},rid=p.responsable?p.responsable.id:'';
