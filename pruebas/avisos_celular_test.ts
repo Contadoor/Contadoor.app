@@ -15,10 +15,18 @@ res('1.1 Facturación tiene el botón #as-avisos y el aviso #as-aviso', /id="as-
 res('1.2 Facturación carga avisos-push.js solo fuera del modo demo (antes de auth.js)', /if\(!window\.FX_DEMO\)document\.write\('<script src="\.\.\/avisos-push\.js"><\\\/script>'\)/.test(fx)
     && fx.indexOf('avisos-push.js') < fx.indexOf('../auth.js'));
 
+// C1-AVISOS: Reuniones de venta ofrece el mismo botón (texto "en este dispositivo": celular o computador) y carga avisos-push.js fuera de la demo.
+const ru = leer('prospectos/reuniones.html');
+res('1.3 Reuniones de venta tiene #as-avisos con "Activar avisos en este dispositivo" y el aviso #as-aviso', /id="as-avisos"/.test(ru) && /id="as-aviso"/.test(ru)
+    && /data-etiqueta="🔔 Activar avisos en este dispositivo"/.test(ru));
+res('1.4 Reuniones de venta carga avisos-push.js solo fuera de la demo y antes de auth.js', /if\(!window\.COM_DEMO\)document\.write\('<script src="\.\.\/avisos-push\.js">/.test(ru)
+    && ru.indexOf('avisos-push.js') < ru.indexOf('../auth.js') && !/COM_DEMO\)document\.write\('<script src="comercial-demo\.js"><\\\/script><script src="\.\.\/avisos-push/.test(ru));
+
 const JS = leer('avisos-push.js');
-async function escenario(o: { permiso?: string; inicial?: string; ios?: boolean; standalone?: boolean; yaSuscrito?: boolean }) {
+async function escenario(o: { permiso?: string; inicial?: string; ios?: boolean; standalone?: boolean; yaSuscrito?: boolean; etiqueta?: string }) {
   const llamadas: { fn: string; body: Record<string, unknown> }[] = [];
-  const dom = new JSDOM('<!doctype html><html><body><button id="as-avisos" hidden>x</button><div id="as-aviso"></div></body></html>', {
+  const et = o.etiqueta ? ` data-etiqueta="${o.etiqueta}"` : '';
+  const dom = new JSDOM(`<!doctype html><html><body><button id="as-avisos" hidden${et}>x</button><div id="as-aviso"></div></body></html>`, {
     runScripts: 'dangerously', url: 'https://gestoor.contadoor.cl/facturacion/', pretendToBeVisual: true,
     beforeParse(w: any) {
       Object.defineProperty(w.navigator, 'userAgent', { value: o.ios ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' : 'Mozilla/5.0 (Linux; Android 14)', configurable: true });
@@ -58,5 +66,11 @@ r = await escenario({ ios: true });
 res('2.5 iPhone sin instalar Gestoor → "Instala Gestoor para recibir avisos", sin llamadas', /Instala Gestoor/.test(r.inicial) && r.llamadas.length === 0, r);
 r = await escenario({ inicial: 'granted', yaSuscrito: true });
 res('2.6 dispositivo ya suscrito → se re-sincroniza solo (suscribir) y muestra "Avisos activos"', r.llamadas.map((x: any) => x.fn).join() === 'gestoor_push_suscribir' && /Avisos activos/.test(r.final), r);
+r = await escenario({ etiqueta: '🔔 Activar avisos en este dispositivo' });
+res('3.1 Reuniones de venta: botón "🔔 Activar avisos en este dispositivo"; activar → suscribir + probar (misma suscripción por dispositivo y usuario)',
+    r.inicial === '🔔 Activar avisos en este dispositivo' && r.llamadas.map((x: any) => x.fn).join() === 'gestoor_push_suscribir,gestoor_push_probar' && /Avisos activos/.test(r.final), r);
+r = await escenario({ etiqueta: '🔔 Activar avisos en este dispositivo', inicial: 'granted', yaSuscrito: true });
+res('3.2 computador o celular ya suscrito (p. ej. desde Facturación): no pide nada, re-sincroniza y muestra "Avisos activos"',
+    r.llamadas.map((x: any) => x.fn).join() === 'gestoor_push_suscribir' && /Avisos activos/.test(r.final), r);
 console.log(`\nAvisos en el celular: ${ok}/${ok + mal}`);
 Deno.exit(mal ? 1 : 0);

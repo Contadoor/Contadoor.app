@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // GESTOOR — AVISOS PUSH AL CELULAR (Web Push, mismo modelo que CreeSiente)
-// avisos-push.js — botón "Activar avisos en este celular" (bandeja del asistente, Facturación y la campana de todas las páginas;
+// avisos-push.js — botón "Activar avisos en este celular" (bandeja del asistente, Facturación, Reuniones de venta y la campana;
 // cualquier usuario activo). window.GestoorAvisosPush.montar(boton, avisar) lo monta sobre cualquier botón (la campana lo usa).
 // Registra /sw.js, pide permiso, suscribe el dispositivo y lo guarda por RPC (gestoor_push_suscribir).
 // Requiere supabase.js (sbPost con JWT). En iPhone solo funciona con Gestoor instalado en la pantalla de inicio.
@@ -34,7 +34,8 @@
     if (estado === 'activos') { btn.textContent = '🔔 Avisos activos · Probar'; btn.dataset.estado = 'activos'; btn.title = 'Te llegará un aviso de prueba a este dispositivo'; }
     else if (estado === 'bloqueados') { btn.textContent = '🔕 Avisos bloqueados'; btn.dataset.estado = 'bloqueados'; btn.title = 'Permite las notificaciones de Gestoor en los ajustes del celular/navegador'; }
     else if (estado === 'instalar') { btn.textContent = '📲 Instala Gestoor para recibir avisos'; btn.dataset.estado = 'instalar'; btn.title = 'En iPhone: Compartir → Agregar a inicio, y abre Gestoor desde ese ícono'; }
-    else { btn.textContent = '🔔 Activar avisos en este celular'; btn.dataset.estado = 'activar'; btn.title = 'Recibe en este dispositivo los avisos urgentes de Gestoor (facturas por aprobar, aprobadas, inciertas…)'; }
+    // data-etiqueta / data-ayuda en el botón permiten adaptar el texto por página (Reuniones de venta: "en este dispositivo").
+    else { btn.textContent = btn.dataset.etiqueta || '🔔 Activar avisos en este celular'; btn.dataset.estado = 'activar'; btn.title = btn.dataset.ayuda || 'Recibe en este dispositivo los avisos urgentes de Gestoor (facturas por aprobar, aprobadas, inciertas…)'; }
   }
   function avisarPagina(t) { var a = document.getElementById('as-aviso'); if (a) { a.textContent = t; a.classList.add('on'); setTimeout(function () { a.classList.remove('on'); }, 4500); } else alert(t); }
 
@@ -87,7 +88,7 @@
   }
   window.GestoorAvisosPush = { montar: montar };
 
-  // Botón propio de la página (#as-avisos: asistente y Facturación).
+  // Botón propio de la página (#as-avisos: asistente, Facturación y Reuniones de venta).
   function iniciar() { montar(document.getElementById('as-avisos')); }
   window.addEventListener('gestoor-auth-ready', iniciar);
   // Si la sesión ya estaba lista antes de cargar este archivo, el evento no se repite: iniciar al terminar de cargar la página.
