@@ -11,7 +11,8 @@ const RAIZ = new URL('../', import.meta.url);
 // La barrera temporal se prueba en admin_cobranza_te_barrera_test.ts.
 const html0src = Deno.readTextFileSync(new URL('admin/index.html', RAIZ));
 const BARRERA = "var MODULOS_EN_ESPERA = ['cobranza','trabajos_especiales'];";
-if (!html0src.includes(BARRERA)) throw new Error('No se encontró la constante de la barrera');
+// 26-oct: la barrera ya se levantó en admin/index.html; si alguien la repone, la prueba la levanta igual para validar este estado.
+if (!html0src.includes(BARRERA) && !/var MODULOS_EN_ESPERA = \[\];/.test(html0src)) throw new Error('No se encontró MODULOS_EN_ESPERA');
 const html0 = html0src.replace(BARRERA, 'var MODULOS_EN_ESPERA = [];');
 const authJs = Deno.readTextFileSync(new URL('auth.js', RAIZ));
 const mpr = authJs.match(/var MODULOS_POR_ROL=(\{[\s\S]*?\});/)![1];
