@@ -1653,6 +1653,31 @@ document.getElementById('f-monto').oninput      = calcPreview;
 document.getElementById('f-trab').oninput       = calcPreview;
 document.getElementById('f-var').oninput        = calcPreview;
 document.getElementById('f-moneda').onchange    = calcPreview;
+// Plan → precios del catálogo (public.planes), SOLO al crear un cliente NUEVO (Luciano, 26-oct: los antiguos no se tocan).
+// Quedan editables: se pueden cambiar a mano o aplicar un descuento en su sección. Plan "por propuesta" (precio 0) → monto vacío.
+var _planesCat = null;
+function cargarPlanesCat() {
+  if (_planesCat) return Promise.resolve(_planesCat);
+  return sbFetch('planes?select=codigo,precio_uf,trab_incluidos,valor_por_trab_uf,por_propuesta,activo&activo=eq.true')
+    .then(function (r) { return r && r.ok ? r.json() : []; })
+    .then(function (rows) { _planesCat = Array.isArray(rows) ? rows : []; return _planesCat; })
+    .catch(function () { _planesCat = null; return []; });
+}
+document.getElementById('f-plan').addEventListener('change', function () {
+  if (_editId) return;                                   // edición de un cliente existente: no se cambian sus precios
+  var cod = gv('f-plan'); if (!cod) return;
+  cargarPlanesCat().then(function (lista) {
+    if (_editId || gv('f-plan') !== cod) return;
+    var p = lista.find(function (x) { return x.codigo === cod; }); if (!p) return;
+    var porPropuesta = p.por_propuesta === true || !(Number(p.precio_uf) > 0);
+    sv('f-moneda', 'UF'); sv('f-moneda-var', 'UF');
+    sv('f-monto', porPropuesta ? '' : String(Number(p.precio_uf)));
+    sv('f-var', p.valor_por_trab_uf != null ? String(Number(p.valor_por_trab_uf)) : '');
+    sv('f-trab', String(Number(p.trab_incluidos || 0)));
+    calcPreview();
+    toast(porPropuesta ? 'Plan por propuesta: ingresa el monto acordado' : 'Precios del plan cargados (puedes ajustarlos o aplicar descuento)');
+  });
+});
 document.getElementById('f-moneda-var').onchange= calcPreview;
 document.getElementById('f-rut').oninput = function(){
   var v = this.value;
