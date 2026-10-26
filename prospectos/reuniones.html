@@ -33,6 +33,8 @@
       <div><h1 class="tb-title">Reu<span>niones</span></h1><p>Agenda de diagnósticos · abre la bitácora desde cada reunión</p></div>
     </div>
     <div class="g-espacio"></div>
+    <button type="button" class="g-btn sm" id="as-avisos" hidden data-etiqueta="🔔 Activar avisos en este dispositivo"
+            data-ayuda="Recibe en este celular o computador el aviso de reunión en 15 minutos (los demás avisos llegan a la campana)">🔔 Activar avisos en este dispositivo</button>
     <span class="cm-demo" id="cmDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
     <span class="tb-analista" id="tb-analista-nombre"></span>
   </div>
@@ -41,11 +43,12 @@
   </div>
 </main>
 </div>
+<div class="cm-toast" id="as-aviso" role="status" aria-live="polite"></div>
 <script src="../supabase.js"></script>
 <script src="../assets/equipo.js"></script>
 <script src="comercial-datos.js"></script>
 <script>if(window.COM_DEMO)document.write('<script src="comercial-demo.js"><\/script>');</script>
 <script src="reuniones.js"></script>
-<script>if(!window.COM_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+<script>if(!window.COM_DEMO)document.write('<script src="../avisos-push.js"><\/script><script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
 </body>
 </html>
