@@ -934,6 +934,7 @@ function resetForm() {
 function abrirNuevo() {
   _editId = null;
   resetForm();
+  poblarPlanesSelect();
   g('modalTitle').textContent = 'Nuevo cliente';
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
@@ -951,6 +952,7 @@ function abrirEditar(id) {
   sv('f-email', c.email); sv('f-contacto', c.contacto); sv('f-tel', c.tel);
   sv('f-wa', c.wa); sv('f-ciudad', c.ciudad); sv('f-direccion', c.direccion); sv('f-comuna', c.comuna); sv('f-inicio', c.inicio);
   sv('f-plan', c.plan); sv('f-estado', c.estado || 'activo');
+  poblarPlanesSelect();   // conserva el plan del cliente aunque el catálogo cambie
   sv('f-reg', c.reg); sv('f-iva', c.iva || 'afecto'); sv('f-modalidad', c.modalidad || 'contadoor');
   g('f-tiene-cont').checked = c.tieneCont !== false; g('f-tiene-rrhh').checked = c.tieneRrhh !== false;
   sv('f-desc-tipo', c.descTipo || ''); sv('f-desc-valor', c.descValor != null ? c.descValor : '');
@@ -1659,13 +1661,33 @@ document.getElementById('f-moneda').onchange    = calcPreview;
 // Plan → precios del catálogo (public.planes), SOLO al crear un cliente NUEVO (Luciano, 26-oct: los antiguos no se tocan).
 // Quedan editables: se pueden cambiar a mano o aplicar un descuento en su sección. Plan "por propuesta" (precio 0) → monto vacío.
 var _planesCat = null;
+// La lista del selector de plan sale del catálogo (public.planes activos), así un plan nuevo creado en Planes y Servicios
+// (p. ej. "Remuneraciones", 26-oct) aparece sin tocar el código. Si el catálogo no responde, quedan las 3 opciones fijas.
+function poblarFiltroPlanes() {
+  cargarPlanesCat().then(function (lista) {
+    var f = g('filterPlan'); if (!f || !lista) return;
+    var hay = {}; Array.prototype.forEach.call(f.options, function (o) { hay[o.value] = true; });
+    lista.forEach(function (x) { if (!hay[x.codigo]) { var o = document.createElement('option'); o.value = x.codigo; o.textContent = x.nombre || x.codigo; f.appendChild(o); } });
+  });
+}
+function poblarPlanesSelect() {
+  cargarPlanesCat().then(function (lista) {
+    if (!lista || !lista.length) return;
+    var sel = g('f-plan'), actual = sel.value;
+    var nombres = {}; (lista || []).forEach(function (x) { nombres[x.codigo] = x.nombre || x.codigo; });
+    var html = '<option value="">Seleccionar...</option>' + lista.map(function (x) { return '<option value="' + esc(x.codigo) + '">' + esc(nombres[x.codigo]) + '</option>'; }).join('');
+    if (actual && !nombres[actual]) html += '<option value="' + esc(actual) + '">' + esc(actual) + '</option>';   // plan antiguo fuera del catálogo: no se pierde
+    sel.innerHTML = html; sel.value = actual;
+  });
+}
 function cargarPlanesCat() {
   if (_planesCat) return Promise.resolve(_planesCat);
-  return sbFetch('planes?select=codigo,precio_uf,trab_incluidos,valor_por_trab_uf,por_propuesta,activo&activo=eq.true')
+  return sbFetch('planes?select=codigo,nombre,precio_uf,trab_incluidos,valor_por_trab_uf,por_propuesta,activo&activo=eq.true&order=id.asc')
     .then(function (r) { return r && r.ok ? r.json() : []; })
     .then(function (rows) { _planesCat = Array.isArray(rows) ? rows : []; return _planesCat; })
     .catch(function () { _planesCat = null; return []; });
 }
+poblarFiltroPlanes();
 document.getElementById('f-plan').addEventListener('change', function () {
   if (_editId) return;                                   // edición de un cliente existente: no se cambian sus precios
   var cod = gv('f-plan'); if (!cod) return;
