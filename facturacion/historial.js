@@ -18,20 +18,31 @@ var EST={EMITIDA:['Emitida','ver'],INCIERTO:['Incierta','ama'],ANULADA:['Anulada
   APROBADA:['Aprobada · sin emitir','cel'],EN_REVISION:['En revisión','cel'],DEVUELTA:['Devuelta','amb'],LISTA:['Lista · sin emitir','gris'],BORRADOR:['Borrador','gris'],EXCLUIDA:['Excluida','gris']};
 var OF_TXT='Emitida en OpenFactura';
 var REF={1:'Anula',2:'Corrige el texto de',3:'Corrige los montos de'};
+var NC_CHIP={1:['NC · anula','roj'],2:['NC · corrige texto','cel'],3:['NC · corrige montos','amb']};
 function refTxt(d){return (REF[d.ref_codigo]||'Referencia a')+' '+(+d.ref_tipo_dte===34?'la factura':'el documento '+d.ref_tipo_dte)+' N° '+d.ref_folio;}
-// Pura (sin red ni DOM): convierte las filas de facturacion_dte_emitidos en filas del historial. ncPorFolio: folio de factura → NC que la anulan.
-function mapEmitidos(rows){
-  var ncPorFolio={};
-  (rows||[]).forEach(function(d){if(+d.tipo_dte===61&&+d.ref_tipo_dte===34&&+d.ref_codigo===1)(ncPorFolio[String(d.ref_folio)]=ncPorFolio[String(d.ref_folio)]||[]).push(String(d.folio));});
-  var filas=(rows||[]).filter(function(d){return d.origen==='OPENFACTURA_IMPORT';}).map(function(d){
-    var nc=+d.tipo_dte===61, anul=!nc&&ncPorFolio[String(d.folio)];
+// Pura (sin red ni DOM): convierte las filas de facturacion_dte_emitidos_v en filas del historial.
+//  · ncPorFolio: folio de factura → NC de código 1 (anula) que la anulan (para marcar "Anulada con NC N° …", también en las de Gestoor).
+//  · foliosGestoor: folios 34 en PRODUCCIÓN que ya salen como mensual/adicional (las filas GESTOOR_F1A/F1C no se repiten).
+//  · NC código 2 (corrige texto) no anula ni resta. NC cuya factura no está en el historial (anterior al corte del 27-04-2026) se muestra
+//    sin error y NO resta del total (noResta), para no inventar saldos negativos.
+function mapEmitidos(rows,foliosGestoor){
+  rows=rows||[];var ncPorFolio={},presentes={};
+  (foliosGestoor||[]).forEach(function(f){if(f)presentes[String(f)]=1;});
+  rows.forEach(function(d){if(+d.tipo_dte===34)presentes[String(d.folio)]=1;
+    if(+d.tipo_dte===61&&+d.ref_tipo_dte===34&&+d.ref_codigo===1)(ncPorFolio[String(d.ref_folio)]=ncPorFolio[String(d.ref_folio)]||[]).push(String(d.folio));});
+  var filas=rows.filter(function(d){return d.origen==='OPENFACTURA_IMPORT';}).map(function(d){
+    var nc=+d.tipo_dte===61, cod=+d.ref_codigo, anul=!nc&&ncPorFolio[String(d.folio)];
+    var fuera=nc&&+d.ref_tipo_dte===34&&!presentes[String(d.ref_folio)];
     return {orden:d.fecha_emision||'',fecha:d.fecha_emision,folio:String(d.folio),tipo:nc?'Nota de crédito':'Factura',origenOF:true,modo:'PRODUCCION',
+      ncChip:nc?(NC_CHIP[cod]||['NC','gris']):null,
       glosa:nc?refTxt(d)+(d.ref_razon?' · '+d.ref_razon:''):'Factura exenta',anuladaPor:anul?anul.join(', '):null,
+      fueraCorte:fuera,noResta:nc&&(fuera||cod===2),porRut:d.vinculo==='RUT',incidencia:d.incidencia||null,
       monto:nc?-(+d.monto_total):+d.monto_total,dteDifiere:false,estado:'EMITIDA',
       cond:+d.forma_pago===1?'Contado':(+d.forma_pago===2?'Crédito':'—'),cob:null,docs:null};
   });
   return {filas:filas,ncPorFolio:ncPorFolio};
 }
+function rutN(r){return String(r||'').replace(/[^0-9kK]/g,'').toUpperCase().replace(/^(\d+)([0-9K])$/,'$1-$2');}
 var COB={PENDIENTE:['Pendiente de pago','amb'],PAGADO:['Pagada','ver'],REPACTADO:['Repactada','cel'],CASTIGADO:['Castigada','roj'],ANULADO:['Anulada','gris']};
 function chip(m,k){var x=m[k]||[k||'—','gris'];return '<span class="fx-est '+x[1]+'">'+esc(x[0])+'</span>';}
 function cargarClientes(){
@@ -45,7 +56,11 @@ function cargarCliente(id){
     sbGet('facturacion?select=id,periodo,tipo_lote,modo,estado,of_folio,fecha_emision,fecha_vencimiento,total_clp,total_dte,detalle,snapshot,doc_estado&cliente_id=eq.'+cid+'&estado=not.in.(BORRADOR,EXCLUIDA)&order=fecha_emision.desc&limit=500'),
     sbGet('facturas_adicionales?select=id,codigo,modo,estado,of_folio,fecha_emision,fecha_vencimiento,forma_pago,total,total_dte,lineas,doc_estado&cliente_id=eq.'+cid+'&estado=neq.BORRADOR&order=fecha_emision.desc&limit=500'),
     sbGet('cobranza_documentos?select=facturacion_id,ref_externa,estado,saldo&cliente_id=eq.'+cid+'&limit=1000'),
-    sbGet('facturacion_dte_emitidos?select=tipo_dte,folio,fecha_emision,monto_total,forma_pago,origen,ref_tipo_dte,ref_folio,ref_codigo,ref_razon&cliente_id=eq.'+cid+'&order=fecha_emision.desc,folio.desc&limit=2000')
+    // Emitidas en OpenFactura: vista con cliente resuelto por ficha o por RUT único (opción A); misma RLS fact_puede_leer.
+    sbGet('facturacion_dte_emitidos_v?select=tipo_dte,folio,fecha_emision,monto_total,forma_pago,origen,ref_tipo_dte,ref_folio,ref_codigo,ref_razon,vinculo,incidencia&cliente_resuelto=eq.'+cid+'&order=fecha_emision.desc,folio.desc&limit=2000'),
+    // Incidencia: documentos con el RUT de este cliente que NO se vinculan porque hay más de una ficha con ese RUT
+    (function(){var c=H.clientes.filter(function(x){return String(x.id)===String(id);})[0];var r0=c&&rutN(c.rut);
+      return r0?sbGet('facturacion_dte_emitidos_v?select=tipo_dte,folio&vinculo=eq.RUT_AMBIGUO&rut_receptor=eq.'+encodeURIComponent(r0)+'&limit=500'):Promise.resolve([]);})()
   ]).then(function(r){
     var cob=r[2]||[], porF={}, porRef={};
     cob.forEach(function(d){if(d.facturacion_id)porF[d.facturacion_id]=d;if(d.ref_externa)porRef[d.ref_externa]=d;});
@@ -57,7 +72,8 @@ function cargarCliente(id){
       return {orden:x.fecha_emision||'',fecha:x.fecha_emision,folio:x.of_folio,tipo:'Adicional · '+x.codigo,modo:x.modo,glosa:l.length?l[0].glosa+(l.length>1?' + '+(l.length-1)+' más':''):'—',
         monto:+x.total,dteDifiere:x.total_dte!=null&&+x.total_dte!==+x.total,estado:x.estado,cond:x.forma_pago===1?'Contado':'Crédito · vence '+fFecha(x.fecha_vencimiento),
         cob:porRef[x.codigo]||null,docs:x.estado==='EMITIDA'&&x.doc_estado==='OBTENIDOS'?{id:x.id,folio:x.of_folio,codigo:x.codigo,modo:x.modo}:null};});
-    var of=mapEmitidos(r[3]);
+    var foliosG=a.concat(b).filter(function(f){return f.modo==='PRODUCCION'&&f.folio;}).map(function(f){return f.folio;});
+    var of=mapEmitidos(r[3],foliosG);H.ambiguos=r[4]||[];
     a.concat(b).forEach(function(f){if(f.modo==='PRODUCCION'&&f.folio&&of.ncPorFolio[String(f.folio)])f.anuladaPor=of.ncPorFolio[String(f.folio)].join(', ');});
     H.filas=a.concat(b,of.filas).sort(function(x,y){return x.orden<y.orden?1:(x.orden>y.orden?-1:0);});
     H.cargando=false;render();
@@ -75,21 +91,26 @@ function render(){
   var v=$('vistaHist');if(!v)return;
   var opts=H.clientes.map(function(c){return '<option value="'+c.id+'"'+(String(H.cli)===String(c.id)?' selected':'')+'>'+esc(c.razon_social+' · '+c.rut)+(String(c.estado||'').toLowerCase()==='activo'?'':' (inactivo)')+'</option>';}).join('');
   var filas=H.soloEmitidas?H.filas.filter(function(f){return f.estado==='EMITIDA';}):H.filas;
-  var total=filas.filter(function(f){return f.estado==='EMITIDA'&&f.modo==='PRODUCCION';}).reduce(function(a,f){return a+f.monto;},0);
+  var total=filas.filter(function(f){return f.estado==='EMITIDA'&&f.modo==='PRODUCCION'&&!f.noResta;}).reduce(function(a,f){return a+f.monto;},0);
   var cuerpo;
   if(!H.cli)cuerpo='<p class="ninguna">Elige un cliente para ver su historial de facturación.</p>';
   else if(H.cargando)cuerpo='<p class="ninguna">Cargando…</p>';
   else if(H.error)cuerpo='<p class="ninguna">No se pudo cargar el historial. Recarga la pantalla.</p>';
   else if(!filas.length)cuerpo='<p class="ninguna">Este cliente aún no tiene facturas registradas (ni en Gestoor ni emitidas en OpenFactura).</p>';
-  else cuerpo='<div class="tabla-box"><table><thead><tr><th>Fecha</th><th>Folio</th><th>Tipo</th><th>Glosa</th><th class="num">Monto</th><th>Estado</th><th>Condición de pago</th><th>Cobranza</th><th><span class="sr">Documentos</span>PDF / XML</th></tr></thead><tbody>'
+  var aviso=(H.cli&&!H.cargando&&H.ambiguos&&H.ambiguos.length)?'<p class="nota">'+I('alerta','ic-amb')+'<span>'+H.ambiguos.length+' documento(s) emitidos en OpenFactura con el RUT de este cliente no se vinculan: hay más de una ficha con ese RUT. Revisa las fichas de clientes.</span></p>':'';
+  if(cuerpo===undefined)cuerpo='<div class="tabla-box"><table><thead><tr><th>Fecha</th><th>Folio</th><th>Tipo</th><th>Glosa</th><th class="num">Monto</th><th>Estado</th><th>Condición de pago</th><th>Cobranza</th><th><span class="sr">Documentos</span>PDF / XML</th></tr></thead><tbody>'
    +filas.map(function(f,i){
      return '<tr><td>'+fFecha(f.fecha)+'</td><td class="cifra">'+(f.folio?'N° '+esc(f.folio):'—')+(f.modo==='PRUEBA'?' <span class="fx-est cel" title="Ambiente de pruebas, sin SII">PRUEBA</span>':'')+'</td>'
-      +'<td>'+esc(f.tipo)+(f.origenOF?' <span class="fx-est mor" title="Emitida directo en OpenFactura, fuera de Gestoor. Solo historial: no está en Cobranza.">'+OF_TXT+'</span>':'')+'</td>'
-      +'<td>'+esc(f.glosa)+(f.anuladaPor?' <span class="fx-est gris">Anulada con NC N° '+esc(f.anuladaPor)+'</span>':'')+'</td><td class="num cifra">'+clp(f.monto)+(f.dteDifiere?' <span class="fx-est roj">DTE difiere</span>':'')+'</td>'
+      +'<td>'+esc(f.tipo)+(f.origenOF?' <span class="fx-est mor" title="Emitida directo en OpenFactura, fuera de Gestoor. Solo historial: no está en Cobranza.">'+OF_TXT+'</span>':'')
+      +(f.ncChip?' <span class="fx-est '+f.ncChip[1]+'">'+esc(f.ncChip[0])+'</span>':'')
+      +(f.porRut?' <span class="fx-est cel" title="La factura no tenía ficha al importarla; se asocia a este cliente por su RUT (único).">Vinculada por RUT</span>':'')
+      +(f.incidencia?' <span class="fx-est amb" title="'+esc(f.incidencia)+'">Folio en Gestoor no coincide</span>':'')+'</td>'
+      +'<td>'+esc(f.glosa)+(f.anuladaPor?' <span class="fx-est gris">Anulada con NC N° '+esc(f.anuladaPor)+'</span>':'')+(f.fueraCorte?' <span class="sub">factura anterior al historial importado (antes del 27-04-2026)</span>':'')+'</td><td class="num cifra">'+clp(f.monto)+(f.noResta&&f.monto?'<span class="sub">no resta</span>':'')+(f.dteDifiere?' <span class="fx-est roj">DTE difiere</span>':'')+'</td>'
       +'<td>'+chip(EST,f.estado)+'</td><td>'+esc(f.cond)+'</td><td>'+(f.cob?chip(COB,f.cob.estado)+(+f.cob.saldo>0&&f.cob.estado==='PENDIENTE'?'<span class="sub">saldo '+clp(+f.cob.saldo)+'</span>':''):'—')+'</td>'
       +'<td>'+(f.docs?'<button type="button" class="g-btn sm" data-hist="pdf" data-i="'+i+'">'+I('bajar')+'PDF</button> <button type="button" class="g-btn sm" data-hist="xml" data-i="'+i+'">'+I('bajar')+'XML</button>':'—')+'</td></tr>';
    }).join('')+'</tbody></table></div>';
-  v.innerHTML='<div class="g-sec-h"><i class="ic placa ic-cel" data-ic="reloj"></i><h2>Historial de <span>facturación</span></h2><small>Facturas mensuales, adicionales y emitidas en OpenFactura · de la más reciente a la más antigua · las notas de crédito restan</small></div>'
+  cuerpo=aviso+cuerpo;
+  v.innerHTML='<div class="g-sec-h"><i class="ic placa ic-cel" data-ic="reloj"></i><h2>Historial de <span>facturación</span></h2><small>Facturas mensuales, adicionales y emitidas en OpenFactura · de la más reciente a la más antigua · las notas de crédito que anulan restan</small></div>'
    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:4px 0 14px">'
    +'<label class="sim"><span class="sim-tag">CLIENTE</span><select id="histCli" aria-label="Cliente"><option value="">Elige un cliente…</option>'+opts+'</select></label>'
    +'<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="histSolo"'+(H.soloEmitidas?' checked':'')+'> Solo emitidas</label>'
