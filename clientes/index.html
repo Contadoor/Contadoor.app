@@ -1660,12 +1660,16 @@ document.getElementById('f-rut').oninput = function(){
   if (!g('f-cu-u').value)  sv('f-cu-u', v);  // RUT empresa → Clave Única
 };
 
-// Cerrar modal al clic en fondo
-['modalForm','modalDetalle'].forEach(function(id){
+// Cerrar modal al clic en fondo: solo la ficha de DETALLE (lectura), y solo si el clic EMPEZÓ y TERMINÓ en el fondo.
+// La ficha de EDICIÓN (modalForm) no se cierra con el fondo: al cambiar una fecha o seleccionar texto, soltar el mouse
+// fuera de la ventana contaba como "clic afuera" y cerraba el formulario sin guardar (reportado por Luciano, 26-oct).
+['modalDetalle'].forEach(function(id){
   var overlay=document.getElementById(id);
   if(!overlay) return;
+  var empezoEnFondo=false;
+  overlay.addEventListener('mousedown',function(e){ empezoEnFondo=(e.target===overlay); });
   overlay.addEventListener('click',function(e){
-    if(e.target!==overlay) return;
+    if(e.target!==overlay||!empezoEnFondo) return;
     overlay.classList.remove('on');
     sincronizarBloqueoModales();
   });
