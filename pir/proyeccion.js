@@ -933,9 +933,12 @@ function cargarCartera(){
   return Promise.all([
     getTodo('clientes?select=id,razon_social,estado,tiene_contabilidad,analista_contable,analista_contable_usuario_id&order=razon_social.asc,id.asc'),
     getTodo('renta_casos?select=id,cliente_id,anio_comercial,anio_tributario,regimen,estado,version&estado=neq.RECTIFIED&order=anio_comercial.desc,version.desc,id.desc'),
-    getTodo('renta_motor_corridas?select=id,caso_id,cliente_id,cutoff_date,finalizado_at,resultado_estado&vigente=is.true&motor=eq.T1_RLI_14D3&order=id.asc')
+    getTodo('renta_motor_corridas?select=id,caso_id,cliente_id,cutoff_date,finalizado_at,resultado_estado&vigente=is.true&motor=eq.T1_RLI_14D3&order=id.asc'),
+    // Nombre del responsable desde el usuario asignado (el texto antiguo analista_contable puede estar desfasado). Si falla, se usa el texto.
+    API.rpc('listar_usuarios_asignables',{}).catch(function(){return [];})
   ]).then(function(r){
     var cls=r[0]||[], casos=r[1]||[], cors=r[2]||[];
+    var nomUsr={};(Array.isArray(r[3])?r[3]:[]).forEach(function(u){if(u&&u.id!=null&&u.nombre)nomUsr[Number(u.id)]=u.nombre;});
     // Misma regla que renta_clientes_visibles(): Master ve todos; contable, los que tiene asignados como analista contable
     if(!yo.es_master)cls=cls.filter(function(c){return c.analista_contable_usuario_id===yo.id;});
     // Caso del cliente = el del año comercial más reciente (si hay dos en el mismo año, el 14 D N°3)
@@ -945,7 +948,7 @@ function cargarCartera(){
     cls.forEach(function(c){S.clientes[c.id]=c.razon_social;});
     var filas=cls.filter(function(c){return (c.estado==='activo'&&c.tiene_contabilidad!==false)||casoDe[c.id];}).map(function(c){
       var k=casoDe[c.id]||null;
-      return {cliente_id:c.id,nombre:c.razon_social||('Cliente #'+c.id),resp:c.analista_contable||'',resp_id:c.analista_contable_usuario_id,caso:k,corrida:k?(corDe[k.id]||null):null,O:{},vig:null};
+      return {cliente_id:c.id,nombre:c.razon_social||('Cliente #'+c.id),resp:(c.analista_contable_usuario_id!=null&&nomUsr[Number(c.analista_contable_usuario_id)])||c.analista_contable||'',resp_id:c.analista_contable_usuario_id,caso:k,corrida:k?(corDe[k.id]||null):null,O:{},vig:null};
     });
     var casoIds=filas.filter(function(f){return f.caso;}).map(function(f){return f.caso.id;}), corIds=filas.filter(function(f){return f.corrida;}).map(function(f){return f.corrida.id;});
     return Promise.all([
