@@ -1710,17 +1710,25 @@ document.getElementById('cf-guardar').onclick = function() {
   edgeFetch('guardar-credencial', { clienteId: Number(clienteId), slug: t.slug, tipo: t.tipo, label: t.label, usuario: usuario || null, clave: clave })
     .then(function(res) { return res.json().catch(function() { return {}; }).then(function(j) { return { res: res, j: j }; }); })
     .then(function(r) {
-      g('cf-clave').value = '';
+      g('cf-clave').value = ''; g('cf-usuario').value = '';
+      var err = (r.j && (r.j.error || r.j.message)) || '';
+      if (!r.res.ok && /^Credencial guardada/.test(err)) {
+        // La Edge guardó la clave pero falló un paso posterior (auditoría o conector SII): no es un éxito completo ni hay que reintentar.
+        _cerrarFormClave();
+        alert('⚠️ La clave SÍ quedó guardada, pero no se completó todo: ' + err + '.\nNo la vuelvas a cargar; avísale a soporte para revisarlo.');
+        verClaves(clienteId);
+        return;
+      }
       if (!r.res.ok) {
         msg.textContent = r.res.status === 403 ? 'Solo el Master puede guardar claves.'
                         : r.res.status === 401 ? 'Tu sesión expiró. Vuelve a ingresar.'
-                        : ('No se pudo guardar: ' + ((r.j && (r.j.error || r.j.message)) || ('error ' + r.res.status)));
+                        : ('No se pudo guardar: ' + (err || ('error ' + r.res.status)));
         return;
       }
       _cerrarFormClave();
       verClaves(clienteId); // recarga la lista desde la bóveda
     })
-    .catch(function() { g('cf-clave').value = ''; msg.textContent = 'No se pudo conectar. Revisa si quedó guardada antes de reintentar.'; })
+    .catch(function() { g('cf-clave').value = ''; g('cf-usuario').value = ''; msg.textContent = 'No se pudo conectar. Revisa si quedó guardada antes de reintentar.'; })
     .then(function() { btn.disabled = false; btn.textContent = 'Guardar clave'; });
 };
 document.getElementById('btn-claves-editar').onclick = function(){
