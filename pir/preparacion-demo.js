@@ -73,7 +73,10 @@
   var copia=function(x){return JSON.parse(JSON.stringify(x));};
   var demora=function(v){return new Promise(function(ok){setTimeout(function(){ok(copia(v));},250);});};
   var falla=function(m){return new Promise(function(_,no){setTimeout(function(){no(new Error(m));},200);});};
-  window.PR_DEMO_API={rpc:function(fn,a){
+  window.PR_DEMO_API={edge:function(fn,b){   // demo de la Edge renta-cuenta-ver (números ficticios)
+    if(fn!=='renta-cuenta-ver')return falla('ACCION_DESCONOCIDA');
+    return demora({ok:true,numero:b.origen==='ficha'?'000011112222':({1:'000012347890',2:'00998877766'}[b.cuenta_id]||'0000')});
+  },rpc:function(fn,a){
     try{
       switch(fn){
         case 'prep_renta_cartera':return demora({periodo:CFG.periodo,abierto:CFG.abierto,planes:CFG.planes,es_master:MASTER,yo:901,filas:MASTER?FILAS:FILAS.filter(function(x){return x.analista_id===901;})});
@@ -81,7 +84,7 @@
           if(+a.p_cliente_id!==5001){var fx=FILAS.filter(function(x){return x.cliente_id===+a.p_cliente_id;})[0];if(!fx)return falla('SIN_PERMISO');
             return demora({es_master:MASTER,periodo:'AT2027',cliente:{id:fx.cliente_id,razon_social:fx.razon_social,rut:fx.rut,plan:fx.plan,regimen:fx.regimen,socios:[]},cuentas_ficha:[],respuesta:null,comparacion:[],aplicaciones:[],codigos:{n:fx.codigo_pedido_at?1:0,ultimo_at:fx.codigo_pedido_at,ultimo_envio:fx.codigo_pedido_at?'enviado':null}});}
           return demora({es_master:MASTER,periodo:'AT2027',cliente:CLI,cuentas_ficha:CTAS_FICHA,respuesta:R1,comparacion:comparar(),aplicaciones:APL,codigos:{n:1,ultimo_at:'2026-11-03T12:01:00Z',ultimo_envio:'enviado'}});
-        case 'prep_renta_ver_numero':return demora(a.p_origen==='ficha'?'000011112222':({1:'000012347890',2:'00998877766'}[a.p_cuenta_id]||'0000'));
+
         case 'prep_renta_aplicar':
           if(APL.some(function(x){return x.estado==='PENDIENTE';}))return falla('RP_APLICACION_PENDIENTE');
           var ap={id:APL.length+1,estado:'PENDIENTE',elecciones:a.p_elecciones,motivo:a.p_motivo,solicitada_por:MASTER?'Luciano (demo)':'Analista Demo Uno',solicitada_at:new Date().toISOString(),resultado:null};

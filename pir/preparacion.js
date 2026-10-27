@@ -1,8 +1,10 @@
 /* ============================================================
    pir/preparacion.js — MiRenta · "Preparemos tu Renta 2027" (respuestas del mini-sitio contadoor.github.io/renta)
    Conectada SOLO a las RPC de la migración 202610271500_prep_renta (cada una valida rol y asignación en el servidor):
-     prep_renta_cartera · prep_renta_detalle · prep_renta_ver_numero · prep_renta_aplicar · prep_renta_resolver_aplicacion ·
+     prep_renta_cartera · prep_renta_detalle · prep_renta_aplicar · prep_renta_resolver_aplicacion ·
      prep_renta_reabrir · prep_renta_config_fijar
+   + la Edge renta-cuenta-ver ("Ver número": descifra en el servidor solo para el asesor asignado o el Master y registra el acceso).
+   Los analistas asignados SOLO PROPONEN cambios; el Master los aprueba (acción explícita y auditada).
    Línea Cartera → detalle (regla del sistema). Cuentas bancarias SIEMPRE enmascaradas (••••1234); el número completo se pide
    con un botón, queda en auditoría y no se guarda en la página. "Aplicar a la ficha" aplica solo lo marcado: lo NUEVO viene
    marcado (completa campos vacíos), lo CORREGIDO se muestra lado a lado y queda sin marcar hasta que el usuario lo elija.
@@ -50,7 +52,11 @@ function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[�
 
 /* ── Acceso a datos: real (supabase.js con el JWT del usuario) o demostración local ── */
 function leer(r){if(!r.ok)return r.text().then(function(t){var j=null;try{j=JSON.parse(t);}catch(e){}var e=new Error((j&&j.message)||t||('HTTP '+r.status));e.code=j&&j.code;e.status=r.status;throw e;});return r.status===204?null:r.json();}
-var API=DEMO?window.PR_DEMO_API:{rpc:function(fn,args){return sbFetch('rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(leer);}};
+var API=DEMO?window.PR_DEMO_API:{rpc:function(fn,args){return sbFetch('rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(leer);},
+  // Edge con el JWT del usuario (nunca la clave anon como Bearer): el servidor decide el permiso y registra el acceso.
+  edge:function(fn,body){var t=window._gestoorAccessToken;if(!t)return Promise.reject(new Error('GESTOOR_NO_SESSION'));
+    return fetch(SB_URL+'/functions/v1/'+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+t},body:JSON.stringify(body||{})})
+      .then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok||!j.ok){var e=new Error(j.error||('HTTP '+r.status));e.status=r.status;throw e;}return j;});});}};
 
 var ERRORES={
   SIN_PERMISO:'No tienes permiso: Preparemos tu Renta lo ve el Master y el analista contable asignado al cliente.',
@@ -64,7 +70,10 @@ var ERRORES={
   RP_MOTIVO_REQUERIDO:'Escribe el motivo (al menos 5 caracteres).',
   RP_CONFIG_INVALIDA:'Elige al menos una tanda.',
   RP_SIN_NUMERO:'Esta cuenta no tiene número (es "vigente" o "sin cuenta").',
-  'Solo Master, Analista Pagos o Analista Comercial pueden crear o editar clientes':'La ficha solo la puede cambiar el Master (o Pagos/Comercial).'
+  SIN_SESION:'Tu sesión no está activa. Vuelve a ingresar a Gestoor.',
+  SIN_NUMERO:'Esta cuenta no tiene número (es "vigente" o "sin cuenta").',
+  NO_DISPONIBLE:'No se pudo descifrar la cuenta en este momento (avisa al Master).',
+  'Solo Master, Analista Pagos o Analista Comercial pueden crear o editar clientes':'La ficha solo la puede cambiar el Master.'
 };
 function textoError(e){
   var m=(e&&e.message)||String(e||''), code=e&&e.code;
@@ -221,6 +230,7 @@ function etiqueta(x){
   if(x.clave==='cuenta')return esc(x.etiqueta)+(x.titular==='socio'?' · '+rutF(x.rut):'');
   return esc(x.etiqueta);
 }
+function etqAplicar(n){var c=' ('+n+' cambio'+(n===1?'':'s')+')';return S.d&&S.d.es_master?'Aprobar y aplicar a la ficha'+c:'Proponer al Master'+c;}
 function seleccion(){var d=S.d;return (d.comparacion||[]).map(function(x,i){return S.elig[i]&&x.aplicable?{i:i,x:x}:null;}).filter(Boolean);}
 function renderDetalle(){
   var d=S.d, c=d.cliente, r=d.respuesta;urlEstado();
@@ -253,8 +263,8 @@ function renderDetalle(){
         +'<td data-l="Aplicar">'+(x.aplicable&&r.estado==='enviada'?'<label class="pr-chk"><input type="checkbox" data-elig="'+i+'"'+(S.elig[i]?' checked':'')+(pend?' disabled':'')+'><span>'+(x.tipo==='quitado'?'Quitar de la ficha':x.tipo==='corregido'?'Usar lo del cliente':'Agregar')+'</span></label>':'<span class="nd">—</span>')+'</td></tr>';}).join('')
     +'</tbody></table></div>';
   if(r.estado==='enviada'&&aplicables&&!pend){var n=seleccion().length;
-    h+='<div class="mrp-acciones pr-apl"><button type="button" class="btn" data-act="aplicar"'+(n?'':' disabled')+'>'+I('check')+'Aplicar a la ficha ('+n+' cambio'+(n===1?'':'s')+')</button>'
-      +'<small class="t3">'+(d.es_master?'Como Master se aplica de inmediato y queda en el registro.':'Queda para aprobación del Master (se le avisa en la campana).')+'</small></div>';}
+    h+='<div class="mrp-acciones pr-apl"><button type="button" class="btn" data-act="aplicar"'+(n?'':' disabled')+'>'+I('check')+etqAplicar(n)+'</button>'
+      +'<small class="t3">'+(d.es_master?'Tu aprobación queda registrada (quién, cuándo y qué campos) y se aplica de inmediato.':'Como analista solo propones: el Master aprueba o rechaza (se le avisa en la campana).')+'</small></div>';}
   h+='</section>';
   // Respuesta completa
   h+=resumen(d);
@@ -265,7 +275,7 @@ function renderDetalle(){
   // Historial
   var hist=(d.aplicaciones||[]).filter(function(a){return a.estado!=='PENDIENTE';});
   if(hist.length)h+='<section class="card pr-card" style="--acc:var(--lila)"><div class="h"><h2>'+I('calendario','ic-mor')+' Registro de <span>cambios</span></h2></div><ul class="pr-lista">'
-    +hist.map(function(a){return '<li><span class="estado '+(a.estado==='APLICADA'?'verde':'rojo')+' mini">'+(a.estado==='APLICADA'?'Aplicada':'Rechazada')+'</span> '+fHora(a.resuelta_at)+' · '+esc(a.resuelta_por||'—')
+    +hist.map(function(a){return '<li><span class="estado '+(a.estado==='APLICADA'?'verde':'rojo')+' mini">'+(a.estado==='APLICADA'?'Aprobada y aplicada':'Rechazada')+'</span> '+fHora(a.resuelta_at)+' · '+(a.estado==='APLICADA'?'aprobó ':'rechazó ')+esc(a.resuelta_por||'—')
       +(a.solicitada_por&&a.solicitada_por!==a.resuelta_por?' (propuesta de '+esc(a.solicitada_por)+')':'')+(a.resolucion_motivo?' · '+esc(a.resolucion_motivo):'')
       +(a.resultado&&a.resultado.length?'<ul>'+a.resultado.map(function(z){return '<li>'+esc(z.campo==='socio'?'Socio '+rutF(z.rut):z.campo==='cuenta'?'Cuenta '+rutF(z.rut):z.campo)+': '+esc(txtV(z.antes))+' → '+esc(txtV(z.despues))+'</li>';}).join('')+'</ul>':'')+'</li>';}).join('')+'</ul></section>';
   if(r.estado==='enviada')h+='<div class="mrp-acciones"><button type="button" class="btn sec chico" data-act="reabrir"'+(pend?' disabled':'')+'>'+I('deshacer','ic-amb')+'Devolver al cliente para corregir</button><small class="t3">El cliente podrá editar y volver a enviar (con el mismo enlace y un código nuevo).</small></div>';
@@ -335,23 +345,23 @@ function confirmarAplicar(){
   var sel=seleccion();if(!sel.length)return;
   var lista='<div class="mrc-tabla-box"><table class="cmp mrc-tabla pr-cmp"><thead><tr><th>Dato</th><th>Hoy</th><th>Quedará</th></tr></thead><tbody>'+sel.map(function(s){var x=s.x;
     return '<tr><td><b>'+etiqueta(x)+'</b></td><td><div class="pr-v">'+valor(x,'actual')+'</div></td><td><div class="pr-v">'+(x.tipo==='quitado'?'<span class="t-rojo">Se quita de la ficha</span>':valor(x,'cliente'))+'</div></td></tr>';}).join('')+'</tbody></table></div>';
-  modal('¿Aplicar '+sel.length+' cambio'+(sel.length===1?'':'s')+' a la ficha de '+S.d.cliente.razon_social+'?',
-    lista+(S.d.es_master?'<p class="t2">Se escribe con el mismo camino que la ficha de Clientes y queda en el registro de cambios.</p>':'<p class="t2">Como analista, los cambios quedan <b>pendientes</b> y se avisa al Master para que los apruebe.</p>')
+  modal((S.d.es_master?'¿Aprobar y aplicar ':'¿Proponer ')+sel.length+' cambio'+(sel.length===1?'':'s')+' a la ficha de '+S.d.cliente.razon_social+'?',
+    lista+(S.d.es_master?'<p class="t2">Al aprobar, queda registrado quién aprobó, cuándo y qué campos; se escribe con el mismo camino que la ficha de Clientes. Solo cambian los campos de esta lista.</p>':'<p class="t2">Como analista solo propones: los cambios quedan <b>pendientes</b> y se avisa al Master para que los apruebe o rechace. La ficha no cambia hasta su aprobación.</p>')
     +'<label class="mrp-campo"><span>Comentario (opcional)</span><textarea id="prMotivo" rows="2" maxlength="300"></textarea></label>',
-    '<button type="button" class="btn" data-act="aplicar-ok">'+I('check')+(S.d.es_master?'Sí, aplicar':'Sí, enviar al Master')+'</button>');
+    '<button type="button" class="btn" data-act="aplicar-ok">'+I('check')+(S.d.es_master?'Aprobar y aplicar':'Enviar propuesta al Master')+'</button>');
 }
 function aplicarOk(btn){
   var sel=seleccion(), d=S.d;btn.disabled=true;
   var elec=sel.map(function(s){var e={campo:s.x.clave,antes:s.x.actual==null?null:s.x.actual};if(s.x.clave==='socio'||s.x.clave==='cuenta')e.rut=s.x.rut;return e;});
   API.rpc('prep_renta_aplicar',{p_respuesta_id:d.respuesta.id,p_elecciones:elec,p_motivo:($('prMotivo').value||'').trim()||null}).then(function(r){
-    cerrarModal();toast(I('check','ic-ver')+(r.estado==='APLICADA'?' Cambios aplicados a la ficha.':' Cambios enviados al Master para su aprobación.'));abrirDetalle(d.cliente.id);
+    cerrarModal();toast(I('check','ic-ver')+(r.estado==='APLICADA'?' Aprobado y aplicado a la ficha (queda en el registro).':' Propuesta enviada al Master para su aprobación.'));abrirDetalle(d.cliente.id);
   },function(e){btn.disabled=false;$('prMerr').innerHTML=textoError(e);});
 }
 function resolver(id,aprobar){
   modal(aprobar?'¿Aprobar y aplicar los cambios propuestos?':'¿Rechazar los cambios propuestos?',
     '<p class="t2">'+(aprobar?'Se aplican a la ficha tal como los propuso el analista (si la ficha cambió entretanto, no se aplica nada y se avisa).':'La ficha queda igual y se avisa al analista.')+'</p>'
     +'<label class="mrp-campo"><span>Motivo'+(aprobar?' (opcional)':'')+'</span><textarea id="prMotivo" rows="2" maxlength="300"></textarea></label>',
-    '<button type="button" class="btn" data-act="resolver-ok" data-id="'+id+'" data-aprobar="'+(aprobar?1:0)+'">'+(aprobar?'Sí, aprobar':'Sí, rechazar')+'</button>');
+    '<button type="button" class="btn" data-act="resolver-ok" data-id="'+id+'" data-aprobar="'+(aprobar?1:0)+'">'+(aprobar?'Aprobar y aplicar':'Sí, rechazar')+'</button>');
 }
 function resolverOk(btn){
   btn.disabled=true;var ap=btn.getAttribute('data-aprobar')==='1';
@@ -362,7 +372,7 @@ function resolverOk(btn){
 function verNumero(origen,el){
   var d=S.d, id=origen==='ficha'?+el.getAttribute('data-id'):((d.respuesta.cuentas||[]).filter(function(k){return k.titular_rut===el.getAttribute('data-rut');})[0]||{}).id;
   if(!id)return;
-  API.rpc('prep_renta_ver_numero',{p_origen:origen,p_cuenta_id:id}).then(function(n){
+  API.edge('renta-cuenta-ver',{origen:origen,cuenta_id:id}).then(function(j){var n=j.numero;
     modal('Número de la cuenta','<p class="pr-num mono">'+esc(String(n).replace(/(\d{4})(?=\d)/g,'$1 '))+'</p><p class="t3">'+I('escudo','ic-ver')+' Esta consulta quedó registrada. No copies el número en correos ni chats: úsalo solo al preparar el F22. Se ocultará en 30 segundos.</p>');
     clearTimeout(verNumero.t);verNumero.t=setTimeout(function(){if(!$('prModal').hidden&&$('prModalCuerpo').querySelector('.pr-num'))cerrarModal();},30000);
   },function(e){toast(I('alerta','ic-roj')+' '+textoError(e));});
@@ -422,7 +432,7 @@ document.addEventListener('input',function(e){if(e.target.id==='prBuscar'){S.car
 document.addEventListener('change',function(e){
   var el=e.target;
   if(el.hasAttribute&&el.hasAttribute('data-elig')){S.elig[+el.getAttribute('data-elig')]=el.checked;var b=document.querySelector('[data-act="aplicar"]'),n=seleccion().length;
-    if(b){b.disabled=!n;b.lastChild.textContent='Aplicar a la ficha ('+n+' cambio'+(n===1?'':'s')+')';}}
+    if(b){b.disabled=!n;b.lastChild.textContent=etqAplicar(n);}}
   else if(el.classList&&el.classList.contains('geq-sel-in')){S.cart.resp=window.GEquipo.valida(el.value);renderCartera();}
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('prModal').hidden)cerrarModal();});
