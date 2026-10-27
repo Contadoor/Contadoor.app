@@ -463,10 +463,25 @@ body.modal-open{overflow:hidden;}
         <tbody id="clavesBody"></tbody>
       </table>
       <div id="clavesObs" style="display:none;padding:10px 14px;background:#fef9ec;border-top:1px solid var(--bdr);font-size:11px;color:var(--t2)"></div>
+      <!-- Solo Master: agregar o cambiar una clave. Se cifra en el servidor (guardar-credencial valida es_master y registra la auditoría). -->
+      <div id="clavesForm" style="display:none;padding:12px 14px;border-top:1px solid var(--bdr);background:var(--sur2)">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">🔑 Agregar o cambiar una clave</div>
+        <div class="fgrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fgroup"><label for="cf-tipo">Sistema</label><select id="cf-tipo"></select></div>
+          <div class="fgroup"><label for="cf-usuario" id="cf-usuario-lbl">Usuario / RUT</label><input type="text" id="cf-usuario" maxlength="200" autocomplete="off" spellcheck="false"></div>
+          <div class="fgroup" style="grid-column:1/-1"><label for="cf-clave">Clave</label><input type="password" id="cf-clave" maxlength="1000" autocomplete="new-password" spellcheck="false"></div>
+        </div>
+        <div id="cf-msg" style="font-size:11px;margin-top:6px;color:var(--tm)"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+          <button class="btn-s btn-sm" id="cf-cancelar" type="button">Cancelar</button>
+          <button class="btn-p btn-sm" id="cf-guardar" type="button">Guardar clave</button>
+        </div>
+      </div>
       <div style="padding:8px 14px;background:var(--sur2);border-top:1px solid var(--bdr);font-size:10px;color:var(--tm)">🔒 Información confidencial — solo uso interno</div>
     </div>
     <div class="modal-footer">
       <button class="btn-s" id="btn-claves-cerrar">✕ Cerrar</button>
+      <button class="btn-s" id="btn-claves-agregar" style="display:none">🔑 Agregar o cambiar clave</button>
       <button class="btn-p" id="btn-claves-editar" style="display:none">✏️ Editar cliente</button>
     </div>
   </div>
@@ -1006,7 +1021,7 @@ function sincronizarBloqueoModales(){
 }
 function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarDetalle() { g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
-function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarClaves()  { _cerrarFormClave(); _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
 // GUARDAR
@@ -1646,6 +1661,76 @@ document.getElementById('btn-det-cerrar').onclick= cerrarDetalle;
 document.getElementById('btn-det-claves').onclick= function(){ verClaves(_detalleId); };
 document.getElementById('btn-det-editar').onclick= function(){ abrirEditar(_detalleId); };
 document.getElementById('btn-claves-cerrar').onclick = cerrarClaves;
+
+// ── Agregar o cambiar una clave (solo Master) ──
+// Mismo catálogo tipo → slug que la bóveda (migrar-credenciales / carga masiva).
+// La clave nunca se guarda en variables globales, ni se registra en consola, ni se muestra: se envía una vez y se borra el campo.
+var _TIPOS_CLAVE = [
+  { tipo: 'sii',      slug: 'sii_empresa',      label: 'SII Empresa',      usuario: 'RUT de acceso' },
+  { tipo: 'previred', slug: 'previred',         label: 'Previred',         usuario: 'Usuario' },
+  { tipo: 'cu',       slug: 'clave_unica',      label: 'Clave Única',      usuario: 'RUT de acceso' },
+  { tipo: 'fact',     slug: 'facturacion',      label: 'Facturación',      usuario: 'Usuario' },
+  { tipo: 'lic',      slug: 'portal_licencias', label: 'Portal Licencias', usuario: 'Usuario' },
+  { tipo: 'tgr',      slug: 'tesoreria_tgr',    label: 'Tesorería (TGR)',  usuario: null },
+  { tipo: 'banco',    slug: 'banco',            label: 'Banco',            usuario: null }
+];
+function _tipoClaveSel() { var t = gv('cf-tipo'); return _TIPOS_CLAVE.find(function(x) { return x.tipo === t; }) || _TIPOS_CLAVE[0]; }
+function _ajustarUsuarioClave() {
+  var t = _tipoClaveSel(), u = g('cf-usuario');
+  g('cf-usuario-lbl').textContent = t.usuario || 'Usuario (no aplica)';
+  u.disabled = !t.usuario; if (!t.usuario) u.value = '';
+}
+function _cerrarFormClave() {
+  var f = g('clavesForm'); if (!f) return;
+  g('cf-clave').value = ''; g('cf-usuario').value = ''; g('cf-msg').textContent = '';
+  f.style.display = 'none';
+}
+document.getElementById('btn-claves-agregar').onclick = function() {
+  if (!(window._contadoorSesion && window._contadoorSesion.esMaster)) return; // la Edge vuelve a validar es_master
+  var sel = g('cf-tipo');
+  if (!sel.options.length) _TIPOS_CLAVE.forEach(function(t) { var o = document.createElement('option'); o.value = t.tipo; o.textContent = t.label; sel.appendChild(o); });
+  g('cf-clave').value = ''; g('cf-usuario').value = ''; g('cf-msg').textContent = '';
+  _ajustarUsuarioClave();
+  g('clavesForm').style.display = '';
+  g('cf-tipo').focus();
+};
+document.getElementById('cf-tipo').onchange = _ajustarUsuarioClave;
+document.getElementById('cf-cancelar').onclick = _cerrarFormClave;
+document.getElementById('cf-guardar').onclick = function() {
+  var clienteId = _clavesState.clienteId, t = _tipoClaveSel(), msg = g('cf-msg'), btn = g('cf-guardar');
+  var usuario = t.usuario ? gv('cf-usuario') : '';
+  var clave = g('cf-clave').value; // sin trim: la clave se guarda tal cual
+  if (!clienteId) { msg.textContent = 'Vuelve a abrir las claves del cliente.'; return; }
+  if (!clave) { msg.textContent = 'Escribe la clave.'; return; }
+  if (t.usuario && !usuario) { msg.textContent = 'Escribe el ' + t.usuario.toLowerCase() + '.'; return; }
+  if (t.tipo === 'sii' || t.tipo === 'cu') usuario = (window.gestoorNormalizarRut || function(r) { return r; })(usuario);
+  var existe = (_clavesState.creds || []).some(function(c) { return c.slug === t.slug; });
+  if (existe && !confirm('Este cliente ya tiene una clave de ' + t.label + '. ¿Reemplazarla por la nueva?')) return;
+  btn.disabled = true; btn.textContent = 'Guardando…'; msg.textContent = '';
+  edgeFetch('guardar-credencial', { clienteId: Number(clienteId), slug: t.slug, tipo: t.tipo, label: t.label, usuario: usuario || null, clave: clave })
+    .then(function(res) { return res.json().catch(function() { return {}; }).then(function(j) { return { res: res, j: j }; }); })
+    .then(function(r) {
+      g('cf-clave').value = ''; g('cf-usuario').value = '';
+      var err = (r.j && (r.j.error || r.j.message)) || '';
+      if (!r.res.ok && /^Credencial guardada/.test(err)) {
+        // La Edge guardó la clave pero falló un paso posterior (auditoría o conector SII): no es un éxito completo ni hay que reintentar.
+        _cerrarFormClave();
+        alert('⚠️ La clave SÍ quedó guardada, pero no se completó todo: ' + err + '.\nNo la vuelvas a cargar; avísale a soporte para revisarlo.');
+        verClaves(clienteId);
+        return;
+      }
+      if (!r.res.ok) {
+        msg.textContent = r.res.status === 403 ? 'Solo el Master puede guardar claves.'
+                        : r.res.status === 401 ? 'Tu sesión expiró. Vuelve a ingresar.'
+                        : ('No se pudo guardar: ' + (err || ('error ' + r.res.status)));
+        return;
+      }
+      _cerrarFormClave();
+      verClaves(clienteId); // recarga la lista desde la bóveda
+    })
+    .catch(function() { g('cf-clave').value = ''; g('cf-usuario').value = ''; msg.textContent = 'No se pudo conectar. Revisa si quedó guardada antes de reintentar.'; })
+    .then(function() { btn.disabled = false; btn.textContent = 'Guardar clave'; });
+};
 document.getElementById('btn-claves-editar').onclick = function(){
   var id = _detalleId;        // capturar antes de limpiar (defensive)
   _limpiarClavesState();      // FIX2.3A-R1: cancelar timeouts y borrar plaintext del DOM
@@ -1837,6 +1922,8 @@ function aplicarPermisosClientesUI() {
 
   var btnClavesEditar = document.getElementById('btn-claves-editar');
   if (btnClavesEditar) btnClavesEditar.style.display = esMaster ? '' : 'none';
+  var btnClavesAgregar = document.getElementById('btn-claves-agregar');
+  if (btnClavesAgregar) btnClavesAgregar.style.display = esMaster ? '' : 'none';
 }
 
 // Detectar cuándo auth.js termina de verificar la identidad.
