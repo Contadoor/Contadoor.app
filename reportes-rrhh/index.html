@@ -577,7 +577,8 @@ function init(){
               if(!ok&&sel.options.length>1) sel.selectedIndex=1;
               if(sel.value) cargarPeriodo();
             }
-            setTimeout(function(){if(typeof verificarRecordatoriosRrhh==='function')verificarRecordatoriosRrhh();},3000);
+            // 27-oct: los recordatorios automáticos al abrir la página quedan APAGADOS (salían sin confirmación, fuera de horario y
+            // con registro solo en el navegador → podían repetirse). El envío manual con el botón sigue disponible.
           }catch(e3){console.error('Error paso 3:',e3);}
         });
       }catch(e2){console.error('Error paso 2:',e2);}
@@ -2648,7 +2649,7 @@ function enviarRecordatorioRrhh(id, forzar){
   }).catch(function(){});
 }
 function verificarRecordatoriosRrhh(){
-  // Corre al cargar — revisa todos los reportes pendientes
+  // Ya no corre al cargar (apagado 27-oct); queda solo por si se vuelve a activar con registro en la base.
   var arr=getReportes();
   arr.forEach(function(r){enviarRecordatorioRrhh(r.id,false);});
 }

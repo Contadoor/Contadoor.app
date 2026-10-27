@@ -736,6 +736,11 @@ function guardarUsuario(){
   // Facturación, Cobranza y Trabajos especiales: las casillas se abren siempre desmarcadas (MODULOS_SIN_PRECARGA);
   // habilitarlas exige confirmación explícita.
   if(!confirmarModulosSensibles(adicionalesFinal.filter(function(m){ return conservados.indexOf(m)<0; }), nombre)) return;
+  // 27-oct: la pantalla no puede leer los módulos reales (usuarios_sistema) y estas casillas se abren desmarcadas; guardar sin
+  // marcarlas los QUITA. Leandro perdió Facturación así el 26-oct. Por eso se avisa SIEMPRE que alguna quede desmarcada.
+  var sinMarcar=MODULOS_SIN_PRECARGA.filter(function(m){ return adicionalesFinal.indexOf(m)<0 && (modulosBaseDelRol(rol)||[]).indexOf(m)<0; });
+  if(sinMarcar.length && !confirm('Atención: '+sinMarcar.map(function(m){return MODULOS_NOMBRE_CORTO[m]||m;}).join(', ')+
+      ' se guardan SOLO si están marcados (las casillas siempre se abren desmarcadas).\n\nSi '+nombre+' los tenía y no los marcaste, los va a PERDER al guardar.\n\n¿Guardar así?')) return;
   if(adicionalesFinal.indexOf('facturacion')<0 && fichaRegistraFacturacion(uActual)){
     if(!confirm('La ficha de '+nombre+' registra Facturación, pero la casilla está desmarcada: al guardar, Facturación quedará deshabilitada.\n\nSi debe seguir facturando, cancela y marca la casilla.\n\n¿Guardar sin Facturación?')) return;
   }

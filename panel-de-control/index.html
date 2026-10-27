@@ -842,7 +842,7 @@ function cargarClientesSupabase(){
         analistaContableUsuarioId:c.analista_contable_usuario_id||null,analistaRrhhUsuarioId:c.analista_rrhh_usuario_id||null,
         contacto:c.contacto||'',emailAnalista:c.email_analista||'',
         prioridadRrhh:c.prioridad_rrhh||'media',prioCont:c.prioridad_contable||'media',
-        moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
+        moneda:c.moneda_plan||'UF',monto:Number(c.monto_base)||0,montoVacio:c.monto_base==null,monedaVar:c.moneda_variable||c.moneda_plan||'UF',
         varTrab:Number(c.hon_variable!=null?c.hon_variable:c.valor_por_trab)||0,  // la ficha guarda en hon_variable
         trabIncl:Number(c.trab_incluidos)||0,modalidad:c.modalidad_pago||'contadoor',
         descTipo:c.desc_tipo||'',descValor:Number(c.desc_valor)||0,descDesde:c.desc_desde||'',descHasta:c.desc_hasta||'',tieneRrhh:c.tiene_rrhh!==false,tieneCont:c.tiene_contabilidad!==false};
@@ -902,7 +902,9 @@ function calcularServicios(r){
   var falta=[];
   var monto=Number(c.monto)||0, varTrab=Number(c.varTrab)||0;
   var uf=_ufDelPeriodo(r.periodo);
-  if(!monto)falta.push('monto del plan en la ficha del cliente');
+  // Monto fijo 0 es válido (p. ej. plan Remuneraciones: solo cobra por trabajador). Falta solo si la ficha lo tiene vacío
+  // (igual que fact_linea_recalcular) o si no tiene ningún valor de cobro.
+  if(c.montoVacio||(!monto&&!varTrab))falta.push('monto del plan en la ficha del cliente');
   var usaUf=(c.moneda!=='CLP')||(varTrab>0&&c.monedaVar!=='CLP');
   if(usaUf&&!uf)falta.push('UF del período');
   var nTrab=0, incl=Number(c.trabIncl)||0;

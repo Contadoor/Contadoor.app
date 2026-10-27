@@ -329,7 +329,8 @@ function renderCumplimiento(d){
 // Plantilla según el plan de la ficha: Cumplimiento → correo simple; PRO/Estratégico (o sin plan) → reporte completo.
 // Plantilla por plan, explícita y fail-closed. 'asesoria' es el valor guardado de Contadoor PRO
 // (el rótulo se renombra aparte); 'pro' se acepta para ese renombre. Plan vacío o desconocido → null.
-var PLANTILLA_POR_PLAN={cumplimiento:'cumplimiento',asesoria:'completa',pro:'completa',estrategico:'completa'};
+// remuneraciones (plan solo laboral, 27-oct): correo simple de pagos (cotizaciones, impuesto único y nuestros servicios).
+var PLANTILLA_POR_PLAN={cumplimiento:'cumplimiento',remuneraciones:'cumplimiento',asesoria:'completa',pro:'completa',estrategico:'completa'};
 function plantilla(plan){var k=String(plan||'').trim().toLowerCase();return Object.prototype.hasOwnProperty.call(PLANTILLA_POR_PLAN,k)?PLANTILLA_POR_PLAN[k]:null;}
 function esCumplimiento(plan){return plantilla(plan)==='cumplimiento';}
 function render(d){
