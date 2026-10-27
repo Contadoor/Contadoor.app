@@ -578,7 +578,7 @@ function rowToCliente(r) {
     descTipo: r.desc_tipo || '', descValor: r.desc_valor, descDesde: r.desc_desde || '', descHasta: r.desc_hasta || '',
     obsTrib: r.obs_trib,
     moneda: r.moneda_plan || 'UF', monedaVar: r.moneda_variable || r.moneda_plan || 'UF',
-    monto: r.monto_base || 0, trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
+    monto: r.monto_base == null ? null : Number(r.monto_base), trab: r.trab_incluidos || 0, varTrab: r.hon_variable || 0, precioObs: r.precio_obs || '',
     contador: r.analista_contable, rrhh: r.analista_rrhh, pagos: r.analista_pagos, prioRrhh: r.prioridad_rrhh || 'media',
           prioCont: r.prioridad_contable || 'media',
     // FIX2.3A.1: IDs de asignación (fuente de verdad para autorizaciones de bóveda)
@@ -618,7 +618,7 @@ function clienteToRow(c) {
     desc_desde: c.descTipo ? (c.descDesde || null) : null, desc_hasta: c.descTipo ? (c.descHasta || null) : null,
     obs_trib: c.obsTrib || null,
     moneda_plan: c.moneda || 'UF', moneda_variable: c.monedaVar || c.moneda || 'UF',
-    monto_base: c.monto || null, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
+    monto_base: c.monto == null ? null : c.monto, trab_incluidos: c.trab || 0, hon_variable: c.varTrab || null,
     precio_obs: c.precioObs || null,
     // FIX2.3A.1-R1: si el catálogo cargó, sincronizar campo de texto legacy con el nombre derivado del ID.
     // Si no cargó (undefined) → JSON.stringify omite la clave → RPC preserva valor en DB.
@@ -963,7 +963,7 @@ function abrirEditar(id) {
   sv('f-ppm-fuente', c.ppmTasaFuente||'');
   sv('f-ppm-observacion', c.ppmTasaObservacion||'');
   sv('f-moneda', c.moneda || 'UF'); sv('f-moneda-var', c.monedaVar || c.moneda || 'UF');
-  sv('f-monto', c.monto || ''); sv('f-trab', c.trab || ''); sv('f-var', c.varTrab || '');
+  sv('f-monto', c.monto == null ? '' : c.monto); sv('f-trab', c.trab || ''); sv('f-var', c.varTrab || '');
   sv('f-precio-obs', c.precioObs || '');
   sv('f-prio-rrhh', c.prioRrhh || 'media');
   sv('f-prio-cont', c.prioCont || 'media');
@@ -1070,7 +1070,7 @@ function guardarCliente() {
     ppmTasaFuente: gv('f-ppm-fuente')||null,
     ppmTasaObservacion: gv('f-ppm-observacion')||null,
     moneda:    gv('f-moneda') || 'UF', monedaVar: gv('f-moneda-var') || gv('f-moneda') || 'UF',
-    monto: nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
+    monto: String(gv('f-monto')).trim() === '' ? null : nv('f-monto'), trab: nv('f-trab'), varTrab: nv('f-var'), precioObs: gv('f-precio-obs'),
     // FIX2.3A.1-R1: fail-closed para asignaciones de analistas.
     // Si el catálogo no está disponible, los selects pueden estar vacíos/deshabilitados.
     // Un select vacío NO se interpreta como "desasignar" — se preserva el valor existente.
