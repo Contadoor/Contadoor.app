@@ -1,5 +1,5 @@
 /* ============================================================
-   pir/preparacion.js — MiRenta · "Preparemos tu Renta 2027" (respuestas del mini-sitio renta.contadoor.cl)
+   pir/preparacion.js — MiRenta · "Preparemos tu Renta 2027" (respuestas del mini-sitio contadoor.github.io/renta)
    Conectada SOLO a las RPC de la migración 202610271500_prep_renta (cada una valida rol y asignación en el servidor):
      prep_renta_cartera · prep_renta_detalle · prep_renta_ver_numero · prep_renta_aplicar · prep_renta_resolver_aplicacion ·
      prep_renta_reabrir · prep_renta_config_fijar
@@ -124,7 +124,7 @@ function pasaFiltros(f,sinEstado){
 function renderCartera(){
   urlEstado();
   var C=S.cart, act=document.activeElement, enB=act&&act.id==='prBuscar', pos=enB?act.selectionStart:0;
-  var h='<div class="mrc-cab"><div><h2 class="mrp-titulo">Preparemos tu <span>Renta 2027</span></h2><p class="mrp-preg">Socios, cuentas y objetivos que nos envía cada cliente desde renta.contadoor.cl, para planificar antes del 31 de diciembre.</p></div>'
+  var h='<div class="mrc-cab"><div><h2 class="mrp-titulo">Preparemos tu <span>Renta 2027</span></h2><p class="mrp-preg">Socios, cuentas y objetivos que nos envía cada cliente desde contadoor.github.io/renta, para planificar antes del 31 de diciembre.</p></div>'
     +(S.cfg?'<span class="estado '+(S.cfg.abierto?'verde':'gris')+'">'+I(S.cfg.abierto?'check':'info',S.cfg.abierto?'ic-ver':'ic-cel')+(S.cfg.abierto?'Enlace abierto':'Enlace cerrado')+'</span>':'')+'</div>';
   if(C.error){var t=textoError(C.error);
     app(h+(t==='NO_INSTALADO'?'<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>Preparemos tu Renta todavía no está instalado en este ambiente.</span></div>'
@@ -379,7 +379,7 @@ function reabrirOk(btn){
 function campana(){
   var k=S.cfg;if(!k)return;
   modal('Campaña Preparemos tu Renta '+(k.periodo||''),
-    '<p class="t2">Con la campaña <b>cerrada</b>, el enlace renta.contadoor.cl no envía códigos y las sesiones abiertas dejan de funcionar.</p>'
+    '<p class="t2">Con la campaña <b>cerrada</b>, el enlace contadoor.github.io/renta no envía códigos y las sesiones abiertas dejan de funcionar.</p>'
     +'<label class="mrc-check"><input type="checkbox" id="prAbierto"'+(k.abierto?' checked':'')+'> Enlace abierto</label>'
     +'<fieldset class="pr-fs"><legend>Quiénes pueden entrar</legend>'
     +'<label class="mrc-check"><input type="checkbox" id="prT1"'+(k.planes.indexOf('asesoria')>=0?' checked':'')+'> Tanda 1 · PRO + Estratégico</label>'
