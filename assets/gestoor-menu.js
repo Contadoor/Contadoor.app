@@ -68,9 +68,11 @@
     ['Operación mensual',[['clientes','Clientes','clientes'],['panel','Panel de Control','panel-de-control'],['rrhh','RRHH','reportes-rrhh'],
       ['personal','Gestión de Personal',null],['contable','Contable','reportes-contable'],['pagos','Pagos','reportes-pagos'],
       ['aprobar','Aprobaciones','pagos'],['convenios','Convenios','convenios'],['iva','Pre-IVA','pre-iva','cartera.html'],['pir','MiRenta','pir','proyeccion.html']]],
+    // Cotizaciones (K1, 27-oct): la PROPUESTA antes de que el cliente acepte (plan mensual o trabajo especial). Trabajos especiales (Gestión interna)
+    // es la EJECUCIÓN del trabajo ya aceptado.
     // Comercial (Luciano, 26-oct): todo lo de venta junto. Las reuniones con clientes activos irán aparte ("Asesorías").
     ['Comercial',[['calendario','Reuniones de venta','prospectos','reuniones.html'],['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],
-      ['lista','Cotizaciones',null],['campana','Campañas',null],['chat','CRM',null]]],
+      ['lista','Cotizaciones','cotizaciones'],['campana','Campañas',null],['chat','CRM',null]]],
     ['Gestión interna',[['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['correo','Comunicaciones',null],['grafico','Performance',null]]],
     ['Configuración',[['admin','Admin','admin']]]
