@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&!path.includes('/trabajos-especiales/')&&
+    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&!path.includes('/trabajos-especiales/')&&!path.includes('/cotizaciones/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -34,6 +34,7 @@
     if(path.includes('/conciliacion/'))      return 'conciliacion';
     if(path.includes('/cobranza/'))          return 'cobranza';
     if(path.includes('/trabajos-especiales/')) return 'trabajos_especiales';
+    if(path.includes('/cotizaciones/'))      return 'cotizaciones';
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
@@ -59,7 +60,7 @@
   };
 
   // Módulos cuyo acceso a la PÁGINA decide el servidor (usuarios_sistema.modulos), no public.usuarios.modulos.
-  var RPC_ACCESO_SERVIDOR={cobranza:'cobranza_yo',trabajos_especiales:'te_yo'};
+  var RPC_ACCESO_SERVIDOR={cobranza:'cobranza_yo',trabajos_especiales:'te_yo',cotizaciones:'cot_yo'};   // cot_yo: Master, rol comercial o módulo Trabajos especiales
 
   function puedeVerModulo(perfil,modulo){
     if(perfil.accesoServidor&&perfil.accesoServidor[modulo]===true) return true; // ya confirmado por el servidor en esta página
@@ -69,6 +70,8 @@
     if(modulo==='dashboard') return true;
     // Trabajos especiales T1: Facturación (módulo facturacion) prepara la factura DTE 34 y ve los trabajos (la RLS re-verifica).
     if(modulo==='trabajos_especiales'&&(perfil.modulos||[]).includes('facturacion')) return true;
+    // Cotizaciones K1 (solo el candado visual del menú; la página la decide cot_yo en el servidor): Comercial y quien cotiza trabajos especiales.
+    if(modulo==='cotizaciones'&&(perfil.rol==='comercial'||(perfil.modulos||[]).includes('trabajos_especiales'))) return true;
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
