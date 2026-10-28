@@ -1488,8 +1488,14 @@ function _rpAntDe(r,cargado){
   // cargado: {ok, porRut} del período anterior. Sin fila del cliente en un período anterior cargado = remanente 0
   // (misma regla que getRemanenteAnterior del Contable). Carga fallida o ausente = no se puede calcular.
   if(!cargado||!cargado.ok)return {ok:false};
-  var v=cargado.porRut[_rpRutKey(r.rut)];
-  return {ok:true,remanente:(v==null?0:v)};
+  var k=_rpRutKey(r.rut);
+  if(Object.prototype.hasOwnProperty.call(cargado.porRut,k)){var v=cargado.porRut[k];return {ok:true,remanente:(v==null?0:v)};}
+  // REM-ANT-1: sin fila del mes anterior, manda el remanente ingresado a mano en el Contable (con rastro), igual que buildBorradorF29.
+  return _rpRemManual(r)||{ok:true,remanente:0};
+}
+function _rpRemManual(r){
+  var m=((r&&r.preF29Ajustes)||{}).remanente_anterior_manual;
+  return (m&&m.monto!==null&&m.monto!==undefined)?{ok:true,remanente:m.monto,manual:true}:null;
 }
 function _rpMonto(v){
   // Normalización consciente: null/undefined → 0 (sin dato guardado = 0 en la fila, igual que sbRowToReporte);
@@ -1625,7 +1631,7 @@ function _construirDatosReporte(r,antPer){
     var hist=(histRows||[]).filter(function(h){return pAnt.indexOf(_rpPerDash(h.periodo))>=0;}).map(function(h){
       var hp=_rpPerDash(h.periodo), prevP=_rpPerAnt(hp,1);
       var prevRow=(histRows||[]).find(function(x){return _rpPerDash(x.periodo)===prevP;});
-      var fh=_rpF29(h,{ok:true,remanente:prevRow?prevRow.ivaRemanenteSig:0});
+      var fh=_rpF29(h,prevRow?{ok:true,remanente:prevRow.ivaRemanenteSig}:(_rpRemManual(h)||{ok:true,remanente:0}));
       var guardado=_rpNum(h.honTotal),s=guardado>0?null:calcularServicios(h);
       var okH=fh.estado==='ok'||fh.estado==='no_aplica';
       return okH?{per:hp,cot:_rpNum(h.totalCot),imp:fh.estado==='ok'?fh.aPagarAhora:0,serv:guardado>0?guardado:(s.ok?s.total:0)}:{per:hp,cot:0,imp:0,serv:0,incompleto:true};

@@ -291,8 +291,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <div class="fgroup">
         <label>Remanente anterior</label>
         <input type="number" id="f-remanente-ant" placeholder="0" readonly style="background:#f0f0f0"/>
-        <span class="hint">Desde período anterior</span>
+        <span class="hint" id="f-remanente-fuente">Desde período anterior</span>
       </div>
+    </div>
+    <!-- REM-ANT-1: aviso cuando falta el remanente anterior (nunca 0 en silencio) o cuando se ingresó a mano -->
+    <div id="aviso-remanente-ant" style="display:none;margin:-4px 0 12px;padding:9px 12px;border-radius:8px;font-size:11.5px;line-height:1.45">
+      <div id="aviso-remanente-ant-txt"></div>
+      <button type="button" id="btn-remanente-manual" class="btn-s" style="margin-top:6px;display:none" onclick="ingresarRemanenteAnterior()">Ingresar remanente anterior</button>
     </div>
 
     <!-- RESULTADO IVA -->
@@ -603,8 +608,10 @@ function buildBorradorF29(rep, cliente, periodo){
   var exentoNoCuadra = esExento && ivaDebitoLibroExento>0;
   if(esExento){ ivaDebito = 0; ivaCredito = 0; }
 
-  // Remanente anterior: del mapa precargado del período anterior
-  var remanenteAnterior = getRemanenteAnterior(rep.rut);
+  // Remanente anterior (REM-ANT-1): reporte del mes anterior; si no existe, el ingresado a mano con rastro;
+  // si tampoco hay, fuente 'falta' → alerta visible y no deja validar (nunca 0 en silencio).
+  var infoRemanente = infoRemanenteAnterior(rep, periodo);
+  var remanenteAnterior = infoRemanente.monto;
 
   var saldoIva = ivaDebito - ivaCredito - remanenteAnterior;
   var impuestoDeterminado   = Math.max(0, saldoIva);
@@ -688,6 +695,7 @@ function buildBorradorF29(rep, cliente, periodo){
     _esExento:           esExento,
     _exentoNoCuadra:     exentoNoCuadra,
     _ivaDebitoLibroExento: ivaDebitoLibroExento,
+    _remanente:          infoRemanente,
     // Referencia de libros/ficha — para mostrar hints en el modal
     _precalculado: {
       ivaDebitoLibro:   ventasOk ? Number((libV||{}).totalIva||0)   : null,
@@ -1124,7 +1132,11 @@ function renderTabla(){
       }
       html+='<div class="det-row"><span>Débito fiscal</span><span>'+ff(borrador.ivaDebito)+'</span></div>';
       if(borrador.ivaCredito)html+='<div class="det-row"><span>Crédito fiscal</span><span>-'+ff(borrador.ivaCredito)+'</span></div>';
-      if(borrador.remanenteAnterior>0)html+='<div class="det-row"><span>Remanente per. anterior</span><span>-'+ff(borrador.remanenteAnterior)+'</span></div>';
+      if(borrador.remanenteAnterior>0||(borrador._remanente&&borrador._remanente.fuente==='manual'))html+='<div class="det-row"><span>Remanente per. anterior'+(borrador._remanente&&borrador._remanente.fuente==='manual'?' (ingresado a mano)':'')+'</span><span>-'+ff(borrador.remanenteAnterior)+'</span></div>';
+      if(!borrador._periodoValidado&&borrador._remanente&&borrador._remanente.aviso){
+        var _remFalta=borrador._remanente.bloquea;
+        html+='<div class="det-row" style="font-size:10.5px;padding:4px 8px;border-radius:6px;'+(_remFalta?'color:#991b1b;background:#fee2e2':'color:#7a4b00;background:#fff4dc')+'"><span>'+(_remFalta?'⚠️ ':'✍️ ')+escRem(borrador._remanente.aviso)+'</span><span></span></div>';
+      }
       html+='<div class="det-sep"></div>';
       html+='<div class="det-row"><span><strong>Impuesto determinado</strong></span><span><strong>'+ff(borrador.impuestoDeterminado)+'</strong></span></div>';
       if(borrador.postergado){
@@ -1318,7 +1330,8 @@ function abrirF29(rut){
   fDeb.readOnly=borrador._esExento; fCred.readOnly=borrador._esExento;
   fDeb.value  = borrador._esExento ? '' : (borrador.ivaDebito  !==0 ? borrador.ivaDebito  : '');
   fCred.value = borrador._esExento ? '' : (borrador.ivaCredito !==0 ? borrador.ivaCredito : '');
-  document.getElementById('f-remanente-ant').value= borrador.remanenteAnterior>0 ? borrador.remanenteAnterior : '';
+  document.getElementById('f-remanente-ant').value= (borrador.remanenteAnterior>0||borrador._remanente.fuente==='manual') ? borrador.remanenteAnterior : '';
+  pintarAvisoRemanente(borrador);
 
   // PPM — fuente única: borrador (no volver a consultar f29)
   var ppmTasaVal=borrador.ppmTasa;
@@ -2372,6 +2385,11 @@ function guardarF29(){
       cierre.ok=false;
     }
   }
+  // REM-ANT-1: sin remanente anterior conocido no se valida (antes quedaba en 0 sin aviso → IVA inflado)
+  if(borradorCierre._remanente&&borradorCierre._remanente.bloquea){
+    cierre.pendientes.push(borradorCierre._remanente.aviso);
+    cierre.ok=false;
+  }
   // Tasa negativa no permitida
   if(tasaIngresada!==null && tasaIngresada<0){
     cierre.pendientes.push('La tasa PPM no puede ser negativa.');
@@ -2555,6 +2573,7 @@ var _f29SinObligacion  = {}; // { String(rep.id): true } — reportes con monto=
 var _obligacionesF29Loading = false; // true mientras sbGetObligaciones está en vuelo
 var _obligacionesF29Error   = false; // true si la última carga de obligaciones falló
 var _remanentesPeriodoAnterior = {}; // { rutNorm: iva_remanente_sig del período anterior }
+var _remanentePrev = {periodo:null, lecturaOk:false, filas:{}}; // REM-ANT-1: filas del mes anterior + si se pudo leer
 var _cargaLibroCtx = null;  // { clienteId, rut, tipo, accion, periodo, workbook }
 var _previewLibro  = null;  // { file, cabeceraCalc, filas, observaciones, sha256 }
 
@@ -3960,6 +3979,7 @@ function cargarReportesPeriodo(periodo, cb){
   // ── Cargar también el período anterior para obtener remanente IVA ──────
   var periodoPrev=periodoAnterior(periodo);
   _remanentesPeriodoAnterior={};
+  _remanentePrev={periodo:periodoPrev, lecturaOk:false, filas:{}};
 
   ejecutarConTimeoutContable('sbGetReportesPeriodo_prev', function(done){
     sbGetReportesPeriodo(periodoPrev, done);
@@ -3970,8 +3990,10 @@ function cargarReportesPeriodo(periodo, cb){
         var rutKey=normalizarRutContable(rep.rut||'');
         if(rutKey){
           _remanentesPeriodoAnterior[rutKey]=Number(rep.ivaRemanenteSig||0);
+          _remanentePrev.filas[rutKey]={ivaRemanenteSig:Number(rep.ivaRemanenteSig||0), estadoContable:rep.estadoContable||null};
         }
       });
+      _remanentePrev.lecturaOk=true;
       console.info('[Contable] Remanentes período anterior cargados:', periodoPrev, _remanentesPeriodoAnterior);
     } else {
       console.warn('[Contable] No se pudo cargar período anterior:',periodoPrev, errP);
@@ -4141,6 +4163,77 @@ function cargarReportesPeriodo(periodo, cb){
 // ── getRemanenteAnterior: usa el mapa cargado de _remanentesPeriodoAnterior ──
 function getRemanenteAnterior(rut){
   return Number(_remanentesPeriodoAnterior[normalizarRutContable(rut||'')]||0);
+}
+
+// ── REM-ANT-1 · remanente anterior con fuente (assets/remanente-anterior.js) ──
+function infoRemanenteAnterior(rep, periodo){
+  var per=periodo||(rep&&rep.periodo)||_periodoActual;
+  var leido=_remanentePrev.periodo===periodoAnterior(per);
+  var rutKey=normalizarRutContable((rep&&rep.rut)||'');
+  return window.RemanenteAnterior.resolver({
+    periodo: per,
+    lecturaOk: leido && _remanentePrev.lecturaOk,
+    filaAnterior: leido ? (_remanentePrev.filas[rutKey]||null) : null,
+    ajustes: (rep&&rep.preF29Ajustes)||null
+  });
+}
+function escRem(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];}); }
+function pintarAvisoRemanente(borrador){
+  var box=document.getElementById('aviso-remanente-ant'), txt=document.getElementById('aviso-remanente-ant-txt');
+  var btn=document.getElementById('btn-remanente-manual'), fte=document.getElementById('f-remanente-fuente');
+  var info=borrador._remanente||{};
+  var nomAnt=window.RemanenteAnterior.nombreMes(info.periodoAnterior);
+  if(fte) fte.textContent = info.fuente==='manual' ? 'Ingresado a mano ('+nomAnt+')'
+    : info.bloquea ? 'Falta ('+nomAnt+')' : 'Desde '+nomAnt;
+  // Solo se puede ingresar a mano si el mes anterior NO existe y el Pre-IVA no está validado (la base lo vuelve a exigir).
+  var puedeManual=!borrador._periodoValidado && (info.fuente==='falta'||info.fuente==='manual');
+  if(btn){ btn.style.display=puedeManual?'inline-block':'none'; btn.textContent=info.fuente==='manual'?'Corregir remanente anterior':'Ingresar remanente anterior'; }
+  if(!info.aviso||borrador._periodoValidado){ box.style.display='none'; return; }
+  box.style.display='block';
+  box.style.background=info.bloquea?'#fee2e2':'#fff4dc';
+  box.style.color=info.bloquea?'#991b1b':'#7a4b00';
+  txt.textContent=(info.bloquea?'⚠️ ':'✍️ ')+info.aviso;
+}
+function ingresarRemanenteAnterior(){
+  var rut=sv('m-rut'), periodo=sv('m-periodo');
+  var rep=getReportes().find(function(r){return r.rut===rut&&r.periodo===periodo;});
+  if(!rep||!rep.id||!/^\d+$/.test(String(rep.id))){ alert('No existe el reporte de '+periodo+' para este cliente. Recarga la página.'); return; }
+  var info=infoRemanenteAnterior(rep, periodo);
+  var nomAnt=window.RemanenteAnterior.nombreMes(info.periodoAnterior);
+  var montoTxt=prompt('Remanente de crédito fiscal de '+nomAnt+' (en pesos, sin puntos).\n\nSácalo del F29 de '+nomAnt+' presentado (código 77). Si no hubo remanente, escribe 0.'
+    +(info.fuente==='manual'?'\n\nValor actual: '+ff(info.monto):''), info.fuente==='manual'?String(info.monto):'');
+  if(montoTxt===null) return;
+  montoTxt=String(montoTxt).replace(/[.\s$]/g,'');
+  if(!/^\d+$/.test(montoTxt)){ alert('El monto debe ser un número entero en pesos, 0 o mayor (sin puntos ni decimales).'); return; }
+  var motivo=prompt('¿De dónde sale el monto? (obligatorio, mínimo 10 caracteres; queda en la auditoría)\nEj.: "F29 '+nomAnt+' presentado, código 77, folio 123456"');
+  if(motivo===null) return;
+  motivo=String(motivo).trim();
+  if(motivo.length<10){ alert('El motivo debe tener al menos 10 caracteres.'); return; }
+  if(!confirm('Registrar remanente de '+nomAnt+': '+ff(Number(montoTxt))+'\n\nQuedará marcado como "ingresado a mano" con tu nombre, la fecha y el motivo.')) return;
+  var btn=document.getElementById('btn-remanente-manual'); if(btn){btn.disabled=true;}
+  sbFetch('rpc/registrar_remanente_anterior_manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    p_reporte_id:Number(rep.id), p_monto:Number(montoTxt), p_motivo:motivo
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(btn){btn.disabled=false;}
+    if(!d||d.ok!==true){
+      var m=String((d&&(d.message||d.error))||'Error desconocido');
+      var mapa=[[/SOLO_ANALISTA_ASIGNADO/,'Solo el analista contable asignado a este cliente o el Master pueden registrar el remanente.'],
+        [/MES_ANTERIOR_EXISTE/,'El reporte de '+nomAnt+' sí existe: el remanente se toma de ese reporte. Recarga la página.'],
+        [/REPORTE_CERRADO/,'El Pre-IVA ya está validado: el Master debe reabrir el reporte para cambiar el remanente.'],
+        [/MONTO_INVALIDO/,'El monto debe ser un entero en pesos, 0 o mayor.'],[/MOTIVO_OBLIGATORIO/,'El motivo debe tener al menos 10 caracteres.']];
+      for(var i=0;i<mapa.length;i++){ if(mapa[i][0].test(m)){ m=mapa[i][1]; break; } }
+      alert('No se pudo registrar el remanente:\n'+m.replace(/<[^>]+>/g,'').substring(0,300));
+      return;
+    }
+    rep.preF29Ajustes=Object.assign({}, rep.preF29Ajustes||{}, {remanente_anterior_manual:d.remanente_anterior_manual});
+    var reportes=getReportes(); setReportes(reportes);
+    renderTabla();
+    // Solo se actualiza el remanente del modal: lo que el analista ya escribió (débito, crédito, PPM…) se conserva.
+    var c=getClientes().find(function(x){return x.rut===rut;})||{};
+    var b=buildBorradorF29(rep,c,periodo);
+    document.getElementById('f-remanente-ant').value=b.remanenteAnterior;
+    pintarAvisoRemanente(b); calcIVA();
+  }).catch(function(){ if(btn){btn.disabled=false;} alert('No se pudo registrar el remanente (error de conexión). Si no viste confirmación, no se guardó.'); });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4869,6 +4962,7 @@ function _siiF29MostrarMensaje(tipo, texto){
 
 </script>
 
+<script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
 <script src="../notifications.js"></script>
 <script>

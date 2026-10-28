@@ -105,7 +105,7 @@
     if(tabla==='reportes_mensuales'){
       var rut=eq(path,'cliente_rut'), c=cli(function(x){return x.rut===rut;})[0], ps=inL(path,'periodo');
       if(!c)return resp(200,[]);
-      if(ps)return resp(200,ps.map(function(p){return (RM[c.id]||{})[p];}).filter(Boolean));
+      if(ps)return resp(200,ps.map(function(p){var r=(RM[c.id]||{})[p];if(r&&c.id===1&&p===mover(PER,-1)&&path.indexOf('pre_f29_ajustes')>=0)r=Object.assign({},r,{iva_remanente_sig:120000,remanente:120000});return r;}).filter(Boolean));   // Pre-IVA (REM-ANT-1) lee mes anterior + actual juntos
       var pe=eq(path,'periodo'), row=(RM[c.id]||{})[pe];
       if(c.id===1&&pe===mover(PER,-1))return resp(200,[{iva_remanente_sig:120000,remanente:120000}]);
       return resp(200,row?[row]:[]);

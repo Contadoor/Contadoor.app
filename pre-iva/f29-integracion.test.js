@@ -51,7 +51,11 @@ async function abrir(browser, base, { remanente }) {
       const p = url.pathname.replace('/rest/v1/', '');
       const json = (b) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(b) });
       if (p === 'clientes') return json([CLIENTE]);
-      if (p === 'reportes_mensuales') return json(remanente ? [{ iva_remanente_sig: remanente, remanente: remanente }] : []);
+      if (p === 'reportes_mensuales') {
+        // REM-ANT-1: la pantalla pide mes anterior + actual juntos (periodo=in.("ant","act")); la fila del mes anterior trae su período.
+        const ps = String(url.searchParams.get('periodo') || ''), ant = (/^in\.\("([^"]+)"/.exec(ps) || /^eq\.(.+)$/.exec(ps) || [])[1];
+        return json(remanente ? [{ periodo: ant, iva_remanente_sig: remanente, remanente: remanente }] : []);
+      }
       if (p === 'preiva_historial') {
         if (req.method() === 'GET') return json([]);
         const cuerpo = JSON.parse(req.postData() || '{}');
@@ -269,5 +273,22 @@ test('INTEGRACIÓN R4 · montos inválidos: se marcan, "Editar reporte" no los a
     await page.waitForTimeout(300);
     assert.equal(cap.correos.length, 1);
     await ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
+
+test('INTEGRACIÓN REM-ANT-1 · sin remanente del mes anterior → alerta visible; con remanente de Contable → sin alerta', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const leer = (page) => page.evaluate(() => { const a = document.getElementById('pio-aviso-remanente'); return { visible: !!a && !a.hidden, txt: (document.getElementById('pio-aviso-remanente-txt') || {}).textContent || '' }; });
+    const sin = await abrir(browser, base, { remanente: 0 });
+    const a1 = await leer(sin.page);
+    assert.equal(a1.visible, true, 'sin mes anterior la alerta debe verse');
+    assert.match(a1.txt, /Falta el remanente de .+: el cálculo está usando \$0/);
+    await sin.ctx.close();
+    const con = await abrir(browser, base, { remanente: 300000 });
+    const a2 = await leer(con.page);
+    assert.equal(a2.visible, false, 'con remanente de Contable no hay alerta');
+    await con.ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
