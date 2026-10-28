@@ -37,7 +37,7 @@
   var APL=[], CTAS_FICHA=[];
   // Claves SII (paquete F2): SOLO metadatos, como prep_renta_claves_estado (nunca el valor ni el sobre).
   var CLAVES={empresa:{misma:'no',id:71,estado:'por_aprobar',entregada_at:'2026-11-03T12:18:00Z',expira_at:'2026-12-03T12:20:00Z',entregas:1,resuelta_at:null,registrada:true},
-    socios:[{rut:'12345678-5',nombre:'Socia Demo Uno',id:72,estado:'por_aprobar',entregada_at:'2026-11-03T12:15:00Z',expira_at:'2026-12-03T12:20:00Z',entregas:2},{rut:'11222333-9',nombre:'Socio Demo Dos',estado:'pendiente',entregada_at:null},
+    socios:[{rut:'12345678-5',nombre:'Socia Demo Uno',id:72,estado:'por_aprobar',entregada_at:'2026-11-03T12:15:00Z',expira_at:'2026-12-03T12:20:00Z',entregas:2,discrepancia_at:'2026-11-04T10:00:00Z'},{rut:'11222333-9',nombre:'Socio Demo Dos',estado:'pendiente',entregada_at:null},
       {rut:'15999888-6',nombre:'Socio Demo Tres',id:73,estado:'promovida',entregada_at:'2026-11-03T12:16:00Z',resuelta_at:'2026-11-04T09:00:00Z',entregas:1}],pendientes:1,por_promover:2};
   function comparar(){
     var d=R1.datos, out=[];
@@ -84,7 +84,7 @@
   },rpc:function(fn,a){
     try{
       switch(fn){
-        case 'prep_renta_cartera':return demora({periodo:CFG.periodo,abierto:CFG.abierto,planes:CFG.planes,es_master:MASTER,yo:901,limpieza_claves:MASTER?{vencidas_sin_limpiar:0,escritas_sin_confirmar:1,ultima_limpieza_at:new Date(Date.now()-3600e3).toISOString()}:null,filas:MASTER?FILAS:FILAS.filter(function(x){return x.analista_id===901;})});
+        case 'prep_renta_cartera':return demora({periodo:CFG.periodo,abierto:CFG.abierto,planes:CFG.planes,es_master:MASTER,yo:901,limpieza_claves:MASTER?{vencidas_sin_limpiar:0,preparadas_sin_confirmar:1,discrepancias:1,ultima_limpieza_at:new Date(Date.now()-3600e3).toISOString()}:null,filas:MASTER?FILAS:FILAS.filter(function(x){return x.analista_id===901;})});
         case 'prep_renta_detalle':
           if(+a.p_cliente_id!==5001){var fx=FILAS.filter(function(x){return x.cliente_id===+a.p_cliente_id;})[0];if(!fx)return falla('SIN_PERMISO');
             return demora({es_master:MASTER,periodo:'AT2027',cliente:{id:fx.cliente_id,razon_social:fx.razon_social,rut:fx.rut,plan:fx.plan,regimen:fx.regimen,socios:[]},cuentas_ficha:[],respuesta:null,comparacion:[],aplicaciones:[],codigos:{n:fx.codigo_pedido_at?1:0,ultimo_at:fx.codigo_pedido_at,ultimo_envio:fx.codigo_pedido_at?'enviado':null}});}
@@ -104,6 +104,8 @@
           if(kk.estado!=='recibida'&&kk.estado!=='por_aprobar')return falla('RP_CLAVE_NO_DESCARTABLE');kk.estado='descartada';kk.resuelta_at=new Date().toISOString();
           CLAVES.por_promover=[CLAVES.empresa].concat(CLAVES.socios).filter(function(x){return x.estado==='por_aprobar';}).length;FILAS[0].claves_por_promover=CLAVES.por_promover;
           FILAS[0].clave_empresa_por_aprobar=CLAVES.empresa.estado==='por_aprobar';return demora({ok:true});
+        case 'prep_renta_clave_reconciliar':if(!MASTER)return falla('SIN_PERMISO');if(!a.p_motivo||a.p_motivo.length<10)return falla('RP_MOTIVO_REQUERIDO');
+          var kr=CLAVES.socios.concat([CLAVES.empresa]).filter(function(x){return x.id===+a.p_id;})[0];if(!kr||!kr.discrepancia_at)return falla('RP_SIN_DISCREPANCIA');kr.discrepancia_at=null;return demora({ok:true});
         case 'prep_renta_reabrir':if(!a.p_motivo||a.p_motivo.length<5)return falla('RP_MOTIVO_REQUERIDO');R1.estado='borrador';R1.reabierta_at=new Date().toISOString();R1.reabierta_motivo=a.p_motivo;FILAS[0].estado='en_curso';return demora({ok:true});
         case 'prep_renta_config_fijar':if(!a.p_motivo||a.p_motivo.length<5)return falla('RP_MOTIVO_REQUERIDO');if(!a.p_planes.length)return falla('RP_CONFIG_INVALIDA');CFG.abierto=a.p_abierto;CFG.planes=a.p_planes;return demora({ok:true});
       }

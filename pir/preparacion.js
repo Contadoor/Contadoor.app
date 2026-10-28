@@ -72,6 +72,7 @@ var ERRORES={
   RP_CLAVE_NO_EXISTE:'Esa clave ya no existe. Recarga la respuesta.',
   RP_CLAVE_NO_DESCARTABLE:'Esa clave ya fue promovida, descartada o caducó. Recarga la respuesta.',
   RP_EN_REVISION:'Otro Master la está promoviendo en este momento. Intenta en unos minutos.',
+  RP_SIN_DISCREPANCIA:'Esa clave ya no tiene una discrepancia pendiente. Recarga la respuesta.',
   RP_CORREO_INVALIDO:'El correo que escribió el cliente no tiene un formato válido: no se aplicó. Confírmalo con el cliente.',
   RP_CONFIG_INVALIDA:'Elige al menos una tanda.',
   RP_SIN_NUMERO:'Esta cuenta no tiene número (es "vigente" o "sin cuenta").',
@@ -140,7 +141,8 @@ function avisoLimpieza(L){
   if(!L)return '';
   var hace=L.ultima_limpieza_at?(Date.now()-new Date(L.ultima_limpieza_at).getTime())/36e5:null, m=[];
   if(L.vencidas_sin_limpiar>0)m.push(L.vencidas_sin_limpiar+' clave'+(L.vencidas_sin_limpiar===1?'':'s')+' SII vencida'+(L.vencidas_sin_limpiar===1?'':'s')+' sin limpiar');
-  if(L.escritas_sin_confirmar>0)m.push(L.escritas_sin_confirmar+' promoción'+(L.escritas_sin_confirmar===1?'':'es')+' escrita'+(L.escritas_sin_confirmar===1?'':'s')+' sin confirmar (vuelve a correr la herramienta del Mac)');
+  if(L.preparadas_sin_confirmar>0)m.push(L.preparadas_sin_confirmar+' promoción'+(L.preparadas_sin_confirmar===1?'':'es')+' preparada'+(L.preparadas_sin_confirmar===1?'':'s')+' sin confirmar (vuelve a correr la herramienta del Mac)');
+  if(L.discrepancias>0)m.push(L.discrepancias+' clave'+(L.discrepancias===1?'':'s')+' con discrepancia por reconciliar');
   if(hace===null||hace>26)m.push(hace===null?'la limpieza programada de claves todavía no ha corrido':'la limpieza programada no corre hace '+Math.round(hace)+' h');
   return m.length?'<div class="aviso ambar">'+I('llave','ic-amb')+'<span><b>Claves SII:</b> '+esc(m.join(' · '))+'.</span></div>':'';
 }
@@ -303,8 +305,21 @@ function txtV(v){if(v==null)return 'vacío';if(typeof v==='object')return (v.nom
 var EST_CLAVE={recibida:['Recibida (borrador del cliente)','gris'],por_aprobar:['Sellada · por promover','lila'],promovida:['Promovida a la bóveda','verde'],
   descartada:['Descartada','rojo'],caducada:['Caducó sin promover (30 días)','rojo'],pendiente:['Pendiente (la enviará después)','ambar'],sin_respuesta:['Sin respuesta','gris']};
 function txtClave(k){var e=EST_CLAVE[k.estado]||[k.estado,'gris'];var f=k.estado==='promovida'||k.estado==='descartada'||k.estado==='caducada'?k.resuelta_at:k.entregada_at;
-  return e[0]+(f?' · '+fHora(f):'')+(k.entregas>1?' · entregada '+k.entregas+' veces':'')+(k.estado==='por_aprobar'&&k.expira_at?' · caduca '+fFecha(k.expira_at):'');}
-function btnDescartar(d,k){return k&&k.id&&d.es_master&&(k.estado==='recibida'||k.estado==='por_aprobar')?' <button type="button" class="link" data-act="descartar-clave" data-clave="'+k.id+'">Descartar</button>':'';}
+  return e[0]+(f?' · '+fHora(f):'')+(k.entregas>1?' · entregada '+k.entregas+' veces':'')+(k.estado==='por_aprobar'&&k.expira_at?' · caduca '+fFecha(k.expira_at):'')
+    +(k.discrepancia_at?' · DISCREPANCIA '+fHora(k.discrepancia_at)+' (la bóveda no cambió)':'');}
+function btnDescartar(d,k){return (k&&k.id&&d.es_master&&(k.estado==='recibida'||k.estado==='por_aprobar')?' <button type="button" class="link" data-act="descartar-clave" data-clave="'+k.id+'">Descartar</button>':'')
+  +(k&&k.id&&d.es_master&&k.discrepancia_at&&k.estado==='por_aprobar'?' <button type="button" class="link" data-act="reconciliar-clave" data-clave="'+k.id+'">Reconciliar</button>':'');}
+// Discrepancia (F2.2): lo promovido no coincidió con el sobre; la bóveda no cambió. Reconciliar (Master, con motivo) permite reintentar.
+function reconciliarClave(id){
+  S.reconciliarId=id;
+  modal('¿Reconciliar la discrepancia de esta clave SII?','<p class="t2">La última promoción NO coincidió con el sobre del cliente y la bóveda NO cambió. Reconcilia solo después de revisar qué pasó (herramienta del Mac, Ver claves). Queda en el registro.</p><label class="mrp-campo"><span>Motivo (qué revisaste)</span><textarea id="prMotivo" rows="2" maxlength="300"></textarea></label>',
+    '<button type="button" class="btn" data-act="reconciliar-clave-ok">Sí, reconciliar</button>');
+}
+function reconciliarClaveOk(btn){
+  btn.disabled=true;
+  API.rpc('prep_renta_clave_reconciliar',{p_id:S.reconciliarId,p_motivo:($('prMotivo').value||'').trim()}).then(function(){cerrarModal();toast(I('check','ic-ver')+' Discrepancia reconciliada. Ya puedes volver a promoverla desde el Mac.');abrirDetalle(S.d.cliente.id);},
+    function(e){btn.disabled=false;$('prMerr').innerHTML=textoError(e);});
+}
 function claveSocio(d,rut){var k=d.claves,l=k&&k.socios||[];for(var i=0;i<l.length;i++)if(l[i].rut===rut)return l[i];return null;}
 function alertas(d){
   var r=d.respuesta, dt=r.datos||{}, out=[];
@@ -481,6 +496,8 @@ document.addEventListener('click',function(e){
     case 'campana-ok':campanaOk(t);break;
     case 'descartar-clave':descartarClave(+t.getAttribute('data-clave'));break;
     case 'descartar-clave-ok':descartarClaveOk(t);break;
+    case 'reconciliar-clave':reconciliarClave(+t.getAttribute('data-clave'));break;
+    case 'reconciliar-clave-ok':reconciliarClaveOk(t);break;
   }
 });
 document.addEventListener('input',function(e){if(e.target.id==='prBuscar'){S.cart.q=e.target.value;renderCartera();}});
