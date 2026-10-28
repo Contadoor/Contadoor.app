@@ -268,6 +268,7 @@
 <script src="../supabase.js"></script>
 <script src="../assets/equipo.js"></script>
 <script>if(window.PIO_DEMO)document.write('<script src="operativa-demo.js"><\/script>');</script>
+<script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
 <script src="proyeccion.js"></script>
 <script>
@@ -382,23 +383,15 @@ function getFilaPreiva(rut, periodo){
   return sbJson('preiva_historial?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+perDb(periodo)+'&select='+PREIVA_COLS)
     .then(function(rows){return (rows&&rows[0])||null;});
 }
-// Remanente del mes anterior: lo que Contable dejó al validar el F29 de ese mes (reportes_mensuales).
-// REM-ANT-1: si el mes anterior no existe en Gestoor, se usa el remanente que el analista ingresó a mano en el Reporte
-// Contable del período (pre_f29_ajustes.remanente_anterior_manual, con rastro). Si tampoco hay, fuente 'sin' → alerta visible.
+// Remanente del mes anterior (REM-ANT-2): lo calcula la base (public.remanente_anterior) → cód. 504 = cód. 77 reajustado por UTM.
+// Fuente: reporte del mes anterior validado, o el cód. 77 ingresado a mano en Reporte Contable (con rastro).
+// SIN_DATO / CONFLICTO → fuente 'sin' con su aviso (nunca 0 en silencio; "cero confirmado" = CONOCIDO con 77 = 0).
 function getRemanenteContable(rut, periodoAnt, periodo){
-  var lista=encodeURIComponent('"'+perDb(periodoAnt)+'","'+perDb(periodo)+'"');
-  return sbJson('reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=in.('+lista+')&select=periodo,iva_remanente_sig,remanente,pre_f29_ajustes')
-    .then(function(rows){
-      rows=rows||[];
-      var ant=rows.find(function(x){return x.periodo===perDb(periodoAnt);});
-      if(ant){
-        var v=ant.iva_remanente_sig!=null?parseFloat(ant.iva_remanente_sig):parseFloat(ant.remanente||0);
-        return {valor:v||0,fuente:'contable'};
-      }
-      var act=rows.find(function(x){return x.periodo===perDb(periodo);});
-      var man=act&&act.pre_f29_ajustes&&act.pre_f29_ajustes.remanente_anterior_manual;
-      if(man&&man.monto!=null&&isFinite(Number(man.monto))&&Number(man.monto)>=0) return {valor:Number(man.monto),fuente:'manual',manual:man};
-      return {valor:0,fuente:'sin'};
+  return sbJson('rpc/remanente_anterior',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_cliente_rut:rut,p_periodo:perDb(periodo)})})
+    .then(function(info){
+      var R=window.RemanenteAnterior.resolver({periodo:perDb(periodo),lecturaOk:true,info:info||null});
+      if(!R.bloquea) return {valor:R.monto,fuente:R.fuente==='manual'?'manual':'contable',info:R};
+      return {valor:0,fuente:'sin',info:R};
     })
     .catch(function(e){console.warn('[Pre-IVA] remanente:',e.message);return {valor:0,fuente:'error',error:e.message};});
 }
@@ -600,15 +593,15 @@ function cargarDatos(){
     // Remanente: el de Contable manda; si Contable no tiene, el que quedó guardado en este Pre-IVA.
     var fuente=document.getElementById('lbl-remanente-fuente');
     var avRem=document.getElementById('pio-aviso-remanente'), avRemTxt=document.getElementById('pio-aviso-remanente-txt'), avisoRem='';
-    if(rem.fuente==='contable'){_datos.remanente=rem.valor;if(fuente)fuente.textContent='— desde Contable (F29 de '+formatPeriodo(perAnt)+')';}
-    else if(rem.fuente==='manual'){_datos.remanente=rem.valor;if(fuente)fuente.textContent='— ingresado a mano en Contable'+(rem.manual.usuario_nombre?' por '+rem.manual.usuario_nombre:'')+' (F29 de '+formatPeriodo(perAnt)+')';
-      avisoRem='Remanente ingresado a mano: Gestoor no tiene el reporte de '+formatPeriodo(perAnt)+'. Motivo: '+(rem.manual.motivo||'—')+'.';}
+    if(rem.fuente==='contable'){_datos.remanente=rem.valor;if(fuente)fuente.textContent='— cód. 504 desde Contable · '+rem.info.detalle;}
+    else if(rem.fuente==='manual'){_datos.remanente=rem.valor;if(fuente)fuente.textContent='— cód. 504 · '+rem.info.detalle;
+      avisoRem=rem.info.aviso+'.';}
     else if(fila&&parseFloat(fila.remanente)>0){_datos.remanente=parseFloat(fila.remanente);if(fuente)fuente.textContent='— guardado en este Pre-IVA (Contable aún no tiene el F29 de '+formatPeriodo(perAnt)+')';
       avisoRem='Remanente anterior tomado de lo guardado en este Pre-IVA: Contable aún no tiene el de '+formatPeriodo(perAnt)+'. Confírmalo con el F29 presentado (código 77).';}
     else{_datos.remanente=0;if(fuente)fuente.textContent=rem.fuente==='error'?'— ⚠ no se pudo leer desde Contable':'— Contable aún no tiene el F29 de '+formatPeriodo(perAnt);
       avisoRem=rem.fuente==='error'
         ?'No se pudo leer el remanente anterior desde Contable: el cálculo está usando $0. Recarga antes de enviar el Pre-IVA.'
-        :'Falta el remanente de '+formatPeriodo(perAnt)+': el cálculo está usando $0 y el IVA a pagar puede salir inflado. Pídelo al analista contable (lo ingresa en Reporte Contable) o corrígelo aquí con "Editar" si tienes el F29 de ese mes (código 77).';}
+        :(rem.info&&rem.info.aviso?rem.info.aviso+' ':'')+'Mientras tanto el cálculo usa $0 y el IVA a pagar puede salir inflado: pídelo al analista contable (cód. 77 en Reporte Contable) o corrígelo aquí con "Editar" (cód. 504).';}
     if(avRem){avRem.hidden=!avisoRem;if(avRemTxt)avRemTxt.textContent=avisoRem;}
     document.getElementById('lbl-remanente').textContent=ff(_datos.remanente);
     if(fila){

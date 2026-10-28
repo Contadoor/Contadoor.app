@@ -926,9 +926,7 @@ function sbRowToReporte(row){
     // Valores: null | 'completado'. La columna es la fuente de verdad.
     // NUNCA derivar desde valores F29 — resuelve el caso de todos-cero.
     estadoContable:    row.estado_contable||null,
-    listoPanelControl: row.listo_panel_control===true,
-    // REM-ANT-1: ajustes del Pre-F29 (solo lectura aquí; remanente_anterior_manual lo escribe la RPC registrar_remanente_anterior_manual)
-    preF29Ajustes:     (row.pre_f29_ajustes&&typeof row.pre_f29_ajustes==='object')?row.pre_f29_ajustes:{}
+    listoPanelControl: row.listo_panel_control===true
   };
 }
 

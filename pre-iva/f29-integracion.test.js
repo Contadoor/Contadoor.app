@@ -34,7 +34,7 @@ function servidor() {
   });
 }
 
-async function abrir(browser, base, { remanente }) {
+async function abrir(browser, base, { remanente, rem }) {
   const ctx = await browser.newContext();
   const cap = { correos: [], guardados: [], dialogos: [] };
   await ctx.addInitScript(() => {
@@ -51,10 +51,11 @@ async function abrir(browser, base, { remanente }) {
       const p = url.pathname.replace('/rest/v1/', '');
       const json = (b) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(b) });
       if (p === 'clientes') return json([CLIENTE]);
-      if (p === 'reportes_mensuales') {
-        // REM-ANT-1: la pantalla pide mes anterior + actual juntos (periodo=in.("ant","act")); la fila del mes anterior trae su período.
-        const ps = String(url.searchParams.get('periodo') || ''), ant = (/^in\.\("([^"]+)"/.exec(ps) || /^eq\.(.+)$/.exec(ps) || [])[1];
-        return json(remanente ? [{ periodo: ant, iva_remanente_sig: remanente, remanente: remanente }] : []);
+      if (p === 'rpc/remanente_anterior') {
+        // REM-ANT-2: la base responde el remanente anterior (cód. 77 → 504). Con remanente: CONOCIDO (UTM 1:1); sin él: SIN_DATO.
+        if (rem) return json(rem);
+        return json(remanente ? { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: remanente, cod504: remanente, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' }
+                              : { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-10', periodo_anterior: '2026-09' });
       }
       if (p === 'preiva_historial') {
         if (req.method() === 'GET') return json([]);
@@ -276,19 +277,29 @@ test('INTEGRACIÓN R4 · montos inválidos: se marcan, "Editar reporte" no los a
   } finally { await browser.close(); srv.close(); }
 });
 
-test('INTEGRACIÓN REM-ANT-1 · sin remanente del mes anterior → alerta visible; con remanente de Contable → sin alerta', { skip: omitir }, async () => {
+test('INTEGRACIÓN REM-ANT-2 · sin dato → alerta; cero confirmado y 77→504 reajustado → sin alerta y se muestran ambos códigos', { skip: omitir }, async () => {
   const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
   const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
   try {
-    const leer = (page) => page.evaluate(() => { const a = document.getElementById('pio-aviso-remanente'); return { visible: !!a && !a.hidden, txt: (document.getElementById('pio-aviso-remanente-txt') || {}).textContent || '' }; });
+    const leer = (page) => page.evaluate(() => { const a = document.getElementById('pio-aviso-remanente'); return { visible: !!a && !a.hidden, txt: (document.getElementById('pio-aviso-remanente-txt') || {}).textContent || '',
+      fuente: document.getElementById('lbl-remanente-fuente').textContent, valor: document.getElementById('lbl-remanente').textContent }; });
     const sin = await abrir(browser, base, { remanente: 0 });
     const a1 = await leer(sin.page);
-    assert.equal(a1.visible, true, 'sin mes anterior la alerta debe verse');
-    assert.match(a1.txt, /Falta el remanente de .+: el cálculo está usando \$0/);
+    assert.equal(a1.visible, true, 'sin dato la alerta debe verse');
+    assert.match(a1.txt, /Falta el remanente de septiembre 2026.* Mientras tanto el cálculo usa \$0/);
     await sin.ctx.close();
-    const con = await abrir(browser, base, { remanente: 300000 });
-    const a2 = await leer(con.page);
-    assert.equal(a2.visible, false, 'con remanente de Contable no hay alerta');
-    await con.ctx.close();
+    const cero = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 sept. sin remanente' } } });
+    const a2 = await leer(cero.page);
+    assert.equal(a2.valor, '$0'); assert.match(a2.fuente, /cód\. 504 · Cód\. 77 de septiembre 2026: \$0/); assert.match(a2.txt, /ingresado a mano por Analista Ficticia/);
+    await cero.ctx.close();
+    const reaj = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1000000, cod504: 1007246, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' } });
+    const a3 = await leer(reaj.page);
+    assert.equal(a3.visible, false); assert.equal(a3.valor, '$1.007.246');
+    assert.match(a3.fuente, /Cód\. 77 de septiembre 2026: \$1\.000\.000 × UTM noviembre 2026 \$69\.500 ÷ UTM octubre 2026 \$69\.000 = cód\. 504 \$1\.007\.246/);
+    await reaj.ctx.close();
+    const conf = await abrir(browser, base, { rem: { estado: 'CONFLICTO', fuente: 'F29_MANUAL', cod77: 1000000, cod504: 1007246, mes_anterior_cod77: 900000, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: {} } });
+    const a4 = await leer(conf.page);
+    assert.equal(a4.visible, true); assert.match(a4.txt, /^Conflicto: el reporte de septiembre 2026 trae cód\. 77 \$900\.000/);
+    await conf.ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
