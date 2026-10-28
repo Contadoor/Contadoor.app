@@ -84,7 +84,7 @@
   },rpc:function(fn,a){
     try{
       switch(fn){
-        case 'prep_renta_cartera':return demora({periodo:CFG.periodo,abierto:CFG.abierto,planes:CFG.planes,es_master:MASTER,yo:901,filas:MASTER?FILAS:FILAS.filter(function(x){return x.analista_id===901;})});
+        case 'prep_renta_cartera':return demora({periodo:CFG.periodo,abierto:CFG.abierto,planes:CFG.planes,es_master:MASTER,yo:901,limpieza_claves:MASTER?{vencidas_sin_limpiar:0,escritas_sin_confirmar:1,ultima_limpieza_at:new Date(Date.now()-3600e3).toISOString()}:null,filas:MASTER?FILAS:FILAS.filter(function(x){return x.analista_id===901;})});
         case 'prep_renta_detalle':
           if(+a.p_cliente_id!==5001){var fx=FILAS.filter(function(x){return x.cliente_id===+a.p_cliente_id;})[0];if(!fx)return falla('SIN_PERMISO');
             return demora({es_master:MASTER,periodo:'AT2027',cliente:{id:fx.cliente_id,razon_social:fx.razon_social,rut:fx.rut,plan:fx.plan,regimen:fx.regimen,socios:[]},cuentas_ficha:[],respuesta:null,comparacion:[],aplicaciones:[],codigos:{n:fx.codigo_pedido_at?1:0,ultimo_at:fx.codigo_pedido_at,ultimo_envio:fx.codigo_pedido_at?'enviado':null}});}

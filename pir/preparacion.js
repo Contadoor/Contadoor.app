@@ -116,7 +116,7 @@ function urlEstado(){try{var p=new URLSearchParams(location.search);if(S.vista==
 function cargarCartera(){
   S.cart.cargando=true;S.cart.error=null;if(S.vista==='cartera')renderCartera();
   API.rpc('prep_renta_cartera',{}).then(function(r){
-    S.cfg={periodo:r.periodo,abierto:r.abierto,planes:r.planes||[],es_master:!!r.es_master,yo:r.yo};
+    S.cfg={periodo:r.periodo,abierto:r.abierto,planes:r.planes||[],es_master:!!r.es_master,yo:r.yo,limpieza:r.limpieza_claves||null};
     S.cart.filas=(r.filas||[]).map(function(f){f.resp=f.analista_nombre||'';f.resp_id=f.analista_id;return f;});
     S.cart.cargando=false;botonCampana();if(S.vista==='cartera')renderCartera();
   },function(e){S.cart.cargando=false;S.cart.error=e;if(S.vista==='cartera')renderCartera();});
@@ -134,6 +134,15 @@ function pasaFiltros(f,sinEstado){
   if(!window.GEquipo.pasa(f,C.resp))return false;
   var q=norm(C.q.trim());if(q&&norm(f.razon_social+' '+f.rut+' '+f.resp).indexOf(q)<0)return false;
   return true;
+}
+// Monitoreo de la limpieza de claves selladas (solo Master): vencidas sin limpiar, escritas sin confirmar o limpieza que no corre hace > 26 h.
+function avisoLimpieza(L){
+  if(!L)return '';
+  var hace=L.ultima_limpieza_at?(Date.now()-new Date(L.ultima_limpieza_at).getTime())/36e5:null, m=[];
+  if(L.vencidas_sin_limpiar>0)m.push(L.vencidas_sin_limpiar+' clave'+(L.vencidas_sin_limpiar===1?'':'s')+' SII vencida'+(L.vencidas_sin_limpiar===1?'':'s')+' sin limpiar');
+  if(L.escritas_sin_confirmar>0)m.push(L.escritas_sin_confirmar+' promoción'+(L.escritas_sin_confirmar===1?'':'es')+' escrita'+(L.escritas_sin_confirmar===1?'':'s')+' sin confirmar (vuelve a correr la herramienta del Mac)');
+  if(hace===null||hace>26)m.push(hace===null?'la limpieza programada de claves todavía no ha corrido':'la limpieza programada no corre hace '+Math.round(hace)+' h');
+  return m.length?'<div class="aviso ambar">'+I('llave','ic-amb')+'<span><b>Claves SII:</b> '+esc(m.join(' · '))+'.</span></div>':'';
 }
 function renderCartera(){
   urlEstado();
@@ -154,6 +163,7 @@ function renderCartera(){
       nSin=n(function(f){return f.estado==='sin_enviar';}), nApl=n(function(f){return f.estado==='respondido'&&!f.aplicada_at;}), nPend=n(function(f){return f.aplicacion_pendiente;}),
       nMail=n(function(f){return !f.correo_ok;});
   var av=base.length?Math.round(nRes/base.length*100):0;
+  h+=avisoLimpieza(S.cfg&&S.cfg.limpieza);
   h+='<section class="mrc-tot pr-tot" aria-label="Totales">'
     +'<div class="mrc-k"><small>Clientes</small><b>'+base.length+'</b><span>'+(C.tanda==='1'?'tanda 1 · PRO + Estratégico':C.tanda==='2'?'tanda 2 · Cumplimiento con contabilidad':'todas las tandas')+'</span></div>'
     +'<div class="mrc-k verde"><small>Respondidos</small><b>'+nRes+'</b><span>'+nApl+' por aplicar a la ficha'+(nPend?' · '+nPend+' esperando al Master':'')+'</span></div>'
