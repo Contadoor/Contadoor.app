@@ -449,5 +449,5 @@ function iniciar(){
 }
 if(DEMO)iniciar();
 else if(window._sbAuthReady)iniciar();
-else document.addEventListener('gestoor-auth-ready',iniciar,{once:true});
+else window.addEventListener('gestoor-auth-ready',iniciar,{once:true});   // el evento se emite en window (como en apertura.js), no en document
 })();
