@@ -33,7 +33,8 @@ var PX={
   escudo:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   megafono:'<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
   deshacer:'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
-  portapapeles:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>'
+  portapapeles:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  llave:'<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>'
 };
 function ic(n){return PX[n]?'<svg class="g-ic" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+PX[n]+'</svg>':(window.gIcon?window.gIcon(n):'');}
 function I(n,c){return '<i class="ic '+(c||'')+'">'+ic(n)+'</i>';}
@@ -68,6 +69,9 @@ var ERRORES={
   RP_SOCIOS_NO_SUMAN_100:'Con esa selección los % de los socios en la ficha no suman 100. Marca también los demás socios que cambiaron (o quita el socio que salió).',
   RP_NO_ENVIADA:'El cliente todavía no envía su respuesta.',
   RP_MOTIVO_REQUERIDO:'Escribe el motivo (al menos 5 caracteres).',
+  RP_SIN_CLAVE_PENDIENTE:'No hay una clave SII nueva de la empresa por aprobar. Recarga la respuesta.',
+  RP_CORREO_INVALIDO:'El correo que escribió el cliente no tiene un formato válido: no se aplicó. Confírmalo con el cliente.',
+  RP_CREDENCIAL_CONFLICTO:'La credencial SII de la empresa tiene otro tipo en la bóveda: revísala en «Ver claves» antes de aplicar.',
   RP_CONFIG_INVALIDA:'Elige al menos una tanda.',
   RP_SIN_NUMERO:'Esta cuenta no tiene número (es "vigente" o "sin cuenta").',
   SIN_SESION:'Tu sesión no está activa. Vuelve a ingresar a Gestoor.',
@@ -182,7 +186,9 @@ function filaCartera(f){
   if(f.aplicada_at)fecha+='<small>Aplicado a la ficha '+fFecha(f.aplicada_at)+'</small>';
   var chips='<span class="estado gris mini pr-plan">'+esc(PLANES[f.plan]||f.plan||'—')+'</span>'+(f.regimen?'<span class="estado gris mini">'+esc(f.regimen)+'</span>':'')
     +(!f.correo_ok?'<span class="estado rojo mini">'+I('alerta','ic-roj')+'Sin correo válido en la ficha</span>':'')+(f.aplicacion_pendiente?'<span class="estado ambar mini">Esperando al Master</span>':'')
-    +(f.habilitado===false&&f.correo_ok?'<span class="estado gris mini">Tanda no habilitada</span>':'');
+    +(f.habilitado===false&&f.correo_ok?'<span class="estado gris mini">Tanda no habilitada</span>':'')
+    +(f.claves_pendientes>0?'<span class="estado ambar mini">'+I('llave','ic-amb')+f.claves_pendientes+' clave'+(f.claves_pendientes===1?'':'s')+' SII pendiente'+(f.claves_pendientes===1?'':'s')+'</span>':'')
+    +(f.clave_empresa_por_aprobar?'<span class="estado lila mini">Clave SII de la empresa por aprobar</span>':'');
   var obj=(f.objetivos||[]).slice(0,3).map(function(k){return OBJ[k]||k;}).join(' · ');
   var bot=f.estado==='respondido'||f.estado==='en_curso'?'<button type="button" class="btn chico'+(f.estado==='respondido'&&!f.aplicada_at?' mrc-destacar':'')+'" data-act="ver" data-cli="'+f.cliente_id+'">'+I('flecha-der')+(f.estado==='respondido'?'Ver respuesta':'Ver borrador')+'</button>'
     :'<button type="button" class="btn sec chico" data-act="ver" data-cli="'+f.cliente_id+'">'+I('ojo','ic-cel')+'Ver</button>';
@@ -218,6 +224,11 @@ function valor(x,cual){
   var v=x[cual];
   if(v==null||v==='')return '<span class="nd">'+(cual==='actual'?'Vacío en la ficha':'—')+'</span>';
   if(x.clave==='socio')return '<b>'+esc(v.nombre||'—')+'</b><small>'+pctT(v.pct)+'</small>';
+  // Clave SII: NUNCA el valor (para verla: «Ver claves» en la ficha del cliente, con permiso y registro).
+  if(x.clave==='clave_sii_empresa'){
+    if(cual==='actual')return '<b>Registrada</b><small>actualizada '+fFecha(v.actualizada_at)+'</small>';
+    return '<b>'+(v.estado==='aplicada'?'Clave nueva aplicada':v.estado==='descartada'?'Clave nueva descartada':'Clave nueva entregada')+'</b><small>'+fHora(v.entregada_at)+' · no se muestra</small>';
+  }
   if(x.clave==='cuenta'){
     if(cual==='cliente'&&v.modo==='vigente')return '<b>La registrada está vigente</b>';
     if(cual==='cliente'&&v.modo==='sin_cuenta')return '<b>Sin cuenta</b><small>Cheque al domicilio del SII · '+(v.direccion_sii==='cambio'?'<span class="t-ambar">la dirección cambió</span>':'dirección vigente')+'</small>';
@@ -260,7 +271,7 @@ function renderDetalle(){
       return '<tr class="pr-t-'+x.tipo+'"><td data-l="Dato"><b>'+etiqueta(x)+'</b></td><td data-l="En la ficha hoy"><div class="pr-v">'+valor(x,'actual')+'</div></td>'
         +'<td data-l="Lo que dice el cliente"><div class="pr-v">'+(x.tipo==='validado'?'<span class="t-verde">'+I('check','ic-ver')+' Está correcto</span>':valor(x,'cliente'))+ver+'</div></td>'
         +'<td data-l="Tipo"><span class="estado '+t[1]+'">'+esc(t[0])+'</span></td>'
-        +'<td data-l="Aplicar">'+(x.aplicable&&r.estado==='enviada'?'<label class="pr-chk"><input type="checkbox" data-elig="'+i+'"'+(S.elig[i]?' checked':'')+(pend?' disabled':'')+'><span>'+(x.tipo==='quitado'?'Quitar de la ficha':x.tipo==='corregido'?'Usar lo del cliente':'Agregar')+'</span></label>':'<span class="nd">—</span>')+'</td></tr>';}).join('')
+        +'<td data-l="Aplicar">'+(x.aplicable&&r.estado==='enviada'?'<label class="pr-chk"><input type="checkbox" data-elig="'+i+'"'+(S.elig[i]?' checked':'')+(pend?' disabled':'')+'><span>'+(x.tipo==='quitado'?'Quitar de la ficha':x.clave==='clave_sii_empresa'?'Usar la clave nueva':x.tipo==='corregido'?'Usar lo del cliente':'Agregar')+'</span></label>':'<span class="nd">—</span>')+'</td></tr>';}).join('')
     +'</tbody></table></div>';
   if(r.estado==='enviada'&&aplicables&&!pend){var n=seleccion().length;
     h+='<div class="mrp-acciones pr-apl"><button type="button" class="btn" data-act="aplicar"'+(n?'':' disabled')+'>'+I('check')+etqAplicar(n)+'</button>'
@@ -277,20 +288,26 @@ function renderDetalle(){
   if(hist.length)h+='<section class="card pr-card" style="--acc:var(--lila)"><div class="h"><h2>'+I('calendario','ic-mor')+' Registro de <span>cambios</span></h2></div><ul class="pr-lista">'
     +hist.map(function(a){return '<li><span class="estado '+(a.estado==='APLICADA'?'verde':'rojo')+' mini">'+(a.estado==='APLICADA'?'Aprobada y aplicada':'Rechazada')+'</span> '+fHora(a.resuelta_at)+' · '+(a.estado==='APLICADA'?'aprobó ':'rechazó ')+esc(a.resuelta_por||'—')
       +(a.solicitada_por&&a.solicitada_por!==a.resuelta_por?' (propuesta de '+esc(a.solicitada_por)+')':'')+(a.resolucion_motivo?' · '+esc(a.resolucion_motivo):'')
-      +(a.resultado&&a.resultado.length?'<ul>'+a.resultado.map(function(z){return '<li>'+esc(z.campo==='socio'?'Socio '+rutF(z.rut):z.campo==='cuenta'?'Cuenta '+rutF(z.rut):z.campo)+': '+esc(txtV(z.antes))+' → '+esc(txtV(z.despues))+'</li>';}).join('')+'</ul>':'')+'</li>';}).join('')+'</ul></section>';
+      +(a.resultado&&a.resultado.length?'<ul>'+a.resultado.map(function(z){return '<li>'+esc(z.campo==='socio'?'Socio '+rutF(z.rut):z.campo==='cuenta'?'Cuenta '+rutF(z.rut):z.campo==='clave_sii_empresa'?'Clave SII de la empresa':z.campo==='email'?'Correo oficial':z.campo==='contacto'?'Responsable':z.campo)+': '+esc(txtV(z.antes))+' → '+esc(txtV(z.despues))+'</li>';}).join('')+'</ul>':'')+'</li>';}).join('')+'</ul></section>';
   if(r.estado==='enviada')h+='<div class="mrp-acciones"><button type="button" class="btn sec chico" data-act="reabrir"'+(pend?' disabled':'')+'>'+I('deshacer','ic-amb')+'Devolver al cliente para corregir</button><small class="t3">El cliente podrá editar y volver a enviar (con el mismo enlace y un código nuevo).</small></div>';
   app(h);
 }
-function txtV(v){if(v==null)return 'vacío';if(typeof v==='object')return (v.nombre||'')+(v.pct!=null?' '+pctT(v.pct):'');return String(v);}
+function txtV(v){if(v==null)return 'vacío';if(typeof v==='object'){if(v.registrada)return 'clave SII registrada';if(v.aplicada)return 'clave SII nueva aplicada';return (v.nombre||'')+(v.pct!=null?' '+pctT(v.pct):'');}return String(v);}
+function claveSocio(d,rut){var k=d.claves,l=k&&k.socios||[];for(var i=0;i<l.length;i++)if(l[i].rut===rut)return l[i];return null;}
 function alertas(d){
   var r=d.respuesta, dt=r.datos||{}, out=[];
   (dt.socios||[]).forEach(function(s){
     var n=esc(s.nombre||rutF(s.rut));
     if(s.tgr==='si')out.push(n+': tiene deudas con la TGR (la devolución puede retenerse).');
     if(s.tgr==='nose')out.push(n+': no sabe si tiene deudas con la TGR.');
-    if(!s.sii||!s.sii.autoriza)out.push(n+': no autorizó revisar su información en el SII.');
-    else if(!s.sii.canal)out.push(n+': autoriza el SII, pero falta definir el canal (enlace seguro o ya entregado).');
+    var ks=claveSocio(d,s.rut);
+    if(ks&&ks.estado==='pendiente')out.push(n+': dejó su clave SII <b>pendiente</b> (la enviará después).');
+    else if(!ks&&!d.claves&&(!s.sii||!s.sii.autoriza))out.push(n+': no autorizó revisar su información en el SII.');
+    else if(!ks&&!d.claves&&!s.sii.canal)out.push(n+': autoriza el SII, pero falta definir el canal (enlace seguro o ya entregado).');
   });
+  var ke=d.claves&&d.claves.empresa;
+  if(ke&&ke.estado==='entregada')out.push('La empresa entregó una <b>clave SII nueva</b>: apruébala en la comparación (pasa a ser la clave que usa el conector SII) o descártala.');
+  if(dt.correo_oficial&&dt.correo_oficial.correo&&dt.correo_oficial.correo!==String(d.cliente.email||'').toLowerCase())out.push('El cliente corrigió el <b>correo oficial</b>: hasta que lo apliques, el código y todo aviso siguen yendo al correo de la ficha.');
   (r.cuentas||[]).forEach(function(k){if(k.modo==='sin_cuenta'&&k.direccion_sii==='cambio')out.push('Sin cuenta '+(k.titular==='empresa'?'de la empresa':'del socio '+rutF(k.titular_rut))+' y la dirección del SII cambió: el cheque llegaría a una dirección antigua.');});
   var ctas=(r.cuentas||[]).map(function(k){return k.titular_rut;});
   (dt.socios||[]).forEach(function(s){if(s.rut&&ctas.indexOf(s.rut)<0)out.push(esc(s.nombre||rutF(s.rut))+': sin cuenta para la devolución definida.');});
@@ -303,15 +320,21 @@ function resumen(d){
   var r=d.respuesta, dt=r.datos||{}, h='';
   var socios=(dt.socios||[]).map(function(s){
     var otros=s.otros_ninguno?'Ninguno':(s.otros_ingresos||[]).length?(s.otros_ingresos||[]).map(function(o){return esc(OTROS[o.tipo]||o.tipo)+' <b>'+(o.monto_anual!=null?clpT(o.monto_anual)+' al año':'<span class="nd">sin monto</span>')+'</b>';}).join('<br>'):null;
-    var sii=!s.sii||!s.sii.autoriza?'No autoriza':s.sii.canal==='enlace'?'Autoriza · enviar enlace seguro':s.sii.canal==='entregado'?'Autoriza · acceso ya entregado':'Autoriza · canal por definir';
+    var ks=claveSocio(d,s.rut);
+    var sii=ks?(ks.estado==='entregada'?'Clave SII entregada · '+fHora(ks.entregada_at):ks.estado==='pendiente'?'Clave SII pendiente (la enviará después)':'Sin respuesta')
+      :s.rut===d.cliente.rut?'Cubierta por la clave de la empresa'
+      :!s.sii||!s.sii.autoriza?'No autoriza':s.sii.canal==='enlace'?'Autoriza · enviar enlace seguro':s.sii.canal==='entregado'?'Autoriza · acceso ya entregado':'Autoriza · canal por definir';
     var k=(r.cuentas||[]).filter(function(x){return x.titular_rut===s.rut;})[0];
     return '<div class="pr-socio"><div class="pr-socio-h">'+window.GEquipo.avatar(s.nombre||'?')+'<div><b>'+esc(s.nombre||'Socio')+'</b><small>'+rutF(s.rut)+' · '+pctT(s.pct)+'</small></div><span class="estado '+(TIPOS[s.estado==='ok'?'validado':s.estado==='fix'?'corregido':'nuevo']||['', 'gris'])[1]+' mini">'+(s.estado==='ok'?'Validado':s.estado==='fix'?'Corregido':'Nuevo')+'</span></div><dl class="kv">'
       +kv('Sueldo en la empresa',SINO[s.sueldo])+kv('Otros ingresos',otros)+kv('Deudas con la TGR',SINO[s.tgr])+kv('APV / dividendo',(s.ahorro||[]).map(function(a){return a==='apv'?'APV':'Crédito hipotecario (dividendo)';}).join(' · ')||'No')
-      +kv('Acceso al SII',esc(sii))+kv('Cuenta para la devolución',k?cuentaTxt(k):null)+'</dl></div>';}).join('');
+      +kv(ks?'Clave SII':'Acceso al SII',esc(sii))+kv('Cuenta para la devolución',k?cuentaTxt(k):null)+'</dl></div>';}).join('');
   var ec=dt.empresa_correccion||{}, ct=dt.contacto||{}, ke=(r.cuentas||[]).filter(function(x){return x.titular==='empresa';})[0];
-  h+=bloque('edificio','--cel','Empresa y <span>contacto</span>','<dl class="kv">'+kv('Datos de la empresa',dt.bloques&&dt.bloques.empresa==='ok'?'Está correcto':'Corrigió (ver comparación)')
-    +(ec.regimen?kv('Régimen según el cliente',esc(ec.regimen)):'')+kv('Contacto',dt.bloques&&dt.bloques.contacto==='ok'?'Está correcto':esc([ct.nombre,ct.cargo].filter(Boolean).join(' · ')))
-    +kv('Cuenta de la empresa',ke?cuentaTxt(ke):null)+'</dl>');
+  h+=bloque('edificio','--cel','Empresa, responsable y <span>correo</span>','<dl class="kv">'+kv('Datos de la empresa',dt.bloques&&dt.bloques.empresa==='ok'?'Está correcto':'Corrigió (ver comparación)')
+    +(ec.regimen?kv('Régimen según el cliente',esc(ec.regimen)):'')+kv('Responsable',dt.bloques&&dt.bloques.contacto==='ok'?'<span class="t-verde">Validado</span>':'<span class="t-ambar">Corregido</span> · '+esc([ct.nombre,ct.cargo,ct.rut?rutF(ct.rut):'',ct.wa].filter(Boolean).join(' · ')))
+    +kv('Correo oficial',!dt.bloques||!dt.bloques.correo?null:dt.bloques.correo==='ok'?'<span class="t-verde">Validado</span> · '+esc(d.cliente.email||'')
+      :'<span class="t-ambar">Corregido</span> · '+esc(d.cliente.email||'—')+' → <b>'+esc((dt.correo_oficial||{}).correo||'')+'</b> <small class="t3">(no recibe nada hasta aplicarlo)</small>')
+    +kv('Cuenta de la empresa',ke?cuentaTxt(ke):null)+claveEmpresaKv(d)+'</dl>'
+    +(d.claves?'<p class="t3">'+I('escudo','ic-ver')+' Las claves SII se guardan cifradas y nunca se muestran aquí. Para verlas: <b>Ver claves</b> en la ficha del cliente (queda registrado).</p>':''));
   h+=bloque('personas','--lila2','Socios <span>('+(dt.socios||[]).length+')</span>','<div class="pr-socios">'+socios+'</div>');
   var ob=dt.objetivos||{}, lis=(ob.lista||[]).map(function(k){return '<li><b>'+esc(OBJ[k]||k)+'</b>'+(detObj(k,ob,dt)?'<small>'+detObj(k,ob,dt)+'</small>':'')+'</li>';}).join('');
   h+=bloque('objetivo','--ambar','Objetivos del <span>año</span>',lis?'<ul class="pr-obj">'+lis+'</ul>':'<p class="nd">Sin objetivos marcados.</p>');
@@ -320,6 +343,22 @@ function resumen(d){
     +kv('Detalle',esc(cx.eventos_detalle||''))+kv('Retiros ya hechos',cx.retiros_hechos==='si'?'Sí'+(cx.retiros_monto!=null?' · aprox. '+clpT(cx.retiros_monto):''):SINO[cx.retiros_hechos])+kv('Comentarios',esc(cx.comentarios||''))+'</dl>'
     +(r.estado==='enviada'?'<p class="t3">'+I('escudo','ic-ver')+' Aceptó el uso de la información y declaró que es completa y verdadera ('+fHora(r.enviada_at)+').</p>':''));
   return h;
+}
+function claveEmpresaKv(d){
+  var k=d.claves&&d.claves.empresa;if(!k)return '';
+  var t=k.misma==='si'?'Sigue siendo la misma':k.estado==='aplicada'?'Cambió · clave nueva aplicada '+fHora(k.resuelta_at):k.estado==='descartada'?'Cambió · clave nueva descartada '+fHora(k.resuelta_at)
+    :k.estado==='entregada'?'Cambió · clave nueva entregada '+fHora(k.entregada_at)+' (por aprobar)':'Sin respuesta';
+  var b=k.estado==='entregada'&&d.es_master&&!(d.aplicaciones||[]).some(function(a){return a.estado==='PENDIENTE';})?' <button type="button" class="link" data-act="descartar-clave">Descartar sin usarla</button>':'';
+  return kv('Clave SII de la empresa',esc(t)+b);
+}
+function descartarClave(){
+  modal('¿Descartar la clave SII nueva de la empresa?','<p class="t2">Se borra de la bóveda sin usarla. La clave registrada hoy no cambia. Queda en el registro.</p><label class="mrp-campo"><span>Motivo</span><textarea id="prMotivo" rows="2" maxlength="300"></textarea></label>',
+    '<button type="button" class="btn" data-act="descartar-clave-ok">Sí, descartar</button>');
+}
+function descartarClaveOk(btn){
+  btn.disabled=true;
+  API.rpc('prep_renta_clave_descartar',{p_respuesta_id:S.d.respuesta.id,p_motivo:($('prMotivo').value||'').trim()}).then(function(){cerrarModal();toast(I('check','ic-ver')+' Clave descartada.');abrirDetalle(S.d.cliente.id);},
+    function(e){btn.disabled=false;$('prMerr').innerHTML=textoError(e);});
 }
 function cuentaTxt(k){
   if(k.modo==='vigente')return 'Mantiene la registrada';
@@ -426,6 +465,8 @@ document.addEventListener('click',function(e){
     case 'reabrir':reabrir();break;
     case 'reabrir-ok':reabrirOk(t);break;
     case 'campana-ok':campanaOk(t);break;
+    case 'descartar-clave':descartarClave();break;
+    case 'descartar-clave-ok':descartarClaveOk(t);break;
   }
 });
 document.addEventListener('input',function(e){if(e.target.id==='prBuscar'){S.cart.q=e.target.value;renderCartera();}});
