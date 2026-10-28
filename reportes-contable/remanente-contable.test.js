@@ -116,3 +116,11 @@ test('la presentación se carga antes que supabase.js y la carga usa la RPC rema
   assert.ok(HTML.indexOf('../assets/remanente-anterior.js') < HTML.indexOf('<script src="../supabase.js">'));
   assert.match(extraer('cargarReportesPeriodo'), /rpc\/remanentes_anteriores/);
 });
+
+test('REM-ANT-2B: Validar Pre-IVA bloquea débito/crédito con decimales y el error de la base se explica', () => {
+  const g = extraer('guardarF29');
+  assert.match(g, /nv\('f-debito'\)!==Math\.round\(nv\('f-debito'\)\)\|\|nv\('f-credito'\)!==Math\.round\(nv\('f-credito'\)\)\)\{\s*cierre\.pendientes\.push\('Débito y crédito deben ser pesos enteros/);
+  assert.ok(g.indexOf("pesos enteros (sin decimales)") < g.indexOf('if(!cierre.ok)'));
+  const { ctx } = entorno();
+  assert.match(ctx.remMensajeError('REMANENTE_SIN_VERIFICAR: los montos del F29 de 2026-10 tienen decimales'), /tienen decimales: el F29 es en pesos enteros/);
+});

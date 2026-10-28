@@ -50,3 +50,9 @@ test('el reporte NO se arma con el F29 pendiente (regla existente) y el historia
   assert.match(HTML, /var fh=_rpF29\(h,_rpAntInfo\(\(res\[4\]\|\|\[\]\)\[pAnt\.indexOf\(hp\)\]\)\);/);
   assert.match(extraer('_rpCargarAnterior'), /rpc\/remanentes_anteriores/);
 });
+test('REM-ANT-2B: montos con decimales → pendiente con el motivo (no se arma el reporte); enteros → ok', () => {
+  const r = Object.assign({}, REP, { ivaDebito: 0.1, ivaCredito: 0.3, ivaRemanenteSig: 0.19999999999999998 });
+  const f = ctx._rpF29(r, ctx._rpAntDe(r, { ok: true, porRut: { '11111111-1': Object.assign({}, OK, { cod77: 0, cod504: 0 }) } }));
+  assert.equal(f.estado, 'pendiente'); assert.match(f.motivo, /decimales/);
+  assert.equal(ctx._rpF29(REP, ctx._rpAntDe(REP, { ok: true, porRut: { '11111111-1': OK } })).estado, 'ok');
+});

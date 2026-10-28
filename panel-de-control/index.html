@@ -1521,6 +1521,8 @@ function _rpF29(r,ant){
   var deb=_rpMonto(r.ivaDebito),cred=_rpMonto(r.ivaCredito),remSig=_rpMonto(r.ivaRemanenteSig),post=_rpMonto(r.ivaPostergado),
       ppm=_rpMonto(r.ppm),ret=_rpMonto(r.retHon),otros=_rpMonto(r.otrosImp);
   if([deb,cred,remSig,post,ppm,ret,otros].some(function(x){return x===null;}))return fin('inconsistente','Hay montos del F29 guardados no numéricos o negativos');
+  // REM-ANT-2B: con decimales la cuadratura del remanente no es verificable → pendiente con el motivo (no se arma el reporte).
+  if([deb,cred,remSig].some(function(x){return x!==Math.floor(x);}))return fin('pendiente','Montos del F29 con decimales (débito, crédito o remanente siguiente): el F29 es en pesos enteros; corrígelos en Reporte Contable');
   // IU: null = RRHH aún no lo valida. Si el cliente tiene RRHH, no se puede calcular; sin RRHH, IU = 0.
   var iu;
   if(r.iuSii===null||r.iuSii===undefined){

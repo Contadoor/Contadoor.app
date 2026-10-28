@@ -2394,6 +2394,11 @@ function guardarF29(){
     cierre.pendientes.push(borradorCierre._remanente.aviso);
     cierre.ok=false;
   }
+  // REM-ANT-2B: el F29 es en pesos enteros; con decimales la cuadratura del remanente no es verificable (la base tampoco valida)
+  if(nv('f-debito')!==Math.round(nv('f-debito'))||nv('f-credito')!==Math.round(nv('f-credito'))){
+    cierre.pendientes.push('Débito y crédito deben ser pesos enteros (sin decimales), como en el F29.');
+    cierre.ok=false;
+  }
   // Tasa negativa no permitida
   if(tasaIngresada!==null && tasaIngresada<0){
     cierre.pendientes.push('La tasa PPM no puede ser negativa.');
@@ -4200,6 +4205,7 @@ function remMensajeError(m, nomAnt){
     [/MONTO_INVALIDO/,'El código 77 debe ser un entero en pesos, 0 o mayor.'],[/MOTIVO_OBLIGATORIO/,'El motivo debe tener al menos 10 caracteres.'],
     [/SIN_CONFLICTO/,'Ya no hay conflicto pendiente. Recarga la página.'],
     [/REMANENTE_DESCONOCIDO/,'El remanente anterior no está confirmado: ingrésalo (cód. 77) o pide al Master resolver el conflicto.'],
+    [/REMANENTE_SIN_VERIFICAR/,'Los montos del F29 tienen decimales: el F29 es en pesos enteros. Corrige débito y crédito (sin decimales) y vuelve a validar.'],
     [/REMANENTE_NO_CUADRA/,'El remanente para el mes siguiente no cuadra con el cód. 504. Recarga la página y vuelve a validar.']];
   for(var i=0;i<mapa.length;i++){ if(mapa[i][0].test(m)) return mapa[i][1]; }
   return m.replace(/<[^>]+>/g,'').substring(0,300);
