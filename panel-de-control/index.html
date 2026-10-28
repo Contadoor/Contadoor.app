@@ -725,6 +725,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
 <script src="../reporte-email.js"></script>
 <script>
@@ -1468,15 +1469,15 @@ function _rpRutKey(v){return String(v||'').replace(/\./g,'').replace(/\s+/g,'').
 var _rpAnteriores={};      // perDash → Promise<{ok, porRut}>
 var _rpAnterioresSync={};  // perDash → {ok, porRut} ya resuelto (para cálculos síncronos: nómina, totales)
 function _rpCargarAnterior(perDash){
+  // REM-ANT-2: el remanente anterior lo calcula la base (public.remanentes_anteriores): cód. 77 → cód. 504 reajustado por UTM.
+  // porRut[rut] = respuesta {estado: CONOCIDO | SIN_DATO | CONFLICTO, cod504, ...}. Nunca se rellena con 0.
   perDash=_rpPerDash(perDash);
   if(_rpAnteriores[perDash])return _rpAnteriores[perDash];
-  var prev=_rpPerAnt(perDash,1);
-  var pr=sbFetch('reportes_mensuales?periodo=eq.'+encodeURIComponent(prev)+'&select=cliente_rut,iva_remanente_sig,remanente')
+  var pr=sbFetch('rpc/remanentes_anteriores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_periodo:perDash})})
     .then(function(x){if(!x.ok)throw new Error('HTTP '+x.status);return x.json();})
     .then(function(rows){
       var porRut={};
-      // Misma lectura que sbRowToReporte → ivaRemanenteSig (la que usa el Contable para el remanente anterior)
-      (rows||[]).forEach(function(row){porRut[_rpRutKey(row.cliente_rut)]=(row.iva_remanente_sig!=null?row.iva_remanente_sig:row.remanente);});
+      (rows||[]).forEach(function(row){porRut[_rpRutKey(row.cliente_rut)]=row.info||null;});
       return {ok:true,porRut:porRut};
     })
     .catch(function(){delete _rpAnteriores[perDash];return {ok:false,porRut:{}};});
@@ -1484,12 +1485,21 @@ function _rpCargarAnterior(perDash){
   pr.then(function(v){_rpAnterioresSync[perDash]=v;});
   return pr;
 }
+function _rpAntInfo(info){
+  // Solo un remanente CONOCIDO (incluido el "cero confirmado") entra al cálculo. SIN_DATO / CONFLICTO / sin respuesta → pendiente con su motivo.
+  if(!info)return {ok:false,motivo:'Remanente anterior sin confirmar'};
+  if(info.estado!=='CONOCIDO'){
+    var R=window.RemanenteAnterior, txt=R?R.resolver({periodo:info.periodo,lecturaOk:true,info:info}).aviso:'';
+    return {ok:false,motivo:'Remanente anterior '+(info.estado==='CONFLICTO'?'en conflicto':'sin confirmar')+(txt?': '+txt:'')};
+  }
+  var v=Number(info.cod504);
+  if(!(isFinite(v)&&v>=0&&v===Math.floor(v)))return {ok:false,motivo:'Remanente anterior no numérico'};
+  return {ok:true,remanente:v,manual:info.fuente==='F29_MANUAL'};
+}
 function _rpAntDe(r,cargado){
-  // cargado: {ok, porRut} del período anterior. Sin fila del cliente en un período anterior cargado = remanente 0
-  // (misma regla que getRemanenteAnterior del Contable). Carga fallida o ausente = no se puede calcular.
+  // cargado: {ok, porRut} de remanentes_anteriores(período). Carga fallida o ausente = no se puede calcular.
   if(!cargado||!cargado.ok)return {ok:false};
-  var v=cargado.porRut[_rpRutKey(r.rut)];
-  return {ok:true,remanente:(v==null?0:v)};
+  return _rpAntInfo(cargado.porRut[_rpRutKey(r.rut)]);
 }
 function _rpMonto(v){
   // Normalización consciente: null/undefined → 0 (sin dato guardado = 0 en la fila, igual que sbRowToReporte);
@@ -1511,13 +1521,15 @@ function _rpF29(r,ant){
   var deb=_rpMonto(r.ivaDebito),cred=_rpMonto(r.ivaCredito),remSig=_rpMonto(r.ivaRemanenteSig),post=_rpMonto(r.ivaPostergado),
       ppm=_rpMonto(r.ppm),ret=_rpMonto(r.retHon),otros=_rpMonto(r.otrosImp);
   if([deb,cred,remSig,post,ppm,ret,otros].some(function(x){return x===null;}))return fin('inconsistente','Hay montos del F29 guardados no numéricos o negativos');
+  // REM-ANT-2B: con decimales la cuadratura del remanente no es verificable → pendiente con el motivo (no se arma el reporte).
+  if([deb,cred,remSig].some(function(x){return x!==Math.floor(x);}))return fin('pendiente','Montos del F29 con decimales (débito, crédito o remanente siguiente): el F29 es en pesos enteros; corrígelos en Reporte Contable');
   // IU: null = RRHH aún no lo valida. Si el cliente tiene RRHH, no se puede calcular; sin RRHH, IU = 0.
   var iu;
   if(r.iuSii===null||r.iuSii===undefined){
     if(r.tieneRrhh===false)iu=0;
     else return fin('pendiente','Impuesto único pendiente de validación RRHH');
   }else{iu=_rpMonto(r.iuSii);if(iu===null)return fin('inconsistente','Impuesto único guardado no numérico o negativo');}
-  if(!ant||!ant.ok)return fin('pendiente','No se pudo leer el período anterior (remanente de IVA)');
+  if(!ant||!ant.ok)return fin('pendiente',(ant&&ant.motivo)||'No se pudo leer el remanente anterior de IVA');   // REM-ANT-2: sin cero silencioso
   var remAnt=_rpMonto(ant.remanente);
   if(remAnt===null)return fin('inconsistente','Remanente del período anterior no numérico o negativo');
   var saldo=deb-cred-remAnt;
@@ -1601,13 +1613,18 @@ function _construirDatosReporte(r,antPer){
   var pAnt=[1,2,3].map(function(k){return _rpPerAnt(per,k);});
   var pConv=sbFetch('convenios?cliente_rut=eq.'+rut+'&estado=eq.activo&select=*').then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
   var pHist=_rpGetReportesClienteEstricto(r.rut,pAnt.concat([_rpPerAnt(per,4)]));
+  // REM-ANT-2: remanente anterior de cada mes del historial, desde la base (mismo cálculo que el mes actual).
+  var pHistRem=Promise.all(pAnt.map(function(hp){
+    return sbFetch('rpc/remanente_anterior',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_cliente_rut:r.rut,p_periodo:hp})})
+      .then(function(x){return x.ok?x.json():null;}).catch(function(){return null;});
+  }));
   // Desglose del F29: libros de ventas y compras del período (MásContable) y meses del año para el PPM acumulado.
   var perRaw=String(r.periodo||''), perSin=per.replace('-','');
   var pLib=sbFetch('libros_cabecera?cliente_rut=eq.'+rut+'&periodo=in.('+encodeURIComponent('"'+per+'","'+perSin+'"')+')&tipo=in.(ventas,compras)&select=tipo,total_neto,total_exento,total_iva,estado')
     .then(function(x){return x.ok?x.json():[];}).catch(function(){return[];});
   var mesAct=+per.split('-')[1], pAnio=[];for(var k=1;k<mesAct;k++)pAnio.push(_rpPerAnt(per,k));
   var pYear=pAnio.length?_rpGetReportesClienteEstricto(r.rut,pAnio):Promise.resolve([]);
-  return Promise.all([pConv,pHist,pLib,pYear]).then(function(res){
+  return Promise.all([pConv,pHist,pLib,pYear,pHistRem]).then(function(res){
     // Convenios vigentes: próxima cuota pendiente
     (res[0]||[]).forEach(function(cv){
       var cs=Array.isArray(cv.cuotas_detalle)?cv.cuotas_detalle:[];
@@ -1623,9 +1640,8 @@ function _construirDatosReporte(r,antPer){
     // Mes con F29 pendiente/inconsistente o lectura fallida → el mes queda "sin datos" (no se muestra un total incompleto).
     var histRows=res[1];
     var hist=(histRows||[]).filter(function(h){return pAnt.indexOf(_rpPerDash(h.periodo))>=0;}).map(function(h){
-      var hp=_rpPerDash(h.periodo), prevP=_rpPerAnt(hp,1);
-      var prevRow=(histRows||[]).find(function(x){return _rpPerDash(x.periodo)===prevP;});
-      var fh=_rpF29(h,{ok:true,remanente:prevRow?prevRow.ivaRemanenteSig:0});
+      var hp=_rpPerDash(h.periodo);
+      var fh=_rpF29(h,_rpAntInfo((res[4]||[])[pAnt.indexOf(hp)]));
       var guardado=_rpNum(h.honTotal),s=guardado>0?null:calcularServicios(h);
       var okH=fh.estado==='ok'||fh.estado==='no_aplica';
       return okH?{per:hp,cot:_rpNum(h.totalCot),imp:fh.estado==='ok'?fh.aPagarAhora:0,serv:guardado>0?guardado:(s.ok?s.total:0)}:{per:hp,cot:0,imp:0,serv:0,incompleto:true};

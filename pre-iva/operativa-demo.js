@@ -102,6 +102,13 @@
     opts=opts||{};var met=(opts.method||'GET').toUpperCase(), tabla=path.split('?')[0];
     if(tabla==='clientes'){var id=eq(path,'id');return resp(200,id?cli(function(c){return String(c.id)===id;}).map(function(c){return {id:c.id,regimen:c.regimen,iva_condicion:c.iva_condicion};}):CLI);}
     if(tabla==='periodos')return resp(200,[{uf:39700,utm:68000,periodo:PER}]);
+    if(tabla==='rpc/remanente_anterior'){   // REM-ANT-2 (demo): remanente anterior desde la base, con UTM ficticia 1:1
+      var bR={};try{bR=JSON.parse(opts.body||'{}');}catch(e){}
+      var cR=cli(function(x){return x.rut===bR.p_cliente_rut;})[0], pa=mover(bR.p_periodo||PER,-1), fR=cR&&(RM[cR.id]||{})[pa];
+      if(!fR)return resp(200,{estado:'SIN_DATO',motivo:'SIN_MES_ANTERIOR',periodo:bR.p_periodo,periodo_anterior:pa});
+      var v77=cR.id===1?120000:(fR.iva_remanente_sig||0);
+      return resp(200,{estado:'CONOCIDO',fuente:'MES_ANTERIOR',cod77:v77,cod504:v77,utm_origen:68000,utm_destino:68000,mes_utm_origen:bR.p_periodo,mes_utm_destino:mover(bR.p_periodo,1),periodo:bR.p_periodo,periodo_anterior:pa,metodo:'ART27_UTM_V1'});
+    }
     if(tabla==='reportes_mensuales'){
       var rut=eq(path,'cliente_rut'), c=cli(function(x){return x.rut===rut;})[0], ps=inL(path,'periodo');
       if(!c)return resp(200,[]);
