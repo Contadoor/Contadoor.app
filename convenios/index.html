@@ -261,8 +261,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <input type="text" id="f-periodo-deuda" placeholder="Ej: ene-2024 a jun-2024"/>
       </div>
       <div class="fgroup">
-        <label>Monto total del convenio * <span class="hint" style="display:inline">(suma de las cuotas)</span></label>
-        <input type="number" id="f-monto-total" placeholder="0" oninput="calcCuotas()"/>
+        <label>Total del convenio <span class="hint" style="display:inline">(pie + cuotas · se calcula solo)</span></label>
+        <input type="number" id="f-monto-total" placeholder="0" readonly style="font-weight:700"/>
       </div>
     </div>
     <div class="card-hd"><span data-g-ic="banco"></span> Deuda original y pie</div>
@@ -272,16 +272,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <input type="number" id="f-deuda-capital" placeholder="0" oninput="renderPreviewCuotas()"/>
       </div>
       <div class="fgroup">
-        <label>Pie inicial <span class="hint" style="display:inline">(se abona a los intereses)</span></label>
-        <input type="number" id="f-pie" placeholder="0" oninput="renderPreviewCuotas()"/>
+        <label>Cuota 1 · Pie inicial <span class="hint" style="display:inline">(se abona a los intereses; vacío si no hay pie)</span></label>
+        <input type="number" id="f-pie" placeholder="0" oninput="calcUltima()"/>
       </div>
     </div>
     <div class="card-hd"><span data-g-ic="calendario"></span> Estructura de cuotas</div>
     <div id="f-estr-bloq" class="hint" style="display:none;margin:-4px 0 10px;color:#FFD24D"></div>
     <div class="fg4" style="margin-bottom:8px">
       <div class="fgroup">
-        <label>N° de cuotas *</label>
-        <input type="number" id="f-ncuotas" placeholder="12" min="1" oninput="calcCuotas()"/>
+        <label>N° de cuotas * <span class="hint" style="display:inline">(con el pie como cuota 1)</span></label>
+        <input type="number" id="f-ncuotas" placeholder="12" min="1" oninput="calcUltima()"/>
       </div>
       <div class="fgroup">
         <label>Valor cuota fija *</label>
@@ -289,12 +289,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
         <span class="hint" id="cuota-hint"></span>
       </div>
       <div class="fgroup">
-        <label>Última cuota</label>
-        <input type="number" id="f-ultima" readonly style="font-weight:700;color:var(--p)"/>
+        <label>Última cuota * <span class="hint" style="display:inline">(libre)</span></label>
+        <input type="number" id="f-ultima" placeholder="0" oninput="calcUltima()" style="font-weight:700;color:var(--p)"/>
         <span class="hint" id="ultima-hint"></span>
       </div>
       <div class="fgroup">
-        <label>Fecha primera cuota *</label>
+        <label>Vencimiento cuota 1 *</label>
         <input type="date" id="f-fecha-inicio" oninput="renderPreviewCuotas()"/>
       </div>
     </div>
@@ -515,6 +515,8 @@ function _tienePlan(conv){return !!(conv&&conv.deudaCapital>0&&conv.cuotas.lengt
 // El pie se maneja como un pago más (egreso real): idx −1 = pie, 0..n−1 = cuotas.
 function _ref(conv,idx){return idx===-1?conv.pie:conv.cuotas[idx];}
 function _items(conv){return (conv.pie?[conv.pie]:[]).concat(conv.cuotas);}
+function _nroCuota(conv,c){return c.esPie?1:(conv.pie?c.numero+1:c.numero);}
+function _totCuotas(conv){return conv.cuotas.length+(conv.pie?1:0);}
 function _nombreConv(conv){return 'convenio '+conv.institucion+(conv.numero?' N° '+conv.numero:'');}
 function _resumenConv(conv){
   var plan=_tienePlan(conv);
@@ -543,46 +545,50 @@ function estadoConvenio(conv){
 }
 
 // ── CÁLCULOS ──────────────────────────────────────────────────────────────
-function calcCuotas(){
-  var total=nv('f-monto-total'),n=nv('f-ncuotas');
-  if(!total||!n)return;
-  document.getElementById('f-vcuota').value=Math.floor(total/n)||'';
-  calcUltima();
-}
+// Estructura (decisión de Luciano 29-oct): la cuota 1 es el pie (si lo hay), las cuotas siguientes son de valor fijo
+// y la última es libre (se escribe). El N° de cuotas incluye el pie. El total del convenio se calcula solo.
+// Se guarda como siempre: el pie aparte (esPie) y las cuotas regulares numeradas 1..n; la pantalla las muestra corridas en uno.
+function _nRegForm(){var n=nv('f-ncuotas');return n-(nv('f-pie')>0?1:0);}
+function calcCuotas(){calcUltima();}
 function calcUltima(){
-  var total=nv('f-monto-total'),n=nv('f-ncuotas'),cuota=nv('f-vcuota');
-  if(!total||!n||!cuota)return;
-  var ultima=total-(cuota*(n-1));
-  document.getElementById('f-ultima').value=ultima||'';
-  var dif=ultima-cuota;
-  document.getElementById('ultima-hint').textContent=Math.abs(dif)<10?'Igual ✓':(dif>0?'Mayor ':'Menor ')+' en '+ff(Math.abs(dif));
-  document.getElementById('cuota-hint').textContent=ff(cuota)+' × '+(n-1)+' cuotas';
+  var n=nv('f-ncuotas'),pie=nv('f-pie'),cuota=nv('f-vcuota'),ultima=nv('f-ultima'),nReg=_nRegForm();
+  var ch=document.getElementById('cuota-hint'),uh=document.getElementById('ultima-hint');
+  ch.textContent='';uh.textContent='';
+  if(n&&nReg<1){uh.textContent=pie>0?'Con pie, el N° de cuotas debe ser 2 o más':'';document.getElementById('f-monto-total').value='';renderPreviewCuotas();return;}
+  var desde=pie>0?2:1, fijas=nReg-1;
+  if(n)ch.textContent=fijas>0?(fijas===1?'Cuota '+desde:'Cuotas '+desde+' a '+(desde+fijas-1)):'Sin cuotas fijas: solo la última';
+  if(n&&ultima&&(fijas<1||cuota)){
+    document.getElementById('f-monto-total').value=Math.round(pie+(fijas>0?cuota*fijas:0)+ultima)||'';
+    if(fijas>0){var dif=ultima-cuota;uh.textContent=Math.abs(dif)<10?'Igual a las demás ✓':(dif>0?'Mayor':'Menor')+' en '+ff(Math.abs(dif));}
+  }else document.getElementById('f-monto-total').value='';
   renderPreviewCuotas();
 }
+function _sumarMes(f,k){var d=new Date(f+'T12:00:00');d.setMonth(d.getMonth()+k);return d.toISOString().slice(0,10);}
+// Fechas: con pie, el pie vence en la fecha de la cuota 1 y las cuotas regulares desde el mes siguiente.
+function _fechasForm(inicio,nReg,conPie){return{pie:conPie?inicio:'',cuotas:generarFechas(conPie?_sumarMes(inicio,1):inicio,nReg)};}
 function generarFechas(inicio,n){
   var r=[],b=new Date(inicio+'T12:00:00');
   for(var i=0;i<n;i++){var d=new Date(b);d.setMonth(d.getMonth()+i);r.push(d.toISOString().slice(0,10));}
   return r;
 }
 function renderPreviewCuotas(){
-  var n=nv('f-ncuotas'),cuota=nv('f-vcuota'),ultima=nv('f-ultima'),inicio=sv('f-fecha-inicio');
+  var pie=nv('f-pie'),inicio=sv('f-fecha-inicio'),montos=_montosFormulario();
   var cont=document.getElementById('preview-cuotas');
   _renderPlanResumen();
-  if(!n||!cuota||!inicio){cont.innerHTML='';return;}
-  var fechas=generarFechas(inicio,n);
-  var mostrar=Math.min(n,5);
-  var filas='';
+  if(!montos.length||!inicio){cont.innerHTML='';return;}
+  var fs=_fechasForm(inicio,montos.length,pie>0);
+  var lista=(pie>0?[{n:'1 · pie',f:fs.pie,m:pie,u:false}]:[]).concat(montos.map(function(m,i){return{n:(i+(pie>0?2:1))+(i===montos.length-1?' \u2605':''),f:fs.cuotas[i],m:m,u:i===montos.length-1};}));
+  var saldo=lista.reduce(function(a,x){return a+x.m;},0), mostrar=Math.min(lista.length,5), filas='';
   for(var i=0;i<mostrar;i++){
-    var esU=i===n-1;
-    var saldo=cuota*(n-1-i)+(esU?0:ultima);
-    filas+='<tr'+(esU?' class="g-fila-ultima"':'')+'>'
-      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px;text-align:center">'+(i+1)+(esU?' \u2605':'')+'</td>'
-      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px">'+fechas[i]+'</td>'
-      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;color:var(--p)">'+ff(esU?ultima:cuota)+'</td>'
+    var x=lista[i];saldo-=x.m;
+    filas+='<tr'+(x.u?' class="g-fila-ultima"':'')+'>'
+      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px;text-align:center">'+x.n+'</td>'
+      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px">'+x.f+'</td>'
+      +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;color:var(--p)">'+ff(x.m)+'</td>'
       +'<td style="padding:5px 10px;border-bottom:1px solid var(--bdr);font-size:11px;color:var(--tm)">'+ff(Math.max(0,saldo))+'</td>'
       +'</tr>';
   }
-  if(n>5)filas+='<tr><td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--tm);text-align:center">... y '+(n-5)+' cuotas más</td></tr>';
+  if(lista.length>5)filas+='<tr><td colspan="4" style="padding:5px 10px;font-size:11px;color:var(--tm);text-align:center">... y '+(lista.length-5)+' cuotas más</td></tr>';
   cont.innerHTML='<div style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden">'
     +'<table style="width:100%;border-collapse:collapse"><thead><tr>'
     +'<th style="padding:6px 10px;background:var(--sur2);font-size:10px;text-transform:uppercase;color:var(--p);text-align:center">#</th>'
@@ -592,10 +598,11 @@ function renderPreviewCuotas(){
     +'</tr></thead><tbody>'+filas+'</tbody></table></div>';
 }
 
+// Cuotas regulares (sin el pie): las fijas y al final la última, que es libre.
 function _montosFormulario(){
-  var n=nv('f-ncuotas'),cuota=nv('f-vcuota'),total=nv('f-monto-total');
-  if(!n||!cuota||!total)return [];
-  var out=[];for(var i=0;i<n;i++)out.push(i===n-1?total-cuota*(n-1):cuota);return out;
+  var nReg=_nRegForm(),cuota=nv('f-vcuota'),ultima=nv('f-ultima');
+  if(!nv('f-ncuotas')||nReg<1||!ultima||(nReg>1&&!cuota))return [];
+  var out=[];for(var i=0;i<nReg;i++)out.push(i===nReg-1?ultima:cuota);return out;
 }
 function _renderPlanResumen(){
   var el=document.getElementById('plan-resumen');if(!el)return;
@@ -635,7 +642,7 @@ function resetForm(){
   document.getElementById('f-fecha-inicio').value=new Date().toISOString().slice(0,7)+'-01';
   _bloquearEstructura(false);
 }
-var ESTR_IDS=['f-deuda-capital','f-pie','f-monto-total','f-ncuotas','f-vcuota','f-fecha-inicio'];
+var ESTR_IDS=['f-deuda-capital','f-pie','f-monto-total','f-ncuotas','f-vcuota','f-ultima','f-fecha-inicio'];
 function _bloquearEstructura(on){
   ESTR_IDS.forEach(function(id){document.getElementById(id).disabled=on;});
   var n=document.getElementById('f-estr-bloq');
@@ -655,27 +662,31 @@ function abrirModalEditar(id){
   document.getElementById('f-deuda-capital').value=conv.deudaCapital||'';
   document.getElementById('f-pie').value=conv.pie?conv.pie.monto:'';
   document.getElementById('f-monto-total').value=conv.montoTotal||'';
-  document.getElementById('f-ncuotas').value=conv.nCuotas||'';
+  document.getElementById('f-ncuotas').value=conv.cuotas.length?conv.cuotas.length+(conv.pie?1:0):'';
   document.getElementById('f-vcuota').value=conv.valorCuota||'';
   document.getElementById('f-ultima').value=conv.valorUltima||'';
-  document.getElementById('f-fecha-inicio').value=conv.cuotas&&conv.cuotas[0]?conv.cuotas[0].vencimiento:'';
+  // Cuota 1: con pie es su vencimiento (los convenios antiguos no lo guardaban: un mes antes de la primera cuota regular).
+  var c0=conv.cuotas&&conv.cuotas[0]?conv.cuotas[0].vencimiento:'';
+  document.getElementById('f-fecha-inicio').value=conv.pie?(conv.pie.vencimiento||(c0?_sumarMes(c0,-1):'')):c0;
   document.getElementById('f-responsable').value=conv.responsable||'';
   document.getElementById('f-estado').value=conv.estado||'activo';
   document.getElementById('f-obs').value=conv.obs||'';
   _bloquearEstructura(_convTieneMovimientos(conv));
-  renderPreviewCuotas();
+  calcUltima();
   document.getElementById('modal').classList.add('on');
 }
 function closeModal(){document.getElementById('modal').classList.remove('on');}
 
 function guardarConvenio(){
-  var rut=sv('f-cliente'),inst=sv('f-inst'),montoTotal=nv('f-monto-total');
-  var nCuotas=nv('f-ncuotas'),valorCuota=nv('f-vcuota'),inicio=sv('f-fecha-inicio');
+  var rut=sv('f-cliente'),inst=sv('f-inst'),inicio=sv('f-fecha-inicio');
   if(!rut||!inst){alert('Cliente e institución son obligatorios.');return;}
-  if(!montoTotal||!nCuotas||!valorCuota||!inicio){alert('Completa todos los datos de cuotas.');return;}
+  var montosF=_montosFormulario();
+  if(!montosF.length||!inicio){alert('Completa los datos de cuotas: N° de cuotas (con el pie como cuota 1), valor de la cuota fija, última cuota y vencimiento de la cuota 1.');return;}
+  // Se guarda como antes: n_cuotas y monto_total cuentan solo las cuotas regulares (el pie va aparte).
+  var nCuotas=montosF.length,valorUltima=montosF[nCuotas-1],valorCuota=nCuotas>1?montosF[0]:valorUltima;
+  var montoTotal=montosF.reduce(function(a,b){return a+b;},0);
   var cl=getClientes().find(function(x){return x.rut===rut;});
-  var valorUltima=montoTotal-(valorCuota*(nCuotas-1));
-  var fechas=generarFechas(inicio,nCuotas);
+  var fsF=_fechasForm(inicio,nCuotas,nv('f-pie')>0), fechas=fsF.cuotas;
   var arr=getConvenios();
   var prev=_editId?arr.find(function(x){return x.id===_editId;}):null;
   if(_editId&&!prev){alert('No se encontró el convenio. Recarga la página.');return;}
@@ -684,7 +695,8 @@ function guardarConvenio(){
   if(prev&&_convTieneMovimientos(prev)){
     // Con pagos: la estructura no cambia y las cuotas se conservan tal cual (sin reasignar por posición).
     var ini0=prev.cuotas[0]?prev.cuotas[0].vencimiento:'';
-    if(montoTotal!==Number(prev.montoTotal)||nCuotas!==prev.cuotas.length||valorCuota!==Number(prev.valorCuota)||inicio!==ini0
+    if(montoTotal!==Number(prev.montoTotal)||nCuotas!==prev.cuotas.length||valorCuota!==Number(prev.valorCuota)||fechas[0]!==ini0
+       ||valorUltima!==(prev.cuotas.length?Number(prev.cuotas[prev.cuotas.length-1].monto)||0:0)
        ||deuda!==(Number(prev.deudaCapital)||0)||pieM!==(prev.pie?Number(prev.pie.monto)||0:0)){
       alert('Este convenio ya tiene pagos o contabilizaciones: no se puede cambiar su estructura de cuotas. No se guardó ningún cambio.');return;
     }
@@ -692,14 +704,14 @@ function guardarConvenio(){
     pie=prev.pie?JSON.parse(JSON.stringify(prev.pie)):null;
     deudaCapital=Number(prev.deudaCapital)||0;
   }else{
-    var montos=[];for(var k=0;k<nCuotas;k++)montos.push(k===nCuotas-1?valorUltima:valorCuota);
+    var montos=montosF.slice();
     var pl=_planConvenio(deuda,pieM,montos);
     if(pl.error){alert(pl.error+' No se guardó ningún cambio.');return;}
     for(var i=0;i<nCuotas;i++){
       var esU=i===nCuotas-1;
       cuotas.push({numero:i+1,vencimiento:fechas[i],monto:montos[i],esUltima:esU,estado:'pendiente',pago:null,contab:null,capital_plan:pl.caps[i],interes_plan:pl.ints[i]});
     }
-    if(pieM>0)pie={numero:0,esPie:true,vencimiento:'',monto:pieM,capital_plan:pl.pieCap,interes_plan:pl.pieInt,estado:'pendiente',pago:null,contab:null};
+    if(pieM>0)pie={numero:0,esPie:true,vencimiento:fsF.pie,monto:pieM,capital_plan:pl.pieCap,interes_plan:pl.pieInt,estado:'pendiente',pago:null,contab:null};
     deudaCapital=deuda;
   }
   // "Completado" solo si todas las cuotas y el pie están pagados (fail-closed, sin escritura).
@@ -725,7 +737,7 @@ function abrirPagarCuota(convId,idx){
   var legado=!_cuotaPlan&&!!pg&&!_cuotaTieneDesglose(c);
   var que=c.esPie?'del pie':'de cuota';
   document.getElementById('cuotaTitulo').textContent=legado?'Confirmar desglose del pago':pg?'Corregir pago '+que:'Registrar pago '+que;
-  document.getElementById('cuotaSub').textContent=conv.clienteNombre+' · '+conv.institucion+' · '+(c.esPie?'Pie inicial':'Cuota '+c.numero+'/'+conv.nCuotas+' · Vence: '+c.vencimiento);
+  document.getElementById('cuotaSub').textContent=conv.clienteNombre+' · '+conv.institucion+' · '+(c.esPie?'Cuota 1/'+_totCuotas(conv)+' · Pie inicial'+(c.vencimiento?' · Vence: '+c.vencimiento:''):'Cuota '+_nroCuota(conv,c)+'/'+_totCuotas(conv)+' · Vence: '+c.vencimiento);
   document.getElementById('c-fecha').value=pg?pg.fecha:hoy();
   ['c-capital','c-interes'].forEach(function(id){document.getElementById(id).readOnly=_cuotaPlan;});
   document.getElementById('c-monto').readOnly=!_cuotaPlan;
@@ -810,7 +822,7 @@ function _asientoCuota(conv,c){
   lineas.push({cta:'Disponible',debe:0,haber:tot,sangria:true});
   var debe=lineas.reduce(function(a,l){return a+l.debe;},0);
   return{lineas:lineas,debe:debe,haber:tot,cuadra:Math.abs(debe-tot)<0.5&&tot>0,
-    glosa:'Pago '+(c.esPie?'pie':'cuota '+c.numero+'/'+conv.nCuotas)+' '+nom};
+    glosa:'Pago '+(c.esPie?'cuota 1 (pie)':'cuota '+_nroCuota(conv,c)+'/'+_totCuotas(conv))+' '+nom};
 }
 var _asConvId=null,_asIdx=null;
 function toggleContab(convId,idx,el){
@@ -821,7 +833,7 @@ function toggleContab(convId,idx,el){
   var u=getUsuario()||{};
   if(!u.nombre){alert('No se detectó tu usuario. Vuelve a iniciar sesión.');if(el)el.checked=!!c.contab;return;}
   if(c.contab){
-    if(!confirm('¿Quitar la marca de contabilizada '+(c.esPie?'del pie':'de la cuota '+c.numero)+'?')){if(el)el.checked=true;return;}
+    if(!confirm('¿Quitar la marca de contabilizada '+(c.esPie?'de la cuota 1 (pie)':'de la cuota '+_nroCuota(orig,c))+'?')){if(el)el.checked=true;return;}
     _guardarContab(orig,idx,u,false,el).catch(function(){});return;
   }
   abrirAsiento(convId,idx);
@@ -832,7 +844,7 @@ function abrirAsiento(convId,idx){
   _asConvId=convId;_asIdx=idx;
   var as=_asientoCuota(conv,c), n=function(v){return v?Math.round(v).toLocaleString('es-CL'):'';};
   document.getElementById('asientoContent').innerHTML=
-    '<h2>Contabilizar '+(c.esPie?'pie inicial':'cuota '+c.numero+' de '+conv.nCuotas)+'</h2>'
+    '<h2>Contabilizar '+(c.esPie?'cuota 1 (pie inicial)':'cuota '+_nroCuota(conv,c)+' de '+_totCuotas(conv))+'</h2>'
     +'<div class="modal-sub">'+hesc(conv.clienteNombre)+' · '+hesc(conv.institucion)+(conv.numero?' · N° '+hesc(conv.numero):'')+' · pagada el '+hesc(c.pago.fecha||'')+'</div>'
     +'<div class="amort-stats" style="margin:12px 0">'
     +'<div><div class="amort-stat-v">'+ff(c.pago.capital)+'</div><div class="amort-stat-l">Capital</div></div>'
@@ -1040,7 +1052,7 @@ function verAmortizacion(id){
     saldo=Math.max(0,saldo-(Number(c.monto)||0));
     var gris=function(v){return '<span style="color:var(--tm)">'+ff(v)+'</span>';};
     return'<tr class="'+trCls+'">'
-      +'<td style="text-align:center;font-weight:700">'+(c.esPie?'Pie':c.numero+(c.esUltima?' ★':''))+'</td>'
+      +'<td style="text-align:center;font-weight:700">'+(c.esPie?'1 · pie':_nroCuota(conv,c)+(c.esUltima?' ★':''))+'</td>'
       +'<td>'+(c.vencimiento||'—')+'</td>'
       +'<td class="num">'+ff(c.monto)+'</td>'
       +'<td class="num">'+(pag&&c.pago?ff(c.pago.monto):'—')+'</td>'
@@ -1058,7 +1070,7 @@ function verAmortizacion(id){
     ?st(ff(conv.deudaCapital),'Deuda original')+st(ff(conv.pie?conv.pie.monto:0),'Pie')+st(ff(costo),'Costo total')+st('<span style="color:#FF6B6B">'+ff(costo-conv.deudaCapital)+'</span>','Intereses totales')
       +st(ff(rs.capitalPend),'Capital pendiente')+st('<span style="color:#FF6B6B">'+ff(rs.interesPend)+'</span>','Intereses pendientes')+st(ff(rs.saldoPorPagar),'Saldo total')+st(rs.contab+'/'+rs.pagos,'Contabilizadas')
     :st(ff(conv.montoTotal),'Total convenio')+st(ff(rs.saldoPorPagar),'Saldo por pagar')+st(ff(rs.capitalConfirmado)+(rs.sinDesglose?'*':''),'Capital confirmado')
-      +st('<span style="color:#FF6B6B">'+ff(rs.interesPagado)+(rs.sinDesglose?'*':'')+'</span>','Intereses pagados')+st(rs.pagadas+'/'+conv.nCuotas,'Cuotas pagadas')+st(rs.contab+'/'+rs.pagos,'Contabilizadas');
+      +st('<span style="color:#FF6B6B">'+ff(rs.interesPagado)+(rs.sinDesglose?'*':'')+'</span>','Intereses pagados')+st((rs.pagadas+(conv.pie&&conv.pie.estado==='pagada'?1:0))+'/'+_totCuotas(conv),'Cuotas pagadas')+st(rs.contab+'/'+rs.pagos,'Contabilizadas');
   document.getElementById('amortContent').innerHTML=
     '<div class="amort-header">'
     +'<div class="amort-title">'+hesc(conv.clienteNombre)+' · '+hesc(conv.institucion)+'</div>'
@@ -1144,7 +1156,7 @@ function renderConvenios(){
     var seg=conv.cuotas.map(function(c){
       var esVenc=c.estado==='pendiente'&&c.vencimiento<h;
       var cls=c.estado==='pagada'?(c.contab?'ok':'okp'):esVenc?'venc':(prox&&c===prox)?'sig':'';
-      return'<i class="'+cls+'" title="Cuota '+c.numero+' · '+c.vencimiento+' · '+ff(c.monto)+(c.estado==='pagada'?(c.contab?' · pagada y contabilizada':' · pagada, falta contabilizar'):esVenc?' · vencida sin pagar':'')+'"></i>';
+      return'<i class="'+cls+'" title="Cuota '+_nroCuota(conv,c)+' · '+c.vencimiento+' · '+ff(c.monto)+(c.estado==='pagada'?(c.contab?' · pagada y contabilizada':' · pagada, falta contabilizar'):esVenc?' · vencida sin pagar':'')+'"></i>';
     }).join('');
     // Cuotas resumidas
     var filaCuota=function(c,i){
@@ -1162,7 +1174,7 @@ function renderConvenios(){
           +'</div>'+(c.contab?'<small class="g-sino-q">'+hesc(c.contab.fecha)+' · '+hesc(c.contab.quien)+'</small>':!des?'<small class="g-sino-q warn">falta desglose</small>':_ultimaQuitada(c))
         :'<span style="color:var(--tm)">—</span>';
       return'<tr class="'+trCls+'" onclick="event.stopPropagation()">'
-        +'<td style="text-align:center;font-weight:700">'+(c.esPie?'Pie':c.numero+(c.esUltima?' ★':''))+'</td>'
+        +'<td style="text-align:center;font-weight:700">'+(c.esPie?'1 · pie':_nroCuota(conv,c)+(c.esUltima?' ★':''))+'</td>'
         +'<td>'+(c.vencimiento||'—')+'</td>'
         +'<td class="num" style="color:'+(esVenc?'var(--red)':pag?'var(--green)':'var(--p)')+'">'+ff(pag&&c.pago?c.pago.monto:c.monto)+'</td>'
         +'<td class="num">'+(pag?(des?ff(c.pago.capital):'<span class="g-sin-des" title="Falta confirmar el desglose">sin desglose</span>'):typeof c.capital_plan==='number'?'<span style="color:var(--tm)">'+ff(c.capital_plan)+'</span>':'<span style="color:var(--tm)">—</span>')+'</td>'
@@ -1250,7 +1262,7 @@ function renderCalendario(){
       +'<div class="inst-dot" style="background:'+ic+'"></div>'
       +'<div class="cuota-info">'
       +'<div class="cuota-cliente"><strong>'+hesc(conv.clienteNombre)+'</strong> · <span style="color:'+ic+'">'+hesc(conv.institucion)+'</span></div>'
-      +'<div class="cuota-det">Cuota '+c.numero+'/'+conv.nCuotas+' · Vence: '+c.vencimiento+(conv.periodoDeuda?' · '+conv.periodoDeuda:'')+'</div>'
+      +'<div class="cuota-det">Cuota '+_nroCuota(conv,c)+'/'+_totCuotas(conv)+' · Vence: '+c.vencimiento+(conv.periodoDeuda?' · '+conv.periodoDeuda:'')+'</div>'
       +'</div>'
       +'<div class="cuota-monto" style="color:'+(esVenc?'var(--red)':c.estado==='pagada'?'var(--green)':'var(--p)')+'">'+ff(c.monto)+'</div>'
       +'<div class="cuota-badge">'+badge+'</div>'
@@ -1320,7 +1332,7 @@ function renderKPI(){
     if(!porCliente[conv.clienteNombre])porCliente[conv.clienteNombre]={pendiente:0,n:0};
     var pend=conv.cuotas.filter(function(c){return c.estado==='pendiente';}).reduce(function(s,c){return s+c.monto;},0);
     porCliente[conv.clienteNombre].pendiente+=pend;
-    porCliente[conv.clienteNombre].n+=conv.nCuotas;
+    porCliente[conv.clienteNombre].n+=_totCuotas(conv);
   });
   var topClientes=Object.entries(porCliente).sort(function(a,b){return b[1].pendiente-a[1].pendiente;}).slice(0,6);
   var maxCl=topClientes.length?topClientes[0][1].pendiente:1;
