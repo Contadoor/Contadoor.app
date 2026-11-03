@@ -1,6 +1,6 @@
 /* ============================================================
    pir/proyectar.js — MiRenta · Asistente "Proyectar" (5 pasos)
-   1 Cliente y caso → 2 F22 del año anterior (apertura tributaria) → 3 Libro Diario y Balance (importación y conciliación)
+   1 Cliente y caso → 2 F22 del año anterior (apertura tributaria) → 3 Libro Diario (obligatorio) y Balance (opcional, control)
    → 4 Mapeo de cuentas → 5 Ejecutar proyección → Pantalla de proyección.
    Solo orquesta lo que YA está instalado en producción (nada nuevo en la base):
      RPC  renta_yo · renta_cliente_habilitar · renta_cliente_resolver · renta_caso_crear · renta_fuente_registrar ·
@@ -59,7 +59,7 @@ function espera(ms){return new Promise(function(ok){setTimeout(ok,ms);});}
 function sha256(buf){return crypto.subtle.digest('SHA-256',buf).then(function(h){return Array.prototype.map.call(new Uint8Array(h),function(b){return b.toString(16).padStart(2,'0');}).join('');});}
 
 /* ── Estado ── */
-var S={yo:null,clientes:[],casosTodos:[],rcTodos:[],q:'',cliente:null,rc:null,caso:null,d:null,P:null,abierto:null,ocupado:null,aviso:null,cat:null,verTodas:false,corte:null,mesHasta:null,cargando:true,error:null};
+var S={autoHecho:{},yo:null,clientes:[],casosTodos:[],rcTodos:[],q:'',cliente:null,rc:null,caso:null,d:null,P:null,abierto:null,ocupado:null,aviso:null,cat:null,verTodas:false,corte:null,mesHasta:null,cargando:true,error:null};
 
 /* ── Carga ── */
 function iniciar(){
@@ -118,7 +118,12 @@ function recargar(){
       API.get('renta_supuestos_forecast?select=id,version,forecast_method,parameters,estado&caso_id=eq.'+id+'&estado=eq.ACTIVE'),
       API.get('renta_motor_corridas?select=id,cutoff_date,estado,resultado_estado,final_bloqueos,finalizado_at,error_codigo&caso_id=eq.'+id+'&motor=eq.T1_RLI_14D3&order=id.desc&limit=1')
     ]).then(function(x){
-      d.fuentes=x[0];d.corridas=x[1];d.lecturas=x[2];d.aperturaVigente=x[3];d.entrada=x[4];d.snapshot=(x[5]||[])[0]||null;d.supuesto=(x[6]||[])[0]||null;d.motor=(x[7]||[])[0]||null;
+      // Incidencias BLOCKING de las corridas con error (solo para explicar en palabras simples por qué no se pudo leer un archivo).
+      var errs=(x[1]||[]).filter(function(c){return c.estado==='ERROR';}).map(function(c){return c.id;}).slice(-20);
+      return (errs.length?getTodo('renta_incidencias?select=corrida_id,codigo,severidad,mensaje&severidad=eq.BLOCKING&corrida_id=in.('+errs.join(',')+')').catch(function(){return [];}):Promise.resolve([]))
+        .then(function(inc){x.incidencias=inc||[];return x;});
+    }).then(function(x){
+      d.incidencias=x.incidencias;d.fuentes=x[0];d.corridas=x[1];d.lecturas=x[2];d.aperturaVigente=x[3];d.entrada=x[4];d.snapshot=(x[5]||[])[0]||null;d.supuesto=(x[6]||[])[0]||null;d.motor=(x[7]||[])[0]||null;
       var extras=[];
       if(d.snapshot){
         extras.push(getTodo('renta_mapeo_resultados?select=cuenta_codigo,cuenta_nombre,n_lineas,saldo,categoria,clase,estado,origen&snapshot_id=eq.'+d.snapshot.id+'&order=cuenta_codigo.asc').then(function(rs){d.resultados=rs;}));
@@ -141,6 +146,9 @@ function recargar(){
     }
     else if(actual&&actual.estado==='listo')S.abierto=L.pasoActivo(S.P,S.abierto+1);   // al completar un paso, avanza solo
     render();
+    // Paso 4 automático: si el mapeo vigente tiene propuestas seguras sin confirmar, se confirman solas (una vez por snapshot).
+    var sn=d.snapshot;
+    if(sn&&!S.ocupado&&!S.autoHecho[sn.id]&&S.P[3].estado!=='bloqueado'&&L.autoConfirmables(d.resultados).length){S.autoHecho[sn.id]=1;accMapeoAuto();}
   }).catch(function(e){S.cargando=false;S.error=e;render();});
 }
 
@@ -154,7 +162,7 @@ function render(){
   if(S.error){app('<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>No se pudo cargar MiRenta: '+esc(S.error.message||S.error)+'</span><button type="button" class="btn sec chico" data-act="recargar">Reintentar</button></div>');return;}
   if(S.cargando&&!S.d&&!S.clientes.length){app('<div class="aviso lila"><span class="mrp-spin"></span>Cargando…</div>');return;}
   var h='<section class="pry-intro"><h2 class="mrp-titulo">Proyectar la renta <span>AT '+(L.AC_DEFECTO+1)+'</span></h2>'
-    +'<p class="mrp-lead">Carga el <b>F22 del año anterior</b> y la <b>contabilidad '+L.AC_DEFECTO+'</b> (Libro Diario y Balance de Masconta). El sistema los lee, los cuadra y calcula la proyección.</p></section>';
+    +'<p class="mrp-lead">Carga el <b>F22 del año anterior</b> y la <b>contabilidad '+L.AC_DEFECTO+'</b> (el Libro Diario de Masconta; el Balance es opcional, como control). El sistema los lee, los cuadra y calcula la proyección.</p></section>';
   if(!S.cliente){app(h+selectorCliente());return;}
   h+=cabecera()+avisoHtml();
   if(S.cargando&&!S.P){app(h+'<div class="aviso lila"><span class="mrp-spin"></span>Cargando el caso…</div>');return;}
@@ -239,10 +247,10 @@ var CUERPO={
   contabilidad:function(p){
     var h=p.estado==='problema'?'<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>'+esc(p.detalle[0]||'')+'</span></div>'+detalles(p,1):'';
     // Mes al que llega la contabilidad cargada: es lo que se reemplaza cada mes (Diario y Balance con el mismo corte).
-    if(S.mesHasta)h+='<p class="t2">'+I('info','ic-cel')+' Contabilidad cargada hasta <b>'+MESES[S.mesHasta-1]+' '+S.caso.anio_comercial+'</b>. Para actualizarla, usa <b>Reemplazar</b> en el Libro Diario y en el Balance (los dos con el mismo corte). El F22 y las cuentas ya confirmadas se conservan.</p>';
+    if(S.mesHasta)h+='<p class="t2">'+I('info','ic-cel')+' Contabilidad cargada hasta <b>'+MESES[S.mesHasta-1]+' '+S.caso.anio_comercial+'</b>. Para actualizarla, usa <b>Reemplazar</b> en el Libro Diario (y en el Balance, si lo usas, con el mismo corte). El F22 y las cuentas ya confirmadas se conservan.</p>';
     h+='<div class="pry-archivos">'+p.archivos.map(filaArchivo).join('')+'</div>';
     // Si una conciliación automática quedó a medias (p. ej. se cortó la conexión), se puede relanzar sin volver a subir nada.
-    if(p.estado==='en_curso'&&!p.conciliacion&&p.archivos.filter(function(a){return a.def.obligatorio;}).every(function(a){return a.estado==='listo';}))
+    if(p.estado==='en_curso'&&!p.conciliacion&&p.archivos[0].estado==='listo'&&p.archivos[1].estado==='listo')
       h+='<div class="mrp-acciones"><button type="button" class="btn" data-act="cadena"'+(S.ocupado?' disabled':'')+'>'+(ocup('cadena','Conciliando…')||I('balanza')+'Conciliar Diario y Balance')+'</button></div>';
     var cdb=p.conciliacion, apc=p.aperturaContable||{}, ant=p.conciliacionAnterior;
     if(cdb)h+='<div class="aviso '+(cdb.evaluacion==='CUADRA'?'verde':'rojo')+'">'+I(cdb.evaluacion==='CUADRA'?'check':'alerta',cdb.evaluacion==='CUADRA'?'ic-ver':'ic-roj')+'<span><b>Diario ↔ Balance:</b> '+(cdb.evaluacion==='CUADRA'?'cuadran las '+num(cdb.cuentas)+' cuentas.':num(cdb.diferencias)+' cuenta(s) con diferencia de '+num(cdb.cuentas)+'.')+'</span></div>';
@@ -305,10 +313,10 @@ function filaArchivo(a){
   if(c&&c.estado==='PROCESSED'){
     res='<span>'+(def.tipo==='LIBRO_DIARIO'?num(c.n_asientos)+' asientos · '+num(c.n_lineas)+' líneas':def.tipo==='BALANCE'?num(c.n_lineas)+' cuentas'+(c.resultado_tipo?' · '+(c.resultado_tipo==='UTILIDAD'?'utilidad ':'pérdida ')+clp(c.resultado_monto):''):num(c.n_lineas)+' cuentas')+(c.anio_detectado?' · año '+c.anio_detectado:'')+'</span>';
     if(+c.n_bloqueantes||+c.n_revision)res+='<span class="t-ambar">'+(+c.n_bloqueantes?num(c.n_bloqueantes)+' error(es) · ':'')+(+c.n_revision?num(c.n_revision)+' por revisar':'')+'</span>';
-  } else if(c&&c.estado==='ERROR') res='<span class="t-rojo">No se pudo leer: '+esc(c.error_mensaje||c.error_codigo||'formato no reconocido')+'</span>';
-  var tituloT=def.titulo+(per?' '+per:'');
+  } else if(c&&c.estado==='ERROR') res='<span class="t-rojo">No se pudo leer: '+esc(L.mensajeCorrida(c,(S.d.incidencias||[]).filter(function(x){return x.corrida_id===c.id;})))+'</span>';
+  var tituloT=def.nombre(k.anio_comercial);
   return '<div class="pry-archivo '+(a.estado==='listo'?'ok':a.estado==='problema'?'mal':'')+'"><div class="pry-arch-t">'+I(def.tipo==='BALANCE'?'balanza':'libro',def.obligatorio?'ic-cel':'ic-mor')
-    +'<div><b>'+esc(tituloT)+' <em class="'+(def.obligatorio?'obl':'opc')+'">'+(def.obligatorio?'Obligatorio':def.clave==='BALANCE_ANT'?'Recomendado':'Opcional')+'</em></b><small>'+esc(def.periodo===0?def.ayuda.replace('del año','del año '+per):def.ayuda)+'</small></div>'+chipEstado(a.estado)+'</div>'
+    +'<div><b>'+esc(tituloT)+' <em class="'+(def.obligatorio?'obl':'opc')+'">'+esc(def.etiqueta)+'</em></b><small>'+esc(def.ayuda)+'</small></div>'+chipEstado(a.estado)+'</div>'
     +(f?'<p class="pry-arch-f">'+I('archivo','ic-cel')+esc(f.nombre_original)+' <span class="t3">· '+L.fecha(f.cargado_at)+'</span></p>':'')
     +(res?'<p class="pry-arch-r">'+res+'</p>':'')
     +'<div class="pry-subir"><input type="file" id="'+id+'" accept=".xls,.xlsx,.html,.htm" aria-label="Elegir '+esc(tituloT)+'">'
@@ -341,7 +349,7 @@ function resultado(m){
 
 /* ── Acciones ── */
 function hecho(tipo,texto){S.ocupado=null;S.aviso={tipo:tipo,texto:texto};return recargar();}
-function fallo(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e&&e.message||e))};render();}
+function fallo(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};render();}
 function rpc(fn,args){return API.rpc(fn,args);}
 
 function pedirMotivo(titulo,cuerpo,ok,def,cb){
@@ -397,7 +405,7 @@ function accSubirF22(){
   S.ocupado='f22';S.aviso=null;render();
   var prev=AL.reemplazoF22(S.d.fuentes);
   subirFuente(f,'F22_ANTERIOR','SII',prev).then(function(r){return leerF22(r.id);})
-    .then(function(){return hecho('verde','F22 leído. Revisa los saldos propuestos (RAI, SAC y CPTS).');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e.message))};return recargar();});
+    .then(function(){return hecho('verde','F22 leído. Revisa los saldos propuestos (RAI, SAC y CPTS).');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};return recargar();});
 }
 function accLeerF22(id){S.ocupado='leer';render();leerF22(+id).then(function(){return hecho('verde','F22 leído.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(e.message)};return recargar();});}
 
@@ -412,9 +420,28 @@ function importar(fuenteId){
         c=c&&c[0];if(c&&c.estado!=='PROCESSING'){if(c.estado==='PROCESSED')return c;throw new Error('No se pudo leer el archivo: '+(c.error_mensaje||c.estado));}
         if(++n<12)return mirar();throw new Error('La importación sigue en curso. Recarga en unos minutos.');});})();
     }
+    if(d.corrida_id&&d.estado==='ERROR')return API.get('renta_incidencias?select=corrida_id,codigo,severidad,mensaje&severidad=eq.BLOCKING&corrida_id=eq.'+d.corrida_id).catch(function(){return [];})
+      .then(function(inc){throw amigable('No se pudo leer el archivo: '+L.mensajeCorrida({error_mensaje:d.mensaje||d.error},inc));});
     throw new Error(d.mensaje||d.error||r.mensaje||'No se pudo importar el archivo.');
   });
 }
+// Error con texto ya pensado para el usuario (no pasa por mensajeError).
+function amigable(t){var e=new Error(t);e.amigable=true;return e;}
+function textoError(e){return e&&e.amigable?e.message:L.mensajeError(e&&e.message||e);}
+// Confirma solas las propuestas seguras del mapeo vigente (mismo criterio que "Confirmar en bloque"); devuelve cuántas.
+function autoConfirmar(){
+  return API.get('renta_mapeo_snapshots?select=id&caso_id=eq.'+S.caso.id+'&estado=eq.VIGENTE').then(function(sn){
+    sn=sn&&sn[0];if(!sn)return 0;S.autoHecho[sn.id]=1;
+    return getTodo('renta_mapeo_resultados?select=cuenta_codigo,categoria,estado&snapshot_id=eq.'+sn.id+'&order=cuenta_codigo.asc').then(function(rs){
+      var inf=L.autoConfirmables(rs), snap=sn.id, i=0;
+      return (function una(){if(i>=inf.length)return Promise.resolve(inf.length);var r=inf[i++];
+        return rpc('renta_mapeo_confirmar',{p_caso_id:S.caso.id,p_snapshot_id:snap,p_cuenta_codigo:r.cuenta_codigo,p_categoria:r.categoria,p_motivo:L.MOTIVO_AUTO})
+          .then(function(x){snap=(x&&x.snapshot_id)||snap;S.autoHecho[snap]=1;return una();});})();
+    });
+  });
+}
+function accMapeoAuto(){S.ocupado='mapeo';render();autoConfirmar().then(function(n){return hecho('verde',n+' cuenta(s) del mapeo confirmadas automáticamente (propuestas del sistema).');})
+  .catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:'Mapeo automático incompleto. '+esc(textoError(e))};return recargar();});}
 // Cálculos automáticos que siguen a una importación (no son decisiones: conciliar y mapear son deterministas y quedan en la bitácora).
 // forzarMapeo: tras importar un Plan de cuentas el snapshot no queda "desactualizado" (solo mira Diario y Balance), pero sí cambia la
 // clasificación: se recalcula igual (si no cambió nada, la base devuelve el mismo snapshot).
@@ -423,7 +450,8 @@ function cadena(forzarMapeo){
     var ef=ent.efectivo||{}, bl=ent.bloqueos_final||[], hechos=[], p=Promise.resolve();
     var dia=ef.diario&&ef.diario.corrida_id, bal=ef.balance_ac&&ef.balance_ac.corrida_id, bal1=ef.balance_ac1&&ef.balance_ac1.corrida_id;
     if(dia&&bal&&bl.indexOf('CONCILIACION_DIARIO_BALANCE_PENDIENTE')>=0)p=p.then(function(){return rpc('renta_conciliar_diario_balance',{p_corrida_diario:dia,p_corrida_balance:bal}).then(function(k){hechos.push('Diario y Balance '+(k.resultado==='CUADRA'?'cuadran':'con '+k.diferencias+' diferencia(s)'));});});
-    if(dia&&(forzarMapeo===true||bl.indexOf('SIN_SNAPSHOT_MAPEO')>=0||bl.indexOf('SNAPSHOT_MAPEO_DESACTUALIZADO')>=0))p=p.then(function(){return rpc('renta_mapeo_calcular',{p_caso_id:S.caso.id}).then(function(){hechos.push('mapeo de cuentas calculado');});});
+    if(dia&&(forzarMapeo===true||bl.indexOf('SIN_SNAPSHOT_MAPEO')>=0||bl.indexOf('SNAPSHOT_MAPEO_DESACTUALIZADO')>=0))p=p.then(function(){return rpc('renta_mapeo_calcular',{p_caso_id:S.caso.id}).then(function(){hechos.push('mapeo de cuentas calculado');});})
+      .then(function(){return autoConfirmar().then(function(n){if(n)hechos.push(n+' cuenta(s) confirmadas automáticamente');});});
     if(dia&&bal1&&bl.indexOf('CONCILIACION_AC1_PENDIENTE')>=0)p=p.then(function(){return rpc('renta_conciliar_apertura',{p_corrida_diario:dia,p_corrida_balance_anterior:bal1}).then(function(){hechos.push('apertura conciliada con el año anterior');});});
     return p.then(function(){return hechos;});
   });
@@ -431,13 +459,16 @@ function cadena(forzarMapeo){
 function accSubirArchivo(clave){
   var a=S.P[2].archivos.filter(function(x){return x.def.clave===clave;})[0], f;
   try{f=validarArchivo($('pryArch-'+clave),false);}catch(e){S.aviso={tipo:'ambar',texto:esc(e.message)};render();return;}
+  // El año del nombre del exporte (…_0-AAAA.xls) debe ser el de la tarjeta: si no, no se sube y se indica la tarjeta correcta.
+  var chk=L.revisarAnioArchivo(clave,S.caso.anio_comercial,f.name);
+  if(chk){S.aviso={tipo:'ambar',texto:esc(chk.texto)};render();var t=chk.sugerida&&$('pryArch-'+chk.sugerida);if(t&&t.scrollIntoView)t.closest('.pry-archivo').scrollIntoView({block:'center',behavior:'smooth'});return;}
   S.ocupado='arch-'+clave;S.aviso=null;render();
   var meta=a.def.tipo==='BALANCE'?{periodo:String(a.periodo)}:{};
   subirFuente(f,a.def.tipo,'MASCONTABLE',a.fuente?a.fuente.id:null,meta).then(function(r){return importar(r.id);}).then(function(){return cadena(a.def.tipo==='PLAN_CUENTAS');})
-    .then(function(hs){return hecho('verde',esc(a.def.titulo+(a.periodo?' '+a.periodo:''))+' importado'+(hs.length?' · '+esc(hs.join(' · ')):'')+'.');})
-    .catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e.message))};return recargar();});
+    .then(function(hs){return hecho('verde',esc(a.def.nombre(S.caso.anio_comercial))+' importado'+(hs.length?' · '+esc(hs.join(' · ')):'')+'.');})
+    .catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};return recargar();});
 }
-function accImportar(id){S.ocupado='imp-'+id;render();importar(+id).then(function(){return cadena(true);}).then(function(hs){return hecho('verde','Archivo importado'+(hs.length?' · '+esc(hs.join(' · ')):'')+'.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e.message))};return recargar();});}
+function accImportar(id){S.ocupado='imp-'+id;render();importar(+id).then(function(){return cadena(true);}).then(function(hs){return hecho('verde','Archivo importado'+(hs.length?' · '+esc(hs.join(' · ')):'')+'.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};return recargar();});}
 function accAperturaContable(){
   var apc=S.P[2].aperturaContable;
   pedirMotivo('Confirmar el asiento de apertura N° '+(apc.asiento_numero||''),'<p>Confirmas que ese asiento es la apertura del año y aceptas sus saldos como saldos iniciales de cada cuenta.</p>','Confirmar','Asiento de apertura revisado: saldos iniciales completos',function(m){
@@ -448,8 +479,8 @@ function accAperturaContable(){
         return rpc('renta_apertura_contable_aceptar',{p_caso_id:S.caso.id,p_huella_esperada:h,p_motivo:m});})
       .then(cadena).then(function(){return hecho('verde','Apertura contable confirmada.');}).catch(fallo);});
 }
-function accCadena(){S.ocupado='cadena';S.aviso=null;render();cadena().then(function(hs){return hecho('verde',hs.length?esc(hs.join(' · '))+'.':'Nada pendiente que conciliar.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e.message))};return recargar();});}
-function accMapeoCalcular(){S.ocupado='mapeo';render();rpc('renta_mapeo_calcular',{p_caso_id:S.caso.id}).then(function(){return hecho('verde','Mapeo calculado.');}).catch(fallo);}
+function accCadena(){S.ocupado='cadena';S.aviso=null;render();cadena().then(function(hs){return hecho('verde',hs.length?esc(hs.join(' · '))+'.':'Nada pendiente que conciliar.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};return recargar();});}
+function accMapeoCalcular(){S.ocupado='mapeo';render();rpc('renta_mapeo_calcular',{p_caso_id:S.caso.id}).then(autoConfirmar).then(function(n){return hecho('verde','Mapeo calculado'+(n?' · '+n+' cuenta(s) confirmadas automáticamente':'')+'.');}).catch(fallo);}
 function accConfirmarCuenta(cta,prop){
   var sel=document.querySelector('[data-map-cat="'+CSS.escape(cta)+'"]'), mot=document.querySelector('[data-map-mot="'+CSS.escape(cta)+'"]');
   var cat=(sel&&sel.value)||prop, m=(mot&&mot.value||'').trim();
@@ -467,7 +498,7 @@ function accConfirmarTodas(){
   // Cada confirmación recalcula el mapeo y entrega el snapshot nuevo: la siguiente se hace contra ese.
   (function una(){if(i>=inf.length)return Promise.resolve();var r=inf[i++];
     return rpc('renta_mapeo_confirmar',{p_caso_id:S.caso.id,p_snapshot_id:snap,p_cuenta_codigo:r.cuenta_codigo,p_categoria:r.categoria,p_motivo:null}).then(function(x){snap=(x&&x.snapshot_id)||snap;return una();});})()
-    .then(function(){return hecho('verde',inf.length+' cuentas confirmadas.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:'Se confirmaron '+(i-1)+' de '+inf.length+'. '+esc(L.mensajeError(e.message))};return recargar();});
+    .then(function(){return hecho('verde',inf.length+' cuentas confirmadas.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:'Se confirmaron '+(i-1)+' de '+inf.length+'. '+esc(textoError(e))};return recargar();});
 }
 function accProyectar(){
   var c=$('pryCorte')&&$('pryCorte').value, sup=$('prySup')&&$('prySup').checked;
@@ -479,7 +510,7 @@ function accProyectar(){
   p.then(function(){return rpc('renta_e1_proyectar',{p_caso_id:S.caso.id,p_corte:c,p_supuesto_id:null});}).then(function(r){
     if(r&&r.estado==='FALLIDA')throw new Error((r.mensaje||r.codigo||'La corrida falló'));
     return hecho('verde',r&&r.reutilizada?'Sin cambios: la proyección vigente ya corresponde a estos datos.':'Proyección calculada (corrida #'+(r&&r.corrida_id)+').');
-  }).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e&&e.message||e))};return recargar();});   // recarga: la corrida FALLIDA (o el supuesto recién creado) queda a la vista
+  }).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(textoError(e))};return recargar();});   // recarga: la corrida FALLIDA (o el supuesto recién creado) queda a la vista
 }
 
 /* ── Eventos ── */
