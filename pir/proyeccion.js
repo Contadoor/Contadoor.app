@@ -1134,7 +1134,7 @@ function abrirCaso(casoId,pend){
   irProyectar(k.id);window.scrollTo({top:0});cargarCaso();
 }
 /* Botón superior "Proyectar": lleva al asistente (con el caso abierto, si hay uno) */
-function irProyectar(casoId){var a=$('mrIrProyectar');if(a)a.href='proyectar.html?'+(DEMO?'demo=1&':'')+(casoId?'caso='+casoId:'');}
+function irProyectar(casoId){var a=$('mrIrProyectar'),q=[];if(DEMO)q.push('demo=1');if(casoId)q.push('caso='+casoId);if(a)a.href='proyectar.html'+(q.length?'?'+q.join('&'):'');}
 function volverCartera(){irProyectar(null);S.vista='cartera';S.caso=null;S.v=null;S.pend=null;cerrarEjecutivo();window.scrollTo({top:0});cargarCartera();}
 function trasCargarCaso(){
   var p=S.pend;S.pend=null;if(!p||!S.v||!S.v.corrida)return;

@@ -81,6 +81,11 @@
     return 'problema';
   }
 
+  // Confirmar en bloque solo las propuestas del sistema que la base acepta sin motivo: INFERRED con categoría y que no sea OTHER_*
+  // (renta_mapeo_confirmar exige motivo para OTHER_* y para cualquier cambio). El resto se confirma de a una.
+  function confirmableEnBloque(r) { return !!r && r.estado === 'INFERRED' && !!r.categoria && !/^OTHER_/.test(r.categoria); }
+  function motivoObligatorio(cat, prop) { return !prop || cat !== prop || /^OTHER_/.test(cat || ''); }
+
   function tiene(lista, prefijo) { return (lista || []).some(function (b) { return String(b).indexOf(prefijo) === 0; }); }
 
   // ── Los 5 pasos ────────────────────────────────────────────────────────────
@@ -129,7 +134,12 @@
     else if (oblig.some(function (a) { return a.estado === 'en_curso'; })) { p3.estado = 'en_curso'; p3.detalle.push('Importando…'); }
     else if (oblig.some(function (a) { return a.estado !== 'listo'; })) p3.detalle.push('Sube el Libro Diario y el Balance ' + ac + ' exportados de Masconta.');
     else if (!cdb) { p3.estado = 'en_curso'; p3.detalle.push('Archivos importados: falta conciliar el Diario con el Balance.'); }
-    else if (cdb.evaluacion !== 'CUADRA') { p3.estado = 'problema'; p3.detalle.push('El Diario y el Balance no cuadran (' + (cdb.diferencias || 0) + ' cuenta(s) con diferencia). Revisa que ambos sean del mismo período y vuelve a exportar.'); }
+    else if (cdb.evaluacion !== 'CUADRA') {
+      p3.estado = 'problema'; p3.detalle.push('El Diario y el Balance no cuadran (' + (cdb.diferencias || 0) + ' cuenta(s) con diferencia). Revisa que ambos sean del mismo período y vuelve a exportar.');
+      // Caso típico al actualizar el mes: se reemplazó solo uno de los dos archivos.
+      var fd = oblig[0].fuente, fb = oblig[1].fuente, dd = fd && String(fd.cargado_at || '').slice(0, 10), db = fb && String(fb.cargado_at || '').slice(0, 10);
+      if (dd && db && dd !== db) p3.detalle.push('El ' + (dd > db ? 'Libro Diario' : 'Balance') + ' se subió el ' + fecha(dd > db ? dd : db) + ' y el ' + (dd > db ? 'Balance' : 'Libro Diario') + ' el ' + fecha(dd > db ? db : dd) + ': si estás actualizando el mes, reemplaza también el ' + (dd > db ? 'Balance' : 'Libro Diario') + ' con el mismo corte.');
+    }
     else if (apc.estado === 'A0' || !apc.estado) { p3.estado = 'problema'; p3.detalle.push(tiene(bl, 'APERTURA_AMBIGUA') ? 'El Diario tiene más de un asiento de apertura: hay que dejar uno solo.' : 'El Diario no trae el asiento de apertura del año.'); }
     else {
       p3.estado = apc.estado === 'A2' ? 'listo' : 'revisar';
@@ -174,6 +184,14 @@
     return desde && desde > 1 ? pasoActivo(P, 1) : 5;
   }
 
+  // Paso que se abre al entrar. Si el caso ya tiene una proyección calculada, lo habitual es actualizar la contabilidad del mes
+  // (reemplazar Diario y Balance): se abre el paso 3 directamente. Si no, el primer paso pendiente.
+  function pasoInicial(P) {
+    var p3 = P[2], p5 = P[4];
+    if (p5 && p5.motor && p5.motor.estado === 'COMPLETED' && p3 && p3.estado !== 'bloqueado') return 3;
+    return pasoActivo(P);
+  }
+
   var ETIQUETA_ESTADO = {
     pendiente: ['gris', 'Pendiente'], sin_leer: ['ambar', 'Falta leer'], en_curso: ['lila', 'En curso'], listo: ['verde', 'Listo'],
     revisar: ['ambar', 'Revisar'], problema: ['rojo', 'Con problemas'], bloqueado: ['gris', 'Espera el paso anterior'], opcional: ['gris', 'Opcional'],
@@ -215,7 +233,7 @@
     return 'No se pudo completar la acción. ' + m.replace(/^[A-Z_]+:\s*/, '').slice(0, 220);
   }
 
-  var api = { AC_DEFECTO: AC_DEFECTO, ARCHIVOS: ARCHIVOS, pasos: pasos, pasoActivo: pasoActivo, textoBloqueo: textoBloqueo, ETIQUETA_ESTADO: ETIQUETA_ESTADO,
+  var api = { AC_DEFECTO: AC_DEFECTO, ARCHIVOS: ARCHIVOS, pasos: pasos, pasoActivo: pasoActivo, pasoInicial: pasoInicial, confirmableEnBloque: confirmableEnBloque, motivoObligatorio: motivoObligatorio, textoBloqueo: textoBloqueo, ETIQUETA_ESTADO: ETIQUETA_ESTADO,
               archivoVigente: archivoVigente, estadoArchivo: estadoArchivo, periodoDeFuente: periodoDeFuente, cortes: cortes, fecha: fecha, rutaFuente: rutaFuente, mensajeError: mensajeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.ProyectarLogica = api;

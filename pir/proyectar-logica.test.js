@@ -103,3 +103,32 @@ test('textos de bloqueos y cortes', () => {
   assert.equal(L.rutaFuente({ cliente_id: 7, anio_comercial: 2026 }, 'k', 's'), '7/2026/k_s');
   assert.match(L.mensajeError('DIARIO_VIGENTE_EXISTE: x'), /Reemplazar/);
 });
+
+test('flujo mensual: con proyección calculada se abre el paso 3 (actualizar contabilidad)', () => {
+  const fuentes = [fu(1, 'LIBRO_DIARIO'), fu(2, 'BALANCE', 2026)];
+  const corridas = [co(11, 1, 'LIBRO_DIARIO', 2026), co(12, 2, 'BALANCE', 2026)];
+  const entrada = { efectivo: { conciliaciones: { diario_balance: { evaluacion: 'CUADRA' } }, apertura_contable: { estado: 'A2' } }, bloqueos_final: [] };
+  const d = { yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada, snapshot: { id: 1, cuentas_usadas: 2 },
+              resultados: [{ estado: 'RESOLVED' }, { estado: 'INFERRED', categoria: 'REVENUE' }] };
+  assert.equal(L.pasoInicial(L.pasos(d)), L.pasoActivo(L.pasos(d)));   // sin proyección: el primer paso pendiente
+  assert.equal(L.pasoInicial(L.pasos({ ...d, motor: { estado: 'COMPLETED', resultado_estado: 'PRELIMINARY', cutoff_date: '2026-09-30' } })), 3);
+});
+
+test('Diario reemplazado sin el Balance: el aviso pide reemplazar también el otro', () => {
+  const fuentes = [{ ...fu(1, 'LIBRO_DIARIO'), cargado_at: '2026-11-03T10:00:00Z' }, { ...fu(2, 'BALANCE', 2026), cargado_at: '2026-10-05T10:00:00Z' }];
+  const corridas = [co(11, 1, 'LIBRO_DIARIO', 2026), co(12, 2, 'BALANCE', 2026)];
+  const entrada = { efectivo: { conciliaciones: { diario_balance: { evaluacion: 'CON_DIFERENCIAS', diferencias: 7 } }, apertura_contable: { estado: 'A3' } }, bloqueos_final: [] };
+  const P = L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada });
+  assert.equal(P[2].estado, 'problema');
+  assert.match(P[2].detalle[1], /reemplaza también el Balance/);
+});
+
+test('confirmar en bloque: solo INFERRED con categoría y sin OTHER_*; motivo obligatorio', () => {
+  assert.equal(L.confirmableEnBloque({ estado: 'INFERRED', categoria: 'REVENUE' }), true);
+  assert.equal(L.confirmableEnBloque({ estado: 'INFERRED', categoria: 'OTHER_EXPENSE' }), false);
+  assert.equal(L.confirmableEnBloque({ estado: 'UNKNOWN', categoria: null }), false);
+  assert.equal(L.motivoObligatorio('REVENUE', 'REVENUE'), false);
+  assert.equal(L.motivoObligatorio('OTHER_ASSET', 'OTHER_ASSET'), true);
+  assert.equal(L.motivoObligatorio('REVENUE', 'EXPENSE'), true);
+  assert.equal(L.motivoObligatorio('REVENUE', ''), true);
+});
