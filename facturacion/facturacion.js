@@ -641,7 +641,7 @@ var COD_DOC={
   DOCUMENTOS_INVALIDOS:'El PDF/XML descargado NO calza con la factura emitida (huella, folio, total o RUT). No se guardó: revisa la evidencia.',
   HUELLA_AMBIGUA:'Hay más de una respuesta de emisión para el folio: revisión manual.',PDF_NO_DISPONIBLE:'OpenFactura aún no entrega el PDF; intenta en unos minutos.',
   XML_NO_DISPONIBLE:'OpenFactura aún no entrega el XML; intenta en unos minutos.',CORREO_NO_HABILITADO:'El envío de correos de facturas reales está APAGADO. Lo enciende el Master con el GO.',
-  CORREO_AUTO_APAGADO:'El envío automático está apagado.',FIRMA_NO_DEFINIDA:'Falta definir quién firma el correo (Configurar correo).',
+  CORREO_AUTO_APAGADO:'El envío automático está apagado.',
   CORREO_YA_ENVIADO:'Este correo ya se envió: nunca se manda dos veces.',CORREO_EN_CURSO:'El correo se está enviando ahora mismo. Espera unos segundos y recarga.',
   CORREO_INCIERTO:'No se sabe si el correo salió (corte o timeout). El Master revisa "Enviados" de reportes@ y lo resuelve: no se reenvía solo.',
   CORREO_MAX_INTENTOS:'Ya se intentó 3 veces. Revisa el correo de la ficha del cliente.',SII_RECHAZADO:'El SII rechazó este DTE: no se envía aviso al cliente.',
@@ -699,7 +699,7 @@ function renderDocs(){
     +btn({txt:'Consultar estado SII',ic:'sii',icc:'ic-cel',ok:opera(),act:'tanda-sii',tip:opera()?'Consulta en OpenFactura el estado de cada factura en el SII (aceptada, con reparos o rechazada) y guarda la evidencia.':'Solo el facturador o el Master.'})
     +btn({txt:'Enviar correos del grupo'+(pendCorreo?' ('+pendCorreo+')':''),ic:'correo',icc:'ic-mor',cls:'pri',ok:opera()&&envio&&pendCorreo>0,act:'tanda-correo',
       tip:!opera()?'Solo el facturador o el Master.':(!envio?'El envío real está apagado: lo enciende el Master con el GO.':(pendCorreo?'Envía el aviso con el PDF y el XML a cada cliente (un solo correo por factura; solo las aceptadas por el SII).':'No hay correos pendientes con documentos y estado SII aceptado.'))})
-    +(esMaster()?btn({txt:'Configurar correo',ic:'escudo',icc:'ic-amb',ok:instalado,act:'config-correo',tip:instalado?'Enciende o apaga el envío real y el automático, y define quién firma.':'Disponible cuando se instale la migración F1a-DOC.'}):'');
+    +(esMaster()?btn({txt:'Configurar correo',ic:'escudo',icc:'ic-amb',ok:instalado,act:'config-correo',tip:instalado?'Enciende o apaga el envío real y el automático (firma corporativa Asesorías Contadoor Ltda.).':'Disponible cuando se instale la migración F1a-DOC.'}):'');
   box.innerHTML='<div class="g-sec-h"><i class="ic placa ic-ver" data-ic="pdf"></i><h2>Documentos y <span>correo</span></h2><div class="chips" style="margin-left:auto">'+interruptor+'</div></div>'
     +'<div class="dc-grid">'
     +kpi('pdf','ic-ver','PDF y XML oficiales',dOk,n,'v',dErr?'<span style="color:var(--roj)">'+dErr+' con error (revisa el detalle)</span>':(pendDoc?pendDoc+' por traer':'Todos guardados y validados'))
@@ -792,16 +792,14 @@ function accionDoc(act,l){
       cb:function(){if(real&&$('mConf').value.trim().toUpperCase()!=='ENVIAR'){modal.error('Escribe ENVIAR para confirmar.');return false;}cerrarModal();tanda('correo_lote','Correos');return false;}});return true;}
   if(act==='config-correo'){
     var par=S.par||{};
-    API.get('usuarios_sistema?select=id,nombre,email&activo=eq.true&order=nombre.asc').catch(function(){return [];}).then(function(us){
-      us=(us||[]).filter(function(u){return /@contadoor\.cl$/i.test(u.email||'');});
-      modal({t:'Configurar el correo de facturas',ic:'escudo',icc:'ic-amb',ok:'Guardar',
-        b:'<label class="chk"><input type="checkbox" id="mEnv"'+(par.correo_envio_habilitado?' checked':'')+'> Envío de correos de facturas <b>reales</b> encendido</label>'
-         +'<label class="chk"><input type="checkbox" id="mAuto"'+(par.correo_auto_habilitado?' checked':'')+'> Enviar automáticamente justo después de emitir</label>'
-         +'<label for="mFir">Firma y "Responder a"</label><select id="mFir"><option value="">— Sin cambio —</option>'+us.map(function(u){return '<option value="'+u.id+'"'+(+par.correo_firma_usuario_id===+u.id?' selected':'')+'>'+esc(u.nombre)+' · '+esc(u.email)+'</option>';}).join('')+'</select>'
-         +'<label for="mRef">Referencia del GO o motivo (obligatorio)</label><input id="mRef" maxlength="300" placeholder="Ej.: GO ChatGPT F1a-DOC fase 5, 04-11">',
-        cb:function(){var e1=$('mEnv').checked, a1=$('mAuto').checked, f=$('mFir').value, r=$('mRef').value.trim();if(a1&&!e1){modal.error('El automático exige el envío encendido.');return false;}if(r.length<5){modal.error('Indica la referencia del GO (mínimo 5 caracteres).');return false;}
-          ejecutar('facturacion_correo_fijar',{p_envio:e1,p_auto:a1,p_firma_usuario:f?+f:null,p_referencia:r},I('escudo','ic-amb')+' Correo configurado.',true);return false;}});
-    });return true;}
+    modal({t:'Configurar el correo de facturas',ic:'escudo',icc:'ic-amb',ok:'Guardar',
+      b:'<label class="chk"><input type="checkbox" id="mEnv"'+(par.correo_envio_habilitado?' checked':'')+'> Envío de correos de facturas <b>reales</b> encendido</label>'
+       +'<label class="chk"><input type="checkbox" id="mAuto"'+(par.correo_auto_habilitado?' checked':'')+'> Enviar automáticamente justo después de emitir</label>'
+       +'<p class="sub" style="margin:8px 0">Firma corporativa: <b>Asesorías Contadoor Ltda.</b> · Responder a <b>info@contadoor.cl</b>.</p>'
+       +'<label for="mRef">Referencia del GO o motivo (obligatorio)</label><input id="mRef" maxlength="300" placeholder="Ej.: GO ChatGPT F1a-DOC fase 5, 04-11">',
+      cb:function(){var e1=$('mEnv').checked, a1=$('mAuto').checked, r=$('mRef').value.trim();if(a1&&!e1){modal.error('El automático exige el envío encendido.');return false;}if(r.length<5){modal.error('Indica la referencia del GO (mínimo 5 caracteres).');return false;}
+        ejecutar('facturacion_correo_fijar',{p_envio:e1,p_auto:a1,p_referencia:r},I('escudo','ic-amb')+' Correo configurado.',true);return false;}});
+    return true;}
   return false;
 }
 

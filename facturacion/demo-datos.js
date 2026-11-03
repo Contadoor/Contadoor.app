@@ -161,7 +161,7 @@
 
   /* [F1a-DOC/CORREO] Grupo FIJO REAL ya emitido (datos ficticios): documentos, estado SII y correo en distintos estados */
   var lr=crearLote('FIJO');lr.modo='PRODUCCION';recalcLote(lr);lr.estado='EMITIDO';lr.huella=huella();
-  var consultas=[], parametros=[{id:1,correo_envio_habilitado:false,correo_auto_habilitado:false,correo_firma_usuario_id:5}];
+  var consultas=[], parametros=[{id:1,correo_envio_habilitado:false,correo_auto_habilitado:false}];
   lineas.filter(function(x){return x.lote_id===lr.id&&x.estado==='LISTA';}).forEach(function(f,i){
     f.modo='PRODUCCION';f.estado='EMITIDA';f.of_folio=String(16500+i);f.snapshot={v:1,correo_destino:'pagos'+(i+1)+'@cliente-ficticio.cl'};f.snapshot_hash=huella();
     f.doc_estado=i<4?'OBTENIDOS':(i===4?'ERROR':'PENDIENTE');if(i===4)f.doc_error='PDF_NO_DISPONIBLE: HTTP 404';

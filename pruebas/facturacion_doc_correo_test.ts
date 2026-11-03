@@ -17,7 +17,8 @@ function pagina(o: { envio?: boolean; sinMigracion?: boolean; master?: boolean }
 document.documentElement.classList.remove('auth-pending');
 function sbH(){return {'Content-Type':'application/json',Authorization:'Bearer jwt-ficticio'};}
 function resp(o,st){return Promise.resolve(new Response(JSON.stringify(o),{status:st||200,headers:{'Content-Type':'application/json'}}));}
-function sbFetch(path){
+function sbFetch(path,init){
+  if(path.indexOf('rpc/facturacion_correo_fijar')===0){window.__fijar=JSON.parse(init.body);return resp({ok:true});}
   if(path.indexOf('rpc/facturacion_yo')===0)return resp({usuario_id:1,es_master:${!!o.master},puede_preparar:true,puede_emitir:true,puede_aprobar:${!!o.master},puede_leer:true});
   return resp([]);
 }
@@ -27,7 +28,7 @@ function sbGet(path){
   if(path.indexOf('facturacion_lotes')===0)return Promise.resolve([${JSON.stringify(LOTE_R)},${JSON.stringify(LOTE_P)}]);
   if(path.indexOf('facturacion?')===0&&path.indexOf('lote_id=eq.3')>0)return Promise.resolve([${JSON.stringify(lin(296, '16500', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(lin(297, '16501', 'PENDIENTE', 'PENDIENTE'))}]);
   if(path.indexOf('facturacion_consultas_proveedor')===0)return ${o.sinMigracion ? "Promise.reject(new Error('404 relation does not exist'))" : "Promise.resolve([{linea_id:296,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH: fecha']}}])"};
-  if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([${o.sinMigracion ? '{id:1,produccion_habilitada:false}' : `{id:1,correo_envio_habilitado:${!!o.envio},correo_auto_habilitado:false,correo_firma_usuario_id:5}`}]);
+  if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([${o.sinMigracion ? '{id:1,produccion_habilitada:false}' : `{id:1,correo_envio_habilitado:${!!o.envio},correo_auto_habilitado:false}`}]);
   return Promise.resolve([]);
 }`;
   let html = leer('facturacion/index.html');
@@ -81,6 +82,13 @@ dom.window.close();
 dom = await abrir({ master: true });
 d = dom.window.document;
 res('10 el Master ve "Configurar correo"', !!d.querySelector('[data-act="config-correo"]'));
+d.querySelector('[data-act="config-correo"]').click(); await espera(50);
+const mb = d.getElementById('mBody').textContent;
+d.getElementById('mEnv').checked = true; d.getElementById('mRef').value = 'GO de prueba local';
+d.querySelector('#mFoot [data-m="si"]').click(); await espera(80);
+res('12 Configurar correo: firma corporativa (sin elegir persona) y fijar con (envío, auto, referencia)',
+  /Asesorías Contadoor Ltda\./.test(mb) && /info@contadoor\.cl/.test(mb) && !d.getElementById('mFir')
+  && JSON.stringify(Object.keys(dom.window.__fijar || {}).sort()) === JSON.stringify(['p_auto', 'p_envio', 'p_referencia']) && dom.window.__fijar.p_envio === true, dom.window.__fijar);
 dom.window.close();
 
 dom = await abrir({ sinMigracion: true });
