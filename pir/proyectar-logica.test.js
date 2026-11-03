@@ -164,20 +164,20 @@ test('rótulos con el año: "Balance 2026 (este año)" y "Balance 2025 (cierre d
   assert.equal(ant.nombre(2026), 'Balance 2025 (cierre del año anterior)');
 });
 test('año del nombre del archivo Masconta: no se sube en la tarjeta equivocada y se sugiere la correcta; sin año no se bloquea', () => {
-  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_78107327-K_0-2026.xls'), 2026);
-  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_78107327-K_0-2025 (1).xls'), 2025);
-  assert.equal(L.anioDeNombre('LIBRO_DIARIO', 'LibroLibDiarioVouche_78107327-K_2026.xls'), 2026);
+  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_76111222-3_0-2026.xls'), 2026);
+  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_76111222-3_0-2025 (1).xls'), 2025);
+  assert.equal(L.anioDeNombre('LIBRO_DIARIO', 'LibroLibDiarioVouche_76111222-3_2026.xls'), 2026);
   assert.equal(L.anioDeNombre('BALANCE', 'balance septiembre.xls'), null);
-  const r = L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_78107327-K_0-2026.xls');   // el error real del 3-nov
+  const r = L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_76111222-3_0-2026.xls');   // el error real del 3-nov
   assert.equal(r.anio, 2026); assert.equal(r.sugerida, 'BALANCE');
   assert.match(r.texto, /es del año 2026 y esta tarjeta es "Balance 2025 \(cierre del año anterior\)". No se subió. Súbelo en la tarjeta "Balance 2026 \(este año\)"/);
-  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_78107327-K_0-2025.xls').sugerida, 'BALANCE_ANT');
-  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_78107327-K_0-2026.xls'), null);
-  assert.equal(L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_78107327-K_0-2025.xls'), null);
+  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2025.xls').sugerida, 'BALANCE_ANT');
+  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2026.xls'), null);
+  assert.equal(L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_76111222-3_0-2025.xls'), null);
   assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'mi balance.xls'), null);                     // sin año en el nombre: no se bloquea
-  const x = L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_78107327-K_0-2023.xls');
+  const x = L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2023.xls');
   assert.equal(x.sugerida, null); assert.match(x.texto, /exporta el Balance del año 2026/);
-  assert.match(L.revisarAnioArchivo('DIARIO', 2026, 'LibroLibDiarioVouche_78107327-K_2025.xls').texto, /Libro Diario del año 2026/);
+  assert.match(L.revisarAnioArchivo('DIARIO', 2026, 'LibroLibDiarioVouche_76111222-3_2025.xls').texto, /Libro Diario del año 2026/);
   assert.equal(L.revisarAnioArchivo('PLAN', 2026, 'PlanCuentas_0-2025.xls'), null);
 });
 test('mensajes comprensibles: período declarado ≠ archivo, período no detectado y archivo duplicado', () => {
