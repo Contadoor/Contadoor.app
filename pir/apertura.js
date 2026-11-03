@@ -311,7 +311,9 @@
 
   function render() {
     var raiz = $('#mr-app'); if (!raiz) return;
-    var h = '<div class="mr-cabecera">' + selectorCaso() + '<label class="mr-tec"><input type="checkbox" data-accion="tecnico"' + (S.tecnico ? ' checked' : '') + '> Modo técnico</label></div>';
+    // Asistente Proyectar: desde aquí se vuelve a él con el mismo caso (la revisión de la apertura es su paso 2).
+    var volver = '<a class="btn sec chico" href="proyectar.html' + (S.caso ? '?caso=' + S.caso.id + '&paso=2' : '') + '">← Volver a Proyectar</a>';
+    var h = '<div class="mr-cabecera">' + selectorCaso() + volver + '<label class="mr-tec"><input type="checkbox" data-accion="tecnico"' + (S.tecnico ? ' checked' : '') + '> Modo técnico</label></div>';
     if (S.aviso) h += '<div class="aviso ' + S.aviso.tipo + '" role="status">' + esc(S.aviso.texto) + '</div>';
     if (!S.caso) h += '<section class="card acc-DOC"><div class="h"><h2>Apertura tributaria</h2></div><p class="t2">Elige un caso para revisar su apertura: los saldos iniciales que vienen del F22 del año anterior.</p>' + (S.casos.length ? '' : '<div class="aviso gris">No tienes casos de MiRenta asignados.</div>') + '</section>';
     else if (S.ocupado === 'cargando' && !S.vigente) h += '<section class="card"><div class="aviso lila"><span class="mr-spin"></span>Cargando…</div></section>';
