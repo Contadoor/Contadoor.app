@@ -720,3 +720,27 @@ body.fa-con-franja.g-mod-fact .fx-modal.on{top:calc(50% + 20px)}
 .g-mod-fact .fa-ocultar.on .fa-sw::after{transform:translateX(12px);background:#fff}
 .g-mod-fact .fa-pasos{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){.g-mod-fact .fa-pasos{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ── [F1a-DOC/CORREO] Documentos y correo del grupo emitido ── */
+.g-mod-fact .prueba.real{background:rgba(95,207,156,.13);border-color:rgba(95,207,156,.5);color:var(--ver)}
+.g-mod-fact .fx-docs{margin-top:14px}
+.g-mod-fact .dc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:6px}
+.g-mod-fact .dc-kpi{padding:14px 16px;border:1px solid var(--bdr);border-radius:14px;background:rgba(255,255,255,.03)}
+.g-mod-fact .dc-t{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1)}
+.g-mod-fact .dc-v{font:800 24px var(--g-titulo,Montserrat,sans-serif);color:var(--t1);margin-top:6px;font-variant-numeric:tabular-nums}
+.g-mod-fact .dc-v small{font-size:13px;color:var(--t2);font-weight:600}
+.g-mod-fact .dc-barra{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0 6px}
+.g-mod-fact .dc-barra span{display:block;height:100%;border-radius:99px;transition:width .4s ease}
+.g-mod-fact .dc-barra .v{background:linear-gradient(90deg,#28865B,#5FCF9C)}
+.g-mod-fact .dc-barra .c{background:linear-gradient(90deg,#2C6FB7,#5CC8FF)}
+.g-mod-fact .dc-barra .m{background:linear-gradient(90deg,#924893,#E39BE5)}
+.g-mod-fact .dc-s{font-size:12px;color:var(--t2)}
+.g-mod-fact .dc-acc{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.g-mod-fact .mini-btn{cursor:pointer;border:1px solid rgba(95,207,156,.45);background:rgba(95,207,156,.1);color:var(--ver);font:inherit;display:inline-flex;align-items:center;gap:4px}
+.g-mod-fact .mini-btn:hover{background:rgba(95,207,156,.2)}
+.g-mod-fact .mini-btn .g-ic{width:13px;height:13px}
+.g-mod-fact .dc-dr{margin-bottom:14px;background:rgba(95,207,156,.06);border-color:rgba(95,207,156,.35)}
+.g-mod-fact .dc-fila{display:grid;grid-template-columns:20px 110px 1fr;gap:6px;align-items:start;margin-top:8px;font-size:13px;color:var(--t2)}
+.g-mod-fact .dc-fila b{color:var(--t1);font-weight:600}
+.g-mod-fact .dc-fila small{color:var(--t2);font-weight:400}
+@media (max-width:760px){.g-mod-fact .dc-grid{grid-template-columns:1fr}.g-mod-fact .dc-fila{grid-template-columns:20px 1fr}.g-mod-fact .dc-fila b{grid-column:2}}

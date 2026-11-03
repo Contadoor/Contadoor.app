@@ -28,7 +28,7 @@
 <div class="wrap">
   <div class="topbar">
     <h1 class="tb-title">Facturación <span id="tbSub">mensual</span></h1>
-    <span class="prueba" title="Modo PRUEBA: emisión en el ambiente de pruebas de OpenFactura (sin SII) y correos solo a info@contadoor.cl"><i class="ic ic-amb" data-ic="probeta"></i>MODO PRUEBA</span>
+    <span class="prueba" id="fxModoTag" title="Modo PRUEBA: emisión en el ambiente de pruebas de OpenFactura (sin SII) y correos solo a info@contadoor.cl"><i class="ic ic-amb" data-ic="probeta"></i>MODO PRUEBA</span>
     <span class="prueba" id="fxDemo" hidden style="background:rgba(92,200,255,.12);border-color:rgba(92,200,255,.45);color:var(--cel)" title="Datos ficticios locales: no se conecta a Supabase y nada se guarda"><i class="ic ic-cel" data-ic="probeta"></i>DEMO LOCAL · DATOS FICTICIOS</span>
     <span class="g-espacio"></span>
     <div class="g-seg" id="verComo" role="group" aria-label="Ver como (solo demo)" hidden>
@@ -52,6 +52,10 @@
         <button type="button" class="fb" data-vista="VARIABLE" aria-pressed="false"><i class="ic ic-cel" data-ic="personas"></i>Grupo VARIABLE · días 10–15</button>
         <button type="button" class="fb" data-vista="ADICIONAL" aria-pressed="false"><i class="ic ic-ama" data-ic="factura"></i>Facturación adicional</button>
       </div>
+      <div class="g-seg" id="fxModoSel" role="group" aria-label="Facturas reales o de prueba" hidden>
+        <button type="button" class="fb on" data-modo="PRODUCCION" aria-pressed="true"><i class="ic ic-ver" data-ic="factura"></i>Reales · SII</button>
+        <button type="button" class="fb" data-modo="PRUEBA" aria-pressed="false"><i class="ic ic-amb" data-ic="probeta"></i>Prueba</button>
+      </div>
       <label class="sim" id="fxPeriodoBox"><span class="sim-tag">PERÍODO</span> Período contable
         <select id="selPeriodo" aria-label="Período contable"><option value="">Cargando…</option></select>
       </label>
@@ -63,6 +67,7 @@
     <div id="vistaGrupo">
       <div class="g-card fx-pasos" id="pasos"></div>
       <div class="g-card fx-acc" id="acciones"></div>
+      <section class="g-card fx-docs" id="fxDocs" hidden aria-label="Documentos y correo del grupo"></section>
 
       <div class="fx-tabs" role="tablist">
         <button type="button" class="fx-tab on" data-tab="lineas" role="tab" aria-selected="true"><i class="ic ic-mor" data-ic="lista"></i>Líneas del grupo <span class="cnt" id="cntLineas">0</span></button>
