@@ -646,13 +646,13 @@ var COD_DOC={
   CORREO_AUTO_APAGADO:'El envío automático está apagado.',
   CORREO_YA_ENVIADO:'Este correo ya se envió: nunca se manda dos veces.',CORREO_EN_CURSO:'El correo se está enviando ahora mismo. Espera unos segundos y recarga.',
   CORREO_INCIERTO:'No se sabe si el correo salió (corte o timeout). El Master revisa "Enviados" de reportes@ y lo resuelve: no se reenvía solo.',
-  CORREO_MAX_INTENTOS:'Ya se intentó 3 veces. Revisa el correo de la ficha del cliente.',SII_RECHAZADO:'El SII rechazó este DTE: no se envía aviso al cliente.',
+  CORREO_MAX_INTENTOS:'Ya hubo 3 envíos rechazados por Microsoft para esta factura: Gestoor no lo intenta más. Revisa el correo de la ficha del cliente y avisa a soporte.',SII_RECHAZADO:'El SII rechazó este DTE: no se envía aviso al cliente.',
   ESPERA_ESTADO_SII:'Primero consulta el estado SII (debe estar aceptado).',DESTINO_NO_PERMITIDO:'El destino no coincide con el correo aprobado en la factura.',
   SIN_DOCUMENTOS_CORREO:'Faltan el PDF y el XML oficiales.',AZURE_NO_CONFIGURADO:'El correo (Microsoft 365) no está configurado en la Edge.',
   REMITENTE_INVALIDO:'El remitente configurado no es una casilla @contadoor.cl.',NO_INCIERTO:'Ese correo no está incierto: no hay nada que resolver.',
   SII_NO_ACEPTADO:'El SII aún no acepta esta factura (o no hay consulta válida): no se envía aviso.',
   SII_REPAROS_REVISION:'Aceptada con reparos que no son solo el de fecha (o no identificados): queda DETENIDA para revisión manual.',
-  CANCELADO_ANTES_DE_ENVIAR:'Se canceló antes de enviar (interruptor apagado, estado SII cambió o reclamo vencido). No salió; se puede reintentar.',
+  CANCELADO_ANTES_DE_ENVIAR:'Se canceló antes de enviar (interruptor apagado, estado SII cambió o reclamo vencido). No salió y no cuenta como intento; se puede volver a enviar.',
   PREVIA_CAMBIO:'La lista cambió desde que la revisaste (otra persona actuó o cambió un estado). Vuelve a abrir "Enviar correos del grupo".',
   PREVIA_OBLIGATORIA:'Primero revisa la lista del servidor ("Enviar correos del grupo").',
   CORREO_BLOQUEADO_EN_EDGE:'El envío real está bloqueado en el servidor hasta la autorización formal (GO). No salió nada.',
@@ -664,12 +664,20 @@ var COD_DOC={
   SOLICITUD_INVALIDA:'La solicitud de prueba venció o no corresponde. Vuelve a intentarlo.',
   CORREO_REQUIERE_REVISION:'El envío anterior fue rechazado por Microsoft (solicitud o configuración): las tandas no lo reintentan. Corrige y usa "Enviar correo" en la factura.',
   PRUEBA_YA_RECLAMADA:'Esa prueba ya se está enviando o ya se envió: no se manda dos veces.',PRUEBA_EN_CURSO:'Ya hay una prueba de esta factura en curso. Espera su resultado.',
-  SOLICITUD_VENCIDA:'La solicitud de prueba venció (15 min). Pide otra.',ESTADO_SII_NO_CALZA_CON_CUERPO:'La respuesta del SII no coincide con lo declarado: se registró como desconocida.'
+  SOLICITUD_VENCIDA:'La solicitud de prueba venció (15 min). Pide otra.',
+  PRUEBA_INCIERTA_SIN_RESOLVER:'La prueba anterior de esta factura quedó incierta (no se sabe si llegó a info@). El Master la resuelve con evidencia antes de pedir otra.',
+  REGISTRO_TARDIO:'La respuesta de Microsoft llegó tarde: la prueba queda incierta hasta que el Master la resuelva (revisa la bandeja de info@).',
+  PRUEBA_NO_INCIERTA:'Esa prueba no está incierta: no hay nada que resolver.',PRUEBA_NO_EXISTE:'La prueba no existe.',
+  CONJUNTO_INVALIDO:'La lista confirmada no es válida (vacía, repetida o con facturas de otro grupo). No se envió nada: vuelve a abrir "Enviar correos del grupo".',
+  PREVIA_ERROR:'No se pudo verificar la lista en el servidor. No se envió nada; reintenta.',DESDE_INVALIDO:'Parámetro de avance inválido. Recarga la página.',
+  CUERPO_DEMASIADO_GRANDE:'La solicitud es demasiado grande. Recarga la página.',FACTURA_INVALIDA:'Factura inválida. Recarga la página.',
+  ALMACEN_BAJAR_FALLIDO:'No se pudo leer el archivo guardado (error del almacenamiento). No se muestra nada; reintenta o avisa a soporte.',
+  ALMACEN_NO_EXISTE:'El archivo no está en el almacenamiento. Avisa a soporte.',ALMACEN_YA_EXISTE:'Ya hay un archivo guardado para esta factura: no se sobrescribe.',ESTADO_SII_NO_CALZA_CON_CUERPO:'La respuesta del SII no coincide con lo declarado: se registró como desconocida.'
 };
 function txtDoc(c){c=String(c||'').split(':')[0];
-  if(c==='GRAPH_400'||c==='GRAPH_413'||c==='GRAPH_422')return 'Microsoft rechazó el correo por ser una solicitud inválida ('+c.slice(6)+'): no salió. No se reintenta solo; revisa el correo de la ficha o avisa a soporte.';
+  if(c==='GRAPH_400'||c==='GRAPH_413'||c==='GRAPH_422')return 'Microsoft rechazó el correo por ser una solicitud inválida ('+c.slice(6)+'): no salió. Las tandas y el automático NO lo reintentan; revisa el correo de la ficha y, ya corregido, usa "Enviar correo" en la factura (máximo 3 envíos en total).';
   if(c==='GRAPH_401'||c==='GRAPH_403'||c==='GRAPH_404')return 'Microsoft rechazó la autorización o la casilla ('+c.slice(6)+'): no salió. Hay que corregir la configuración del correo (no es un problema pasajero); la tanda se detuvo.';
-  if(c==='GRAPH_429')return 'Microsoft limitó los envíos por un momento (429): no salió. La tanda se detuvo; reintenta en unos minutos.';if(/^GRAPH_4\d\d$/.test(c))return 'Microsoft rechazó el correo ('+c.slice(6)+'): no salió. Se puede reintentar.';if(/^INCIERTO/.test(c))return COD_DOC.CORREO_INCIERTO;return COD_DOC[c]||ERRORES[c]||('Código: '+c);}
+  if(c==='GRAPH_429')return 'Microsoft limitó los envíos por un momento (429): no salió. Ya se reintentó una vez; la tanda se detuvo. Reintenta en unos minutos (cada envío rechazado cuenta para el máximo de 3).';if(/^GRAPH_4\d\d$/.test(c))return 'Microsoft rechazó el correo ('+c.slice(6)+'): no salió. Las tandas y el automático NO lo reintentan; tras revisar, usa "Enviar correo" en la factura (máximo 3 envíos en total).';if(/^INCIERTO/.test(c))return COD_DOC.CORREO_INCIERTO;return COD_DOC[c]||ERRORES[c]||('Código: '+c);}
 var SII_TXT={ACEPTADO:['SII aceptada','ok'],ACEPTADO_CON_REPAROS:['SII con reparos','pen'],PENDIENTE:['SII pendiente','inf'],RECHAZADO:['SII rechazada','err'],DESCONOCIDO:['SII sin dato','pen']};
 function siiTxt(e){return SII_TXT[e]||['SII: '+String(e||'sin dato'),'pen'];}   // [FE-01] estado desconocido: nunca rompe el render
 var CORREO_TXT={PENDIENTE:['Correo pendiente','pen'],ENVIANDO:['Enviando…','inf'],ENVIADO:['Correo enviado','ok'],FALLIDO:['Correo fallido','err']};
@@ -679,14 +687,25 @@ function correoIncierto(l){return (l.correo_estado==='FALLIDO'&&/^INCIERTO/.test
 // "No instalado" (la migración F1a-DOC aún no está): tabla o función inexistente. Cualquier otro error se MUESTRA (FE-04).
 // [A5-04] Solo códigos de "objeto inexistente" (no un 404 genérico): PGRST202/205 (función/tabla fuera del esquema), 42P01, 42883.
 function noInstalado(e){var fx=e&&e.fx||{}, m=String(fx.message||(e&&e.message)||''), c=String(fx.code||'');return /^(PGRST202|PGRST205|42P01|42883)$/.test(c)||/Could not find the (function|table)|relation "[^"]+" does not exist/i.test(m);}
+// [R12.1 A8-04/A6-06] Falla CERRADA: un error que no es "no instalado" se muestra y deja el envío sin elegibles; si una parte responde
+// "no instalado" y otra sí está, la instalación está INCOMPLETA → aviso y nada enviable (nunca se asume que "no hay nada").
 function cargarDocs(ids){
-  var aviso=function(e){if(!noInstalado(e))S.docsAviso='No se pudo leer el estado de documentos y correo: '+mensajeError(e);};
+  var faltan=0, hay=0;
+  var aviso=function(e){if(noInstalado(e)){faltan++;return;}S.docsAviso='No se pudo leer el estado de documentos y correo: '+mensajeError(e);};
+  var instaladoOk=function(){hay++;};
   var p1=API.get('facturacion_consultas_proveedor?select=linea_id,tipo,resumen,referencia,creado_at&tipo=eq.ESTADO_SII&linea_id=in.('+ids.join(',')+')&order=creado_at.desc')
-    .then(function(rows){S.sii={};(rows||[]).forEach(function(r){if(!S.sii[r.linea_id])S.sii[r.linea_id]=Object.assign({at:r.creado_at},r.resumen||{});});}).catch(function(e){S.sii={};aviso(e);});
+    .then(function(rows){instaladoOk();S.sii={};(rows||[]).forEach(function(r){if(!S.sii[r.linea_id])S.sii[r.linea_id]=Object.assign({at:r.creado_at},r.resumen||{});});}).catch(function(e){S.sii={};aviso(e);});
   var p2=API.get('facturacion_parametros?select=*&id=eq.1').then(function(r){S.par=(r&&r[0])||null;}).catch(function(e){S.par=null;aviso(e);});
+  // [R12.1 C01] Pruebas de correo INCIERTAS sin resolver (o RECLAMADAS vencidas): el Master las resuelve antes de pedir otra.
+  S.pruebaInc={};
+  var p4=esMaster()?API.get('facturacion_correo_pruebas?select=id,linea_id,estado,reclamado_at,resuelto_at&resuelto_at=is.null&estado=in.(INCIERTA,RECLAMADA)&linea_id=in.('+ids.join(',')+')')
+    .then(function(rows){instaladoOk();(rows||[]).forEach(function(r){if(r.estado==='INCIERTA'||(r.reclamado_at&&(Date.now()-new Date(r.reclamado_at).getTime())>10*60000))S.pruebaInc[r.linea_id]=r;});})
+    .catch(function(e){aviso(e);}):Promise.resolve();
   // Decisión del SERVIDOR por línea (destinatario autorizado, SII, elegible) — solo facturador/Master y con el grupo emitido.
-  var p3=(opera()&&S.lineas.some(function(l){return l.estado==='EMITIDA';}))?API.rpc('facturacion_correo_previa',{p_lote:S.lote.id}).then(function(r){S.previa=r||null;}).catch(function(e){S.previa=null;aviso(e);}):Promise.resolve();
-  return Promise.all([p1,p2,p3]);
+  var p3=(opera()&&S.lineas.some(function(l){return l.estado==='EMITIDA';}))?API.rpc('facturacion_correo_previa',{p_lote:S.lote.id}).then(function(r){instaladoOk();S.previa=r||null;}).catch(function(e){S.previa=null;aviso(e);}):Promise.resolve();
+  return Promise.all([p1,p2,p3,p4]).then(function(){
+    if(faltan&&hay){S.previa=null;S.docsAviso='La instalación de documentos y correo está INCOMPLETA (una parte responde y otra no existe). No se envía nada hasta corregirla: avisa a soporte.';}
+  });
 }
 function previaDe(id){var p=S.previa&&S.previa.lineas||[];for(var i=0;i<p.length;i++)if(+p[i].linea_id===+id)return p[i];return null;}
 function enRevision(l){var p=previaDe(l.id);return !!(p&&/^SII_REPAROS_REVISION/.test(p.sii||''));}   // decisión SII del servidor (independiente del interruptor)
@@ -757,8 +776,27 @@ function correrDoc(p,okTxt){
 }
 // Tandas de 10 (la Edge no procesa más por llamada) [R12-04]. TODAS avanzan con cursor (desde_id → ultimo_id), así una factura que no
 // avanza no se repite. En el envío masivo la huella y el conjunto confirmado son los MISMOS en todas las vueltas (lista cerrada).
-// Resultado final (sumando vueltas): COMPLETA · CON_AVISOS · SIN_AVANCE · DETENIDA.
-var TANDA_TXT={COMPLETA:['check','ic-ver','completa'],CON_AVISOS:['alerta','ic-amb','terminada con avisos'],DETENIDA:['alerta','ic-amb','detenida'],SIN_AVANCE:['alerta','ic-roj','sin avance: revisa el detalle de cada factura']};
+// [R12.1 C03] Resultado final (sumando vueltas). Se distingue RECORRIDO TERMINADO (la Edge ya no tiene más facturas que mirar) de
+// OBJETIVO CUMPLIDO (todas las recorridas quedaron listas):
+//   DETENIDA    → la Edge se detuvo (configuración, Graph, cambio de lista): NO terminó.
+//   INCOMPLETA  → la última vuelta fue PARCIAL (quedan facturas), no avanzó el cursor, se llegó al límite de vueltas o el resultado es
+//                 desconocido: NO terminó, aunque ok === proc. Se vuelve a presionar para continuar (el cursor parte de nuevo y lo hecho
+//                 no se repite).
+//   COMPLETA    → terminó el recorrido y TODAS las recorridas quedaron listas (proc > 0).
+//   CON_AVISOS / SIN_AVANCE → terminó el recorrido, pero algunas / ninguna quedaron listas (revisar el detalle).
+//   SIN_PENDIENTES → terminó y no había nada que hacer.
+var TANDA_TXT={COMPLETA:['check','ic-ver','completa: todas las recorridas quedaron listas'],CON_AVISOS:['alerta','ic-amb','recorrido terminado con avisos (no todas quedaron listas)'],
+  DETENIDA:['alerta','ic-amb','detenida (no terminó el recorrido)'],SIN_AVANCE:['alerta','ic-roj','recorrido terminado sin avance: revisa el detalle de cada factura'],
+  INCOMPLETA:['alerta','ic-amb','NO terminó el recorrido: vuelve a presionar para continuar'],SIN_PENDIENTES:['check','ic-ver','no había facturas pendientes']};
+var TANDA_MAX_VUELTAS=60;
+function finTanda(r,ok,proc){
+  r=r||{};
+  if(r.resultado==='DETENIDA')return 'DETENIDA';
+  var termino=(r.resultado==='COMPLETA'||r.resultado==='CON_AVISOS'||r.resultado==='SIN_AVANCE')&&!(+r.quedan>0);
+  if(!termino)return 'INCOMPLETA';   // PARCIAL (por límite de vueltas o cursor sin avance), quedan > 0 o resultado desconocido
+  if(proc===0)return 'SIN_PENDIENTES';
+  return ok===proc?'COMPLETA':(ok===0?'SIN_AVANCE':'CON_AVISOS');
+}
 function tanda(accion,titulo,extra){
   if(S.ocupado||!S.lote)return;S.ocupado=true;render();
   var proc=0, ok=0, desde=0, vueltas=0, ult=null, avisos=0;
@@ -770,19 +808,20 @@ function tanda(accion,titulo,extra){
       avisos+=p.filter(function(x){return x.codigo&&x.documentos!=='OBTENIDOS'&&x.correo!=='ENVIADO'&&!x.estado_sii;}).length;
       var avanzo=(+r.ultimo_id||0)>desde;desde=+r.ultimo_id||desde;
       toast(I('repetir','ic-cel')+' '+esc(titulo)+': '+ok+' listo(s)'+(r.quedan?' · quedan '+r.quedan:''));
-      if(r.resultado==='PARCIAL'&&avanzo&&vueltas<60)return paso();
+      if(r.resultado==='PARCIAL'&&avanzo&&vueltas<TANDA_MAX_VUELTAS)return paso();
       return r;
     });
   }
   return paso().then(function(r){
     S.ocupado=false;
-    var fin=r.resultado==='DETENIDA'?'DETENIDA':(ok===proc?'COMPLETA':(ok===0?'SIN_AVANCE':'CON_AVISOS'));
+    var fin=finTanda(r,ok,proc);
     var t=TANDA_TXT[fin];
-    toast(I(t[0],t[1])+' '+esc(titulo)+' '+esc(t[2])+': '+ok+' de '+proc+' listo(s).'
+    toast(I(t[0],t[1])+' '+esc(titulo)+' '+esc(t[2])+' ('+ok+' de '+proc+' recorrida(s) listas).'+(+r.quedan>0?' Quedan '+(+r.quedan)+' por recorrer.':'')
       +(r.detenida?' Motivo: '+esc(txtDoc(r.detenida)):'')+(avisos?' '+avisos+' con aviso (ver el detalle de cada factura).':''));
     return cargar();
   }).catch(function(e){S.ocupado=false;toast(I('alerta','ic-amb')+' '+esc(txtDoc(e.codigo||e.message)));render();});
 }
+window.FX_DOC={finTanda:finTanda,txtDoc:txtDoc};   // [R12.1] lógica pura expuesta (como FX_UTIL) para las pruebas
 function bloqueDocDrawer(l){
   if(l.estado!=='EMITIDA')return '';
   var sii=S.sii[l.id], c=CORREO_TXT[l.correo_estado]||[l.correo_estado,''], inc=correoIncierto(l);
@@ -792,7 +831,8 @@ function bloqueDocDrawer(l){
     +btn({txt:'Estado SII',ic:'sii',icc:'ic-cel',cls:'sm',ok:opera(),act:'sii-linea',id:l.id,tip:'Consulta el estado de esta factura en el SII y guarda la evidencia.'})
     +(l.correo_estado!=='ENVIADO'&&!inc?btn({txt:'Enviar correo',ic:'correo',icc:'ic-mor',cls:'sm',ok:opera()&&l.doc_estado==='OBTENIDOS'&&(!esReal()||(S.par&&S.par.correo_envio_habilitado===true)),act:'correo-linea',id:l.id,
         tip:l.doc_estado!=='OBTENIDOS'?'Primero el PDF y el XML.':(esReal()&&!(S.par&&S.par.correo_envio_habilitado)?'El envío real está apagado.':'Envía el aviso con el PDF y el XML al correo aprobado en la factura.')}):'')
-    +(esMaster()&&l.doc_estado==='OBTENIDOS'?btn({txt:'Prueba a info@',ic:'probeta',icc:'ic-amb',cls:'sm',ok:true,act:'prueba-linea',id:l.id,tip:'Envía este mismo correo SOLO a info@contadoor.cl, con una franja de prueba. No cuenta como el correo de la factura.'}):'')
+    +(esMaster()&&l.doc_estado==='OBTENIDOS'?btn({txt:'Prueba a info@',ic:'probeta',icc:'ic-amb',cls:'sm',ok:!(S.pruebaInc&&S.pruebaInc[l.id]),act:'prueba-linea',id:l.id,tip:S.pruebaInc&&S.pruebaInc[l.id]?COD_DOC.PRUEBA_INCIERTA_SIN_RESOLVER:'Envía este mismo correo SOLO a info@contadoor.cl, con una franja de prueba. No cuenta como el correo de la factura.'}):'')
+    +(esMaster()&&S.pruebaInc&&S.pruebaInc[l.id]?btn({txt:'Resolver prueba incierta',ic:'escudo',icc:'ic-amb',cls:'sm',ok:true,act:'resolver-prueba',id:l.id,tip:'Revisa la bandeja de info@ (o la traza de Exchange) y marca si la prueba llegó.'}):'')
     +(esMaster()&&inc?btn({txt:'Resolver correo incierto',ic:'escudo',icc:'ic-amb',cls:'sm',ok:true,act:'resolver-correo',id:l.id,tip:'Revisa "Enviados" de reportes@ y marca si salió o no.'}):'');
   return '<div class="fx-aviso dc-dr">'+I('pdf','placa ic-ver')+'<div style="flex:1"><b>Factura N° '+esc(l.of_folio)+' · documentos y correo</b>'
     +fila('pdf','ic-ver','PDF y XML',l.doc_estado==='OBTENIDOS'?'Guardados y validados':(l.doc_estado==='ERROR'?'Con error: '+esc(txtDoc(l.doc_error)):'Pendientes'))
@@ -815,6 +855,20 @@ function accionDoc(act,l){
   if(act==='prueba-linea'&&l){
     modal({t:'Correo de prueba a info@',ic:'probeta',icc:'ic-amb',ok:'Enviar prueba',b:'<p>Se envía el correo de la <b>factura N° '+esc(l.of_folio)+'</b> <b>solo a info@contadoor.cl</b>, con la franja de prueba que muestra a quién iría. No cuenta como el correo de la factura: el cliente no recibe nada.</p>',
       cb:function(){correrDoc(edgeMensual('correo_prueba_linea',{linea_id:l.id}),function(r){return r.correo_prueba==='ENVIADA'?I('probeta','ic-ver')+' Prueba enviada a info@contadoor.cl.':I('alerta','ic-amb')+' '+esc(txtDoc(r.codigo));});return false;}});return true;}
+  if(act==='resolver-prueba'&&l&&S.pruebaInc&&S.pruebaInc[l.id]){
+    var pi=S.pruebaInc[l.id];
+    modal({t:'Resolver prueba incierta',ic:'escudo',icc:'ic-amb',ok:'Guardar',b:'<p>Prueba N° '+esc(pi.id)+' del correo de la factura N° '+esc(l.of_folio)+' (iba <b>solo a info@contadoor.cl</b>). Mientras no se resuelva, no se puede pedir otra prueba de esta factura.</p>'
+      +'<p style="color:var(--amb)"><b>Ojo:</b> para marcar "no llegó" se necesita la <b>traza de mensajes de Exchange</b>.</p>'
+      +'<label class="chk"><input type="radio" name="mResP" value="LLEGO"> Llegó (está en la bandeja de info@ o en la traza)</label><label class="chk"><input type="radio" name="mResP" value="NO_LLEGO"> No llegó (la traza de Exchange lo confirma)</label>'
+      +'<label for="mEvTP">Evidencia</label><select id="mEvTP"><option value="TRAZA_EXCHANGE">Traza de mensajes de Exchange</option><option value="BUZON_INFO">Bandeja de info@ (solo sirve para "llegó")</option></select>'
+      +'<label for="mEvRP">Id de la traza o del mensaje (obligatorio)</label><input id="mEvRP" maxlength="200" autocomplete="off">'
+      +'<label for="mMotP">Qué viste (obligatorio, mínimo 10 caracteres)</label><textarea id="mMotP" maxlength="700"></textarea>',
+      cb:function(){var r=document.querySelector('input[name="mResP"]:checked'), t=$('mEvTP').value, ref=$('mEvRP').value.trim(), v=$('mMotP').value.trim();
+        if(!r){modal.error('Elige si llegó o no.');return false;}
+        if(r.value==='NO_LLEGO'&&t!=='TRAZA_EXCHANGE'){modal.error('Para marcar "no llegó" se necesita la traza de mensajes de Exchange.');return false;}
+        if(ref.length<6){modal.error(COD_DOC.EVIDENCIA_REF_OBLIGATORIA);return false;}
+        if(v.length<10){modal.error(ERRORES.MOTIVO_OBLIGATORIO);return false;}
+        ejecutar('facturacion_correo_prueba_resolver',{p_prueba:pi.id,p_resultado:r.value,p_evidencia_tipo:t,p_evidencia_ref:ref,p_motivo:v},I('escudo','ic-amb')+' Prueba resuelta.',true);return false;}});return true;}
   if(act==='resolver-correo'&&l){
     modal({t:'Resolver correo incierto',ic:'escudo',icc:'ic-amb',ok:'Guardar',b:'<p>Correo de la factura N° '+esc(l.of_folio)+' (encabezado X-Gestoor-Factura: F1a-'+l.id+'-folio-'+esc(l.of_folio)+').</p>'
       +'<p style="color:var(--amb)"><b>Ojo:</b> que no aparezca en Enviados NO prueba que no salió. Para marcar "no salió" se necesita la <b>traza de mensajes de Exchange</b>.</p>'

@@ -11,7 +11,7 @@ const LOTE_P = { ...LOTE_R, id: 2, modo: 'PRUEBA' };
 const lin = (id: number, folio: string, doc: string, correo: string, extra: Record<string, unknown> = {}) => ({ id, lote_id: 3, cliente_id: id, cliente_rut: '7610000' + id + '-1', razon_social: 'Cliente Ficticio ' + id + ' SpA',
   plan: 'cumplimiento', moneda: 'CLP', monto_base: 49990, valor_por_trab: 0, total_clp: 49990, estado: 'EMITIDA', motivos: [], alertas: [], tipo_lote: 'FIJO', modo: 'PRODUCCION',
   of_folio: folio, doc_estado: doc, correo_estado: correo, correo_intentos: 0, snapshot: { correo_destino: 'navegador' + id + '@no-usar.cl' }, ...extra });
-type Op = { envio?: boolean; sinMigracion?: boolean; master?: boolean; siiRaro?: boolean; falla500?: boolean; tanda?: string; previa?: any; incierta?: boolean; error404?: boolean };
+type Op = { pruebaInc?: boolean; previaFalta?: boolean; envio?: boolean; sinMigracion?: boolean; master?: boolean; siiRaro?: boolean; falla500?: boolean; tanda?: string; previa?: any; incierta?: boolean; error404?: boolean };
 const PREVIA = { lote_id: 3, huella: 'h'.repeat(64), elegibles: 1, lineas: [
   { linea_id: 296, folio: '16500', total: 49990, destino: 'pagos296@servidor-autorizado.cl', sii: 'OK', elegible: true, motivo: null },
   { linea_id: 297, folio: '16501', total: 49990, destino: 'pagos297@servidor-autorizado.cl', sii: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA', elegible: false, motivo: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA' },
@@ -24,8 +24,9 @@ function resp(o,st){return Promise.resolve(new Response(JSON.stringify(o),{statu
 function sbFetch(path,init){
   window.__rpc.push({path:path,body:init&&init.body?JSON.parse(init.body):null});
   if(path.indexOf('rpc/facturacion_correo_fijar')===0){window.__fijar=JSON.parse(init.body);return resp({ok:true});}
+  if(path.indexOf('rpc/facturacion_correo_prueba_resolver')===0){window.__resolverP=JSON.parse(init.body);return resp({ok:true});}
   if(path.indexOf('rpc/facturacion_correo_resolver')===0){window.__resolver=JSON.parse(init.body);return resp({ok:true});}
-  if(path.indexOf('rpc/facturacion_correo_previa')===0)return ${o.sinMigracion ? "resp({code:'PGRST202',message:'Could not find the function'},404)" : `resp(${JSON.stringify(o.previa ?? PREVIA)})`};
+  if(path.indexOf('rpc/facturacion_correo_previa')===0)return ${o.sinMigracion || o.previaFalta ? "resp({code:'PGRST202',message:'Could not find the function'},404)" : `resp(${JSON.stringify(o.previa ?? PREVIA)})`};
   if(path.indexOf('rpc/facturacion_yo')===0)return resp({usuario_id:1,es_master:${!!o.master},puede_preparar:true,puede_emitir:true,puede_aprobar:${!!o.master},puede_leer:true});
   return resp([]);
 }
@@ -41,6 +42,7 @@ function sbGet(path){
     : o.falla500 ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:500,message:'timeout de base'}}))"
     : o.error404 ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:404,message:'Not Found (proxy)'}}))"
     : `Promise.resolve([{linea_id:296,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO',texto_estado:'Aceptado'}},{linea_id:297,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH-EMIS: fecha']}}${o.siiRaro ? ",{linea_id:298,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ESTADO_NUEVO_RARO'}}" : ''}])`};
+  if(path.indexOf('facturacion_correo_pruebas')===0)return Promise.resolve(${o.pruebaInc ? "[{id:901,linea_id:296,estado:'INCIERTA',reclamado_at:'2026-11-03T15:00:00Z',resuelto_at:null}]" : '[]'});
   if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([${o.sinMigracion ? '{id:1,produccion_habilitada:false}' : `{id:1,correo_envio_habilitado:${!!o.envio},correo_auto_habilitado:false}`}]);
   return Promise.resolve([]);
 }`;
@@ -61,6 +63,13 @@ async function abrir(o: Op = {}) {
         const body = JSON.parse(init.body); w.__edge.push({ url, headers: init.headers, body });
         if (body.accion === 'correo_lote') {
           if (o.tanda === 'DETENIDA') return Promise.resolve(new Response(JSON.stringify({ procesadas: [], exitosas: 0, quedan: 1, detenida: 'PREVIA_CAMBIO', resultado: 'DETENIDA', ultimo_id: 0 }), { status: 200 }));
+          const nV = w.__edge.filter((x: any) => x.body.accion === 'correo_lote').length;
+          if (o.tanda === 'SIEMPRE_PARCIAL') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296 + nV, correo: 'ENVIADO' }], exitosas: 1, quedan: 999, resultado: 'PARCIAL', ultimo_id: body.desde_id + 1 }), { status: 200 }));
+          if (o.tanda === 'PARCIAL_SIN_AVANCE') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 4, resultado: 'PARCIAL', ultimo_id: body.desde_id }), { status: 200 }));
+          if (o.tanda === 'RARO') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'NUEVO_RARO', ultimo_id: 296 }), { status: 200 }));
+          if (o.tanda === 'ERRORES') return Promise.resolve(new Response(JSON.stringify(nV === 1
+            ? { procesadas: [{ linea: 296, correo: 'ENVIADO' }, { linea: 297, correo: 'FALLIDO', codigo: 'GRAPH_400' }], exitosas: 1, quedan: 1, resultado: 'PARCIAL', ultimo_id: 297 }
+            : { procesadas: [{ linea: 298, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'COMPLETA', ultimo_id: 298 }), { status: 200 }));
           if (o.tanda === 'VUELTAS') {   // 3 vueltas de 2: PARCIAL, PARCIAL, COMPLETA (con cursor)
             const n = w.__edge.filter((x: any) => x.body.accion === 'correo_lote').length;
             const ids = body.lineas_autorizadas.filter((id: number) => id > body.desde_id).slice(0, 2);
@@ -110,7 +119,7 @@ res('9 real: sin escribir ENVIAR no envía', w.__edge.filter((x: any) => x.body.
 d.getElementById('mConf').value = 'enviar'; await si(d); await espera(200);
 const lote = w.__edge.find((x: any) => x.body.accion === 'correo_lote');
 res('10 [FE-11/13] el envío masivo lleva la huella del servidor y SOLO las líneas confirmadas', lote && lote.body.huella === 'h'.repeat(64) && JSON.stringify(lote.body.lineas_autorizadas) === '[296]', lote?.body);
-res('11 [FE-03] tanda COMPLETA informada como tal', /Correos completa: 1 de 1 listo/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
+res('11 [FE-03] tanda COMPLETA informada como tal', /Correos completa: todas las recorridas quedaron listas \(1 de 1 recorrida\(s\) listas\)/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
 dom.window.close();
 
 dom = await abrir({ envio: true, master: true, tanda: 'DETENIDA' }); w = dom.window; d = w.document;
@@ -175,10 +184,54 @@ d.querySelector('[data-act="tanda-correo"]').click(); await espera(150); d.getEl
 const vueltas = w.__edge.filter((x: any) => x.body.accion === 'correo_lote').map((x: any) => x.body);
 res('25 [R12-04/A5-01/A5-03] 3 vueltas: el cursor avanza (0 → 297 → 299), la huella y el conjunto son los MISMOS en todas (no se reemplazan)',
   JSON.stringify(vueltas.map((b: any) => b.desde_id)) === '[0,297,299]' && vueltas.every((b: any) => b.huella === 'h'.repeat(64) && JSON.stringify(b.lineas_autorizadas) === '[296,297,298,299,300]')
-  && /completa: 5 de 5/.test(d.getElementById('toast').textContent), { vueltas, toast: d.getElementById('toast').textContent });
+  && /completa: todas las recorridas quedaron listas \(5 de 5/.test(d.getElementById('toast').textContent), { vueltas, toast: d.getElementById('toast').textContent });
 dom.window.close();
 dom = await abrir({ error404: true }); w = dom.window; d = w.document;
 res('26 [A5-04] un 404 GENÉRICO (proxy) no se confunde con "no instalado": se muestra el error', /No se pudo leer el estado de documentos y correo/.test(d.getElementById('fxDocs').textContent));
+dom.window.close();
+
+// ── R12.1 C03: recorrido terminado ≠ objetivo cumplido ──
+const corre = async (op: Op) => {
+  const dm = await abrir({ envio: true, master: true, previa: TRES, ...op }); const dd = dm.window.document;
+  dd.querySelector('[data-act="tanda-correo"]').click(); await espera(150); dd.getElementById('mConf').value = 'ENVIAR'; await si(dd); await espera(900);
+  const t = dd.getElementById('toast').textContent, n = dm.window.__edge.filter((x: any) => x.body.accion === 'correo_lote').length; dm.window.close(); return { t, n };
+};
+let k = await corre({ tanda: 'SIEMPRE_PARCIAL' });
+res('27 [C03] límite de vueltas (60) con ok === proc y PARCIAL → "NO terminó el recorrido" (nunca "completa") y quedan por recorrer',
+  k.n === 60 && /NO terminó el recorrido/.test(k.t) && !/completa/.test(k.t) && /\(60 de 60/.test(k.t) && /Quedan 999 por recorrer/.test(k.t), k);
+k = await corre({ tanda: 'PARCIAL_SIN_AVANCE' });
+res('28 [C03] PARCIAL sin avance del cursor (interrupción) con 1 de 1 OK → "NO terminó" (no "completa"); no se repite la vuelta', k.n === 1 && /NO terminó el recorrido/.test(k.t) && !/completa/.test(k.t), k);
+k = await corre({ tanda: 'RARO' });
+res('29 [C03] resultado DESCONOCIDO de la Edge → falla cerrada: "NO terminó" (no "completa")', /NO terminó el recorrido/.test(k.t) && !/completa/.test(k.t), k);
+k = await corre({ tanda: 'ERRORES' });
+res('30 [C03/C07] errores individuales: recorrido terminado CON AVISOS (2 de 3), no "completa"; el 4xx explica que las tandas no lo reintentan',
+  k.n === 2 && /recorrido terminado con avisos/.test(k.t) && /\(2 de 3/.test(k.t) && !/completa/.test(k.t), k);
+dom = await abrir({ master: true }); w = dom.window;
+const ft = (r: any, ok: number, pr: number) => w.FX_DOC.finTanda(r, ok, pr);
+res('31 [C03] finTanda (pura): PARCIAL/quedan>0/desconocido → INCOMPLETA aunque ok===proc; DETENIDA; COMPLETA solo terminado y todo OK; 0 → SIN_PENDIENTES',
+  ft({ resultado: 'PARCIAL', quedan: 3 }, 5, 5) === 'INCOMPLETA' && ft({ resultado: 'COMPLETA', quedan: 2 }, 5, 5) === 'INCOMPLETA' && ft({ resultado: 'X' }, 1, 1) === 'INCOMPLETA'
+  && ft(null, 0, 0) === 'INCOMPLETA' && ft({ resultado: 'DETENIDA' }, 5, 5) === 'DETENIDA' && ft({ resultado: 'COMPLETA', quedan: 0 }, 5, 5) === 'COMPLETA'
+  && ft({ resultado: 'CON_AVISOS', quedan: 0 }, 3, 5) === 'CON_AVISOS' && ft({ resultado: 'SIN_AVANCE', quedan: 0 }, 0, 5) === 'SIN_AVANCE' && ft({ resultado: 'COMPLETA', quedan: 0 }, 0, 0) === 'SIN_PENDIENTES');
+res('32 [C07] textos: 4xx "las tandas y el automático NO lo reintentan" + máximo 3; 429 ya reintentado una vez; cancelado no cuenta como intento',
+  /NO lo reintentan/.test(w.FX_DOC.txtDoc('GRAPH_400')) && /máximo 3/.test(w.FX_DOC.txtDoc('GRAPH_418')) && !/Se puede reintentar\.$/.test(w.FX_DOC.txtDoc('GRAPH_418'))
+  && /Ya se reintentó una vez/.test(w.FX_DOC.txtDoc('GRAPH_429')) && /no cuenta como intento/.test(w.FX_DOC.txtDoc('CANCELADO_ANTES_DE_ENVIAR')) && /3 envíos rechazados/.test(w.FX_DOC.txtDoc('CORREO_MAX_INTENTOS')));
+dom.window.close();
+// ── R12.1 C01: prueba incierta en pantalla ──
+dom = await abrir({ master: true, pruebaInc: true }); w = dom.window; d = w.document;
+d.querySelector('#tbody tr[data-id="296"] td.cli').click(); await espera(80);
+const bP = d.querySelector('#drBody [data-act="prueba-linea"]'), bR = d.querySelector('#drBody [data-act="resolver-prueba"]');
+res('33 [C01] con una prueba INCIERTA sin resolver: "Prueba a info@" deshabilitado (explica por qué) y aparece "Resolver prueba incierta" (Master)',
+  bP?.disabled === true && /quedó incierta/.test(bP?.getAttribute('title') || bP?.closest('[title]')?.getAttribute('title') || d.getElementById('drBody').innerHTML) && !!bR);
+bR.click(); await espera(80);
+d.querySelector('input[name="mResP"][value="NO_LLEGO"]').checked = true; d.getElementById('mEvTP').value = 'BUZON_INFO'; d.getElementById('mEvRP').value = 'msg-123456'; d.getElementById('mMotP').value = 'no está en la bandeja de info@'; await si(d);
+res('34 [C01] "no llegó" con solo la bandeja se rechaza en pantalla (no llama al servidor)', !w.__resolverP && /traza de mensajes de Exchange/.test(d.getElementById('mErr').textContent));
+d.getElementById('mEvTP').value = 'TRAZA_EXCHANGE'; await si(d);
+res('35 [C01] con la traza: facturacion_correo_prueba_resolver recibe la prueba, resultado y evidencia', w.__resolverP?.p_prueba === 901 && w.__resolverP?.p_resultado === 'NO_LLEGO'
+  && w.__resolverP?.p_evidencia_tipo === 'TRAZA_EXCHANGE' && w.__resolverP?.p_evidencia_ref === 'msg-123456', w.__resolverP);
+dom.window.close();
+dom = await abrir({ envio: true, master: true, previaFalta: true }); w = dom.window; d = w.document;
+res('36 [A8-04] instalación INCOMPLETA (tablas sí, función previa no) → aviso de falla cerrada y "Enviar correos del grupo" deshabilitado',
+  /instalación de documentos y correo está INCOMPLETA/.test(d.getElementById('fxDocs').textContent) && d.querySelector('[data-act="tanda-correo"]').disabled === true, d.getElementById('fxDocs').textContent.slice(0, 300));
 dom.window.close();
 
 console.log(`\nFacturación · documentos y correo: ${ok}/${ok + mal}`);
