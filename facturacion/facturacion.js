@@ -799,12 +799,16 @@ function finTanda(r,ok,proc){
 }
 function tanda(accion,titulo,extra){
   if(S.ocupado||!S.lote)return;S.ocupado=true;render();
-  var proc=0, ok=0, desde=0, vueltas=0, ult=null, avisos=0;
+  var proc=0, ok=0, desde=0, vueltas=0, ult=null, avisos=0, sii={ACEPTADO:0,ACEPTADO_CON_REPAROS:0,PENDIENTE:0,SIN_INFO:0,RECHAZADO:0};
   function paso(){
     vueltas++;
     var b={lote_id:S.lote.id,desde_id:desde};if(accion==='correo_lote'){b.huella=extra.huella;b.lineas_autorizadas=extra.ids;}
     return edgeMensual(accion,b).then(function(r){
-      ult=r;var p=r.procesadas||[];proc+=p.length;ok+=+r.exitosas||0;
+      ult=r;var p=r.procesadas||[];proc+=p.length;
+      // En la consulta SII "lista" = estado conocido (aceptada, con reparos, pendiente o rechazada); sin información NO cuenta como lista.
+      ok+=accion==='estado_lote'?p.filter(function(x){return /^(ACEPTADO|ACEPTADO_CON_REPAROS|PENDIENTE|RECHAZADO)$/.test(x.estado_sii||'');}).length:(+r.exitosas||0);
+      // [R12.1 A3-04] desglose SII de lo consultado en esta tanda (todo lo que no es un estado final conocido = sin información).
+      if(accion==='estado_lote')p.forEach(function(x){var e=x.estado_sii;sii[(e==='ACEPTADO'||e==='ACEPTADO_CON_REPAROS'||e==='PENDIENTE'||e==='RECHAZADO')?e:'SIN_INFO']++;});
       avisos+=p.filter(function(x){return x.codigo&&x.documentos!=='OBTENIDOS'&&x.correo!=='ENVIADO'&&!x.estado_sii;}).length;
       var avanzo=(+r.ultimo_id||0)>desde;desde=+r.ultimo_id||desde;
       toast(I('repetir','ic-cel')+' '+esc(titulo)+': '+ok+' listo(s)'+(r.quedan?' · quedan '+r.quedan:''));
@@ -817,6 +821,7 @@ function tanda(accion,titulo,extra){
     var fin=finTanda(r,ok,proc);
     var t=TANDA_TXT[fin];
     toast(I(t[0],t[1])+' '+esc(titulo)+' '+esc(t[2])+' ('+ok+' de '+proc+' recorrida(s) listas).'+(+r.quedan>0?' Quedan '+(+r.quedan)+' por recorrer.':'')
+      +(accion==='estado_lote'?' SII: '+sii.ACEPTADO+' aceptada(s) · '+sii.ACEPTADO_CON_REPAROS+' con reparos · '+sii.PENDIENTE+' pendiente(s) · '+sii.SIN_INFO+' sin información · '+sii.RECHAZADO+' rechazada(s).':'')
       +(r.detenida?' Motivo: '+esc(txtDoc(r.detenida)):'')+(avisos?' '+avisos+' con aviso (ver el detalle de cada factura).':''));
     return cargar();
   }).catch(function(e){S.ocupado=false;toast(I('alerta','ic-amb')+' '+esc(txtDoc(e.codigo||e.message)));render();});

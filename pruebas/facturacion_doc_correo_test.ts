@@ -79,6 +79,13 @@ async function abrir(o: Op = {}) {
           }
           return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'COMPLETA', ultimo_id: 296 }), { status: 200 }));
         }
+        if (body.accion === 'estado_lote') {
+          const nS = w.__edge.filter((x: any) => x.body.accion === 'estado_lote').length;
+          if (o.tanda === 'SII_LIMITE') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296 + nS, estado_sii: 'ACEPTADO' }], exitosas: 1, quedan: 500, resultado: 'PARCIAL', ultimo_id: body.desde_id + 1 }), { status: 200 }));
+          return Promise.resolve(new Response(JSON.stringify(nS === 1
+            ? { procesadas: [{ linea: 296, estado_sii: 'ACEPTADO' }, { linea: 297, estado_sii: 'ACEPTADO_CON_REPAROS' }, { linea: 298, estado_sii: 'PENDIENTE' }], exitosas: 3, quedan: 3, resultado: 'PARCIAL', ultimo_id: 298 }
+            : { procesadas: [{ linea: 299, estado_sii: 'DESCONOCIDO' }, { linea: 300, estado_sii: 'RECHAZADO' }, { linea: 301, estado_sii: 'ERROR', codigo: 'X' }], exitosas: 2, quedan: 0, resultado: 'CON_AVISOS', ultimo_id: 301 }), { status: 200 }));
+        }
         if (body.accion === 'documentos_lote') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 298, documentos: 'ERROR', codigo: 'PDF_NO_DISPONIBLE' }], exitosas: 0, quedan: 0, resultado: 'SIN_AVANCE', ultimo_id: 298 }), { status: 200 }));
         return Promise.resolve(new Response(JSON.stringify({ tipo: 'pdf', nombre: 'Factura-34-16500.pdf', b64: btoa('%PDF-1.4 ficticio'), sha256: 'a'.repeat(64) }), { status: 200 }));
       };
@@ -215,6 +222,19 @@ res('31 [C03] finTanda (pura): PARCIAL/quedan>0/desconocido → INCOMPLETA aunqu
 res('32 [C07] textos: 4xx "las tandas y el automático NO lo reintentan" + máximo 3; 429 ya reintentado una vez; cancelado no cuenta como intento',
   /NO lo reintentan/.test(w.FX_DOC.txtDoc('GRAPH_400')) && /máximo 3/.test(w.FX_DOC.txtDoc('GRAPH_418')) && !/Se puede reintentar\.$/.test(w.FX_DOC.txtDoc('GRAPH_418'))
   && /Ya se reintentó una vez/.test(w.FX_DOC.txtDoc('GRAPH_429')) && /no cuenta como intento/.test(w.FX_DOC.txtDoc('CANCELADO_ANTES_DE_ENVIAR')) && /3 envíos rechazados/.test(w.FX_DOC.txtDoc('CORREO_MAX_INTENTOS')));
+dom.window.close();
+// ── R12.1 A3-04: desglose del SII y límite de vueltas ──
+dom = await abrir({ master: true }); w = dom.window; d = w.document;
+d.querySelector('[data-act="tanda-sii"]').click(); await espera(400);
+let tS = d.getElementById('toast').textContent;
+res('37 [A3-04] la consulta masiva al SII desglosa: 1 aceptada · 1 con reparos · 1 pendiente · 2 sin información (desconocido/error) · 1 rechazada',
+  /SII: 1 aceptada\(s\) · 1 con reparos · 1 pendiente\(s\) · 2 sin información · 1 rechazada\(s\)/.test(tS) && !/completa/.test(tS) && /recorrido terminado con avisos .*\(4 de 6 recorrida/.test(tS), tS);
+dom.window.close();
+dom = await abrir({ master: true, tanda: 'SII_LIMITE' }); w = dom.window; d = w.document;
+d.querySelector('[data-act="tanda-sii"]').click(); await espera(900);
+tS = d.getElementById('toast').textContent;
+res('38 [A3-04/C03] consulta SII que termina por el LÍMITE de vueltas con pendientes → "NO terminó el recorrido", nunca "completa"',
+  w.__edge.filter((x: any) => x.body.accion === 'estado_lote').length === 60 && /NO terminó el recorrido/.test(tS) && !/completa/.test(tS) && /Quedan 500/.test(tS), tS);
 dom.window.close();
 // ── R12.1 C01: prueba incierta en pantalla ──
 dom = await abrir({ master: true, pruebaInc: true }); w = dom.window; d = w.document;
