@@ -1,33 +1,45 @@
 // Facturación · F1a-DOC/CORREO (Ver PDF, estado SII, correo del grupo emitido) · prueba LOCAL con mocks (no toca Supabase ni producción).
-// Carga facturacion/index.html en jsdom con supabase.js simulado (datos FICTICIOS) y la Edge simulada; verifica el selector Real/Prueba,
-// el resumen de documentos y correo, que "Ver PDF" pase por la Edge con el JWT (nunca por el bucket) y que el envío respete el interruptor.
-// Uso: deno run --allow-read --allow-env --allow-sys --allow-net=registry.npmjs.org pruebas/facturacion_doc_correo_test.ts
+// Carga facturacion/index.html en jsdom con supabase.js simulado (datos FICTICIOS) y la Edge simulada. Sin red.
+// Uso: deno run --no-prompt --allow-read --allow-env --allow-sys pruebas/facturacion_doc_correo_test.ts
 import { JSDOM } from 'npm:jsdom@24.1.0';
 const RAIZ = new URL('../', import.meta.url);
 const leer = (p: string) => Deno.readTextFileSync(new URL(p, RAIZ));
 let ok = 0, mal = 0;
 const res = (n: string, b: boolean, d: unknown = '') => { if (b) { ok++; console.log('OK  ', n); } else { mal++; console.log('MAL ', n, JSON.stringify(d)); } };
-const LOTE_R = { id: 3, periodo: '2026-10', tipo: 'FIJO', modo: 'PRODUCCION', estado: 'EMITIDO', fecha_emision: '2026-11-01', fecha_vencimiento: '2026-11-21', uf_fecha: '2026-11-01', uf_valor: 39643.59, totales: { n_lineas: 2, n_listas: 2, monto_listas: 99980 } };
+const LOTE_R = { id: 3, periodo: '2026-10', tipo: 'FIJO', modo: 'PRODUCCION', estado: 'EMITIDO', fecha_emision: '2026-11-01', fecha_vencimiento: '2026-11-21', uf_fecha: '2026-11-01', uf_valor: 39643.59, totales: { n_lineas: 3, n_listas: 3, monto_listas: 149970 } };
 const LOTE_P = { ...LOTE_R, id: 2, modo: 'PRUEBA' };
 const lin = (id: number, folio: string, doc: string, correo: string, extra: Record<string, unknown> = {}) => ({ id, lote_id: 3, cliente_id: id, cliente_rut: '7610000' + id + '-1', razon_social: 'Cliente Ficticio ' + id + ' SpA',
   plan: 'cumplimiento', moneda: 'CLP', monto_base: 49990, valor_por_trab: 0, total_clp: 49990, estado: 'EMITIDA', motivos: [], alertas: [], tipo_lote: 'FIJO', modo: 'PRODUCCION',
-  of_folio: folio, doc_estado: doc, correo_estado: correo, correo_intentos: 0, snapshot: { correo_destino: 'pagos' + id + '@cliente-ficticio.cl' }, ...extra });
-function pagina(o: { envio?: boolean; sinMigracion?: boolean; master?: boolean }) {
-  const MOCK = `var SB_URL='http://mock';var _gestoorAccessToken='x';window.__gets=[];window.__edge=[];window.__abiertas=[];
+  of_folio: folio, doc_estado: doc, correo_estado: correo, correo_intentos: 0, snapshot: { correo_destino: 'navegador' + id + '@no-usar.cl' }, ...extra });
+type Op = { envio?: boolean; sinMigracion?: boolean; master?: boolean; siiRaro?: boolean; falla500?: boolean; tanda?: string; previa?: any; incierta?: boolean };
+const PREVIA = { lote_id: 3, huella: 'h'.repeat(64), elegibles: 1, lineas: [
+  { linea_id: 296, folio: '16500', total: 49990, destino: 'pagos296@servidor-autorizado.cl', sii: 'OK', elegible: true, motivo: null },
+  { linea_id: 297, folio: '16501', total: 49990, destino: 'pagos297@servidor-autorizado.cl', sii: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA', elegible: false, motivo: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA' },
+  { linea_id: 298, folio: '16502', total: 49990, destino: 'pagos298@servidor-autorizado.cl', sii: 'SII_NO_ACEPTADO:PENDIENTE', elegible: false, motivo: 'SII_NO_ACEPTADO:PENDIENTE' }] };
+function pagina(o: Op) {
+  const MOCK = `var SB_URL='http://mock';var _gestoorAccessToken='x';window.__gets=[];window.__edge=[];window.__abiertas=[];window.__rpc=[];
 document.documentElement.classList.remove('auth-pending');
 function sbH(){return {'Content-Type':'application/json',Authorization:'Bearer jwt-ficticio'};}
 function resp(o,st){return Promise.resolve(new Response(JSON.stringify(o),{status:st||200,headers:{'Content-Type':'application/json'}}));}
 function sbFetch(path,init){
+  window.__rpc.push({path:path,body:init&&init.body?JSON.parse(init.body):null});
   if(path.indexOf('rpc/facturacion_correo_fijar')===0){window.__fijar=JSON.parse(init.body);return resp({ok:true});}
+  if(path.indexOf('rpc/facturacion_correo_resolver')===0){window.__resolver=JSON.parse(init.body);return resp({ok:true});}
+  if(path.indexOf('rpc/facturacion_correo_previa')===0)return ${o.sinMigracion ? "resp({code:'PGRST202',message:'Could not find the function'},404)" : `resp(${JSON.stringify(o.previa ?? PREVIA)})`};
   if(path.indexOf('rpc/facturacion_yo')===0)return resp({usuario_id:1,es_master:${!!o.master},puede_preparar:true,puede_emitir:true,puede_aprobar:${!!o.master},puede_leer:true});
   return resp([]);
 }
 function sbGet(path){
   window.__gets.push(path);
-  if(path.indexOf('periodos')===0)return Promise.resolve([{periodo:'2026-10',uf:39643.59}]);
-  if(path.indexOf('facturacion_lotes')===0)return Promise.resolve([${JSON.stringify(LOTE_R)},${JSON.stringify(LOTE_P)}]);
-  if(path.indexOf('facturacion?')===0&&path.indexOf('lote_id=eq.3')>0)return Promise.resolve([${JSON.stringify(lin(296, '16500', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(lin(297, '16501', 'PENDIENTE', 'PENDIENTE'))}]);
-  if(path.indexOf('facturacion_consultas_proveedor')===0)return ${o.sinMigracion ? "Promise.reject(new Error('404 relation does not exist'))" : "Promise.resolve([{linea_id:296,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH: fecha']}}])"};
+  if(path.indexOf('periodos')===0)return Promise.resolve([{periodo:'2026-10',uf:39643.59},{periodo:'2026-09',uf:39400}]);
+  if(path.indexOf('facturacion_lotes')===0){
+    if(path.indexOf('periodo=eq.2026-09')>0)return Promise.resolve(path.indexOf('modo=eq.PRUEBA')>0?[${JSON.stringify({ ...LOTE_P, id: 9, periodo: '2026-09' })}]:[]);
+    return Promise.resolve(path.indexOf('modo=eq.PRODUCCION')>0?[${JSON.stringify(LOTE_R)}]:path.indexOf('modo=eq.PRUEBA')>0?[${JSON.stringify(LOTE_P)}]:[]);
+  }
+  if(path.indexOf('facturacion?')===0&&path.indexOf('lote_id=eq.3')>0)return Promise.resolve([${JSON.stringify(lin(296, '16500', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(o.incierta ? lin(297, '16501', 'OBTENIDOS', 'FALLIDO', { correo_error: 'INCIERTO: GRAPH_503' }) : lin(297, '16501', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(lin(298, '16502', 'PENDIENTE', 'PENDIENTE'))}]);
+  if(path.indexOf('facturacion_consultas_proveedor')===0)return ${o.sinMigracion ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:404,message:'relation does not exist'}}))"
+    : o.falla500 ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:500,message:'timeout de base'}}))"
+    : `Promise.resolve([{linea_id:296,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO',texto_estado:'Aceptado'}},{linea_id:297,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH-EMIS: fecha']}}${o.siiRaro ? ",{linea_id:298,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ESTADO_NUEVO_RARO'}}" : ''}])`};
   if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([${o.sinMigracion ? '{id:1,produccion_habilitada:false}' : `{id:1,correo_envio_habilitado:${!!o.envio},correo_auto_habilitado:false}`}]);
   return Promise.resolve([]);
 }`;
@@ -40,12 +52,18 @@ function sbGet(path){
   return html;
 }
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function abrir(o: { envio?: boolean; sinMigracion?: boolean; master?: boolean } = {}) {
+async function abrir(o: Op = {}) {
   const dom = new JSDOM(pagina(o), { runScripts: 'dangerously', url: 'https://gestoor.contadoor.cl/facturacion/index.html', pretendToBeVisual: true,
     beforeParse(w: any) {
       w.Response = Response;
-      w.fetch = (url: string, init: any) => { w.__edge.push({ url, headers: init.headers, body: JSON.parse(init.body) });
-        return Promise.resolve(new Response(JSON.stringify({ tipo: 'pdf', nombre: 'Factura-34-16500.pdf', b64: btoa('%PDF-1.4 ficticio'), sha256: 'a'.repeat(64) }), { status: 200 })); };
+      w.fetch = (url: string, init: any) => {
+        const body = JSON.parse(init.body); w.__edge.push({ url, headers: init.headers, body });
+        if (body.accion === 'correo_lote') return Promise.resolve(new Response(JSON.stringify(o.tanda === 'DETENIDA'
+          ? { procesadas: [], exitosas: 0, quedan: 1, detenida: 'PREVIA_CAMBIO', resultado: 'DETENIDA' }
+          : { procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'COMPLETA', huella: 'z'.repeat(64) }), { status: 200 }));
+        if (body.accion === 'documentos_lote') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 298, documentos: 'ERROR', codigo: 'PDF_NO_DISPONIBLE' }], exitosas: 0, quedan: 1, resultado: 'SIN_AVANCE' }), { status: 200 }));
+        return Promise.resolve(new Response(JSON.stringify({ tipo: 'pdf', nombre: 'Factura-34-16500.pdf', b64: btoa('%PDF-1.4 ficticio'), sha256: 'a'.repeat(64) }), { status: 200 }));
+      };
       w.open = () => { const v = { document: { title: '', body: { innerHTML: '' } }, location: { href: '' }, close() {} }; w.__abiertas.push(v); return v; };
       w.URL.createObjectURL = () => 'blob:ficticio'; w.URL.revokeObjectURL = () => {};
       w.HTMLElement.prototype.scrollIntoView = function () {};
@@ -53,47 +71,85 @@ async function abrir(o: { envio?: boolean; sinMigracion?: boolean; master?: bool
   await espera(350);
   return dom;
 }
+const si = async (d: any) => { d.querySelector('#mFoot [data-m="si"]').click(); await espera(150); };
 
 let dom: any = await abrir();
 let w = dom.window, d = w.document;
-res('1 con un grupo REAL del período se muestra primero: selector Real/Prueba visible y etiqueta "FACTURAS REALES · SII"',
+res('1 grupo REAL primero: selector Real/Prueba y etiqueta "FACTURAS REALES · SII"',
   !d.getElementById('fxModoSel').hidden && d.querySelector('[data-modo="PRODUCCION"]').classList.contains('on') && /FACTURAS REALES/.test(d.getElementById('fxModoTag').textContent));
+res('2 [FE-06] una consulta de grupos POR MODO (un grupo de prueba nunca desplaza al real)', w.__gets.filter((g: string) => g.startsWith('facturacion_lotes')).every((g: string) => /modo=eq\.(PRODUCCION|PRUEBA)/.test(g))
+  && w.__gets.filter((g: string) => g.startsWith('facturacion_lotes')).length === 2);
 const docs = d.getElementById('fxDocs');
-res('2 resumen "Documentos y correo": 1 de 2 PDF/XML, 1 de 2 aceptadas SII, 0 de 2 correos, envío real APAGADO',
-  !docs.hidden && /PDF y XML oficiales\s*1 de 2/.test(docs.textContent) && /Aceptadas por el SII\s*1 de 2/.test(docs.textContent) && /Correos enviados\s*0 de 2/.test(docs.textContent) && /Envío real APAGADO/.test(docs.textContent), docs.textContent.slice(0, 300));
-res('3 con el envío apagado, "Enviar correos del grupo" está deshabilitado', d.querySelector('[data-act="tanda-correo"]').disabled === true);
-const ver = d.querySelector('#tbody [data-act="ver-pdf"]');
-res('4 la línea con documentos muestra "Ver PDF"; la que no, "Traer PDF"', !!ver && ver.getAttribute('data-id') === '296' && !!d.querySelector('#tbody [data-act="doc-linea"][data-id="297"]'));
-ver.click(); await espera(80);
+res('3 [FE-07] resumen separa aceptadas SIN reparos (1) de con reparos (1, en revisión manual) y envío real APAGADO', /Aceptadas por el SII \(sin reparos\)\s*1 de 3/.test(docs.textContent)
+  && /1 con reparos \(1 en revisión manual\)/.test(docs.textContent) && /Envío real APAGADO/.test(docs.textContent), docs.textContent.slice(0, 400));
+res('4 envío apagado → "Enviar correos del grupo" deshabilitado', d.querySelector('[data-act="tanda-correo"]').disabled === true);
+res('5 fila con reparo en revisión: etiqueta "Revisión manual (reparo)" (decisión de Luciano)', /Revisión manual \(reparo\)/.test(d.querySelector('#tbody tr[data-id="297"]').textContent));
+d.querySelector('#tbody [data-act="ver-pdf"]').click(); await espera(80);
 const e0 = w.__edge[0];
-res('5 "Ver PDF" llama a la Edge facturacion-emitir (ver_documento, linea 296, tipo pdf) con el JWT del usuario y abre el PDF',
-  e0 && e0.url === 'http://mock/functions/v1/facturacion-emitir' && e0.body.accion === 'ver_documento' && e0.body.linea_id === 296 && e0.body.tipo === 'pdf'
-  && e0.headers.Authorization === 'Bearer jwt-ficticio' && w.__abiertas[0]?.location.href === 'blob:ficticio', e0);
-res('6 el navegador nunca toca el bucket de storage', !w.__gets.some((g: string) => /storage/.test(g)) && !w.__edge.some((x: any) => /storage/.test(x.url)));
-res('7 la etiqueta del estado SII aparece en la fila (con reparos)', /SII con reparos/.test(d.querySelector('#tbody tr[data-id="296"]').textContent));
+res('6 Ver PDF → Edge ver_documento con el JWT; nunca el bucket', e0 && e0.body.accion === 'ver_documento' && e0.body.linea_id === 296 && e0.headers.Authorization === 'Bearer jwt-ficticio'
+  && w.__abiertas[0]?.location.href === 'blob:ficticio' && !w.__gets.some((g: string) => /storage/.test(g)));
 dom.window.close();
 
-dom = await abrir({ envio: true });
-d = dom.window.document;
-res('8 con el envío encendido pero sin estado SII aceptado pendiente de correo, el botón cuenta 1 (solo la aceptada con documentos)', /Enviar correos del grupo \(1\)/.test(d.getElementById('fxDocs').textContent) && d.querySelector('[data-act="tanda-correo"]').disabled === false);
-res('9 "Configurar correo" solo lo ve el Master', !d.querySelector('[data-act="config-correo"]'));
-dom.window.close();
-
-dom = await abrir({ master: true });
-d = dom.window.document;
-res('10 el Master ve "Configurar correo"', !!d.querySelector('[data-act="config-correo"]'));
-d.querySelector('[data-act="config-correo"]').click(); await espera(50);
+dom = await abrir({ envio: true, master: true }); w = dom.window; d = w.document;
+res('7 [FE-11] el contador del botón sale de la previa del SERVIDOR (1 elegible), no del navegador', /Enviar correos del grupo \(1\)/.test(d.getElementById('fxDocs').textContent));
+d.querySelector('[data-act="tanda-correo"]').click(); await espera(150);
 const mb = d.getElementById('mBody').textContent;
-d.getElementById('mEnv').checked = true; d.getElementById('mRef').value = 'GO de prueba local';
-d.querySelector('#mFoot [data-m="si"]').click(); await espera(80);
-res('12 Configurar correo: firma corporativa (sin elegir persona) y fijar con (envío, auto, referencia)',
-  /Asesorías Contadoor Ltda\./.test(mb) && /info@contadoor\.cl/.test(mb) && !d.getElementById('mFir')
-  && JSON.stringify(Object.keys(dom.window.__fijar || {}).sort()) === JSON.stringify(['p_auto', 'p_envio', 'p_referencia']) && dom.window.__fijar.p_envio === true, dom.window.__fijar);
+res('8 [FE-12] el modal masivo muestra los destinatarios AUTORIZADOS POR EL SERVIDOR (no los del navegador) y los motivos de lo que no sale',
+  /pagos296@servidor-autorizado\.cl/.test(mb) && !/no-usar\.cl/.test(mb) && /revisión manual/.test(mb) && /aún no acepta/.test(mb), mb.slice(0, 500));
+await si(d);
+res('9 real: sin escribir ENVIAR no envía', w.__edge.filter((x: any) => x.body.accion === 'correo_lote').length === 0 && !d.getElementById('mErr').hidden);
+d.getElementById('mConf').value = 'enviar'; await si(d); await espera(200);
+const lote = w.__edge.find((x: any) => x.body.accion === 'correo_lote');
+res('10 [FE-11/13] el envío masivo lleva la huella del servidor y SOLO las líneas confirmadas', lote && lote.body.huella === 'h'.repeat(64) && JSON.stringify(lote.body.lineas_autorizadas) === '[296]', lote?.body);
+res('11 [FE-03] tanda COMPLETA informada como tal', /Correos completa: 1 listo/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
 dom.window.close();
 
-dom = await abrir({ sinMigracion: true });
-d = dom.window.document;
-res('11 sin la migración instalada la pantalla no se rompe: "Correo: por instalar" y las filas siguen visibles', /Correo: por instalar/.test(d.getElementById('fxDocs').textContent) && d.querySelectorAll('#tbody tr[data-id]').length === 2);
+dom = await abrir({ envio: true, master: true, tanda: 'DETENIDA' }); w = dom.window; d = w.document;
+d.querySelector('[data-act="tanda-correo"]').click(); await espera(150); d.getElementById('mConf').value = 'ENVIAR'; await si(d); await espera(200);
+res('12 [FE-13] tanda DETENIDA por cambio de la lista → mensaje con el motivo, sin reintentar', /detenida/.test(d.getElementById('toast').textContent) && /La lista cambió/.test(d.getElementById('toast').textContent)
+  && w.__edge.filter((x: any) => x.body.accion === 'correo_lote').length === 1, d.getElementById('toast').textContent);
+d.querySelector('[data-act="tanda-docs"]').click(); await espera(250);
+res('13 [FE-03] tanda SIN_AVANCE de documentos → "sin avance" y aviso por factura', /sin avance/.test(d.getElementById('toast').textContent) && /1 con aviso/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
+dom.window.close();
+
+dom = await abrir({ siiRaro: true }); w = dom.window; d = w.document;
+res('14 [FE-01] un estado SII desconocido no rompe la pantalla (se muestra "SII: ESTADO_NUEVO_RARO")', d.querySelectorAll('#tbody tr[data-id]').length === 3
+  && /SII: ESTADO_NUEVO_RARO/.test(d.querySelector('#tbody tr[data-id="298"]').textContent));
+dom.window.close();
+
+dom = await abrir({ falla500: true }); w = dom.window; d = w.document;
+res('15 [FE-04] un error real (500) se MUESTRA en la tarjeta (no se silencia)', /No se pudo leer el estado de documentos y correo/.test(d.getElementById('fxDocs').textContent));
+dom.window.close();
+
+dom = await abrir({ sinMigracion: true }); w = dom.window; d = w.document;
+res('16 sin la migración instalada la pantalla no se rompe ni muestra error: "Correo: por instalar"', /Correo: por instalar/.test(d.getElementById('fxDocs').textContent)
+  && !/No se pudo leer/.test(d.getElementById('fxDocs').textContent) && d.querySelectorAll('#tbody tr[data-id]').length === 3);
+dom.window.close();
+
+dom = await abrir({ master: true }); w = dom.window; d = w.document;
+d.querySelector('[data-modo="PRUEBA"]').click(); await espera(200);
+const prueba1 = d.querySelector('[data-modo="PRUEBA"]').classList.contains('on');
+const sel = d.getElementById('selPeriodo'); sel.value = '2026-09'; sel.dispatchEvent(new w.Event('change')); await espera(200);
+sel.value = '2026-10'; sel.dispatchEvent(new w.Event('change')); await espera(200);
+res('17 [FE-14] el selector respeta la elección dentro del período y vuelve al grupo REAL al cambiar de período', prueba1 && d.querySelector('[data-modo="PRODUCCION"]').classList.contains('on'));
+// Resolver correo incierto con evidencia tipificada
+d.querySelector('[data-act="config-correo"]').click(); await espera(80);
+res('18 [FE-09] "Configurar correo" explica que el envío real exige además la autorización formal del servidor', /autorización formal/.test(d.getElementById('mBody').textContent));
+d.getElementById('mEnv').checked = true; d.getElementById('mRef').value = 'GO de prueba local'; await si(d);
+res('19 fijar con exactamente {p_envio, p_auto, p_referencia}', JSON.stringify(Object.keys(w.__fijar || {}).sort()) === JSON.stringify(['p_auto', 'p_envio', 'p_referencia']) && w.__fijar.p_envio === true);
+dom.window.close();
+
+dom = await abrir({ master: true, incierta: true }); w = dom.window; d = w.document;
+d.querySelector('#tbody [data-act="resolver-correo"][data-id="297"]').click(); await espera(80);
+res('20 [FE-10] el modal de resolver advierte que la ausencia en Enviados no prueba nada', /NO prueba que no salió/.test(d.getElementById('mBody').textContent));
+d.querySelector('input[name="mRes"][value="NO_ENVIADO"]').checked = true; d.getElementById('mEvT').value = 'ENVIADOS_BUZON';
+d.getElementById('mEvR').value = 'buzon-123'; d.getElementById('mMotR').value = 'No lo encontré en Enviados'; await si(d);
+res('21 [FE-10] "no salió" con solo "Enviados" se rechaza en pantalla (no llama al servidor)', !w.__resolver && /traza de mensajes de Exchange/.test(d.getElementById('mErr').textContent));
+d.getElementById('mEvT').value = 'TRAZA_EXCHANGE'; d.getElementById('mEvR').value = 'trace-77aa'; await si(d);
+res('22 con la traza de Exchange: resolver recibe tipo y referencia de evidencia', w.__resolver?.p_evidencia_tipo === 'TRAZA_EXCHANGE' && w.__resolver?.p_evidencia_ref === 'trace-77aa' && w.__resolver?.p_resultado === 'NO_ENVIADO', w.__resolver);
+d.querySelector('#tbody tr[data-id="296"] td.cli').click(); await espera(80);
+d.querySelector('#drBody [data-act="prueba-linea"]').click(); await espera(80);
+res('23 [FE-15] el correo de prueba (Master) declara que va SOLO a info@contadoor.cl', /solo a info@contadoor\.cl/.test(d.getElementById('mBody').textContent));
 dom.window.close();
 
 console.log(`\nFacturación · documentos y correo: ${ok}/${ok + mal}`);

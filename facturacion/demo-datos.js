@@ -207,6 +207,15 @@
       function soloMaster(){if(!mas)throw err('SOLO_MASTER','solo el Master puede hacer esta acción','42501');}
       function editable(l){if(!l)throw err('LOTE_NO_EXISTE','no existe','P0002');if(l.estado!=='BORRADOR'&&l.estado!=='DEVUELTO')throw err('LOTE_NO_EDITABLE','el lote está en '+l.estado,'55000');}
       function linea(id){var f=lineas.filter(function(x){return x.id===+id;})[0];if(!f)throw err('LINEA_NO_EXISTE',String(id),'P0002');editable(lote(f.lote_id));return f;}
+      if(fn==='facturacion_correo_previa'){   // [F1a-DOC] previsualización simulada (en producción la calcula el SQL)
+        var par0=parametros[0];
+        var ls=lineas.filter(function(x){return x.lote_id===+a.p_lote&&x.estado==='EMITIDA';}).map(function(f){
+          var c=consultas.filter(function(x){return x.linea_id===f.id;})[0], e=c?c.resumen.estado:null;
+          var sii=!c?'SII_NO_ACEPTADO:SIN_CONSULTA':(e==='ACEPTADO'?'OK':(e==='ACEPTADO_CON_REPAROS'?'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA':(e==='RECHAZADO'?'SII_RECHAZADO':'SII_NO_ACEPTADO:'+e)));
+          var mot=f.correo_estado==='ENVIADO'?'YA_ENVIADO':(f.correo_estado==='FALLIDO'&&/^INCIERTO/.test(f.correo_error||'')?'CORREO_INCIERTO':(f.doc_estado!=='OBTENIDOS'?'SIN_DOCUMENTOS':(!par0.correo_envio_habilitado?'CORREO_NO_HABILITADO':(sii!=='OK'?sii:null))));
+          return {linea_id:f.id,folio:f.of_folio,total:f.total_clp,destino:f.snapshot.correo_destino,sii:sii,elegible:mot===null,motivo:mot};});
+        return {lote_id:+a.p_lote,lineas:ls,huella:'d'.repeat(64),elegibles:ls.filter(function(x){return x.elegible;}).length};
+      }
       if(fn==='facturacion_yo')return {usuario_id:mas?2:1,nombre:mas?'Master (demo)':'Facturador (demo)',rol:mas?'admin':'pagos',es_master:mas,puede_preparar:fac,puede_emitir:fac,puede_aprobar:mas,puede_leer:true};
       if(fn==='facturacion_lote_preparar'){
         soloFact();

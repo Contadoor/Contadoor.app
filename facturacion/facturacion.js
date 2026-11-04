@@ -210,14 +210,16 @@ function cargar(){
   if(S.vista==='ADICIONAL'){S.cargando=false;render();return Promise.resolve();}
   if(!S.periodo){S.lote=null;S.lineas=[];S.cargando=false;render();return Promise.resolve();}
   $('fxEstado').innerHTML='<p class="ninguna">Cargando el grupo '+esc(S.vista)+' de '+esc(mesTxt(S.periodo))+'…</p>';
-  return API.get('facturacion_lotes?select=*&periodo=eq.'+encodeURIComponent(S.periodo)+'&tipo=eq.'+S.vista+'&order=id.desc&limit=20').then(function(lotes){
-    lotes=lotes||[];
+  // [FE-06] Una consulta por modo: un grupo de prueba nunca desplaza al REAL del mismo período.
+  var base='facturacion_lotes?select=*&periodo=eq.'+encodeURIComponent(S.periodo)+'&tipo=eq.'+S.vista+'&order=id.desc&limit=10&modo=eq.';
+  return Promise.all([API.get(base+'PRODUCCION'),API.get(base+'PRUEBA')]).then(function(rs){
+    var lotes=(rs[0]||[]).concat(rs[1]||[]);
     // [F1a-DOC] Un grupo por modo (el vigente, si no el último). Si hay uno REAL se muestra primero.
     S.lotesModo={};
     ['PRODUCCION','PRUEBA'].forEach(function(m){var ls=lotes.filter(function(l){return l.modo===m;});S.lotesModo[m]=ls.filter(function(l){return l.estado!=='ANULADO';})[0]||ls[0]||null;});
     if(!S.modoElegido)S.modoVer=S.lotesModo.PRODUCCION?'PRODUCCION':'PRUEBA';
     else if(S.modoVer==='PRODUCCION'&&!S.lotesModo.PRODUCCION)S.modoVer='PRUEBA';
-    S.lote=S.lotesModo[S.modoVer]||null;S.sii={};
+    S.lote=S.lotesModo[S.modoVer]||null;S.sii={};S.previa=null;S.docsAviso=null;
     if(!S.lote){S.lineas=[];S.adic={};S.eventos=[];S.anterior={};return;}
     var lid=S.lote.id;
     return Promise.all([
@@ -647,26 +649,46 @@ var COD_DOC={
   CORREO_MAX_INTENTOS:'Ya se intentó 3 veces. Revisa el correo de la ficha del cliente.',SII_RECHAZADO:'El SII rechazó este DTE: no se envía aviso al cliente.',
   ESPERA_ESTADO_SII:'Primero consulta el estado SII (debe estar aceptado).',DESTINO_NO_PERMITIDO:'El destino no coincide con el correo aprobado en la factura.',
   SIN_DOCUMENTOS_CORREO:'Faltan el PDF y el XML oficiales.',AZURE_NO_CONFIGURADO:'El correo (Microsoft 365) no está configurado en la Edge.',
-  REMITENTE_INVALIDO:'El remitente configurado no es una casilla @contadoor.cl.',NO_INCIERTO:'Ese correo no está incierto: no hay nada que resolver.'
+  REMITENTE_INVALIDO:'El remitente configurado no es una casilla @contadoor.cl.',NO_INCIERTO:'Ese correo no está incierto: no hay nada que resolver.',
+  SII_NO_ACEPTADO:'El SII aún no acepta esta factura (o no hay consulta válida): no se envía aviso.',
+  SII_REPAROS_REVISION:'Aceptada con reparos que no son solo el de fecha (o no identificados): queda DETENIDA para revisión manual.',
+  CANCELADO_ANTES_DE_ENVIAR:'Se canceló antes de enviar (interruptor apagado, estado SII cambió o reclamo vencido). No salió; se puede reintentar.',
+  PREVIA_CAMBIO:'La lista cambió desde que la revisaste (otra persona actuó o cambió un estado). Vuelve a abrir "Enviar correos del grupo".',
+  PREVIA_OBLIGATORIA:'Primero revisa la lista del servidor ("Enviar correos del grupo").',
+  CORREO_BLOQUEADO_EN_EDGE:'El envío real está bloqueado en el servidor hasta la autorización formal (GO). No salió nada.',
+  ALMACEN_OBJETO_DISTINTO:'Ya existe un archivo distinto guardado para esta factura: no se sobrescribe. Revisión manual.',
+  ALMACEN_SUBIR_FALLIDO:'No se pudo guardar el archivo. Reintenta: lo ya guardado se reutiliza.',
+  DOCUMENTO_NO_DISPONIBLE:'El archivo no está en el almacenamiento. Avisa a soporte.',TAMANO_EXCEDIDO:'El documento supera el tamaño permitido: revisión manual.',
+  EVIDENCIA_INSUFICIENTE:'Para marcar "no salió" se necesita la traza de mensajes de Exchange: la ausencia en Enviados no lo prueba.',
+  EVIDENCIA_REF_OBLIGATORIA:'Indica el id de la traza o del mensaje (mínimo 6 caracteres).',LINEA_NO_PERTENECE_AL_LOTE:'La factura no pertenece a este grupo.',
+  SOLICITUD_INVALIDA:'La solicitud de prueba venció o no corresponde. Vuelve a intentarlo.'
 };
-function txtDoc(c){c=String(c||'').split(':')[0];if(/^GRAPH_4\d\d$/.test(c))return 'Microsoft rechazó el correo ('+c.slice(6)+'): no salió. Se puede reintentar.';if(/^INCIERTO/.test(c))return COD_DOC.CORREO_INCIERTO;return COD_DOC[c]||ERRORES[c]||('Código: '+c);}
+function txtDoc(c){c=String(c||'').split(':')[0];if(c==='GRAPH_429')return 'Microsoft limitó los envíos por un momento (429): no salió. La tanda se detuvo; reintenta en unos minutos.';if(/^GRAPH_4\d\d$/.test(c))return 'Microsoft rechazó el correo ('+c.slice(6)+'): no salió. Se puede reintentar.';if(/^INCIERTO/.test(c))return COD_DOC.CORREO_INCIERTO;return COD_DOC[c]||ERRORES[c]||('Código: '+c);}
 var SII_TXT={ACEPTADO:['SII aceptada','ok'],ACEPTADO_CON_REPAROS:['SII con reparos','pen'],PENDIENTE:['SII pendiente','inf'],RECHAZADO:['SII rechazada','err'],DESCONOCIDO:['SII sin dato','pen']};
+function siiTxt(e){return SII_TXT[e]||['SII: '+String(e||'sin dato'),'pen'];}   // [FE-01] estado desconocido: nunca rompe el render
 var CORREO_TXT={PENDIENTE:['Correo pendiente','pen'],ENVIANDO:['Enviando…','inf'],ENVIADO:['Correo enviado','ok'],FALLIDO:['Correo fallido','err']};
 function opera(){return esFact()||esMaster();}
 function esReal(){return !!S.lote&&S.lote.modo==='PRODUCCION';}
 function correoIncierto(l){return (l.correo_estado==='FALLIDO'&&/^INCIERTO/.test(l.correo_error||''))||(l.correo_estado==='ENVIANDO'&&l.correo_reclamo_at&&(Date.now()-new Date(l.correo_reclamo_at).getTime())>10*60000);}
+// "No instalado" (la migración F1a-DOC aún no está): tabla o función inexistente. Cualquier otro error se MUESTRA (FE-04).
+function noInstalado(e){var fx=e&&e.fx||{}, m=String(fx.message||(e&&e.message)||'');return fx.status===404||/42P01|42883|PGRST20[02]|does not exist|Could not find/i.test(m+' '+(fx.code||''));}
 function cargarDocs(ids){
-  // Estado SII (última consulta) y parámetros del correo. Antes de instalar la migración la tabla no existe: se ignora sin romper la pantalla.
-  var p1=API.get('facturacion_consultas_proveedor?select=linea_id,tipo,resumen,creado_at&tipo=eq.ESTADO_SII&linea_id=in.('+ids.join(',')+')&order=creado_at.desc')
-    .then(function(rows){S.sii={};(rows||[]).forEach(function(r){if(!S.sii[r.linea_id])S.sii[r.linea_id]=Object.assign({at:r.creado_at},r.resumen||{});});}).catch(function(){S.sii={};});
-  var p2=API.get('facturacion_parametros?select=*&id=eq.1').then(function(r){S.par=(r&&r[0])||null;}).catch(function(){S.par=null;});
-  return Promise.all([p1,p2]);
+  var aviso=function(e){if(!noInstalado(e))S.docsAviso='No se pudo leer el estado de documentos y correo: '+mensajeError(e);};
+  var p1=API.get('facturacion_consultas_proveedor?select=linea_id,tipo,resumen,referencia,creado_at&tipo=eq.ESTADO_SII&linea_id=in.('+ids.join(',')+')&order=creado_at.desc')
+    .then(function(rows){S.sii={};(rows||[]).forEach(function(r){if(!S.sii[r.linea_id])S.sii[r.linea_id]=Object.assign({at:r.creado_at},r.resumen||{});});}).catch(function(e){S.sii={};aviso(e);});
+  var p2=API.get('facturacion_parametros?select=*&id=eq.1').then(function(r){S.par=(r&&r[0])||null;}).catch(function(e){S.par=null;aviso(e);});
+  // Decisión del SERVIDOR por línea (destinatario autorizado, SII, elegible) — solo facturador/Master y con el grupo emitido.
+  var p3=(opera()&&S.lineas.some(function(l){return l.estado==='EMITIDA';}))?API.rpc('facturacion_correo_previa',{p_lote:S.lote.id}).then(function(r){S.previa=r||null;}).catch(function(e){S.previa=null;aviso(e);}):Promise.resolve();
+  return Promise.all([p1,p2,p3]);
 }
+function previaDe(id){var p=S.previa&&S.previa.lineas||[];for(var i=0;i<p.length;i++)if(+p[i].linea_id===+id)return p[i];return null;}
+function enRevision(l){var p=previaDe(l.id);return !!(p&&/^SII_REPAROS_REVISION/.test(p.sii||''));}   // decisión SII del servidor (independiente del interruptor)
 function miniDoc(l){
   var sii=S.sii[l.id], c=CORREO_TXT[l.correo_estado]||[l.correo_estado,''], h='<span class="mini-est"><span class="mini">Folio '+esc(l.of_folio||'—')+'</span>';
   if(l.doc_estado==='OBTENIDOS')h+='<button type="button" class="mini mini-btn" data-act="ver-pdf" data-id="'+l.id+'" aria-label="Ver PDF de la factura '+esc(l.of_folio)+'">'+I('pdf','ic-ver')+'Ver PDF</button>';
   else h+='<span class="mini"><span class="dot '+(l.doc_estado==='ERROR'?'err':'pen')+'"></span>PDF/XML '+(l.doc_estado==='ERROR'?'con error':'pendiente')+'</span>';
-  if(sii)h+='<span class="mini" title="'+esc((sii.texto_estado||'')+((sii.reparos||[]).length?' · '+sii.reparos.join(' · '):''))+'"><span class="dot '+SII_TXT[sii.estado][1]+'"></span>'+SII_TXT[sii.estado][0]+'</span>';
+  if(enRevision(l))h+='<span class="mini" title="'+esc(txtDoc('SII_REPAROS_REVISION'))+'"><span class="dot err"></span>Revisión manual (reparo)</span>';
+  else if(sii)h+='<span class="mini" title="'+esc((sii.texto_estado||'')+((sii.reparos||[]).length?' · '+sii.reparos.join(' · '):''))+'"><span class="dot '+siiTxt(sii.estado)[1]+'"></span>'+siiTxt(sii.estado)[0]+'</span>';
   h+='<span class="mini"'+(l.correo_destino?' title="'+esc(l.correo_destino)+'"':'')+'><span class="dot '+(correoIncierto(l)?'pen':c[1])+'"></span>'+(correoIncierto(l)?'Correo incierto':c[0])+'</span>';
   return h+'</span>';
 }
@@ -685,7 +707,8 @@ function renderDocs(){
   box.hidden=false;
   var n=em.length, cnt=function(f){return em.filter(f).length;};
   var dOk=cnt(function(l){return l.doc_estado==='OBTENIDOS';}), dErr=cnt(function(l){return l.doc_estado==='ERROR';});
-  var sOk=cnt(function(l){var x=S.sii[l.id];return x&&(x.estado==='ACEPTADO'||x.estado==='ACEPTADO_CON_REPAROS');}), sRep=cnt(function(l){var x=S.sii[l.id];return x&&x.estado==='ACEPTADO_CON_REPAROS';}), sRec=cnt(function(l){var x=S.sii[l.id];return x&&x.estado==='RECHAZADO';});
+  var sOk=cnt(function(l){var x=S.sii[l.id];return x&&x.estado==='ACEPTADO';}), sRep=cnt(function(l){var x=S.sii[l.id];return x&&x.estado==='ACEPTADO_CON_REPAROS';}), sRec=cnt(function(l){var x=S.sii[l.id];return x&&x.estado==='RECHAZADO';});
+  var sRev=cnt(enRevision);
   var cOk=cnt(function(l){return l.correo_estado==='ENVIADO';}), cInc=cnt(correoIncierto), cFal=cnt(function(l){return l.correo_estado==='FALLIDO'&&!correoIncierto(l);});
   var par=S.par||{}, instalado=par.correo_envio_habilitado!==undefined;
   var envio=esReal()?par.correo_envio_habilitado===true:true;
@@ -694,16 +717,18 @@ function renderDocs(){
   var interruptor=!instalado?'<span class="chip c-cubre" title="La migración F1a-DOC aún no está instalada">Correo: por instalar</span>'
     :'<span class="chip '+(par.correo_envio_habilitado?'c-nuevo':'c-var')+'">'+(par.correo_envio_habilitado?'Envío real ENCENDIDO':'Envío real APAGADO')+'</span>'
      +'<span class="chip '+(par.correo_auto_habilitado?'c-nuevo':'c-cubre')+'">'+(par.correo_auto_habilitado?'Automático tras emitir: sí':'Automático tras emitir: no')+'</span>';
-  var pendDoc=n-dOk-dErr, pendSii=n-sOk-sRec, pendCorreo=cnt(function(l){var x=S.sii[l.id];return l.doc_estado==='OBTENIDOS'&&(l.correo_estado==='PENDIENTE'||(l.correo_estado==='FALLIDO'&&!correoIncierto(l)))&&x&&(x.estado==='ACEPTADO'||x.estado==='ACEPTADO_CON_REPAROS');});
+  // [FE-11/12] Lo enviable lo decide el SERVIDOR (facturacion_correo_previa): nunca se calcula en el navegador.
+  var pendDoc=n-dOk-dErr, pendSii=n-sOk-sRep-sRec, pendCorreo=S.previa?(+S.previa.elegibles||0):0;
   var b=btn({txt:'Traer PDF y XML'+(pendDoc?' ('+pendDoc+')':''),ic:'bajar',icc:'ic-ver',ok:opera()&&pendDoc>0,act:'tanda-docs',tip:!opera()?'Solo el facturador o el Master.':(pendDoc?'Descarga de OpenFactura los documentos oficiales y los valida contra la huella guardada al emitir. Nunca reemite.':'Todas las facturas ya tienen su PDF y XML.')})
     +btn({txt:'Consultar estado SII',ic:'sii',icc:'ic-cel',ok:opera(),act:'tanda-sii',tip:opera()?'Consulta en OpenFactura el estado de cada factura en el SII (aceptada, con reparos o rechazada) y guarda la evidencia.':'Solo el facturador o el Master.'})
     +btn({txt:'Enviar correos del grupo'+(pendCorreo?' ('+pendCorreo+')':''),ic:'correo',icc:'ic-mor',cls:'pri',ok:opera()&&envio&&pendCorreo>0,act:'tanda-correo',
-      tip:!opera()?'Solo el facturador o el Master.':(!envio?'El envío real está apagado: lo enciende el Master con el GO.':(pendCorreo?'Envía el aviso con el PDF y el XML a cada cliente (un solo correo por factura; solo las aceptadas por el SII).':'No hay correos pendientes con documentos y estado SII aceptado.'))})
+      tip:!opera()?'Solo el facturador o el Master.':(!envio?'El envío real está apagado: lo enciende el Master con el GO.':(pendCorreo?'Muestra la lista del servidor (destinatarios y montos) para confirmar; un solo correo por factura.':'El servidor no tiene facturas elegibles (documentos, SII aceptado y correo pendiente).'))})
     +(esMaster()?btn({txt:'Configurar correo',ic:'escudo',icc:'ic-amb',ok:instalado,act:'config-correo',tip:instalado?'Enciende o apaga el envío real y el automático (firma corporativa Asesorías Contadoor Ltda.).':'Disponible cuando se instale la migración F1a-DOC.'}):'');
   box.innerHTML='<div class="g-sec-h"><i class="ic placa ic-ver" data-ic="pdf"></i><h2>Documentos y <span>correo</span></h2><div class="chips" style="margin-left:auto">'+interruptor+'</div></div>'
+    +(S.docsAviso?'<div class="fx-aviso" role="alert" style="background:rgba(224,122,110,.08);border-color:rgba(224,122,110,.4)">'+I('alerta','placa ic-roj')+'<div><b>Atención.</b><p>'+esc(S.docsAviso)+'</p></div></div>':'')
     +'<div class="dc-grid">'
     +kpi('pdf','ic-ver','PDF y XML oficiales',dOk,n,'v',dErr?'<span style="color:var(--roj)">'+dErr+' con error (revisa el detalle)</span>':(pendDoc?pendDoc+' por traer':'Todos guardados y validados'))
-    +kpi('sii','ic-cel','Aceptadas por el SII',sOk,n,'c',(sRep?sRep+' con reparos · ':'')+(sRec?'<span style="color:var(--roj)">'+sRec+' rechazadas</span>':(pendSii?pendSii+' sin consultar o pendientes':'Todas aceptadas')))
+    +kpi('sii','ic-cel','Aceptadas por el SII (sin reparos)',sOk,n,'c',(sRep?sRep+' con reparos'+(sRev?' (<span style="color:var(--roj)">'+sRev+' en revisión manual</span>)':'')+' · ':'')+(sRec?'<span style="color:var(--roj)">'+sRec+' rechazadas</span> · ':'')+(pendSii?pendSii+' sin consultar, pendientes o sin dato':''))
     +kpi('correo','ic-mor','Correos enviados',cOk,n,'m',(cInc?'<span style="color:var(--amb)">'+cInc+' incierto(s) (los resuelve el Master)</span> · ':'')+(cFal?cFal+' fallido(s) · ':'')+(esReal()?'a los correos de la ficha':'en prueba: solo a info@contadoor.cl'))
     +'</div><div class="dc-acc">'+b+'</div>';
 }
@@ -723,27 +748,30 @@ function correrDoc(p,okTxt){
   return p.then(function(r){S.ocupado=false;cerrarModal();toast(okTxt(r));return cargar();})
     .catch(function(e){S.ocupado=false;var m=txtDoc(e.codigo||e.message);if($('modal').classList.contains('on'))modal.error(m);else toast(I('alerta','ic-amb')+' '+esc(m));render();});
 }
-// Tandas de 10 (la Edge no procesa más por llamada): se repite mientras avance, se detiene ante un problema de configuración.
-function tanda(accion,titulo){
+// Tandas de 10 (la Edge no procesa más por llamada). Resultado de la Edge: COMPLETA · PARCIAL · DETENIDA · SIN_AVANCE. Se repite solo
+// mientras sea PARCIAL con avance (máx. 12 vueltas). En el envío masivo cada vuelta lleva la huella vigente y la lista confirmada.
+var TANDA_TXT={COMPLETA:['check','ic-ver','completa'],PARCIAL:['repetir','ic-cel','parcial: quedan pendientes'],DETENIDA:['alerta','ic-amb','detenida'],SIN_AVANCE:['alerta','ic-roj','sin avance: revisa el detalle de cada factura']};
+function tanda(accion,titulo,extra){
   if(S.ocupado||!S.lote)return;S.ocupado=true;render();
-  var hechos=0, desde=0, vueltas=0, ultimo=null;
+  var hechos=0, desde=0, vueltas=0, huella=extra&&extra.huella, ids=extra&&extra.ids;
   function paso(){
     vueltas++;
-    return edgeMensual(accion,{lote_id:S.lote.id,desde_id:desde}).then(function(r){
-      ultimo=r;var p=r.procesadas||[];
-      hechos+=accion==='tanda-correo'||accion==='correo_lote'?(r.enviadas||0):p.length;
+    var b={lote_id:S.lote.id,desde_id:desde};if(accion==='correo_lote'){b.huella=huella;b.lineas_autorizadas=ids;}
+    return edgeMensual(accion,b).then(function(r){
+      hechos+=+r.exitosas||0;
       if(accion==='estado_lote')desde=r.ultimo_id||desde;
+      if(r.huella)huella=r.huella;
       toast(I('repetir','ic-cel')+' '+esc(titulo)+': '+hechos+' listo(s)'+(r.quedan?' · quedan '+r.quedan:''));
-      var avanzo=accion==='correo_lote'?(r.enviadas||0)>0:p.length>0;
-      if(!r.detenida&&r.quedan>0&&avanzo&&vueltas<12)return paso();
+      if(r.resultado==='PARCIAL'&&(+r.exitosas||0)>0&&vueltas<12)return paso();
       return r;
     });
   }
   return paso().then(function(r){
     S.ocupado=false;
-    var err=(r.procesadas||[]).filter(function(x){return x.codigo&&x.documentos!=='OBTENIDOS'&&x.correo!=='ENVIADO'&&!x.estado_sii;}).length;
-    toast((r.detenida?I('alerta','ic-amb')+' '+esc(titulo)+' detenido: '+esc(txtDoc(r.detenida)):I('check','ic-ver')+' '+esc(titulo)+': '+hechos+' listo(s).')
-      +(r.esperan_estado_sii?' '+r.esperan_estado_sii+' esperan el estado SII.':'')+(err?' '+err+' con aviso (ver detalle).':''));
+    var t=TANDA_TXT[r.resultado]||['alerta','ic-amb',String(r.resultado||'resultado desconocido')];
+    var avisos=(r.procesadas||[]).filter(function(x){return x.codigo&&x.documentos!=='OBTENIDOS'&&x.correo!=='ENVIADO'&&!x.estado_sii;}).length;
+    toast(I(t[0],t[1])+' '+esc(titulo)+' '+esc(t[2])+': '+hechos+' listo(s)'+(r.quedan?', quedan '+r.quedan:'')+'.'
+      +(r.detenida?' Motivo: '+esc(txtDoc(r.detenida)):'')+(avisos?' '+avisos+' con aviso (ver el detalle de cada factura).':''));
     return cargar();
   }).catch(function(e){S.ocupado=false;toast(I('alerta','ic-amb')+' '+esc(txtDoc(e.codigo||e.message)));render();});
 }
@@ -760,7 +788,7 @@ function bloqueDocDrawer(l){
     +(esMaster()&&inc?btn({txt:'Resolver correo incierto',ic:'escudo',icc:'ic-amb',cls:'sm',ok:true,act:'resolver-correo',id:l.id,tip:'Revisa "Enviados" de reportes@ y marca si salió o no.'}):'');
   return '<div class="fx-aviso dc-dr">'+I('pdf','placa ic-ver')+'<div style="flex:1"><b>Factura N° '+esc(l.of_folio)+' · documentos y correo</b>'
     +fila('pdf','ic-ver','PDF y XML',l.doc_estado==='OBTENIDOS'?'Guardados y validados':(l.doc_estado==='ERROR'?'Con error: '+esc(txtDoc(l.doc_error)):'Pendientes'))
-    +fila('sii','ic-cel','Estado SII',sii?esc(SII_TXT[sii.estado][0])+(sii.texto_estado?' · '+esc(sii.texto_estado):'')+((sii.reparos||[]).length?'<br><small>'+sii.reparos.map(esc).join('<br>')+'</small>':''):'Sin consultar')
+    +fila('sii','ic-cel','Estado SII',sii?esc(siiTxt(sii.estado)[0])+(sii.texto_estado?' · '+esc(sii.texto_estado):'')+((sii.reparos||[]).length?'<br><small>'+sii.reparos.map(esc).join('<br>')+'</small>':''):'Sin consultar')
     +fila('correo','ic-mor','Correo',(inc?'Incierto: '+esc(txtDoc('CORREO_INCIERTO')):esc(c[0]))+(l.correo_destino?' · '+esc(l.correo_destino):'')+(l.correo_enviado_at?' · '+esc(fHora(l.correo_enviado_at)):'')+(l.correo_estado==='FALLIDO'&&!inc&&l.correo_error?'<br><small>'+esc(txtDoc(l.correo_error))+'</small>':''))
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+acc+'</div></div></div>';
 }
@@ -768,34 +796,53 @@ function accionDoc(act,l){
   if(act==='ver-pdf'&&l){verDoc(l,'pdf');return true;}
   if(act==='ver-xml'&&l){verDoc(l,'xml');return true;}
   if(act==='doc-linea'&&l){correrDoc(edgeMensual('documentos_linea',{linea_id:l.id}),function(r){return r.documentos==='OBTENIDOS'?I('check','ic-ver')+' PDF y XML guardados y validados (folio '+esc(l.of_folio)+').':I('alerta','ic-amb')+' '+esc(txtDoc(r.codigo));});return true;}
-  if(act==='sii-linea'&&l){correrDoc(edgeMensual('estado_linea',{linea_id:l.id}),function(r){return I('sii','ic-cel')+' Estado SII: '+esc((SII_TXT[r.estado_sii]||[r.estado_sii])[0])+(r.texto?' · '+esc(r.texto):'');});return true;}
+  if(act==='sii-linea'&&l){correrDoc(edgeMensual('estado_linea',{linea_id:l.id}),function(r){return I('sii','ic-cel')+' Estado SII: '+esc(siiTxt(r.estado_sii)[0])+(r.texto?' · '+esc(r.texto):'');});return true;}
   if(act==='tanda-docs'){tanda('documentos_lote','PDF y XML');return true;}
   if(act==='tanda-sii'){tanda('estado_lote','Estado SII');return true;}
   if(act==='correo-linea'&&l){
-    modal({t:'Enviar el correo de la factura',ic:'correo',icc:'ic-mor',ok:'Enviar correo',b:'<p>Se enviará el aviso de la <b>factura N° '+esc(l.of_folio)+'</b> ('+clp(l.total_clp)+') de <b>'+esc(l.razon_social)+'</b> con el PDF y el XML adjuntos a:</p><p><b>'+esc(esReal()?(l.snapshot&&l.snapshot.correo_destino)||'—':'info@contadoor.cl (prueba)')+'</b></p><p>Se envía una sola vez. Si algo falla, no se reenvía solo.</p>',
+    var pv=previaDe(l.id);
+    modal({t:'Enviar el correo de la factura',ic:'correo',icc:'ic-mor',ok:'Enviar correo',b:'<p>Se enviará el aviso de la <b>factura N° '+esc(l.of_folio)+'</b> ('+clp(l.total_clp)+') de <b>'+esc(l.razon_social)+'</b> con el PDF y el XML adjuntos a:</p><p><b>'+esc(pv?pv.destino:'(sin confirmar por el servidor)')+'</b> <span class="sub">destinatario autorizado por el servidor</span></p>'
+      +(pv&&!pv.elegible?'<p style="color:var(--amb)"><b>El servidor no la considera enviable ahora:</b> '+esc(txtDoc(pv.motivo))+'</p>':'')+'<p>Se envía una sola vez. Si algo falla, no se reenvía solo.</p>',
       cb:function(){correrDoc(edgeMensual('correo_linea',{linea_id:l.id}),function(r){return r.correo==='ENVIADO'?I('correo','ic-ver')+' Correo enviado a '+esc(r.destino||''):I('alerta','ic-amb')+' '+esc(txtDoc(r.codigo));});return false;}});return true;}
   if(act==='prueba-linea'&&l){
     modal({t:'Correo de prueba a info@',ic:'probeta',icc:'ic-amb',ok:'Enviar prueba',b:'<p>Se envía el correo de la <b>factura N° '+esc(l.of_folio)+'</b> <b>solo a info@contadoor.cl</b>, con la franja de prueba que muestra a quién iría. No cuenta como el correo de la factura: el cliente no recibe nada.</p>',
       cb:function(){correrDoc(edgeMensual('correo_prueba_linea',{linea_id:l.id}),function(r){return r.correo_prueba==='ENVIADO'?I('probeta','ic-ver')+' Prueba enviada a info@contadoor.cl.':I('alerta','ic-amb')+' '+esc(txtDoc(r.codigo));});return false;}});return true;}
   if(act==='resolver-correo'&&l){
-    modal({t:'Resolver correo incierto',ic:'escudo',icc:'ic-amb',ok:'Guardar',b:'<p>Busca en <b>Enviados</b> de reportes@contadoor.cl el correo de la factura N° '+esc(l.of_folio)+' (encabezado X-Gestoor-Factura: F1a-'+l.id+'-folio-'+esc(l.of_folio)+').</p>'
-      +'<label class="chk"><input type="radio" name="mRes" value="ENVIADO"> Sí está en Enviados: salió</label><label class="chk"><input type="radio" name="mRes" value="NO_ENVIADO"> No está: se puede volver a enviar</label>'
-      +'<label for="mMotR">Qué viste (obligatorio, mínimo 10 caracteres)</label><textarea id="mMotR" maxlength="900" placeholder="Ej.: está en Enviados el 03-11 a las 10:02"></textarea>',
-      cb:function(){var r=document.querySelector('input[name="mRes"]:checked'), v=$('mMotR').value.trim();if(!r){modal.error('Elige si salió o no.');return false;}if(v.length<10){modal.error(ERRORES.MOTIVO_OBLIGATORIO);return false;}
-        ejecutar('facturacion_correo_resolver',{p_linea:l.id,p_resultado:r.value,p_motivo:v},I('escudo','ic-amb')+' Correo resuelto.',true);return false;}});return true;}
+    modal({t:'Resolver correo incierto',ic:'escudo',icc:'ic-amb',ok:'Guardar',b:'<p>Correo de la factura N° '+esc(l.of_folio)+' (encabezado X-Gestoor-Factura: F1a-'+l.id+'-folio-'+esc(l.of_folio)+').</p>'
+      +'<p style="color:var(--amb)"><b>Ojo:</b> que no aparezca en Enviados NO prueba que no salió. Para marcar "no salió" se necesita la <b>traza de mensajes de Exchange</b>.</p>'
+      +'<label class="chk"><input type="radio" name="mRes" value="ENVIADO"> Salió (está en Enviados o en la traza)</label><label class="chk"><input type="radio" name="mRes" value="NO_ENVIADO"> No salió (la traza de Exchange lo confirma)</label>'
+      +'<label for="mEvT">Evidencia</label><select id="mEvT"><option value="TRAZA_EXCHANGE">Traza de mensajes de Exchange</option><option value="ENVIADOS_BUZON">Enviados de reportes@ (solo sirve para "salió")</option></select>'
+      +'<label for="mEvR">Id de la traza o del mensaje (obligatorio)</label><input id="mEvR" maxlength="200" autocomplete="off">'
+      +'<label for="mMotR">Qué viste (obligatorio, mínimo 10 caracteres)</label><textarea id="mMotR" maxlength="700" placeholder="Ej.: la traza muestra entregado el 03-11 10:02"></textarea>',
+      cb:function(){var r=document.querySelector('input[name="mRes"]:checked'), t=$('mEvT').value, ref=$('mEvR').value.trim(), v=$('mMotR').value.trim();
+        if(!r){modal.error('Elige si salió o no.');return false;}
+        if(r.value==='NO_ENVIADO'&&t!=='TRAZA_EXCHANGE'){modal.error(COD_DOC.EVIDENCIA_INSUFICIENTE);return false;}
+        if(ref.length<6){modal.error(COD_DOC.EVIDENCIA_REF_OBLIGATORIA);return false;}
+        if(v.length<10){modal.error(ERRORES.MOTIVO_OBLIGATORIO);return false;}
+        ejecutar('facturacion_correo_resolver',{p_linea:l.id,p_resultado:r.value,p_evidencia_tipo:t,p_evidencia_ref:ref,p_motivo:v},I('escudo','ic-amb')+' Correo resuelto.',true);return false;}});return true;}
   if(act==='tanda-correo'){
-    var real=esReal(), pend=S.lineas.filter(function(x){var s2=S.sii[x.id];return x.estado==='EMITIDA'&&x.doc_estado==='OBTENIDOS'&&(x.correo_estado==='PENDIENTE'||(x.correo_estado==='FALLIDO'&&!correoIncierto(x)))&&s2&&(s2.estado==='ACEPTADO'||s2.estado==='ACEPTADO_CON_REPAROS');});
-    modal({t:real?'Enviar los correos REALES del grupo':'Enviar los correos del grupo (prueba)',ic:'correo',icc:real?'ic-roj':'ic-mor',ok:'Enviar '+pend.length+' correo(s)',cls:real?'pri fa-btn-real':'pri',
-      b:'<p>Se enviará el aviso con el PDF y el XML de <b>'+pend.length+' factura(s)</b> por '+clp(pend.reduce(function(a,x){return a+(+x.total_clp||0);},0))+(real?' a los correos aprobados de cada cliente.':' <b>solo a info@contadoor.cl</b> (prueba).')+'</p>'
-       +'<p>Solo las aceptadas por el SII. Las ya enviadas se saltan; un correo incierto nunca se reenvía solo. Se envía en tandas de 10.</p>'
-       +(real?'<label for="mConf">Escribe <b>ENVIAR</b> para confirmar</label><input id="mConf" autocomplete="off" spellcheck="false" placeholder="ENVIAR">':''),
-      cb:function(){if(real&&$('mConf').value.trim().toUpperCase()!=='ENVIAR'){modal.error('Escribe ENVIAR para confirmar.');return false;}cerrarModal();tanda('correo_lote','Correos');return false;}});return true;}
+    // [FE-11/12] La lista, los destinatarios y la huella vienen del SERVIDOR; lo que se confirma es exactamente eso.
+    API.rpc('facturacion_correo_previa',{p_lote:S.lote.id}).then(function(pv){
+      var real=esReal(), el=(pv.lineas||[]).filter(function(x){return x.elegible;}), no=(pv.lineas||[]).filter(function(x){return !x.elegible&&x.motivo!=='YA_ENVIADO';});
+      var motivos={};no.forEach(function(x){var k=txtDoc(x.motivo);motivos[k]=(motivos[k]||0)+1;});
+      var filas=el.slice(0,200).map(function(x){return '<tr><td>N° '+esc(x.folio)+'</td><td>'+esc(x.destino)+'</td><td class="num">'+clp(x.total)+'</td></tr>';}).join('');
+      modal({t:real?'Enviar los correos REALES del grupo':'Enviar los correos del grupo (prueba)',ic:'correo',icc:real?'ic-roj':'ic-mor',ok:'Enviar '+el.length+' correo(s)',cls:real?'pri fa-btn-real':'pri',
+        b:'<p><b>'+el.length+' factura(s)</b> por '+clp(el.reduce(function(a,x){return a+(+x.total||0);},0))+', con el PDF y el XML, a estos destinatarios <b>autorizados por el servidor</b>:</p>'
+         +'<div class="tabla-box" style="max-height:220px;overflow:auto"><table><thead><tr><th>Factura</th><th>Destinatario</th><th class="num">Total</th></tr></thead><tbody>'+(filas||'<tr><td colspan="3" class="ninguna">Ninguna elegible.</td></tr>')+'</tbody></table></div>'
+         +(no.length?'<p class="sub" style="margin-top:8px">No se envían ahora: '+Object.keys(motivos).map(function(k){return motivos[k]+' · '+esc(k);}).join('<br>')+'</p>':'')
+         +'<p>Si algo cambia mientras se envía (otra persona, un estado SII), se detiene. Un correo incierto nunca se reenvía solo. Tandas de 10.</p>'
+         +(real?'<label for="mConf">Escribe <b>ENVIAR</b> para confirmar</label><input id="mConf" autocomplete="off" spellcheck="false" placeholder="ENVIAR">':''),
+        cb:function(){if(!el.length){modal.error('No hay facturas elegibles.');return false;}if(real&&$('mConf').value.trim().toUpperCase()!=='ENVIAR'){modal.error('Escribe ENVIAR para confirmar.');return false;}
+          cerrarModal();tanda('correo_lote','Correos',{huella:pv.huella,ids:el.map(function(x){return +x.linea_id;})});return false;}});
+    }).catch(function(e){toast(I('alerta','ic-amb')+' '+esc(mensajeError(e)));});
+    return true;}
   if(act==='config-correo'){
     var par=S.par||{};
     modal({t:'Configurar el correo de facturas',ic:'escudo',icc:'ic-amb',ok:'Guardar',
       b:'<label class="chk"><input type="checkbox" id="mEnv"'+(par.correo_envio_habilitado?' checked':'')+'> Envío de correos de facturas <b>reales</b> encendido</label>'
        +'<label class="chk"><input type="checkbox" id="mAuto"'+(par.correo_auto_habilitado?' checked':'')+'> Enviar automáticamente justo después de emitir</label>'
        +'<p class="sub" style="margin:8px 0">Firma corporativa: <b>Asesorías Contadoor Ltda.</b> · Responder a <b>info@contadoor.cl</b>.</p>'
+       +'<p class="sub" style="margin:0 0 8px">Encender aquí NO basta para facturas reales: el servidor además exige la autorización formal (candado que se carga solo con el GO). Mientras no esté, ningún correo real sale.</p>'
        +'<label for="mRef">Referencia del GO o motivo (obligatorio)</label><input id="mRef" maxlength="300" placeholder="Ej.: GO ChatGPT F1a-DOC fase 5, 04-11">',
       cb:function(){var e1=$('mEnv').checked, a1=$('mAuto').checked, r=$('mRef').value.trim();if(a1&&!e1){modal.error('El automático exige el envío encendido.');return false;}if(r.length<5){modal.error('Indica la referencia del GO (mínimo 5 caracteres).');return false;}
         ejecutar('facturacion_correo_fijar',{p_envio:e1,p_auto:a1,p_referencia:r},I('escudo','ic-amb')+' Correo configurado.',true);return false;}});
@@ -834,7 +881,7 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.fx-panel').forEach(function(p){p.classList.toggle('on',p.id==='p-'+S.tab);});});});
   document.querySelectorAll('[data-vista]').forEach(function(b){b.addEventListener('click',function(){if(S.ocupado)return;S.vista=b.getAttribute('data-vista');S.filtro=false;cargar();});});
   document.querySelectorAll('[data-modo]').forEach(function(b){b.addEventListener('click',function(){if(S.ocupado)return;S.modoVer=b.getAttribute('data-modo');S.modoElegido=true;S.filtro=false;cargar();});});
-  $('selPeriodo').addEventListener('change',function(e){S.periodo=e.target.value||null;cargar();});
+  $('selPeriodo').addEventListener('change',function(e){S.periodo=e.target.value||null;S.modoElegido=false;cargar();});   // [FE-14] cada período parte en su grupo REAL si existe
   if(DEMO){
     document.querySelectorAll('[data-rol]').forEach(function(b){b.addEventListener('click',function(){
       window.FX_DEMO_API.rol=b.getAttribute('data-rol');
