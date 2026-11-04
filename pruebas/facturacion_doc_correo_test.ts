@@ -11,7 +11,7 @@ const LOTE_P = { ...LOTE_R, id: 2, modo: 'PRUEBA' };
 const lin = (id: number, folio: string, doc: string, correo: string, extra: Record<string, unknown> = {}) => ({ id, lote_id: 3, cliente_id: id, cliente_rut: '7610000' + id + '-1', razon_social: 'Cliente Ficticio ' + id + ' SpA',
   plan: 'cumplimiento', moneda: 'CLP', monto_base: 49990, valor_por_trab: 0, total_clp: 49990, estado: 'EMITIDA', motivos: [], alertas: [], tipo_lote: 'FIJO', modo: 'PRODUCCION',
   of_folio: folio, doc_estado: doc, correo_estado: correo, correo_intentos: 0, snapshot: { correo_destino: 'navegador' + id + '@no-usar.cl' }, ...extra });
-type Op = { envio?: boolean; sinMigracion?: boolean; master?: boolean; siiRaro?: boolean; falla500?: boolean; tanda?: string; previa?: any; incierta?: boolean };
+type Op = { envio?: boolean; sinMigracion?: boolean; master?: boolean; siiRaro?: boolean; falla500?: boolean; tanda?: string; previa?: any; incierta?: boolean; error404?: boolean };
 const PREVIA = { lote_id: 3, huella: 'h'.repeat(64), elegibles: 1, lineas: [
   { linea_id: 296, folio: '16500', total: 49990, destino: 'pagos296@servidor-autorizado.cl', sii: 'OK', elegible: true, motivo: null },
   { linea_id: 297, folio: '16501', total: 49990, destino: 'pagos297@servidor-autorizado.cl', sii: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA', elegible: false, motivo: 'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA' },
@@ -37,8 +37,9 @@ function sbGet(path){
     return Promise.resolve(path.indexOf('modo=eq.PRODUCCION')>0?[${JSON.stringify(LOTE_R)}]:path.indexOf('modo=eq.PRUEBA')>0?[${JSON.stringify(LOTE_P)}]:[]);
   }
   if(path.indexOf('facturacion?')===0&&path.indexOf('lote_id=eq.3')>0)return Promise.resolve([${JSON.stringify(lin(296, '16500', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(o.incierta ? lin(297, '16501', 'OBTENIDOS', 'FALLIDO', { correo_error: 'INCIERTO: GRAPH_503' }) : lin(297, '16501', 'OBTENIDOS', 'PENDIENTE'))},${JSON.stringify(lin(298, '16502', 'PENDIENTE', 'PENDIENTE'))}]);
-  if(path.indexOf('facturacion_consultas_proveedor')===0)return ${o.sinMigracion ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:404,message:'relation does not exist'}}))"
+  if(path.indexOf('facturacion_consultas_proveedor')===0)return ${o.sinMigracion ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:404,code:'42P01',message:'relation \"public.facturacion_consultas_proveedor\" does not exist'}}))"
     : o.falla500 ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:500,message:'timeout de base'}}))"
+    : o.error404 ? "Promise.reject(Object.assign(new Error('x'),{fx:{status:404,message:'Not Found (proxy)'}}))"
     : `Promise.resolve([{linea_id:296,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO',texto_estado:'Aceptado'}},{linea_id:297,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH-EMIS: fecha']}}${o.siiRaro ? ",{linea_id:298,tipo:'ESTADO_SII',creado_at:'2026-11-03T15:00:00Z',resumen:{estado:'ESTADO_NUEVO_RARO'}}" : ''}])`};
   if(path.indexOf('facturacion_parametros')===0)return Promise.resolve([${o.sinMigracion ? '{id:1,produccion_habilitada:false}' : `{id:1,correo_envio_habilitado:${!!o.envio},correo_auto_habilitado:false}`}]);
   return Promise.resolve([]);
@@ -58,10 +59,18 @@ async function abrir(o: Op = {}) {
       w.Response = Response;
       w.fetch = (url: string, init: any) => {
         const body = JSON.parse(init.body); w.__edge.push({ url, headers: init.headers, body });
-        if (body.accion === 'correo_lote') return Promise.resolve(new Response(JSON.stringify(o.tanda === 'DETENIDA'
-          ? { procesadas: [], exitosas: 0, quedan: 1, detenida: 'PREVIA_CAMBIO', resultado: 'DETENIDA' }
-          : { procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'COMPLETA', huella: 'z'.repeat(64) }), { status: 200 }));
-        if (body.accion === 'documentos_lote') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 298, documentos: 'ERROR', codigo: 'PDF_NO_DISPONIBLE' }], exitosas: 0, quedan: 1, resultado: 'SIN_AVANCE' }), { status: 200 }));
+        if (body.accion === 'correo_lote') {
+          if (o.tanda === 'DETENIDA') return Promise.resolve(new Response(JSON.stringify({ procesadas: [], exitosas: 0, quedan: 1, detenida: 'PREVIA_CAMBIO', resultado: 'DETENIDA', ultimo_id: 0 }), { status: 200 }));
+          if (o.tanda === 'VUELTAS') {   // 3 vueltas de 2: PARCIAL, PARCIAL, COMPLETA (con cursor)
+            const n = w.__edge.filter((x: any) => x.body.accion === 'correo_lote').length;
+            const ids = body.lineas_autorizadas.filter((id: number) => id > body.desde_id).slice(0, 2);
+            const quedan = body.lineas_autorizadas.filter((id: number) => id > body.desde_id).length - ids.length;
+            return Promise.resolve(new Response(JSON.stringify({ procesadas: ids.map((id: number) => ({ linea: id, correo: 'ENVIADO' })), exitosas: ids.length, quedan, ultimo_id: ids.at(-1),
+              resultado: quedan ? 'PARCIAL' : 'COMPLETA', huella: 'NO-USAR-' + n }), { status: 200 }));
+          }
+          return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 296, correo: 'ENVIADO' }], exitosas: 1, quedan: 0, resultado: 'COMPLETA', ultimo_id: 296 }), { status: 200 }));
+        }
+        if (body.accion === 'documentos_lote') return Promise.resolve(new Response(JSON.stringify({ procesadas: [{ linea: 298, documentos: 'ERROR', codigo: 'PDF_NO_DISPONIBLE' }], exitosas: 0, quedan: 0, resultado: 'SIN_AVANCE', ultimo_id: 298 }), { status: 200 }));
         return Promise.resolve(new Response(JSON.stringify({ tipo: 'pdf', nombre: 'Factura-34-16500.pdf', b64: btoa('%PDF-1.4 ficticio'), sha256: 'a'.repeat(64) }), { status: 200 }));
       };
       w.open = () => { const v = { document: { title: '', body: { innerHTML: '' } }, location: { href: '' }, close() {} }; w.__abiertas.push(v); return v; };
@@ -101,7 +110,7 @@ res('9 real: sin escribir ENVIAR no envía', w.__edge.filter((x: any) => x.body.
 d.getElementById('mConf').value = 'enviar'; await si(d); await espera(200);
 const lote = w.__edge.find((x: any) => x.body.accion === 'correo_lote');
 res('10 [FE-11/13] el envío masivo lleva la huella del servidor y SOLO las líneas confirmadas', lote && lote.body.huella === 'h'.repeat(64) && JSON.stringify(lote.body.lineas_autorizadas) === '[296]', lote?.body);
-res('11 [FE-03] tanda COMPLETA informada como tal', /Correos completa: 1 listo/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
+res('11 [FE-03] tanda COMPLETA informada como tal', /Correos completa: 1 de 1 listo/.test(d.getElementById('toast').textContent), d.getElementById('toast').textContent);
 dom.window.close();
 
 dom = await abrir({ envio: true, master: true, tanda: 'DETENIDA' }); w = dom.window; d = w.document;
@@ -134,7 +143,9 @@ sel.value = '2026-10'; sel.dispatchEvent(new w.Event('change')); await espera(20
 res('17 [FE-14] el selector respeta la elección dentro del período y vuelve al grupo REAL al cambiar de período', prueba1 && d.querySelector('[data-modo="PRODUCCION"]').classList.contains('on'));
 // Resolver correo incierto con evidencia tipificada
 d.querySelector('[data-act="config-correo"]').click(); await espera(80);
-res('18 [FE-09] "Configurar correo" explica que el envío real exige además la autorización formal del servidor', /autorización formal/.test(d.getElementById('mBody').textContent));
+res('18 [FE-09/A5] "Configurar correo" explica la autorización formal y que el automático actúa cuando el SII acepta (no "justo después de emitir")',
+  /autorización formal/.test(d.getElementById('mBody').textContent) && /cuando el SII acepte la factura y pase los controles/.test(d.getElementById('mBody').textContent)
+  && !/justo después de emitir/.test(d.documentElement.innerHTML));
 d.getElementById('mEnv').checked = true; d.getElementById('mRef').value = 'GO de prueba local'; await si(d);
 res('19 fijar con exactamente {p_envio, p_auto, p_referencia}', JSON.stringify(Object.keys(w.__fijar || {}).sort()) === JSON.stringify(['p_auto', 'p_envio', 'p_referencia']) && w.__fijar.p_envio === true);
 dom.window.close();
@@ -150,6 +161,24 @@ res('22 con la traza de Exchange: resolver recibe tipo y referencia de evidencia
 d.querySelector('#tbody tr[data-id="296"] td.cli').click(); await espera(80);
 d.querySelector('#drBody [data-act="prueba-linea"]').click(); await espera(80);
 res('23 [FE-15] el correo de prueba (Master) declara que va SOLO a info@contadoor.cl', /solo a info@contadoor\.cl/.test(d.getElementById('mBody').textContent));
+dom.window.close();
+
+// ── R12-04: vueltas con cursor y lista cerrada ──
+const MUCHAS = { lote_id: 3, huella: 'h'.repeat(64), elegibles: 250, lineas: Array.from({ length: 250 }, (_, i) => ({ linea_id: 1000 + i, folio: String(17000 + i), total: 1000, destino: `d${i}@servidor.cl`, sii: 'OK', elegible: true, motivo: null })) };
+dom = await abrir({ envio: true, master: true, previa: MUCHAS }); w = dom.window; d = w.document;
+d.querySelector('[data-act="tanda-correo"]').click(); await espera(150);
+res('24 [A5-02] con 250 elegibles el modal lista LAS 250 (nada se confirma sin haberse mostrado)', d.querySelectorAll('#mBody tbody tr').length === 250 && /d249@servidor\.cl/.test(d.getElementById('mBody').textContent));
+dom.window.close();
+const TRES = { lote_id: 3, huella: 'h'.repeat(64), elegibles: 5, lineas: [296, 297, 298, 299, 300].map((id) => ({ linea_id: id, folio: String(id), total: 1000, destino: `p${id}@servidor.cl`, sii: 'OK', elegible: true, motivo: null })) };
+dom = await abrir({ envio: true, master: true, previa: TRES, tanda: 'VUELTAS' }); w = dom.window; d = w.document;
+d.querySelector('[data-act="tanda-correo"]').click(); await espera(150); d.getElementById('mConf').value = 'ENVIAR'; await si(d); await espera(400);
+const vueltas = w.__edge.filter((x: any) => x.body.accion === 'correo_lote').map((x: any) => x.body);
+res('25 [R12-04/A5-01/A5-03] 3 vueltas: el cursor avanza (0 → 297 → 299), la huella y el conjunto son los MISMOS en todas (no se reemplazan)',
+  JSON.stringify(vueltas.map((b: any) => b.desde_id)) === '[0,297,299]' && vueltas.every((b: any) => b.huella === 'h'.repeat(64) && JSON.stringify(b.lineas_autorizadas) === '[296,297,298,299,300]')
+  && /completa: 5 de 5/.test(d.getElementById('toast').textContent), { vueltas, toast: d.getElementById('toast').textContent });
+dom.window.close();
+dom = await abrir({ error404: true }); w = dom.window; d = w.document;
+res('26 [A5-04] un 404 GENÉRICO (proxy) no se confunde con "no instalado": se muestra el error', /No se pudo leer el estado de documentos y correo/.test(d.getElementById('fxDocs').textContent));
 dom.window.close();
 
 console.log(`\nFacturación · documentos y correo: ${ok}/${ok + mal}`);
