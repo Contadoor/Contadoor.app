@@ -11,6 +11,14 @@
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <style>
 /* Prospectos · control comercial (tema Todo oscuro; piezas comunes en gestoor.css) */
+/* Estructura base (como los demás módulos: comercial.css, pre-iva/cartera.css). Sin esto el menú lateral
+   queda en el flujo normal y empuja la barra superior y el contenido ~1.400 px hacia abajo. */
+body{margin:0}
+.layout{display:flex;min-height:100vh}
+.sidebar{display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0}
+.main{flex:1;min-height:100vh;min-width:0}
+.topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.tb-analista:empty{display:none}
 .pr-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
 .pr-kpi{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid #4A2B50;border-radius:18px;padding:14px 16px}
 .pr-kpi b{display:block;font:900 26px var(--g-titulo);color:#F3E9F4;font-variant-numeric:tabular-nums}
