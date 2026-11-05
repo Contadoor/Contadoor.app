@@ -59,6 +59,12 @@ function payload(b){var l=lead(b.lead),r=b.reserva?res(b.reserva):null;
 function ev(l,tipo,det,b){DB.E.push({lead:l,tipo:tipo,detalle:det||{},b:b||null,t:new Date().toISOString(),actor:YO.nombre});}
 
 var F={
+  // AGENDA-WA (demo): estado de la confirmación por WhatsApp, rotando los estados para ver las etiquetas.
+  agenda_wa_estado_reservas:function(a){
+    var E=['confirmo','esperando','reagendar','no_entregado','programado','sin_consentimiento'],o={};
+    (a.p_reservas||[]).forEach(function(id,i){o[String(id)]={estado:E[i%E.length],at:new Date().toISOString(),leido:i%2===1};});
+    return ok(o);
+  },
   com_listar_hoy:function(){
     return ok({yo:YO,hoy:new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'}),ahora:new Date().toISOString(),
       reuniones:DB.RS.map(function(r){var l=lead(r.lead),b=DB.B.filter(function(x){return x.reserva===r.id;})[0];
