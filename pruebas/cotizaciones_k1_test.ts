@@ -17,13 +17,15 @@ const rpcs = [...new Set([...cot.matchAll(/'(cot_[a-z_]+)'/g)].map((m) => m[1]))
 res('6 la pantalla usa solo RPC cot_* (' + rpcs.length + ')', rpcs.length >= 12 && rpcs.every((r) => r.startsWith('cot_')), rpcs);
 const be = Deno.env.get('BACKEND');
 if (be) {
-  const mig = Deno.readTextFileSync(be + '/supabase/migrations/202610271500_cotizaciones_k1.sql');
+  const mig = Deno.readTextFileSync(be + '/supabase/migrations/202611051000_cotizaciones_k1.sql');
   const falta = rpcs.filter((r) => !new RegExp('CREATE FUNCTION public\\.' + r + '\\(').test(mig) || !new RegExp('public\\.' + r + '\\([^)]*\\)[^;]*TO authenticated|GRANT EXECUTE ON FUNCTION[\\s\\S]*public\\.' + r + '\\(').test(mig));
   res('7 cada RPC existe en la migración y tiene GRANT a authenticated', falta.length === 0, falta);
 }
 // El PDF y los textos al cliente: nunca "honorarios" (solo aparece en las advertencias internas que lo prohíben).
 const pdf = cot.slice(cot.indexOf('function imprimir'), cot.indexOf('/* ── Eventos'));
 res('8 PDF: "Nuestros servicios", exenta, Asesorías Contadoor Ltda., sin "honorarios"', pdf.includes('Nuestros servicios') && pdf.includes('exenta') && pdf.includes('Asesorías Contadoor Ltda.') && !/honorario/i.test(pdf));
+// Regla 5-nov-2026: lo cotizado es SIEMPRE exento de IVA (nunca "+ IVA", "neto" ni cálculo de 19 %).
+res('14 exento de IVA: PDF y ficha lo dicen; nunca "+ IVA", "neto" ni 19 %', pdf.includes('exento de IVA') && cot.includes('Valor (exento de IVA)') && !/\+\s*IVA|\bneto\b|1\.19|0\.19|19\s*%/i.test(cot));
 res('9 todo lo dinámico del PDF pasa por esc()', !/'\+s\.(codigo|version)\+'/.test(pdf));
 res('10 TE: ficha muestra "Origen: cotización" de forma tolerante y "Nueva cotización" lleva a Cotizaciones',
   te.includes('Origen: cotización') && te.includes("select=cotizacion_origen_id').then") && te.includes('../cotizaciones/index.html?nueva=te'));
