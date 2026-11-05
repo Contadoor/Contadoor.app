@@ -9,15 +9,32 @@
 var D=window.ComDatos, esc=D.esc;
 var app=document.getElementById('cmApp');
 var DATA=null, VISTA='hoy', RESP=(window.GEquipo?GEquipo.leerUrl():'todos');
+// AGENDA-WA: estado de la confirmación por WhatsApp de cada reunión (RPC agenda_wa_estado_reservas). Si la RPC no existe todavía
+// (backend sin instalar) o falla, la pantalla funciona igual, sin la etiqueta.
+var WA={};
+var WA_TXT={confirmo:['✅ Confirmó por WhatsApp','verde'],reagendar:['🔄 Pidió reagendar','ambar'],esperando:['💬 Esperando respuesta','cel'],
+  no_entregado:['📵 WhatsApp no entregado','rojo'],programado:['🕒 Recordatorio programado','gris'],baja:['🔕 Sin avisos (baja)','gris']};
 var VISTAS=[['hoy','Hoy'],['manana','Mañana'],['semana','7 días'],['proximas','Próximas'],['todo','Todo']];
 
 if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dm=document.getElementById('cmDemo');if(dm)dm.hidden=false;}
 try{var v=new URLSearchParams(location.search).get('vista');if(VISTAS.some(function(x){return x[0]===v;}))VISTA=v;}catch(e){}
 
 function cargar(){
-  D.rpc('com_listar_hoy',{p_dias:45}).then(function(r){DATA=r||{};pintar();}).catch(function(e){
+  D.rpc('com_listar_hoy',{p_dias:45}).then(function(r){DATA=r||{};pintar();cargarWa();}).catch(function(e){
     app.innerHTML='<div class="aviso rojo">'+esc(D.mensaje(e))+'</div>';
   });
+}
+function cargarWa(){
+  var ids=(DATA.reuniones||[]).filter(function(x){return x.estado==='confirmada'&&new Date(x.fin).getTime()>Date.now();})
+    .map(function(x){return Number(x.reserva_id);}).filter(function(n){return n>0;}).slice(0,300);
+  if(!ids.length)return;
+  D.rpc('agenda_wa_estado_reservas',{p_reservas:ids}).then(function(r){WA=r||{};pintar();}).catch(function(){});
+}
+function chipWa(x){
+  var w=WA[String(x.reserva_id)];if(!w||x.estado!=='confirmada')return '';
+  var t=WA_TXT[w.estado];if(!t)return '';
+  var tit=w.at?' title="'+esc(D.fechaHora(w.at))+(w.estado==='esperando'&&w.leido?' · leído':'')+'"':'';
+  return '<span class="estado '+t[1]+'"'+tit+'>'+esc(t[0])+(w.estado==='esperando'&&w.leido?' · leído':'')+'</span>';
 }
 function filasResp(){return (DATA.reuniones||[]).map(function(x){var r=x.lead&&x.lead.responsable;return {resp:r?r.nombre:'',resp_id:r?r.id:null,x:x};});}
 function grupo(x){
@@ -56,7 +73,7 @@ function reuHTML(x,g){
     +'<div style="min-width:0"><h3>'+esc(l.nombre||'Prospecto')+'</h3><p>'+esc(l.empresa||'Empresa no informada')+'</p>'
     +'<div class="meta">'+(l.semaforo?'<span class="sem '+esc(l.semaforo)+'" title="Semáforo '+esc(l.semaforo)+'"></span>':'')
     +'<span class="estado gris" title="'+esc(o.campana)+'">'+esc(o.txt)+(o.campana?' · '+esc(o.campana):'')+'</span>'
-    +'<span class="estado '+est[1]+'">'+esc(est[0])+'</span>'
+    +'<span class="estado '+est[1]+'">'+esc(est[0])+'</span>'+chipWa(x)
     +(enCurso?'<span class="estado ambar">● En curso</span>':pronto?'<span class="estado ambar">⏰ en '+min+' min</span>':'')
     +(porCerrar(x)?'<span class="estado ambar">📝 por cerrar</span>':'')
     +(l.temperatura?'<span class="estado lila">'+esc(D.TEMP[l.temperatura]||l.temperatura)+'</span>':'')
