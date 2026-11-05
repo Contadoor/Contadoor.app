@@ -77,8 +77,8 @@ var ERRORES={
   'No autorizado para operar este caso':'No tienes permiso para operar este caso (Master o analista contable asignado, con el cliente operativo en MiRenta).',
   CASO_INVALIDO:'El caso no admite una proyección con estos datos (régimen, estado del caso o fecha de corte).',
   CORTE_INVALIDO:'La fecha de corte no es válida: debe ser fin de mes y estar cubierta por el Balance cargado.',
-  DIARIO_AUSENTE:'Falta el Libro Diario vigente del año comercial. Cárgalo en la apertura de MiRenta.',
-  BALANCE_AUSENTE:'Falta el Balance vigente del año comercial. Cárgalo en la apertura de MiRenta.',
+  DIARIO_AUSENTE:'Falta el Libro Diario vigente del año comercial. Cárgalo en Proyectar (paso 3).',
+  BALANCE_AUSENTE:'Falta el Balance vigente del año comercial. Cárgalo en Proyectar (paso 3).',
   DIARIO_BALANCE_NO_CUADRA:'El Libro Diario y el Balance no cuadran. Revisa la conciliación antes de proyectar.',
   SNAPSHOT_MAPEO_DESACTUALIZADO:'El mapeo de cuentas no está vigente para el Diario y el Balance actuales. Actualízalo antes de proyectar.',
   APERTURA_CONTABLE_INVALIDA:'La apertura contable no está aceptada (se requiere A2 o A3).',
@@ -204,6 +204,7 @@ function app(html){$('mrApp').innerHTML=html;pintarIconos($('mrApp'));}
 function iniciar(){
   pintarIconos();
   if(DEMO){$('mrDemo').hidden=false;document.documentElement.classList.remove('auth-pending');}
+  irProyectar(+URLP.get('caso')||null);
   pintarModo();
   API.rpc('renta_yo',{}).then(function(r){
     S.yo=Array.isArray(r)?r[0]:r;
@@ -933,9 +934,12 @@ function cargarCartera(){
   return Promise.all([
     getTodo('clientes?select=id,razon_social,estado,tiene_contabilidad,analista_contable,analista_contable_usuario_id&order=razon_social.asc,id.asc'),
     getTodo('renta_casos?select=id,cliente_id,anio_comercial,anio_tributario,regimen,estado,version&estado=neq.RECTIFIED&order=anio_comercial.desc,version.desc,id.desc'),
-    getTodo('renta_motor_corridas?select=id,caso_id,cliente_id,cutoff_date,finalizado_at,resultado_estado&vigente=is.true&motor=eq.T1_RLI_14D3&order=id.asc')
+    getTodo('renta_motor_corridas?select=id,caso_id,cliente_id,cutoff_date,finalizado_at,resultado_estado&vigente=is.true&motor=eq.T1_RLI_14D3&order=id.asc'),
+    // Nombre del responsable desde el usuario asignado (el texto antiguo analista_contable puede estar desfasado). Si falla, se usa el texto.
+    API.rpc('listar_usuarios_asignables',{}).catch(function(){return [];})
   ]).then(function(r){
     var cls=r[0]||[], casos=r[1]||[], cors=r[2]||[];
+    var nomUsr={};(Array.isArray(r[3])?r[3]:[]).forEach(function(u){if(u&&u.id!=null&&u.nombre)nomUsr[Number(u.id)]=u.nombre;});
     // Misma regla que renta_clientes_visibles(): Master ve todos; contable, los que tiene asignados como analista contable
     if(!yo.es_master)cls=cls.filter(function(c){return c.analista_contable_usuario_id===yo.id;});
     // Caso del cliente = el del año comercial más reciente (si hay dos en el mismo año, el 14 D N°3)
@@ -945,7 +949,7 @@ function cargarCartera(){
     cls.forEach(function(c){S.clientes[c.id]=c.razon_social;});
     var filas=cls.filter(function(c){return (c.estado==='activo'&&c.tiene_contabilidad!==false)||casoDe[c.id];}).map(function(c){
       var k=casoDe[c.id]||null;
-      return {cliente_id:c.id,nombre:c.razon_social||('Cliente #'+c.id),resp:c.analista_contable||'',resp_id:c.analista_contable_usuario_id,caso:k,corrida:k?(corDe[k.id]||null):null,O:{},vig:null};
+      return {cliente_id:c.id,nombre:c.razon_social||('Cliente #'+c.id),resp:(c.analista_contable_usuario_id!=null&&nomUsr[Number(c.analista_contable_usuario_id)])||c.analista_contable||'',resp_id:c.analista_contable_usuario_id,caso:k,corrida:k?(corDe[k.id]||null):null,O:{},vig:null};
     });
     var casoIds=filas.filter(function(f){return f.caso;}).map(function(f){return f.caso.id;}), corIds=filas.filter(function(f){return f.corrida;}).map(function(f){return f.corrida.id;});
     return Promise.all([
@@ -1114,24 +1118,24 @@ function filaCartera(f){
     +'<td class="mrc-accs"><div class="mrc-accs-in">'+bot+'</div></td></tr>';
 }
 function filaPorCliente(id){return S.cart.filas.filter(function(f){return f.cliente_id===+id;})[0];}
-/* Botón Proyectar: abre la Pantalla 2 o explica qué falta (nunca falla en silencio) */
+/* Botón Proyectar: si ya hay proyección abre la Pantalla 2; si no, lleva al asistente Proyectar (cargar F22, Diario y Balance y ejecutar).
+   Nunca falla en silencio. */
+function urlProyectar(f){return 'proyectar.html?'+(DEMO?'demo=1&':'')+(f.caso?'caso='+f.caso.id:'cliente='+f.cliente_id);}
 function cartProyectar(id,pend){
   var f=filaPorCliente(id);if(!f)return;
-  if(!f.caso)return modalInfo('Sin caso de renta · '+f.nombre,'<p>Este cliente todavía no tiene un caso de renta en MiRenta. Para proyectar se necesita crear el caso del año comercial y completar su apertura (contable y tributaria).</p>','<a class="btn" href="index.html">'+I('flecha-der')+'Ir a la apertura de MiRenta</a>');
-  if(f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>'+(f.caso.regimen==='14D8'?'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente:</b> la distribución a los socios estará disponible en la siguiente etapa.</span></div>':''),'');
-  if(f.corrida||f.apertura==='LISTA')return abrirCaso(f.caso.id,pend);
-  var puede=f.contOk;
-  modalInfo('Falta completar la apertura · '+f.nombre,'<p>Antes de proyectar falta:</p><ul class="mrc-falta">'+f.falta.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'
-    +(puede?'<p class="t2">El motor puede calcular igual con la apertura contable aceptada, pero los registros (RAI, SAC, REX) quedarán "No disponible" o sin verificar hasta completar la apertura tributaria.</p>':'<p class="t2">Sin la apertura contable aceptada el motor no puede proyectar.</p>'),
-    '<a class="btn sec" href="index.html">Ir a la apertura</a>'+(puede?'<button type="button" class="btn" data-act="abrir-igual" data-caso="'+f.caso.id+'">Abrir la proyección igual</button>':''));
+  if(f.caso&&f.caso.regimen!=='14D3')return modalInfo('Régimen fuera del alcance · '+f.nombre,'<p>La proyección de esta versión (motor e1-1) es solo para Pro Pyme General (14 D N°3). Este caso está en régimen <b>'+esc(f.caso.regimen)+'</b>.</p>'+(f.caso.regimen==='14D8'?'<div class="aviso gris">'+I('info','ic-cel')+'<span><b>Régimen transparente:</b> la distribución a los socios estará disponible en la siguiente etapa.</span></div>':''),'');
+  if(f.corrida)return abrirCaso(f.caso.id,pend);
+  location.href=urlProyectar(f);   // sin proyección todavía: el asistente muestra qué falta y dónde cargarlo
 }
 function abrirCaso(casoId,pend){
   var k=S.casos.filter(function(c){return c.id===+casoId;})[0];if(!k)return;
   cerrarModal();S.vista='caso';S.caso=k;S.sec='resumen';S.esc='base';S.pend=pend||null;
   try{history.pushState(null,'',location.pathname+'?'+(function(){var p=new URLSearchParams(location.search);p.set('caso',k.id);return p.toString();})());}catch(e){}
-  window.scrollTo({top:0});cargarCaso();
+  irProyectar(k.id);window.scrollTo({top:0});cargarCaso();
 }
-function volverCartera(){S.vista='cartera';S.caso=null;S.v=null;S.pend=null;cerrarEjecutivo();window.scrollTo({top:0});cargarCartera();}
+/* Botón superior "Proyectar": lleva al asistente (con el caso abierto, si hay uno) */
+function irProyectar(casoId){var a=$('mrIrProyectar'),q=[];if(DEMO)q.push('demo=1');if(casoId)q.push('caso='+casoId);if(a)a.href='proyectar.html'+(q.length?'?'+q.join('&'):'');}
+function volverCartera(){irProyectar(null);S.vista='cartera';S.caso=null;S.v=null;S.pend=null;cerrarEjecutivo();window.scrollTo({top:0});cargarCartera();}
 function trasCargarCaso(){
   var p=S.pend;S.pend=null;if(!p||!S.v||!S.v.corrida)return;
   if(p==='pdf'){abrirEjecutivo();toast(I('descargar','ic-ver')+' Revisa el resumen y pulsa <b>Descargar PDF</b>.');}
@@ -1221,7 +1225,6 @@ document.addEventListener('click',function(e){
   else if(act==='cart-proyectar')cartProyectar(a.getAttribute('data-cli'));
   else if(act==='cart-pdf')cartProyectar(a.getAttribute('data-cli'),'pdf');
   else if(act==='cart-enviar')cartProyectar(a.getAttribute('data-cli'),'enviar');
-  else if(act==='abrir-igual')abrirCaso(a.getAttribute('data-caso'));
   else if(act==='cart-csv')descargarCartera();
   else if(act==='pdf')descargarPdf();
   else if(act==='enviar')accEnviar();

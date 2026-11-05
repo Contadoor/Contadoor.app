@@ -1,0 +1,41 @@
+/* pir/preparacion.css — "Preparemos tu Renta 2027". Reutiliza proyeccion.css (línea Cartera → detalle de MiRenta); aquí solo lo propio. */
+.g-mod-prep .t-cel{color:var(--cel)}
+.g-mod-prep .estado.cel{background:rgba(92,200,255,.14);color:var(--cel)}
+.g-mod-prep .estado.mini{padding:2px 8px;font-size:10.5px}
+.g-mod-prep .pr-tot{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(0,1.6fr)}
+.g-mod-prep .pr-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.g-mod-prep .pr-av .mrc-cob-barra i{background:linear-gradient(90deg,#803889,#C77BC9 60%,#5FCF9C)}
+.g-mod-prep .pr-det-top{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.g-mod-prep .pr-card{margin-top:14px}
+.g-mod-prep .pr-card .h h2{display:flex;align-items:center;gap:8px}
+.g-mod-prep .pr-cmp td{vertical-align:top}
+.g-mod-prep .pr-v{display:flex;flex-direction:column;gap:2px}
+.g-mod-prep .pr-v small{font-size:11.5px;color:var(--t3)}
+.g-mod-prep tr.pr-t-corregido td:first-child{border-left:4px solid var(--ambar)}
+.g-mod-prep tr.pr-t-nuevo td:first-child{border-left:4px solid var(--cel)}
+.g-mod-prep tr.pr-t-quitado td:first-child{border-left:4px solid var(--rojo)}
+.g-mod-prep tr.pr-t-validado td:first-child{border-left:4px solid var(--verde)}
+.g-mod-prep .pr-chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;min-height:34px}
+.g-mod-prep .pr-chk input{width:18px;height:18px;accent-color:#C77BC9}
+.g-mod-prep .pr-apl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.g-mod-prep .link{background:none;border:0;color:var(--cel);font:600 12px var(--txt);cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 0}
+.g-mod-prep .pr-alertas ul{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.55}
+.g-mod-prep .pr-pend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.g-mod-prep .pr-pend-acc{display:flex;gap:6px;margin-left:auto}
+.g-mod-prep .pr-socios{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.g-mod-prep .pr-socio{border:1px solid var(--borde);border-radius:16px;padding:12px 14px;background:rgba(255,255,255,.02)}
+.g-mod-prep .pr-socio-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.g-mod-prep .pr-socio-h>div{display:flex;flex-direction:column;flex:1;min-width:0}
+.g-mod-prep .pr-socio-h small{font-size:11.5px;color:var(--t3)}
+.g-mod-prep dl.kv{display:grid;grid-template-columns:minmax(120px,38%) 1fr;gap:6px 12px;margin:0;font-size:13px}
+.g-mod-prep dl.kv dt{color:var(--t2)}.g-mod-prep dl.kv dd{margin:0;color:var(--t1)}
+.g-mod-prep .pr-obj{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.g-mod-prep .pr-obj small{display:block;color:var(--t2);font-size:12px}
+.g-mod-prep .pr-lista{margin:0 0 6px;padding-left:18px;font-size:13px;line-height:1.7}
+.g-mod-prep .pr-num{font-size:22px!important;letter-spacing:2px;color:var(--t1)}
+.g-mod-prep .pr-fs{border:1px solid var(--borde);border-radius:12px;padding:8px 12px;margin:10px 0}
+.g-mod-prep .pr-fs legend{font-size:12px;color:var(--t2);padding:0 4px}
+body.g-mod-prep #prCampana.pr-cerrada{opacity:.85;border-style:dashed}
+@media (max-width:1240px){.g-mod-prep .pr-tot{grid-template-columns:repeat(3,minmax(0,1fr))}.g-mod-prep .pr-tot .mrc-k.ancho{grid-column:span 3}}
+@media (max-width:760px){.g-mod-prep .pr-tot{grid-template-columns:1fr 1fr}.g-mod-prep .pr-tot .mrc-k.ancho{grid-column:1/-1}
+  .g-mod-prep dl.kv{grid-template-columns:1fr}.g-mod-prep .pr-socios{grid-template-columns:1fr}.g-mod-prep .pr-pend-acc{margin-left:0}}
