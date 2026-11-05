@@ -355,10 +355,14 @@ function accionesLinea(l){
   }
   return h;
 }
+// Buscador de la tabla: sin tildes, mayúsculas, puntos ni guiones (así "76.123.456-7" y "761234567" coinciden).
+function normBusca(s){return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.\-]/g,'').trim();}
 function renderTabla(){
   var porResolver=S.lineas.filter(function(x){return x.estado==='BORRADOR';});
   if(!porResolver.length)S.filtro=false;
   var ls=S.filtro?porResolver:S.lineas, h='';
+  var q=normBusca(S.q);
+  if(q)ls=ls.filter(function(l){return normBusca([l.razon_social,l.cliente_rut,l.of_folio].join(' ')).indexOf(q)>=0;});
   ls.forEach(function(l){
     var est=EST_LINEA[l.estado]||[l.estado,'fx-est gris'], av=alertasVista(l), p=prevDe(l);
     var noLista=l.estado==='BORRADOR';
@@ -383,7 +387,7 @@ function renderTabla(){
      +'<td style="white-space:nowrap">'+accionesLinea(l)+' <button type="button" class="g-ico" aria-label="Ver detalle" data-act="ver" data-id="'+l.id+'">'+I('ver','ic-mor')+'</button></td></tr>';
   });
   if(!S.lote)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">'+(esFact()?'Aún no hay grupo. Usa "Preparar grupo".':'Aún no hay grupo preparado para este período.')+'</td></tr>';
-  else if(!ls.length)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">El grupo no tiene líneas.</td></tr>';
+  else if(!ls.length)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">'+(q?'Ninguna línea coincide con la búsqueda.':'El grupo no tiene líneas.')+'</td></tr>';
   $('tbody').innerHTML=h;
   $('tLote').textContent='grupo '+S.vista;
   $('cntLineas').textContent=S.lineas.length;
@@ -635,6 +639,7 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.fx-panel').forEach(function(p){p.classList.toggle('on',p.id==='p-'+S.tab);});});});
   document.querySelectorAll('[data-vista]').forEach(function(b){b.addEventListener('click',function(){if(S.ocupado)return;S.vista=b.getAttribute('data-vista');S.filtro=false;cargar();});});
   $('selPeriodo').addEventListener('change',function(e){S.periodo=e.target.value||null;cargar();});
+  $('fxBuscar').addEventListener('input',function(e){S.q=e.target.value;renderTabla();});
   if(DEMO){
     document.querySelectorAll('[data-rol]').forEach(function(b){b.addEventListener('click',function(){
       window.FX_DEMO_API.rol=b.getAttribute('data-rol');
