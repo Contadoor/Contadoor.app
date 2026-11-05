@@ -159,6 +159,18 @@
   recalcLote(lv);
   evento(lv.id,null,'TRABAJADORES_MANUAL','facturador',{ahora:12,nota:'Dato confirmado con el analista de RRHH'});
 
+  /* [F1a-DOC/CORREO] Grupo FIJO REAL ya emitido (datos ficticios): documentos, estado SII y correo en distintos estados */
+  var lr=crearLote('FIJO');lr.modo='PRODUCCION';recalcLote(lr);lr.estado='EMITIDO';lr.huella=huella();
+  var consultas=[], parametros=[{id:1,correo_envio_habilitado:false,correo_auto_habilitado:false}];
+  lineas.filter(function(x){return x.lote_id===lr.id&&x.estado==='LISTA';}).forEach(function(f,i){
+    f.modo='PRODUCCION';f.estado='EMITIDA';f.of_folio=String(16500+i);f.snapshot={v:1,correo_destino:'pagos'+(i+1)+'@cliente-ficticio.cl'};f.snapshot_hash=huella();
+    f.doc_estado=i<4?'OBTENIDOS':(i===4?'ERROR':'PENDIENTE');if(i===4)f.doc_error='PDF_NO_DISPONIBLE: HTTP 404';
+    if(i<3)consultas.push({linea_id:f.id,tipo:'ESTADO_SII',creado_at:ahora(),resumen:{estado:'ACEPTADO_CON_REPAROS',texto_estado:'Aceptado con Reparo',reparos:['FCH: fecha de emisión anterior a la recepción en el SII']}});
+    if(i===0){f.correo_estado='ENVIADO';f.correo_destino=f.snapshot.correo_destino;f.correo_enviado_at=ahora();}
+    if(i===1){f.correo_estado='FALLIDO';f.correo_error='INCIERTO: GRAPH_503';}
+  });
+  evento(lr.id,null,'EMISION_EMITIDA','servicio',{});
+
   /* ── Lectura: interpreta las mismas rutas PostgREST que usa facturacion.js ── */
   function q(path){
     var u=path.split('?'), tabla=u[0], p={};
@@ -172,6 +184,8 @@
     else if(tabla==='facturacion_adicionales'){var ids=inn('linea_id')||[];r=adicionales.filter(function(a){return ids.indexOf(String(a.linea_id))>=0;});}
     else if(tabla==='facturacion_eventos')r=eventos.filter(function(e){return e.lote_id===+eq('lote_id');}).sort(function(a,b){return b.id-a.id;});
     else if(tabla==='facturacion_historial')r=historial.filter(function(x){return (!eq('periodo')||x.periodo===eq('periodo'))&&(!eq('cliente_rut')||x.cliente_rut===eq('cliente_rut'));});
+    else if(tabla==='facturacion_consultas_proveedor'){var ids2=inn('linea_id')||[];r=consultas.filter(function(c){return ids2.indexOf(String(c.linea_id))>=0;});}
+    else if(tabla==='facturacion_parametros')r=parametros.slice();
     else if(tabla==='clientes'){var c=CLI[+eq('id')];r=c?[{id:+eq('id'),rut:c.rut,razon_social:c.razon_social,giro:c.completa?'Actividad de ejemplo':'',direccion:'Dirección de ejemplo 123',comuna:'Maipú'}]:[];}
     else r=[];
     return JSON.parse(JSON.stringify(r));
@@ -193,6 +207,15 @@
       function soloMaster(){if(!mas)throw err('SOLO_MASTER','solo el Master puede hacer esta acción','42501');}
       function editable(l){if(!l)throw err('LOTE_NO_EXISTE','no existe','P0002');if(l.estado!=='BORRADOR'&&l.estado!=='DEVUELTO')throw err('LOTE_NO_EDITABLE','el lote está en '+l.estado,'55000');}
       function linea(id){var f=lineas.filter(function(x){return x.id===+id;})[0];if(!f)throw err('LINEA_NO_EXISTE',String(id),'P0002');editable(lote(f.lote_id));return f;}
+      if(fn==='facturacion_correo_previa'){   // [F1a-DOC] previsualización simulada (en producción la calcula el SQL)
+        var par0=parametros[0];
+        var ls=lineas.filter(function(x){return x.lote_id===+a.p_lote&&x.estado==='EMITIDA';}).map(function(f){
+          var c=consultas.filter(function(x){return x.linea_id===f.id;})[0], e=c?c.resumen.estado:null;
+          var sii=!c?'SII_NO_ACEPTADO:SIN_CONSULTA':(e==='ACEPTADO'?'OK':(e==='ACEPTADO_CON_REPAROS'?'SII_REPAROS_REVISION:REGLA_NO_DEFINIDA':(e==='RECHAZADO'?'SII_RECHAZADO':'SII_NO_ACEPTADO:'+e)));
+          var mot=f.correo_estado==='ENVIADO'?'YA_ENVIADO':(f.correo_estado==='FALLIDO'&&/^INCIERTO/.test(f.correo_error||'')?'CORREO_INCIERTO':(f.doc_estado!=='OBTENIDOS'?'SIN_DOCUMENTOS':(!par0.correo_envio_habilitado?'CORREO_NO_HABILITADO':(sii!=='OK'?sii:null))));
+          return {linea_id:f.id,folio:f.of_folio,total:f.total_clp,destino:f.snapshot.correo_destino,sii:sii,elegible:mot===null,motivo:mot};});
+        return {lote_id:+a.p_lote,lineas:ls,huella:'d'.repeat(64),elegibles:ls.filter(function(x){return x.elegible;}).length};
+      }
       if(fn==='facturacion_yo')return {usuario_id:mas?2:1,nombre:mas?'Master (demo)':'Facturador (demo)',rol:mas?'admin':'pagos',es_master:mas,puede_preparar:fac,puede_emitir:fac,puede_aprobar:mas,puede_leer:true};
       if(fn==='facturacion_lote_preparar'){
         soloFact();
