@@ -228,7 +228,7 @@ var FILTROS=[['TODOS','Todos'],['AL_DIA','Al día'],['POR_VENCER','Por vencer'],
 function pasaFiltro(f){
   if(S.filtro==='REPACTACION'&&!f.rep)return false;
   if(S.filtro!=='TODOS'&&S.filtro!=='REPACTACION'&&f.etapa!==S.filtro)return false;
-  if(S.buscar){var q=S.buscar.toLowerCase(),qr=q.replace(/[.\s]/g,''),r=rutCli(f.id).toLowerCase().replace(/\./g,'');if(f.nombre.toLowerCase().indexOf(q)<0&&String(f.id)!==q&&!(qr&&r&&r.indexOf(qr)>=0))return false;}
+  if(S.buscar){var q=S.buscar.toLowerCase(),qr=q.replace(/[.\s]/g,''),r=rutCli(f.id).toLowerCase().replace(/\./g,''),fol=f.docs.some(function(d){return d.folio&&String(d.folio)===qr;});if(f.nombre.toLowerCase().indexOf(q)<0&&String(f.id)!==q&&!(qr&&r&&r.indexOf(qr)>=0)&&!fol)return false;}
   return true;
 }
 function carteraHtml(){
@@ -241,12 +241,12 @@ function carteraHtml(){
     h+='<div class="gc-vacio">'+(S.filas.length?'Ningún cliente en este filtro.':'🎉 No hay deuda registrada en Cobranza. Las facturas entran cuando Facturación las emite en producción (y el saldo inicial cuando el Master lo carga).')+'</div></section>';
     return h;
   }
-  h+='<div class="tabla-box gc-tabla-d"><table class="gt"><thead><tr><th>Cliente</th><th class="num">Docs.</th><th class="num">Deuda total</th><th class="num">Vencido</th><th class="num">Días de mora</th><th>Próx. vencimiento</th><th>Compromiso / repactación</th><th>Etapa</th></tr></thead><tbody>';
+  h+='<div class="tabla-box gc-tabla-d"><table class="gt"><thead><tr><th>Cliente</th><th>Factura · período</th><th class="num">Deuda total</th><th class="num">Vencido</th><th class="num">Días de mora</th><th>Próx. vencimiento</th><th>Compromiso / repactación</th><th>Etapa</th></tr></thead><tbody>';
   lista.forEach(function(f){
     var e=ETAPA[f.etapa]||ETAPA.SIN_EVALUAR, borde={rojo:'borde-rojo',naranja:'borde-naranja',ambar:'borde-ambar'}[e.c]||'';
     h+='<tr class="clic '+borde+'" data-act="ficha" data-id="'+esc(f.id)+'" tabindex="0">'
       +'<td class="cli"><b>'+esc(f.nombre)+'</b>'+(nombreVisible(f.id)?(rutCli(f.id)?'<span class="sub">RUT '+esc(rutCli(f.id))+'</span>':''):'<span class="sub">Nombre no visible con tu permiso</span>')+(f.pausa?'<span class="sub">'+I('pausa','ic-amb')+' '+(f.pausa.origen==='COMPROMISO'?'Compromiso hasta '+G.fFecha(f.pausa.hasta):'Recordatorios en pausa hasta '+G.fFecha(f.pausa.hasta))+'</span>':'')+'</td>'
-      +'<td class="num">'+f.docs.length+'</td><td class="num"><b>'+clp(f.deuda)+'</b></td>'
+      +'<td>'+docsCelda(f.docs)+'</td><td class="num"><b>'+clp(f.deuda)+'</b></td>'
       +'<td class="num '+(f.vencido>0?'t-ambar':'t3')+'">'+clp(f.vencido)+'</td>'
       +'<td class="num">'+(f.diasMora!=null?'<b class="'+(f.diasMora>60?'t-rojo':f.diasMora>30?'t-ambar':'')+'">'+f.diasMora+' d</b><span class="sub">'+f.nVenc+' doc. vencido(s)</span>':'<span class="t3">—</span>')+'</td>'
       +'<td>'+(f.prox?G.fFecha(f.prox)+'<span class="sub">en '+G.dias(S.hoy,f.prox)+' d</span>':'<span class="t3">—</span>')+'</td>'
@@ -257,11 +257,22 @@ function carteraHtml(){
   lista.forEach(function(f){
     var e=ETAPA[f.etapa]||ETAPA.SIN_EVALUAR;
     h+='<button type="button" class="gc-fila-m" data-act="ficha" data-id="'+esc(f.id)+'"><div class="l1"><b>'+esc(f.nombre)+'</b><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span></div>'
-      +'<div class="l2"><span>Deuda <b>'+clpT(f.deuda)+'</b></span><span>Vencido <b class="'+(f.vencido>0?'t-ambar':'')+'">'+clpT(f.vencido)+'</b></span>'
+      +'<div class="l2">'+(f.docs.length?'<span>'+docsTexto(f.docs)+'</span>':'')+'<span>Deuda <b>'+clpT(f.deuda)+'</b></span><span>Vencido <b class="'+(f.vencido>0?'t-ambar':'')+'">'+clpT(f.vencido)+'</b></span>'
       +(f.diasMora!=null?'<span>Mora <b>'+f.diasMora+' d</b></span>':'')+(f.rep?'<span>🤝 '+esc(REP[f.rep.estado].t)+'</span>':'')+'</div></button>';
   });
   h+='</div><p class="nota">Los días de mora y el vencido se muestran según la fecha de vencimiento del documento. La etapa (y si el vencimiento corre al siguiente día hábil por feriado) la decide el motor de Cobranza en el servidor.</p></section>';
   return h;
+}
+
+// Folio y período contable de los documentos de la fila (los dos primeros; el resto como "+N").
+var MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function periodoTxt(p){var m=/^(\d{4})-(\d{2})$/.exec(p||'');return m?MESES[+m[2]-1]+' '+m[1]:(p||'');}
+function docTxt(d){return (d.folio?'Folio '+d.folio:(d.cuota_n?'Cuota '+d.cuota_n+' de '+d.cuotas_total:(d.concepto||'Documento')))+(d.periodo?' · '+periodoTxt(d.periodo):'');}
+function docsTexto(docs){var t=docs.slice(0,2).map(docTxt).join(', ');return esc(t)+(docs.length>2?' +'+(docs.length-2):'');}
+function docsCelda(docs){
+  if(!docs.length)return '<span class="t3">—</span>';
+  return docs.slice(0,2).map(function(d){return '<div><b>'+esc(d.folio?'Folio '+d.folio:(d.cuota_n?'Cuota '+d.cuota_n+' de '+d.cuotas_total:(d.concepto||'Documento')))+'</b>'+(d.periodo?'<span class="sub">Período '+esc(periodoTxt(d.periodo))+'</span>':'')+'</div>';}).join('')
+    +(docs.length>2?'<span class="sub">+'+(docs.length-2)+' documento(s) más</span>':'');
 }
 
 /* ── Ficha del cliente (estado de cuenta consolidado) ── */
