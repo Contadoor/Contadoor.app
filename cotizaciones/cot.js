@@ -196,7 +196,7 @@ function fichaHtml(f){
   h+='<div class="te-flujo cot-flujo" style="margin-top:12px">'+FLUJO.map(function(e,i){var cl=(ev==='ACEPTADA'||i<idx)?'hecho':i===idx?'actual':'';
     if(e[0]==='PENDIENTE_APROBACION'&&c.aprobacion_regla&&c.aprobacion_regla!=='APROBADA_POR_MASTER')cl='hecho otro';
     return '<div class="te-paso '+cl+'"><span class="n">'+(i+1)+'</span><b>'+esc(e[1])+'</b><small>'+esc(e[2])+'</small></div>';}).join('')+'</div>';
-  h+='<div class="gc-tri"><div><small>💰 Valor (exento)</small><b>'+monto(c.monto_final,c.moneda,c.periodicidad)+'</b></div>'
+  h+='<div class="gc-tri"><div><small>💰 Valor (exento de IVA)</small><b>'+monto(c.monto_final,c.moneda,c.periodicidad)+'</b></div>'
     +'<div><small>📚 Catálogo</small><b>'+(G.esNum(c.monto_catalogo)?monto(c.monto_catalogo,c.moneda,c.periodicidad):'<span class="nd">'+((c.motivos_aprobacion||[]).indexOf('SERVICIO_CON_RANGO')>=0?'Con rango':'Por propuesta')+'</span>')+'</b></div>'
     +'<div><small>⏳ Vigencia</small><b>'+(c.vigencia_hasta?G.fFecha(c.vigencia_hasta)+(c.dias_para_vencer!=null&&c.dias_para_vencer>=0?' <span class="t3" style="font-size:11px">('+c.dias_para_vencer+' d)</span>':''):'<span class="nd">Al enviar: 15 días</span>')+'</b></div></div>';
   if(c.descuento_pct)h+='<p class="nota">Descuento '+esc(c.descuento_pct)+' % sobre '+monto(c.monto_propuesto||c.monto_catalogo,c.moneda,c.periodicidad)+'.</p>';
@@ -345,7 +345,7 @@ function abrirEditor(f,tipoInicial){
       +'<div class="campo"><span>💡 Soluciones · frase del cliente → lo que logra → cómo (al menos 1)</span><div id="cotSols"></div><button type="button" class="link" id="cotSolMas">+ Agregar solución</button></div>'
       +(S.yo.master&&cat.responsables&&cat.responsables.length?'<label class="campo"><span>Responsable</span><select id="cotResp2">'+cat.responsables.map(function(u){return '<option value="'+esc(u.id)+'" data-plan="'+(u.plan?1:0)+'" data-te="'+(u.te?1:0)+'">'+esc(u.nombre)+'</option>';}).join('')+'</select></label>':'')
       +'<label class="campo"><span>Notas internas (no las ve el cliente)</span><textarea id="cotNotas" maxlength="2000">'+esc(c&&c.notas_internas||'')+'</textarea></label>'
-      +'<p class="nota">El precio de catálogo lo calcula el servidor. Factura siempre exenta. Escribe «nuestros servicios» (nunca «honorarios»).</p>';
+      +'<p class="nota">El precio de catálogo lo calcula el servidor. Siempre exento de IVA (factura exenta, DTE 34). Escribe «nuestros servicios» (nunca «honorarios»).</p>';
     G.modal({titulo:c?'Editar '+c.codigo+' v'+c.version:'➕ Nueva cotización',ok:c?'Guardar':'Crear borrador',html:html,alAbrir:function(m){
       var q=function(s){return m.querySelector(s);};
       function pintarTipo(){q('#cotBloquePlan').hidden=tipo!=='PLAN';q('#cotBloqueTe').hidden=tipo!=='TE';q('#cotMontoLbl').textContent=tipo==='PLAN'?'Valor propuesto (UF al mes)':'Valor propuesto ($, entero)';
@@ -436,7 +436,7 @@ function imprimir(f){
     +'<h2>'+(s.tipo==='PLAN'?esc(s.plan&&s.plan.nombre||'Plan'):esc(s.servicio&&s.servicio.nombre||'Trabajo especial'))+'</h2>'
     +(s.detalle&&s.detalle.que?'<p><b>Qué haremos:</b> '+esc(s.detalle.que)+'</p>':'')+(s.detalle&&s.detalle.alcance?'<p><b>Alcance:</b> '+esc(s.detalle.alcance)+'</p>':'')
     +'<table>'+filas+'</table>'+(s.descuento_pct?'<p>Descuento aplicado: '+esc(s.descuento_pct)+' %.</p>':'')
-    +'<div class="tot"><span>Nuestros servicios</span><b>'+total+'</b></div>'
+    +'<div class="tot"><span>Nuestros servicios <small style="font:600 11px Inter,Arial,sans-serif;color:#6B5A6D">· exento de IVA</small></span><b>'+total+'</b></div>'
     +'<p style="margin-top:12px">Factura exenta de IVA emitida por <b>Asesorías Contadoor Ltda.</b> Sin permanencia.</p>'+cond
     +'<div class="firma"><b>'+esc(resp)+'</b><br><span style="color:#6B5A6D">Equipo Contadoor</span></div>'
     +'<div class="pie">Para aceptar esta propuesta, respóndenos por correo o WhatsApp antes del vencimiento. Huella del documento: '+esc(String(c.snapshot_hash||'').slice(0,16))+'…</div>'
