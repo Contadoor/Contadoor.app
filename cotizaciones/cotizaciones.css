@@ -43,4 +43,4 @@
 .g-mod-gc .seg-cat{font:700 13px var(--txt);color:var(--t1)}
 .g-mod-gc .seg-prox{margin:6px 0;font-size:13.5px}.g-mod-gc .seg-nota{font-size:13px;overflow-wrap:anywhere}
 .g-mod-gc .seg-tl{margin:6px 0}
-.g-mod-gc .seg-ok{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.4;margin-top:8px}.g-mod-gc .seg-ok input{margin-top:3px;width:18px;height:18px;flex:none}
+.g-mod-gc .seg-cons{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.4;margin:8px 0 0}.g-mod-gc .seg-cons .ic{flex:none;margin-top:2px}

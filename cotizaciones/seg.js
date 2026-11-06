@@ -20,9 +20,10 @@ var MOT={cotizacion_aceptada:'la cotización fue aceptada',cotizacion_rechazada:
   telefono_invalido:'el teléfono no es un celular válido',telefono_cambio:'el teléfono cambió',tope_numero:'ese número ya recibió 2 mensajes de seguimiento en 14 días',
   sin_respuesta_3_habiles:'no contestó en 3 días hábiles',sin_consentimiento:'falta el consentimiento'};
 var NO_PUEDE={cotizacion_no_enviada:'El pase al asistente se da cuando la cotización está «Enviada» y vigente.',es_cliente:'El seguimiento por el asistente es para prospectos (no clientes de la cartera).',
+  sin_consentimiento:'El asistente solo escribe a prospectos que aceptaron ser contactados al agendar en agenda.contadoor.cl. Este prospecto no tiene ese registro: hazle el seguimiento tú.',
   sin_celular:'El prospecto no tiene un celular chileno registrado (+56 9…). Agrégalo en Prospectos.',ya_en_curso:'Ya hay un seguimiento en curso.',ya_realizado:'El asistente ya hizo el seguimiento de esta cotización (máximo una vez).'};
 var MSG={programado:'programado',enviando:'enviando',enviado:'enviado ✓',fallido:'no entregado',incierto:'sin confirmación de entrega',cancelado:'cancelado',vencido:'no alcanzó a salir'};
-var ERR={SEG_SIN_CONSENTIMIENTO:'Marca la casilla: el prospecto aceptó que el asistente le escriba.',SEG_TEMA_INVALIDO:'El tema va sin precios (3 a 60 letras).',SEG_NOTA_INVALIDA:'La nota va de 3 a 500 letras.',
+var ERR={SEG_SIN_CONSENTIMIENTO:'Este prospecto no tiene registrado el consentimiento de la agenda: el asistente no puede escribirle.',CAMPO_NO_PERMITIDO:'Dato no permitido en el pase.',SEG_TEMA_INVALIDO:'El tema va sin precios (3 a 60 letras).',SEG_NOTA_INVALIDA:'La nota va de 3 a 500 letras.',
   TEXTO_NO_PERMITIDO:'Usa «nuestros servicios» en vez de «honorarios».',TEXTO_CON_CREDENCIAL:'No escribas claves ni contraseñas.',SEG_YA_EN_CURSO:'Ya hay un seguimiento en curso.',
   SEG_YA_REALIZADO:'El asistente ya hizo el seguimiento de esta cotización.',SEG_SIN_CELULAR:'El prospecto no tiene un celular chileno válido.',NO_ENVIADA:'La cotización no está enviada y vigente.',
   SEG_NO_PAUSABLE:'Este seguimiento ya no se puede pausar.',SEG_NO_PAUSADO:'El seguimiento no está en pausa.',SEG_SIN_MENSAJES:'Ya salieron los 2 mensajes del seguimiento.',
@@ -31,16 +32,21 @@ var ERR={SEG_SIN_CONSENTIMIENTO:'Marca la casilla: el prospecto aceptó que el a
 var CTX=null;   // {f, rpc, mErr, recargar}
 
 function hora(iso){return iso?G.fHora(iso):'';}
+/* dd-mm-aaaa en hora de Chile (fecha en que el prospecto aceptó el contacto al agendar). */
+function fechaCL(iso){var d=new Date(iso);if(!iso||isNaN(d))return '';var p={};new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(d).forEach(function(x){p[x.type]=x.value;});return p.day+'-'+p.month+'-'+p.year;}
+function consLinea(pr){return pr&&pr.consentimiento_agenda?'<p class="seg-cons">'+I('check','ic-ver')+'<span>Aceptó contacto al agendar el <b>'+esc(fechaCL(pr.consentimiento_agenda))+'</b> (agenda.contadoor.cl).</span></p>':'';}
 function html(){return '<section id="segBox" class="seg-box"><h4>🤖 Seguimiento del asistente</h4><div class="aviso lila"><span class="gc-spin"></span>Cargando…</div></section>';}
 
 function pintar(st){
   var box=document.getElementById('segBox');if(!box)return;
   var s=st.seguimiento,pr=st.preparar||{},h='<h4>🤖 Seguimiento del asistente</h4>';
   if(st.habilitado===false||pr.habilitado===false)h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span><b>El asistente aún no está encendido para seguimientos.</b> Puedes dejar el pase listo: no saldrá ningún mensaje mientras esté apagado.</span></div>';
+  else if(pr.plantillas_aprobadas===false)h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span><b>Las plantillas aún no están aprobadas por Meta.</b> No saldrá ningún mensaje hasta que se aprueben.</span></div>';
   if(!s){
     if(pr.puede)h+='<p class="t2">Cuando ya hayas conversado con el prospecto, dale el pase: el asistente le escribirá por WhatsApp (+56 9 4675 4390) en '+(pr.primer_envio_estimado?'<b>'+esc(hora(pr.primer_envio_estimado))+'</b>':'2 días hábiles')+', aclarará dudas y te avisará cuando conteste (o si no contesta).</p>'
-      +'<div class="acciones"><button type="button" class="btn" data-seg="pasar">'+I('enviar')+'Pasar seguimiento al asistente</button></div>';
-    else h+='<p class="t3">'+esc(NO_PUEDE[pr.motivo]||'Por ahora no se puede dar el pase.')+'</p>';
+      +consLinea(pr)+'<div class="acciones"><button type="button" class="btn" data-seg="pasar">'+I('enviar')+'Pasar seguimiento al asistente</button></div>';
+    else h+='<div class="acciones"><button type="button" class="btn" disabled aria-disabled="true" title="'+esc(NO_PUEDE[pr.motivo]||'')+'">'+I('enviar')+'Pasar seguimiento al asistente</button></div>'
+      +'<p class="t3">'+esc(NO_PUEDE[pr.motivo]||'Por ahora no se puede dar el pase.')+'</p>';
     box.innerHTML=h;return;
   }
   var e=EST[s.estado]||[s.estado,'gris',''];
@@ -84,14 +90,13 @@ function abrirPase(){
         +'<p class="t3" style="font-size:12px;margin:-4px 0 8px">Se verá así: «Luciano te envió la propuesta de <i id="segVista">'+esc(pr.tema_sugerido||'')+'</i>…»</p>'
         +'<label class="campo"><span>Nota para el asistente (qué hablaste con el prospecto; él no la ve)</span><textarea id="segNota" maxlength="500" placeholder="Ej.: le mandé la propuesta por WhatsApp, tiene dudas de la empresa de transporte"></textarea></label>'
         +'<label class="campo"><span>¿Cuándo escribe el asistente?</span><select id="segDias"><option value="1">En 1 día hábil</option><option value="2" selected>En 2 días hábiles (recomendado)</option><option value="3">En 3 días hábiles</option></select></label>'
-        +'<label class="seg-ok"><input type="checkbox" id="segCons"> <span>El prospecto aceptó que el <b>asistente de Contadoor</b> le escriba por WhatsApp sobre esta propuesta.</span></label>',
+        +consLinea(pr),
       alAbrir:function(m){var t=m.querySelector('#segTema'),v=m.querySelector('#segVista');t.addEventListener('input',function(){v.textContent=t.value;});},
       alAceptar:function(m){
         var tema=m.querySelector('#segTema').value.trim(),nota=m.querySelector('#segNota').value.trim();
-        if(!m.querySelector('#segCons').checked)throw new Error(ERR.SEG_SIN_CONSENTIMIENTO);
         if(tema.length<3||/[$]|\d{3,}|(^|[^a-z])uf([^a-z]|$)/i.test(tema))throw new Error(ERR.SEG_TEMA_INVALIDO);
         if(nota&&nota.length<3)throw new Error(ERR.SEG_NOTA_INVALIDA);
-        return correr('seg_iniciar',{p_cotizacion_id:id,p:{tema:tema,nota:nota||null,dias_espera:Number(m.querySelector('#segDias').value),consentimiento:true}},
+        return correr('seg_iniciar',{p_cotizacion_id:id,p:{tema:tema,nota:nota||null,dias_espera:Number(m.querySelector('#segDias').value)}},
           function(r){return 'Listo: el asistente escribirá el '+hora(r&&r.programado_para)+(r&&r.habilitado===false?' (cuando lo enciendan)':'')+'.';});
       }});
   }).catch(function(e){G.toast(msg(e),true);});

@@ -68,6 +68,9 @@ function para(c){return c.prospecto_nombre||c._para||'Prospecto';}
   var g=nueva({tipo:'PLAN',plan_codigo:'cumplimiento',_para:'El Patolín Ltda.',lead_id:503,responsable_usuario_id:1,estado:'BORRADOR'});aprobar(g,'MASTER_AUTOR',1);
   g.estado='ENVIADA';g.enviado_at=ts(-5);g.vigencia_hasta=addD(HOY,10);ev(g,'CREADA',1);ev(g,'AUTOAPROBADA_MASTER',1);ev(g,'ENVIADA',1,{medio:'WHATSAPP'});
   ev(g,'SEG_PROGRAMADO',1);ev(g,'SEG_ENVIADO',null);ev(g,'SEG_RESPONDIO',null);
+  // SEG-1 R2 · otra enviada a un prospecto que agendó (con consentimiento) y todavía sin pase: para probar el pase en la demo.
+  var h=nueva({tipo:'PLAN',plan_codigo:'cumplimiento',_para:'Constructora Los Robles SpA',lead_id:504,responsable_usuario_id:1,estado:'BORRADOR'});aprobar(h,'MASTER_AUTOR',1);
+  h.estado='ENVIADA';h.enviado_at=ts(-1);h.vigencia_hasta=addD(HOY,14);ev(h,'CREADA',1);ev(h,'AUTOAPROBADA_MASTER',1);ev(h,'ENVIADA',1,{medio:'WHATSAPP'});
   SEGS[g.id]={id:900,estado:'respondio',categoria:'duda',tema:'tu plan Cumplimiento',nota:'Le mandé la propuesta por WhatsApp; tiene dudas de la empresa de transporte.',dias_espera:2,
     iniciado_at:ts(-4),iniciado_por:'Luciano Duarte',respondio_at:ts(-1),categoria_at:ts(-1),proxima_accion:'tiene dudas sobre tu plan Cumplimiento → te toca llamarlo',
     motivo_fin:null,finalizado_at:null,tomado_at:null,pausado_at:null,con_conversacion:false,conversacion_id:null,
@@ -119,12 +122,13 @@ window.COT_DEMO_API={
     if(fn.indexOf('seg_')===0){var k=a.p_cotizacion_id||Object.keys(SEGS).find(function(x){return SEGS[x].id===a.p_id;}),cc=buscar(k),sg=SEGS[k];
       if(!cc||!suya(cc))return err('NO_EXISTE');
       var vivo=sg&&['programado','esperando','pausado'].indexOf(sg.estado)>=0,hecho=sg&&sg.mensajes.some(function(m){return ['enviado','fallido','incierto'].indexOf(m.estado)>=0;});
-      var prep={puede:vista(cc)==='ENVIADA'&&!vivo&&!hecho&&!(cc.cliente_id&&!cc.lead_id),motivo:vista(cc)!=='ENVIADA'?'cotizacion_no_enviada':cc.cliente_id&&!cc.lead_id?'es_cliente':vivo?'ya_en_curso':hecho?'ya_realizado':null,
-        habilitado:false,telefono:'+56 9 •••• 0'+(cc.id%1000),telefono_fuente:'lead',tema_sugerido:cc.tipo==='PLAN'?'tu plan '+((PLANES.find(function(x){return x.codigo===cc.plan_codigo;})||{}).nombre||''):cc.que,primer_envio_estimado:ts(2)};
+      var cons=cc.lead_id?ts(-20):null;   // demo: los prospectos con lead agendaron (consentimiento de la agenda); el prospecto suelto no
+      var prep={puede:vista(cc)==='ENVIADA'&&!vivo&&!hecho&&!(cc.cliente_id&&!cc.lead_id)&&!!cons,motivo:vista(cc)!=='ENVIADA'?'cotizacion_no_enviada':cc.cliente_id&&!cc.lead_id?'es_cliente':!cons?'sin_consentimiento':vivo?'ya_en_curso':hecho?'ya_realizado':null,
+        habilitado:false,plantillas_aprobadas:false,consentimiento_agenda:cons,telefono:'+56 9 •••• 0'+(cc.id%1000),telefono_fuente:'lead',tema_sugerido:cc.tipo==='PLAN'?'tu plan '+((PLANES.find(function(x){return x.codigo===cc.plan_codigo;})||{}).nombre||''):cc.que,primer_envio_estimado:ts(2)};
       if(fn==='seg_preparar')return ok(prep);
       if(fn==='seg_estado')return ok(sg?{seguimiento:sg,mensajes:sg.mensajes,puede:{pausar:['programado','esperando'].indexOf(sg.estado)>=0,reanudar:sg.estado==='pausado',
         tomar:['programado','esperando','pausado','respondio','derivado'].indexOf(sg.estado)>=0},preparar:prep,habilitado:false}:{seguimiento:null,preparar:prep});
-      if(fn==='seg_iniciar'){if(!prep.puede)return err('SEG_YA_EN_CURSO');if(!a.p||a.p.consentimiento!==true)return err('SEG_SIN_CONSENTIMIENTO');
+      if(fn==='seg_iniciar'){if(!a.p||Object.keys(a.p).some(function(x){return ['tema','nota','dias_espera'].indexOf(x)<0;}))return err('CAMPO_NO_PERMITIDO');if(!cons)return err('SEG_SIN_CONSENTIMIENTO');if(!prep.puede)return err('SEG_YA_EN_CURSO');
         SEGS[k]={id:900+cc.id,estado:'programado',categoria:null,tema:a.p.tema,nota:a.p.nota,dias_espera:a.p.dias_espera,iniciado_at:new Date().toISOString(),iniciado_por:y.nombre,respondio_at:null,categoria_at:null,
           proxima_accion:'el asistente escribirá en '+a.p.dias_espera+' día(s) hábil(es)',motivo_fin:null,finalizado_at:null,tomado_at:null,pausado_at:null,con_conversacion:false,conversacion_id:null,
           mensajes:[{n:1,estado:'programado',motivo:null,programado_para:ts(a.p.dias_espera),enviado_at:null}]};ev(cc,'SEG_PROGRAMADO',y.usuario_id);return ok({id:SEGS[k].id,estado:'programado',programado_para:ts(a.p.dias_espera),habilitado:false});}
