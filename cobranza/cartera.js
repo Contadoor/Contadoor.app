@@ -11,6 +11,9 @@
    Reglas: el estado del cliente (al día, mora, riesgo, suspensión programada…) lo calcula el MOTOR en el servidor; la pantalla
    solo lo muestra. MODO PRUEBA hasta el 31-12-2026: no se envían avisos ni se suspende (esta pantalla no envía nada).
    Modo demostración: cartera-demo.js (solo ?demo=1 en localhost).
+   Historial por cliente (todas las facturas y pagos, solo lectura): cobranza/historial.js (GC_HIST), pestaña de la ficha.
+   Gestiones manuales y compromisos de pago (Cobranza o Master): cobranza/gestiones.js (GC_GEST) · RPC cobranza_gestion_registrar
+   (conectada) y cobranza_compromiso_registrar (DESHABILITADA en real: el servidor encola un aviso al cliente; ver gestiones.js).
    ============================================================ */
 (function(){
 'use strict';
@@ -37,6 +40,8 @@ var ERR={
   DECISION_OBLIGATORIA:'Falta la decisión.',REPACTACION_NO_EXISTE:'La repactación no existe.',REPACTACION_NO_EN_VALIDACION:'La repactación ya no está en validación.',
   MOTIVO_OBLIGATORIO:'Escribe un motivo de al menos 10 caracteres.',FECHA_FUTURA:'La fecha no puede ser futura.'
 };
+var GE=window.GC_GEST||null;
+if(GE)Object.keys(GE.ERR).forEach(function(k){if(!ERR[k])ERR[k]=GE.ERR[k];});
 function mErr(e){return G.msgError(e,ERR);}
 
 /* ── Acceso a datos (real con JWT del usuario, o demostración local) ── */
@@ -83,13 +88,24 @@ var REAL={
       A.rpc('cobranza_estado_cuenta',{p_cliente_id:Number(id)}),
       A.get('cobranza_pagos?select=id,fecha_pago,monto,monto_abono,referencia,estado,movimiento_id&cliente_id=eq.'+q+'&order=fecha_pago.desc,id.desc&limit=20'),
       A.get('cobranza_avisos?select=id,codigo,variante,es_gestion,dia,programado_para,estado,motivo_cancelacion,enviado_at&cliente_id=eq.'+q+'&order=programado_para.desc&limit=30'),
-      A.get('cobranza_gestiones?select=id,tipo,dia,nota&cliente_id=eq.'+q+'&order=registrado_at.desc&limit=10'),
-      A.get('cobranza_repactaciones?select=id,estado,n_cuotas,monto_total,monto_cuota,monto_ultima,pie_vence,solicitada_dia,pie_pagado,motivo_rechazo&cliente_id=eq.'+q+'&order=solicitada_at.desc&limit=5')
-    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4]};});
+      A.get('cobranza_gestiones?select=id,tipo,dia,nota,registrado_at&cliente_id=eq.'+q+'&order=registrado_at.desc&limit=30'),
+      A.get('cobranza_repactaciones?select=id,estado,n_cuotas,monto_total,monto_cuota,monto_ultima,pie_vence,solicitada_dia,pie_pagado,motivo_rechazo&cliente_id=eq.'+q+'&order=solicitada_at.desc&limit=5'),
+      // Plan del cliente para el encabezado: solo si la RLS de clientes lo deja ver (si no, no se muestra).
+      A.get('clientes?select=plan&id=eq.'+q).then(function(c){return c&&c[0]?c[0].plan:null;}).catch(function(){return null;}),
+      // Compromisos de pago del cliente (pausas de origen COMPROMISO; sin columnas de usuario).
+      A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20')
+    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6]};});
   },
+  historial:function(id){return window.GC_HIST.cargarReal(A,id);},
   pagoRegistrar:function(a){return A.rpc('cobranza_pago_registrar',a);},
   repactacionSolicitar:function(a){return A.rpc('cobranza_repactacion_solicitar',a);},
-  repactacionValidar:function(a){return A.rpc('cobranza_repactacion_validar',a);}
+  repactacionValidar:function(a){return A.rpc('cobranza_repactacion_validar',a);},
+  gestionRegistrar:function(a){return A.rpc('cobranza_gestion_registrar',a);},
+  // Deshabilitada en real (ver gestiones.js): el botón no se ofrece activo; esta función tampoco llama al servidor.
+  compromisoRegistrar:function(){
+    if(!(GE&&GE.COMPROMISO_CONECTADO))return Promise.reject(new Error('Registrar compromisos está deshabilitado por ahora en Gestoor.'));
+    return A.rpc('cobranza_compromiso_registrar',arguments[0]);
+  }
 };
 var D=DEMO?window.COB_DEMO_API:REAL;
 
@@ -121,7 +137,8 @@ var TAREA={LLAMAR_CLIENTE:'📞 Llamar al cliente',ACLARAR_DICOM:'🧾 Aclarar r
 function chip(o,txt){return '<span class="estado '+(o?o.c:'gris')+'">'+esc(txt||(o?o.t:'—'))+'</span>';}
 
 /* ── Estado de la pantalla ── */
-var S={yo:null,datos:null,filas:[],tab:'cartera',filtro:'TODOS',buscar:'',ind:null,indErr:null,mov:null,movErr:null,avisos:null,avisosErr:null,hoy:G.hoyCL()};
+var S={yo:null,datos:null,filas:[],tab:'cartera',filtro:'TODOS',buscar:'',ind:null,indErr:null,mov:null,movErr:null,avisos:null,avisosErr:null,hoy:G.hoyCL(),
+  ficha:null,fichaVista:'cuenta',hist:null,histAnio:'TODOS'};   // ficha: {id,f,x} del cliente abierto · fichaVista: 'cuenta' | 'historial'
 
 function nombreCli(id){var n=S.datos&&S.datos.nombres[id];return n?n:'Cliente N.º '+id;}
 function nombreVisible(id){return !!(S.datos&&S.datos.nombres[id]);}
@@ -278,20 +295,54 @@ function docsCelda(docs){
 /* ── Ficha del cliente (estado de cuenta consolidado) ── */
 function abrirFicha(id){
   var f=S.filas.find(function(x){return String(x.id)===String(id);});
-  G.abrirDet('<div class="aviso lila"><span class="gc-spin"></span>Cargando el estado de cuenta…</div>');
-  D.ficha(id).then(function(x){G.$('gcDetCuerpo').innerHTML=fichaHtml(id,f,x);pintar(G.$('gcDetCuerpo'));})
+  S.ficha={id:id,f:f,x:null};S.hist=null;S.histAnio='TODOS';
+  G.abrirDet('<div class="aviso lila"><span class="gc-spin"></span>Cargando la ficha del cliente…</div>');
+  D.ficha(id).then(function(x){if(!S.ficha||String(S.ficha.id)!==String(id))return;S.ficha.x=x;pintarFicha();})
    .catch(function(e){G.$('gcDetCuerpo').innerHTML='<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>'+esc(mErr(e))+'</span></div>';});
 }
-function fichaHtml(id,f,x){
-  var yo=S.yo, ec=x.estado||{}, mot=f?f.motor:(S.datos.clientes.find(function(c){return String(c.cliente_id)===String(id);})||null), e=ETAPA[f?f.etapa:(mot?mot.estado:'SIN_EVALUAR')]||ETAPA.SIN_EVALUAR;
-  var h='<div class="det-cab"><small>Ficha de cobranza'+(rutCli(id)?' · RUT '+esc(rutCli(id)):'')+'</small><h3>'+esc(nombreCli(id))+'</h3><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span>'
+/* La ficha tiene dos vistas: estado de cuenta (lo pendiente y las acciones) e historial completo (todas las facturas y pagos). */
+function pintarFicha(){
+  var fi=S.ficha;if(!fi||!fi.x)return;
+  var det=G.$('gcDet'), cuerpo=G.$('gcDetCuerpo'), hist=S.fichaVista==='historial';
+  if(det)det.classList.toggle('gc-det-ancho',hist);
+  cuerpo.innerHTML=fichaCabHtml(fi.id,fi.f)+fichaVistasHtml()+'<div id="gcFichaVista">'+(hist?historialHtml():fichaHtml(fi.id,fi.f,fi.x))+'</div>';
+  pintar(cuerpo);
+}
+function fichaVistasHtml(){
+  return '<div class="gc-seg h-vistas" role="tablist" aria-label="Vista de la ficha">'+[['cuenta','moneda','Estado de cuenta'],['historial','historial','Historial de facturas y pagos']].map(function(v){
+    var on=S.fichaVista===v[0];return '<button type="button" class="fb'+(on?' on':'')+'" role="tab" aria-selected="'+on+'" data-act="ficha-vista" data-v="'+v[0]+'">'+I(v[1])+esc(v[2])+'</button>';}).join('')+'</div>';
+}
+function historialHtml(){
+  var fi=S.ficha;
+  if(!S.hist){
+    S.hist={id:fi.id,cargando:true};
+    var id=fi.id;
+    D.historial(id).then(function(r){if(!S.ficha||String(S.ficha.id)!==String(id))return;S.hist={id:id,modelo:window.GC_HIST.armar(r,S.hoy)};if(S.fichaVista==='historial')pintarFicha();})
+      .catch(function(e){if(!S.ficha||String(S.ficha.id)!==String(id))return;S.hist={id:id,err:mErr(e)};if(S.fichaVista==='historial')pintarFicha();});
+  }
+  if(S.hist.cargando)return '<div class="aviso lila" style="margin-top:14px"><span class="gc-spin"></span>Cargando todas las facturas y pagos…</div>';
+  if(S.hist.err)return '<div class="aviso rojo" style="margin-top:14px">'+I('alerta','ic-roj')+'<span>No se pudo cargar el historial: '+esc(S.hist.err)+'</span><button type="button" class="btn chico sec" data-act="hist-reintentar">Reintentar</button></div>';
+  return '<section>'+window.GC_HIST.html(S.hist.modelo,{anio:S.histAnio,demo:DEMO})+'</section>';
+}
+function fichaCabHtml(id,f){
+  var mot=f?f.motor:(S.datos.clientes.find(function(c){return String(c.cliente_id)===String(id);})||null), e=ETAPA[f?f.etapa:(mot?mot.estado:'SIN_EVALUAR')]||ETAPA.SIN_EVALUAR;
+  var plan=S.hist&&S.hist.modelo?S.hist.modelo.plan:(S.ficha&&S.ficha.x?S.ficha.x.plan:null);
+  return '<div class="det-cab"><small>Ficha de cobranza'+(rutCli(id)?' · RUT '+esc(rutCli(id)):'')+(plan?' · Plan '+esc(plan):'')+'</small><h3>'+esc(nombreCli(id))+'</h3><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span>'
     +(mot&&mot.estado_desde?' <span class="t3" style="font-size:12px">desde el '+G.fFecha(mot.estado_desde)+'</span>':'')+'</div>';
-  h+='<div class="gc-tri"><div><small>💰 Deuda</small><b>'+clp(ec.total_deuda)+'</b></div><div><small>⏰ Vencido</small><b class="t-ambar">'+clp(ec.total_vencido)+'</b></div><div><small>🎁 Abonos</small><b class="t-verde">'+clp(ec.total_abonos)+'</b></div></div>';
+}
+function fichaHtml(id,f,x){
+  var yo=S.yo, ec=x.estado||{};
+  var h='<div class="gc-tri"><div><small>💰 Deuda</small><b>'+clp(ec.total_deuda)+'</b></div><div><small>⏰ Vencido</small><b class="t-ambar">'+clp(ec.total_vencido)+'</b></div><div><small>🎁 Abonos</small><b class="t-verde">'+clp(ec.total_abonos)+'</b></div></div>';
   h+='<div class="cl fin"><span>Total a pagar (deuda − abonos)</span><b>'+clp(ec.total)+'</b></div>';
   var acc='';
   if(yo.puede_registrar_pagos)acc+='<button type="button" class="btn verde" data-act="pago" data-id="'+esc(id)+'">'+I('moneda')+'Registrar pago</button>';
   if(yo.puede_gestionar&&!(f&&f.rep))acc+='<button type="button" class="btn sec" data-act="repactar" data-id="'+esc(id)+'">🤝 Solicitar repactación</button>';
-  if(acc)h+='<div class="acciones">'+acc+'</div>';
+  var compOk=GE&&(GE.COMPROMISO_CONECTADO||DEMO);
+  if(yo.puede_gestionar&&GE){
+    acc+='<button type="button" class="btn sec" data-act="gestion" data-id="'+esc(id)+'">'+I('lapiz','ic-ama')+'Registrar gestión</button>';
+    acc+='<button type="button" class="btn sec" data-act="compromiso" data-id="'+esc(id)+'"'+(compOk?'':' disabled aria-describedby="gcCompNo" title="Deshabilitado por ahora"')+'>'+I('calendario','ic-cel')+'Registrar compromiso de pago</button>';
+  }
+  if(acc)h+='<div class="acciones">'+acc+'</div>'+(yo.puede_gestionar&&GE&&!compOk?'<p class="nota" id="gcCompNo">'+I('candado','ic-amb')+' '+esc(GE.MOTIVO_COMPROMISO)+'</p>':'');
   else h+='<p class="nota">Tu permiso es de solo lectura en Cobranza.</p>';
   // Documentos por tipo
   h+='<section><h4>🧾 Estado de cuenta consolidado</h4>';
@@ -325,11 +376,24 @@ function fichaHtml(id,f,x){
   else h+='<ul class="gc-tl">'+x.avisos.map(function(a){var n=AVISO[a.codigo]||[a.codigo,''],est=AV_EST[a.estado]||{t:a.estado,c:'gris'};
     return '<li style="--c:var(--'+(est.c==='verde'?'verde':est.c==='rojo'?'rojo':est.c==='ambar'?'ambar':'t3')+')"><b>'+esc(n[0])+(a.variante>1?' (variante '+a.variante+')':'')+'</b> '+chip(est)+'<small>'+G.fHora(a.programado_para)+(a.motivo_cancelacion?' · '+esc(a.motivo_cancelacion):'')+(a.es_gestion?' · cuenta para la Ley 21.320':'')+'</small></li>';}).join('')+'</ul>';
   h+='</section>';
-  if((x.gestiones||[]).length){
-    var GT={LLAMADA:'📞 Llamada',WHATSAPP_MANUAL:'💬 WhatsApp manual',NOTA:'📝 Nota',YA_TRANSFERI:'🏦 "Ya transferí"'};
-    h+='<section><h4>🗂️ Últimas gestiones</h4>'+x.gestiones.map(function(g){return '<div class="cl"><span>'+esc(GT[g.tipo]||g.tipo)+(g.nota?' · '+esc(g.nota):'')+'</span><span>'+G.fFecha(g.dia)+'</span></div>';}).join('')+'</section>';
-  }
+  if(GE)h+='<section><h4>🗂️ Gestiones y compromisos</h4>'+GE.lineaTiempoHtml(x.gestiones,x.compromisos,S.hoy)+'</section>';
   return h;
+}
+
+/* ── Gestiones manuales y compromisos de pago (Cobranza o Master) ── */
+function refrescarFicha(id,msg){
+  G.toast(msg);
+  D.ficha(id).then(function(x){if(!S.ficha||String(S.ficha.id)!==String(id))return;S.ficha.x=x;if(S.fichaVista==='cuenta')pintarFicha();}).catch(function(){});
+  recargar();
+}
+function abrirGestion(id){
+  GE.abrirGestion({id:id,nombre:nombreCli(id),mErr:mErr,registrar:function(a){return D.gestionRegistrar(a);},
+    alGuardar:function(res,t){refrescarFicha(id,t.t+(t.k==='NOTA'||t.k==='REUNION'?' registrada':' registrado')+' en la ficha del cliente.'+(res&&res.avisos_reemplazados>0?' Reemplazó '+res.avisos_reemplazados+' recordatorio(s) automático(s).':''));}});
+}
+function abrirCompromiso(id){
+  if(!(GE.COMPROMISO_CONECTADO||DEMO)){G.toast(GE.MOTIVO_COMPROMISO,true);return;}
+  GE.abrirCompromiso({id:id,nombre:nombreCli(id),hoy:S.hoy,demo:DEMO,mErr:mErr,registrar:function(a){return D.compromisoRegistrar(a);},
+    alGuardar:function(res,a){refrescarFicha(id,'Compromiso registrado: '+clpT(a.p_monto)+' al '+G.fFecha(a.p_fecha)+'. Recordatorios en pausa hasta el '+G.fFecha(res&&res.hasta)+'.');}});
 }
 
 /* ── Registrar pago (Cobranza/Leandro, Pagos o Master) con confirmación ── */
@@ -512,8 +576,13 @@ document.addEventListener('click',function(ev){
   if(a==='tab'){S.tab=b.getAttribute('data-tab');render();window.scrollTo({top:0});}
   else if(a==='filtro'){S.filtro=b.getAttribute('data-f');S.tab='cartera';render();}
   else if(a==='ficha')abrirFicha(b.getAttribute('data-id'));
+  else if(a==='ficha-vista'){S.fichaVista=b.getAttribute('data-v')==='historial'?'historial':'cuenta';pintarFicha();}
+  else if(a==='hist-anio'){S.histAnio=b.getAttribute('data-anio')||'TODOS';pintarFicha();}
+  else if(a==='hist-reintentar'){S.hist=null;pintarFicha();}
   else if(a==='pago')abrirPago(b.getAttribute('data-id'));
   else if(a==='repactar')abrirRepactar(b.getAttribute('data-id'));
+  else if(a==='gestion'&&GE)abrirGestion(b.getAttribute('data-id'));
+  else if(a==='compromiso'&&GE)abrirCompromiso(b.getAttribute('data-id'));
   else if(a==='aplicar-mov'){var m=S.mov[Number(b.getAttribute('data-i'))];if(m)abrirPago(m.cliente_id,m);}
   else if(a==='rep-ok')decidirRep(b.getAttribute('data-id'),true);
   else if(a==='rep-no')decidirRep(b.getAttribute('data-id'),false);
