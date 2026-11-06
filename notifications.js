@@ -11,6 +11,8 @@
 // · Enlaces normalizados a rutas absolutas /modulo/… (H7); cualquier otra cosa (http:, javascript:, //) se descarta.
 // · V1 (localStorage) retirada: crearNotificacion() ahora solo muestra un aviso breve (toast) a quien hizo la acción.
 // · Botón "Activar avisos en este celular" dentro del panel, para cualquier usuario (usa avisos-push.js).
+// · Sonido de avisos (4-nov): suena assets/gestoor-aviso.mp3 al llegar un aviso nuevo con Gestoor a la vista; botón para silenciarlo
+//   por dispositivo (también silencia el sonido del sistema en los push, vía sw.js).
 // ═══════════════════════════════════════════════════════════
 (function(){
 if(window.__gestoorCampana) return;          // idempotente: la página y el menú pueden cargarla los dos
@@ -68,6 +70,7 @@ function cargarAlertas(){
     _cargando=false; _yaCargo=true;
     _cache=(Array.isArray(rows)?rows:[]).map(mapRow);
     renderBadge(); if(panelAbierto()) renderPanel();
+    revisarNuevos();
   }).catch(function(e){
     _cargando=false;
     if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Campana] No se pudieron cargar las alertas:',e&&e.message||e);
@@ -153,6 +156,60 @@ function notToast(msg){
   t.textContent=msg; t.style.display='block';
   clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},5000);
 }
+
+// ── Sonido de avisos (assets/gestoor-aviso.mp3, obra propia) ─
+// Suena con Gestoor abierto y a la vista: al llegar un aviso nuevo a la campana o un push (sw.js avisa a la página).
+// Preferencia por dispositivo en localStorage 'gestoor.sonido' ('0' = silenciado) y copia en Cache Storage para que sw.js
+// también silencie el sonido del sistema en los push. Web Audio se "desbloquea" con el primer toque/tecla (exigencia de iPhone).
+var CLAVE_SONIDO='gestoor.sonido', CLAVE_VISTO='gestoor.sonido.visto';
+var _ctx=null, _buf=null, _ultimoSonido=0;
+function sonidoActivo(){try{return localStorage.getItem(CLAVE_SONIDO)!=='0';}catch(e){return true;}}
+function copiarPrefAlSW(){
+  try{ if(window.caches) caches.open('gestoor-prefs').then(function(c){return c.put('/__gestoor/sonido',new Response(sonidoActivo()?'1':'0'));}).catch(function(){}); }catch(e){}
+}
+function prepararAudio(){
+  if(_ctx) return;
+  var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  try{_ctx=new AC();}catch(e){_ctx=null;return;}
+  fetch(BASE+'assets/gestoor-aviso.mp3').then(function(r){return r.arrayBuffer();})
+    .then(function(a){return new Promise(function(ok,mal){_ctx.decodeAudioData(a,ok,mal);});})
+    .then(function(b){_buf=b;}).catch(function(){});
+}
+function desbloquear(){ prepararAudio(); if(_ctx&&_ctx.state==='suspended') _ctx.resume().catch(function(){}); }
+function tocarSonido(forzar){
+  if(!forzar&&(!sonidoActivo()||document.hidden)) return;
+  var ahora=Date.now(); if(!forzar&&ahora-_ultimoSonido<5000) return;     // push + campana del mismo aviso: suena una vez
+  _ultimoSonido=ahora;
+  prepararAudio();
+  if(_ctx&&_buf&&_ctx.state==='running'){
+    var src=_ctx.createBufferSource(), g=_ctx.createGain(); g.gain.value=0.8;
+    src.buffer=_buf; src.connect(g); g.connect(_ctx.destination); src.start(0); return;
+  }
+  try{var a=new Audio(BASE+'assets/gestoor-aviso.mp3');a.volume=0.8;var p=a.play();if(p&&p.catch)p.catch(function(){});}catch(e){}  // respaldo
+}
+// Aviso nuevo en la campana: el más reciente pendiente y no leído es posterior al último que ya sonó. La primera carga solo marca la base.
+function revisarNuevos(){
+  var max=0; _cache.forEach(function(n){if(n.pendiente&&!n.leida&&n.ts>max)max=n.ts;});
+  if(!max) return;
+  var visto=null; try{visto=localStorage.getItem(CLAVE_VISTO);}catch(e){}
+  try{localStorage.setItem(CLAVE_VISTO,String(Math.max(max,+visto||0)));}catch(e){}
+  if(visto!==null&&max>+visto) tocarSonido(false);
+}
+function pintarSonido(){
+  var b=document.getElementById('notSonidoBtn'); if(!b) return;
+  var on=sonidoActivo();
+  b.textContent=on?'🔊 Sonido de avisos: activado':'🔇 Sonido de avisos: silenciado';
+  b.setAttribute('aria-pressed',on?'true':'false');
+  b.title=on?'Toca para silenciar el sonido de los avisos en este dispositivo':'Toca para volver a activar el sonido de los avisos en este dispositivo';
+}
+window.notCambiarSonido=function(){
+  var on=!sonidoActivo();
+  try{localStorage.setItem(CLAVE_SONIDO,on?'1':'0');}catch(e){}
+  copiarPrefAlSW(); pintarSonido();
+  if(on){desbloquear();setTimeout(function(){tocarSonido(true);},60);}            // muestra cómo suena
+  notToast(on?'🔊 Sonido de avisos activado en este dispositivo.':'🔇 Sonido de avisos silenciado en este dispositivo.');
+};
+window.GestoorSonido={activo:sonidoActivo,tocar:function(){tocarSonido(false);}};
 
 // ── Marcar ──────────────────────────────────────────────────
 function aplicar(id,res){
@@ -346,12 +403,14 @@ function injectNotUI(){
     panel.innerHTML='<div class="not-hdr"><div style="font-size:14px;font-weight:700;color:#1a0a1b">Notificaciones</div>'
       +'<button type="button" aria-label="Cerrar" onclick="toggleNotPanel(event)" style="background:none;border:none;color:#9a849b;cursor:pointer;font-size:18px;line-height:1">✕</button></div>'
       +'<button type="button" id="notAvisosBtn" class="not-b not-avisos" hidden>🔔 Activar avisos en este celular</button>'
+      +'<button type="button" id="notSonidoBtn" class="not-b not-avisos not-sonido" aria-pressed="true" onclick="notCambiarSonido()">🔊 Sonido de avisos: activado</button>'
       +'<div id="notPanel"></div>';
     var style=document.createElement('style');
     style.textContent='#notPanelWrap{display:none;position:absolute;top:54px;right:12px;width:420px;max-width:calc(100vw - 24px);max-height:80vh;overflow-y:auto;background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.15);box-sizing:border-box;text-align:left;font-family:Inter,system-ui,sans-serif}'
       +'#notPanelWrap.on{display:block!important}'
       +'.not-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e8dde8}'
       +'.not-avisos{width:100%;justify-content:center;margin-bottom:12px}'
+      +'.not-b.not-sonido{margin-top:-6px;color:#5c4a5d;background:#faf7fa}.not-b.not-sonido[aria-pressed="false"]{color:#9a849b}'
       +'.not-chips{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}'
       +'.not-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid #e8dde8;background:#fff;color:#5c4a5d;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}'
       +'.not-chip:hover{background:#faf5fa}.not-chip.on{border-color:#924893;background:rgba(146,72,147,.1);color:#924893}'
@@ -384,12 +443,18 @@ function injectNotUI(){
       if(e.key==='Escape'&&panelAbierto()){window.toggleNotPanel();var b3=document.getElementById('notBtn');if(b3&&b3.focus)b3.focus();}
     });
   }
-  renderBadge();
+  renderBadge(); pintarSonido();
 }
 
 // ── Inicio ──────────────────────────────────────────────────
 function init(){
   injectNotUI();
+  copiarPrefAlSW();
+  ['pointerdown','keydown','touchend'].forEach(function(ev){document.addEventListener(ev,desbloquear,{capture:true,passive:true});});
+  // Push recibido con Gestoor a la vista (sw.js): refrescar la campana y tocar el sonido de Gestoor.
+  try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('message',function(e){
+    if(e&&e.data&&e.data.tipo==='gestoor-aviso'){ tocarSonido(false); cargarAlertas(); }
+  }); }catch(e){}
   if(window._sbAuthReady===true) cargarAlertas();
   window.addEventListener('gestoor-auth-ready',cargarAlertas);
   setInterval(function(){ if(!document.hidden) cargarAlertas(); },30000);
