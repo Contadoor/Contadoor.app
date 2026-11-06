@@ -202,6 +202,29 @@ body.g-mod-gc{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--li
 .g-mod-gc .te-check .ac{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .g-mod-gc .te-doc{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(74,43,80,.45);font-size:13px}
 .g-mod-gc .te-doc .nm{flex:1;min-width:0;overflow-wrap:anywhere}
+/* Cobranza · historial por cliente (pestaña de la ficha) */
+.g-mod-gc .gc-det.gc-det-ancho{width:min(1000px,100%)}
+.g-mod-gc .h-vistas{margin:12px 0 4px}
+.g-mod-gc .h-demo{margin-top:12px}
+.g-mod-gc .h-res{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 6px}
+.g-mod-gc .h-res>div{padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(74,43,80,.6);min-width:0}
+.g-mod-gc .h-res small{display:flex;align-items:center;gap:6px;color:var(--t2);font:700 10px var(--txt);letter-spacing:1px;text-transform:uppercase}
+.g-mod-gc .h-res small .g-ic{width:15px;height:15px}
+.g-mod-gc .h-res b{display:block;font:800 18px/1.2 var(--tit);margin:5px 0 2px;overflow-wrap:anywhere}
+.g-mod-gc .h-res p{margin:0;font-size:11.5px;color:var(--t3)}
+.g-mod-gc .h-anios{margin:10px 0 8px}
+.g-mod-gc .h-mov{display:inline-flex;align-items:center;gap:7px}
+.g-mod-gc .h-mov .g-ic{width:16px;height:16px}
+.g-mod-gc .h-tachado{text-decoration:line-through}
+.g-mod-gc table.gt tr.h-pag td{background:rgba(95,207,156,.035)}
+.g-mod-gc .h-lista-m{display:none;flex-direction:column;gap:8px}
+.g-mod-gc .h-card{border:1px solid var(--borde);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.03)}
+.g-mod-gc .h-card .l1{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.g-mod-gc .h-card .l1 b{font:700 13.5px var(--tit);white-space:nowrap}
+.g-mod-gc .h-card .l2{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--t2);align-items:center}
+.g-mod-gc .h-card .l2 b{color:var(--t1)}
+@media (max-width:640px){.g-mod-gc .h-vistas{display:grid;grid-template-columns:1fr;width:100%;border-radius:16px}.g-mod-gc .h-vistas .fb{justify-content:center;border-radius:13px}}
+@media (max-width:720px){.g-mod-gc .h-tabla{display:none}.g-mod-gc .h-lista-m{display:flex}.g-mod-gc .h-res{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Responsivo */
 @media (max-width:1240px){.g-mod-gc .gc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.g-mod-gc .te-flujo{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:980px){

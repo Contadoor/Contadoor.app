@@ -56,6 +56,24 @@ PAGOS.push({id:++pagoId,cliente_id:109,fecha_pago:addD(HOY,-25),monto:50000,mont
 doc(110,'MENSUALIDAD',75,-3);cli(110,'VENCIDO',-2);
 PAGOS.push({id:++pagoId,cliente_id:110,fecha_pago:addD(HOY,-15),monto:75000,monto_abono:0,referencia:'Transferencia',estado:'VIGENTE',movimiento_id:null});
 PAGOS.push({id:++pagoId,cliente_id:101,fecha_pago:addD(HOY,-12),monto:95000,monto_abono:0,referencia:'Transferencia',estado:'VIGENTE',movimiento_id:null});
+/* ── Historial de ejemplo (facturas ya pagadas y sus pagos) para la vista «Historial de facturas y pagos».
+   Todo ficticio: montos redondos, folios inventados. Cubre 2025 y 2026 para probar el filtro por año. ── */
+var APLIC=[], NOTAS=[], PLANES={101:'Pyme Básico',102:'Pyme Plus',103:'Emprendedor',104:'Pyme Básico',105:'Pyme Plus',106:'Emprendedor',107:'Pyme Plus',108:'Pyme Full',109:'Pyme Básico',110:'Emprendedor'};
+function pagadoHist(cliId,montoMil,venceOffset,diasDespues,ref,extra){
+  var d=doc(cliId,'MENSUALIDAD',montoMil,venceOffset,Object.assign({estado:'PAGADO',pagado:montoMil*1000},extra||{}));
+  d.pagado=d.monto-d.rebajado;d.saldo=0;d.pagado_fecha=addD(d.fecha_vencimiento,diasDespues);
+  PAGOS.push({id:++pagoId,cliente_id:cliId,fecha_pago:d.pagado_fecha,monto:d.pagado,monto_abono:0,medio:'TRANSFERENCIA',referencia:ref||'Transferencia',estado:'VIGENTE',movimiento_id:null});
+  APLIC.push({pago_id:pagoId,documento_id:d.id,monto:d.pagado,anulada:false,desde_abono:false});
+  return d;
+}
+[-400,-370,-340,-310,-280,-250,-220,-190,-160,-130,-100,-70,-40].forEach(function(o,i){pagadoHist(101,95,o,i%4===0?3:-2,i%3===0?'Transferencia Banco Estado':'Transferencia');});
+[-160,-130,-100,-70,-40].forEach(function(o){pagadoHist(102,120,o,5);});
+var dNc=pagadoHist(103,85,-100,-1,'Transferencia',{rebajado:15000});NOTAS.push({id:61,cliente_id:103,documento_id:dNc.id,folio_nc:'318',fecha:addD(dNc.fecha_emision,6),monto:15000,estado:'VIGENTE'});
+pagadoHist(103,85,-70,12);
+[-130,-100,-70,-40].forEach(function(o){pagadoHist(110,75,o,1);});
+// Un pago anulado (mal ingresado) para ver cómo se muestra.
+PAGOS.push({id:++pagoId,cliente_id:102,fecha_pago:addD(HOY,-20),monto:120000,monto_abono:0,medio:'TRANSFERENCIA',referencia:'Ingresado dos veces (anulado)',estado:'ANULADO',movimiento_id:null});
+
 var MOVS=[{movimiento_id:8801,fecha:addD(HOY,-1),monto:75000,saldo:75000,estado:'por_conciliar',rut_origen:null,nombre_origen:'TRANSF. DISTRIBUIDORA (demo)',cliente_id:110,razon_social:NOM[110],via:'ASIGNADO',exacto:true,propuesta:[]},
   {movimiento_id:8802,fecha:addD(HOY,-2),monto:100000,saldo:100000,estado:'por_conciliar',rut_origen:null,nombre_origen:'TRANSF. TALLER (demo)',cliente_id:102,razon_social:NOM[102],via:'MEMORIA',exacto:false,propuesta:[]}];
 function propuesta(m){var rest=m.saldo,p=[];DOCS.filter(function(d){return d.cliente_id===m.cliente_id&&d.estado==='PENDIENTE'&&d.saldo>0;}).sort(function(a,b){return a.fecha_vencimiento<b.fecha_vencimiento?-1:1;})
@@ -103,7 +121,13 @@ window.COB_DEMO_API={
         comentario_transferencia:ds.some(function(d){return d.folio;})?'Facturas '+ds.filter(function(d){return d.folio;}).map(function(d){return d.folio;}).join(', '):null,datos_transferencia:{},fecha:HOY},
       pagos:PAGOS.filter(function(p){return p.cliente_id===id;}).sort(function(a,b){return a.fecha_pago<b.fecha_pago?1:-1;}),
       avisos:AVISOS.filter(function(a){return a.cliente_id===id;}).sort(function(a,b){return a.programado_para<b.programado_para?1:-1;}),
-      gestiones:GEST.filter(function(g){return g.cliente_id===id;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;})});
+      gestiones:GEST.filter(function(g){return g.cliente_id===id;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null});
+  },
+  historial:function(id){
+    var x=exigir('puede_leer');if(x)return x;id=Number(id);
+    var pg=PAGOS.filter(function(p){return p.cliente_id===id;}), ids=pg.map(function(p){return p.id;});
+    return ok({documentos:DOCS.filter(function(d){return d.cliente_id===id;}),pagos:pg,
+      aplicaciones:APLIC.filter(function(a){return ids.indexOf(a.pago_id)>=0;}),notas:NOTAS.filter(function(n){return n.cliente_id===id;}),plan:PLANES[id]||null});
   },
   pagoRegistrar:function(a){
     var x=exigir('puede_registrar_pagos','SOLO_PAGOS');if(x)return x;
@@ -114,8 +138,9 @@ window.COB_DEMO_API={
       if(!d||d.cliente_id!==a.p_cliente_id)return err('DOCUMENTO_INVALIDO');if(d.estado!=='PENDIENTE')return err('DOCUMENTO_NO_COBRABLE');if(ap.monto>d.saldo)return err('SUPERA_SALDO_DOCUMENTO');}
     var total=a.p_aplicaciones.reduce(function(s,z){return s+z.monto;},0)+(a.p_abono||0);
     if(a.p_movimiento_id){var mv=MOVS.find(function(m){return m.movimiento_id===a.p_movimiento_id;});if(!mv)return err('MOVIMIENTO_NO_EXISTE');if(total>mv.saldo)return err('SUPERA_SALDO_MOVIMIENTO');mv.saldo-=total;}
-    a.p_aplicaciones.forEach(function(ap){var d=DOCS.find(function(z){return z.id===ap.documento_id;});d.pagado+=ap.monto;d.saldo=d.monto-d.pagado-d.rebajado;if(d.saldo===0)d.estado='PAGADO';});
+    a.p_aplicaciones.forEach(function(ap){var d=DOCS.find(function(z){return z.id===ap.documento_id;});d.pagado+=ap.monto;d.saldo=d.monto-d.pagado-d.rebajado;if(d.saldo===0){d.estado='PAGADO';d.pagado_fecha=a.p_fecha_pago;}});
     var id=++pagoId;claves[a.p_clave_idem]=id;
+    a.p_aplicaciones.forEach(function(ap){APLIC.push({pago_id:id,documento_id:ap.documento_id,monto:ap.monto,anulada:false,desde_abono:false});});
     PAGOS.push({id:id,cliente_id:a.p_cliente_id,fecha_pago:a.p_fecha_pago,monto:total,monto_abono:a.p_abono||0,abono_disp:a.p_abono||0,referencia:a.p_referencia,estado:'VIGENTE',movimiento_id:a.p_movimiento_id||null});
     var rep=REPS.find(function(r){return r.cliente_id===a.p_cliente_id&&r.estado==='APROBADA';});if(rep){rep.pie_pagado+=total;if(rep.pie_pagado>=rep.monto_cuota)rep.estado='VIGENTE';}
     recalcular(a.p_cliente_id);
