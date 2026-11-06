@@ -37,3 +37,10 @@
 .g-mod-gc .sem-verde{background:var(--verde)}.g-mod-gc .sem-ambar{background:var(--ambar)}.g-mod-gc .sem-rojo{background:var(--rojo)}.g-mod-gc .sem-gris{background:var(--t3)}.g-mod-gc .sem-lila{background:var(--lila)}.g-mod-gc .sem-cel{background:var(--cel)}
 @media (max-width:980px){.g-mod-gc .cot-dif{grid-template-columns:1fr}.g-mod-gc .cot-sol{grid-template-columns:1fr}}
 @media (max-width:640px){.g-mod-gc .cot-flujo{grid-template-columns:repeat(2,minmax(0,1fr))}.g-mod-gc .cot-sol-ed{grid-template-columns:1fr}.g-mod-gc .gc-buscar{min-width:0}}
+/* SEG-1 · Seguimiento del asistente */
+.g-mod-gc .seg-box{border:1px solid rgba(199,123,201,.45);border-radius:16px;padding:12px 14px;background:rgba(199,123,201,.06)}
+.g-mod-gc .seg-cab{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px}
+.g-mod-gc .seg-cat{font:700 13px var(--txt);color:var(--t1)}
+.g-mod-gc .seg-prox{margin:6px 0;font-size:13.5px}.g-mod-gc .seg-nota{font-size:13px;overflow-wrap:anywhere}
+.g-mod-gc .seg-tl{margin:6px 0}
+.g-mod-gc .seg-ok{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.4;margin-top:8px}.g-mod-gc .seg-ok input{margin-top:3px;width:18px;height:18px;flex:none}

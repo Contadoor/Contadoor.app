@@ -28,7 +28,7 @@ var SERV=[{id:'s-form',nombre:'Formalización e inicio de actividades',descripci
   {id:'s-giro',nombre:'Término de giro',moneda:'UF',disponible:false,motivo:'SERVICIO_NO_CLP'}];
 var SOL=[{frase:'Me avisan tarde el IVA y pago multas',logra:'Pagas a tiempo y sin multas',como:'Calendario propio y aviso 5 días antes'},
   {frase:'No sé cuánto voy a pagar en abril',logra:'Llegas a la renta sin sorpresas',como:'Proyección MiRenta cada trimestre'}];
-var id=100, C=[];
+var id=100, C=[], SEGS={};   // SEGS: seguimiento del asistente por cotización (SEG-1, demo)
 function nueva(o){id++;var c=Object.assign({id:id,codigo:'COT-2026-'+String(id-100).padStart(3,'0'),version:1,anterior_id:null,cliente_id:null,lead_id:null,prospecto_nombre:null,trabajadores:null,
   condicion_pago:null,n_cuotas:null,monto_propuesto:null,descuento_pct:null,motivo_cambio:null,motivos_aprobacion:[],aprobacion_regla:null,devolucion_comentario:null,snapshot:null,snapshot_hash:null,
   vigencia_hasta:null,te_trabajo:null,primer_mes:null,eventos:[],respaldos:[],creado_por:o.responsable_usuario_id,soluciones:SOL.slice(0,1),notas_internas:null,descripcion_que:null,descripcion_alcance:null},o);
@@ -57,13 +57,21 @@ function para(c){return c.prospecto_nombre||c._para||'Prospecto';}
   var b=nueva({tipo:'PLAN',plan_codigo:'asesoria',trabajadores:2,_para:'Panadería Trigo Dorado SpA',cliente_id:201,responsable_usuario_id:4,estado:'PENDIENTE_APROBACION',monto_propuesto:3.2,motivo_cambio:'Cliente antiguo de otra empresa del grupo'});
   calcular(b);b.huella_revision='h'.repeat(64);ev(b,'CREADA',4);ev(b,'ENVIADA_A_APROBACION',4);
   var c=nueva({tipo:'TE',servicio_id:'s-form',condicion_pago:'CINCUENTA',n_cuotas:2,prospecto_nombre:'Emprendedora Luna Nueva',responsable_usuario_id:13,estado:'BORRADOR',descripcion_que:'Constitución de SpA con inicio de actividades',descripcion_alcance:'Escritura, inscripción, RUT e inicio en el SII'});
-  aprobar(c,'CATALOGO_SIN_CAMBIOS',13);c.estado='ENVIADA';c.vigencia_hasta=addD(HOY,2);ev(c,'CREADA',13);ev(c,'APROBADA_CATALOGO',13);ev(c,'ENVIADA',13,{medio:'WHATSAPP'});
+  aprobar(c,'CATALOGO_SIN_CAMBIOS',13);c.estado='ENVIADA';c.enviado_at=ts(-13);c.vigencia_hasta=addD(HOY,2);ev(c,'CREADA',13);ev(c,'APROBADA_CATALOGO',13);ev(c,'ENVIADA',13,{medio:'WHATSAPP'});
   var d=nueva({tipo:'PLAN',plan_codigo:'cumplimiento',_para:'Imprenta Tinta Viva Ltda.',cliente_id:202,responsable_usuario_id:1,estado:'BORRADOR'});aprobar(d,'MASTER_AUTOR',1);d.estado='ACEPTADA';d.vigencia_hasta=addD(HOY,9);
   d.primer_mes={dias:5,dias_mes:31,monto_uf:0.16,mensual_uf:1};ev(d,'CREADA',1);ev(d,'AUTOAPROBADA_MASTER',1);ev(d,'ENVIADA',1);ev(d,'ACEPTADA',1,{medio:'CORREO'});d.respaldos=[{id:1,nombre:'correo-acepta.pdf',storage_path:'x',subido_at:ts(0)}];
   var e=nueva({tipo:'TE',servicio_id:'s-mod',condicion_pago:'CONTADO',n_cuotas:1,_para:'Viñedos Cerro Alto SpA',cliente_id:203,responsable_usuario_id:13,estado:'BORRADOR',monto_propuesto:150000,motivo_cambio:'Escritura con 4 socios',descripcion_que:'Cambio de administración',descripcion_alcance:'Escritura y publicación en el Diario Oficial'});
   calcular(e);aprobar(e,'APROBADA_POR_MASTER',1);e.estado='ACEPTADA';e.vigencia_hasta=addD(HOY,6);e.te_trabajo={id:2,codigo:'TE-2026-003',etapa:'ACEPTADA',factura_estado:'PENDIENTE'};ev(e,'ACEPTADA',13,{medio:'CORREO'});
   var f=nueva({tipo:'PLAN',plan_codigo:'estrategico',_para:'Transportes Ruta Sur SpA',lead_id:502,responsable_usuario_id:4,estado:'BORRADOR',monto_propuesto:6,motivo_cambio:'Dos sociedades y holding'});
   calcular(f);aprobar(f,'APROBADA_POR_MASTER',1);f.estado='VENCIDA';f.vigencia_hasta=addD(HOY,-3);ev(f,'VENCIDA',null);
+  // SEG-1 · una cotización enviada a un prospecto con el seguimiento del asistente ya respondido (dudas).
+  var g=nueva({tipo:'PLAN',plan_codigo:'cumplimiento',_para:'El Patolín Ltda.',lead_id:503,responsable_usuario_id:1,estado:'BORRADOR'});aprobar(g,'MASTER_AUTOR',1);
+  g.estado='ENVIADA';g.enviado_at=ts(-5);g.vigencia_hasta=addD(HOY,10);ev(g,'CREADA',1);ev(g,'AUTOAPROBADA_MASTER',1);ev(g,'ENVIADA',1,{medio:'WHATSAPP'});
+  ev(g,'SEG_PROGRAMADO',1);ev(g,'SEG_ENVIADO',null);ev(g,'SEG_RESPONDIO',null);
+  SEGS[g.id]={id:900,estado:'respondio',categoria:'duda',tema:'tu plan Cumplimiento',nota:'Le mandé la propuesta por WhatsApp; tiene dudas de la empresa de transporte.',dias_espera:2,
+    iniciado_at:ts(-4),iniciado_por:'Luciano Duarte',respondio_at:ts(-1),categoria_at:ts(-1),proxima_accion:'tiene dudas sobre tu plan Cumplimiento → te toca llamarlo',
+    motivo_fin:null,finalizado_at:null,tomado_at:null,pausado_at:null,con_conversacion:false,conversacion_id:null,
+    mensajes:[{n:1,estado:'enviado',motivo:null,programado_para:ts(-2),enviado_at:ts(-2)},{n:2,estado:'cancelado',motivo:'respondio',programado_para:ts(1),enviado_at:null}]};
 })();
 function vista(c){return c.estado==='ENVIADA'&&c.vigencia_hasta<HOY?'VENCIDA':c.estado;}
 function suya(c){var y=ROLES[ROL];return y.master||((c.responsable_usuario_id===y.usuario_id||c.creado_por===y.usuario_id)&&(c.tipo==='TE'||y.puede_plan));}
@@ -98,7 +106,7 @@ window.COT_DEMO_API={
       c.estado='PENDIENTE_APROBACION';c.huella_revision='h'.repeat(64);ev(c,'ENVIADA_A_APROBACION',y.usuario_id);return ok({estado:'PENDIENTE_APROBACION'});}
     if(fn==='cot_aprobar'){aprobar(c,'APROBADA_POR_MASTER',y.usuario_id);ev(c,'APROBADA_POR_MASTER',y.usuario_id);return ok({estado:'APROBADA'});}
     if(fn==='cot_devolver'){c.estado='BORRADOR';c.devolucion_comentario=a.p_comentario;c.devuelto_por=y.usuario_id;ev(c,'DEVUELTA',y.usuario_id,{comentario:a.p_comentario});return ok({estado:'BORRADOR'});}
-    if(fn==='cot_marcar_enviada'){c.estado='ENVIADA';c.vigencia_hasta=addD(HOY,15);ev(c,'ENVIADA',y.usuario_id,{medio:a.p_medio});return ok({vigencia_hasta:c.vigencia_hasta});}
+    if(fn==='cot_marcar_enviada'){c.estado='ENVIADA';c.enviado_at=new Date().toISOString();c.vigencia_hasta=addD(HOY,15);ev(c,'ENVIADA',y.usuario_id,{medio:a.p_medio});return ok({vigencia_hasta:c.vigencia_hasta});}
     if(fn==='cot_respaldo_registrar'){c.respaldos.push({id:c.respaldos.length+1,nombre:a.p_nombre,storage_path:a.p_storage_path,subido_at:new Date().toISOString()});ev(c,'RESPALDO_SUBIDO',y.usuario_id);return ok({respaldo_id:c.respaldos.length});}
     if(fn==='cot_aceptar'){c.estado='ACEPTADA';ev(c,'ACEPTADA',y.usuario_id,{medio:a.p_medio});
       if(c.tipo==='TE'){c.te_trabajo={id:9,codigo:'TE-2026-0'+(10+c.id%50),etapa:'ACEPTADA',factura_estado:'PENDIENTE'};return ok({estado:'ACEPTADA',te_codigo:c.te_trabajo.codigo});}
@@ -107,6 +115,23 @@ window.COT_DEMO_API={
     if(fn==='cot_anular'){c.estado='ANULADA';c.anulacion_motivo=a.p_motivo;c.anulado_por=y.usuario_id;ev(c,'ANULADA',y.usuario_id,{motivo:a.p_motivo});return ok({});}
     if(fn==='cot_volver_a_cotizar'){if(c.estado==='ENVIADA')c.estado='VENCIDA';var o=Object.assign({},c,{version:c.version+1,anterior_id:c.id,estado:'BORRADOR',eventos:[],respaldos:[],te_trabajo:null,aprobacion_regla:null,snapshot:null,vigencia_hasta:null});delete o.id;delete o.codigo;
       var n=nueva(o);n.codigo=c.codigo;ev(n,'NUEVA_VERSION',y.usuario_id);ev(c,'RECOTIZADA',y.usuario_id);return ok({id:n.id,version:n.version});}
+    // SEG-1 · seguimiento del asistente (imita las reglas del servidor)
+    if(fn.indexOf('seg_')===0){var k=a.p_cotizacion_id||Object.keys(SEGS).find(function(x){return SEGS[x].id===a.p_id;}),cc=buscar(k),sg=SEGS[k];
+      if(!cc||!suya(cc))return err('NO_EXISTE');
+      var vivo=sg&&['programado','esperando','pausado'].indexOf(sg.estado)>=0,hecho=sg&&sg.mensajes.some(function(m){return ['enviado','fallido','incierto'].indexOf(m.estado)>=0;});
+      var prep={puede:vista(cc)==='ENVIADA'&&!vivo&&!hecho&&!(cc.cliente_id&&!cc.lead_id),motivo:vista(cc)!=='ENVIADA'?'cotizacion_no_enviada':cc.cliente_id&&!cc.lead_id?'es_cliente':vivo?'ya_en_curso':hecho?'ya_realizado':null,
+        habilitado:false,telefono:'+56 9 •••• 0'+(cc.id%1000),telefono_fuente:'lead',tema_sugerido:cc.tipo==='PLAN'?'tu plan '+((PLANES.find(function(x){return x.codigo===cc.plan_codigo;})||{}).nombre||''):cc.que,primer_envio_estimado:ts(2)};
+      if(fn==='seg_preparar')return ok(prep);
+      if(fn==='seg_estado')return ok(sg?{seguimiento:sg,mensajes:sg.mensajes,puede:{pausar:['programado','esperando'].indexOf(sg.estado)>=0,reanudar:sg.estado==='pausado',
+        tomar:['programado','esperando','pausado','respondio','derivado'].indexOf(sg.estado)>=0},preparar:prep,habilitado:false}:{seguimiento:null,preparar:prep});
+      if(fn==='seg_iniciar'){if(!prep.puede)return err('SEG_YA_EN_CURSO');if(!a.p||a.p.consentimiento!==true)return err('SEG_SIN_CONSENTIMIENTO');
+        SEGS[k]={id:900+cc.id,estado:'programado',categoria:null,tema:a.p.tema,nota:a.p.nota,dias_espera:a.p.dias_espera,iniciado_at:new Date().toISOString(),iniciado_por:y.nombre,respondio_at:null,categoria_at:null,
+          proxima_accion:'el asistente escribirá en '+a.p.dias_espera+' día(s) hábil(es)',motivo_fin:null,finalizado_at:null,tomado_at:null,pausado_at:null,con_conversacion:false,conversacion_id:null,
+          mensajes:[{n:1,estado:'programado',motivo:null,programado_para:ts(a.p.dias_espera),enviado_at:null}]};ev(cc,'SEG_PROGRAMADO',y.usuario_id);return ok({id:SEGS[k].id,estado:'programado',programado_para:ts(a.p.dias_espera),habilitado:false});}
+      if(fn==='seg_pausar'){sg.estado='pausado';sg.pausado_at=new Date().toISOString();sg.mensajes.forEach(function(m){if(m.estado==='programado'){m.estado='cancelado';m.motivo='pausado';}});ev(cc,'SEG_PAUSADO',y.usuario_id);return ok({estado:'pausado'});}
+      if(fn==='seg_reanudar'){var n=sg.mensajes.filter(function(m){return m.estado==='enviado';}).length;sg.estado=n?'esperando':'programado';sg.pausado_at=null;sg.mensajes.push({n:n+1,estado:'programado',motivo:null,programado_para:ts(1),enviado_at:null});ev(cc,'SEG_REANUDADO',y.usuario_id);return ok({estado:sg.estado,programado_para:ts(1)});}
+      if(fn==='seg_tomar'){sg.estado='tomado';sg.tomado_at=new Date().toISOString();sg.mensajes.forEach(function(m){if(m.estado==='programado'){m.estado='cancelado';m.motivo='tomado';}});ev(cc,'SEG_TOMADO',y.usuario_id);return ok({estado:'tomado'});}
+    }
     return err('NO_APLICA');},
   subir:function(r){return ok(r);},
   urlFirmada:function(){return ok('about:blank');}
