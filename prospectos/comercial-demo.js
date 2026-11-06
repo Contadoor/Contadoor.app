@@ -1,13 +1,15 @@
 /* ============================================================
    prospectos/comercial-demo.js — MODO DEMOSTRACIÓN de Reuniones y Bitácora (datos 100 % ficticios)
    Candado 2 de 3: solo se define en localhost / 127.0.0.1 / [::1]. No se conecta a Supabase; nada se guarda
-   (vive en memoria y en sessionStorage de esta pestaña). Personas y empresas inventadas; sin RUT, correos ni teléfonos.
+   (vive en memoria y en sessionStorage de esta pestaña). Personas y empresas inventadas; sin RUT ni correos. Teléfonos 100 % ficticios (12345678 y variantes) solo para probar el botón WhatsApp.
    Reproduce las reglas de las RPC com_* (visibilidad, versión, cierre) para probar la pantalla sin base de datos.
    ============================================================ */
 (function(){
 'use strict';
 var h=location.hostname;if(!(h==='localhost'||h==='127.0.0.1'||h==='[::1]'))return;
-var KEY='gestoor.com.demo.v1';
+var KEY='gestoor.com.demo.v2';
+// Teléfonos ficticios por prospecto (formatos que debe aceptar o rechazar el botón WhatsApp).
+var TEL={101:'+56 9 1234 5678',102:'912345678',103:'12345678',104:'',105:'abc',106:'(9) 1234-5678',107:'+56 9 8765 4321',108:'987654321',109:'+56 9 1111 2222',110:'922223333'};
 function ahoraMin(m){var d=new Date();d.setSeconds(0,0);return new Date(d.getTime()+m*60000).toISOString();}
 function diaHora(dias,hh,mm){var t=new Date(Date.now()+dias*864e5);var y=t.toLocaleDateString('en-CA',{timeZone:'America/Santiago'});return new Date(y+'T'+hh+':'+mm+':00-03:00').toISOString();}
 var YO={id:1,nombre:'Usuario Demo',master:true,escribe:true};
@@ -103,6 +105,7 @@ var F={
     if(a.p_desenlace==='perdido')ev(l.id,'perdido',{motivo:a.p_motivo_perdida},b.id);
     persistir();return ok(Object.assign(payload(b),{ya_cerrada:false}));
   },
+  detalle_prospecto:function(a){var l=lead(a.p_id);if(!l)return err('NO_EXISTE');return ok({id:l.id,nombre:l.nombre,empresa:l.empresa,tel:TEL[l.id]!==undefined?TEL[l.id]:null});},
   com_linea_tiempo:function(a){
     var l=lead(a.p_lead_id);if(!l)return err('NO_EXISTE');
     var out=[{t:new Date(Date.now()-3*864e5).toISOString(),tipo:'origen',origen:l.origen,campana:l.campana,formulario:!!l.respuestas,consentimiento:true}];

@@ -13,6 +13,7 @@ var D=window.ComDatos, G=window.ComGuion, esc=D.esc;
 var app=document.getElementById('cmApp');
 var B=null, S={}, N={}, ORIG={}, PISTAS={}, VER=1, EDIT=false, BLOQ=false;
 var ABIERTOS={sit:true}, C={resultado:null,temperatura:null,desenlace:'seguimiento',accion:'',fecha:'',motivo:null};
+var WA=null; // {nombre,empresa,tel} del prospecto para el botón WhatsApp (el teléfono se lee aparte con detalle_prospecto)
 var reloj={seg:0,corre:false,t0:0,base:0,int:null}, sucio=false, guardando=false, tGuardar=null, reintento=0, ultimoOk=null;
 var ETAPAS={nuevo:'Nuevo',agendado:'Reunión agendada',reunion_realizada:'Diagnóstico hecho',no_asistio:'No asistió',propuesta:'Propuesta enviada',
   seguimiento:'Negociación',cliente:'Ganado',emprendedor_solicitado:'Cumplimiento solicitado',no_calificado:'Sin agendar',descartado:'Perdido'};
@@ -51,6 +52,19 @@ function cargarBitacora(b){
   if(b.lead&&b.lead.proxima_accion&&!C.accion)C.accion='';
   pintar();
   if(sucio&&EDIT)programar(400);
+  cargarWA();
+}
+// ── WhatsApp: la bitácora no trae el teléfono; se lee con detalle_prospecto (solo lectura). Si falla, el botón queda deshabilitado. ──
+function waHtml(){
+  if(!window.ProsWA)return '';
+  if(!WA)return '<button type="button" class="wa-btn" disabled aria-disabled="true" title="Buscando el teléfono…">'+ProsWA.icono()+'<span class="wa-lbl">WhatsApp</span></button>';
+  return ProsWA.boton(WA);
+}
+function cargarWA(){
+  var l=B&&B.lead;if(!l||!l.id||!window.ProsWA)return;
+  var poner=function(x){WA={nombre:l.nombre,empresa:l.empresa,tel:x};var s=document.getElementById('waSlot');if(s)s.innerHTML=waHtml();};
+  if(l.tel!==undefined){poner(l.tel);return;}
+  D.rpc('detalle_prospecto',{p_id:Number(l.id)}).then(function(p){poner(p&&p.tel);}).catch(function(){poner('');});
 }
 // ── Caché local (solo lo no guardado) ──
 function kCache(){return 'gestoor.com.bitacora.'+(B&&B.id);}
@@ -71,7 +85,8 @@ function pintar(){
     +(r?' · '+esc(D.fechaHora(r.inicio)):' · sin reserva')+' · <span class="guardado" id="guardado"></span></small></div>'
     +'<div class="reloj"><div class="t" id="reloj" aria-live="off" title="Reloj de la reunión (30 min)">30:00</div>'
     +(EDIT?'<button class="rbtn" id="btnPlay" type="button" aria-label="Iniciar o pausar el reloj">▶</button><button class="rbtn" id="btnRst" type="button" aria-label="Reiniciar el reloj" title="Reiniciar">↺</button>':'')
-    +(r&&r.teams&&!cerrada?'<a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Teams</a>':'')+'</div>'
+    +(r&&r.teams&&!cerrada?'<a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Teams</a>':'')
+    +'<span id="waSlot">'+waHtml()+'</span></div>'
     +'<div class="fase" id="fase"></div></div>';
   h+='<div class="mr"><div class="mr-col">';
   // Lo que ya nos contó
