@@ -1,0 +1,39 @@
+/* cotizaciones/cotizaciones.css — solo lo propio de Cotizaciones (el resto viene de assets/gestoor-cartera.css, línea MiRenta). */
+.g-mod-gc .cot-dif{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g-mod-gc .cot-dif>div{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:16px;border:1px solid var(--borde);background:rgba(255,255,255,.025)}
+.g-mod-gc .cot-dif>div.esta{border-color:rgba(199,123,201,.6);background:rgba(199,123,201,.10)}
+.g-mod-gc .cot-dif b.t{display:block;font:800 14px var(--tit);color:var(--t1)}.g-mod-gc .cot-dif p b{color:var(--t1)}.g-mod-gc .cot-dif p{margin:3px 0 0;font-size:12.5px;color:var(--t2);line-height:1.45}
+.g-mod-gc .cot-dif .ic .g-ic{width:24px;height:24px}
+.g-mod-gc .gc-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.g-mod-gc .gc-nav .sn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--borde);border-radius:999px;padding:8px 14px;background:transparent;color:var(--t2);font:700 12.5px var(--txt);cursor:pointer;min-height:38px}
+.g-mod-gc .gc-nav .sn.on{background:var(--grad);border-color:transparent;color:#fff}
+.g-mod-gc .gc-nav .sn .cnt{font-size:11px;background:rgba(255,255,255,.14);border-radius:999px;padding:1px 7px}
+.g-mod-gc .gc-buscar{min-height:38px;border-radius:999px;padding:0 14px;font:500 14px var(--txt);min-width:220px}
+.g-mod-gc .cot-sel{min-height:38px;border-radius:999px;padding:0 12px;font:600 13px var(--txt)}
+.g-mod-gc .gt td.cli b{display:block}.g-mod-gc .gt .sub{display:block;font-size:11.5px;color:var(--t3)}
+.g-mod-gc .gt tr.clic{cursor:pointer}
+.g-mod-gc .gc-lista-m{display:none;flex-direction:column;gap:8px}
+.g-mod-gc .cot-vence{font:700 12px var(--txt)}.g-mod-gc .cot-vence.pronto{color:var(--ambar)}.g-mod-gc .cot-vence.vencida{color:var(--rojo)}
+.g-mod-gc .cot-flujo{grid-template-columns:repeat(5,minmax(0,1fr))}
+.g-mod-gc .cot-sol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 12px;border:1px solid var(--borde);border-radius:14px;background:rgba(255,255,255,.02);margin:6px 0}
+.g-mod-gc .cot-sol small{display:block;font:700 10px var(--txt);letter-spacing:1px;text-transform:uppercase;color:var(--t3)}
+.g-mod-gc .cot-sol span{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.g-mod-gc .cot-sol .f{color:var(--lila2);font-style:italic}
+.g-mod-gc .cot-sol-ed{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:start;margin:6px 0}
+.g-mod-gc .cot-sol-ed input{min-height:40px;padding:6px 10px;font:500 14px var(--txt);border-radius:10px;width:100%}
+.g-mod-gc .cot-vinculo{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(95,207,156,.5);background:rgba(95,207,156,.08);margin:10px 0}
+.g-mod-gc .cot-vinculo .ic .g-ic{width:22px;height:22px}
+.g-mod-gc .cot-res{list-style:none;margin:6px 0;padding:0;max-height:220px;overflow:auto;border:1px solid var(--borde);border-radius:12px}
+.g-mod-gc .cot-res li button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--t1);padding:9px 12px;font:500 13.5px var(--txt);cursor:pointer;border-bottom:1px solid rgba(74,43,80,.4)}
+.g-mod-gc .cot-res li button small{color:var(--t3)}
+.g-mod-gc .cot-res li button:hover,.g-mod-gc .cot-res li button:focus{background:rgba(199,123,201,.12)}
+.g-mod-gc .cot-elegido{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:rgba(199,123,201,.12);border:1px solid rgba(199,123,201,.45);font-size:13.5px}
+.g-mod-gc .cot-precio{margin:10px 0;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--borde)}
+.g-mod-gc .cot-precio b{font:900 20px var(--tit)}
+.g-mod-gc .cot-av{display:inline-flex;align-items:center;gap:6px}
+.g-mod-gc .g-av-s{width:24px;height:24px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;background:var(--grad);color:#fff;font:800 10px var(--tit);flex:none}
+.g-mod-gc .g-av-s img{width:100%;height:100%;object-fit:cover}
+.g-mod-gc .gc-semaforo{display:inline-block;width:10px;height:10px;border-radius:50%}
+.g-mod-gc .sem-verde{background:var(--verde)}.g-mod-gc .sem-ambar{background:var(--ambar)}.g-mod-gc .sem-rojo{background:var(--rojo)}.g-mod-gc .sem-gris{background:var(--t3)}.g-mod-gc .sem-lila{background:var(--lila)}.g-mod-gc .sem-cel{background:var(--cel)}
+@media (max-width:980px){.g-mod-gc .cot-dif{grid-template-columns:1fr}.g-mod-gc .cot-sol{grid-template-columns:1fr}}
+@media (max-width:640px){.g-mod-gc .cot-flujo{grid-template-columns:repeat(2,minmax(0,1fr))}.g-mod-gc .cot-sol-ed{grid-template-columns:1fr}.g-mod-gc .gc-buscar{min-width:0}}

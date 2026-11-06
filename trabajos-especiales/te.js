@@ -78,8 +78,11 @@ var REAL={
       A.get('te_eventos?trabajo_id=eq.'+i+'&select=id,tipo,actor,creado_at&order=creado_at.desc&limit=40'),
       A.get('te_tareas?trabajo_id=eq.'+i+'&estado=eq.ABIERTA&select=id,tipo,creada_at'),
       // TE-F1C: factura adicional vinculada (si la función aún no está instalada, se muestra la vista anterior de T1)
-      A.rpc('te_fa_resumen',{p_trabajo:Number(id)}).catch(function(e){console.warn('[te] te_fa_resumen no disponible; vista de factura de T1.',e&&e.message);return null;})
-    ]).then(function(r){return {t:r[0][0]||null,cuotas:r[1],facturas:r[2],pasos:r[3],docs:r[4],eventos:r[5],tareas:r[6],fa:r[7]||null};});
+      A.rpc('te_fa_resumen',{p_trabajo:Number(id)}).catch(function(e){console.warn('[te] te_fa_resumen no disponible; vista de factura de T1.',e&&e.message);return null;}),
+      // Cotizaciones K1: cotización que originó el trabajo (columna nueva). Tolerante: sin K1 instalado devuelve null y la ficha sigue igual.
+      A.get('te_trabajos?id=eq.'+i+'&select=cotizacion_origen_id').then(function(x){var oid=x&&x[0]&&x[0].cotizacion_origen_id;if(!oid)return null;
+        return A.get('cot_cotizaciones?id=eq.'+q(oid)+'&select=id,codigo,version').then(function(c){return c&&c[0]||{id:oid};}).catch(function(){return {id:oid};});}).catch(function(){return null;})
+    ]).then(function(r){return {t:r[0][0]||null,cuotas:r[1],facturas:r[2],pasos:r[3],docs:r[4],eventos:r[5],tareas:r[6],fa:r[7]||null,origen:r[8]||null};});
   },
   servicios:function(){return A.get('servicios_adicionales?select=id,nombre,descripcion,precio,precio_hasta,moneda,tipo&activo=eq.true&moneda=eq.CLP&tipo=in.(puntual,por_propuesta)&order=nombre.asc');},
   clientes:function(){return A.get('clientes?select=id,razon_social&order=razon_social.asc&limit=3000').catch(function(){return [];});},
@@ -106,7 +109,7 @@ var EV={BORRADOR_CREADO:'Borrador creado',BORRADOR_EDITADO:'Borrador editado',EN
   COTIZACION_ENVIADA:'Enviada al cliente (aviso en cola)',COTIZACION_RENOVADA:'Renovada',COTIZACION_ACEPTADA:'Aceptada',COTIZACION_RECHAZADA:'Rechazada por el cliente',FACTURA_PREPARADA:'Factura preparada',
   FACTURA_APROBADA:'Factura aprobada',FACTURA_EMITIDA:'Factura emitida',CUOTA_PAGADA:'Cuota pagada (Cobranza)',CUOTA_PAGO_REVERTIDO:'Pago de cuota revertido (Cobranza)',TRABAJO_INICIADO:'Trabajo iniciado',
   INICIO_AUTORIZADO_SIN_PAGO:'Inicio autorizado sin pago (Master)',PASO_HECHO:'Paso hecho',PASO_SALTADO:'Paso saltado',DOCUMENTO_SUBIDO:'Documento subido',DOCUMENTO_REEMPLAZADO:'Documento reemplazado',
-  TRABAJO_TERMINADO:'Trabajo terminado',FACTURA_ADICIONAL_CREADA:'Factura adicional creada (Facturación)',FACTURA_ADICIONAL_TOTAL_DIFIERE:'Factura emitida con total distinto',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado'};
+  TRABAJO_TERMINADO:'Trabajo terminado',FACTURA_ADICIONAL_CREADA:'Factura adicional creada (Facturación)',FACTURA_ADICIONAL_TOTAL_DIFIERE:'Factura emitida con total distinto',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado',ORIGEN_COTIZACION:'Nació de una cotización aceptada'};
 var FAC={PENDIENTE:{t:'Instrucción pendiente',c:'ambar'},LISTA:{t:'Lista · espera aprobación del Master',c:'cel'},APROBADA:{t:'Aprobada · por emitir',c:'lila'},EMITIENDO:{t:'Emitiendo',c:'cel'},
   INCIERTO:{t:'Incierto · por conciliar',c:'naranja'},EMITIDA:{t:'Emitida',c:'verde'},ERROR:{t:'Error',c:'rojo'},ANULADA:{t:'Anulada',c:'gris'}};
 
@@ -186,7 +189,7 @@ function barraHtml(ab){
     +'<button type="button" class="sn'+(S.vista==='historial'?' on':'')+'" data-act="vista" data-v="historial">'+I('historial')+'Historial <span class="cnt">'+nH+'</span></button>'
     +'<input type="search" class="gc-buscar" id="teBuscar" placeholder="Buscar cliente, código o servicio…" value="'+esc(S.buscar)+'" aria-label="Buscar">'
     +(!(S.yo.es_master||(S.yo.responsable&&S.par&&S.par.responsable_ve_todos))?'':'<label class="chk" style="margin:0"><input type="checkbox" id="teMios"'+(S.soloMios?' checked':'')+'> Solo los míos</label>')
-    +(puede?'<button type="button" class="btn" data-act="nueva" style="margin-left:auto">'+I('plus')+'Nueva cotización</button>':'')
+    +(puede?'<a class="btn" href="../cotizaciones/index.html?nueva=te" style="margin-left:auto" title="Las cotizaciones (propuestas) se hacen en Comercial → Cotizaciones; al aceptarse, nace aquí el trabajo especial">'+I('plus')+'Nueva cotización (en Cotizaciones)</a>':'')
     +'</div>';
 }
 function tarjeta(t){
@@ -244,6 +247,8 @@ function fichaHtml(f){
   if(t.descuento_pct)h+='<p class="nota">Valor base '+clpT(t.valor_base)+' · descuento '+esc(t.descuento_pct)+' % (Master) · exento DTE 34.</p>';
   if(t.devolucion_comentario&&t.etapa==='BORRADOR')h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>Devuelta por el Master: «'+esc(t.devolucion_comentario)+'»</span></div>';
   if(t.rechazo_motivo)h+='<div class="aviso gris"><span>Rechazo del cliente: «'+esc(t.rechazo_motivo)+'»</span></div>';
+  if(f.origen)h+='<div class="aviso verde">'+I('archivo','ic-ver')+'<span><b>Origen: cotización '+esc(f.origen.codigo?f.origen.codigo+' v'+f.origen.version:'N.º '+f.origen.id)+'</b> · el cliente la aceptó y así nació este trabajo especial.</span>'
+    +'<a class="btn chico sec" href="../cotizaciones/index.html?id='+encodeURIComponent(f.origen.id)+'">Ver cotización →</a></div>';
   h+=accionesHtml(f,ed,fac);
   h+='<section><h4>📝 Detalle</h4><p><b>Servicio:</b> '+esc(tb.servicio_nombre||t.servicio_solicitado||'—')+(t.servicio_id?'':' <span class="estado ambar">Servicio nuevo solicitado al Master</span>')+'</p>'
     +'<p><b>Qué se hará:</b> '+esc(t.descripcion_que||'—')+'</p><p><b>Alcance:</b> '+esc(t.descripcion_alcance||'—')+'</p>'+(t.descripcion_antecedentes?'<p><b>Antecedentes:</b> '+esc(t.descripcion_antecedentes)+'</p>':'')

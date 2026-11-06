@@ -1839,6 +1839,36 @@ function aplicarPermisosClientesUI() {
   if (btnClavesEditar) btnClavesEditar.style.display = esMaster ? '' : 'none';
 }
 
+// Cotizaciones K1 · "Crear cliente en onboarding": ?desde_cotizacion=<id> (solo el id, nunca datos personales en la dirección).
+// Lee del servidor la cotización de PLAN aceptada (cot_onboarding_datos valida que sea tuya y esté aceptada) y PRECARGA la ficha
+// "Nuevo cliente" en estado Onboarding. No guarda nada: el cliente se crea solo al presionar Guardar (camino oficial de siempre).
+function precargarDesdeCotizacion() {
+  var m = /(?:^|[?&])desde_cotizacion=(\d{1,18})(?:&|$)/.exec(location.search.slice(1)); if (!m) return;
+  var btn = g('btn-nuevo');
+  if (!btn || btn.style.display === 'none') { toast('Tu usuario no crea clientes: pídeselo al Master, a Pagos o a Comercial.'); return; }
+  sbFetch('rpc/cot_onboarding_datos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p_id: Number(m[1]) }) })
+    .then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error(t); }); })
+    .then(function (d) {
+      abrirNuevo();
+      sv('f-razon', d.razon_social || ''); sv('f-rut', d.rut || ''); sv('f-giro', d.giro || ''); sv('f-email', d.email || '');
+      sv('f-direccion', d.direccion || ''); sv('f-comuna', d.comuna || ''); sv('f-estado', 'onboarding');
+      if (d.primer_mes && d.primer_mes.desde) sv('f-inicio', String(d.primer_mes.desde).slice(0, 10));
+      sv('f-precio-obs', 'Desde ' + (d.cotizacion || 'cotización') + (d.primer_mes ? ' · primer mes prorrateado ' + d.primer_mes.monto_uf + ' UF' : ''));
+      cargarPlanesCat().then(function () {
+        poblarPlanesSelect();
+        setTimeout(function () {
+          sv('f-plan', d.plan_codigo || ''); sv('f-moneda', 'UF'); sv('f-moneda-var', 'UF');
+          if (d.monto_base_uf != null) sv('f-monto', String(Number(d.monto_base_uf)));
+          if (d.valor_por_trab_uf != null) sv('f-var', String(Number(d.valor_por_trab_uf)));
+          if (d.descuento_pct) { sv('f-desc-tipo', 'porcentaje'); sv('f-desc-valor', String(Number(d.descuento_pct))); }
+          calcPreview();
+          toast('Ficha precargada desde ' + (d.cotizacion || 'la cotización') + ': revisa y presiona Guardar');
+        }, 150);
+      });
+    })
+    .catch(function (e) { toast('No se pudo precargar la cotización: ' + String(e && e.message || e).slice(0, 160)); });
+}
+
 // Detectar cuándo auth.js termina de verificar la identidad.
 // auth.js llama revelarContenido() → classList.remove('auth-pending')
 // → MutationObserver detecta el cambio → _contadoorSesion ya está poblado.
@@ -1849,6 +1879,7 @@ function aplicarPermisosClientesUI() {
       if (m.attributeName === 'class' &&
           !document.documentElement.classList.contains('auth-pending')) {
         aplicarPermisosClientesUI();
+        precargarDesdeCotizacion();
         obs.disconnect();
       }
     });
