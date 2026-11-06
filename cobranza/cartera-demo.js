@@ -40,10 +40,11 @@ function aviso(cliId,cod,diasOff,estado,motivo,gestion){AVISOS.push({id:++avId,c
 doc(101,'MENSUALIDAD',95,12);cli(101,'POR_VENCER');aviso(101,'M1',8,'PENDIENTE');
 doc(102,'MENSUALIDAD',120,-9);doc(102,'MENSUALIDAD',120,21);cli(102,'VENCIDO',-8);aviso(102,'V',-6,'PENDIENTE',null,true);aviso(102,'V',-1,'PENDIENTE',null,true);
 doc(103,'MENSUALIDAD',85,-40);doc(103,'MENSUALIDAD',85,-9);cli(103,'RIESGO',-3);aviso(103,'RS',-2,'PENDIENTE',null,true);aviso(103,'RS',2,'PENDIENTE',null,true);
-GEST.push({id:1,cliente_id:103,tipo:'LLAMADA',dia:addD(HOY,-4),nota:'Dice que paga la próxima semana'});
+GEST.push({id:1,cliente_id:103,tipo:'LLAMADA',dia:addD(HOY,-4),nota:'Dice que paga la próxima semana',registrado_at:addD(HOY,-4)+'T14:10:00Z'});
+GEST.push({id:2,cliente_id:103,tipo:'NOTA',dia:addD(HOY,-2),nota:'Correo: Se reenvió la factura vencida al correo de administración',registrado_at:addD(HOY,-2)+'T12:30:00Z'});
 doc(104,'MENSUALIDAD',70,-70);doc(104,'MENSUALIDAD',70,-40);doc(104,'MENSUALIDAD',70,-9);cli(104,'SUSPENSION_PROGRAMADA',-1);
 TAREAS.push({id:301,cliente_id:104,tipo:'REVISAR_OBLIGACIONES',plazo:addD(HOY,1),creada_at:addD(HOY,-2)+'T10:00:00Z'});aviso(104,'M7',-1,'PENDIENTE',null,true);
-doc(105,'MENSUALIDAD',110,-9);cli(105,'VENCIDO',-8);PAUSAS.push({id:401,cliente_id:105,tipo:'RECORDATORIOS',origen:'COMPROMISO',hasta:addD(HOY,6),compromiso_fecha:addD(HOY,4),compromiso_monto:110000});
+doc(105,'MENSUALIDAD',110,-9);cli(105,'VENCIDO',-8);PAUSAS.push({id:401,cliente_id:105,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-2),hasta:addD(HOY,6),compromiso_fecha:addD(HOY,4),compromiso_monto:110000,motivo:'Acordado por teléfono con la administradora',creada_at:addD(HOY,-2)+'T15:00:00Z',terminada_at:null});
 aviso(105,'P3',-2,'PENDIENTE');aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
 var r106=[doc(106,'MENSUALIDAD',60,-38),doc(106,'MENSUALIDAD',60,-8)];cli(106,'RIESGO',-2);
 REPS.push({id:++repId,cliente_id:106,estado:'EN_VALIDACION',canal:'GESTOR',n_cuotas:3,monto_total:120000,monto_cuota:40000,monto_ultima:40000,pie_vence:addD(HOY,2),validacion_limite:addD(HOY,1)+'T15:00:00Z',solicitada_dia:HOY,pie_pagado:0,nota:'Pidió 3 cuotas por baja de ventas',motivo_rechazo:null});
@@ -121,7 +122,8 @@ window.COB_DEMO_API={
         comentario_transferencia:ds.some(function(d){return d.folio;})?'Facturas '+ds.filter(function(d){return d.folio;}).map(function(d){return d.folio;}).join(', '):null,datos_transferencia:{},fecha:HOY},
       pagos:PAGOS.filter(function(p){return p.cliente_id===id;}).sort(function(a,b){return a.fecha_pago<b.fecha_pago?1:-1;}),
       avisos:AVISOS.filter(function(a){return a.cliente_id===id;}).sort(function(a,b){return a.programado_para<b.programado_para?1:-1;}),
-      gestiones:GEST.filter(function(g){return g.cliente_id===id;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null});
+      gestiones:GEST.filter(function(g){return g.cliente_id===id;}).sort(function(a,b){return a.registrado_at<b.registrado_at?1:-1;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null,
+      compromisos:PAUSAS.filter(function(p){return p.cliente_id===id&&p.origen==='COMPROMISO';}).sort(function(a,b){return a.creada_at<b.creada_at?1:-1;})});
   },
   historial:function(id){
     var x=exigir('puede_leer');if(x)return x;id=Number(id);
@@ -157,6 +159,34 @@ window.COB_DEMO_API={
     REPS.push({id:++repId,cliente_id:a.p_cliente_id,estado:'EN_VALIDACION',canal:ROL==='master'?'MASTER':'GESTOR',n_cuotas:a.p_n_cuotas,monto_total:t,monto_cuota:c,monto_ultima:u,pie_vence:addD(HOY,2),validacion_limite:addD(HOY,1)+'T15:00:00Z',solicitada_dia:HOY,pie_pagado:0,nota:a.p_nota,motivo_rechazo:null});
     aviso(a.p_cliente_id,'RQ',0,'PENDIENTE');
     return ok({repactacion_id:repId,estado:'EN_VALIDACION',total:t,pie:c,cuota:c,ultima:u,pie_vence:addD(HOY,2)});
+  },
+  // Gestión manual (mismas reglas que cobranza_gestion_registrar; sin red). La regla de la Ley 21.320 se simula con lo anotado en la demo.
+  gestionRegistrar:function(a){
+    var x=exigir('puede_gestionar','SOLO_COBRANZA');if(x)return x;
+    if(['LLAMADA','WHATSAPP_MANUAL','NOTA'].indexOf(a.p_tipo)<0)return err('TIPO_INVALIDO');
+    if(!NOM[a.p_cliente_id])return err('CLIENTE_NO_EXISTE');
+    if((a.p_tipo==='NOTA'||a.p_tipo==='WHATSAPP_MANUAL')&&(!a.p_nota||a.p_nota.trim().length<5))return err('NOTA_OBLIGATORIA');
+    var canc=0;
+    if(a.p_tipo==='WHATSAPP_MANUAL'){
+      var ws=GEST.filter(function(g){return g.cliente_id===a.p_cliente_id&&g.tipo==='WHATSAPP_MANUAL'&&g.dia>=addD(HOY,-1);});
+      if(ws.length)return err('LEY_21320','el cliente ya tiene una gestión escrita a menos de 2 días');
+      AVISOS.forEach(function(v){if(v.cliente_id===a.p_cliente_id&&v.es_gestion&&v.estado==='PENDIENTE'&&['V','RS','M1'].indexOf(v.codigo)>=0&&v.dia>=HOY&&v.dia<=addD(HOY,1)){v.estado='CANCELADO';v.motivo_cancelacion='Reemplazado por WhatsApp manual';canc++;}});
+    }
+    var id=GEST.reduce(function(m,g){return Math.max(m,g.id);},0)+1;
+    GEST.push({id:id,cliente_id:a.p_cliente_id,tipo:a.p_tipo,dia:HOY,nota:a.p_nota?a.p_nota.slice(0,1000):null,registrado_at:new Date().toISOString()});
+    return ok({gestion_id:id,pausa_hasta:null,avisos_reemplazados:canc});
+  },
+  // Compromiso de pago (mismas reglas que cobranza_compromiso_registrar; sin red). Igual que el servidor, deja el aviso P3 en la cola (demo).
+  compromisoRegistrar:function(a){
+    var x=exigir('puede_gestionar','SOLO_COBRANZA');if(x)return x;
+    if(!NOM[a.p_cliente_id])return err('CLIENTE_NO_EXISTE');
+    if(!a.p_fecha||a.p_fecha<HOY||a.p_fecha>addD(HOY,30))return err('FECHA_COMPROMISO_INVALIDA');
+    if(!(a.p_monto>0))return err('MONTO_INVALIDO');
+    if(!a.p_nota||a.p_nota.trim().length<5)return err('NOTA_OBLIGATORIA');
+    var hasta=addD(a.p_fecha,2), id=PAUSAS.reduce(function(m,p){return Math.max(m,p.id);},400)+1;
+    PAUSAS.push({id:id,cliente_id:a.p_cliente_id,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:HOY,hasta:hasta,compromiso_fecha:a.p_fecha,compromiso_monto:a.p_monto,motivo:a.p_nota.trim().slice(0,500),creada_at:new Date().toISOString(),terminada_at:null});
+    aviso(a.p_cliente_id,'P3',0,'PENDIENTE');
+    return ok({pausa_id:id,hasta:hasta});
   },
   repactacionValidar:function(a){
     var x=exigir('puede_decidir','SOLO_MASTER');if(x)return x;
