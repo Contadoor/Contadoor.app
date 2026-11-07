@@ -8,13 +8,13 @@
    · Validación local con la MISMA lógica de prospectos/whatsapp.js (ProsWA.normalizar) + exige celular (+56 9 XXXX XXXX):
      8 dígitos NO se adivinan. La base vuelve a validar todo (prospecto_corregir_telefono) y deja la auditoría.
    · Guarda SOLO con la RPC prospecto_corregir_telefono (JWT del usuario). Tras guardar, el botón de WhatsApp usa el número nuevo.
-   · BANDERA: TEL_CORRECCION_CONECTADA = false hasta instalar el backend (migración 202611071535, con GO de ChatGPT y orden de Luciano).
-     Con false el botón se ve DESHABILITADO con el motivo (fail-closed) y no se llama a la base.
+   · BANDERA: TEL_CORRECCION_CONECTADA = true (migración 202611071535 R2 INSTALADA el 07-11-2026, GO-MIG de ChatGPT).
+     Volver a false = botón DESHABILITADO con el motivo (fail-closed) y sin llamadas a la base.
    ============================================================ */
 (function(root){
 'use strict';
 
-var TEL_CORRECCION_CONECTADA=false;
+var TEL_CORRECCION_CONECTADA=true;
 var NO_CONECTADA='Disponible cuando se instale en la base (pendiente de aprobación)';
 
 var ORIGENES=[

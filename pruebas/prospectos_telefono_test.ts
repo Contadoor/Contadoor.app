@@ -1,7 +1,7 @@
 // Prospectos · "✏️ Corregir teléfono" (prospectos/telefono.js) · prueba LOCAL (no toca Supabase ni producción; datos 100 % ficticios).
 // 1) Validación local = misma lógica que whatsapp.js + celular, con los MISMOS casos que la prueba de la base (prospecto_corregir_telefono).
-// 2) Bandera TEL_CORRECCION_CONECTADA = false TAL COMO ESTÁ EN EL REPOSITORIO: botón deshabilitado con motivo, sin modal y sin llamadas.
-// 3) Con la bandera en true (solo en la prueba): ficha en jsdom con sbFetch simulado → modal, errores locales sin llamar a la base,
+// 2) Bandera forzada a false (solo en la prueba, caso fail-closed): botón deshabilitado con motivo, sin modal y sin llamadas.
+// 3) Bandera TEL_CORRECCION_CONECTADA = true TAL COMO ESTÁ EN EL REPOSITORIO (migración 202611071535 R2 instalada el 07-11-2026): ficha en jsdom con sbFetch simulado → modal, errores locales sin llamar a la base,
 //    guardado con la RPC correcta (E.164, origen, motivo) y, tras guardar, el botón WhatsApp usa el número nuevo. Error de la base → mensaje claro.
 // Uso: deno run --allow-read --allow-env --allow-sys --allow-net=registry.npmjs.org pruebas/prospectos_telefono_test.ts
 import { JSDOM } from 'npm:jsdom@24.1.0';
@@ -51,15 +51,15 @@ res('TEL-01: textos dicen "informó" (declaración), nunca "confirmó"', T.ORIGE
 res('cada código tiene mensaje claro', ['TEL_ANTERIOR_EXCEDE', 'TEL_VACIO', 'TEL_AMBIGUO_8', 'TEL_INVALIDO', 'TEL_NO_MOVIL', 'ORIGEN_INVALIDO', 'MOTIVO_OBLIGATORIO', 'MOTIVO_MUY_LARGO', 'MOTIVO_CREDENCIAL', 'SIN_CAMBIO', 'FORMATO_CAMBIA_NUMERO', 'SIN_PERMISO'].every((k) => !!T.MSJ[k]));
 res('mensaje(error de la base) traduce SIN_PERMISO', T.mensaje(new Error('SIN_PERMISO')) === T.MSJ.SIN_PERMISO);
 res('botón escapa el nombre', !T.boton({ id: 1, nombre: '<img src=x onerror=1>', tel: '1' }).includes('<img'));
-res('bandera en el repositorio: una sola declaración y en false', /var TEL_CORRECCION_CONECTADA=false;/.test(telJs) && (telJs.match(/var TEL_CORRECCION_CONECTADA=/g) || []).length === 1 && T.CONECTADA === false);
+res('bandera en el repositorio: una sola declaración y en true (backend instalado)', /var TEL_CORRECCION_CONECTADA=true;/.test(telJs) && (telJs.match(/var TEL_CORRECCION_CONECTADA=/g) || []).length === 1 && T.CONECTADA === true);
 
 // ── 2) y 3) Ficha de Prospectos en jsdom ──
 const LISTA = [
   { id: 1, nombre: 'Jorge Ficticio', empresa: 'Ferretería Ficticia SpA', email: 'jorge@ejemplo.test', tel: '12345678', etapa: 'nuevo', semaforo: 'rojo', creado: '2026-11-02T12:00:00Z' },
 ];
 function montar(conectada: boolean, respuesta: 'ok' | 'sin_permiso' = 'ok') {
-  const tel = conectada ? telJs.replace('var TEL_CORRECCION_CONECTADA=false;', 'var TEL_CORRECCION_CONECTADA=true;') : telJs;
-  if (conectada && tel === telJs) throw new Error('no se encontró la bandera en telefono.js');
+  const tel = conectada ? telJs : telJs.replace('var TEL_CORRECCION_CONECTADA=true;', 'var TEL_CORRECCION_CONECTADA=false;');
+  if (!conectada && tel === telJs) throw new Error('no se encontró la bandera en telefono.js');
   const html = leer('prospectos/index.html')
     .replace('<script src="../supabase.js"></script>', `<script>
       window._llamadas = []; var DATOS = ${JSON.stringify(LISTA)};
@@ -82,7 +82,7 @@ function montar(conectada: boolean, respuesta: 'ok' | 'sin_permiso' = 'ok') {
 }
 const escrituras = (w: any) => w._llamadas.filter((x: any) => !/listar_prospectos|listar_responsables_prospectos|detalle_prospecto/.test(x.path));
 
-// 2) bandera false (repositorio)
+// 2) bandera forzada a false (fail-closed)
 {
   const dom = montar(false), w: any = dom.window, d = w.document;
   await espera(150);
@@ -95,7 +95,7 @@ const escrituras = (w: any) => w._llamadas.filter((x: any) => !/listar_prospecto
   res('F4 bandera false: ninguna llamada de escritura', escrituras(w).length === 0, JSON.stringify(escrituras(w)));
   res('F5 WhatsApp sigue deshabilitado (8 dígitos) hasta corregir', !!d.querySelector('#f-wa .wa-btn[disabled]'));
 }
-// 3) bandera true (solo en la prueba)
+// 3) bandera true (tal como está en el repositorio)
 {
   const dom = montar(true), w: any = dom.window, d = w.document;
   await espera(150);
