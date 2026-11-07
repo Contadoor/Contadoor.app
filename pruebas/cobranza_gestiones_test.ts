@@ -6,6 +6,8 @@
 //    correctos; el error LEY_21320 se muestra en español amable; «Registrar compromiso» queda DESHABILITADO y nunca llama al servidor.
 // 3b) Bandera COMPROMISO_CONECTADO = true (solo en la prueba, reemplazando la constante; para cuando COB-COMPROMISO-1 esté instalado):
 //    botón habilitado, monto OPCIONAL (p_monto null), una sola llamada con los parámetros exactos y texto «No se avisó al cliente».
+// 3c) Estado del compromiso (COB-COMPROMISO-2): Vigente / Cumplido / Incumplido / Por revisar / Estado no disponible, leído de
+//    cobranza_eventos (solo lectura; nada se escribe al cargar la ficha).
 // 4) Modo demo: simula ambas acciones sin red (compromiso como COB-COMPROMISO-1: monto opcional y sin aviso P3).
 // Uso: deno run --allow-read --allow-env --allow-sys --allow-net=registry.npmjs.org pruebas/cobranza_gestiones_test.ts
 import { JSDOM } from 'npm:jsdom@24.1.0';
@@ -68,6 +70,16 @@ const HOY = '2026-11-06';
   res('T4 Escapa el texto de la base', !tl.includes('<b>factura</b>') && tl.includes('&lt;b&gt;factura'));
   const tlSin = E.lineaTiempoHtml([], [{ id: 10, desde: '2026-11-03', hasta: '2026-11-25', motivo: 'Sin monto', compromiso_fecha: '2026-11-20', compromiso_monto: null, creada_at: '2026-11-03T10:00:00Z', terminada_at: null }], HOY);
   res('T2b Compromiso sin monto: «al 20-11-2026 (sin monto)», nunca «No disponible»', tlSin.includes('al 20-11-2026 (sin monto)') && !tlSin.includes('No disponible'));
+  const C0 = { id: 21, desde: '2026-10-28', hasta: '2026-11-04', compromiso_fecha: '2026-10-30', compromiso_monto: null, creada_at: '2026-10-28T10:00:00Z', terminada_at: null };
+  const evI = [{ tipo: 'COMPROMISO_INCUMPLIDO', detalle: { pausa_id: 21 } }], evC = [{ tipo: 'COMPROMISO_CUMPLIDO', detalle: { pausa_id: 21 } }], evOtro = [{ tipo: 'COMPROMISO_INCUMPLIDO', detalle: { pausa_id: 99 } }];
+  res('S1 Estado: evento INCUMPLIDO de esa pausa → Incumplido (rojo)', E.estadoCompromiso(C0, HOY, evI).k === 'INCUMPLIDO' && E.estadoCompromiso(C0, HOY, evI).c === 'rojo');
+  res('S2 Estado: evento CUMPLIDO → Cumplido (verde)', E.estadoCompromiso(C0, HOY, evC).k === 'CUMPLIDO');
+  res('S3 Estado: fecha futura sin evento → Vigente; hoy mismo también', E.estadoCompromiso({ ...C0, compromiso_fecha: '2026-11-20' }, HOY, []).k === 'VIGENTE' && E.estadoCompromiso({ ...C0, compromiso_fecha: HOY }, HOY, []).k === 'VIGENTE');
+  res('S4 Estado: fecha pasada sin evento (o evento de otra pausa) → Por revisar', E.estadoCompromiso(C0, HOY, []).k === 'POR_REVISAR' && E.estadoCompromiso(C0, HOY, evOtro).k === 'POR_REVISAR');
+  res('S5 Estado: lectura fallida (null) en un compromiso pasado → «Estado no disponible», nunca Vigente', E.estadoCompromiso(C0, HOY, null).k === 'SIN_DATO');
+  const tlI = E.lineaTiempoHtml([], [C0], HOY, evI).replace(/<[^>]+>/g, ' ');
+  res('S6 Línea de tiempo: «Incumplido» y «se avisó al equipo (no al cliente)»', tlI.includes('Incumplido') && tlI.includes('se avisó al equipo (no al cliente)'), tlI);
+  res('S7 Línea de tiempo: «Por revisar» explica cuándo revisa el sistema', E.lineaTiempoHtml([], [C0], HOY, []).includes('día hábil siguiente'));
   res('T5 Vacío amable', E.lineaTiempoHtml([], [], HOY).includes('Aún no hay gestiones'));
   const errLey = new w.Error('LEY_21320: x'); errLey.srv = { code: '55000', message: 'LEY_21320: el cliente ya tiene 2 gestiones escritas esta semana', status: 400 };
   res('T6 Error LEY_21320 → mensaje en español amable con el código', /Ley 21\.320/.test(w.GC.msgError(errLey, E.ERR)) && /\(LEY_21320\)$/.test(w.GC.msgError(errLey, E.ERR)));
@@ -122,6 +134,11 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
   const cuerpo = d.getElementById('gcDetCuerpo')!.textContent || '';
   res('P3 La ficha muestra la línea de tiempo con gestiones y compromisos', cuerpo.includes('Gestiones y compromisos') && cuerpo.includes('No contestó') && cuerpo.includes('Compromiso de pago: $75.000 al 20-11-2026'));
   const lect = (w._llamadas as any[]).filter((x) => x.m === 'GET' && /^cobranza_(gestiones|pausas)\?/.test(x.p)).map((x) => x.p);
+  const levt = (w._llamadas as any[]).filter((x) => x.m === 'GET' && /^cobranza_eventos\?/.test(x.p)).map((x) => x.p);
+  res('P4b Lee cobranza_eventos SOLO tipo/detalle/creado_at de COMPROMISO_CUMPLIDO/INCUMPLIDO del cliente', levt.length === 1
+    && levt[0] === 'cobranza_eventos?select=tipo,detalle,creado_at&cliente_id=eq.501&tipo=in.(COMPROMISO_CUMPLIDO,COMPROMISO_INCUMPLIDO)&order=creado_at.desc&limit=50', levt.join(' | '));
+  res('P4c Al cargar la ficha no se escribe nada (sin PATCH/DELETE ni RPC de escritura)', !(w._llamadas as any[]).some((x) => x.m === 'PATCH' || x.m === 'DELETE'
+    || (x.m === 'POST' && /rpc\/(cobranza_(gestion|compromiso|pago|repact|pausa)|cob_compromisos)/.test(x.p))));
   res('P4 Lecturas sin columnas de usuario/claves', lect.length >= 2 && !lect.some((u: string) => /registrado_por|creada_por|terminada_por|usuario_|clave_|vault/.test(u)), lect.join(' | '));
   bC?.click(); await espera(30);
   res('P5 Clic en compromiso deshabilitado no abre modal', !d.querySelector('.gc-modal'));
@@ -223,6 +240,9 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
   res('D4 Demo: botón de compromiso habilitado como vista previa y ficha con la gestión nueva', !!bC && !bC.disabled && (d.getElementById('gcDetCuerpo')?.textContent || '').includes('En la oficina del cliente'));
   bC?.click(); await espera(40);
   res('D5 Demo: el modal de compromiso avisa que en Gestoor real está deshabilitado', (d.querySelector('.gc-modal')?.textContent || '').includes('Vista previa (demo)'));
+  (d.querySelector('[data-act="ficha"][data-id="103"]') as HTMLElement | null)?.click(); await espera(400);
+  const t103 = d.getElementById('gcDetCuerpo')?.textContent || '';
+  res('D7 Demo: compromiso pasado sin pago aparece «Incumplido» (sin monto) en la ficha', t103.includes('(sin monto)') && t103.includes('Incumplido'), t103.slice(0, 300));
   res('D6 Demo: ninguna llamada de red', w._red === 0);
   w.document.querySelectorAll('script').forEach((x: any) => x.remove());
 }

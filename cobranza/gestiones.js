@@ -21,8 +21,10 @@
          BANDERA: COMPROMISO_CONECTADO. Queda en false (botón DESHABILITADO en Gestoor real) hasta que COB-COMPROMISO-1 esté
          INSTALADO y verificado (postcheck ok). Recién entonces se cambia a true, en un PR propio con GO. El formulario ya envía el
          monto opcional (p_monto null), que la versión C1 rechaza con MONTO_INVALIDO (fail-closed). En demo se puede probar (sin red).
-   Lectura (GRANT SELECT a authenticated + RLS cob_lectura): cobranza_gestiones y cobranza_pausas (origen COMPROMISO).
-   Expone window.GC_GEST = { TIPOS, COMPROMISO_CONECTADO, MOTIVO_COMPROMISO, ERR, montoNum, validarGestion, validarCompromiso,
+   Lectura (GRANT SELECT a authenticated + RLS cob_lectura): cobranza_gestiones, cobranza_pausas (origen COMPROMISO) y cobranza_eventos
+   (solo COMPROMISO_CUMPLIDO / COMPROMISO_INCUMPLIDO, que deja la revisión diaria de COB-COMPROMISO-2): estado Vigente / Cumplido /
+   Incumplido / Por revisar en la línea de tiempo. Nada se escribe al cargar la ficha.
+   Expone window.GC_GEST = { TIPOS, COMPROMISO_CONECTADO, MOTIVO_COMPROMISO, ERR, montoNum, montoCompromiso, estadoCompromiso, validarGestion, validarCompromiso,
                              tipoDeGestion, lineaTiempoHtml, abrirGestion, abrirCompromiso }.
    ============================================================ */
 (function(){
@@ -111,8 +113,24 @@ function tipoDeGestion(g){
   return {t:tipo('NOTA'),nota:n};
 }
 
+/* Estado de un compromiso para la ficha (solo lectura; nada se escribe al cargar).
+   Fuente: eventos COMPROMISO_CUMPLIDO / COMPROMISO_INCUMPLIDO que deja la revisión diaria del servidor (COB-COMPROMISO-2) el día hábil
+   siguiente a la fecha comprometida. revision = lista de eventos {tipo, detalle:{pausa_id}} · null = no se pudo leer · undefined = sin dato.
+   → Vigente (hasta la fecha) · Cumplido · Incumplido · Por revisar (pasó la fecha y aún no hay revisión) · Estado no disponible. */
+function estadoCompromiso(c,hoy,revision){
+  if(Array.isArray(revision)){
+    for(var i=0;i<revision.length;i++){var e=revision[i];
+      if(e&&e.detalle&&String(e.detalle.pausa_id)===String(c.id)){
+        if(e.tipo==='COMPROMISO_INCUMPLIDO')return {t:'Incumplido',c:'rojo',k:'INCUMPLIDO'};
+        if(e.tipo==='COMPROMISO_CUMPLIDO')return {t:'Cumplido',c:'verde',k:'CUMPLIDO'};}}
+  }
+  if(c.compromiso_fecha&&String(c.compromiso_fecha)>=hoy)return {t:'Vigente',c:'cel',k:'VIGENTE'};
+  if(revision===null)return {t:'Estado no disponible',c:'gris',k:'SIN_DATO'};
+  return {t:'Por revisar',c:'ambar',k:'POR_REVISAR'};
+}
+
 /* Línea de tiempo de gestiones y compromisos (más reciente primero). */
-function lineaTiempoHtml(gestiones,compromisos,hoy){
+function lineaTiempoHtml(gestiones,compromisos,hoy,revision){
   var it=[];
   (gestiones||[]).forEach(function(g){var x=tipoDeGestion(g);it.push({f:g.registrado_at||g.dia,dia:g.dia,ges:g,x:x});});
   (compromisos||[]).forEach(function(c){it.push({f:c.creada_at||c.desde,dia:c.desde,com:c});});
@@ -122,9 +140,10 @@ function lineaTiempoHtml(gestiones,compromisos,hoy){
     if(e.ges){var t=e.x.t;
       return '<li style="--c:var(--lila)"><b>'+I(t.ic,t.c)+' '+esc(t.t)+'</b>'+(e.ges.tipo==='WHATSAPP_MANUAL'?' <span class="estado sin cel">Cuenta para la Ley 21.320</span>':'')
         +(e.x.nota?'<span class="gc-gest-nota">'+esc(e.x.nota)+'</span>':'')+'<small>'+G.fFecha(e.dia)+'</small></li>';}
-    var c=e.com, terminado=!!c.terminada_at, cumplido=terminado?'Terminado':(c.hasta&&c.hasta<hoy?'Vencido':'Vigente'), cc=terminado?'gris':cumplido==='Vencido'?'ambar':'verde';
+    var c=e.com, st=estadoCompromiso(c,hoy,revision), cumplido=st.t, cc=st.c;
     return '<li style="--c:var(--cel)"><b>'+I('calendario','ic-cel')+' Compromiso de pago: '+(c.compromiso_monto==null?'al '+G.fFecha(c.compromiso_fecha)+' (sin monto)':esc(clpT(c.compromiso_monto))+' al '+G.fFecha(c.compromiso_fecha))+'</b> <span class="estado '+cc+'">'+cumplido+'</span>'
-      +(c.motivo?'<span class="gc-gest-nota">'+esc(c.motivo)+'</span>':'')+'<small>Registrado el '+G.fFecha(c.desde)+' · recordatorios en pausa hasta el '+G.fFecha(c.hasta)+'</small></li>';
+      +(c.motivo?'<span class="gc-gest-nota">'+esc(c.motivo)+'</span>':'')+'<small>Registrado el '+G.fFecha(c.desde)+' · recordatorios en pausa hasta el '+G.fFecha(c.hasta)+(c.terminada_at?' · pausa terminada por el Master':'')
+      +(st.k==='POR_REVISAR'?' · el sistema lo revisa el día hábil siguiente a la fecha comprometida':'')+(st.k==='INCUMPLIDO'?' · se avisó al equipo (no al cliente)':'')+'</small></li>';
   }).join('')+'</ul>';
 }
 
@@ -192,7 +211,7 @@ function abrirCompromiso(ctx){
     }});
 }
 
-window.GC_GEST={TIPOS:TIPOS,COMPROMISO_CONECTADO:COMPROMISO_CONECTADO,MOTIVO_COMPROMISO:MOTIVO_COMPROMISO,ERR:ERR,montoNum:montoNum,montoCompromiso:montoCompromiso,
+window.GC_GEST={TIPOS:TIPOS,COMPROMISO_CONECTADO:COMPROMISO_CONECTADO,MOTIVO_COMPROMISO:MOTIVO_COMPROMISO,ERR:ERR,montoNum:montoNum,montoCompromiso:montoCompromiso,estadoCompromiso:estadoCompromiso,
   validarGestion:validarGestion,validarCompromiso:validarCompromiso,tipoDeGestion:tipoDeGestion,lineaTiempoHtml:lineaTiempoHtml,
   abrirGestion:abrirGestion,abrirCompromiso:abrirCompromiso};
 })();

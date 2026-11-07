@@ -94,8 +94,11 @@ var REAL={
       // Plan del cliente para el encabezado: solo si la RLS de clientes lo deja ver (si no, no se muestra).
       A.get('clientes?select=plan&id=eq.'+q).then(function(c){return c&&c[0]?c[0].plan:null;}).catch(function(){return null;}),
       // Compromisos de pago del cliente (pausas de origen COMPROMISO; sin columnas de usuario).
-      A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20')
-    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6]};});
+      A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20'),
+      // Resultado de la revisión diaria de compromisos (COB-COMPROMISO-2): solo lectura de la bitácora (tipo y detalle, sin columnas de usuario).
+      // Si la lectura falla, la ficha dice «estado no disponible» (null), nunca «vigente» por defecto.
+      A.get('cobranza_eventos?select=tipo,detalle,creado_at&cliente_id=eq.'+q+'&tipo=in.(COMPROMISO_CUMPLIDO,COMPROMISO_INCUMPLIDO)&order=creado_at.desc&limit=50').catch(function(){return null;})
+    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6],revisionCompromisos:r[7]};});
   },
   historial:function(id){return window.GC_HIST.cargarReal(A,id);},
   pagoRegistrar:function(a){return A.rpc('cobranza_pago_registrar',a);},
@@ -377,7 +380,7 @@ function fichaHtml(id,f,x){
   else h+='<ul class="gc-tl">'+x.avisos.map(function(a){var n=AVISO[a.codigo]||[a.codigo,''],est=AV_EST[a.estado]||{t:a.estado,c:'gris'};
     return '<li style="--c:var(--'+(est.c==='verde'?'verde':est.c==='rojo'?'rojo':est.c==='ambar'?'ambar':'t3')+')"><b>'+esc(n[0])+(a.variante>1?' (variante '+a.variante+')':'')+'</b> '+chip(est)+'<small>'+G.fHora(a.programado_para)+(a.motivo_cancelacion?' · '+esc(a.motivo_cancelacion):'')+(a.es_gestion?' · cuenta para la Ley 21.320':'')+'</small></li>';}).join('')+'</ul>';
   h+='</section>';
-  if(GE)h+='<section><h4>🗂️ Gestiones y compromisos</h4>'+GE.lineaTiempoHtml(x.gestiones,x.compromisos,S.hoy)+'</section>';
+  if(GE)h+='<section><h4>🗂️ Gestiones y compromisos</h4>'+GE.lineaTiempoHtml(x.gestiones,x.compromisos,S.hoy,x.revisionCompromisos)+'</section>';
   return h;
 }
 
