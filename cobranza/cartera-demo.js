@@ -46,7 +46,7 @@ doc(104,'MENSUALIDAD',70,-70);doc(104,'MENSUALIDAD',70,-40);doc(104,'MENSUALIDAD
 TAREAS.push({id:301,cliente_id:104,tipo:'REVISAR_OBLIGACIONES',plazo:addD(HOY,1),creada_at:addD(HOY,-2)+'T10:00:00Z'});aviso(104,'M7',-1,'PENDIENTE',null,true);
 doc(105,'MENSUALIDAD',110,-9);cli(105,'VENCIDO',-8);PAUSAS.push({id:401,cliente_id:105,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-2),hasta:addD(HOY,6),compromiso_fecha:addD(HOY,4),compromiso_monto:110000,motivo:'Acordado por teléfono con la administradora',creada_at:addD(HOY,-2)+'T15:00:00Z',terminada_at:null});
 aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
-// Compromiso pasado sin pago: la revisión diaria del servidor lo marcó INCUMPLIDO (aviso interno al equipo; nunca al cliente).
+// Ejemplo ficticio de un evento COMPROMISO_INCUMPLIDO en la bitácora, solo para ver cómo se mostraría (COB-COMPROMISO-2 no está instalado).
 PAUSAS.push({id:402,cliente_id:103,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-10),hasta:addD(HOY,-4),compromiso_fecha:addD(HOY,-6),compromiso_monto:null,motivo:'Dijo que pagaba el viernes (sin monto)',creada_at:addD(HOY,-10)+'T15:00:00Z',terminada_at:null});
 EVCOMP.push({cliente_id:103,tipo:'COMPROMISO_INCUMPLIDO',detalle:{pausa_id:402},creado_at:addD(HOY,-5)+'T12:15:00Z'});
 var r106=[doc(106,'MENSUALIDAD',60,-38),doc(106,'MENSUALIDAD',60,-8)];cli(106,'RIESGO',-2);

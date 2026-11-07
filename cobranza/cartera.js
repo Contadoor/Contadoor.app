@@ -13,8 +13,8 @@
    Modo demostración: cartera-demo.js (solo ?demo=1 en localhost).
    Historial por cliente (todas las facturas y pagos, solo lectura): cobranza/historial.js (GC_HIST), pestaña de la ficha.
    Gestiones manuales y compromisos de pago (Cobranza o Master): cobranza/gestiones.js (GC_GEST) · RPC cobranza_gestion_registrar
-   (conectada) y cobranza_compromiso_registrar (DESHABILITADA en real con la bandera COMPROMISO_CONECTADO hasta instalar
-   COB-COMPROMISO-1: sin aviso al cliente y monto opcional; ver gestiones.js).
+   (conectada) y cobranza_compromiso_registrar (CONECTADA con la bandera COMPROMISO_CONECTADO: COB-COMPROMISO-1 instalado el
+   07-11-2026, sin aviso al cliente y monto opcional; ver gestiones.js).
    ============================================================ */
 (function(){
 'use strict';
@@ -95,8 +95,8 @@ var REAL={
       A.get('clientes?select=plan&id=eq.'+q).then(function(c){return c&&c[0]?c[0].plan:null;}).catch(function(){return null;}),
       // Compromisos de pago del cliente (pausas de origen COMPROMISO; sin columnas de usuario).
       A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20'),
-      // Resultado de la revisión diaria de compromisos (COB-COMPROMISO-2): solo lectura de la bitácora (tipo y detalle, sin columnas de usuario).
-      // Si la lectura falla, la ficha dice «estado no disponible» (null), nunca «vigente» por defecto.
+      // Eventos COMPROMISO_CUMPLIDO / INCUMPLIDO de la bitácora (solo lectura; tipo y detalle, sin columnas de usuario). COB-COMPROMISO-2
+      // no está instalado: normalmente no hay ninguno y el compromiso se ve «Registrado». Si la lectura falla (null), también «Registrado».
       A.get('cobranza_eventos?select=tipo,detalle,creado_at&cliente_id=eq.'+q+'&tipo=in.(COMPROMISO_CUMPLIDO,COMPROMISO_INCUMPLIDO)&order=creado_at.desc&limit=50').catch(function(){return null;})
     ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6],revisionCompromisos:r[7]};});
   },
@@ -397,7 +397,7 @@ function abrirGestion(id){
 function abrirCompromiso(id){
   if(!(GE.COMPROMISO_CONECTADO||DEMO)){G.toast(GE.MOTIVO_COMPROMISO,true);return;}
   GE.abrirCompromiso({id:id,nombre:nombreCli(id),hoy:S.hoy,demo:DEMO,mErr:mErr,registrar:function(a){return D.compromisoRegistrar(a);},
-    alGuardar:function(res,a){refrescarFicha(id,'Compromiso registrado: '+GE.montoCompromiso(a.p_monto)+' al '+G.fFecha(a.p_fecha)+'. Recordatorios en pausa hasta el '+G.fFecha(res&&res.hasta)+'. No se avisó al cliente.');}});
+    alGuardar:function(res,a){refrescarFicha(id,'Compromiso registrado: '+GE.montoCompromiso(a.p_monto)+' al '+G.fFecha(a.p_fecha)+'. Recordatorios en pausa hasta el '+G.fFecha(res&&res.hasta)+'. No se envía ningún aviso al cliente.');}});
 }
 
 /* ── Registrar pago (Cobranza/Leandro, Pagos o Master) con confirmación ── */
