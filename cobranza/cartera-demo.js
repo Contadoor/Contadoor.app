@@ -45,7 +45,7 @@ GEST.push({id:2,cliente_id:103,tipo:'NOTA',dia:addD(HOY,-2),nota:'Correo: Se ree
 doc(104,'MENSUALIDAD',70,-70);doc(104,'MENSUALIDAD',70,-40);doc(104,'MENSUALIDAD',70,-9);cli(104,'SUSPENSION_PROGRAMADA',-1);
 TAREAS.push({id:301,cliente_id:104,tipo:'REVISAR_OBLIGACIONES',plazo:addD(HOY,1),creada_at:addD(HOY,-2)+'T10:00:00Z'});aviso(104,'M7',-1,'PENDIENTE',null,true);
 doc(105,'MENSUALIDAD',110,-9);cli(105,'VENCIDO',-8);PAUSAS.push({id:401,cliente_id:105,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-2),hasta:addD(HOY,6),compromiso_fecha:addD(HOY,4),compromiso_monto:110000,motivo:'Acordado por teléfono con la administradora',creada_at:addD(HOY,-2)+'T15:00:00Z',terminada_at:null});
-aviso(105,'P3',-2,'PENDIENTE');aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
+aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
 var r106=[doc(106,'MENSUALIDAD',60,-38),doc(106,'MENSUALIDAD',60,-8)];cli(106,'RIESGO',-2);
 REPS.push({id:++repId,cliente_id:106,estado:'EN_VALIDACION',canal:'GESTOR',n_cuotas:3,monto_total:120000,monto_cuota:40000,monto_ultima:40000,pie_vence:addD(HOY,2),validacion_limite:addD(HOY,1)+'T15:00:00Z',solicitada_dia:HOY,pie_pagado:0,nota:'Pidió 3 cuotas por baja de ventas',motivo_rechazo:null});
 aviso(106,'RQ',0,'PENDIENTE');
@@ -176,17 +176,16 @@ window.COB_DEMO_API={
     GEST.push({id:id,cliente_id:a.p_cliente_id,tipo:a.p_tipo,dia:HOY,nota:a.p_nota?a.p_nota.slice(0,1000):null,registrado_at:new Date().toISOString()});
     return ok({gestion_id:id,pausa_hasta:null,avisos_reemplazados:canc});
   },
-  // Compromiso de pago (mismas reglas que cobranza_compromiso_registrar; sin red). Igual que el servidor, deja el aviso P3 en la cola (demo).
+  // Compromiso de pago (mismas reglas que cobranza_compromiso_registrar versión COB-COMPROMISO-1; sin red): monto opcional y SIN aviso al cliente.
   compromisoRegistrar:function(a){
     var x=exigir('puede_gestionar','SOLO_COBRANZA');if(x)return x;
     if(!NOM[a.p_cliente_id])return err('CLIENTE_NO_EXISTE');
     if(!a.p_fecha||a.p_fecha<HOY||a.p_fecha>addD(HOY,30))return err('FECHA_COMPROMISO_INVALIDA');
-    if(!(a.p_monto>0))return err('MONTO_INVALIDO');
+    if(a.p_monto!=null&&!(a.p_monto>0))return err('MONTO_INVALIDO');
     if(!a.p_nota||a.p_nota.trim().length<5)return err('NOTA_OBLIGATORIA');
     var hasta=addD(a.p_fecha,2), id=PAUSAS.reduce(function(m,p){return Math.max(m,p.id);},400)+1;
-    PAUSAS.push({id:id,cliente_id:a.p_cliente_id,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:HOY,hasta:hasta,compromiso_fecha:a.p_fecha,compromiso_monto:a.p_monto,motivo:a.p_nota.trim().slice(0,500),creada_at:new Date().toISOString(),terminada_at:null});
-    aviso(a.p_cliente_id,'P3',0,'PENDIENTE');
-    return ok({pausa_id:id,hasta:hasta});
+    PAUSAS.push({id:id,cliente_id:a.p_cliente_id,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:HOY,hasta:hasta,compromiso_fecha:a.p_fecha,compromiso_monto:a.p_monto==null?null:a.p_monto,motivo:a.p_nota.trim().slice(0,500),creada_at:new Date().toISOString(),terminada_at:null});
+    return ok({pausa_id:id,hasta:hasta,aviso_cliente:false});
   },
   repactacionValidar:function(a){
     var x=exigir('puede_decidir','SOLO_MASTER');if(x)return x;

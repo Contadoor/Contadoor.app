@@ -4,7 +4,9 @@
 // 2) Línea de tiempo: CLP con punto de miles, fechas dd-mm-aaaa, escape HTML, Correo/Reunión reconocidos por su prefijo.
 // 3) Página real (mock de sbFetch): botones solo con permiso de gestión; «Registrar gestión» llama a la RPC con los parámetros
 //    correctos; el error LEY_21320 se muestra en español amable; «Registrar compromiso» queda DESHABILITADO y nunca llama al servidor.
-// 4) Modo demo: simula ambas acciones sin red.
+// 3b) Bandera COMPROMISO_CONECTADO = true (solo en la prueba, reemplazando la constante; para cuando COB-COMPROMISO-1 esté instalado):
+//    botón habilitado, monto OPCIONAL (p_monto null), una sola llamada con los parámetros exactos y texto «No se avisó al cliente».
+// 4) Modo demo: simula ambas acciones sin red (compromiso como COB-COMPROMISO-1: monto opcional y sin aviso P3).
 // Uso: deno run --allow-read --allow-env --allow-sys --allow-net=registry.npmjs.org pruebas/cobranza_gestiones_test.ts
 import { JSDOM } from 'npm:jsdom@24.1.0';
 
@@ -45,7 +47,11 @@ const HOY = '2026-11-06';
   res('C3 Fecha anterior a hoy → error', /anterior a hoy/.test(E.validarCompromiso(1, { fecha: '2026-11-05', monto: '1000', nota: 'xxxxxx' }, HOY).error || ''));
   res('C4 Fecha a más de 30 días → error con la fecha tope dd-mm-aaaa', /06-12-2026/.test(E.validarCompromiso(1, { fecha: '2026-12-07', monto: '1000', nota: 'xxxxxx' }, HOY).error || '') && !E.validarCompromiso(1, { fecha: '2026-12-06', monto: '1000', nota: 'xxxxxx' }, HOY).error);
   res('C5 Hoy es una fecha válida', !E.validarCompromiso(1, { fecha: HOY, monto: '1000', nota: 'xxxxxx' }, HOY).error);
-  res('C6 Monto vacío → error (el servidor lo exige)', /servidor lo exige/.test(E.validarCompromiso(1, { fecha: HOY, monto: '', nota: 'xxxxxx' }, HOY).error || ''));
+  res('C6 Monto vacío → válido y p_monto null (COB-COMPROMISO-1: monto opcional)',
+    j(E.validarCompromiso(1, { fecha: HOY, monto: '  ', nota: 'Sin monto acordado' }, HOY).args) === j({ p_cliente_id: 1, p_fecha: HOY, p_monto: null, p_nota: 'Sin monto acordado' }));
+  res('C6b Monto escrito pero inválido («abc», «-5») → error que explica que puede quedar vacío',
+    ['abc', '-5'].every((m) => /dejarlo vacío/.test(E.validarCompromiso(1, { fecha: HOY, monto: m, nota: 'xxxxxx' }, HOY).error || '')));
+  res('C6c montoCompromiso: null → «sin monto»; 120000 → «$120.000»', E.montoCompromiso(null) === 'sin monto' && E.montoCompromiso(120000) === '$120.000');
   res('C7 Monto 0 o con decimales → error', !!E.validarCompromiso(1, { fecha: HOY, monto: '0', nota: 'xxxxxx' }, HOY).error && !!E.validarCompromiso(1, { fecha: HOY, monto: '10,5', nota: 'xxxxxx' }, HOY).error);
   res('C8 Nota corta → error', /al menos 5/.test(E.validarCompromiso(1, { fecha: HOY, monto: '1000', nota: 'ok' }, HOY).error || ''));
   res('C9 Compromiso deshabilitado en Gestoor real (COMPROMISO_CONECTADO = false) con explicación', E.COMPROMISO_CONECTADO === false && /aviso al cliente/.test(E.MOTIVO_COMPROMISO));
@@ -60,6 +66,8 @@ const HOY = '2026-11-06';
   res('T2 Compromiso con CLP de miles y fechas dd-mm-aaaa', tl.includes('$1.234.567') && tl.includes('20-11-2026') && tl.includes('25-11-2026') && txt.includes('Vigente'));
   res('T3 Orden: más reciente primero', tl.indexOf('Estado de cuenta') < tl.indexOf('Reenvié') && tl.indexOf('Reenvié') < tl.indexOf('Acordado') && tl.indexOf('Acordado') < tl.indexOf('En oficina'));
   res('T4 Escapa el texto de la base', !tl.includes('<b>factura</b>') && tl.includes('&lt;b&gt;factura'));
+  const tlSin = E.lineaTiempoHtml([], [{ id: 10, desde: '2026-11-03', hasta: '2026-11-25', motivo: 'Sin monto', compromiso_fecha: '2026-11-20', compromiso_monto: null, creada_at: '2026-11-03T10:00:00Z', terminada_at: null }], HOY);
+  res('T2b Compromiso sin monto: «al 20-11-2026 (sin monto)», nunca «No disponible»', tlSin.includes('al 20-11-2026 (sin monto)') && !tlSin.includes('No disponible'));
   res('T5 Vacío amable', E.lineaTiempoHtml([], [], HOY).includes('Aún no hay gestiones'));
   const errLey = new w.Error('LEY_21320: x'); errLey.srv = { code: '55000', message: 'LEY_21320: el cliente ya tiene 2 gestiones escritas esta semana', status: 400 };
   res('T6 Error LEY_21320 → mensaje en español amable con el código', /Ley 21\.320/.test(w.GC.msgError(errLey, E.ERR)) && /\(LEY_21320\)$/.test(w.GC.msgError(errLey, E.ERR)));
@@ -67,7 +75,9 @@ const HOY = '2026-11-06';
 }
 
 // ═══ 3 · página completa (mock de sbFetch) ═══
-async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; body: unknown }) {
+async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; body: unknown }, conectado = false) {
+  const gest = conectado ? gestJs.replace('var COMPROMISO_CONECTADO=false;', 'var COMPROMISO_CONECTADO=true;') : gestJs;
+  if (conectado && gest === gestJs) throw new Error('no se encontró la bandera COMPROMISO_CONECTADO en gestiones.js');
   const mock = `<script>
     window._llamadas = [];
     function _r(o, st){ st = st || 200; return Promise.resolve({ ok: st < 400, status: st, json: function(){ return Promise.resolve(o); }, text: function(){ return Promise.resolve(JSON.stringify(o)); } }); }
@@ -78,6 +88,7 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
       if (path === 'rpc/cobte_cartera_nombres') return _r([{ cliente_id: 501, razon_social: 'Panadería Ficticia Uno SpA', rut: '76111111-6' }]);
       if (path === 'rpc/cobranza_estado_cuenta') return _r({ grupos: [], total_deuda: 75000, total_vencido: 75000, total_abonos: 0, total: 75000 });
       if (path === 'rpc/cobranza_gestion_registrar') return _r(RG.body, RG.st);
+      if (path === 'rpc/cobranza_compromiso_registrar') return _r({ pausa_id: 31, hasta: '2026-11-24', aviso_cliente: false });
       if (path.indexOf('cobranza_documentos?') === 0) return _r([{ id: 2, cliente_id: 501, origen: 'MENSUALIDAD', folio: '4002', periodo: '2026-09', fecha_vencimiento: '2026-10-21', monto: 75000, saldo: 75000, estado: 'PENDIENTE' }]);
       if (path.indexOf('cobranza_clientes?') === 0) return _r([{ cliente_id: 501, estado: 'VENCIDO', estado_desde: '2026-10-22' }]);
       if (path.indexOf('cobranza_gestiones?') === 0) return _r([{ id: 1, tipo: 'LLAMADA', dia: '2026-11-02', nota: 'No contestó', registrado_at: '2026-11-02T13:00:00Z' }]);
@@ -90,7 +101,7 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
   html = html.replace(/<script src="\.\.\/supabase\.js"><\/script>/, () => mock)
     .replace(/<script src="\.\.\/assets\/gestoor-cartera\.js"><\/script>/, () => '<script>' + sinScript(gcJs) + '</script>')
     .replace(/<script src="historial\.js"><\/script>/, () => '<script>' + sinScript(histJs) + '</script>')
-    .replace(/<script src="gestiones\.js"><\/script>/, () => '<script>' + sinScript(gestJs) + '</script>')
+    .replace(/<script src="gestiones\.js"><\/script>/, () => '<script>' + sinScript(gest) + '</script>')
     .replace(/<script src="cartera\.js"><\/script>/, () => '<script>' + sinScript(carteraJs) + '</script>')
     .replace(/<script>if\(window\.GC_DEMO\)document\.write[^\n]*<\/script>/g, '').replace(/<script>if\(!window\.GC_DEMO\)document\.write[^\n]*<\/script>/g, '')
     .replace(/<script src="\.\.\/assets\/gestoor-menu\.js"><\/script>/, '');
@@ -148,6 +159,34 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
   w.document.querySelectorAll('script').forEach((x: any) => x.remove());
 }
 
+// ═══ 3b · bandera COMPROMISO_CONECTADO = true (solo cuando COB-COMPROMISO-1 esté instalado) ═══
+{
+  res('B0 La bandera del repositorio sigue en false (no publicar activada sin instalar el backend)', /var COMPROMISO_CONECTADO=false;/.test(gestJs) && !/var COMPROMISO_CONECTADO=true;/.test(gestJs));
+  const w = await pagina({ puede_gestionar: true, puede_registrar_pagos: true }, undefined, true);
+  const d = w.document as Document;
+  const bC = d.querySelector('[data-act="compromiso"]') as HTMLButtonElement | null;
+  res('B1 Con la bandera en true: botón habilitado y sin la nota de deshabilitado', !!bC && !bC.disabled && !d.getElementById('gcCompNo'));
+  bC?.click(); await espera(40);
+  const m = d.querySelector('.gc-modal') as HTMLElement;
+  const t = m?.textContent || '';
+  res('B2 Modal: monto «(opcional)», «No se envía nada al cliente» y sin el aviso de vista previa', t.includes('Monto comprometido (opcional)') && t.includes('No se envía nada al cliente') && !t.includes('Vista previa'));
+  const f = new Date(w.GC.hoyCL() + 'T12:00:00Z'); f.setUTCDate(f.getUTCDate() + 14); const fecha = f.toISOString().slice(0, 10);
+  (m.querySelector('#gcCFecha') as HTMLInputElement).value = fecha;
+  (m.querySelector('#gcCNota') as HTMLTextAreaElement).value = '  Acordado por teléfono con la dueña ';
+  (m.querySelector('[data-m="si"]') as HTMLElement).click(); await espera(30);
+  const p2 = m.querySelector('#gcCP2')?.textContent || '';
+  res('B3 Paso de confirmación: «sin monto» y «No se avisa al cliente», sin llamar todavía', p2.includes('sin monto') && p2.includes('No se avisa al cliente')
+    && !(w._llamadas as any[]).some((x) => x.p === 'rpc/cobranza_compromiso_registrar'), p2);
+  (m.querySelector('[data-m="si"]') as HTMLElement).click(); await espera(150);
+  const ll = (w._llamadas as any[]).filter((x) => x.p === 'rpc/cobranza_compromiso_registrar');
+  res('B4 Una sola llamada a cobranza_compromiso_registrar con p_monto null y parámetros exactos',
+    ll.length === 1 && ll[0].m === 'POST' && JSON.stringify(ll[0].b) === JSON.stringify({ p_cliente_id: 501, p_fecha: fecha, p_monto: null, p_nota: 'Acordado por teléfono con la dueña' }), JSON.stringify(ll));
+  const toast = d.getElementById('gcToast')?.textContent || '';
+  res('B5 Aviso final: «sin monto», pausa hasta 24-11-2026 y «No se avisó al cliente»', toast.includes('sin monto') && toast.includes('24-11-2026') && toast.includes('No se avisó al cliente'), toast);
+  res('B6 Ninguna otra RPC de escritura', !(w._llamadas as any[]).some((x) => x.m === 'POST' && /rpc\/(cobranza_pago|cobranza_repact|cobranza_gestion)/.test(x.p)));
+  w.document.querySelectorAll('script').forEach((x: any) => x.remove());
+}
+
 // ═══ 4 · modo demo (sin red) ═══
 {
   const html = leer('cobranza/cartera.html')
@@ -173,7 +212,12 @@ async function pagina(yo: Record<string, unknown>, rpcGestion?: { st: number; bo
   const fecha = new Date(hoy + 'T12:00:00Z'); fecha.setUTCDate(fecha.getUTCDate() + 5);
   const r2 = await D.compromisoRegistrar({ p_cliente_id: 102, p_fecha: fecha.toISOString().slice(0, 10), p_monto: 120000, p_nota: 'Pagará con la venta de fin de mes' });
   const f2 = await D.ficha(102);
-  res('D3 Demo: registrar compromiso crea la pausa y deja el aviso P3 en la cola (como el servidor)', r2.pausa_id > 0 && f2.compromisos[0].compromiso_monto === 120000 && f2.avisos.some((a: any) => a.codigo === 'P3'));
+  res('D3 Demo: registrar compromiso con monto crea la pausa y NO deja aviso P3 (como COB-COMPROMISO-1)', r2.pausa_id > 0 && r2.aviso_cliente === false && f2.compromisos[0].compromiso_monto === 120000 && !f2.avisos.some((a: any) => a.codigo === 'P3'));
+  const r3 = await D.compromisoRegistrar({ p_cliente_id: 101, p_fecha: fecha.toISOString().slice(0, 10), p_monto: null, p_nota: 'Sin monto todavía' });
+  const f3 = await D.ficha(101);
+  res('D3b Demo: compromiso SIN monto aceptado (monto null) y sin P3', r3.pausa_id > 0 && f3.compromisos[0].compromiso_monto === null && !f3.avisos.some((a: any) => a.codigo === 'P3'));
+  let e3 = ''; try { await D.compromisoRegistrar({ p_cliente_id: 101, p_fecha: fecha.toISOString().slice(0, 10), p_monto: 0, p_nota: 'Monto cero' }); } catch (e) { e3 = (e as Error).message; }
+  res('D3c Demo: monto 0 → MONTO_INVALIDO', e3.startsWith('MONTO_INVALIDO'));
   (d.querySelector('[data-act="ficha"][data-id="103"]') as HTMLElement | null)?.click(); await espera(400);
   const bC = d.querySelector('[data-act="compromiso"]') as HTMLButtonElement | null;
   res('D4 Demo: botón de compromiso habilitado como vista previa y ficha con la gestión nueva', !!bC && !bC.disabled && (d.getElementById('gcDetCuerpo')?.textContent || '').includes('En la oficina del cliente'));
