@@ -333,7 +333,7 @@ function tlHTML(evs){
     else if(e.tipo==='reserva'){c='#5CC8FF';t='<b>📅 Reserva</b> marcada “'+esc((D.ESTADO_RES[d.estado]||[d.estado])[0])+'”';}
     else if(e.tipo==='etapa'){c='#C77BC9';t='<b>➡️ Etapa</b> '+esc(ETAPAS[d.de]||d.de||'—')+' → '+esc(ETAPAS[d.a]||d.a);}
     else if(e.tipo==='tel_corregido'){c='#FFC85A';t='<b>✏️ Teléfono corregido</b>'+(e.actor?' por '+esc(e.actor):'')+(d.tel_fin?' · termina en '+esc(d.tel_fin):'')
-      +' · '+esc(d.confirmado_por_prospecto?'confirmado por el prospecto':'solo formato')+(d.motivo?' · '+esc(d.motivo):'');}
+      +' · '+esc(d.origen_declarado_prospecto?'origen declarado: lo informó el prospecto':'solo formato')+(d.motivo?' · '+esc(d.motivo):'');}
     else if(e.tipo==='perdido'){c='#E07A6E';t='<b>❌ Perdido</b> · '+esc(mot[d.motivo]||d.motivo);}
     else t='<b>'+esc(e.tipo)+'</b>';
     return '<div class="ev" style="--c:'+c+'"><small>'+esc(D.fechaHora(e.t))+'</small><p>'+t+'</p></div>';}).join('')+'</div>';

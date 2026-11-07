@@ -47,7 +47,8 @@ v = val('+56911112222', 'correccion_formato', 'Solo formato', '(9) 1111-2222');
 res('corrección de formato del MISMO número: válida', v.ok && v.e164 === '+56911112222', JSON.stringify(v));
 res('9 dígitos con 9 → +569…', val('912222111').e164 === '+56912222111');
 res('5 orígenes: 4 del prospecto + formato', T.ORIGENES.map((o: any) => o[0]).join('|') === 'prospecto_whatsapp|prospecto_correo|prospecto_llamada|prospecto_reunion|correccion_formato');
-res('cada código tiene mensaje claro', ['TEL_VACIO', 'TEL_AMBIGUO_8', 'TEL_INVALIDO', 'TEL_NO_MOVIL', 'ORIGEN_INVALIDO', 'MOTIVO_OBLIGATORIO', 'MOTIVO_MUY_LARGO', 'MOTIVO_CREDENCIAL', 'SIN_CAMBIO', 'FORMATO_CAMBIA_NUMERO', 'SIN_PERMISO'].every((k) => !!T.MSJ[k]));
+res('TEL-01: textos dicen "informó" (declaración), nunca "confirmó"', T.ORIGENES.every((o: any) => !/confirm/i.test(o[1])) && !/confirmado_por_prospecto/.test(telJs) && !/confirmado_por_prospecto/.test(leer('prospectos/bitacora.js')));
+res('cada código tiene mensaje claro', ['TEL_ANTERIOR_EXCEDE', 'TEL_VACIO', 'TEL_AMBIGUO_8', 'TEL_INVALIDO', 'TEL_NO_MOVIL', 'ORIGEN_INVALIDO', 'MOTIVO_OBLIGATORIO', 'MOTIVO_MUY_LARGO', 'MOTIVO_CREDENCIAL', 'SIN_CAMBIO', 'FORMATO_CAMBIA_NUMERO', 'SIN_PERMISO'].every((k) => !!T.MSJ[k]));
 res('mensaje(error de la base) traduce SIN_PERMISO', T.mensaje(new Error('SIN_PERMISO')) === T.MSJ.SIN_PERMISO);
 res('botón escapa el nombre', !T.boton({ id: 1, nombre: '<img src=x onerror=1>', tel: '1' }).includes('<img'));
 res('bandera en el repositorio: una sola declaración y en false', /var TEL_CORRECCION_CONECTADA=false;/.test(telJs) && (telJs.match(/var TEL_CORRECCION_CONECTADA=/g) || []).length === 1 && T.CONECTADA === false);
@@ -66,7 +67,7 @@ function montar(conectada: boolean, respuesta: 'ok' | 'sin_permiso' = 'ok') {
         if (path === 'rpc/listar_prospectos') o = JSON.parse(JSON.stringify(DATOS));
         else if (path === 'rpc/listar_responsables_prospectos') o = [];
         else if (path === 'rpc/detalle_prospecto') o = Object.assign({ respuestas: {}, reuniones: [] }, DATOS[0]);
-        else if (path === 'rpc/prospecto_corregir_telefono') { if (${JSON.stringify(respuesta)} === 'ok') { DATOS[0].tel = b.p_tel; o = { id: b.p_lead_id, tel: b.p_tel, origen: b.p_origen, correccion_id: 7, confirmado_por_prospecto: b.p_origen !== 'correccion_formato' }; }
+        else if (path === 'rpc/prospecto_corregir_telefono') { if (${JSON.stringify(respuesta)} === 'ok') { DATOS[0].tel = b.p_tel; o = { id: b.p_lead_id, tel: b.p_tel, origen: b.p_origen, correccion_id: 7, origen_declarado_prospecto: b.p_origen !== 'correccion_formato' }; }
           else { st = 403; o = { message: 'SIN_PERMISO', code: '42501' }; } }
         return Promise.resolve({ ok: !!o && st === 200, status: o ? st : 404, json: function(){ return Promise.resolve(o); } });
       }
@@ -105,6 +106,8 @@ const escrituras = (w: any) => w._llamadas.filter((x: any) => !/listar_prospecto
   const m = d.querySelector('.tel-modal');
   res('T2 abre el modal con el número registrado', !!m && m.querySelector('.tel-act').textContent.includes('12345678'));
   res('T3 modal con 5 orígenes y motivo', m.querySelectorAll('input[name="tel-ori"]').length === 5 && !!m.querySelector('#tel-mot'));
+  res('T3b TEL-01/03: "Origen declarado por quien corrige" y aviso de que no es consentimiento', m.querySelector('#tel-ori-l').textContent === 'Origen declarado por quien corrige'
+      && /no es una verificación ni reemplaza el consentimiento/i.test(m.querySelector('#tel-ori-nota').textContent));
   const num = m.querySelector('#tel-num'), mot = m.querySelector('#tel-mot'), ok = m.querySelector('.tel-ok'), err = m.querySelector('#tel-err');
   num.value = '87654321'; m.querySelector('input[value="prospecto_llamada"]').checked = true; mot.value = 'Lo confirmó por llamada'; ok.click(); await espera();
   res('T4 8 dígitos: error local, sin llamar a la base', err.textContent === T.MSJ.TEL_AMBIGUO_8 && escrituras(w).length === 0, err.textContent);
@@ -145,7 +148,7 @@ const escrituras = (w: any) => w._llamadas.filter((x: any) => !/listar_prospecto
 const bit = leer('prospectos/bitacora.js'), bitHtml = leer('prospectos/bitacora.html');
 res('B1 bitacora.html carga telefono.js después de whatsapp.js', bitHtml.indexOf('src="telefono.js"') > bitHtml.indexOf('src="whatsapp.js"') && bitHtml.indexOf('src="telefono.js"') < bitHtml.indexOf('src="bitacora.js"'));
 res('B2 bitácora: botón mini junto a WhatsApp y alGuardar actualiza WA.tel', /ProsTel\.boton\(\{id:B\.lead\.id/.test(bit) && /WA\.tel=x\.tel/.test(bit));
-res('B3 línea de tiempo muestra tel_corregido (escapado, sin número completo)', /e\.tipo==='tel_corregido'/.test(bit) && /esc\(d\.tel_fin\)/.test(bit) && /esc\(d\.motivo\)/.test(bit));
+res('B3 línea de tiempo muestra tel_corregido (escapado, sin número completo, "origen declarado")', /origen declarado/.test(bit) && /e\.tipo==='tel_corregido'/.test(bit) && /esc\(d\.tel_fin\)/.test(bit) && /esc\(d\.motivo\)/.test(bit));
 
 console.log(`\n${total - fallas}/${total} pruebas OK`);
 if (fallas) Deno.exit(1);

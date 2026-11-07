@@ -2,8 +2,9 @@
    prospectos/telefono.js — "✏️ Corregir teléfono" del prospecto (ficha y bitácora)
    · Para los prospectos que dejan mal su teléfono en la agenda (8 dígitos, sin el 9, letras…).
    · Modal con: número nuevo, ORIGEN de la corrección (obligatorio) y motivo (obligatorio, 5 a 300 caracteres).
-       Origen = "lo confirmó el prospecto" (WhatsApp / correo / llamada / reunión) o "corrección de formato" (el MISMO número mal escrito).
-       Ese dato queda en la base para que el seguimiento por WhatsApp (SEG-1) decida si puede usar un número corregido.
+       "Origen declarado por quien corrige": el prospecto lo informó (WhatsApp / correo / llamada / reunión) o "corrección de formato"
+       (el MISMO número mal escrito). Es una DECLARACIÓN de quien corrige: no es una verificación ni un consentimiento (R2 · TEL-01/TEL-03).
+       Ninguna corrección crea ni cambia el consentimiento del prospecto. El dato queda en la base para que SEG-1 decida cómo tratarlo.
    · Validación local con la MISMA lógica de prospectos/whatsapp.js (ProsWA.normalizar) + exige celular (+56 9 XXXX XXXX):
      8 dígitos NO se adivinan. La base vuelve a validar todo (prospecto_corregir_telefono) y deja la auditoría.
    · Guarda SOLO con la RPC prospecto_corregir_telefono (JWT del usuario). Tras guardar, el botón de WhatsApp usa el número nuevo.
@@ -17,10 +18,10 @@ var TEL_CORRECCION_CONECTADA=false;
 var NO_CONECTADA='Disponible cuando se instale en la base (pendiente de aprobación)';
 
 var ORIGENES=[
-  ['prospecto_whatsapp','El prospecto lo confirmó por WhatsApp'],
-  ['prospecto_correo','El prospecto lo confirmó por correo'],
-  ['prospecto_llamada','El prospecto lo confirmó por llamada'],
-  ['prospecto_reunion','El prospecto lo confirmó en la reunión'],
+  ['prospecto_whatsapp','El prospecto me lo informó por WhatsApp'],
+  ['prospecto_correo','El prospecto me lo informó por correo'],
+  ['prospecto_llamada','El prospecto me lo informó por llamada'],
+  ['prospecto_reunion','El prospecto me lo informó en la reunión'],
   ['correccion_formato','Corrección de formato (es el mismo número, mal escrito)']
 ];
 var MSJ={
@@ -28,12 +29,13 @@ var MSJ={
   TEL_AMBIGUO_8:'Tiene 8 dígitos: no se puede adivinar si falta el 9. Confírmalo con el prospecto y escríbelo completo (+56 9 XXXX XXXX).',
   TEL_INVALIDO:'El número no es válido. Debe ser un celular chileno: +56 9 XXXX XXXX.',
   TEL_NO_MOVIL:'Debe ser un celular (+56 9 XXXX XXXX), no un teléfono fijo.',
-  ORIGEN_INVALIDO:'Elige cómo se confirmó el número.',
+  ORIGEN_INVALIDO:'Elige el origen del número (lo declaras tú).',
   MOTIVO_OBLIGATORIO:'Escribe el motivo (mínimo 5 caracteres).',
   MOTIVO_MUY_LARGO:'El motivo supera los 300 caracteres.',
   MOTIVO_CREDENCIAL:'No escribas claves ni contraseñas en el motivo.',
   SIN_CAMBIO:'Es el mismo número que ya está registrado.',
-  FORMATO_CAMBIA_NUMERO:'Eso no es solo formato: el número cambia. Elige cómo lo confirmó el prospecto.',
+  FORMATO_CAMBIA_NUMERO:'Eso no es solo formato: el número cambia. Elige por dónde te lo informó el prospecto.',
+  TEL_ANTERIOR_EXCEDE:'El teléfono registrado es demasiado largo para auditarlo completo. Avísale al Master.',
   SIN_PERMISO:'Corregir el teléfono es para Master, Comercial y Pagos.',
   NO_SESSION:'Tu sesión expiró. Vuelve a ingresar.',
   NO_EXISTE:'No encontramos ese prospecto.'
@@ -127,8 +129,9 @@ function abrir(btn){
     +'<p class="tel-act">Registrado hoy: <b>'+esc(anterior||'sin teléfono')+'</b></p>'
     +'<label for="tel-num">Número nuevo</label><input id="tel-num" type="tel" inputmode="tel" autocomplete="off" maxlength="30" placeholder="+56 9 1234 5678">'
     +'<small class="tel-ayuda">Celular chileno. Si tiene 8 dígitos, confírmalo con el prospecto: no se adivina el 9.</small>'
-    +'<label id="tel-ori-l">¿Cómo se confirmó?</label><div class="tel-ori" role="radiogroup" aria-labelledby="tel-ori-l">'
+    +'<label id="tel-ori-l">Origen declarado por quien corrige</label><div class="tel-ori" role="radiogroup" aria-labelledby="tel-ori-l">'
     +ORIGENES.map(function(o){return '<label><input type="radio" name="tel-ori" value="'+o[0]+'"> '+esc(o[1])+'</label>';}).join('')+'</div>'
+    +'<small class="tel-ayuda" id="tel-ori-nota">Queda registrado como declaración tuya. No es una verificación ni reemplaza el consentimiento del prospecto.</small>'
     +'<label for="tel-mot">Motivo</label><textarea id="tel-mot" maxlength="300" placeholder="Ej.: le escribí por correo y me respondió con su celular correcto"></textarea>'
     +'<div class="tel-err" id="tel-err" role="alert"></div>'
     +'<div class="tel-pie"><button type="button" class="tel-can">Cancelar</button><button type="button" class="tel-ok">Guardar</button></div>';
