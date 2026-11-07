@@ -27,7 +27,7 @@ var NOM={101:'Cafetería Brisa Andina SpA',102:'Taller Ruedas del Sur Ltda.',103
 // RUT ficticios (cuerpo inventado 76.0xx.xxx con dígito verificador calculado).
 function dvRut(n){var s=0,m=2;String(n).split('').reverse().forEach(function(c){s+=Number(c)*m;m=m===7?2:m+1;});var r=11-(s%11);return r===11?'0':r===10?'K':String(r);}
 var RUTS={};Object.keys(NOM).forEach(function(k){var n=76000000+Number(k)*1111;RUTS[k]=n+'-'+dvRut(n);});
-var docId=1000, DOCS=[], CLI=[], REPS=[], PAUSAS=[], TAREAS=[], PAGOS=[], AVISOS=[], GEST=[], avId=5000, pagoId=900, repId=70;
+var docId=1000, DOCS=[], CLI=[], REPS=[], PAUSAS=[], EVCOMP=[], TAREAS=[], PAGOS=[], AVISOS=[], GEST=[], avId=5000, pagoId=900, repId=70;
 function doc(cli,origen,montoMil,venceOffset,extra){
   var v=addD(HOY,venceOffset), e=addD(v,-20), d=Object.assign({id:++docId,cliente_id:cli,origen:origen,folio:origen==='CUOTA_REPACTACION'?null:String(4000+docId),
     periodo:origen==='MENSUALIDAD'?per(addD(e,-15)):null,concepto:origen==='MENSUALIDAD'?'Mensualidad servicios contables '+per(addD(e,-15)):origen==='SALDO_INICIAL'?'Saldo inicial histórico':'Documento',
@@ -45,7 +45,10 @@ GEST.push({id:2,cliente_id:103,tipo:'NOTA',dia:addD(HOY,-2),nota:'Correo: Se ree
 doc(104,'MENSUALIDAD',70,-70);doc(104,'MENSUALIDAD',70,-40);doc(104,'MENSUALIDAD',70,-9);cli(104,'SUSPENSION_PROGRAMADA',-1);
 TAREAS.push({id:301,cliente_id:104,tipo:'REVISAR_OBLIGACIONES',plazo:addD(HOY,1),creada_at:addD(HOY,-2)+'T10:00:00Z'});aviso(104,'M7',-1,'PENDIENTE',null,true);
 doc(105,'MENSUALIDAD',110,-9);cli(105,'VENCIDO',-8);PAUSAS.push({id:401,cliente_id:105,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-2),hasta:addD(HOY,6),compromiso_fecha:addD(HOY,4),compromiso_monto:110000,motivo:'Acordado por teléfono con la administradora',creada_at:addD(HOY,-2)+'T15:00:00Z',terminada_at:null});
-aviso(105,'P3',-2,'PENDIENTE');aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
+aviso(105,'V',-1,'CANCELADO','Pausa por compromiso de pago');
+// Ejemplo ficticio de un evento COMPROMISO_INCUMPLIDO en la bitácora, solo para ver cómo se mostraría (COB-COMPROMISO-2 no está instalado).
+PAUSAS.push({id:402,cliente_id:103,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:addD(HOY,-10),hasta:addD(HOY,-4),compromiso_fecha:addD(HOY,-6),compromiso_monto:null,motivo:'Dijo que pagaba el viernes (sin monto)',creada_at:addD(HOY,-10)+'T15:00:00Z',terminada_at:null});
+EVCOMP.push({cliente_id:103,tipo:'COMPROMISO_INCUMPLIDO',detalle:{pausa_id:402},creado_at:addD(HOY,-5)+'T12:15:00Z'});
 var r106=[doc(106,'MENSUALIDAD',60,-38),doc(106,'MENSUALIDAD',60,-8)];cli(106,'RIESGO',-2);
 REPS.push({id:++repId,cliente_id:106,estado:'EN_VALIDACION',canal:'GESTOR',n_cuotas:3,monto_total:120000,monto_cuota:40000,monto_ultima:40000,pie_vence:addD(HOY,2),validacion_limite:addD(HOY,1)+'T15:00:00Z',solicitada_dia:HOY,pie_pagado:0,nota:'Pidió 3 cuotas por baja de ventas',motivo_rechazo:null});
 aviso(106,'RQ',0,'PENDIENTE');
@@ -125,7 +128,8 @@ window.COB_DEMO_API={
       pagos:PAGOS.filter(function(p){return p.cliente_id===id;}).sort(function(a,b){return a.fecha_pago<b.fecha_pago?1:-1;}),
       avisos:AVISOS.filter(function(a){return a.cliente_id===id;}).sort(function(a,b){return a.programado_para<b.programado_para?1:-1;}),
       gestiones:GEST.filter(function(g){return g.cliente_id===id;}).sort(function(a,b){return a.registrado_at<b.registrado_at?1:-1;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null,contacto:CONTACTO[id]||null,
-      compromisos:PAUSAS.filter(function(p){return p.cliente_id===id&&p.origen==='COMPROMISO';}).sort(function(a,b){return a.creada_at<b.creada_at?1:-1;})});
+      compromisos:PAUSAS.filter(function(p){return p.cliente_id===id&&p.origen==='COMPROMISO';}).sort(function(a,b){return a.creada_at<b.creada_at?1:-1;}),
+      revisionCompromisos:EVCOMP.filter(function(e){return e.cliente_id===id;})});
   },
   historial:function(id){
     var x=exigir('puede_leer');if(x)return x;id=Number(id);
@@ -178,17 +182,16 @@ window.COB_DEMO_API={
     GEST.push({id:id,cliente_id:a.p_cliente_id,tipo:a.p_tipo,dia:HOY,nota:a.p_nota?a.p_nota.slice(0,1000):null,registrado_at:new Date().toISOString()});
     return ok({gestion_id:id,pausa_hasta:null,avisos_reemplazados:canc});
   },
-  // Compromiso de pago (mismas reglas que cobranza_compromiso_registrar; sin red). Igual que el servidor, deja el aviso P3 en la cola (demo).
+  // Compromiso de pago (mismas reglas que cobranza_compromiso_registrar versión COB-COMPROMISO-1; sin red): monto opcional y SIN aviso al cliente.
   compromisoRegistrar:function(a){
     var x=exigir('puede_gestionar','SOLO_COBRANZA');if(x)return x;
     if(!NOM[a.p_cliente_id])return err('CLIENTE_NO_EXISTE');
     if(!a.p_fecha||a.p_fecha<HOY||a.p_fecha>addD(HOY,30))return err('FECHA_COMPROMISO_INVALIDA');
-    if(!(a.p_monto>0))return err('MONTO_INVALIDO');
+    if(a.p_monto!=null&&!(a.p_monto>0))return err('MONTO_INVALIDO');
     if(!a.p_nota||a.p_nota.trim().length<5)return err('NOTA_OBLIGATORIA');
     var hasta=addD(a.p_fecha,2), id=PAUSAS.reduce(function(m,p){return Math.max(m,p.id);},400)+1;
-    PAUSAS.push({id:id,cliente_id:a.p_cliente_id,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:HOY,hasta:hasta,compromiso_fecha:a.p_fecha,compromiso_monto:a.p_monto,motivo:a.p_nota.trim().slice(0,500),creada_at:new Date().toISOString(),terminada_at:null});
-    aviso(a.p_cliente_id,'P3',0,'PENDIENTE');
-    return ok({pausa_id:id,hasta:hasta});
+    PAUSAS.push({id:id,cliente_id:a.p_cliente_id,tipo:'RECORDATORIOS',origen:'COMPROMISO',desde:HOY,hasta:hasta,compromiso_fecha:a.p_fecha,compromiso_monto:a.p_monto==null?null:a.p_monto,motivo:a.p_nota.trim().slice(0,500),creada_at:new Date().toISOString(),terminada_at:null});
+    return ok({pausa_id:id,hasta:hasta,aviso_cliente:false});
   },
   repactacionValidar:function(a){
     var x=exigir('puede_decidir','SOLO_MASTER');if(x)return x;

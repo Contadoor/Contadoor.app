@@ -13,12 +13,16 @@
          «Correo» y «Reunión» no existen como tipo en el servidor: se guardan como NOTA con el prefijo «Correo: » / «Reunión: »
          (no suman al contador de la Ley 21.320).
      · cobranza_compromiso_registrar(p_cliente_id bigint, p_fecha date, p_monto bigint, p_nota text)
-         Fecha de hoy a 30 días · monto OBLIGATORIO (> 0) · nota obligatoria (≥ 5).
-         Efectos: pausa de RECORDATORIOS hasta la fecha + gracia y ENCOLA el aviso P3 «Compromiso de pago registrado» AL CLIENTE
-         (vence en 3 días; saldría si el Master habilita el envío en ese plazo). Por eso el botón queda DESHABILITADO en
-         Gestoor real (COMPROMISO_CONECTADO = false) hasta ajustar el servidor. En demo se puede probar (sin red).
-   Lectura (GRANT SELECT a authenticated + RLS cob_lectura): cobranza_gestiones y cobranza_pausas (origen COMPROMISO).
-   Expone window.GC_GEST = { TIPOS, COMPROMISO_CONECTADO, MOTIVO_COMPROMISO, ERR, montoNum, validarGestion, validarCompromiso,
+         Fecha de hoy a 30 días · nota obligatoria (≥ 5).
+         · Versión COB-COMPROMISO-1 (migración 202611062000, INSTALADA en producción el 07-11-2026, postcheck 6/6):
+           monto OPCIONAL (NULL; si viene, > 0) y NUNCA avisa al cliente (sin aviso P3): solo anota y pausa los recordatorios
+           (no la suspensión) hasta la fecha + gracia.
+         BANDERA: COMPROMISO_CONECTADO = true (botón habilitado en Gestoor real). Volver a false = botón deshabilitado (fail-closed).
+   Lectura (GRANT SELECT a authenticated + RLS cob_lectura): cobranza_gestiones, cobranza_pausas (origen COMPROMISO) y cobranza_eventos
+   (solo COMPROMISO_CUMPLIDO / COMPROMISO_INCUMPLIDO). COB-COMPROMISO-2 (revisión de compromisos) NO está instalado ni tiene cron:
+   la ficha muestra el compromiso como «Registrado» y solo si existiera uno de esos eventos lo muestra (Cumplido / Incumplido),
+   sin prometer revisiones ni avisos automáticos. Nada se escribe al cargar la ficha.
+   Expone window.GC_GEST = { TIPOS, COMPROMISO_CONECTADO, MOTIVO_COMPROMISO, ERR, montoNum, montoCompromiso, estadoCompromiso, validarGestion, validarCompromiso,
                              tipoDeGestion, lineaTiempoHtml, abrirGestion, abrirCompromiso }.
    ============================================================ */
 (function(){
@@ -38,8 +42,9 @@ var TIPOS=[
 function tipo(k){for(var i=0;i<TIPOS.length;i++)if(TIPOS[i].k===k)return TIPOS[i];return null;}
 var NOTA_MAX=1000, NOTA_MIN=5;
 
-/* Compromiso: hoy el servidor encola un aviso al cliente (P3). No se conecta en Gestoor real hasta ajustar el backend. */
-var COMPROMISO_CONECTADO=false;
+/* BANDERA del compromiso: true porque COB-COMPROMISO-1 (202611062000) está instalado en producción (07-11-2026: sin aviso al
+   cliente y monto opcional). En false el botón queda deshabilitado con MOTIVO_COMPROMISO. */
+var COMPROMISO_CONECTADO=true;
 var MOTIVO_COMPROMISO='Por ahora no se puede registrar desde Gestoor: el servidor, al guardar un compromiso, deja en cola un aviso al cliente («Compromiso de pago registrado») que saldría si se habilita el envío en los 3 días siguientes. Queda deshabilitado hasta ajustar el servidor. Mientras tanto, anótalo con «Registrar gestión» (tipo Nota).';
 
 /* Errores del servidor → mensajes amables (G.msgError agrega el código para soporte). */
@@ -51,7 +56,7 @@ var ERR={
   NOTA_OBLIGATORIA:'Escribe una nota de al menos 5 caracteres.',
   LEY_21320:'El cliente ya tiene 2 gestiones escritas esta semana o una hace menos de 2 días (Ley 21.320). El WhatsApp no se registró: anótalo como Nota.',
   FECHA_COMPROMISO_INVALIDA:'La fecha comprometida debe estar entre hoy y 30 días más.',
-  MONTO_INVALIDO:'El monto comprometido debe ser mayor que $0.'
+  MONTO_INVALIDO:'Si indicas un monto, debe ser mayor que $0. Puedes dejarlo vacío.'
 };
 
 /* "120.000", "$120.000", "120000" → 120000 · vacío → null · inválido → NaN */
@@ -82,9 +87,8 @@ function validarCompromiso(clienteId,f,hoy){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha))return {error:'Indica la fecha comprometida.'};
   if(fecha<hoy)return {error:'La fecha comprometida no puede ser anterior a hoy.'};
   if(fecha>sumarDias(hoy,30))return {error:'La fecha comprometida puede ser como máximo 30 días desde hoy ('+G.fFecha(sumarDias(hoy,30))+').'};
-  var m=montoNum(f&&f.monto);
-  if(m===null)return {error:'Indica el monto comprometido (el servidor lo exige).'};
-  if(!(m>0)||Math.floor(m)!==m)return {error:'El monto debe ser un número entero mayor que $0 (por ejemplo 120.000).'};
+  var m=montoNum(f&&f.monto);   // OPCIONAL: vacío → null (compromiso sin monto); si viene, entero > 0
+  if(m!==null&&(!(m>0)||Math.floor(m)!==m))return {error:'Si indicas un monto, debe ser un número entero mayor que $0 (por ejemplo 120.000). Puedes dejarlo vacío.'};
   var nota=String((f&&f.nota)||'').trim();
   if(nota.length<NOTA_MIN)return {error:'Escribe una nota de al menos '+NOTA_MIN+' caracteres (cómo y con quién se acordó).'};
   if(nota.length>500)return {error:'La nota es muy larga (máximo 500 caracteres).'};
@@ -92,6 +96,9 @@ function validarCompromiso(clienteId,f,hoy){
   if(!(id>0)||Math.floor(id)!==id)return {error:'Cliente no válido.'};
   return {args:{p_cliente_id:id,p_fecha:fecha,p_monto:m,p_nota:nota}};
 }
+
+/* Monto de un compromiso para mostrar: «$120.000» o «sin monto». */
+function montoCompromiso(m){return m==null||m===''?'sin monto':clpT(m);}
 
 /* Gestión guardada → tipo que ve la persona (reconoce el prefijo de Correo y Reunión). */
 function tipoDeGestion(g){
@@ -104,8 +111,22 @@ function tipoDeGestion(g){
   return {t:tipo('NOTA'),nota:n};
 }
 
+/* Estado de un compromiso para la ficha (solo lectura; nada se escribe al cargar).
+   COB-COMPROMISO-2 (revisión de compromisos) NO está instalado: por defecto el compromiso se muestra «Registrado» (sin prometer
+   revisiones ni avisos). Solo si en cobranza_eventos existiera un COMPROMISO_CUMPLIDO / COMPROMISO_INCUMPLIDO de esa pausa se muestra.
+   revision = lista de eventos {tipo, detalle:{pausa_id}, creado_at} · null o undefined = sin dato (también «Registrado»). */
+function estadoCompromiso(c,hoy,revision){
+  if(Array.isArray(revision)){
+    for(var i=0;i<revision.length;i++){var e=revision[i];
+      if(e&&e.detalle&&String(e.detalle.pausa_id)===String(c.id)){
+        if(e.tipo==='COMPROMISO_INCUMPLIDO')return {t:'Incumplido',c:'rojo',k:'INCUMPLIDO',ev:e};
+        if(e.tipo==='COMPROMISO_CUMPLIDO')return {t:'Cumplido',c:'verde',k:'CUMPLIDO',ev:e};}}
+  }
+  return {t:'Registrado',c:'cel',k:'REGISTRADO'};
+}
+
 /* Línea de tiempo de gestiones y compromisos (más reciente primero). */
-function lineaTiempoHtml(gestiones,compromisos,hoy){
+function lineaTiempoHtml(gestiones,compromisos,hoy,revision){
   var it=[];
   (gestiones||[]).forEach(function(g){var x=tipoDeGestion(g);it.push({f:g.registrado_at||g.dia,dia:g.dia,ges:g,x:x});});
   (compromisos||[]).forEach(function(c){it.push({f:c.creada_at||c.desde,dia:c.desde,com:c});});
@@ -115,9 +136,10 @@ function lineaTiempoHtml(gestiones,compromisos,hoy){
     if(e.ges){var t=e.x.t;
       return '<li style="--c:var(--lila)"><b>'+I(t.ic,t.c)+' '+esc(t.t)+'</b>'+(e.ges.tipo==='WHATSAPP_MANUAL'?' <span class="estado sin cel">Cuenta para la Ley 21.320</span>':'')
         +(e.x.nota?'<span class="gc-gest-nota">'+esc(e.x.nota)+'</span>':'')+'<small>'+G.fFecha(e.dia)+'</small></li>';}
-    var c=e.com, terminado=!!c.terminada_at, cumplido=terminado?'Terminado':(c.hasta&&c.hasta<hoy?'Vencido':'Vigente'), cc=terminado?'gris':cumplido==='Vencido'?'ambar':'verde';
-    return '<li style="--c:var(--cel)"><b>'+I('calendario','ic-cel')+' Compromiso de pago: '+esc(clpT(c.compromiso_monto))+' al '+G.fFecha(c.compromiso_fecha)+'</b> <span class="estado '+cc+'">'+cumplido+'</span>'
-      +(c.motivo?'<span class="gc-gest-nota">'+esc(c.motivo)+'</span>':'')+'<small>Registrado el '+G.fFecha(c.desde)+' · recordatorios en pausa hasta el '+G.fFecha(c.hasta)+'</small></li>';
+    var c=e.com, st=estadoCompromiso(c,hoy,revision), cumplido=st.t, cc=st.c;
+    return '<li style="--c:var(--cel)"><b>'+I('calendario','ic-cel')+' Compromiso de pago: '+(c.compromiso_monto==null?'al '+G.fFecha(c.compromiso_fecha)+' (sin monto)':esc(clpT(c.compromiso_monto))+' al '+G.fFecha(c.compromiso_fecha))+'</b> <span class="estado '+cc+'">'+cumplido+'</span>'
+      +(c.motivo?'<span class="gc-gest-nota">'+esc(c.motivo)+'</span>':'')+'<small>Registrado el '+G.fFecha(c.desde)+' · fecha comprometida '+G.fFecha(c.compromiso_fecha)+' · recordatorios en pausa hasta el '+G.fFecha(c.hasta)+(c.terminada_at?' · pausa terminada por el Master':'')
+      +(st.ev&&st.ev.creado_at?' · '+esc(st.t)+' anotado el '+G.fFecha(st.ev.creado_at):'')+'</small></li>';
   }).join('')+'</ul>';
 }
 
@@ -159,12 +181,12 @@ function abrirGestion(ctx){
 /* ── Modal «Registrar compromiso de pago» ── ctx: {id, nombre, hoy, demo, registrar(args), alGuardar(res), mErr(e)} */
 function abrirCompromiso(ctx){
   var hoy=ctx.hoy, max=sumarDias(hoy,30), paso=1;
-  var html=(ctx.demo?'<div class="aviso ambar">'+I('alerta','ic-amb')+'<span><b>Vista previa (demo).</b> En Gestoor real este botón está deshabilitado: el servidor encola un aviso al cliente al registrar un compromiso.</span></div>':'')
+  var html=(ctx.demo&&!COMPROMISO_CONECTADO?'<div class="aviso ambar">'+I('alerta','ic-amb')+'<span><b>Vista previa (demo).</b> En Gestoor real este botón está deshabilitado hasta instalar el ajuste del servidor (sin aviso al cliente y monto opcional).</span></div>':'')
     +'<p>Cliente: <b>'+esc(ctx.nombre)+'</b></p>'
     +'<div id="gcCP1"><div class="campos2"><label class="campo"><span>Fecha comprometida</span><input type="date" id="gcCFecha" min="'+esc(hoy)+'" max="'+esc(max)+'"></label>'
-    +'<label class="campo"><span>Monto comprometido</span><input type="text" inputmode="numeric" id="gcCMonto" placeholder="$ 120.000" autocomplete="off"></label></div>'
+    +'<label class="campo"><span>Monto comprometido (opcional)</span><input type="text" inputmode="numeric" id="gcCMonto" placeholder="$ 120.000 o vacío" autocomplete="off"></label></div>'
     +'<label class="campo"><span>Nota (obligatoria)</span><textarea id="gcCNota" maxlength="500" placeholder="Cómo y con quién se acordó el pago"></textarea></label>'
-    +'<p class="nota">La fecha puede ser desde hoy hasta el '+G.fFecha(max)+'. Mientras el compromiso esté vigente se pausan los recordatorios automáticos (no la suspensión).</p></div>'
+    +'<p class="nota">La fecha puede ser desde hoy hasta el '+G.fFecha(max)+'. Mientras el compromiso esté vigente se pausan los recordatorios automáticos (no la suspensión). <b>No se envía ningún aviso al cliente</b>: solo queda anotado.</p></div>'
     +'<div id="gcCP2" hidden></div>';
   G.modal({titulo:'📅 Registrar compromiso de pago',html:html,ok:'Revisar y confirmar',okClase:'verde',
     alAbrir:function(m){
@@ -178,15 +200,15 @@ function abrirCompromiso(ctx){
       if(paso===1){
         paso=2;m.querySelector('#gcCP1').hidden=true;var p2=m.querySelector('#gcCP2');p2.hidden=false;
         p2.innerHTML='<div class="gc-resumen"><div class="cl"><span>Cliente</span><b>'+esc(ctx.nombre)+'</b></div><div class="cl"><span>Pagará el</span><b>'+G.fFecha(v.args.p_fecha)+'</b></div>'
-          +'<div class="cl"><span>Monto</span><b>'+esc(clpT(v.args.p_monto))+'</b></div><div class="cl"><span>Nota</span><span>'+esc(v.args.p_nota)+'</span></div></div>'
-          +'<p class="nota">Al confirmar se pausan los recordatorios automáticos hasta la fecha comprometida más la gracia. Solo el Master puede terminar la pausa antes.</p>';
+          +'<div class="cl"><span>Monto</span><b>'+esc(montoCompromiso(v.args.p_monto))+'</b></div><div class="cl"><span>Nota</span><span>'+esc(v.args.p_nota)+'</span></div></div>'
+          +'<p class="nota">Al confirmar se pausan los recordatorios automáticos hasta la fecha comprometida más la gracia. <b>No se envía ningún aviso al cliente.</b> Solo el Master puede terminar la pausa antes.</p>';
         si.textContent='Registrar compromiso';return false;
       }
       return ctx.registrar(v.args).then(function(res){ctx.alGuardar(res,v.args);return true;}).catch(function(e){throw new Error(ctx.mErr(e));});
     }});
 }
 
-window.GC_GEST={TIPOS:TIPOS,COMPROMISO_CONECTADO:COMPROMISO_CONECTADO,MOTIVO_COMPROMISO:MOTIVO_COMPROMISO,ERR:ERR,montoNum:montoNum,
+window.GC_GEST={TIPOS:TIPOS,COMPROMISO_CONECTADO:COMPROMISO_CONECTADO,MOTIVO_COMPROMISO:MOTIVO_COMPROMISO,ERR:ERR,montoNum:montoNum,montoCompromiso:montoCompromiso,estadoCompromiso:estadoCompromiso,
   validarGestion:validarGestion,validarCompromiso:validarCompromiso,tipoDeGestion:tipoDeGestion,lineaTiempoHtml:lineaTiempoHtml,
   abrirGestion:abrirGestion,abrirCompromiso:abrirCompromiso};
 })();

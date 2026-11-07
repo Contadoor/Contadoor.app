@@ -51,6 +51,8 @@ body{margin:0}
 .pr-f{display:grid;grid-template-columns:1.7fr .8fr 1fr .8fr 1.1fr 1.3fr 1fr;gap:12px;align-items:center;padding:12px 18px;border-top:1px solid #2E1834;width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;color:inherit;font:inherit;cursor:pointer;transition:background .15s}
 .pr-f:hover{background:rgba(255,255,255,.025)}
 .pr-f.cab{cursor:default;border-top:0;font:700 10px var(--g-texto);letter-spacing:1.1px;text-transform:uppercase;color:#8F6F94;background:rgba(255,255,255,.02)}
+.pr-f:focus-visible{outline:2px solid #C77BC9;outline-offset:-2px}
+.pr-nom{display:flex;align-items:center;gap:10px;min-width:0}.pr-nom>span{min-width:0;flex:1}
 .pr-f strong{display:block;font-size:13.5px;color:#F3E9F4}.pr-f small{display:block;font-size:11px;color:#8F6F94}
 .chip{display:inline-flex;align-items:center;gap:5px;font:700 10.5px var(--g-texto);padding:4px 10px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
 .chip .g-ic{width:12px;height:12px}
@@ -148,6 +150,7 @@ body{margin:0}
 <aside class="ficha" id="ficha" role="dialog" aria-modal="true" aria-labelledby="f-nombre"></aside>
 
 <script src="../supabase.js"></script>
+<script src="whatsapp.js"></script>
 <script>
 // Módulo Prospectos · control comercial. Datos solo vía RPC con el JWT del usuario (Master, Comercial y Pagos).
 var ETAPAS={nuevo:'Lead',agendado:'Diagnóstico agendado',reunion_realizada:'Diagnóstico realizado',no_asistio:'No asistió',
@@ -241,16 +244,19 @@ function pintar(){
   if(!l.length) h+='<div class="pr-vacio" style="padding:30px;text-align:center">No hay prospectos con estos filtros.</div>';
   l.forEach(function(p){
     var px=p.proxima,ven=vencida(p);
-    h+='<button type="button" class="pr-f" data-id="'+Number(p.id)+'"><span><strong>'+esc(p.nombre)+'</strong><small>'+esc(p.empresa||p.email)+' · '+fecha(p.creado)+'</small></span>'
+    // Fila = div con rol de botón (dentro va el botón real de WhatsApp; un botón no puede ir dentro de otro).
+    h+='<div class="pr-f" role="button" tabindex="0" data-id="'+Number(p.id)+'"><span class="pr-nom"><span><strong>'+esc(p.nombre)+'</strong><small>'+esc(p.empresa||p.email)+' · '+fecha(p.creado)+'</small></span>'
+      +(window.ProsWA?ProsWA.boton(p,{mini:true}):'')+'</span>'
       +'<span>'+semHtml(p.semaforo)+'</span>'
       +'<span><span class="chip e-'+esc(p.etapa)+'">'+esc(ETAPAS[p.etapa]||p.etapa||'—')+'</span></span>'
       +'<span class="oc">'+(p.temperatura?'<span class="chip t-'+esc(p.temperatura)+'">'+(p.temperatura==='caliente'&&window.gIcon?gIcon('fuego'):'')+esc(TEMP[p.temperatura])+'</span>':'<span class="pr-vacio">—</span>')+'</span>'
       +'<span class="oc pr-resp">'+(p.responsable?(window.gAvatarEquipo?gAvatarEquipo(p.responsable.nombre):'')+esc(p.responsable.nombre.split(' ')[0]):'<span class="pr-vacio">Sin asignar</span>')+'</span>'
       +'<span class="prox'+(ven?' vencida':'')+'">'+(px?esc(px.accion||'Seguimiento')+'<small>'+(px.fecha?(ven?'venció ':'')+fechaDia(px.fecha):'sin fecha')+'</small>':(p.reunion&&p.reunion.estado==='confirmada'?'Reunión<small>'+esc(fecha(p.reunion.inicio,true))+'</small>':'<span class="pr-vacio">—</span>'))+'</span>'
-      +'<span class="oc"><small>'+esc(origen(p.origen))+'</small></span></button>';
+      +'<span class="oc"><small>'+esc(origen(p.origen))+'</small></span></div>';
   });
   var cont=document.getElementById('lista');cont.innerHTML=h;
-  cont.querySelectorAll('button.pr-f:not(.cab)').forEach(function(b){b.onclick=function(){abrir(Number(b.dataset.id));};});
+  cont.querySelectorAll('.pr-f[data-id]').forEach(function(b){b.onclick=function(){abrir(Number(b.dataset.id));};
+    b.onkeydown=function(e){if(e.target===b&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrir(Number(b.dataset.id));}};});
 }
 
 function abrir(id){
@@ -264,6 +270,7 @@ function abrir(id){
       +'<h2 id="f-nombre">'+esc(p.nombre)+'</h2><p>'+esc([p.empresa,r.rubro].filter(Boolean).join(' · '))+'</p></div>';
     h+='<div class="f-sec"><h3>'+ic('telefono')+' Contacto</h3><dl class="dl"><dt>Correo</dt><dd><a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a></dd>'
       +'<dt>Teléfono</dt><dd><a href="tel:'+esc(String(p.tel||'').replace(/[^+\d]/g,''))+'">'+esc(p.tel)+'</a></dd>'
+      +(window.ProsWA?'<dt>WhatsApp</dt><dd>'+ProsWA.boton(p,{aviso:true})+'</dd>':'')
       +'<dt>Empresa</dt><dd>'+esc(p.empresa||'No informada')+'</dd>'+(p.rut?'<dt>RUT</dt><dd>'+esc(p.rut)+'</dd>':'')
       +'<dt>Llegó</dt><dd>'+esc(fecha(p.creado,true))+'</dd><dt>Origen</dt><dd>'+esc(origen(o))+'</dd></dl></div>';
     h+='<div class="f-sec"><h3>'+ic('lista')+' Lo que nos contó</h3><dl class="dl"><dt>Ventas mensuales</dt><dd>'+esc(VENTAS[r.ventas]||'—')+'</dd>'
@@ -304,7 +311,7 @@ function abrir(id){
 }
 function cerrar(){document.getElementById('ficha').classList.remove('on');document.getElementById('velo').classList.remove('on');history.replaceState(null,'',location.pathname);}
 document.getElementById('velo').onclick=cerrar;
-document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrar();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!document.querySelector('.wa-menu'))cerrar();});
 ['f-txt','f-etapa','f-sem','f-resp','f-camp'].forEach(function(i){document.getElementById(i).addEventListener('input',pintar);});
 (function(){var s=document.getElementById('f-etapa');Object.keys(ETAPAS).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=ETAPAS[k];s.appendChild(o);});})();
 window.addEventListener('gestoor-auth-ready',cargar,{once:true});

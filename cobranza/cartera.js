@@ -13,7 +13,8 @@
    Modo demostración: cartera-demo.js (solo ?demo=1 en localhost).
    Historial por cliente (todas las facturas y pagos, solo lectura): cobranza/historial.js (GC_HIST), pestaña de la ficha.
    Gestiones manuales y compromisos de pago (Cobranza o Master): cobranza/gestiones.js (GC_GEST) · RPC cobranza_gestion_registrar
-   (conectada) y cobranza_compromiso_registrar (DESHABILITADA en real: el servidor encola un aviso al cliente; ver gestiones.js).
+   (conectada) y cobranza_compromiso_registrar (CONECTADA con la bandera COMPROMISO_CONECTADO: COB-COMPROMISO-1 instalado el
+   07-11-2026, sin aviso al cliente y monto opcional; ver gestiones.js).
    «Copiar estado de cuenta» / «WhatsApp»: cobranza/estado-texto.js (GC_ECTXT). Solo arma texto con lo ya cargado en la ficha;
    no llama al servidor ni envía nada. Tras copiar sugiere «¿Anotar como gestión?» (abre el modal; la persona confirma).
    ============================================================ */
@@ -96,8 +97,11 @@ var REAL={
       // Plan del cliente para el encabezado: solo si la RLS de clientes lo deja ver (si no, no se muestra).
       A.get('clientes?select=plan&id=eq.'+q).then(function(c){return c&&c[0]?c[0].plan:null;}).catch(function(){return null;}),
       // Compromisos de pago del cliente (pausas de origen COMPROMISO; sin columnas de usuario).
-      A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20')
-    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6]};});
+      A.get('cobranza_pausas?select=id,desde,hasta,motivo,compromiso_fecha,compromiso_monto,creada_at,terminada_at&cliente_id=eq.'+q+'&origen=eq.COMPROMISO&order=creada_at.desc&limit=20'),
+      // Eventos COMPROMISO_CUMPLIDO / INCUMPLIDO de la bitácora (solo lectura; tipo y detalle, sin columnas de usuario). COB-COMPROMISO-2
+      // no está instalado: normalmente no hay ninguno y el compromiso se ve «Registrado». Si la lectura falla (null), también «Registrado».
+      A.get('cobranza_eventos?select=tipo,detalle,creado_at&cliente_id=eq.'+q+'&tipo=in.(COMPROMISO_CUMPLIDO,COMPROMISO_INCUMPLIDO)&order=creado_at.desc&limit=50').catch(function(){return null;})
+    ]).then(function(r){return {estado:r[0],pagos:r[1],avisos:r[2],gestiones:r[3],repactaciones:r[4],plan:r[5],compromisos:r[6],revisionCompromisos:r[7]};});
   },
   historial:function(id){return window.GC_HIST.cargarReal(A,id);},
   pagoRegistrar:function(a){return A.rpc('cobranza_pago_registrar',a);},
@@ -270,7 +274,7 @@ function carteraHtml(){
       +'<td class="num '+(f.vencido>0?'t-ambar':'t3')+'">'+clp(f.vencido)+'</td>'
       +'<td class="num">'+(f.diasMora!=null?'<b class="'+(f.diasMora>60?'t-rojo':f.diasMora>30?'t-ambar':'')+'">'+f.diasMora+' d</b><span class="sub">'+f.nVenc+' doc. vencido(s)</span>':'<span class="t3">—</span>')+'</td>'
       +'<td>'+(f.prox?G.fFecha(f.prox)+'<span class="sub">en '+G.dias(S.hoy,f.prox)+' d</span>':'<span class="t3">—</span>')+'</td>'
-      +'<td>'+(f.rep?chip(REP[f.rep.estado]):(f.pausa&&f.pausa.origen==='COMPROMISO'?'<span class="estado cel">'+clpT(f.pausa.compromiso_monto)+' al '+G.fFecha(f.pausa.compromiso_fecha)+'</span>':'<span class="t3">—</span>'))+'</td>'
+      +'<td>'+(f.rep?chip(REP[f.rep.estado]):(f.pausa&&f.pausa.origen==='COMPROMISO'?'<span class="estado cel">'+(f.pausa.compromiso_monto==null?'Sin monto':clpT(f.pausa.compromiso_monto))+' al '+G.fFecha(f.pausa.compromiso_fecha)+'</span>':'<span class="t3">—</span>'))+'</td>'
       +'<td><span class="estado sin '+e.c+'">'+e.e+' '+esc(e.t)+'</span>'+(f.motor&&f.motor.suspension_sugerida_desde?'<span class="sub">Sugerencia al Master: suspender</span>':'')+'</td></tr>';
   });
   h+='</tbody></table></div><div class="gc-lista-m">';
@@ -385,7 +389,7 @@ function fichaHtml(id,f,x){
   else h+='<ul class="gc-tl">'+x.avisos.map(function(a){var n=AVISO[a.codigo]||[a.codigo,''],est=AV_EST[a.estado]||{t:a.estado,c:'gris'};
     return '<li style="--c:var(--'+(est.c==='verde'?'verde':est.c==='rojo'?'rojo':est.c==='ambar'?'ambar':'t3')+')"><b>'+esc(n[0])+(a.variante>1?' (variante '+a.variante+')':'')+'</b> '+chip(est)+'<small>'+G.fHora(a.programado_para)+(a.motivo_cancelacion?' · '+esc(a.motivo_cancelacion):'')+(a.es_gestion?' · cuenta para la Ley 21.320':'')+'</small></li>';}).join('')+'</ul>';
   h+='</section>';
-  if(GE)h+='<section><h4>🗂️ Gestiones y compromisos</h4>'+GE.lineaTiempoHtml(x.gestiones,x.compromisos,S.hoy)+'</section>';
+  if(GE)h+='<section><h4>🗂️ Gestiones y compromisos</h4>'+GE.lineaTiempoHtml(x.gestiones,x.compromisos,S.hoy,x.revisionCompromisos)+'</section>';
   return h;
 }
 
@@ -428,7 +432,7 @@ function abrirGestion(id,pre){
 function abrirCompromiso(id){
   if(!(GE.COMPROMISO_CONECTADO||DEMO)){G.toast(GE.MOTIVO_COMPROMISO,true);return;}
   GE.abrirCompromiso({id:id,nombre:nombreCli(id),hoy:S.hoy,demo:DEMO,mErr:mErr,registrar:function(a){return D.compromisoRegistrar(a);},
-    alGuardar:function(res,a){refrescarFicha(id,'Compromiso registrado: '+clpT(a.p_monto)+' al '+G.fFecha(a.p_fecha)+'. Recordatorios en pausa hasta el '+G.fFecha(res&&res.hasta)+'.');}});
+    alGuardar:function(res,a){refrescarFicha(id,'Compromiso registrado: '+GE.montoCompromiso(a.p_monto)+' al '+G.fFecha(a.p_fecha)+'. Recordatorios en pausa hasta el '+G.fFecha(res&&res.hasta)+'. No se envía ningún aviso al cliente.');}});
 }
 
 /* ── Registrar pago (Cobranza/Leandro, Pagos o Master) con confirmación ── */
