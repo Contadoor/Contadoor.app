@@ -62,6 +62,8 @@ PAGOS.push({id:++pagoId,cliente_id:110,fecha_pago:addD(HOY,-15),monto:75000,mont
 PAGOS.push({id:++pagoId,cliente_id:101,fecha_pago:addD(HOY,-12),monto:95000,monto_abono:0,referencia:'Transferencia',estado:'VIGENTE',movimiento_id:null});
 /* ── Historial de ejemplo (facturas ya pagadas y sus pagos) para la vista «Historial de facturas y pagos».
    Todo ficticio: montos redondos, folios inventados. Cubre 2025 y 2026 para probar el filtro por año. ── */
+// Teléfono FICTICIO (solo demo) para ver el botón «WhatsApp» de la ficha; Gestoor real hoy no carga teléfonos en la ficha.
+var CONTACTO={103:{wa:'+56 9 0000 0103'}};
 var APLIC=[], NOTAS=[], PLANES={101:'Pyme Básico',102:'Pyme Plus',103:'Emprendedor',104:'Pyme Básico',105:'Pyme Plus',106:'Emprendedor',107:'Pyme Plus',108:'Pyme Full',109:'Pyme Básico',110:'Emprendedor'};
 function pagadoHist(cliId,montoMil,venceOffset,diasDespues,ref,extra){
   var d=doc(cliId,'MENSUALIDAD',montoMil,venceOffset,Object.assign({estado:'PAGADO',pagado:montoMil*1000},extra||{}));
@@ -125,7 +127,7 @@ window.COB_DEMO_API={
         comentario_transferencia:ds.some(function(d){return d.folio;})?'Facturas '+ds.filter(function(d){return d.folio;}).map(function(d){return d.folio;}).join(', '):null,datos_transferencia:{},fecha:HOY},
       pagos:PAGOS.filter(function(p){return p.cliente_id===id;}).sort(function(a,b){return a.fecha_pago<b.fecha_pago?1:-1;}),
       avisos:AVISOS.filter(function(a){return a.cliente_id===id;}).sort(function(a,b){return a.programado_para<b.programado_para?1:-1;}),
-      gestiones:GEST.filter(function(g){return g.cliente_id===id;}).sort(function(a,b){return a.registrado_at<b.registrado_at?1:-1;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null,
+      gestiones:GEST.filter(function(g){return g.cliente_id===id;}).sort(function(a,b){return a.registrado_at<b.registrado_at?1:-1;}),repactaciones:REPS.filter(function(r){return r.cliente_id===id;}),plan:PLANES[id]||null,contacto:CONTACTO[id]||null,
       compromisos:PAUSAS.filter(function(p){return p.cliente_id===id&&p.origen==='COMPROMISO';}).sort(function(a,b){return a.creada_at<b.creada_at?1:-1;}),
       revisionCompromisos:EVCOMP.filter(function(e){return e.cliente_id===id;})});
   },

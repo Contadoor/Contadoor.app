@@ -143,14 +143,15 @@ function lineaTiempoHtml(gestiones,compromisos,hoy,revision){
   }).join('')+'</ul>';
 }
 
-/* ── Modal «Registrar gestión» ── ctx: {id, nombre, registrar(args)→Promise, alGuardar(res, tipo), mErr(e)} */
+/* ── Modal «Registrar gestión» ── ctx: {id, nombre, registrar(args)→Promise, alGuardar(res, tipo), mErr(e), tipo?, nota?}
+   tipo/nota opcionales: precargan el formulario (p. ej. tras «Copiar estado de cuenta»); la persona igual confirma. */
 function abrirGestion(ctx){
-  var sel='LLAMADA';
+  var sel=(ctx.tipo&&tipo(ctx.tipo))?ctx.tipo:'LLAMADA';
   var html='<p>Cliente: <b>'+esc(ctx.nombre)+'</b></p>'
     +'<p class="t2" style="font-size:12.5px">Anota lo que hiciste con este cliente. Queda en su historial de cobranza (no se puede editar ni borrar) y <b>no envía nada al cliente</b>.</p>'
     +'<div class="campo"><span>Tipo de gestión</span><div class="gc-seg gc-gest-tipos" role="radiogroup" aria-label="Tipo de gestión">'+TIPOS.map(function(t){
       var on=t.k===sel;return '<button type="button" class="fb'+(on?' on':'')+'" role="radio" aria-checked="'+on+'" data-gtipo="'+t.k+'">'+I(t.ic,on?'':t.c)+esc(t.t)+'</button>';}).join('')+'</div></div>'
-    +'<label class="campo"><span id="gcGNotaTit">Nota (opcional)</span><textarea id="gcGNota" maxlength="'+(NOTA_MAX-9)+'" placeholder="Qué se conversó, con quién y qué quedó pendiente"></textarea></label>'
+    +'<label class="campo"><span id="gcGNotaTit">Nota (opcional)</span><textarea id="gcGNota" maxlength="'+(NOTA_MAX-9)+'" placeholder="Qué se conversó, con quién y qué quedó pendiente">'+esc(ctx.nota||'')+'</textarea></label>'
     +'<div id="gcGAyuda"></div>'
     +'<p class="nota">Fecha: hoy, '+G.fFecha(G.hoyCL())+'. El servidor registra quién la anotó.</p>';
   G.modal({titulo:'📝 Registrar gestión',html:html,ok:'Guardar gestión',

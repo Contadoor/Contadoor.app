@@ -15,6 +15,8 @@
    Gestiones manuales y compromisos de pago (Cobranza o Master): cobranza/gestiones.js (GC_GEST) · RPC cobranza_gestion_registrar
    (conectada) y cobranza_compromiso_registrar (CONECTADA con la bandera COMPROMISO_CONECTADO: COB-COMPROMISO-1 instalado el
    07-11-2026, sin aviso al cliente y monto opcional; ver gestiones.js).
+   «Copiar estado de cuenta» / «WhatsApp»: cobranza/estado-texto.js (GC_ECTXT). Solo arma texto con lo ya cargado en la ficha;
+   no llama al servidor ni envía nada. Tras copiar sugiere «¿Anotar como gestión?» (abre el modal; la persona confirma).
    ============================================================ */
 (function(){
 'use strict';
@@ -42,6 +44,7 @@ var ERR={
   MOTIVO_OBLIGATORIO:'Escribe un motivo de al menos 10 caracteres.',FECHA_FUTURA:'La fecha no puede ser futura.'
 };
 var GE=window.GC_GEST||null;
+var EC=window.GC_ECTXT||null;
 if(GE)Object.keys(GE.ERR).forEach(function(k){if(!ERR[k])ERR[k]=GE.ERR[k];});
 function mErr(e){return G.msgError(e,ERR);}
 
@@ -346,8 +349,14 @@ function fichaHtml(id,f,x){
     acc+='<button type="button" class="btn sec" data-act="gestion" data-id="'+esc(id)+'">'+I('lapiz','ic-ama')+'Registrar gestión</button>';
     acc+='<button type="button" class="btn sec" data-act="compromiso" data-id="'+esc(id)+'"'+(compOk?'':' disabled aria-describedby="gcCompNo" title="Deshabilitado por ahora"')+'>'+I('calendario','ic-cel')+'Registrar compromiso de pago</button>';
   }
+  var soloLectura=!acc;
+  if(EC){
+    acc+='<button type="button" class="btn sec" data-act="ec-copiar" data-id="'+esc(id)+'" title="Copia un texto listo para pegar en un correo o WhatsApp. No envía nada.">📋 Copiar estado de cuenta</button>';
+    if(EC.telefonoFicha(x))acc+='<button type="button" class="btn sec" data-act="ec-wa" data-id="'+esc(id)+'" title="Abre WhatsApp con el mismo texto; tú lo envías.">'+I('chat','ic-ver')+'WhatsApp</button>';
+  }
   if(acc)h+='<div class="acciones">'+acc+'</div>'+(yo.puede_gestionar&&GE&&!compOk?'<p class="nota" id="gcCompNo">'+I('candado','ic-amb')+' '+esc(GE.MOTIVO_COMPROMISO)+'</p>':'');
-  else h+='<p class="nota">Tu permiso es de solo lectura en Cobranza.</p>';
+  if(soloLectura)h+='<p class="nota">Tu permiso es de solo lectura en Cobranza.</p>';
+  h+='<div id="gcEcSug" aria-live="polite"></div>';
   // Documentos por tipo
   h+='<section><h4>🧾 Estado de cuenta consolidado</h4>';
   var grupos=ec.grupos||[];
@@ -384,14 +393,40 @@ function fichaHtml(id,f,x){
   return h;
 }
 
+/* ── «Copiar estado de cuenta» / «WhatsApp» (solo texto; nada se envía ni se guarda) ── */
+function textoEstado(id){
+  var fi=S.ficha;if(!EC||!fi||String(fi.id)!==String(id)||!fi.x)return null;
+  return EC.armarTexto(fi.x.estado||{},{nombre:nombreVisible(id)?nombreCli(id):'',hoy:S.hoy});
+}
+function sugerirGestion(id,tipo){
+  var c=$('gcEcSug');if(!c)return;
+  if(!(S.yo&&S.yo.puede_gestionar&&GE)){c.innerHTML='';return;}
+  c.innerHTML='<div class="aviso cel">'+I('info','ic-cel')+'<span>Cuando lo envíes, puedes dejarlo anotado en el historial del cliente.</span>'
+    +'<button type="button" class="btn chico sec" data-act="ec-anotar" data-id="'+esc(id)+'" data-tipo="'+esc(tipo)+'">¿Anotar como gestión?</button></div>';
+  pintar(c);
+}
+function copiarEstado(id){
+  var t=textoEstado(id);if(!t)return;
+  EC.copiar(t).then(function(ok){
+    if(ok){G.toast('Copiado ✓ Pégalo en el correo o WhatsApp del cliente.');sugerirGestion(id,'CORREO');}
+    else G.toast('No se pudo copiar automáticamente. Inténtalo de nuevo o usa otro navegador.',true);
+  });
+}
+function whatsappEstado(id){
+  var t=textoEstado(id), tel=EC&&S.ficha&&S.ficha.x?EC.telefonoFicha(S.ficha.x):null, url=t&&tel?EC.linkWhatsApp(tel,t):null;
+  if(!url)return;
+  window.open(url,'_blank','noopener');
+  sugerirGestion(id,'WHATSAPP');
+}
+
 /* ── Gestiones manuales y compromisos de pago (Cobranza o Master) ── */
 function refrescarFicha(id,msg){
   G.toast(msg);
   D.ficha(id).then(function(x){if(!S.ficha||String(S.ficha.id)!==String(id))return;S.ficha.x=x;if(S.fichaVista==='cuenta')pintarFicha();}).catch(function(){});
   recargar();
 }
-function abrirGestion(id){
-  GE.abrirGestion({id:id,nombre:nombreCli(id),mErr:mErr,registrar:function(a){return D.gestionRegistrar(a);},
+function abrirGestion(id,pre){
+  GE.abrirGestion({id:id,nombre:nombreCli(id),mErr:mErr,tipo:pre&&pre.tipo,nota:pre&&pre.nota,registrar:function(a){return D.gestionRegistrar(a);},
     alGuardar:function(res,t){refrescarFicha(id,t.t+(t.k==='NOTA'||t.k==='REUNION'?' registrada':' registrado')+' en la ficha del cliente.'+(res&&res.avisos_reemplazados>0?' Reemplazó '+res.avisos_reemplazados+' recordatorio(s) automático(s).':''));}});
 }
 function abrirCompromiso(id){
@@ -586,6 +621,9 @@ document.addEventListener('click',function(ev){
   else if(a==='pago')abrirPago(b.getAttribute('data-id'));
   else if(a==='repactar')abrirRepactar(b.getAttribute('data-id'));
   else if(a==='gestion'&&GE)abrirGestion(b.getAttribute('data-id'));
+  else if(a==='ec-copiar')copiarEstado(b.getAttribute('data-id'));
+  else if(a==='ec-wa')whatsappEstado(b.getAttribute('data-id'));
+  else if(a==='ec-anotar'&&GE){var c=$('gcEcSug');if(c)c.innerHTML='';abrirGestion(b.getAttribute('data-id'),{tipo:b.getAttribute('data-tipo')==='WHATSAPP'?'WHATSAPP':'CORREO',nota:'Envié estado de cuenta'});}
   else if(a==='compromiso'&&GE)abrirCompromiso(b.getAttribute('data-id'));
   else if(a==='aplicar-mov'){var m=S.mov[Number(b.getAttribute('data-i'))];if(m)abrirPago(m.cliente_id,m);}
   else if(a==='rep-ok')decidirRep(b.getAttribute('data-id'),true);
