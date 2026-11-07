@@ -58,8 +58,16 @@ function cargarBitacora(b){
 function waHtml(){
   if(!window.ProsWA)return '';
   if(!WA)return '<button type="button" class="wa-btn" disabled aria-disabled="true" title="Buscando el teléfono…">'+ProsWA.icono()+'<span class="wa-lbl">WhatsApp</span></button>';
-  return ProsWA.boton(WA);
+  return ProsWA.boton(WA)+(window.ProsTel&&B&&B.lead?' '+ProsTel.boton({id:B.lead.id,nombre:WA.nombre,tel:WA.tel},{mini:true}):'');
 }
+// ✏️ Corregir teléfono (prospectos/telefono.js): tras guardar, WhatsApp usa el número nuevo y se recarga la línea de tiempo si está a la vista.
+if(window.ProsTel)ProsTel.configurar({rpc:D.rpc,alGuardar:function(x){
+  if(!B||!B.lead||Number(B.lead.id)!==Number(x.id)||!WA)return;
+  WA.tel=x.tel;B.lead.tel=x.tel;
+  var s=document.getElementById('waSlot');if(s)s.innerHTML=waHtml();
+  D.toast('Teléfono corregido. WhatsApp ya usa el número nuevo.');
+  if(document.getElementById('tl'))cargarTl();
+}});
 function cargarWA(){
   var l=B&&B.lead;if(!l||!l.id||!window.ProsWA)return;
   var poner=function(x){WA={nombre:l.nombre,empresa:l.empresa,tel:x};var s=document.getElementById('waSlot');if(s)s.innerHTML=waHtml();};
@@ -324,6 +332,8 @@ function tlHTML(evs){
     else if(e.tipo==='bitacora_cerrada'){c='#5FCF9C';t='<b>🏁 Reunión cerrada</b> · '+(d.resultado==='no_asistio'?'no asistió':'realizada')+(d.temperatura?' · '+esc(D.TEMP[d.temperatura]||d.temperatura):'')+(d.duracion_seg?' · '+Math.round(d.duracion_seg/60)+' min':'');}
     else if(e.tipo==='reserva'){c='#5CC8FF';t='<b>📅 Reserva</b> marcada “'+esc((D.ESTADO_RES[d.estado]||[d.estado])[0])+'”';}
     else if(e.tipo==='etapa'){c='#C77BC9';t='<b>➡️ Etapa</b> '+esc(ETAPAS[d.de]||d.de||'—')+' → '+esc(ETAPAS[d.a]||d.a);}
+    else if(e.tipo==='tel_corregido'){c='#FFC85A';t='<b>✏️ Teléfono corregido</b>'+(e.actor?' por '+esc(e.actor):'')+(d.tel_fin?' · termina en '+esc(d.tel_fin):'')
+      +' · '+esc(d.confirmado_por_prospecto?'confirmado por el prospecto':'solo formato')+(d.motivo?' · '+esc(d.motivo):'');}
     else if(e.tipo==='perdido'){c='#E07A6E';t='<b>❌ Perdido</b> · '+esc(mot[d.motivo]||d.motivo);}
     else t='<b>'+esc(e.tipo)+'</b>';
     return '<div class="ev" style="--c:'+c+'"><small>'+esc(D.fechaHora(e.t))+'</small><p>'+t+'</p></div>';}).join('')+'</div>';

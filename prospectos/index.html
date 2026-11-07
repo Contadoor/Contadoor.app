@@ -151,6 +151,7 @@ body{margin:0}
 
 <script src="../supabase.js"></script>
 <script src="whatsapp.js"></script>
+<script src="telefono.js"></script>
 <script>
 // Módulo Prospectos · control comercial. Datos solo vía RPC con el JWT del usuario (Master, Comercial y Pagos).
 var ETAPAS={nuevo:'Lead',agendado:'Diagnóstico agendado',reunion_realizada:'Diagnóstico realizado',no_asistio:'No asistió',
@@ -259,18 +260,34 @@ function pintar(){
     b.onkeydown=function(e){if(e.target===b&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrir(Number(b.dataset.id));}};});
 }
 
+// Teléfono + "✏️ Corregir teléfono" (prospectos/telefono.js). Tras corregir, se repinta el teléfono y el botón WhatsApp con el número nuevo.
+function telHtml(p){
+  return '<a href="tel:'+esc(String(p.tel||'').replace(/[^+\d]/g,''))+'">'+esc(p.tel)+'</a>'
+    +(window.ProsTel?' <span style="display:inline-block;margin-top:4px">'+ProsTel.boton({id:p.id,nombre:p.nombre,tel:p.tel})+'</span>':'');
+}
+var FICHA=null;
+if(window.ProsTel)ProsTel.configurar({rpc:rpc,alGuardar:function(x){
+  if(!FICHA||Number(FICHA.id)!==Number(x.id))return;
+  FICHA.tel=x.tel;
+  var t=document.getElementById('f-tel'),w=document.getElementById('f-wa');
+  if(t)t.innerHTML=telHtml(FICHA)+'<small class="wa-aviso" role="status" style="color:#5FE3AE">Teléfono corregido</small>';
+  if(w&&window.ProsWA)w.innerHTML=ProsWA.boton(FICHA,{aviso:true});
+  TODOS.forEach(function(q){if(Number(q.id)===Number(x.id))q.tel=x.tel;});pintar();
+  cargarSilencioso();
+}});
 function abrir(id){
   var f=document.getElementById('ficha');f.innerHTML='<div class="f-sec">Cargando ficha…</div>';f.classList.add('on');document.getElementById('velo').classList.add('on');
   history.replaceState(null,'','?id='+id);
   rpc('detalle_prospecto',{p_id:id}).then(function(p){
+    FICHA=p;
     var r=p.respuestas||{},o=p.origen||{},ic=window.gIcon||function(){return '';};
     var h='<div class="f-cab"><button class="f-cer" type="button" aria-label="Cerrar" onclick="cerrar()">'+ic('menos')+'</button>'
       +'<span class="chip e-'+esc(p.etapa)+'" style="background:rgba(255,255,255,.2);color:#fff;border-color:transparent">'+esc(ETAPAS[p.etapa]||'')+'</span> '
       +(p.semaforo?'<span class="chip" style="background:rgba(0,0,0,.25);color:#fff">'+semHtml(p.semaforo)+'</span>':'')
       +'<h2 id="f-nombre">'+esc(p.nombre)+'</h2><p>'+esc([p.empresa,r.rubro].filter(Boolean).join(' · '))+'</p></div>';
     h+='<div class="f-sec"><h3>'+ic('telefono')+' Contacto</h3><dl class="dl"><dt>Correo</dt><dd><a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a></dd>'
-      +'<dt>Teléfono</dt><dd><a href="tel:'+esc(String(p.tel||'').replace(/[^+\d]/g,''))+'">'+esc(p.tel)+'</a></dd>'
-      +(window.ProsWA?'<dt>WhatsApp</dt><dd>'+ProsWA.boton(p,{aviso:true})+'</dd>':'')
+      +'<dt>Teléfono</dt><dd id="f-tel">'+telHtml(p)+'</dd>'
+      +(window.ProsWA?'<dt>WhatsApp</dt><dd id="f-wa">'+ProsWA.boton(p,{aviso:true})+'</dd>':'')
       +'<dt>Empresa</dt><dd>'+esc(p.empresa||'No informada')+'</dd>'+(p.rut?'<dt>RUT</dt><dd>'+esc(p.rut)+'</dd>':'')
       +'<dt>Llegó</dt><dd>'+esc(fecha(p.creado,true))+'</dd><dt>Origen</dt><dd>'+esc(origen(o))+'</dd></dl></div>';
     h+='<div class="f-sec"><h3>'+ic('lista')+' Lo que nos contó</h3><dl class="dl"><dt>Ventas mensuales</dt><dd>'+esc(VENTAS[r.ventas]||'—')+'</dd>'
@@ -311,7 +328,7 @@ function abrir(id){
 }
 function cerrar(){document.getElementById('ficha').classList.remove('on');document.getElementById('velo').classList.remove('on');history.replaceState(null,'',location.pathname);}
 document.getElementById('velo').onclick=cerrar;
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!document.querySelector('.wa-menu'))cerrar();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!document.querySelector('.wa-menu')&&!document.querySelector('.tel-modal'))cerrar();});
 ['f-txt','f-etapa','f-sem','f-resp','f-camp'].forEach(function(i){document.getElementById(i).addEventListener('input',pintar);});
 (function(){var s=document.getElementById('f-etapa');Object.keys(ETAPAS).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=ETAPAS[k];s.appendChild(o);});})();
 window.addEventListener('gestoor-auth-ready',cargar,{once:true});
