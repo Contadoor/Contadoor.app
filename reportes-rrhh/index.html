@@ -887,10 +887,10 @@ function renderTabla(periodo){
       html+='<button class="btn-p" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Completar</button>';
     }else if(est==='completado'){
       html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Editar</button>';
-      html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" >'+gIcon('correo')+' Aviso de cotizaciones</button>';
+      html+='<button class="btn-p" onclick="enviarAvisoCot(_btnIds['+_k+'])" title="'+(RRHH_ENVIO_CORREO_ACTIVO?'Enviar aviso por correo':'Env\u00edo por correo en preparaci\u00f3n: abre el aviso para PDF/Outlook')+'">'+gIcon('correo')+(RRHH_ENVIO_CORREO_ACTIVO?' Aviso de cotizaciones':' Aviso de cotizaciones (PDF)')+'</button>';
     }else if(est==='aviso_enviado'||est==='enviado'){
       html+='<button class="btn-s" onclick="abrirModal(_btnIds['+_k+'],false)">'+gIcon('lapiz')+' Editar</button>';
-      html+='<button onclick="reenviarAviso(_btnIds['+_k+'])" class="btn-s">'+gIcon('correo')+' Reenviar aviso</button>';
+      html+='<button onclick="reenviarAviso(_btnIds['+_k+'])" class="btn-s">'+gIcon('correo')+(RRHH_ENVIO_CORREO_ACTIVO?' Reenviar aviso':' Ver aviso (PDF)')+'</button>';
       html+='<button onclick="iniciarReproceso(_btnIds['+_k+'])" class="btn-s g-warn">'+gIcon('repetir')+' Reprocesar</button>';
       if(!r.haPostergado){
         html+='<span class="g-est pend">'+gIcon('reloj')+' Esperando pago</span>';
@@ -1935,6 +1935,11 @@ function enviarReporteParcial(){
     alert('\u274c No es posible enviar el Aviso de Cotizaciones.\n\n'+val.motivo);
     return;
   }
+  if(!RRHH_ENVIO_CORREO_ACTIVO){
+    var _dl=(_remuData&&_remuData.trabajadores&&_remuData.trabajadores.length&&
+      (!_remuData.clienteRutContexto||_remuData.clienteRutContexto===r.rut))?_remuData:null;
+    avisarEnvioEnPreparacionRrhh(r,_dl);return;
+  }
   var u=getUsuario();
   var periodo=formatPeriodo(r.periodo);
   if(!confirm('\u00bfEnviar Aviso de Cotizaciones de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+val.email))return;
@@ -2137,6 +2142,35 @@ function validarParaEnvioAviso(r){
   }
   return {ok:true, email:email};
 }
+// ── P1-A · ENVÍO POR CORREO DESACTIVADO (A-RRHH-01) ─────────────────────────
+// El endpoint de Vercel (contafunnel-v2 /api/enviar-cotizaciones) fue retirado y responde 404.
+// Mientras el transporte nuevo (Edge gestoor-correo-enviar, tipo cotizaciones_rrhh) no tenga su GO,
+// ninguna acción de RR. HH. intenta enviar correo ni cambia el estado a "aviso enviado".
+// El analista puede abrir el aviso para guardarlo en PDF y enviarlo por Outlook (puente manual);
+// Gestoor NO registra ese envío todavía (el registro manual auditable va en P1-B, con GO-MIG).
+var RRHH_ENVIO_CORREO_ACTIVO=false;
+var RRHH_MSG_ENVIO_PREPARACION='Envío por correo en preparación; usa el puente PDF/Outlook.\n\n'
+  +'Gestoor todavía no envía este aviso ni registra el envío: el estado del reporte NO cambia.';
+// Abre el aviso (el mismo HTML que iba en el correo) en una pestaña nueva para guardarlo en PDF. No escribe nada.
+function abrirAvisoRrhhParaPdf(r, datosLibro){
+  var htmlContent;
+  try{htmlContent=buildPreReporteRrhhHTML(r,datosLibro||null);}
+  catch(e){alert('Error al generar el aviso: '+(e&&e.message||e));return;}
+  var titulo='Aviso de cotizaciones · '+formatPeriodo(r.periodo)+' · '+(r.clienteNombre||r.rut||'');
+  var full='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+hesc(titulo)+'</title>'
+    +'<style>body{margin:0;padding:16px;background:#f4f4f4}.p1a-nota{max-width:640px;margin:0 auto 10px;font:12px system-ui,sans-serif;color:#5c4a5d;text-align:center}@media print{.p1a-nota{display:none}body{background:#fff;padding:0}}</style></head>'
+    +'<body><div class="p1a-nota">Para el puente PDF/Outlook: usa Imprimir → Guardar como PDF y adjúntalo en Outlook. Gestoor no registra este envío.</div>'
+    +htmlContent+'</body></html>';
+  var w=window.open('','_blank');
+  if(w){w.document.write(full);w.document.close();}
+  else{alert('El navegador bloqueó la ventana nueva. Permite ventanas emergentes para Gestoor e intenta otra vez.');}
+}
+// Aviso + ofrecimiento del puente PDF (sin envío, sin cambio de estado).
+function avisarEnvioEnPreparacionRrhh(r, datosLibro){
+  if(!r){alert(RRHH_MSG_ENVIO_PREPARACION);return;}
+  if(confirm(RRHH_MSG_ENVIO_PREPARACION+'\n\n¿Abrir el aviso de '+(r.clienteNombre||r.rut)+' ('+formatPeriodo(r.periodo)+') para guardarlo en PDF?'))
+    abrirAvisoRrhhParaPdf(r, datosLibro);
+}
 // ── MOTOR ÚNICO DE ENVÍO AVISO COTIZACIONES RRHH ────────────────────────────
 // enviarAvisoRrhhCore(r, opciones)
 // opciones.datosLibro : objeto _remuData para enriquecer el email (opcional)
@@ -2146,6 +2180,8 @@ function enviarAvisoRrhhCore(r, opciones){
   // ── 1. Validar ───────────────────────────────────────────────
   var val=validarParaEnvioAviso(r);
   if(!val.ok) return Promise.resolve({ok:false, motivo:val.motivo});
+  // P1-A: sin transporte de correo vigente → no se intenta (antes daba 404 y no quedaba registro).
+  if(!RRHH_ENVIO_CORREO_ACTIVO) return Promise.resolve({ok:false, enPreparacion:true, emailEnviado:false, estadoActualizado:false, motivo:RRHH_MSG_ENVIO_PREPARACION});
   // ── 2. Construir email ───────────────────────────────────────
   var data=opciones.datosLibro||null;
   // Intentar usar _remuData si corresponde al mismo periodo/cliente
@@ -2254,6 +2290,7 @@ function enviarPreReporteRrhh(id){
     alert('\u274c No es posible enviar el Aviso de Cotizaciones.\n\n'+val.motivo);
     return;
   }
+  if(!RRHH_ENVIO_CORREO_ACTIVO){avisarEnvioEnPreparacionRrhh(r,null);return;}
   var periodo=formatPeriodo(r.periodo);
   if(!confirm('\u00bfEnviar Aviso de Cotizaciones RRHH de '+periodo+' a '+hesc(r.clienteNombre)+'?\nEmail: '+val.email+'\n\nSale desde: reportes@contadoor.cl'))return;
   enviarAvisoRrhhCore(r).then(function(res){
@@ -2269,6 +2306,7 @@ function enviarPreReporteRrhh(id){
 function reenviarAviso(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r){alert('Reporte no encontrado.');return;}
+  if(!RRHH_ENVIO_CORREO_ACTIVO){avisarEnvioEnPreparacionRrhh(r,null);return;}
   var _cli=getClientes().find(function(x){return x.rut===r.rut;});
   var _email=r.clienteEmail||(_cli&&_cli.email)||'';
   if(!_email){alert('El cliente no tiene email registrado.');return;}
@@ -2382,11 +2420,12 @@ function ejecutarReproceso(id, motivo){
     alert('\u274c Error en el reproceso: '+err.message);
   });
 }
-function sbPatchRrhh(id,data){
-  if(!id || /^nuevo_/.test(String(id))) return; // no parchear IDs temporales
-  // Traducir camelCase → snake_case para Supabase
-  // Usar sbPatch() de supabase.js — sin fetch directo ni API key hardcodeada
-  var map={
+// P1-A (A-RRHH-03 / B-OBL-04): las transiciones de estado se guardan CON confirmación.
+// Antes: sbPatchRrhh() no devolvía la promesa, sbPatch() se tragaba el HTTP 400 y la pantalla
+// mostraba el estado nuevo aunque la base no cambiara (caso "Finalizado" con la clave quienFinalizo).
+// Ahora: una clave desconocida aborta (no se manda a PostgREST), el error real de PostgREST se muestra,
+// se relee la fila y solo si la base quedó con los valores pedidos se actualiza la pantalla.
+var RRHH_MAPA_COLUMNAS={
     estado:'estado',
     nTrab:'n_trabajadores',
     totalImponible:'total_imponible',
@@ -2433,23 +2472,83 @@ function sbPatchRrhh(id,data){
     decisionCotiz:'decision_cotiz',
     secciones:'secciones', usaArchivo:'usa_archivo',
     f29:'f29'
-  };
-  var sb={};
-  Object.keys(data).forEach(function(k){
-    var sbKey=map[k]||k;
-    sb[sbKey]=data[k];
+};
+// camelCase → snake_case. Lanza error si alguna clave no tiene columna conocida (fail-closed).
+function rrhhASnake(data){
+  var sb={}, desconocidas=[];
+  Object.keys(data||{}).forEach(function(k){
+    var col=RRHH_MAPA_COLUMNAS[k];
+    if(!col){desconocidas.push(k);return;}
+    sb[col]=data[k];
   });
-  sbPatch('reportes_mensuales?id=eq.'+encodeURIComponent(id), sb)
-    .catch(function(e){ console.warn('[sbPatchRrhh] Error:', e); });
+  if(desconocidas.length) throw new Error('Campo sin columna en reportes_mensuales: '+desconocidas.join(', ')+'. No se guard\u00f3 nada.');
+  return sb;
 }
+// Compara lo pedido con lo que devolvió la base (timestamps por instante, el resto por valor).
+function rrhhValorIgual(pedido, enBase){
+  if(pedido===null||pedido===undefined) return enBase===null||enBase===undefined;
+  if(enBase===null||enBase===undefined) return false;
+  if(typeof pedido==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(pedido)){
+    var a=Date.parse(pedido), b=Date.parse(enBase);
+    return !isNaN(a)&&!isNaN(b)&&a===b;
+  }
+  if(typeof pedido==='number') return Number(enBase)===pedido;
+  if(typeof pedido==='boolean') return enBase===pedido;
+  return String(enBase)===String(pedido);
+}
+function rrhhLeerError(res){
+  return res.text().then(function(t){
+    var msg=t;
+    try{var j=JSON.parse(t);msg=[j.message,j.details,j.hint].filter(Boolean).join(' \u00b7 ')||t;}catch(e){}
+    var err=new Error('HTTP '+res.status+(msg?': '+String(msg).slice(0,300):''));
+    err.status=res.status;
+    throw err;
+  },function(){var err=new Error('HTTP '+res.status);err.status=res.status;throw err;});
+}
+// PATCH + relectura. Resuelve con la fila releída; rechaza con un Error legible si algo no cuadra.
+function sbPatchRrhh(id,data){
+  if(!id || !/^\d+$/.test(String(id))) return Promise.reject(new Error('El reporte a\u00fan no est\u00e1 guardado en Gestoor (sin ID). Gu\u00e1rdalo antes de cambiar su estado.'));
+  var sb;
+  try{sb=rrhhASnake(data);}catch(e){return Promise.reject(e);}
+  var cols=Object.keys(sb);
+  var ruta='reportes_mensuales?id=eq.'+encodeURIComponent(id);
+  return sbFetch(ruta,{method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(sb)})
+    .then(function(res){
+      if(!res.ok) return rrhhLeerError(res);
+      return res.json();
+    })
+    .then(function(filas){
+      if(!filas||!filas.length) throw new Error('La base no actualiz\u00f3 ninguna fila (sin permiso o el reporte no existe).');
+      // Relectura independiente: confirma la escritura efectiva.
+      return sbFetch(ruta+'&select=id,'+cols.join(','),{method:'GET'});
+    })
+    .then(function(res){
+      if(!res.ok) return rrhhLeerError(res);
+      return res.json();
+    })
+    .then(function(filas){
+      var fila=filas&&filas[0];
+      if(!fila) throw new Error('No se pudo releer el reporte despu\u00e9s de guardar.');
+      var distintas=cols.filter(function(c){return !rrhhValorIgual(sb[c],fila[c]);});
+      if(distintas.length) throw new Error('La base no qued\u00f3 con lo pedido en: '+distintas.join(', ')+'.');
+      return fila;
+    });
+}
+// Cambia el estado SOLO si la base lo confirmó. Devuelve la promesa (rechaza con el error real).
 function actualizarEstadoRrhh(id,nuevoEstado,extra){
-  var arr=getReportes();
-  var i=arr.findIndex(function(x){return String(x.id)===String(id);});
-  if(i<0)return;
-  arr[i].estado=nuevoEstado;
-  if(extra)Object.assign(arr[i],extra);
-  setReportes(arr);
-  sbPatchRrhh(id,Object.assign({estado:nuevoEstado},extra||{}));
+  var cambios=Object.assign({estado:nuevoEstado},extra||{});
+  return sbPatchRrhh(id,cambios).then(function(fila){
+    var arr=getReportes();
+    var i=arr.findIndex(function(x){return String(x.id)===String(id);});
+    if(i>=0){Object.assign(arr[i],cambios);setReportes(arr);}
+    return fila;
+  });
+}
+// Muestra el error de guardado y deja la pantalla como está en la base.
+function avisarErrorEstadoRrhh(accion, err){
+  console.error('[RRHH estado] '+accion+':',err);
+  alert('\u274c No se guard\u00f3 "'+accion+'". El estado NO cambi\u00f3.\n\n'+(err&&err.message||err)+'\n\nRevisa tu conexi\u00f3n o permisos e intenta de nuevo.');
+  renderTabla(sv('selectPeriodo'));
 }
 function toast(msg){
   var t=document.createElement('div');
@@ -2464,56 +2563,83 @@ function enviarAvisoCot(id){
 function marcarTransferido(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Confirmar que '+hesc(r.clienteNombre)+' ya realizó la transferencia?'))return;
-  actualizarEstadoRrhh(id,'transferido',{fechaTransferido:new Date().toISOString()});
-  renderTabla(sv('selectPeriodo'));toast('💳 Marcado como transferido');
+  actualizarEstadoRrhh(id,'transferido',{fechaTransferido:new Date().toISOString()})
+    .then(function(){renderTabla(sv('selectPeriodo'));toast('💳 Marcado como transferido');},
+          function(e){avisarErrorEstadoRrhh('Transferido',e);});
 }
 function marcarEnPreviredRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Confirmar ingreso en Previred para '+hesc(r.clienteNombre)+'?'))return;
-  actualizarEstadoRrhh(id,'en_previred',{fechaPrevired:new Date().toISOString(),quienPrevired:getUsuario().nombre||''});
-  renderTabla(sv('selectPeriodo'));toast('⚙️ Ingresado en Previred');
+  actualizarEstadoRrhh(id,'en_previred',{fechaPrevired:new Date().toISOString(),quienPrevired:getUsuario().nombre||''})
+    .then(function(){renderTabla(sv('selectPeriodo'));toast('⚙️ Ingresado en Previred');},
+          function(e){avisarErrorEstadoRrhh('Ingresado en Previred',e);});
+}
+// ── P1-A (A-RRHH-02 / B-OBL-01) · OBLIGACIÓN DE PAGO DE COTIZACIONES ─────────
+// Se retiró la escritura a la tabla legada `pagos` (cerrada: RLS sin GRANT → siempre fallaba)
+// y su respaldo en localStorage `pagos_bd` (dejaba una "obligación" que solo existía en el navegador).
+// El reemplazo es la RPC instalada crear_obligacion(area 'rrhh', tipo 'cotizaciones', ref_reporte_id).
+// Queda APAGADO: el dictamen exige paquete SQL (monto Previred calculado en la base, vencimiento,
+// momento del registro) y pruebas de integración antes de activarlo. Mientras tanto se avisa claro.
+var RRHH_OBLIGACION_COTIZ_ACTIVA=false;
+var RRHH_MSG_OBLIGACION_PENDIENTE='Registro de obligaci\u00f3n pendiente de activaci\u00f3n: las cotizaciones de este reporte '
+  +'NO quedan como obligaci\u00f3n de pago en Gestoor (Pagos / Conciliaci\u00f3n) hasta que se active con su paquete SQL. '
+  +'Coordina el pago por el procedimiento manual.';
+function registrarObligacionCotizRrhh(id){
+  if(!RRHH_OBLIGACION_COTIZ_ACTIVA) return Promise.resolve({resultado:'pendiente_activacion', mensaje:RRHH_MSG_OBLIGACION_PENDIENTE});
+  if(!id||!/^\d+$/.test(String(id))) return Promise.reject(new Error('Reporte sin ID real.'));
+  // Monto desde la BASE (no desde la caché del navegador).
+  return sbFetch('reportes_mensuales?id=eq.'+encodeURIComponent(id)+'&select=id,cliente_rut,periodo,total_cot',{method:'GET'})
+    .then(function(res){if(!res.ok) return rrhhLeerError(res);return res.json();})
+    .then(function(filas){
+      var f=filas&&filas[0];
+      if(!f) throw new Error('No se pudo leer el reporte en la base.');
+      var monto=Math.round(Number(f.total_cot)||0);
+      if(!(monto>0)) throw new Error('El reporte no tiene total de cotizaciones en la base.');
+      return sbFetch('rpc/crear_obligacion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        p_cliente_rut:f.cliente_rut, p_periodo:f.periodo, p_area_origen:'rrhh', p_tipo_obligacion:'cotizaciones',
+        p_concepto:'Cotizaciones '+formatPeriodo(f.periodo),
+        p_monto_total:monto, p_monto_exigible:monto, p_monto_postergado:0,
+        p_vencimiento:null,            // pendiente: lo debe resolver la base (paquete SQL)
+        p_iva_fecha_venc:null, p_ref_reporte_id:Number(f.id), p_ref_factura_id:null
+      })});
+    })
+    .then(function(res){if(!res.ok) return rrhhLeerError(res);return res.json();})
+    .then(function(rows){
+      var row=rows&&rows[0];
+      if(!row) throw new Error('crear_obligacion no devolvi\u00f3 respuesta.');
+      return row;
+    });
 }
 function enviarAprobacionRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Enviar a aprobación de Luciano?'))return;
-  if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
-  actualizarEstadoRrhh(id,'pendiente_aprobacion',{fechaAprobacion:new Date().toISOString()});
-  var u=getUsuario();
-  // Registrar pago en Supabase tabla pagos
-  sbFetch('pagos',{
-    method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify({
-      rut:r.rut,
-      cliente_nombre:r.clienteNombre||r.rut,
-      area:'rrhh',
-      tipo:'Cotizaciones previsionales',
-      concepto:'Cotizaciones '+formatPeriodo(r.periodo),
-      monto:r.totalCot||r.totalGeneral||0,
-      periodo:r.periodo,
-      estado:'pendiente_aprobacion',
-      ref_reporte_id:String(r.id),
-      creado_por:u.nombre||'',
-      fecha_creacion:new Date().toISOString()
-    })
-  }).catch(function(){
-    // Fallback localStorage si Supabase falla
-    try{
-      var obs=JSON.parse(localStorage.getItem('pagos_bd')||'[]');
-      obs.push({rut:r.rut,clienteNombre:r.clienteNombre,area:'rrhh',
-        concepto:'Cotizaciones '+formatPeriodo(r.periodo),
-        monto:r.totalCot||0,periodo:r.periodo,estado:'pendiente_aprobacion'});
-      localStorage.setItem('pagos_bd',JSON.stringify(obs));
-    }catch(e){}
-  });
-  renderTabla(sv('selectPeriodo'));toast('⏳ Enviado a aprobación');
+  actualizarEstadoRrhh(id,'pendiente_aprobacion',{fechaAprobacion:new Date().toISOString()})
+    .then(function(){
+      if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
+      renderTabla(sv('selectPeriodo'));
+      return registrarObligacionCotizRrhh(id).then(function(o){
+        if(o.resultado==='pendiente_activacion'){
+          alert('⏳ Enviado a aprobación (guardado y verificado en Gestoor).\n\n⚠️ '+o.mensaje);
+        }else if(o.resultado==='creada'||o.resultado==='sin_cambio'||o.resultado==='actualizada'||o.resultado==='existente'){
+          toast('⏳ Enviado a aprobación · obligación '+o.resultado);
+        }else{
+          alert('⏳ Enviado a aprobación.\n\n⚠️ Obligación de cotizaciones: '+(o.resultado||'?')+' — '+(o.mensaje||''));
+        }
+      },function(e){
+        console.error('[RRHH obligación]',e);
+        alert('⏳ Enviado a aprobación, pero la obligación de cotizaciones NO se registró:\n\n'+(e&&e.message||e));
+      });
+    },function(e){avisarErrorEstadoRrhh('Enviar a aprobación',e);});
 }
 function marcarFinalizadoRrhh(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});if(!r)return;
   if(!confirm('¿Verificaste que las cotizaciones quedaron pagadas correctamente?\nEsto cierra el proceso de '+hesc(r.clienteNombre)+'.'))return;
-  if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
-  actualizarEstadoRrhh(id,'finalizado',{fechaFinalizado:new Date().toISOString(),quienFinalizo:getUsuario().nombre||''});
-  renderTabla(sv('selectPeriodo'));toast('🔒 Proceso finalizado correctamente');
+  // Clave correcta: quienFinalizado → quien_finalizado (antes quienFinalizo → PostgREST 400 y no se guardaba).
+  actualizarEstadoRrhh(id,'finalizado',{fechaFinalizado:new Date().toISOString(),quienFinalizado:getUsuario().nombre||''})
+    .then(function(){
+      if(r&&r.rut===_rutSelRrhh) _rutSelRrhh=null;   // trabajo del cliente cerrado: se quita el destacado
+      renderTabla(sv('selectPeriodo'));toast('🔒 Proceso finalizado correctamente');
+    },function(e){avisarErrorEstadoRrhh('Finalizar',e);});
 }
 // ── RECORDATORIOS AUTOMÁTICOS ────────────────────────────────────────────────
 function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
@@ -2594,6 +2720,8 @@ function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
 function enviarRecordatorioRrhh(id, forzar){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r) return;
+  // P1-A: sin transporte de correo vigente no se intenta enviar (antes: 404 silencioso).
+  if(!RRHH_ENVIO_CORREO_ACTIVO){if(forzar)alert(RRHH_MSG_ENVIO_PREPARACION);return;}
   if(!r.clienteEmail) return;
   if(r.estado==='transferido'||r.estado==='en_previred'||r.estado==='aprobacion'||r.estado==='aprobado'||r.estado==='finalizado') return;
   var ahora=new Date();
@@ -2706,6 +2834,10 @@ if(!window.toggleNotPanel) window.toggleNotPanel=function(e){
 function enviarSeleccionados(){
   var chks=document.querySelectorAll('.rrhh-chk:checked');
   if(!chks.length){alert('Selecciona al menos un reporte.');return;}
+  if(!RRHH_ENVIO_CORREO_ACTIVO){
+    alert(RRHH_MSG_ENVIO_PREPARACION+'\n\nEl envío masivo está desactivado. Abre cada aviso desde su fila para guardarlo en PDF.');
+    return;
+  }
   var ids=Array.from(chks).map(function(c){return c.getAttribute('data-id');});
   var total=ids.length;
   if(!confirm('\u00bfEnviar Aviso de Cotizaciones a '+total+' cliente(s) seleccionados?'))return;
@@ -2824,9 +2956,9 @@ function marcarPostergado(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r)return;
   if(!confirm('¿Confirmar que '+hesc(r.clienteNombre)+' informó que postergará el pago?\n\nSe activarán recordatorios del día 25 al 30.'))return;
-  actualizarEstadoRrhh(id,'aviso_enviado',{haPostergado:true,fechaPostergacion:new Date().toISOString()});
-  renderTabla(sv('selectPeriodo'));
-  toast('📅 Postergación registrada — recordatorios días 25-30');
+  actualizarEstadoRrhh(id,'aviso_enviado',{haPostergado:true,fechaPostergacion:new Date().toISOString()})
+    .then(function(){renderTabla(sv('selectPeriodo'));toast('📅 Postergación registrada — recordatorios días 25-30');},
+          function(e){avisarErrorEstadoRrhh('Postergación',e);});
 }
 // sbReporteToRow local eliminada — usar sbReporteToRow de supabase.js
 setupUpload();
