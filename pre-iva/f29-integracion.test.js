@@ -1,6 +1,8 @@
 // Prueba de INTEGRACIÓN del Pre-IVA (pantalla real en un navegador local, datos 100 % ficticios).
-// Verifica que el F29 mostrado en pantalla = el del reporte = el del correo preparado (payload a /api/enviar-preiva)
+// Verifica que el F29 mostrado en pantalla = el del reporte = el del correo preparado (prepararCorreoPreIVA().payload)
 // = el que se guarda en preiva_historial.f29, también tras "Editar reporte" (manual y recálculo con F29 en 0).
+// P1-A (A-PIVA-01): el envío por correo está DESACTIVADO (Vercel retirado, 404). "Enviar" debe mostrar el aviso
+// "Envío por correo en preparación", NO llamar a Vercel y NO guardar el Pre-IVA como enviado (sin fecha_envio).
 // NADA sale a internet: Supabase, el proxy de correo y todo dominio externo se interceptan; auth.js se reemplaza.
 // Ejecutar:  PW_CORE=/ruta/a/node_modules/playwright-core node --test pre-iva/f29-integracion.test.js
 //   (usa el Chrome instalado; se omite sola si no hay playwright-core o Chrome).
@@ -92,6 +94,22 @@ async function f29Pantalla(page) { return page.evaluate(() => ({ res: document.g
 // F29 del reporte: la celda que sigue a "F29 estimado a pagar" en la tabla de composición.
 function f29DeReporte(html) { const m = String(html).match(/F29 estimado a pagar<\/td><td[^>]*>([^<]+)</); return m ? num(m[1]) : null; }
 
+// Correo preparado (sin enviar) y comprobación de que "Enviar" no envía ni marca como enviado.
+async function correoPreparado(page) { return page.evaluate(() => prepararCorreoPreIVA().payload); }
+async function enviarYComprobarDesactivado(page, cap) {
+  await page.click('#btn-enviar');
+  await page.waitForTimeout(400);
+  assert.equal(cap.correos.length, 0, 'no se llama al endpoint retirado de Vercel');
+  assert.equal(cap.guardados.filter((g) => g.cuerpo.fecha_envio).length, 0, 'no queda guardado como enviado');
+  assert.match(cap.dialogos.join('\n'), /Envío por correo en preparación; usa el puente PDF\/Outlook/);
+}
+// Guarda el borrador y devuelve lo último que se mandó a preiva_historial.
+async function guardarBorrador(page, cap) {
+  await page.evaluate(() => guardarPreiva('borrador'));
+  await page.waitForTimeout(300);
+  return cap.guardados.filter((g) => !g.cuerpo.fecha_envio).pop();
+}
+
 const omitir = !pw ? 'sin playwright-core (defina PW_CORE)' : false;
 
 test('INTEGRACIÓN · pantalla = reporte = correo = guardado (cálculo automático, con exento)', { skip: omitir }, async () => {
@@ -112,19 +130,16 @@ test('INTEGRACIÓN · pantalla = reporte = correo = guardado (cálculo automáti
     assert.equal(f29DeReporte(rep), esperado);
     assert.match(rep, /no es el total definitivo/);
     assert.match(rep, /Estimado: neto afecto estimado/);
-    await page.click('#btn-enviar');
-    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
-    await page.waitForTimeout(300);
-    assert.equal(cap.correos.length, 1, 'se preparó un correo (capturado, no enviado)');
-    assert.equal(f29DeReporte(cap.correos[0].htmlReporte), esperado);
+    assert.equal(f29DeReporte((await correoPreparado(page)).htmlReporte), esperado);
+    await enviarYComprobarDesactivado(page, cap);
     assert.match(cap.dialogos.join('\n'), /F29 proyectado: \$?[\d.]*850\.000/);
     assert.match(cap.dialogos.join('\n'), /no es el total definitivo/);
     assert.match(cap.dialogos.join('\n'), /PPM no definitivo/);
-    const envio = cap.guardados.filter((g) => g.cuerpo.fecha_envio);
-    assert.equal(envio.length, 1);
-    assert.equal(envio[0].cuerpo.f29, esperado);
-    assert.equal(envio[0].cuerpo.ppm, ppmEsp);
-    assert.equal(envio[0].cuerpo.remanente, 300000);
+    const g = await guardarBorrador(page, cap);
+    assert.ok(g, 'se guardó el borrador');
+    assert.equal(g.cuerpo.f29, esperado);
+    assert.equal(g.cuerpo.ppm, ppmEsp);
+    assert.equal(g.cuerpo.remanente, 300000);
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
@@ -147,13 +162,11 @@ test('INTEGRACIÓN · "Editar reporte": manual se respeta y F29 en 0 recalcula; 
     await page.evaluate(() => { abrirModalEdicion(); document.getElementById('ed-f29').value = 0; guardarEdicion(); });
     rep = await page.evaluate(() => buildReporteHTML());
     assert.equal(f29DeReporte(rep), 100000);
-    await page.click('#btn-enviar');
-    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
-    await page.waitForTimeout(300);
-    assert.equal(f29DeReporte(cap.correos[0].htmlReporte), 100000);
-    const envio = cap.guardados.filter((g) => g.cuerpo.fecha_envio);
-    assert.equal(envio[0].cuerpo.f29, 100000);
-    assert.equal(envio[0].cuerpo.ppm, 100000);
+    assert.equal(f29DeReporte((await correoPreparado(page)).htmlReporte), 100000);
+    await enviarYComprobarDesactivado(page, cap);
+    const g = await guardarBorrador(page, cap);
+    assert.equal(g.cuerpo.f29, 100000);
+    assert.equal(g.cuerpo.ppm, 100000);
     // La pantalla (cálculo automático, sin edición) sigue dando su propio valor con la fórmula nueva
     const p = await f29Pantalla(page);
     const ppmAuto = F.calcularPPM(F.calcularBasePPM({ debito: 500000 }).base, 1);
@@ -222,10 +235,8 @@ test('INTEGRACIÓN R4 · aviso de PPM estimado: editado sin confirmar → con av
     assert.equal(await page.evaluate(() => _editOverrides.ppmVerificado), false);
     // El correo preparado lleva el mismo aviso que el reporte
     await page.evaluate(() => { abrirModalEdicion(); document.getElementById('ed-ppm').value = 175000; document.getElementById('ed-f29').value = 0; guardarEdicion(); });
-    await page.click('#btn-enviar');
-    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
-    await page.waitForTimeout(300);
-    assert.match(cap.correos[0].htmlReporte, /Estimado: /);
+    assert.match((await correoPreparado(page)).htmlReporte, /Estimado: /);
+    await enviarYComprobarDesactivado(page, cap);
     assert.match(cap.dialogos.join('\n'), /PPM no definitivo: [^\n]*PPM editado a mano sin verificar/);
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
@@ -267,12 +278,11 @@ test('INTEGRACIÓN R4 · montos inválidos: se marcan, "Editar reporte" no los a
       assert.equal(r.abierto, true, id + ': el modal queda abierto'); assert.match(r.err, msg);
       assert.equal(await page.evaluate(() => JSON.stringify(_editOverrides)), antes, id + ': no se aplicó nada');
     }
-    // e) Corregido todo → el envío funciona
+    // e) Corregido todo → ya no bloquea por montos: muestra el aviso de envío en preparación (P1-A) y no envía
     assert.equal(await page.evaluate(() => document.getElementById('aviso-entradas').style.display), 'none');
-    await page.click('#btn-enviar');
-    await page.waitForFunction(() => !document.getElementById('btn-enviar').disabled, null, { timeout: 10000 });
-    await page.waitForTimeout(300);
-    assert.equal(cap.correos.length, 1);
+    cap.dialogos.length = 0;
+    await enviarYComprobarDesactivado(page, cap);
+    assert.doesNotMatch(cap.dialogos.join('\n'), /montos inválidos/);
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
