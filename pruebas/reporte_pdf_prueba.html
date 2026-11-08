@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- P1-B · página de PRUEBA del PDF del reporte (datos 100 % FICTICIOS). Uso: Chrome headless --print-to-pdf sobre
+     pruebas/reporte_pdf_prueba.html?plan=asesoria|cumplimiento (ver pruebas/reporte_pdf_imprimir.sh). No es una pantalla de Gestoor. -->
+<html lang="es"><head><meta charset="utf-8"><title>Prueba PDF</title></head><body>
+<script src="../reporte-email.js"></script>
+<script src="../assets/reporte-pdf.js"></script>
+<script>
+var plan = (location.search.match(/plan=([a-z]+)/) || [])[1] || 'asesoria';
+var analista = GestoorReporte.persona('Persona Ficticia', 'Asesora Contable', 'asesora.ficticia@ejemplo.test');
+var d = {
+  periodo: 'Octubre 2026', contacto: 'Camila', empresa: 'Panadería Ficticia del Valle SpA', modalidad: 'contadoor', plan: plan,
+  diasVence: 7, fechaVence: '20 de noviembre',
+  fechas: [{ dia: 13, mes: 'nov', que: 'Cotizaciones en Previred' }, { dia: 20, mes: 'nov', que: 'IVA (F29) en el SII' }, { dia: 25, mes: 'nov', que: 'Convenio TGR cuota 4' }],
+  aviso: { diaPostergar: 10, diaCot: 13, horaCot: '13:40', fechaIva: '20 de noviembre' }, f29Ok: true,
+  items: [
+    { tipo: 'cot', titulo: 'Cotizaciones de 12 trabajadores', detalle: 'AFP, salud, seguro de cesantía y mutual de octubre en Previred', monto: 1843210, paga: 'contadoor', vence: 'Vence 13 de noviembre', donde: 'Previred', postergable: true, delta: 0.04 },
+    { tipo: 'imp', titulo: 'Impuestos del mes (F29)', detalle: 'IVA, PPM, retenciones de honorarios e impuesto único en el SII', monto: 2310455, paga: 'contadoor', vence: 'Vence 20 de noviembre', donde: 'sii.cl', postergable: true, delta: -0.08 },
+    { tipo: 'conv', titulo: 'Convenio de pago TGR', detalle: 'Cuota 4 de 12 del convenio ficticio', monto: 154300, paga: 'contadoor', vence: 'Vence 25 de noviembre', donde: 'TGR', progreso: { pagadas: 3, total: 12 } },
+    { tipo: 'serv', titulo: 'Nuestros servicios', detalle: 'Plan mensual + 12 trabajadores', monto: 268900, paga: 'contadoor' }
+  ],
+  iva: { conLibros: true, ventasNeto: 18450000, ventasExento: 320000, debito: 3505500, comprasNeto: 9120000, credito: 1732800, remAnterior: 120000, ivaPagar: 1652700, remSiguiente: 0,
+         ppm: 276750, ppmTasa: 1.5, ppmBase: 18450000, retHon: 182000, iu: 199005, otros: 0, total: 2310455 },
+  ppmAcumulado: { anio: 2026, desde: 'enero', hasta: 'octubre', monto: 2415300 },
+  tip: 'Guarda tus boletas de gastos del negocio: te ayudan a bajar el impuesto en la Operación Renta.',
+  historial: [{ mes: 'Jul', total: 4210000, cot: 1700000, imp: 2100000, serv: 260000, otros: 150000 }, { mes: 'Ago', total: 4380000, cot: 1760000, imp: 2200000, serv: 265000, otros: 155000 },
+              { mes: 'Sep', total: 4430000, cot: 1770000, imp: 2240000, serv: 265000, otros: 155000 }, { mes: 'Oct', total: 4576865, cot: 1843210, imp: 2310455, serv: 268900, otros: 154300, actual: true }],
+  anexo: [
+    { titulo: 'Cotizaciones (Previred)', icono: '👥', filas: [{ c: 'AFP', v: 1100000 }, { c: 'Salud', v: 520000 }, { c: 'Seguro de cesantía', v: 150000 }, { c: 'Mutual', v: 73210 }, { c: 'Total', v: 1843210, total: true }] },
+    { titulo: 'Impuestos (SII)', icono: '🧾', filas: [{ c: 'IVA', v: 1652700 }, { c: 'PPM', v: 276750 }, { c: 'Retención honorarios', v: 182000 }, { c: 'Impuesto único', v: 199005 }, { c: 'Total', v: 2310455, total: true }] },
+    { titulo: 'Convenio TGR', icono: '🤝', filas: [{ c: 'Cuota 4 de 12', v: 154300 }, { c: 'Saldo por pagar', v: 1234400 }, { c: 'Total del mes', v: 154300, total: true }] }
+  ],
+  analista: analista, asesores: [analista, GestoorReporte.persona('Otra Persona Ficticia', 'Asesora de Remuneraciones', '')],
+  revisor: GestoorReporte.persona('Revisor Ficticio', 'Contador revisor', '')
+};
+var html = GestoorReporte.render(d);
+document.open(); document.write(GestoorReportePDF.documento(html, GestoorReportePDF.nombreArchivo({ periodo: '2026-10', empresa: d.empresa }))); document.close();
+</script></body></html>

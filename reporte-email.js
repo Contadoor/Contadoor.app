@@ -203,7 +203,7 @@ function renderReporteEmail(d){
         h+='<tr><td width="70" style="padding:6px 0 6px 16px;font:'+(m.actual?'700':'600')+' 12px '+F_B+';color:'+(m.actual?'#fff':C.tinta2)+';white-space:nowrap">'+esc(m.mes)+'</td><td style="padding:6px 10px">';
         if(m.total>0){
           h+='<table role="presentation" width="'+ancho+'%" cellpadding="0" cellspacing="0" style="border-radius:999px;overflow:hidden"><tr>';
-          [['cot',m.cot],['imp',m.imp],['serv',m.serv],['deuda',m.otros]].forEach(function(x){ if(x[1]>0){h+='<td width="'+Math.max(2,Math.round(x[1]/m.total*100))+'%" height="10" bgcolor="'+TIPOS[x[0]].color+'" style="background:'+TIPOS[x[0]].color+';height:10px;font-size:0;line-height:0'+(m.actual?'':';opacity:.7')+'">&nbsp;</td>';} });
+          [['cot',m.cot],['imp',m.imp],['serv',m.serv],['conv',m.otros]].forEach(function(x){ if(x[1]>0){h+='<td width="'+Math.max(2,Math.round(x[1]/m.total*100))+'%" height="10" bgcolor="'+TIPOS[x[0]].color+'" style="background:'+TIPOS[x[0]].color+';height:10px;font-size:0;line-height:0'+(m.actual?'':';opacity:.7')+'">&nbsp;</td>';} });
           h+='</tr></table>';
         } else h+='<span style="font:400 11px '+F_B+';color:'+C.tinta2+'">Sin datos</span>';
         h+='</td><td align="right" style="padding:6px 16px 6px 0;font:'+(m.actual?'800':'600')+' 12px '+F_B+';color:'+(m.actual?C.cifra:C.tinta)+';white-space:nowrap;font-variant-numeric:tabular-nums">'+(m.total>0?$(m.total):'—')+'</td></tr>';

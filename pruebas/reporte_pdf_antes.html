@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<!-- P1-B · reproduce el comportamiento ANTERIOR (window.print() de la página con el reporte en un iframe de 70vh). Datos FICTICIOS: reutiliza
+     reporte_pdf_prueba.html dentro del iframe. Solo para la comparación antes/después del expediente. -->
+<html lang="es"><head><meta charset="utf-8"><title>Antes</title>
+<style>body{margin:0;background:#1a1020;font-family:Arial}.modal{max-width:860px;margin:20px auto;background:#fff;border-radius:12px}
+.cab{padding:10px 14px;border-bottom:1px solid #ddd;font-size:12px}@media print{.no-print{display:none!important}body{background:#fff}}</style></head>
+<body><div class="modal"><div class="cab">💡 Tip del mes · Para: cliente@ejemplo.test · 📊 Reporte mensual completo</div>
+<iframe src="reporte_pdf_prueba.html?plan=asesoria" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>
+<div class="no-print" style="padding:10px">[botones]</div></div></body></html>
