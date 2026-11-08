@@ -1,7 +1,10 @@
 /* P1-B · Puente 12-nov · "Registrar envío manual" del reporte mensual (PDF + Outlook) y guardado de la Nota del analista (A-PAN-01).
    Flujo de 4 pasos (dictamen ChatGPT 08-11): 1) validar datos, destinatario, período y responsable · 2) generar el PDF y revisar todas
    las páginas · 3) enviar por Outlook verificando destinatario y adjunto · 4) registrar en Gestoor «enviado manualmente» con fecha, operador
-   y evidencia (archivo subido al bucket privado, con su SHA-256).
+   y evidencia (archivo subido al bucket privado).
+   R2 (contrato 2): huella honesta (SHA-256 DECLARADO por este navegador; el servidor solo comprueba el MD5 contra el que calcula el
+   almacenamiento), id de INTENTO por registro (idempotencia; reenvío el mismo día con motivo) y RESULTADO de entrega aparte
+   (rebote / entrega confirmada): enviado ≠ entregado.
    FAIL-CLOSED: antes de habilitar el paso 4 se consulta la sonda rpc/reporte_envio_manual_disponible. Si la función no existe en la base
    (PostgREST 404 / PGRST202) el botón queda DESACTIVADO con texto honesto: Gestoor NO registra el envío y se sigue la guía manual.
    Nunca se simula un registro ni se marca nada como enviado en el navegador. */
@@ -28,6 +31,9 @@
   function estadoDesdeRespuesta(res) {
     var j = res && res.json || {};
     var code = String(j.code || ''), msg = String(j.message || '');
+    if (res && res.ok && j && j.envio_manual === true && j.contrato !== 2) {
+      return { estado: 'error', texto: 'La base tiene otra versión del registro (contrato ' + esc(j.contrato == null ? '1' : j.contrato) + ', se espera 2). No registres nada: avisa al Master.' };
+    }
     if (res && res.ok && j && j.envio_manual === true) {
       return j.puede_operar === true ? { estado: 'disponible', texto: 'Registro en Gestoor disponible.' }
         : { estado: 'sin_permiso', texto: 'Tu usuario no tiene el módulo Panel de Control: pide al Master que registre el envío.' };
@@ -51,6 +57,35 @@
     return file.arrayBuffer().then(function (b) { return crypto.subtle.digest('SHA-256', b); })
       .then(function (h) { return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); });
   }
+  // MD5 (RFC 1321) en JS: crypto.subtle no lo ofrece. Se compara en el servidor con el eTag que calcula el almacenamiento.
+  function md5Bytes(bytes) {
+    var K = [], S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21], i;
+    for (i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+    var n = bytes.length, nb = ((n + 8) >>> 6) + 1, M = new Int32Array(nb * 16);
+    for (i = 0; i < n; i++) M[i >> 2] |= bytes[i] << ((i % 4) * 8);
+    M[n >> 2] |= 0x80 << ((n % 4) * 8);
+    M[nb * 16 - 2] = (n * 8) | 0; M[nb * 16 - 1] = Math.floor(n / 536870912) | 0;
+    var a0 = 0x67452301, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476;
+    for (var o = 0; o < M.length; o += 16) {
+      var A = a0, B = b0, C = c0, D = d0;
+      for (i = 0; i < 64; i++) {
+        var f, g, r = Math.floor(i / 16);
+        if (r === 0) { f = (B & C) | (~B & D); g = i; } else if (r === 1) { f = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+        else if (r === 2) { f = B ^ C ^ D; g = (3 * i + 5) % 16; } else { f = C ^ (B | ~D); g = (7 * i) % 16; }
+        var t = D; D = C; C = B; var x = (A + f + K[i] + M[o + g]) | 0, sft = S[r * 4 + (i % 4)];
+        B = (B + ((x << sft) | (x >>> (32 - sft)))) | 0; A = t;
+      }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+    }
+    return [a0, b0, c0, d0].map(function (v) { var h = ''; for (var k = 0; k < 4; k++) h += ('0' + ((v >>> (k * 8)) & 255).toString(16)).slice(-2); return h; }).join('');
+  }
+  function md5(file) { return file.arrayBuffer().then(function (b) { return md5Bytes(new Uint8Array(b)); }); }
+  function nuevoIntento() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = new Uint8Array(16); crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  }
   function extDe(file) {
     var m = /\.([a-z0-9]+)$/i.exec(String(file && file.name || '')); var e = m ? m[1].toLowerCase() : '';
     if (e === 'jpeg') e = 'jpg';
@@ -73,6 +108,7 @@
     var f = v.enviadoAt ? new Date(v.enviadoAt) : null;
     if (!f || isNaN(f.getTime())) e.push('Indica la fecha y hora de envío que muestra Outlook en «Enviados».');
     else if (f.getTime() > Date.now() + 10 * 60 * 1000) e.push('La fecha de envío no puede ser futura.');
+    if (v.motivo && (String(v.motivo).trim().length < 10 || String(v.motivo).trim().length > 300)) e.push('El motivo del reenvío debe tener entre 10 y 300 caracteres.');
     if (!TIPOS[v.tipo]) e.push('Elige el tipo de evidencia.');
     if (!v.archivo) e.push('Adjunta el archivo de evidencia.');
     else {
@@ -99,7 +135,12 @@
   }
   var MSG_ERR = {
     REPORTE_NO_LISTO: 'El reporte no está listo (Contable o RR. HH. sin OK).', PERIODO_NO_COINCIDE: 'El período no coincide con el reporte.',
-    ENVIO_YA_REGISTRADO: 'Ese envío (destinatario y fecha) ya estaba registrado con OTRA evidencia. No se reemplaza: avisa al Master.',
+    REENVIO_SIN_MOTIVO: 'Ese correo ya tiene un envío registrado de este reporte. Si es un reenvío, escribe el motivo (p. ej. «rebotó», «corrección del monto»).',
+    EVIDENCIA_YA_USADA: 'Ese archivo ya respalda otro registro: cada envío lleva su propia evidencia.',
+    INTENTO_REUTILIZADO: 'Este registro ya se guardó con otros datos. Cierra y abre «Registrar envío manual» de nuevo.',
+    EVIDENCIA_HUELLA_NO_COINCIDE: 'La huella del archivo guardado no coincide con la calculada aquí. Vuelve a elegir el archivo.',
+    EVIDENCIA_HUELLA_NO_VERIFICABLE: 'El almacenamiento no pudo comprobar la huella del archivo. Vuelve a subirlo.',
+    RESULTADO_YA_REGISTRADO: 'Ese envío ya tiene un resultado registrado (no se reemplaza).',
     EVIDENCIA_NO_SUBIDA: 'La evidencia no quedó subida. Vuelve a intentarlo.', SIN_PERMISO: 'No tienes permiso sobre este cliente.',
     NO_AUTORIZADO: 'Tu sesión no es válida. Vuelve a entrar.', FECHA_ENVIO_FUTURA: 'La fecha de envío no puede ser futura.'
   };
@@ -112,15 +153,17 @@
   function registrar(ctx, v) {
     var val = validarRegistro(v);
     if (!val.ok) return Promise.reject(new Error(val.errores.join(' ')));
+    if (!ctx || !/^[0-9a-f-]{36}$/i.test(String(ctx.intentoId || ''))) return Promise.reject(new Error('Falta el id del intento: cierra y vuelve a abrir «Registrar envío manual».'));
     return sondear(true).then(function (s) {
       if (s.estado !== 'disponible') throw new Error(s.texto);
-      return Promise.all([sha256(v.archivo), v.adjunto ? sha256(v.adjunto) : Promise.resolve(null)]);
+      return Promise.all([sha256(v.archivo), v.adjunto ? sha256(v.adjunto) : Promise.resolve(null), md5(v.archivo)]);
     }).then(function (h) {
       return subirEvidencia(ctx.reporteId, v.archivo, h[0]).then(function (path) {
         return rpc('registrar_envio_manual_reporte', {
-          p_reporte_id: Number(ctx.reporteId), p_periodo: ctx.periodo, p_destinatarios: val.destinatarios, p_remitente: String(v.remitente).trim().toLowerCase(),
+          p_intento_id: ctx.intentoId, p_reporte_id: Number(ctx.reporteId), p_periodo: ctx.periodo, p_destinatarios: val.destinatarios, p_remitente: String(v.remitente).trim().toLowerCase(),
           p_asunto: String(v.asunto).trim(), p_enviado_at: new Date(v.enviadoAt).toISOString(), p_evidencia_tipo: v.tipo, p_evidencia_path: path,
-          p_evidencia_sha256: h[0], p_adjunto_sha256: h[1], p_obs: v.obs ? String(v.obs).trim().slice(0, 500) : null
+          p_evidencia_sha256: h[0], p_evidencia_md5: h[2], p_adjunto_sha256: h[1],
+          p_motivo_reenvio: v.motivo ? String(v.motivo).trim() : null, p_obs: v.obs ? String(v.obs).trim().slice(0, 500) : null
         });
       });
     }).then(function (res) {
@@ -144,8 +187,33 @@
     });
   }
 
+  // Resultado de la ENTREGA (aparte del envío): REBOTE o ENTREGA_CONFIRMADA, con su propia evidencia.
+  var TIPOS_RES = { REBOTE: ['AVISO_NO_ENTREGA', 'CAPTURA'], ENTREGA_CONFIRMADA: ['RESPUESTA_CLIENTE', 'CAPTURA'] };
+  function registrarResultado(r) {
+    // r: {intentoId, reporteId, envioId, resultado, tipo, ocurridoAt, detalle, archivo}
+    var e = [];
+    if (!TIPOS_RES[r.resultado]) e.push('Elige el resultado.');
+    else if (TIPOS_RES[r.resultado].indexOf(r.tipo) < 0) e.push('Ese tipo de evidencia no sirve para ese resultado.');
+    if (String(r.detalle || '').trim().length < 5) e.push('Describe qué pasó.');
+    var f = r.ocurridoAt ? new Date(r.ocurridoAt) : null; if (!f || isNaN(f.getTime())) e.push('Indica fecha y hora.');
+    if (!r.archivo || !extDe(r.archivo) || r.archivo.size <= 0 || r.archivo.size > MAX) e.push('Adjunta la evidencia (PDF, imagen o .eml, máx. 10 MB).');
+    if (e.length) return Promise.reject(new Error(e.join(' ')));
+    return sondear(true).then(function (s) {
+      if (s.estado !== 'disponible') throw new Error(s.texto);
+      return Promise.all([sha256(r.archivo), md5(r.archivo)]);
+    }).then(function (h) {
+      return subirEvidencia(r.reporteId, r.archivo, h[0]).then(function (path) {
+        return rpc('registrar_resultado_envio_manual', { p_intento_id: r.intentoId, p_envio_id: Number(r.envioId), p_resultado: r.resultado, p_detalle: String(r.detalle).trim(),
+          p_ocurrido_at: f.toISOString(), p_evidencia_tipo: r.tipo, p_evidencia_path: path, p_evidencia_sha256: h[0], p_evidencia_md5: h[1] });
+      });
+    }).then(function (res) {
+      if (!res.ok || !res.json || res.json.ok !== true) throw new Error(mensajeError(res.json, res.status));
+      return res.json;
+    });
+  }
+
   function registrosPrevios(reporteId) {
-    return fetchApi('reportes_envios_manuales?reporte_id=eq.' + encodeURIComponent(reporteId) + '&select=destinatario,fecha_envio,registrado_nombre,registrado_at,evidencia_tipo&order=id')
+    return fetchApi('v_reportes_envios_estado?reporte_id=eq.' + encodeURIComponent(reporteId) + '&select=envio_id,intento_n,destinatario,fecha_envio,registrado_nombre,estado_entrega,motivo_reenvio&order=envio_id')
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
 
@@ -153,6 +221,7 @@
   function abrir(ctx) {
     // ctx: {reporteId, periodo, periodoTxt, empresa, destinatarios, responsable, remitente, listo, motivos[], html, imprimir()}
     var prev = document.getElementById('modal-envio-manual'); if (prev) prev.remove();
+    ctx = Object.assign({}, ctx, { intentoId: nuevoIntento() });   // un intento por apertura: reintentos y doble clic no duplican
     var ov = document.createElement('div'); ov.id = 'modal-envio-manual';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:320;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
     var asunto = 'Reporte mensual ' + (ctx.periodoTxt || ctx.periodo) + ' · ' + (ctx.empresa || '');
@@ -186,7 +255,9 @@
         campo('Tipo de evidencia', '<select id="em-tipo" style="' + inp + '">' + Object.keys(TIPOS).map(function (k) { return '<option value="' + k + '">' + esc(TIPOS[k].txt) + '</option>'; }).join('') + '</select>') +
         campo('Archivo de evidencia (máx. 10 MB)', '<input id="em-archivo" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,.eml" style="font-size:12px">') +
         campo('Opcional: el PDF que adjuntaste (solo se calcula su huella; no se sube)', '<input id="em-adjunto" type="file" accept=".pdf" style="font-size:12px">') +
+        campo('Motivo del reenvío (obligatorio solo si ese correo ya recibió este reporte)', '<input id="em-motivo" maxlength="300" placeholder="Ej.: rebotó; corrección del monto" style="' + inp + '">') +
         campo('Observación (opcional)', '<input id="em-obs" maxlength="500" style="' + inp + '">') +
+        '<div style="font-size:11px;color:var(--tm,#666);margin-top:6px">Huella del archivo: este navegador calcula su SHA-256 (queda como «declarada») y su MD5; el servidor comprueba el MD5 contra el que calcula el almacenamiento. Registrar el envío NO confirma la entrega: si rebota o el cliente confirma, regístralo abajo en «Envíos ya registrados».</div>' +
         '<div id="em-err" style="font-size:12px;color:#D34433;margin-top:6px"></div>' +
         '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="btn-s" id="em-cancel">Cerrar</button><button class="btn-p" id="em-reg" disabled title="">📤 Registrar envío</button></div>' +
         '<div id="em-reg-motivo" style="font-size:11px;color:var(--tm,#666);margin-top:4px;text-align:right"></div>') +
@@ -214,12 +285,12 @@
     $('em-reg').onclick = function () {
       $('em-err').textContent = ''; ocupado = true; refrescar(); $('em-reg').textContent = '⏳ Registrando…';
       registrar(ctx, { destinatarios: $('em-dest').value, remitente: $('em-rem').value, asunto: $('em-asunto').value, enviadoAt: $('em-fecha').value,
-                       tipo: $('em-tipo').value, archivo: $('em-archivo').files[0], adjunto: $('em-adjunto').files[0], obs: $('em-obs').value })
+                       tipo: $('em-tipo').value, archivo: $('em-archivo').files[0], adjunto: $('em-adjunto').files[0], obs: $('em-obs').value, motivo: $('em-motivo').value })
         .then(function (j) {
           ocupado = false; $('em-reg').textContent = '📤 Registrar envío';
           $('em-err').style.color = '#28865B';
           $('em-err').textContent = (j.estado === 'YA_REGISTRADO' ? '✅ Ya estaba registrado (no se duplicó): ' : '✅ Registrado en Gestoor como «enviado manualmente»: ') +
-            j.registros.map(function (x) { return x.destinatario; }).join(', ') + ' · ' + j.fecha_envio;
+            j.registros.map(function (x) { return x.destinatario; }).join(', ') + ' · ' + j.fecha_envio + ' · intento ' + j.intento_n + ' · entrega sin confirmar';
           if (typeof ctx.alRegistrar === 'function') ctx.alRegistrar(j);
           cargarPrevios(); refrescar();
         })
@@ -229,8 +300,30 @@
       if (!sondaEstado || sondaEstado.estado !== 'disponible') return;
       registrosPrevios(ctx.reporteId).then(function (rows) {
         if (!rows || !rows.length) { $('em-previos').textContent = ''; return; }
-        $('em-previos').innerHTML = '📋 Envíos manuales ya registrados: ' + rows.map(function (x) { return esc(x.destinatario) + ' (' + esc(x.fecha_envio) + ', ' + esc(x.registrado_nombre) + ')'; }).join(' · ');
+        var ETQ = { SIN_CONFIRMAR: '⏳ entrega sin confirmar', ENTREGA_CONFIRMADA: '✅ entrega confirmada', REBOTE: '↩️ rebotó' };
+        $('em-previos').innerHTML = '<div style="font-weight:700;margin-bottom:4px">📋 Envíos ya registrados</div>' + rows.map(function (x) {
+          return '<div style="margin:2px 0">Intento ' + esc(x.intento_n) + ' · ' + esc(x.destinatario) + ' · ' + esc(x.fecha_envio) + ' · ' + esc(x.registrado_nombre) + ' · <b>' + esc(ETQ[x.estado_entrega] || x.estado_entrega) + '</b>'
+            + (x.estado_entrega === 'SIN_CONFIRMAR' ? ' <button class="btn-s btn-sm em-res" data-envio="' + esc(x.envio_id) + '" style="font-size:11px">Registrar rebote / entrega</button>' : '') + '</div>';
+        }).join('') + '<div id="em-res-form"></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('#modal-envio-manual .em-res'), function (b) { b.onclick = function () { formResultado(b.getAttribute('data-envio')); }; });
       });
+    }
+    function formResultado(envioId) {
+      var intento = nuevoIntento();
+      $('em-res-form').innerHTML = '<div style="border:1px solid var(--bdr,#ddd);border-radius:8px;padding:8px 10px;margin-top:6px">' +
+        campo('Resultado', '<select id="emr-res" style="' + inp + '"><option value="REBOTE">↩️ Rebotó (llegó aviso de no entrega)</option><option value="ENTREGA_CONFIRMADA">✅ Entrega confirmada (el cliente respondió)</option></select>') +
+        campo('Tipo de evidencia', '<select id="emr-tipo" style="' + inp + '"><option value="AVISO_NO_ENTREGA">Aviso de no entrega (.eml/PDF/captura)</option><option value="RESPUESTA_CLIENTE">Respuesta del cliente (.eml/PDF/captura)</option><option value="CAPTURA">Captura de pantalla</option></select>') +
+        campo('Fecha y hora del aviso o de la respuesta', '<input id="emr-fecha" type="datetime-local" style="' + inp + '">') +
+        campo('Qué pasó', '<input id="emr-det" maxlength="500" style="' + inp + '">') +
+        campo('Archivo de evidencia', '<input id="emr-arch" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,.eml" style="font-size:12px">') +
+        '<div id="emr-err" style="font-size:12px;margin-top:4px"></div><div style="text-align:right;margin-top:6px"><button class="btn-p btn-sm" id="emr-ok">Registrar resultado</button></div></div>';
+      $('emr-ok').onclick = function () {
+        $('emr-ok').disabled = true; $('emr-err').style.color = 'inherit'; $('emr-err').textContent = '⏳ Registrando…';
+        registrarResultado({ intentoId: intento, reporteId: ctx.reporteId, envioId: envioId, resultado: $('emr-res').value, tipo: $('emr-tipo').value,
+                             ocurridoAt: $('emr-fecha').value, detalle: $('emr-det').value, archivo: $('emr-arch').files[0] })
+          .then(function (j) { $('emr-err').style.color = '#28865B'; $('emr-err').textContent = '✅ Resultado registrado: ' + j.resultado + (j.estado === 'YA_REGISTRADO' ? ' (ya estaba)' : ''); cargarPrevios(); })
+          .catch(function (e) { $('emr-ok').disabled = false; $('emr-err').style.color = '#D34433'; $('emr-err').textContent = '❌ ' + (e && e.message || e); });
+      };
     }
     sondear(true).then(function (s) {
       sondaEstado = s;
@@ -243,5 +336,5 @@
   }
 
   window.GestoorEnvioManual = { sondear: sondear, estadoDesdeRespuesta: estadoDesdeRespuesta, validarRegistro: validarRegistro, parsearDestinatarios: parsearDestinatarios,
-    sha256: sha256, registrar: registrar, guardarNota: guardarNota, abrir: abrir, TIPOS: TIPOS, _reiniciar: function () { _sonda = null; } };
+    sha256: sha256, md5Bytes: md5Bytes, registrar: registrar, registrarResultado: registrarResultado, guardarNota: guardarNota, abrir: abrir, TIPOS: TIPOS, _reiniciar: function () { _sonda = null; } };
 })();

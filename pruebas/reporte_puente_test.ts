@@ -29,20 +29,22 @@ function entorno(rpcResp: Record<string, () => { status: number; body: any }>, s
 }
 const NO_INSTALADA = {};   // sin entradas → 404 PGRST202 para toda RPC
 const INSTALADA = (puede = true, regBody: any = null, regStatus = 200) => ({
-  reporte_envio_manual_disponible: () => ({ status: 200, body: { version: 'P1B-PUENTE12-V1', envio_manual: true, nota: true, puede_operar: puede } }),
-  registrar_envio_manual_reporte: () => ({ status: regStatus, body: regBody ?? { ok: true, estado: 'REGISTRADO', fecha_envio: '2026-11-08', nuevos: 1, registros: [{ id: 1, destinatario: 'cliente.uno@ejemplo.test' }] } }),
+  reporte_envio_manual_disponible: () => ({ status: 200, body: { version: 'P1B-PUENTE12-V2', contrato: 2, envio_manual: true, resultado_entrega: true, nota: true, puede_operar: puede } }),
+  registrar_envio_manual_reporte: () => ({ status: regStatus, body: regBody ?? { ok: true, estado: 'REGISTRADO', fecha_envio: '2026-11-08', intento_n: 1, nuevos: 1, registros: [{ id: 1, destinatario: 'cliente.uno@ejemplo.test' }] } }),
   guardar_nota_reporte: () => ({ status: 200, body: { ok: true, estado: 'GUARDADA', nota: 'Nota ficticia' } }),
-  reportes_envios_manuales: () => ({ status: 200, body: [] }),
+  registrar_resultado_envio_manual: () => ({ status: 200, body: { ok: true, estado: 'REGISTRADO', resultado: 'REBOTE', resultado_id: 1 } }),
+  v_reportes_envios_estado: () => ({ status: 200, body: [{ envio_id: 11, intento_n: 1, destinatario: 'cliente.uno@ejemplo.test', fecha_envio: '2026-11-08', registrado_nombre: 'Analista Ficticia', estado_entrega: 'SIN_CONFIRMAR' }] }),
 });
-const CTX = { reporteId: 7001, periodo: '2026-10', periodoTxt: 'Octubre 2026', empresa: 'Empresa Ficticia Uno SpA', destinatarios: ['cliente.uno@ejemplo.test'], responsable: 'Analista Ficticia', remitente: 'analista@ejemplo.test', listo: true, motivos: [] };
+const CTX = { intentoId: '11111111-2222-4333-8444-555555555555', reporteId: 7001, periodo: '2026-10', periodoTxt: 'Octubre 2026', empresa: 'Empresa Ficticia Uno SpA', destinatarios: ['cliente.uno@ejemplo.test'], responsable: 'Analista Ficticia', remitente: 'analista@ejemplo.test', listo: true, motivos: [] };
 const fecha = new Date(Date.now() - 3600e3); const fechaLocal = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 const valores = (archivo: any) => ({ destinatarios: 'Cliente.Uno@Ejemplo.test', remitente: 'analista@ejemplo.test', asunto: 'Reporte mensual Octubre 2026', enviadoAt: fechaLocal, tipo: 'CAPTURA_ENVIADOS', archivo, adjunto: null, obs: '' });
 
 // ── 1) Estado de la sonda (puro) ──
 { const { EM } = entorno(NO_INSTALADA);
   res('Sonda 404 PGRST202 → no_instalado', EM.estadoDesdeRespuesta({ status: 404, ok: false, json: { code: 'PGRST202', message: 'Could not find the function public.reporte_envio_manual_disponible' } }).estado === 'no_instalado');
-  res('Sonda ok + puede_operar → disponible', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: { envio_manual: true, puede_operar: true } }).estado === 'disponible');
-  res('Sonda ok sin permiso → sin_permiso', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: { envio_manual: true, puede_operar: false } }).estado === 'sin_permiso');
+  res('Sonda ok + contrato 2 + puede_operar → disponible', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: { envio_manual: true, contrato: 2, puede_operar: true } }).estado === 'disponible');
+  res('Sonda con contrato 1 (R1) → error (no se usa una base con otro contrato)', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: { envio_manual: true, puede_operar: true } }).estado === 'error');
+  res('Sonda ok sin permiso → sin_permiso', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: { envio_manual: true, contrato: 2, puede_operar: false } }).estado === 'sin_permiso');
   res('Sonda 500 → error (desactiva)', EM.estadoDesdeRespuesta({ status: 500, ok: false, json: { message: 'x' } }).estado === 'error');
   res('Sonda 200 con cuerpo inesperado → error (no se asume instalado)', EM.estadoDesdeRespuesta({ status: 200, ok: true, json: {} }).estado === 'error');
   res('Texto honesto: "NO está instalado" y "no registra"', /NO está instalado/.test(EM.estadoDesdeRespuesta({ status: 404, json: {} }).texto) && /no registra/.test(EM.estadoDesdeRespuesta({ status: 404, json: {} }).texto)); }
@@ -91,13 +93,32 @@ const valores = (archivo: any) => ({ destinatarios: 'Cliente.Uno@Ejemplo.test', 
   res('Instalada: RPC con reporte, período, destinatario normalizado, sha y ruta', !!reg && reg.body.p_reporte_id === 7001 && reg.body.p_periodo === '2026-10'
       && JSON.stringify(reg.body.p_destinatarios) === '["cliente.uno@ejemplo.test"]' && reg.body.p_evidencia_sha256 === h && reg.body.p_evidencia_path === `7001/${h}.png`
       && reg.body.p_evidencia_tipo === 'CAPTURA_ENVIADOS' && !isNaN(Date.parse(reg.body.p_enviado_at)), JSON.stringify(reg?.body));
-  res('Instalada: devuelve REGISTRADO de la base', j.estado === 'REGISTRADO'); }
+  res('Instalada: devuelve REGISTRADO de la base', j.estado === 'REGISTRADO');
+  const md5ref = (await import('node:crypto')).createHash('md5').update(contenido).digest('hex');
+  res('R2: envía p_intento_id del registro y p_evidencia_md5 = MD5 real del archivo (lo compara el servidor con el almacenamiento)', reg?.body.p_intento_id === CTX.intentoId && reg?.body.p_evidencia_md5 === md5ref, reg?.body.p_evidencia_md5);
+  const j2 = await EM.registrar(CTX, { ...valores(png), motivo: 'Rebotó el primer envío' });
+  const regs = llamadas.filter((l) => /rpc\/registrar_envio_manual_reporte/.test(l.url));
+  res('R2: reintento desde el mismo registro usa el MISMO intento (no duplica) y manda el motivo de reenvío', regs.length === 2 && regs[1].body.p_intento_id === CTX.intentoId && regs[1].body.p_motivo_reenvio === 'Rebotó el primer envío' && !!j2); }
+{ const { EM } = entorno(INSTALADA()); let err = ''; try { await EM.registrar({ ...CTX, intentoId: undefined }, valores(new File(['x'], 'e.png', { type: 'image/png' }))); } catch (e) { err = String((e as Error).message); }
+  res('R2: sin id de intento no registra', /intento/.test(err)); }
+{ const { EM, w } = entorno(INSTALADA()); EM.abrir({ ...CTX }); await espera(120);
+  const id1 = (w.document.getElementById('em-motivo') !== null);
+  res('R2: el modal pide «Motivo del reenvío» y explica que registrar el envío NO confirma la entrega', id1 && /NO confirma la entrega/.test(w.document.body.textContent) && /declarada/.test(w.document.body.textContent));
+  res('R2: lista de envíos desde v_reportes_envios_estado con estado de entrega y botón «Registrar rebote / entrega»', /entrega sin confirmar/.test(w.document.getElementById('em-previos').textContent) && !!w.document.querySelector('.em-res')); }
+{ const { EM, llamadas } = entorno(INSTALADA()); const ev = new File(['aviso de no entrega ficticio'], 'rebote.eml', { type: '' });
+  const r = await EM.registrarResultado({ intentoId: '99999999-2222-4333-8444-555555555555', reporteId: 7001, envioId: 11, resultado: 'REBOTE', tipo: 'AVISO_NO_ENTREGA', ocurridoAt: fechaLocal, detalle: 'Buzón inexistente', archivo: ev });
+  const c = llamadas.find((l) => /registrar_resultado_envio_manual/.test(l.url));
+  res('R2: rebote se registra APARTE (registrar_resultado_envio_manual) con su evidencia, intento y MD5', r.resultado === 'REBOTE' && c?.body.p_envio_id === 11 && c?.body.p_resultado === 'REBOTE' && /^[0-9a-f]{32}$/.test(c?.body.p_evidencia_md5) && c?.body.p_intento_id.startsWith('9999'));
+  let err = ''; try { await EM.registrarResultado({ intentoId: 'x', reporteId: 7001, envioId: 11, resultado: 'ENTREGA_CONFIRMADA', tipo: 'AVISO_NO_ENTREGA', ocurridoAt: fechaLocal, detalle: 'xxxxx', archivo: ev }); } catch (e) { err = String((e as Error).message); }
+  res('R2: entrega confirmada con «aviso de no entrega» → rechazo local', /no sirve/.test(err)); }
+{ const { EM } = entorno(NO_INSTALADA); let err = ''; try { await EM.registrarResultado({ intentoId: 'x', reporteId: 7001, envioId: 11, resultado: 'REBOTE', tipo: 'CAPTURA', ocurridoAt: fechaLocal, detalle: 'xxxxx', archivo: new File(['x'], 'c.png', { type: 'image/png' }) }); } catch (e) { err = String((e as Error).message); }
+  res('R2: sin RPC instalada tampoco registra resultados (fail-closed)', /NO está instalado/.test(err)); }
 { const { EM } = entorno(INSTALADA(), 409);   // evidencia ya subida (reintento): sigue y la RPC lo verifica
   let ok = false; try { ok = (await EM.registrar(CTX, valores(new File(['x'], 'e.png', { type: 'image/png' })))).ok === true; } catch { ok = false; }
   res('Reintento: storage 409 (ya existe, misma huella) → continúa con la RPC', ok); }
-{ const { EM } = entorno(INSTALADA(true, { code: '22023', message: 'ENVIO_YA_REGISTRADO: el envío a x ya está registrado con otra evidencia' }, 400));
+{ const { EM } = entorno(INSTALADA(true, { code: '22023', message: 'REENVIO_SIN_MOTIVO: cliente.uno@ejemplo.test ya tiene un envío registrado de este reporte' }, 400));
   let err = ''; try { await EM.registrar(CTX, valores(new File(['x'], 'e.png', { type: 'image/png' }))); } catch (e) { err = String((e as Error).message); }
-  res('Error de la base → mensaje claro, sin éxito', /OTRA evidencia/.test(err), err); }
+  res('Error de la base (REENVIO_SIN_MOTIVO) → mensaje claro pidiendo el motivo, sin éxito', /escribe el motivo/.test(err), err); }
 { const { EM } = entorno(INSTALADA(true, { algo: 1 }, 200));
   let err = ''; try { await EM.registrar(CTX, valores(new File(['x'], 'e.png', { type: 'image/png' }))); } catch (e) { err = String((e as Error).message); }
   res('Respuesta 200 sin ok=true → se trata como error (nunca éxito supuesto)', err.length > 0); }
