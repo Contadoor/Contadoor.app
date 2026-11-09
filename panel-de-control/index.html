@@ -684,8 +684,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div id="vistaContent"></div>
     <div class="modal-footer no-print">
       <button class="btn-s" onclick="closeVista()">Cerrar</button>
-      <button class="btn-s" onclick="window.print()">🖨️ Imprimir PDF</button>
+      <button class="btn-s" onclick="imprimirReportePdf()" title="Imprime solo el reporte, en páginas A4 completas">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
+      <button class="btn-s" onclick="abrirEnvioManual()" style="color:var(--blue);border-color:var(--blue)" title="Puente 12-nov: PDF + Outlook + registro con evidencia">📤 Registrar envío manual</button>
       <button class="btn-p" onclick="enviarEmail()" style="opacity:.55" title="Se activa con el servicio seguro de correos (PR #10B)">✉️ Enviar reporte mensual</button>
       <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
     </div>
@@ -728,6 +729,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
 <script src="../reporte-email.js"></script>
+<script src="../assets/reporte-pdf.js"></script>
+<script src="envio-manual.js"></script>
 <script>
 
 // ═══════════════════════════════════════════════════════════
@@ -1717,6 +1720,7 @@ function verReporte(id){
   var r=getReportes().find(function(x){return String(x.id)===String(id);});
   if(!r){alert('Reporte no encontrado.');return;}
   _vistaId=String(id);
+  _vistaRender=null;
   var cont=document.getElementById('vistaContent');
   cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--tm)">⏳ Armando el reporte…</div>';
   document.getElementById('modalVista').classList.add('on');
@@ -1731,7 +1735,9 @@ function verReporte(id){
       +'<iframe id="rp-frame" title="Vista previa del reporte" style="width:100%;height:70vh;border:0;background:#0C070E"></iframe>';
     if(!d._completo){document.getElementById('rp-frame').outerHTML='<div style="padding:24px;color:var(--amber)">'+(d.f29Estado==='inconsistente'?'⚠️ El F29 no cuadra':'⏳ El F29 está pendiente')+': '+hesc(d.f29Motivo)+'.<br><br>El reporte no se genera mientras falte el F29, para no mostrar un «Total de tus obligaciones» parcial. Revisa el Reporte Contable.</div>';return;}
     if(!GestoorReporte.plantilla(d.plan)){document.getElementById('rp-frame').outerHTML='<div style="padding:24px;color:var(--red)">⛔ No hay plantilla para el plan «'+hesc(d.plan||'sin plan')+'». Revisa el plan en la ficha del cliente (Cumplimiento, Contadoor PRO o Estratégico).</div>';return;}
-    document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+GestoorReporte.render(d)+'</body></html>';
+    var htmlRep=GestoorReporte.render(d);
+    _vistaRender={id:String(id),html:htmlRep,datos:d};
+    document.getElementById('rp-frame').srcdoc='<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"></head><body style="margin:0;background:#0C070E">'+htmlRep+'</body></html>';
     document.getElementById('rp-tip-ok').onclick=function(){
       try{localStorage.setItem('tip_mes_'+per,document.getElementById('rp-tip').value.trim());}catch(e){}
       verReporte(id);
@@ -1779,6 +1785,34 @@ function enviarSeleccionados(){
   });
 }
 
+// ═══════════════════════════════════════════════════════════
+// P1-B · PUENTE 12-NOV: PDF del reporte (A-PAN-05) y registro de envío manual (panel-de-control/envio-manual.js)
+// ═══════════════════════════════════════════════════════════
+var _vistaRender=null;   // {id, html, datos} del reporte que se está viendo (solo si se generó completo)
+function imprimirReportePdf(){
+  if(!_vistaRender||_vistaRender.id!==String(_vistaId)){alert('No hay un reporte completo para imprimir: revisa los avisos de la vista previa (F29, plan o datos pendientes).');return;}
+  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);})||{};
+  GestoorReportePDF.imprimir(_vistaRender.html,{periodo:r.periodo,empresa:_vistaRender.datos.empresa}).catch(function(e){alert('No se pudo preparar el PDF: '+(e&&e.message||e));});
+}
+function abrirEnvioManual(){
+  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
+  if(!r){alert('Reporte no encontrado.');return;}
+  if(typeof GestoorEnvioManual==='undefined'){alert('No se cargó el módulo de envío manual. Recarga la página.');return;}
+  var est=_estadoSecciones(r), d=_vistaRender&&_vistaRender.id===String(_vistaId)?_vistaRender.datos:null;
+  var motivos=[];
+  if(!est.rrhh)motivos.push('RR. HH. sin OK');
+  if(!est.imp)motivos.push('Contable sin «OK para el Panel»');
+  if(!est.hon)motivos.push('Nuestros servicios sin calcular');
+  if(!d)motivos.push('la vista previa no generó el reporte completo');
+  var ses={};try{ses=JSON.parse(sessionStorage.getItem('usuario_activo')||'{}')||{};}catch(e){}
+  var email=(d&&d._email)||r.clienteEmail||'';
+  GestoorEnvioManual.abrir({
+    reporteId:r.id, periodo:_rpPerDash(r.periodo), periodoTxt:formatPer(r.periodo), empresa:(d&&d.empresa)||r.clienteNombre||r.rut,
+    destinatarios:email?String(email).split(/[;,\s]+/).filter(Boolean):[], responsable:ses.nombre||'', remitente:ses.email||'',
+    listo:!motivos.length, motivos:motivos, imprimir:imprimirReportePdf
+  });
+}
+
 function closeVista(){
   document.getElementById('modalVista').classList.remove('on');
   // Resetear estado SII para que fetches tardíos sean ignorados
@@ -1803,7 +1837,8 @@ function abrirEditRapido(){
     +'<button id="nota-x" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tm)">×</button></div>'
     +'<div style="padding:16px 18px">'
     +'<div style="font-size:11px;color:var(--tm);margin-bottom:8px">Aparece al pie del reporte cuando lo ve el cliente.</div>'
-    +'<textarea id="nota-txt" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;background:var(--sur2);color:var(--t1);outline:none;resize:vertical;min-height:100px">'+(r.obsAnalista||'')+'</textarea>'
+    +'<textarea id="nota-txt" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;background:var(--sur2);color:var(--t1);outline:none;resize:vertical;min-height:100px">'+hesc(r.obsAnalista||'')+'</textarea>'
+    +'<div id="nota-modo" style="font-size:11px;color:var(--tm);margin-top:6px">⏳ Verificando dónde se guarda la nota…</div>'
     +'</div>'
     +'<div style="padding:12px 18px;border-top:1px solid var(--bdr);background:var(--sur2);display:flex;justify-content:flex-end;gap:8px">'
     +'<button id="nota-cancel" style="background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">Cancelar</button>'
@@ -1812,17 +1847,20 @@ function abrirEditRapido(){
   document.body.appendChild(ov);
   document.getElementById('nota-x').onclick=function(){ov.remove();};
   document.getElementById('nota-cancel').onclick=function(){ov.remove();};
+  if(typeof GestoorEnvioManual!=='undefined')GestoorEnvioManual.sondear(true).then(function(s){var m=document.getElementById('nota-modo');if(m)m.textContent=s.estado==='disponible'?'🟢 Se guarda en Gestoor (visible para todo el equipo).':'🟠 Se guarda SOLO en este computador: el guardado en la base aún no está instalado.';});
+  // A-PAN-01: con la RPC instalada la nota se guarda en la base (con historial); si no, queda solo en este computador y se avisa.
   document.getElementById('nota-save').onclick=function(){
     var txt=document.getElementById('nota-txt').value||'';
-    var arr=getReportes();
-    var idx=arr.findIndex(function(x){return String(x.id)===String(_vistaId);});
-    if(idx>=0){arr[idx].obsAnalista=txt;setReportes(arr);}
-    ov.remove();
-    if(document.getElementById('modalVista').classList.contains('on'))verReporte(_vistaId);
-    var t=document.createElement('div');
-    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a2e1a;border:1px solid #4ade80;color:#4ade80;padding:12px 18px;border-radius:8px;font-size:13px;z-index:9999';
-    t.textContent='✅ Nota guardada';document.body.appendChild(t);
-    setTimeout(function(){t.remove();},3000);
+    var btn=document.getElementById('nota-save');btn.disabled=true;btn.textContent='⏳ Guardando…';
+    var guardar=typeof GestoorEnvioManual!=='undefined'?GestoorEnvioManual.guardarNota(r.id,txt,r.obsAnalista==null?'':r.obsAnalista):Promise.resolve({modo:'local',texto:'Guardada SOLO en este computador.'});
+    guardar.then(function(res){
+      var arr=getReportes();
+      var idx=arr.findIndex(function(x){return String(x.id)===String(_vistaId);});
+      if(idx>=0){arr[idx].obsAnalista=res.modo==='base'?(res.nota||''):txt;setReportes(arr);}
+      ov.remove();
+      if(document.getElementById('modalVista').classList.contains('on'))verReporte(_vistaId);
+      _rpToast((res.modo==='base'?'✅ ':'⚠️ ')+res.texto,res.modo==='base');
+    }).catch(function(e){btn.disabled=false;btn.textContent='💾 Guardar';_rpToast('❌ '+(e&&e.message||e),false);});
   };
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
