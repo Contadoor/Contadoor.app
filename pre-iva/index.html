@@ -94,7 +94,7 @@
             <button class="btn sec" id="btn-nueva-sim" type="button"><span data-g-ic="repetir"></span>Nueva simulación</button>
             <button class="btn sec" id="btn-editar-reporte" type="button"><span data-g-ic="lapiz"></span>Editar reporte</button>
             <button class="btn sec" id="btn-vista-previa" type="button"><span data-g-ic="ver"></span>Vista previa del correo</button>
-            <button class="btn pri" id="btn-enviar" type="button">✉️ Enviar Pre-IVA</button>
+            <button class="btn pri" id="btn-enviar" type="button" title="Envío por correo en preparación: abre la vista previa para el puente PDF/Outlook">✉️ Enviar Pre-IVA (PDF)</button>
           </div>
         </div>
       </section>
@@ -273,7 +273,13 @@
 <script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
-var PROXY='https://contafunnel-v2.vercel.app';
+var PROXY='https://contafunnel-v2.vercel.app';   // RETIRADO (404 verificado el 08-11-2026): no se usa mientras PREIVA_ENVIO_CORREO_ACTIVO=false
+// P1-A (A-PIVA-01): el envío por correo del Pre-IVA queda DESACTIVADO hasta que el transporte nuevo
+// (Edge gestoor-correo-enviar, tipo preiva, con registro en el servidor) tenga su GO. Mientras tanto
+// "Enviar" NO llama a Vercel ni marca el Pre-IVA como enviado: ofrece la vista previa para el puente PDF/Outlook.
+var PREIVA_ENVIO_CORREO_ACTIVO=false;
+var PREIVA_MSG_ENVIO_PREPARACION='Envío por correo en preparación; usa el puente PDF/Outlook.\n\n'
+  +'Gestoor todavía no envía este Pre-IVA ni lo registra como enviado (queda como borrador guardado).';
 // Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
 // Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
 var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
@@ -795,40 +801,53 @@ function onLibroChange(input,tipo){
   });
 }
 // ── ENVIAR PRE-IVA ────────────────────────────────────────────────────────
-function enviarPreIVA(){
-  if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
+// Arma el correo (destinatario, resumen para confirmar y payload). No envía nada. Devuelve null si no corresponde.
+function prepararCorreoPreIVA(){
+  if(!_clienteActual){alert('Selecciona un cliente primero.');return null;}
   var c=_clienteActual;
-  if(!c.email){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return;}
+  if(!c.email){alert('El cliente no tiene email registrado. Agrégalo en la ficha del cliente.');return null;}
   var u=getUsuario();
-  if(!u.nombre){alert('No hay usuario activo en sesión.');return;}
+  if(!u.nombre){alert('No hay usuario activo en sesión.');return null;}
   var errEnt=revisarEntradas();
-  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return null;}
   var periodo=formatPeriodo(_periodoActual);
   var f29=document.getElementById('res-f29').textContent;
-  if(!confirm('¿Enviar proyección IVA de '+periodo+' a '+hesc(c.razonSocial||c.rut)+'?\n\nEmail: '+c.email+'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+(ppmAvisoReporte()?'\n\n⚠ PPM no definitivo: '+ppmAvisoReporte()+'. El correo lo mostrará como estimado.':'')))return;
-  var btn=document.getElementById('btn-enviar');
-  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  var resumen='Email: '+c.email+'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+(ppmAvisoReporte()?'\n\n⚠ PPM no definitivo: '+ppmAvisoReporte()+'. El correo lo mostrará como estimado.':'');
   var htmlReporte=buildReporteHTML();
-  if(!htmlReporte){if(btn){btn.disabled=false;btn.textContent='✉️ Enviar Pre-IVA';}return;}
+  if(!htmlReporte) return null;
   var f29Ant=nv('inp-f29-ant');
   var f29Num=parseInt(String(document.getElementById('kpi-f29').textContent).replace(/[^0-9]/g,''))||0;
   var varComp='';
   if(f29Ant>0){var vp=Math.round((f29Num-f29Ant)/f29Ant*100);var vi=vp>0?'↗':vp<0?'↘':'=';varComp='F29 proyectado: '+ff(f29Num)+' · '+vi+' '+(vp>0?'+':'')+vp+'% vs '+formatPeriodo(getPeriodoAnterior(_periodoActual));}
   function minHTML(h){return h.replace(/\s{2,}/g,' ').replace(/\n/g,'').replace(/> </g,'><');}
+  return {cliente:c, periodo:periodo, nombre:hesc(c.razonSocial||c.rut), resumen:resumen, payload:{
+    tipo:'preiva',
+    analistaNombre:u.nombre,
+    analistaWa:u.wa||'',
+    toEmail:c.email,
+    toNombre:c.contacto||c.razonSocial||c.rut,
+    toEmpresa:c.razonSocial||c.rut,
+    varComparativo:varComp,
+    periodo:periodo,
+    htmlReporte:minHTML(htmlReporte)
+  }};
+}
+function enviarPreIVA(){
+  var prep=prepararCorreoPreIVA();
+  if(!prep) return;
+  var c=prep.cliente;
+  if(!PREIVA_ENVIO_CORREO_ACTIVO){
+    // Sin transporte vigente: aviso honesto + puente PDF. No hay fetch ni guardado como "enviado".
+    if(confirm(PREIVA_MSG_ENVIO_PREPARACION+'\n\nPre-IVA de '+prep.periodo+' · '+prep.nombre+'\n'+prep.resumen+'\n\n¿Abrir la vista previa para guardarla en PDF y enviarla por Outlook?')) generarReporte();
+    return;
+  }
+  if(!confirm('¿Enviar proyección IVA de '+prep.periodo+' a '+prep.nombre+'?\n\n'+prep.resumen))return;
+  var btn=document.getElementById('btn-enviar');
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   fetch(PROXY+'/api/enviar-preiva',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      tipo:'preiva',
-      analistaNombre:u.nombre,
-      analistaWa:u.wa||'',
-      toEmail:c.email,
-      toNombre:c.contacto||c.razonSocial||c.rut,
-      toEmpresa:c.razonSocial||c.rut,
-      varComparativo:varComp,
-      periodo:periodo,
-      htmlReporte:minHTML(htmlReporte)
-    })
+    body:JSON.stringify(prep.payload)
   })
   .then(function(r){return r.json();})
   .then(function(data){
