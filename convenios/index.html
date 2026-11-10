@@ -269,11 +269,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
     <div class="fg2" style="margin-bottom:8px">
       <div class="fgroup">
         <label>Deuda original * <span class="hint" style="display:inline">(capital, sin multas)</span></label>
-        <input type="number" id="f-deuda-capital" placeholder="0" oninput="renderPreviewCuotas()"/>
+        <input type="text" inputmode="decimal" autocomplete="off" id="f-deuda-capital" placeholder="0" oninput="renderPreviewCuotas()"/>
       </div>
       <div class="fgroup">
         <label>Cuota 1 · Pie inicial <span class="hint" style="display:inline">(se abona a los intereses; vacío si no hay pie)</span></label>
-        <input type="number" id="f-pie" placeholder="0" oninput="calcUltima()"/>
+        <input type="text" inputmode="decimal" autocomplete="off" id="f-pie" placeholder="0" oninput="calcUltima()"/>
       </div>
     </div>
     <div class="card-hd"><span data-g-ic="calendario"></span> Estructura de cuotas</div>
@@ -285,12 +285,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       </div>
       <div class="fgroup">
         <label>Valor cuota fija *</label>
-        <input type="number" id="f-vcuota" placeholder="0" oninput="calcUltima()"/>
+        <input type="text" inputmode="decimal" autocomplete="off" id="f-vcuota" placeholder="0" oninput="calcUltima()"/>
         <span class="hint" id="cuota-hint"></span>
       </div>
       <div class="fgroup">
         <label>Última cuota * <span class="hint" style="display:inline">(libre)</span></label>
-        <input type="number" id="f-ultima" placeholder="0" oninput="calcUltima()" style="font-weight:700;color:var(--p)"/>
+        <input type="text" inputmode="decimal" autocomplete="off" id="f-ultima" placeholder="igual a la cuota fija" oninput="this.dataset.tocada='1';calcUltima()" style="font-weight:700;color:var(--p)"/>
         <span class="hint" id="ultima-hint"></span>
       </div>
       <div class="fgroup">
@@ -388,7 +388,10 @@ var MESES_CORTOS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','N
 function hesc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function ff(n){return '$'+Math.round(Math.abs(n)||0).toLocaleString('es-CL');}
 function sv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
-function nv(id){return parseFloat(sv(id))||0;}
+// Montos en pesos: acepta 1951559, 1.951.559, $1.951.559 y 1.951.559,5 (formato chileno). Los puntos solo cuentan como
+// separador de miles si van en grupos de 3; «12.5» sigue siendo un decimal.
+function _numCL(t){t=String(t==null?'':t).replace(/[\s$]/g,'');if(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t))t=t.replace(/\./g,'').replace(',','.');else if(/^-?\d+,\d+$/.test(t))t=t.replace(',','.');return parseFloat(t);}
+function nv(id){return _numCL(sv(id))||0;}
 function hoy(){return new Date().toISOString().slice(0,10);}
 function fmtMes(y,m){return MESES[m]+' '+y;}
 
@@ -551,6 +554,8 @@ function estadoConvenio(conv){
 function _nRegForm(){var n=nv('f-ncuotas');return n-(nv('f-pie')>0?1:0);}
 function calcCuotas(){calcUltima();}
 function calcUltima(){
+  // La última cuota se copia de la cuota fija mientras nadie la escriba a mano (si la TGR indica otro valor, se escribe encima).
+  var eu=document.getElementById('f-ultima');if(eu&&!eu.dataset.tocada){var vc=sv('f-vcuota');if(eu.value!==vc)eu.value=vc;}
   var n=nv('f-ncuotas'),pie=nv('f-pie'),cuota=nv('f-vcuota'),ultima=nv('f-ultima'),nReg=_nRegForm();
   var ch=document.getElementById('cuota-hint'),uh=document.getElementById('ultima-hint');
   ch.textContent='';uh.textContent='';
@@ -637,7 +642,7 @@ function resetForm(){
   ['f-cliente','f-inst','f-numero','f-conceptos','f-periodo-deuda','f-deuda-capital','f-pie','f-monto-total','f-ncuotas','f-vcuota','f-ultima','f-fecha-inicio','f-responsable','f-obs'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('f-estado').value='activo';
   document.getElementById('preview-cuotas').innerHTML='';
-  ['cuota-hint','ultima-hint'].forEach(function(id){document.getElementById(id).textContent='';});
+  ['cuota-hint','ultima-hint'].forEach(function(id){document.getElementById(id).textContent='';});delete document.getElementById('f-ultima').dataset.tocada;
   document.getElementById('plan-resumen').innerHTML='';
   document.getElementById('f-fecha-inicio').value=new Date().toISOString().slice(0,7)+'-01';
   _bloquearEstructura(false);
@@ -664,7 +669,7 @@ function abrirModalEditar(id){
   document.getElementById('f-monto-total').value=conv.montoTotal||'';
   document.getElementById('f-ncuotas').value=conv.cuotas.length?conv.cuotas.length+(conv.pie?1:0):'';
   document.getElementById('f-vcuota').value=conv.valorCuota||'';
-  document.getElementById('f-ultima').value=conv.valorUltima||'';
+  document.getElementById('f-ultima').value=conv.valorUltima||'';document.getElementById('f-ultima').dataset.tocada='1';
   // Cuota 1: con pie es su vencimiento (los convenios antiguos no lo guardaban: un mes antes de la primera cuota regular).
   var c0=conv.cuotas&&conv.cuotas[0]?conv.cuotas[0].vencimiento:'';
   document.getElementById('f-fecha-inicio').value=conv.pie?(conv.pie.vencimiento||(c0?_sumarMes(c0,-1):'')):c0;
