@@ -30,6 +30,9 @@ var CLIS=[{id:201,razon_social:'Panadería Trigo Dorado SpA'},{id:202,razon_soci
 var PLANT=[['Recopilar antecedentes de socios',3,true,'Cédulas y antecedentes',true,false],['Redactar y revisar escritura',5,true,'Borrador de escritura',true,false],
   ['Firma ante notario',7,false,null,true,false],['Inscripción y obtención de RUT',10,true,'Certificado de RUT',true,false],['Entrega de carpeta al cliente',2,false,null,true,true]];
 var T=[], tid=0, pid=0, did=0, cid=0, fid=0, eid=0, corr=40;
+// T1-TXT: texto para el cliente de cada paso de la plantilla demo (el 1.º sin texto: no se muestra al cliente)
+var PL_TXT=[null,'Redacción de la escritura','Firma en notaría','Inscripción y RUT de la sociedad','Entrega de la carpeta final'];
+var PLV={'srv-demo-constitucion':{plantilla:{id:1,version:1,publicada_at:ts(-60)},pasos:PLANT.map(function(p,i){return {orden:i+1,nombre:p[0],plazo_dias:p[1],requiere_documento:p[2],tipo_documento:p[3],obligatorio:p[4],es_entrega:p[5],avisa_cliente:!!PL_TXT[i],texto_cliente:PL_TXT[i],nota:null};})}};
 function nuevo(o){
   var s=SRV.find(function(x){return x.id===o.servicio_id;});
   var t=Object.assign({id:++tid,codigo:'TE-2026-'+String(++corr).padStart(3,'0'),cliente_id:null,prospecto_nombre:null,servicio_id:null,servicio_solicitado:null,
@@ -51,7 +54,7 @@ var faid=0;
 function faNueva(t,estado){var fa={factura_id:++faid,codigo:'FA-2026-'+String(20+faid).padStart(4,'0'),estado:estado,modo:'PRUEBA',total:t.valor,folio:null,creado_at:ts(-3),espejo:null};t._fa.unshift(fa);ev(t,'FACTURA_ADICIONAL_CREADA',-4);return fa;}
 function emitir(t){var fa=faNueva(t,'EMITIDA');fa.folio=String(7000+t.id);fa.espejo='OK';var f=t._fact[0];f.estado='EMITIDA';f.of_folio=fa.folio;f.fecha_emision_dte=addD(HOY,-3);t.etapa='FACTURADA';ev(t,'FACTURA_EMITIDA',-3);}
 function pagar(t,n,d){var c=t._cuotas[n-1];c.estado='PAGADA';c.pagada_fecha=addD(HOY,d);c.pago_referencia='cobranza_pagos:demo';ev(t,'CUOTA_PAGADA',d);}
-function iniciar(t){t.etapa='EN_EJECUCION';t.iniciado_at=ts(-2);PLANT.forEach(function(p,i){t._pasos.push({id:++pid,orden:(i+1)*10,origen:'PLANTILLA',nombre:p[0],plazo_dias:p[1],requiere_documento:p[2],tipo_documento:p[3],obligatorio:p[4],es_entrega:p[5],avisa_cliente:i===3,estado:'PENDIENTE',hecho_at:null,saltado_motivo:null});});ev(t,'TRABAJO_INICIADO',-2);}
+function iniciar(t){t.etapa='EN_EJECUCION';t.iniciado_at=ts(-2);PLANT.forEach(function(p,i){t._pasos.push({id:++pid,orden:(i+1)*10,origen:'PLANTILLA',nombre:p[0],plazo_dias:p[1],requiere_documento:p[2],tipo_documento:p[3],obligatorio:p[4],es_entrega:p[5],avisa_cliente:!!PL_TXT[i],texto_cliente:PL_TXT[i]||null,estado:'PENDIENTE',hecho_at:null,saltado_motivo:null});});ev(t,'TRABAJO_INICIADO',-2);}
 function hecho(t,i){var p=t._pasos[i];if(p.requiere_documento)t._docs.push({id:++did,paso_id:p.id,tipo:'PASO',storage_path:t.id+'/paso-'+p.id+'/demo-'+did+'.pdf',nombre:'documento-ficticio-'+did+'.pdf',mime:'application/pdf',bytes:1000,vigente:true,subido_at:ts(-1)});p.estado='HECHO';p.hecho_at=ts(-1);}
 
 var a=nuevo({prospecto_nombre:'Emprendimiento Huerto Urbano',servicio_id:'srv-demo-formalizacion'});
@@ -118,7 +121,7 @@ var RPC={
   te_cotizacion_registrar_aceptacion:function(x){var t=tr(x.p_trabajo);var e=abierto(t)||editor(t);if(e)return e;if(t.etapa!=='ENVIADA')return err('NO_ENVIADA');if(t.vigencia_hasta<HOY)return err('COTIZACION_VENCIDA');aceptar(t,0);t.etapa_desde=new Date().toISOString();return {etapa:'ACEPTADA'};},
   te_documento_registrar:function(x){var t=tr(x.p_trabajo);var e=abierto(t)||editor(t);if(e)return e;
     t._docs.forEach(function(dd){if(dd.vigente&&((x.p_tipo==='PASO'&&dd.paso_id===x.p_paso)||(x.p_tipo==='ACEPTACION'&&dd.tipo==='ACEPTACION')))dd.vigente=false;});
-    t._docs.unshift({id:++did,paso_id:x.p_paso,tipo:x.p_tipo,storage_path:x.p_storage_path,nombre:x.p_nombre,mime:x.p_mime,bytes:x.p_bytes,vigente:true,subido_at:new Date().toISOString()});ev(t,'DOCUMENTO_SUBIDO');return {documento_id:did};},
+    t._docs.unshift({id:++did,paso_id:x.p_paso,tipo:x.p_tipo,storage_path:x.p_storage_path,nombre:x.p_nombre,mime:x.p_mime,bytes:x.p_bytes,vigente:true,visible_cliente:x.p_visible_cliente===true,subido_at:new Date().toISOString()});ev(t,'DOCUMENTO_SUBIDO');return {documento_id:did};},
   te_factura_preparar:function(x){if(!ROLES[ROL].facturador)return err('SOLO_FACTURADOR');var t=T.find(function(z){return z._fact.some(function(ff){return ff.id===x.p_factura;});}),fa=t._fact.find(function(ff){return ff.id===x.p_factura;});
     fa.estado='LISTA';fa.snapshot_hash='demo-'+fa.id;fa.devolucion=null;ev(t,'FACTURA_PREPARADA');return {estado:'LISTA'};},
   te_factura_aprobar:function(x){var e=master();if(e)return e;var t=T.find(function(z){return z._fact.some(function(ff){return ff.id===x.p_factura;});}),fa=t._fact.find(function(ff){return ff.id===x.p_factura;});
@@ -129,6 +132,14 @@ var RPC={
   te_trabajo_autorizar_inicio:function(x){var t=tr(x.p_trabajo);var e=abierto(t)||master();if(e)return e;t.inicio_autorizado_motivo=x.p_motivo;ev(t,'INICIO_AUTORIZADO_SIN_PAGO');return {};},
   te_trabajo_iniciar:function(x){var t=tr(x.p_trabajo);var e=abierto(t)||editor(t);if(e)return e;if(t.etapa!=='FACTURADA')return err(t.etapa==='ACEPTADA'?'SIN_FACTURA':'NO_INICIABLE');
     if(t._cuotas[0].estado!=='PAGADA'&&!t.inicio_autorizado_motivo)return err('SIN_PAGO_DE_INICIO');iniciar(t);t.etapa_desde=new Date().toISOString();return {etapa:'EN_EJECUCION'};},
+  te_paso_texto_cliente_fijar:function(x){var t=T.find(function(z){return z._pasos.some(function(p){return p.id===x.p_paso;});});var e=abierto(t)||editor(t);if(e)return e;
+    var p=t._pasos.find(function(q){return q.id===x.p_paso;}),v=(x.p_texto||'').trim()||null;
+    if(v&&/honorario/i.test(v))return err('TEXTO_HONORARIOS');if(v&&(v.length<5||v.length>500))return err('TEXTO_LARGO');
+    if(v===p.texto_cliente)return {paso_id:p.id,cambio:false};p.texto_cliente=v;p.avisa_cliente=!!v;ev(t,'PASO_TEXTO_CLIENTE');return {paso_id:p.id,cambio:true};},
+  te_plantilla_publicar:function(x){var e=master();if(e)return e;var cur=PLV[x.p_servicio_id];
+    if((x.p_pasos||[]).some(function(p){return p.texto_cliente&&/honorario/i.test(p.texto_cliente);}))return err('TEXTO_HONORARIOS');
+    var ver=(cur?cur.plantilla.version:0)+1;PLV[x.p_servicio_id]={plantilla:{id:ver,version:ver,publicada_at:new Date().toISOString()},pasos:x.p_pasos.map(function(p,i){return Object.assign({orden:i+1},p);})};
+    return {servicio_id:x.p_servicio_id,version:ver,pasos:x.p_pasos.length};},
   te_paso_marcar:function(x){var t=T.find(function(z){return z._pasos.some(function(p){return p.id===x.p_paso;});});var e=abierto(t)||editor(t);if(e)return e;var p=t._pasos.find(function(q){return q.id===x.p_paso;});
     if(p.requiere_documento&&!t._docs.some(function(dd){return dd.paso_id===p.id&&dd.vigente;}))return err('FALTA_DOCUMENTO');
     if(p.es_entrega&&t.retener_entrega&&saldo(t)>0)return err('ENTREGA_RETENIDA');
@@ -150,6 +161,7 @@ window.TE_DEMO_API={
   ficha:function(id){var t=tr(id);if(!t||!visible(t))return ok({t:null});var o={};Object.keys(t).forEach(function(k){if(k[0]!=='_')o[k]=t[k];});
     return ok({t:o,cuotas:t._cuotas,facturas:t._fact,pasos:t._pasos.filter(function(p){return p.estado!=='QUITADO';}),docs:t._docs,eventos:t._ev,tareas:t._tareas,fa:resumen(t)});},
   servicios:function(){return ok(SRV);},
+  plantilla:function(s){return ok(PLV[s]||{plantilla:null,pasos:[]});},
   clientes:function(){return ok(CLIS);},
   rpc:function(fn,args){if(!RPC[fn])return err('NO_DISPONIBLE_EN_DEMO');try{var r=RPC[fn](args);return r&&typeof r.then==='function'?r:ok(r);}catch(e){return Promise.reject(e);}},
   subir:function(ruta){var r=ROLES[ROL];if(!(r.es_master||r.responsable))return Promise.reject(new Error('new row violates row-level security policy (demo: Pagos y Facturación no suben)'));return ok(ruta);},
