@@ -1,0 +1,12 @@
+/* onboarding/onboarding.css — solo lo propio de Onboarding (el resto viene de assets/gestoor-cartera.css). */
+.g-mod-gc .onb-modo{font:800 11px var(--txt);letter-spacing:1px;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,200,90,.6);color:#F6DFA9;background:rgba(255,200,90,.08)}
+.g-mod-gc .onb-modo.apagado{border-color:var(--borde);color:var(--t2);background:transparent}
+.g-mod-gc .onb-req{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--borde);border-radius:12px;margin:6px 0;background:rgba(255,255,255,.02)}
+.g-mod-gc .onb-req .q{flex:1;min-width:0}.g-mod-gc .onb-req .q b{display:block;font-size:13.5px}.g-mod-gc .onb-req .q small{display:block;color:var(--t3);font-size:12px;overflow-wrap:anywhere}
+.g-mod-gc .onb-prev{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.g-mod-gc .onb-prev iframe{width:100%;height:560px;border:1px solid var(--borde);border-radius:12px;background:#fff}
+.g-mod-gc .onb-prev h5{margin:0 0 6px;font:700 11px var(--txt);letter-spacing:1px;text-transform:uppercase;color:var(--t2)}
+.g-mod-gc .onb-huella{font:500 11px ui-monospace,Menlo,monospace;color:var(--t3);overflow-wrap:anywhere}
+.g-mod-gc .onb-cuenta{font-size:11.5px;color:var(--t3);text-align:right}
+.g-mod-gc .onb-lista{margin:4px 0 0;padding-left:18px;font-size:13px;line-height:1.6}
+@media (max-width:980px){.g-mod-gc .onb-prev{grid-template-columns:1fr}.g-mod-gc .onb-prev iframe{height:420px}}
