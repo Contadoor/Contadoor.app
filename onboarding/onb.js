@@ -33,7 +33,8 @@ var ERR={
   UF_FUENTE_INVALIDA:'La fuente «Periodos» es solo para el día 1.',UF_NO_COINCIDE:'La UF no coincide con la del Panel de Control.',
   UF_REFERENCIA_INVALIDA:'Usa la tabla oficial del SII: https://www.sii.cl/valores_y_fechas/uf/ufAAAA.htm',UF_FUERA_DE_RANGO:'La UF difiere más de 2 % de la última registrada.',
   UF_FECHA_INVALIDA:'La UF debe ser de un día entre el inicio y el fin de ese mes.',MOTIVO_OBLIGATORIO:'Escribe el motivo (10 a 300 letras).',
-  NO_INCIERTO:'El correo ya no está incierto.',ANALISTA_INVALIDO:'Esa persona no tiene el rol correcto.'
+  NO_INCIERTO:'El correo ya no está incierto.',ANALISTA_INVALIDO:'Esa persona no tiene el rol correcto.',
+  SIN_SESION:'Tu sesión terminó. Vuelve a ingresar.',HTTP_401:'Tu sesión terminó. Vuelve a ingresar.',HTTP_403:'No tienes permiso para esta acción.',ERROR_INTERNO:'Error del servidor. Revisa el estado del correo en la ficha antes de reintentar.'
 };
 function mErr(e){return G.msgError(e,ERR);}
 function cod(x){return (String(x||'').match(/^([A-Z_]{4,60})/)||[])[1]||'ERROR';}
@@ -54,7 +55,10 @@ function edge(body){
   var t=window._gestoorAccessToken;if(!t)return Promise.reject(new Error('GESTOOR_NO_SESSION'));
   return fetch(SB_URL+'/functions/v1/'+EDGE,{method:'POST',cache:'no-store',credentials:'omit',
     headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+t},body:JSON.stringify(body)})
-    .then(function(r){return r.json().catch(function(){return {error:'HTTP_'+r.status};});});
+    .then(function(r){return r.json().catch(function(){return {};}).then(function(j){
+      // R2: una respuesta no 2xx es SIEMPRE un error (antes, el 401 del gateway {code,message} llegaba como «respuesta» y abría una vista previa vacía).
+      if(!r.ok){var c=String(j.error||j.codigo||('HTTP_'+r.status)),t=ERR[c]||ERR[cod(c)];var e=new Error(c+(t?': '+t:''));e.codigo=c;throw e;}
+      return j;});});
 }
 function pdfUrl(b64){var bin=atob(b64),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u],{type:'application/pdf'}));}
 
