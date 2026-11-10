@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor-cartera.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="onboarding.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+</head>
+<body class="g-shell g-tema-noche g-mod-gc">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="onboarding"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar gc-top">
+    <div class="gc-marca">
+      <span class="gc-ico" aria-hidden="true"><i class="ic" data-gc-ic="portapapeles"></i></span>
+      <div><h1 class="tb-title">Onboard<span>ing</span></h1><p>Del plan aceptado al cliente listo · bienvenida con carta en PDF, requerimientos y clave SII por canal seguro</p></div>
+    </div>
+    <div class="g-espacio"></div>
+    <span class="onb-modo" id="onbModo" hidden></span>
+  </div>
+  <div class="content">
+    <div id="gcApp" class="gc-app"><div class="aviso lila"><span class="gc-spin"></span>Cargando los onboardings…</div></div>
+  </div>
+</main>
+</div>
+<div class="gc-velo" id="gcVelo"></div>
+<aside class="gc-det gc-det-ancho" id="gcDet" role="dialog" aria-modal="true" aria-label="Ficha de onboarding" hidden>
+  <div class="gc-det-bar"><button type="button" class="gc-cerrar" id="gcDetCerrar" aria-label="Cerrar ficha"><i class="ic" data-gc-ic="cerrar"></i></button></div>
+  <div id="gcDetCuerpo"></div>
+</aside>
+<div class="gc-toast" id="gcToast" role="status" aria-live="polite"></div>
+<script src="../supabase.js"></script>
+<script src="../assets/gestoor-cartera.js"></script>
+<script src="onb.js"></script>
+<script src="../notifications.js"></script>
+<script src="../auth.js"></script>
+</body>
+</html>

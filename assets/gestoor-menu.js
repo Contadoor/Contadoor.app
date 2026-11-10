@@ -73,7 +73,7 @@
     // es la EJECUCIÓN del trabajo ya aceptado.
     // Comercial (Luciano, 26-oct): todo lo de venta junto. Las reuniones con clientes activos irán aparte ("Asesorías").
     ['Comercial',[['calendario','Reuniones de venta','prospectos','reuniones.html'],['objetivo','Prospectos','prospectos'],['chat','Asistente IA','asistente'],
-      ['lista','Cotizaciones','cotizaciones'],['campana','Campañas',null],['chat','CRM',null]]],
+      ['lista','Cotizaciones','cotizaciones'],['portapapeles','Onboarding','onboarding'],['campana','Campañas',null],['chat','CRM',null]]],
     ['Gestión interna',[['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['correo','Comunicaciones',null],['grafico','Performance',null]]],
     ['Configuración',[['admin','Admin','admin']]]
