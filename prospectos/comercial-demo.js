@@ -1,13 +1,13 @@
 /* ============================================================
    prospectos/comercial-demo.js — MODO DEMOSTRACIÓN de Reuniones y Bitácora (datos 100 % ficticios)
    Candado 2 de 3: solo se define en localhost / 127.0.0.1 / [::1]. No se conecta a Supabase; nada se guarda
-   (vive en memoria y en sessionStorage de esta pestaña). Personas y empresas inventadas; sin RUT ni correos. Teléfonos 100 % ficticios (12345678 y variantes) solo para probar el botón WhatsApp.
+   (vive en memoria y en sessionStorage de esta pestaña). Personas y empresas inventadas; sin RUT; correos solo @ejemplo.test (dominio reservado, no existe). Teléfonos 100 % ficticios (12345678 y variantes) solo para probar el botón WhatsApp.
    Reproduce las reglas de las RPC com_* (visibilidad, versión, cierre) para probar la pantalla sin base de datos.
    ============================================================ */
 (function(){
 'use strict';
 var h=location.hostname;if(!(h==='localhost'||h==='127.0.0.1'||h==='[::1]'))return;
-var KEY='gestoor.com.demo.v2';
+var KEY='gestoor.com.demo.v3';   // v3 (COM-SIMPLE-1): + correos ficticios, situación, plan y 3 prospectos cerrados
 // Teléfonos ficticios por prospecto (formatos que debe aceptar o rechazar el botón WhatsApp).
 var TEL={101:'+56 9 1234 5678',102:'912345678',103:'12345678',104:'',105:'abc',106:'(9) 1234-5678',107:'+56 9 8765 4321',108:'987654321',109:'+56 9 1111 2222',110:'922223333'};
 function ahoraMin(m){var d=new Date();d.setSeconds(0,0);return new Date(d.getTime()+m*60000).toISOString();}
@@ -16,7 +16,7 @@ var YO={id:1,nombre:'Usuario Demo',master:true,escribe:true};
 var R={1:{id:1,nombre:'Usuario Demo'},2:{id:2,nombre:'Paula Demo'},3:{id:3,nombre:'Tomás Demo'}};
 function semilla(){
   var L=[
-    {id:101,nombre:'Camila Rojas',empresa:'Ferretería Los Aromos SpA',semaforo:'amarillo',etapa:'agendado',origen:'agenda',campana:'meta · iva-a-tiempo',resp:1,
+    {id:101,nombre:'Camila Rojas',empresa:'Ferretería Los Aromos SpA',semaforo:'amarillo',etapa:'agendado',origen:'agenda',campana:'meta · iva-a-tiempo',resp:1,email:'camila@ejemplo.test',
      respuestas:{ventas:'5a20',trabajadores:'1a5',contabilidad:'externo',sociedades:'no',historicos:'si',rubro:'ferretería',dolor:'Mi contador me avisa el IVA el mismo día y nunca sé cuánto voy a pagar.'}},
     {id:102,nombre:'Jorge Castillo',empresa:'Transportes Cordillera Ltda.',semaforo:'rojo',etapa:'agendado',origen:'whatsapp',campana:null,resp:2,
      respuestas:{ventas:'20a50',trabajadores:'6a20',contabilidad:'interno',sociedades:'si',historicos:'no',rubro:'transporte de carga',dolor:'Tengo dos sociedades y no sé cuál conviene.'}},
@@ -28,7 +28,12 @@ function semilla(){
     {id:107,nombre:'Daniela Vega',empresa:'Clínica Dental Sonrisa',semaforo:'amarillo',etapa:'agendado',origen:'agenda',campana:'meta · renta',resp:3,respuestas:{ventas:'20a50',trabajadores:'1a5',contabilidad:'externo',rubro:'salud'}},
     {id:108,nombre:'Ignacia Fuentes',empresa:'Estudio Pétalo',semaforo:'verde',etapa:'agendado',origen:'instagram',campana:'ig · reel',resp:1,respuestas:{ventas:'hasta5',trabajadores:'ninguno',contabilidad:'nadie',rubro:'diseño'}},
     {id:109,nombre:'Martín Reyes',empresa:'Café Origen Limitada',semaforo:'verde',etapa:'agendado',origen:'agenda',campana:null,resp:2,respuestas:{ventas:'5a20',trabajadores:'1a5',contabilidad:'externo',rubro:'cafetería'}},
-    {id:110,nombre:'Sofía Herrera',empresa:'Diseño Norte',semaforo:'verde',etapa:'nuevo',origen:'whatsapp',campana:null,resp:null,respuestas:null}
+    {id:110,nombre:'Sofía Herrera',empresa:'Diseño Norte',semaforo:'verde',etapa:'nuevo',origen:'whatsapp',campana:null,resp:null,respuestas:null},
+    // COM-SIMPLE-1: prospectos ya avanzados (propuesta, ganado, perdido) para los filtros de Prospectos simple
+    {id:111,nombre:'Andrea Soto',empresa:'Estudio Soto Diseño',semaforo:'verde',etapa:'propuesta',origen:'agenda',campana:'meta · renta',resp:1,email:'andrea@ejemplo.test',plan:'pro',
+     obs:'Su contador no le responde. Tiene 2 F29 atrasados y quiere saber cuánto pagará de renta.',respuestas:{ventas:'5a20',rubro:'diseño',dolor:'No sé cuánto voy a pagar de renta.'}},
+    {id:112,nombre:'Felipe Lagos',empresa:'Lagos Importaciones',semaforo:'verde',etapa:'cliente',origen:'agenda',campana:'google · contador-pyme',resp:2,email:'felipe@ejemplo.test',plan:'pro',obs:'Empresa nueva, necesita partir ordenado.',respuestas:{rubro:'importación'}},
+    {id:113,nombre:'Marta Díaz',empresa:'Almacén Doña Marta',semaforo:'amarillo',etapa:'descartado',origen:'instagram',campana:'ig · reel',resp:1,motivo:'precio',obs:'Buscaba solo precio, se quedó con su contador.',respuestas:{rubro:'almacén'}}
   ];
   var RS=[
     {id:201,lead:101,inicio:ahoraMin(9),dur:30,estado:'confirmada'},
@@ -39,7 +44,10 @@ function semilla(){
     {id:206,lead:106,inicio:diaHora(3,'15','00'),dur:30,estado:'confirmada'},
     {id:207,lead:107,inicio:diaHora(4,'10','30'),dur:30,estado:'confirmada'},
     {id:208,lead:108,inicio:diaHora(12,'12','00'),dur:30,estado:'confirmada'},
-    {id:209,lead:109,inicio:diaHora(2,'09','30'),dur:30,estado:'cancelada'}
+    {id:209,lead:109,inicio:diaHora(2,'09','30'),dur:30,estado:'cancelada'},
+    {id:211,lead:111,inicio:diaHora(-6,'10','00'),dur:30,estado:'realizada'},
+    {id:212,lead:112,inicio:diaHora(-8,'12','00'),dur:30,estado:'realizada'},
+    {id:213,lead:113,inicio:diaHora(-10,'09','00'),dur:30,estado:'realizada'}
   ];
   return {L:L,RS:RS,B:[],E:[],seq:300};
 }
@@ -114,6 +122,74 @@ var F={
     DB.E.filter(function(e){return e.lead===l.id;}).forEach(function(e){out.push({t:e.t,tipo:e.tipo,detalle:e.detalle,actor:e.actor});});
     out.sort(function(x,y){return new Date(y.t)-new Date(x.t);});return ok(out);
   }
+};
+
+// ── COM-SIMPLE-1 · Prospectos simple (mismas reglas que com_simple_listar / com_cierre_rapido / com_ficha_guardar) ──
+var MOT_OK=['precio','eligio_otro','no_responde','no_calza','lo_hara_solo','otro'], PLAN_OK=['cumplimiento','pro','estrategico'];
+function creado(l){return l.creado||(l.creado=new Date(Date.now()-(l.id-100)*36e5*7).toISOString());}
+function actualizado(l){return l.actualizado||(l.actualizado=creado(l));}
+function itemS(l){
+  var rs=DB.RS.filter(function(r){return r.lead===l.id;}).sort(function(a,b){return new Date(b.inicio)-new Date(a.inicio);})[0];
+  var b=rs?DB.B.filter(function(x){return x.reserva===rs.id;})[0]:null, bm=DB.B.filter(function(x){return x.lead===l.id&&x.manual&&x.estado==='abierta';})[0];
+  return {id:l.id,nombre:l.nombre,empresa:l.empresa,email:l.email||null,tel:TEL[l.id]!==undefined?TEL[l.id]:null,etapa:l.etapa,semaforo:l.semaforo,
+    situacion:l.obs||null,dolor:l.respuestas&&l.respuestas.dolor||null,plan:l.plan||null,motivo_perdida:l.motivo||null,proxima_fecha:l.proxima_fecha||null,
+    proxima_accion:l.proxima_accion||null,creado:creado(l),actualizado:actualizado(l),origen:l.origen,campana:l.campana,responsable:l.resp?R[l.resp]:null,
+    reunion:rs?{id:rs.id,inicio:rs.inicio,fin:fin(rs),estado:rs.estado,teams:'https://teams.microsoft.com/l/meetup-join/demo',bitacora:b?{id:b.id,estado:b.estado}:null}:null,
+    bitacora_manual:bm?bm.id:null};
+}
+function tocar(l){l.actualizado=new Date().toISOString();}
+function cerrarReserva(rid,res){
+  var r=res?null:null;r=DB.RS.filter(function(x){return x.id===rid;})[0];if(!r)return 'NO_EXISTE';
+  if(['realizada','no_asistio'].indexOf(res)<0)return 'RESULTADO_INVALIDO';
+  var l=lead(r.lead),b=DB.B.filter(function(x){return x.reserva===r.id&&x.estado==='abierta';})[0];
+  if(new Date(r.inicio).getTime()>Date.now())return 'RESERVA_FUTURA';
+  if(r.estado==='cancelada'||r.estado==='inconsistente')return 'RESERVA_NO_VIGENTE';
+  if(r.estado!=='confirmada'&&r.estado!==res)return 'RESERVA_YA_CERRADA';
+  if(r.estado===res&&!b)return {ya_cerrada:true,lead:l};
+  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'cierre_rapido'});}
+  if(r.estado==='confirmada'){r.estado=res;ev(l.id,'reserva',{reserva_id:r.id,estado:res,origen:'cierre_rapido'},b?b.id:null);}
+  if(b){Object.assign(b,{estado:'cerrada',resultado:res,desenlace:'seguimiento',duracion_seg:b.reloj_seg,cerrada_at:new Date().toISOString(),version:b.version+1});
+    ev(l.id,'bitacora_cerrada',{resultado:res,desenlace:'seguimiento',origen:'cierre_rapido'},b.id);}
+  var e=l.etapa||'nuevo',n=res==='realizada'?(['nuevo','agendado','no_asistio','no_calificado','emprendedor_solicitado','descartado'].indexOf(e)>=0?'reunion_realizada':e)
+    :(['nuevo','agendado','no_calificado','descartado'].indexOf(e)>=0?'no_asistio':e);
+  if(n!==l.etapa){if(l.etapa==='descartado')l.motivo=null;ev(l.id,'etapa',{de:l.etapa,a:n,origen:'cierre_rapido'},b?b.id:null);l.etapa=n;}
+  tocar(l);return {ya_cerrada:false,lead:l,bitacora:b};
+}
+F.com_simple_listar=function(){
+  var ahora=Date.now();
+  return ok({yo:{id:YO.id,nombre:YO.nombre,alcance_comercial_total:true,escribe:YO.escribe},ahora:new Date().toISOString(),
+    pendientes:DB.RS.filter(function(r){var b=DB.B.filter(function(x){return x.reserva===r.id;})[0];
+        return new Date(fin(r)).getTime()<ahora&&(r.estado==='confirmada'||((r.estado==='realizada'||r.estado==='no_asistio')&&b&&b.estado==='abierta'));})
+      .sort(function(a,b){return new Date(b.inicio)-new Date(a.inicio);})
+      .map(function(r){var l=lead(r.lead),b=DB.B.filter(function(x){return x.reserva===r.id;})[0];
+        return {reserva_id:r.id,inicio:r.inicio,fin:fin(r),estado:r.estado,lead_id:l.id,nombre:l.nombre,empresa:l.empresa,responsable:l.resp?R[l.resp]:null,bitacora:b?{id:b.id,estado:b.estado}:null};}),
+    prospectos:DB.L.slice().sort(function(a,b){return new Date(creado(b))-new Date(creado(a));}).map(itemS)});
+};
+F.com_cierre_rapido=function(a){
+  var x=cerrarReserva(Number(a.p_reserva_id),a.p_resultado);if(typeof x==='string')return err(x);
+  persistir();var r=DB.RS.filter(function(y){return y.id===Number(a.p_reserva_id);})[0];
+  return ok({reserva_id:r.id,reserva_estado:r.estado,lead_id:x.lead.id,etapa:x.lead.etapa,bitacora_id:x.bitacora?x.bitacora.id:null,ya_cerrada:x.ya_cerrada,prospecto:itemS(x.lead)});
+};
+F.com_ficha_guardar=function(a){
+  var l=lead(Number(a.p_id));if(!l)return err('NO_EXISTE');
+  var et=a.p_etapa,sit=String(a.p_situacion||'').trim()||null,plan=a.p_plan||null,mot=et==='descartado'?(a.p_motivo_perdida||null):null;
+  if(['nuevo','agendado','reunion_realizada','no_asistio','propuesta','seguimiento','cliente','emprendedor_solicitado','no_calificado','descartado'].indexOf(et)<0)return err('ETAPA_INVALIDA');
+  if(plan&&PLAN_OK.indexOf(plan)<0)return err('PLAN_INVALIDO');if(mot&&MOT_OK.indexOf(mot)<0)return err('MOTIVO_INVALIDO');
+  if(sit&&sit.length>4000)return err('SITUACION_MUY_LARGA');
+  if(sit&&/(clave|contrase(n|ñ)a|password|pwd|token)[^:=\n]{0,25}[:=]\s*(?=\S*\d)\S{6,}/i.test(sit))return err('CLAVE_PROHIBIDA');
+  if(a.p_actualizado&&a.p_actualizado!==actualizado(l))return err('VERSION_CONFLICTO');
+  var hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
+  if(a.p_proxima_fecha&&a.p_proxima_fecha!==l.proxima_fecha&&a.p_proxima_fecha<hoy)return err('FECHA_INVALIDA');
+  if((et==='reunion_realizada'||et==='no_asistio')&&et!==l.etapa){
+    var r=DB.RS.filter(function(x){return x.lead===l.id&&x.estado==='confirmada'&&new Date(x.inicio).getTime()<=Date.now();})[0];
+    if(r)cerrarReserva(r.id,et==='no_asistio'?'no_asistio':'realizada');
+  }
+  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'ficha_simple'});}
+  var antes=l.etapa,mAntes=l.motivo;
+  Object.assign(l,{etapa:et,obs:sit,plan:plan,proxima_fecha:a.p_proxima_fecha||null,motivo:mot});
+  if(et!==antes)ev(l.id,'etapa',{de:antes,a:et,origen:'ficha_simple'});
+  if(et==='descartado'&&(antes!=='descartado'||mot!==mAntes))ev(l.id,'perdido',{motivo:mot,origen:'ficha_simple'});
+  tocar(l);persistir();return ok(itemS(l));
 };
 window.ComDemo={rpc:function(fn,a){return F[fn]?F[fn](a||{}):err('NO_EXISTE');},reiniciar:function(){sessionStorage.removeItem(KEY);location.reload();}};
 })();

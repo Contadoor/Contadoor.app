@@ -1,0 +1,67 @@
+/* ============================================================
+   prospectos/simple.css — Prospectos simple (COM-SIMPLE-1, maqueta aprobada por Luciano el 12-nov)
+   Encima de comercial.css (body.g-mod-com: tokens, .btn, .card, .estado, .cm-toast). Prefijo cs- para no tocar otras pantallas.
+   Escritorio: lista + ficha fija a la derecha (420 px). Celular (≤ 980 px): una columna, la ficha va debajo de la lista.
+   ============================================================ */
+.g-mod-com .cs-wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:20px;max-width:1360px;align-items:start}
+.g-mod-com .cs-wrap *{box-sizing:border-box}
+/* Reuniones pasadas sin cerrar */
+.g-mod-com .cs-aviso{background:linear-gradient(180deg,rgba(255,200,90,.13),rgba(58,42,16,.55));border:1px solid rgba(255,200,90,.38);border-radius:16px;padding:14px 16px;margin-bottom:16px}
+.g-mod-com .cs-aviso>p{margin:0 0 6px;color:var(--t1);font-size:14px}.g-mod-com .cs-aviso>p b{color:var(--ambar)}
+.g-mod-com .cs-pend{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(255,200,90,.22);flex-wrap:wrap}
+.g-mod-com .cs-pend:first-of-type{border-top:0}
+.g-mod-com .cs-pend>span{min-width:0;color:var(--t2);font-size:13px}.g-mod-com .cs-pend>span b{color:var(--t1)}
+.g-mod-com .cs-pend .cs-acc{display:flex;gap:6px;flex-wrap:wrap}
+.g-mod-com .btn.cs-ok{border-color:#2f6b52;background:#173a2c;color:var(--verde)}.g-mod-com .btn.cs-ok:hover{background:#1d4a38}
+.g-mod-com .btn.cs-no{border-color:#6b3530;background:#3a1a17;color:var(--rojo)}.g-mod-com .btn.cs-no:hover{background:#4a221e}
+/* Filtros */
+.g-mod-com .cs-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.g-mod-com .cs-chip{border:1px solid var(--borde);border-radius:999px;padding:7px 13px;min-height:36px;cursor:pointer;color:var(--t2);background:transparent;font:600 13px var(--txt)}
+.g-mod-com .cs-chip:hover{border-color:var(--lila)}
+.g-mod-com .cs-chip.on{background:var(--marca);border-color:var(--marca);color:#fff}
+.g-mod-com .cs-chip i{font-style:normal;opacity:.8;margin-left:5px;font-variant-numeric:tabular-nums}
+.g-mod-com .cs-buscar{flex:1;min-width:180px;min-height:36px;border-radius:999px;border:1px solid var(--borde);background:#12080f;color:var(--t1);padding:0 14px;font:500 13px var(--txt)}
+/* Lista */
+.g-mod-com .cs-lista{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid var(--borde);border-radius:16px;overflow:hidden}
+.g-mod-com .cs-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 150px 150px;gap:10px;padding:12px 16px;border-top:1px solid #2E1834;align-items:center;cursor:pointer;width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;color:inherit;font:inherit}
+.g-mod-com .cs-row:first-child{border-top:0}.g-mod-com .cs-row:hover{background:rgba(255,255,255,.03)}.g-mod-com .cs-row.sel{background:#33183d}
+.g-mod-com .cs-row b{display:block;font-weight:600;color:var(--t1);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .cs-row small{display:block;color:var(--t2);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .cs-vacio{padding:26px;text-align:center;color:var(--t3)}
+/* Chip de estado (colores de la maqueta) */
+.g-mod-com .cs-est{display:inline-block;padding:3px 10px;border-radius:999px;font:600 12px var(--txt);white-space:nowrap}
+.g-mod-com .e-ag{background:#2c2240;color:#b9a0ff}.g-mod-com .e-hecha{background:#1f2f3c;color:#8cc8f0}.g-mod-com .e-prop{background:#3a2a10;color:var(--ambar)}
+.g-mod-com .e-gan{background:#173a2c;color:var(--verde)}.g-mod-com .e-per{background:#3a1a17;color:var(--rojo)}.g-mod-com .e-na{background:#33302a;color:#ddd3bb}
+.g-mod-com .e-otro{background:rgba(255,255,255,.07);color:var(--t2)}
+/* Ficha */
+.g-mod-com .cs-ficha{background:linear-gradient(180deg,rgba(34,16,39,.96),rgba(26,14,31,.96));border:1px solid var(--borde);border-radius:16px;padding:18px;position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto}
+.g-mod-com .cs-ficha h2{font:800 17px var(--tit);margin:0 0 2px;color:var(--t1)}
+.g-mod-com .cs-sub{color:var(--t2);font-size:12.5px;margin-bottom:6px}
+.g-mod-com .cs-l{display:block;font:600 11.5px var(--txt);letter-spacing:.6px;text-transform:uppercase;color:var(--lila);margin:14px 0 6px}
+.g-mod-com .cs-dos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g-mod-com .cs-ficha input,.g-mod-com .cs-ficha textarea,.g-mod-com .cs-ficha select{width:100%;background:#12080f;border:1px solid var(--borde);border-radius:9px;color:var(--t1);padding:8px 10px;font:14px var(--txt);min-height:40px}
+.g-mod-com .cs-ficha textarea{min-height:120px;resize:vertical}
+.g-mod-com .cs-ficha input:focus,.g-mod-com .cs-ficha textarea:focus,.g-mod-com .cs-ficha select:focus{outline:none;border-color:var(--lila);box-shadow:0 0 0 3px rgba(199,123,201,.2)}
+.g-mod-com .cs-contacto{display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.g-mod-com .cs-contacto a{color:var(--lila2);font-weight:600;word-break:break-all}
+.g-mod-com .cs-fila{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.g-mod-com .cs-estados{display:flex;flex-wrap:wrap;gap:6px}.g-mod-com .cs-estados .cs-chip{font-size:12.5px}
+.g-mod-com .cs-estados .cs-chip:disabled{cursor:not-allowed;opacity:.55}
+.g-mod-com .cs-dolor{margin:6px 0 0;padding:8px 10px;border-radius:9px;background:rgba(199,123,201,.08);border:1px solid rgba(199,123,201,.22);color:var(--t2);font-size:12.5px}
+.g-mod-com .cs-acc{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.g-mod-com .cs-nota{color:var(--t3);font-size:12px;margin-top:8px}
+.g-mod-com .cs-msg{font-size:12.5px;min-height:18px;margin-top:6px;color:var(--t2)}.g-mod-com .cs-msg.err{color:#FF8A8A}.g-mod-com .cs-msg.ok{color:var(--verde)}
+.g-mod-com .cs-hist{margin-top:14px;border-top:1px solid var(--borde);padding-top:10px;font-size:12.5px;color:var(--t2)}
+.g-mod-com .cs-hist div{padding:3px 0}.g-mod-com .cs-hist small{color:var(--t3)}
+.g-mod-com .cs-resp{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border-radius:999px;padding:3px 10px 3px 3px;font-size:12.5px;color:var(--t1)}
+@media(max-width:980px){
+  .g-mod-com .cs-wrap{grid-template-columns:minmax(0,1fr)}
+  .g-mod-com .cs-ficha{position:static;max-height:none}
+  .g-mod-com .cs-row{grid-template-columns:minmax(0,1fr) auto}
+  .g-mod-com .cs-row .oc{display:none}
+}
+@media(max-width:520px){
+  .g-mod-com .content{padding:12px 16px 80px}
+  .g-mod-com .cs-dos{grid-template-columns:1fr}
+  .g-mod-com .cs-pend .cs-acc{width:100%}.g-mod-com .cs-pend .cs-acc .btn{flex:1}
+}
