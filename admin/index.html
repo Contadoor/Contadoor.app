@@ -237,6 +237,7 @@ var MODULOS_DISPONIBLES = [
   {id:'facturacion',       nombre:'Facturación',           icon:'🧾', grupo:'Financiero'},
   {id:'trabajos_especiales', nombre:'Trabajos especiales (responsable)', icon:'🛠️', grupo:'Financiero'},
   // Comercial
+  {id:'comercial',         nombre:'Comercial (prospectos, bitácoras, bandeja WhatsApp y cotizaciones)', icon:'💼', grupo:'Comercial'},   // COM-ACC-1
   {id:'crm',               nombre:'CRM',                   icon:'📈', grupo:'Comercial'},
   {id:'cotizaciones',      nombre:'Cotizaciones',          icon:'📝', grupo:'Comercial'},
   {id:'campanas',          nombre:'Campañas',              icon:'📣', grupo:'Comercial'},
@@ -271,7 +272,10 @@ var MODULOS_ADICIONALES_PERMITIDOS = [
   // Cobranza C1 (22-oct-2026): gestiona la cartera, registra y confirma pagos. Requiere que la base acepte el módulo (PR backend #51).
   'cobranza',
   // Trabajos especiales T1 (22-oct-2026): puede quedar como responsable de un trabajo especial. Requiere PR backend #51.
-  'trabajos_especiales'
+  'trabajos_especiales',
+  // COM-ACC-1 (11-nov-2026): acceso Comercial completo SIN cambiar el cargo (p. ej. Tesorería que además lleva lo comercial).
+  // Se pre-marca desde la ficha (módulo nuevo: no hay valores antiguos). Requiere la migración backend 202611111500_com_acc_1.
+  'comercial'
 ];
 
 // ── MÓDULOS QUE NUNCA SE PRE-MARCAN DESDE public.usuarios.modulos ─────────

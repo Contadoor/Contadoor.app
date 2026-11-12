@@ -56,8 +56,11 @@
     contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','facturacion','cobranza','trabajos_especiales'], // facturacion: el rol pagos es facturador (F1a; el motor re-verifica con facturacion_yo()). Cobranza C1 y Trabajos especiales T1: Pagos lee (la RLS re-verifica)
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
-    comercial:['dashboard','clientes','convenios','prospectos','asistente'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica)
+    comercial:['dashboard','clientes','convenios','prospectos','asistente','comercial'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica). 'comercial': la capacidad ya viene con el rol (Admin no muestra la casilla)
   };
+  // COM-ACC-1 (11-nov-2026): el módulo adicional 'comercial' SUMA los módulos del rol Comercial a los del rol propio (unión: no quita nada).
+  // Caso: Tesorería (pagos) que además lleva lo comercial. Solo visual (menú y entrada a la página): la base re-verifica con usr_tiene_comercial().
+  function tieneComercialExtra(perfil){ return (perfil.modulos||[]).indexOf('comercial')>=0; }
 
   // Módulos cuyo acceso a la PÁGINA decide el servidor (usuarios_sistema.modulos), no public.usuarios.modulos.
   var RPC_ACCESO_SERVIDOR={cobranza:'cobranza_yo',trabajos_especiales:'te_yo',cotizaciones:'cot_yo'};   // cot_yo: Master, rol comercial o módulo Trabajos especiales
@@ -68,10 +71,11 @@
     var permisos=MODULOS_POR_ROL[perfil.rol]||perfil.modulos||[];
     if(permisos[0]==='*') return true;
     if(modulo==='dashboard') return true;
+    if(tieneComercialExtra(perfil)) permisos=permisos.concat(MODULOS_POR_ROL.comercial);   // COM-ACC-1: unión con el rol Comercial
     // Trabajos especiales T1: Facturación (módulo facturacion) prepara la factura DTE 34 y ve los trabajos (la RLS re-verifica).
     if(modulo==='trabajos_especiales'&&(perfil.modulos||[]).includes('facturacion')) return true;
     // Cotizaciones K1 (solo el candado visual del menú; la página la decide cot_yo en el servidor): Comercial y quien cotiza trabajos especiales.
-    if(modulo==='cotizaciones'&&(perfil.rol==='comercial'||(perfil.modulos||[]).includes('trabajos_especiales'))) return true;
+    if(modulo==='cotizaciones'&&(perfil.rol==='comercial'||tieneComercialExtra(perfil)||(perfil.modulos||[]).includes('trabajos_especiales'))) return true;
     return permisos.includes(modulo)||(perfil.modulos||[]).includes(modulo);
   }
 
