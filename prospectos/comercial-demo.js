@@ -22,7 +22,8 @@ function semilla(){
      respuestas:{ventas:'20a50',trabajadores:'6a20',contabilidad:'interno',sociedades:'si',historicos:'no',rubro:'transporte de carga',dolor:'Tengo dos sociedades y no sé cuál conviene.'}},
     {id:103,nombre:'Valeria Muñoz',empresa:'Estudio de Yoga Prana',semaforo:'verde',etapa:'agendado',origen:'instagram',campana:'ig · historias',resp:null,
      respuestas:{ventas:'hasta5',trabajadores:'ninguno',contabilidad:'yo',sociedades:'no',historicos:'no',rubro:'bienestar',dolor:'Solo quiero cumplir y no tener problemas con el SII.'}},
-    {id:104,nombre:'Andrés Soto',empresa:'Taller Mecánico Sur',semaforo:'amarillo',etapa:'agendado',origen:'agenda',campana:'google · contador-pyme',resp:3,respuestas:{ventas:'5a20',trabajadores:'1a5',contabilidad:'externo',rubro:'taller'}},
+    {id:104,nombre:'Andrés Soto',empresa:'Taller Mecánico Sur',semaforo:'amarillo',etapa:'descartado',motivo:'no_responde',   // COM-SIMPLE-1 R2: Perdido con reunión pasada sin cerrar (aviso visible)
+     origen:'agenda',campana:'google · contador-pyme',resp:3,respuestas:{ventas:'5a20',trabajadores:'1a5',contabilidad:'externo',rubro:'taller'}},
     {id:105,nombre:'Fernanda Díaz',empresa:'Panadería La Espiga',semaforo:'verde',etapa:'agendado',origen:'agenda',campana:'meta · iva-a-tiempo',resp:2,respuestas:{ventas:'5a20',trabajadores:'1a5',contabilidad:'externo',rubro:'panadería'}},
     {id:106,nombre:'Rodrigo Pérez',empresa:'Importadora Austral SpA',semaforo:'rojo',etapa:'agendado',origen:'whatsapp',campana:null,resp:1,respuestas:{ventas:'mas50',trabajadores:'6a20',contabilidad:'externo',sociedades:'si',rubro:'importación'}},
     {id:107,nombre:'Daniela Vega',empresa:'Clínica Dental Sonrisa',semaforo:'amarillo',etapa:'agendado',origen:'agenda',campana:'meta · renta',resp:3,respuestas:{ventas:'20a50',trabajadores:'1a5',contabilidad:'externo',rubro:'salud'}},
@@ -143,17 +144,19 @@ function cerrarReserva(rid,res){
   if(['realizada','no_asistio'].indexOf(res)<0)return 'RESULTADO_INVALIDO';
   var l=lead(r.lead),b=DB.B.filter(function(x){return x.reserva===r.id&&x.estado==='abierta';})[0];
   if(new Date(r.inicio).getTime()>Date.now())return 'RESERVA_FUTURA';
+  if(new Date(fin(r)).getTime()>=Date.now())return 'RESERVA_NO_TERMINADA';
   if(r.estado==='cancelada'||r.estado==='inconsistente')return 'RESERVA_NO_VIGENTE';
   if(r.estado!=='confirmada'&&r.estado!==res)return 'RESERVA_YA_CERRADA';
-  if(r.estado===res&&!b)return {ya_cerrada:true,lead:l};
-  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'cierre_rapido'});}
-  if(r.estado==='confirmada'){r.estado=res;ev(l.id,'reserva',{reserva_id:r.id,estado:res,origen:'cierre_rapido'},b?b.id:null);}
+  var antes=l.etapa;
+  if(r.estado===res&&!b)return {ya_cerrada:true,lead:l,antes:antes};
+  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'simple'});}
+  if(r.estado==='confirmada'){r.estado=res;ev(l.id,'reserva',{reserva_id:r.id,estado:res,origen:'simple'},b?b.id:null);}
   if(b){Object.assign(b,{estado:'cerrada',resultado:res,desenlace:'seguimiento',duracion_seg:b.reloj_seg,cerrada_at:new Date().toISOString(),version:b.version+1});
-    ev(l.id,'bitacora_cerrada',{resultado:res,desenlace:'seguimiento',origen:'cierre_rapido'},b.id);}
+    ev(l.id,'bitacora_cerrada',{resultado:res,desenlace:'seguimiento',origen:'simple'},b.id);}
   var e=l.etapa||'nuevo',n=res==='realizada'?(['nuevo','agendado','no_asistio','no_calificado','emprendedor_solicitado','descartado'].indexOf(e)>=0?'reunion_realizada':e)
     :(['nuevo','agendado','no_calificado','descartado'].indexOf(e)>=0?'no_asistio':e);
-  if(n!==l.etapa){if(l.etapa==='descartado')l.motivo=null;ev(l.id,'etapa',{de:l.etapa,a:n,origen:'cierre_rapido'},b?b.id:null);l.etapa=n;}
-  tocar(l);return {ya_cerrada:false,lead:l,bitacora:b};
+  if(n!==l.etapa){if(l.etapa==='descartado')l.motivo=null;ev(l.id,'etapa',{de:l.etapa,a:n,origen:'simple'},b?b.id:null);l.etapa=n;}
+  tocar(l);return {ya_cerrada:false,lead:l,bitacora:b,antes:antes};
 }
 F.com_simple_listar=function(){
   var ahora=Date.now();
@@ -168,7 +171,7 @@ F.com_simple_listar=function(){
 F.com_cierre_rapido=function(a){
   var x=cerrarReserva(Number(a.p_reserva_id),a.p_resultado);if(typeof x==='string')return err(x);
   persistir();var r=DB.RS.filter(function(y){return y.id===Number(a.p_reserva_id);})[0];
-  return ok({reserva_id:r.id,reserva_estado:r.estado,lead_id:x.lead.id,etapa:x.lead.etapa,bitacora_id:x.bitacora?x.bitacora.id:null,ya_cerrada:x.ya_cerrada,prospecto:itemS(x.lead)});
+  return ok({reserva_id:r.id,reserva_estado:r.estado,lead_id:x.lead.id,etapa:x.lead.etapa,etapa_antes:x.antes,bitacora_id:x.bitacora?x.bitacora.id:null,ya_cerrada:x.ya_cerrada,prospecto:itemS(x.lead)});
 };
 F.com_ficha_guardar=function(a){
   var l=lead(Number(a.p_id));if(!l)return err('NO_EXISTE');
@@ -177,18 +180,19 @@ F.com_ficha_guardar=function(a){
   if(plan&&PLAN_OK.indexOf(plan)<0)return err('PLAN_INVALIDO');if(mot&&MOT_OK.indexOf(mot)<0)return err('MOTIVO_INVALIDO');
   if(sit&&sit.length>4000)return err('SITUACION_MUY_LARGA');
   if(sit&&/(clave|contrase(n|ñ)a|password|pwd|token)[^:=\n]{0,25}[:=]\s*(?=\S*\d)\S{6,}/i.test(sit))return err('CLAVE_PROHIBIDA');
-  if(a.p_actualizado&&a.p_actualizado!==actualizado(l))return err('VERSION_CONFLICTO');
+  if(!a.p_actualizado)return err('FALTA_VERSION');
+  if(a.p_actualizado!==actualizado(l))return err('VERSION_CONFLICTO');
   var hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
   if(a.p_proxima_fecha&&a.p_proxima_fecha!==l.proxima_fecha&&a.p_proxima_fecha<hoy)return err('FECHA_INVALIDA');
   if((et==='reunion_realizada'||et==='no_asistio')&&et!==l.etapa){
-    var r=DB.RS.filter(function(x){return x.lead===l.id&&x.estado==='confirmada'&&new Date(x.inicio).getTime()<=Date.now();})[0];
+    var r=DB.RS.filter(function(x){return x.lead===l.id&&x.estado==='confirmada'&&new Date(fin(x)).getTime()<Date.now();})[0];
     if(r)cerrarReserva(r.id,et==='no_asistio'?'no_asistio':'realizada');
   }
-  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'ficha_simple'});}
+  if(!l.resp){l.resp=YO.id;ev(l.id,'responsable_tomado',{responsable_id:YO.id,origen:'simple'});}
   var antes=l.etapa,mAntes=l.motivo;
   Object.assign(l,{etapa:et,obs:sit,plan:plan,proxima_fecha:a.p_proxima_fecha||null,motivo:mot});
-  if(et!==antes)ev(l.id,'etapa',{de:antes,a:et,origen:'ficha_simple'});
-  if(et==='descartado'&&(antes!=='descartado'||mot!==mAntes))ev(l.id,'perdido',{motivo:mot,origen:'ficha_simple'});
+  if(et!==antes)ev(l.id,'etapa',{de:antes,a:et,origen:'simple'});
+  if(et==='descartado'&&(antes!=='descartado'||mot!==mAntes))ev(l.id,'perdido',{motivo:mot,origen:'simple'});
   tocar(l);persistir();return ok(itemS(l));
 };
 window.ComDemo={rpc:function(fn,a){return F[fn]?F[fn](a||{}):err('NO_EXISTE');},reiniciar:function(){sessionStorage.removeItem(KEY);location.reload();}};

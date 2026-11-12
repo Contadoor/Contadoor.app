@@ -35,6 +35,7 @@ res('guion en demo agrega &demo=1', S.guionUrl({ reunion: { id: 5, estado: 'conf
 const a1 = S.argsFicha({ id: 3, actualizado: 'T1' }, { etapa: 'propuesta', situacion: 'x', plan: '', motivo: 'precio', proxima: '' });
 res('argsFicha: motivo solo si Perdido; plan y próximo contacto vacíos → null', a1.p_motivo_perdida === null && a1.p_plan === null && a1.p_proxima_fecha === null && a1.p_actualizado === 'T1' && a1.p_etapa === 'propuesta');
 const a2 = S.argsFicha({ id: 3 }, { etapa: 'descartado', situacion: '', plan: 'pro', motivo: 'precio', proxima: '2026-11-20' });
+res('R2 H1: argsFicha envía SIEMPRE la versión (p_actualizado)', a1.p_actualizado === 'T1' && 'p_actualizado' in a2);
 res('argsFicha: Perdido lleva motivo; situación vacía viaja como ""', a2.p_motivo_perdida === 'precio' && a2.p_situacion === '' && a2.p_plan === 'pro' && a2.p_proxima_fecha === '2026-11-20');
 
 // ── 2) Pantalla en jsdom ──
@@ -46,13 +47,13 @@ function datos(escribe = true) {
     pendientes: [{ reserva_id: 201, inicio: iso(-3), fin: iso(-2.5), estado: 'confirmada', lead_id: 1, nombre: 'Persona 1', empresa: 'Empresa 1 SpA', bitacora: null },
                  { reserva_id: 202, inicio: iso(-26), fin: iso(-25.5), estado: 'confirmada', lead_id: 2, nombre: '<img src=x onerror="window.__xss=1">', empresa: 'Empresa 2', bitacora: { id: 302, estado: 'abierta' } }],
     prospectos: [P(1, 'agendado', { reunion: { id: 201, inicio: iso(-3), estado: 'confirmada', bitacora: null } }),
-                 P(2, 'agendado', { nombre: '<img src=x onerror="window.__xss=1">', reunion: { id: 202, inicio: iso(-26), estado: 'confirmada', bitacora: { id: 302, estado: 'abierta' } } }),
+                 P(2, 'descartado', { motivo_perdida: 'no_responde', nombre: '<img src=x onerror="window.__xss=1">', reunion: { id: 202, inicio: iso(-26), estado: 'confirmada', bitacora: { id: 302, estado: 'abierta' } } }),
                  P(3, 'propuesta', { situacion: 'Tiene 2 F29 atrasados', plan: 'pro' }), P(4, 'seguimiento'), P(5, 'cliente'), P(6, 'descartado', { motivo_perdida: 'precio' }), P(7, 'nuevo')] };
 }
-async function pantalla(opts: { escribe?: boolean, conflicto?: boolean } = {}) {
+async function pantalla(opts: { escribe?: boolean, conflicto?: boolean | string } = {}) {
   const html = leer('prospectos/simple.html')
     .replace('<script src="../supabase.js"></script>', `<script>
-      window._llamadas = []; window._DATOS = ${JSON.stringify(datos(opts.escribe !== false))}; window._CONFLICTO = ${!!opts.conflicto};
+      window._llamadas = []; window._DATOS = ${JSON.stringify(datos(opts.escribe !== false))}; window._CONFLICTO = ${JSON.stringify(opts.conflicto || false)};
       function resp(o, ok){ return Promise.resolve({ ok: ok !== false, status: ok === false ? 400 : 200, json: function(){ return Promise.resolve(o); } }); }
       function sbFetch(path, op){ var fn = path.replace('rpc/', ''), b = JSON.parse((op && op.body) || '{}'); window._llamadas.push({ fn: fn, b: b });
         var D = window._DATOS;
@@ -60,8 +61,8 @@ async function pantalla(opts: { escribe?: boolean, conflicto?: boolean } = {}) {
         if (fn === 'com_linea_tiempo') return resp([{ t: '2026-11-10T12:00:00Z', tipo: 'etapa', detalle: { de: 'nuevo', a: 'agendado' }, actor: 'Luciano Demo' }]);
         if (fn === 'com_cierre_rapido') { var p = D.prospectos.filter(function(x){ return x.reunion && x.reunion.id === b.p_reserva_id; })[0];
           p = Object.assign({}, p, { etapa: b.p_resultado === 'realizada' ? 'reunion_realizada' : 'no_asistio' }); p.reunion = Object.assign({}, p.reunion, { estado: b.p_resultado });
-          return resp({ reserva_id: b.p_reserva_id, lead_id: p.id, ya_cerrada: false, prospecto: p }); }
-        if (fn === 'com_ficha_guardar') { if (window._CONFLICTO) return resp({ message: 'VERSION_CONFLICTO' }, false);
+          return resp({ reserva_id: b.p_reserva_id, lead_id: p.id, ya_cerrada: false, etapa_antes: D.prospectos.filter(function(x){ return x.id === p.id; })[0].etapa, etapa: p.etapa, prospecto: p }); }
+        if (fn === 'com_ficha_guardar') { if (window._CONFLICTO) return resp({ message: window._CONFLICTO === 'v' ? 'FALTA_VERSION' : 'VERSION_CONFLICTO' }, false);
           var q = D.prospectos.filter(function(x){ return x.id === b.p_id; })[0];
           return resp(Object.assign({}, q, { etapa: b.p_etapa, situacion: b.p_situacion || null, plan: b.p_plan, motivo_perdida: b.p_motivo_perdida, proxima_fecha: b.p_proxima_fecha, actualizado: 'nuevo' })); }
         if (fn === 'com_bitacora_abrir') return resp({ id: 999 });
@@ -85,12 +86,13 @@ async function pantalla(opts: { escribe?: boolean, conflicto?: boolean } = {}) {
   res('el nombre con HTML se muestra escapado (sin <img> ni XSS)', !d.querySelector('#csApp img') && !w.__xss && d.querySelector('#csPend').textContent.includes('<img src=x'));
   res('bitácora abierta se indica en la fila pendiente', pend[1].textContent.includes('bitácora abierta'));
   const chips = [...d.querySelectorAll('.cs-chips [data-f]')].map((b: any) => b.textContent);
-  res('conteos: Todos 7 · Agendadas 2 · Propuesta enviada 2 · Ganados 1 · Perdidos 1', chips.join('|') === 'Todos7|Agendadas2|Propuesta enviada2|Ganados1|Perdidos1', chips.join('|'));
+  res('conteos: Todos 7 · Agendadas 1 · Propuesta enviada 2 · Ganados 1 · Perdidos 2', chips.join('|') === 'Todos7|Agendadas1|Propuesta enviada2|Ganados1|Perdidos2', chips.join('|'));
+res('R2 6: ANTES — la reunión pendiente de un Perdido avisa que saldrá de Perdido', pend[1].textContent.includes('Hoy está Perdido') && !pend[0].textContent.includes('Perdido'));
   res('ficha abre el primero con contacto, WhatsApp y correo', d.getElementById('csNom').textContent === 'Persona 1' && !!d.querySelector('#csWa .wa-btn') && !!d.querySelector('#csFicha a[href="mailto:p1@ejemplo.test"]'));
   res('ficha: UNA caja de situación y próximo contacto opcional', d.querySelectorAll('#csFicha textarea').length === 1 && d.querySelector('label[for="csProx"]').textContent.includes('opcional'));
   res('ficha: nada marcado como obligatorio', !d.querySelector('#csFicha [required]') && !/obligatori/i.test(d.getElementById('csFicha').textContent));
   res('Ver guion (opcional) apunta a la bitácora de la reunión', d.querySelector('#csFicha a[href="bitacora.html?reserva=201"]')?.textContent.includes('Ver guion (opcional)'));
-  await espera(); res('historial cargado con com_linea_tiempo', d.getElementById('csHist').textContent.includes('Estado: Agendada'));
+  await espera(); res('historial cargado con com_linea_tiempo y muestra de → a', d.getElementById('csHist').textContent.includes('Estado: Nuevo · sin reunión → Agendada'));
   // ✅ Se hizo
   d.querySelector('[data-cerrar="201"][data-res="realizada"]').click(); await espera();
   const c1 = w._llamadas.filter((x: any) => x.fn === 'com_cierre_rapido')[0];
@@ -98,10 +100,11 @@ async function pantalla(opts: { escribe?: boolean, conflicto?: boolean } = {}) {
   res('la reunión sale de "sin cerrar" y el prospecto queda "Reunión hecha"', d.querySelectorAll('.cs-pend').length === 1 && d.querySelector('.cs-row[data-id="1"]').textContent.includes('Reunión hecha'));
   // 🚫 No asistió
   d.querySelector('[data-cerrar="202"][data-res="no_asistio"]').click(); await espera();
+  res('R2 6: DESPUÉS — el aviso dice que salió de Perdido', /salió de Perdido → No asistió/.test(d.getElementById('cmToast')?.textContent || ''), d.getElementById('cmToast')?.textContent);
   res('🚫 No asistió → p_resultado "no_asistio" y desaparece el aviso', w._llamadas.some((x: any) => x.fn === 'com_cierre_rapido' && x.b.p_reserva_id === 202 && x.b.p_resultado === 'no_asistio') && !d.getElementById('csPend'));
   // Filtro Perdidos
   d.querySelector('[data-f="per"]').click(); await espera(50);
-  res('filtro Perdidos muestra solo el perdido', d.querySelectorAll('.cs-row').length === 1 && d.querySelector('.cs-row').dataset.id === '6');
+  res('filtro Perdidos muestra solo el perdido (el 2 ya salió de Perdido)', d.querySelectorAll('.cs-row').length === 1 && d.querySelector('.cs-row').dataset.id === '6');
   d.querySelector('[data-f="todos"]').click(); await espera(50);
   // Ficha del 3: estado de un toque
   d.querySelector('.cs-row[data-id="3"]').click(); await espera();
@@ -133,6 +136,13 @@ async function pantalla(opts: { escribe?: boolean, conflicto?: boolean } = {}) {
   const n0 = w._llamadas.filter((x: any) => x.fn === 'com_simple_listar').length;
   d.querySelector('#csFicha [data-et="propuesta"]').click(); await espera(250);
   res('VERSION_CONFLICTO: recarga los datos y avisa (no pisa lo de la otra persona)', w._llamadas.filter((x: any) => x.fn === 'com_simple_listar').length === n0 + 1 && /Otra persona guardó/.test(d.getElementById('csMsg').textContent));
+  dom.window.close();
+}
+{ // R2 H1: la base rechaza sin versión → recarga y avisa
+  const dom = await pantalla({ conflicto: 'v' }); const w: any = dom.window, d = w.document;
+  const n0 = w._llamadas.filter((x: any) => x.fn === 'com_simple_listar').length;
+  d.querySelector('#csFicha [data-et="propuesta"]').click(); await espera(250);
+  res('R2 H1: FALTA_VERSION → recarga y avisa', w._llamadas.filter((x: any) => x.fn === 'com_simple_listar').length === n0 + 1 && /Faltan los datos/.test(d.getElementById('csMsg').textContent));
   dom.window.close();
 }
 { // Solo lectura (sin permiso de escritura)

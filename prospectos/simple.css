@@ -12,6 +12,7 @@
 .g-mod-com .cs-pend:first-of-type{border-top:0}
 .g-mod-com .cs-pend>span{min-width:0;color:var(--t2);font-size:13px}.g-mod-com .cs-pend>span b{color:var(--t1)}
 .g-mod-com .cs-pend .cs-acc{display:flex;gap:6px;flex-wrap:wrap}
+.g-mod-com .cs-alerta{display:inline-block;margin-top:4px;color:var(--ambar);font-size:12px}.g-mod-com .cs-alerta b{color:var(--rojo)}
 .g-mod-com .btn.cs-ok{border-color:#2f6b52;background:#173a2c;color:var(--verde)}.g-mod-com .btn.cs-ok:hover{background:#1d4a38}
 .g-mod-com .btn.cs-no{border-color:#6b3530;background:#3a1a17;color:var(--rojo)}.g-mod-com .btn.cs-no:hover{background:#4a221e}
 /* Filtros */

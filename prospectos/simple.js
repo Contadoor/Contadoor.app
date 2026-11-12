@@ -21,7 +21,8 @@ var FILTROS=[['todos','Todos',null],['ag','Agendadas',['agendado']],['prop','Pro
 var MOTIVOS=[['precio','Precio'],['eligio_otro','Se quedó con su contador / eligió otro'],['no_responde','No respondió'],
   ['no_calza','No califica'],['lo_hara_solo','Lo hará por su cuenta'],['otro','Otro']];
 var PLANES=[['cumplimiento','Cumplimiento'],['pro','PRO'],['estrategico','Estratégico']];
-var MSJ={RESERVA_FUTURA:'Esa reunión todavía no ocurre.',RESERVA_YA_CERRADA:'Esa reunión ya estaba cerrada con otro resultado. Recargué la lista.',
+var MSJ={RESERVA_FUTURA:'Esa reunión todavía no ocurre.',RESERVA_NO_TERMINADA:'Esa reunión todavía no termina: ciérrala cuando acabe.',
+  FALTA_VERSION:'Faltan los datos de la ficha. Recargué la lista: vuelve a guardar.',SIN_IDENTIDAD:'Tu usuario no está activo en Gestoor. Pídele al Master que lo revise.',RESERVA_YA_CERRADA:'Esa reunión ya estaba cerrada con otro resultado. Recargué la lista.',
   RESERVA_NO_VIGENTE:'Esa reserva fue cancelada.',RESULTADO_INVALIDO:'Resultado no válido.',PLAN_INVALIDO:'Elige un plan de la lista.',
   MOTIVO_INVALIDO:'Elige un motivo de la lista.',SITUACION_MUY_LARGA:'La situación supera los 4.000 caracteres.',ETAPA_INVALIDA:'Estado no válido.',
   VERSION_CONFLICTO:'Otra persona guardó esta ficha recién. Recargué sus datos: revisa y vuelve a guardar.',
@@ -46,7 +47,7 @@ function guionUrl(p,demo){
 // Argumentos de com_ficha_guardar a partir de la ficha (todo junto; solo el estado es obligatorio).
 function argsFicha(p,v){
   return {p_id:Number(p.id),p_etapa:v.etapa,p_situacion:v.situacion||'',p_plan:v.plan||null,
-    p_motivo_perdida:v.etapa==='descartado'?(v.motivo||null):null,p_proxima_fecha:v.proxima||null,p_actualizado:p.actualizado||null};
+    p_motivo_perdida:v.etapa==='descartado'?(v.motivo||null):null,p_proxima_fecha:v.proxima||null,p_actualizado:p.actualizado};   // R2 H1: obligatoria
 }
 root.ComSimple={ESTADOS:ESTADOS,OTRAS:OTRAS,FILTROS:FILTROS,MOTIVOS:MOTIVOS,PLANES:PLANES,etapaInfo:etapaInfo,pasaFiltro:pasaFiltro,
   cuenta:cuenta,guionUrl:guionUrl,argsFicha:argsFicha};
@@ -63,6 +64,7 @@ function mensaje(e){var m=String(e&&e.message||e||'');for(var k in MSJ)if(m.inde
 function fechaCorta(iso){if(!iso)return '—';return D.diaLargo(D.ymd(iso)).replace(/,.*/,'').slice(0,3)+' '+D.ymd(iso).slice(8)+'-'+D.ymd(iso).slice(5,7)+' '+D.hora(iso);}
 function chip(et){var i=etapaInfo(et);return '<span class="cs-est '+i[1]+'">'+esc(i[0])+'</span>';}
 function yo(){return (DATA&&DATA.yo)||{};}
+function perdido(id){var p=prospecto(id);return !!(p&&p.etapa==='descartado');}
 function prospecto(id){return (DATA.prospectos||[]).filter(function(p){return Number(p.id)===Number(id);})[0]||null;}
 function reemplazar(p){if(!p)return;var l=DATA.prospectos||[];for(var i=0;i<l.length;i++)if(Number(l[i].id)===Number(p.id)){l[i]=p;return;}l.unshift(p);}
 function guardarUrl(){try{var p=new URLSearchParams(location.search);if(SEL)p.set('id',SEL);else p.delete('id');if(FILTRO!=='todos')p.set('f',FILTRO);else p.delete('f');
@@ -83,7 +85,8 @@ function pintar(){
   if(pend.length){
     h+='<div class="cs-aviso" id="csPend"><p>⏰ <b>Reuniones pasadas sin cerrar</b> · ciérralas con un toque</p>'
       +pend.map(function(x){return '<div class="cs-pend" data-rid="'+Number(x.reserva_id)+'"><span><b>'+esc(x.nombre)+'</b> · '+esc(x.empresa||'Empresa no informada')+' · '+esc(fechaCorta(x.inicio))
-        +(x.bitacora&&x.bitacora.estado==='abierta'?' · <i>bitácora abierta</i>':'')+'</span>'
+        +(x.bitacora&&x.bitacora.estado==='abierta'?' · <i>bitácora abierta</i>':'')
+        +(perdido(x.lead_id)?'<br><small class="cs-alerta">⚠️ Hoy está <b>Perdido</b>: al cerrar esta reunión sale de Perdido (queda en el historial).</small>':'')+'</span>'
         +'<span class="cs-acc">'+(Y.escribe
           ?'<button type="button" class="btn sm cs-ok" data-cerrar="'+Number(x.reserva_id)+'" data-res="realizada">✅ Se hizo</button><button type="button" class="btn sm cs-no" data-cerrar="'+Number(x.reserva_id)+'" data-res="no_asistio">🚫 No asistió</button>'
           :'<span class="nd">solo lectura</span>')+'</span></div>';}).join('')+'</div>';
@@ -135,7 +138,7 @@ var ETQ_HIST={origen:'Llegó',reserva_agendada:'Agendó por la web',lead_manual:
   bitacora_cerrada:'Cerró la reunión',reserva:'Reunión marcada',etapa:'Estado',perdido:'Perdido',tel_corregido:'Teléfono corregido'};
 function histTexto(e){
   var d=e.detalle||{}, base=ETQ_HIST[e.tipo]||e.tipo;
-  if(e.tipo==='etapa')return base+': '+etapaInfo(d.a)[0];
+  if(e.tipo==='etapa')return base+': '+(d.de?etapaInfo(d.de)[0]+' → ':'')+etapaInfo(d.a)[0];
   if(e.tipo==='reserva')return base+' '+(d.estado==='realizada'?'como hecha':d.estado==='no_asistio'?'como no asistió':String(d.estado||''));
   if(e.tipo==='bitacora_cerrada')return base+(d.resultado==='no_asistio'?' · no asistió':' · se hizo');
   if(e.tipo==='perdido'){var m=MOTIVOS.filter(function(x){return x[0]===d.motivo;})[0];return base+(m?' · '+m[1]:'');}
@@ -162,7 +165,9 @@ function valores(p,etapa){
 var ocupado=false, SUCIO=false;   // SUCIO: hay texto sin guardar en la ficha (el refresco automático no la pisa)
 function guardar(etapa){
   var p=prospecto(SEL);if(!p||ocupado)return;
-  var msg=document.getElementById('csMsg');ocupado=true;
+  var msg=document.getElementById('csMsg');
+  if(!p.actualizado){if(msg){msg.className='cs-msg err';msg.textContent=MSJ.FALTA_VERSION;}cargar();return;}   // R2 H1: la versión viaja siempre
+  ocupado=true;
   app.querySelectorAll('#csFicha button,#csFicha select,#csFicha textarea,#csFicha input').forEach(function(x){x.disabled=true;});
   if(msg){msg.className='cs-msg';msg.textContent='Guardando…';}
   D.rpc('com_ficha_guardar',argsFicha(p,valores(p,etapa))).then(function(n){
@@ -173,7 +178,7 @@ function guardar(etapa){
     var m=document.getElementById('csMsg');if(m){m.className='cs-msg ok';m.textContent='Guardado · '+etapaInfo(n.etapa)[0];}
   }).catch(function(e){
     ocupado=false;var t=mensaje(e);
-    if(/VERSION_CONFLICTO/.test(String(e&&e.message))){cargar().then(function(){var m=document.getElementById('csMsg');if(m){m.className='cs-msg err';m.textContent=t;}});return;}
+    if(/VERSION_CONFLICTO|FALTA_VERSION/.test(String(e&&e.message))){cargar().then(function(){var m=document.getElementById('csMsg');if(m){m.className='cs-msg err';m.textContent=t;}});return;}
     app.querySelectorAll('#csFicha button,#csFicha select,#csFicha textarea,#csFicha input').forEach(function(x){x.disabled=!yo().escribe;});
     var m=document.getElementById('csMsg');if(m){m.className='cs-msg err';m.textContent=t+' No se guardó ningún cambio.';}
   });
@@ -184,7 +189,8 @@ function cerrarRapido(rid,res,btn){
     DATA.pendientes=DATA.pendientes.filter(function(x){return Number(x.reserva_id)!==Number(rid);});
     if(r&&r.prospecto){reemplazar(r.prospecto);SEL=Number(r.prospecto.id);delete HIST[SEL];}
     guardarUrl();pintar();
-    D.toast((res==='realizada'?'✅ Reunión hecha':'🚫 No asistió')+(r&&r.prospecto?' · '+r.prospecto.nombre:''));
+    D.toast((res==='realizada'?'✅ Reunión hecha':'🚫 No asistió')+(r&&r.prospecto?' · '+r.prospecto.nombre:'')
+      +(r&&r.etapa_antes==='descartado'&&r.etapa!=='descartado'?' · salió de Perdido → '+etapaInfo(r.etapa)[0]:''));
   }).catch(function(e){
     D.toast(mensaje(e));
     if(/RESERVA_YA_CERRADA|NO_EXISTE|RESERVA_NO_VIGENTE/.test(String(e&&e.message)))cargar();
