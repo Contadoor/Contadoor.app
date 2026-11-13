@@ -14,6 +14,9 @@
 'use strict';
 var DEMO=window.FX_DEMO===true&&!!window.FX_DEMO_API;
 var MODO='PRUEBA';   // F1b/F1c trabajan solo en PRUEBA; PRODUCCION llega con el GO de F1d.
+// FACT-VER-REAL (13-11): la vista del grupo mensual también MUESTRA el grupo REAL (PRODUCCION) del período, en SOLO LECTURA.
+// Preparar/recalcular/enviar/aprobar/devolver/anular/editar siguen solo para el grupo de PRUEBA (MODO). Fail-closed: cualquier
+// grupo cuyo modo no sea exactamente MODO se trata como de solo lectura.
 
 /* ── Íconos (trazos Lucide, mismos que gestoor-menu.js) ── */
 var P={
@@ -125,7 +128,7 @@ function mensajeError(e){
 }
 
 /* ── Estado de la pantalla ── */
-var S={yo:null,periodos:[],periodo:null,vista:'FIJO',lote:null,lineas:[],adic:{},eventos:[],anterior:{},tab:'lineas',filtro:false,sel:null,dtab:'glosa',ocupado:false,cargando:true};
+var S={yo:null,periodos:[],periodo:null,vista:'FIJO',verModo:null,hayReal:false,hayPrueba:false,lote:null,lineas:[],adic:{},eventos:[],anterior:{},tab:'lineas',filtro:false,sel:null,dtab:'glosa',ocupado:false,cargando:true};
 var $=function(id){return document.getElementById(id);};
 
 var EST_LOTE={
@@ -163,7 +166,9 @@ function motivoTxt(m){return MOTIVO[m]||m;}
 /* ── Roles ── */
 function esFact(){return !!(S.yo&&S.yo.puede_preparar);}
 function esMaster(){return !!(S.yo&&S.yo.puede_aprobar);}
-function editable(){return !!S.lote&&(S.lote.estado==='BORRADOR'||S.lote.estado==='DEVUELTO');}
+function esReal(){return !!S.lote&&S.lote.modo!==MODO;}   // fail-closed: todo lo que no sea PRUEBA es solo lectura
+function verReal(){return S.verModo==='PRODUCCION';}
+function editable(){return !!S.lote&&!esReal()&&(S.lote.estado==='BORRADOR'||S.lote.estado==='DEVUELTO');}
 function enEmision(){return !!S.lote&&['EMITIENDO','EMITIDO','EMITIDO_PARCIAL'].indexOf(S.lote.estado)>=0;}
 
 /* ── Carga ── */
@@ -204,9 +209,13 @@ function cargar(){
   if(S.vista==='ADICIONAL'){S.cargando=false;render();return Promise.resolve();}
   if(!S.periodo){S.lote=null;S.lineas=[];S.cargando=false;render();return Promise.resolve();}
   $('fxEstado').innerHTML='<p class="ninguna">Cargando el grupo '+esc(S.vista)+' de '+esc(mesTxt(S.periodo))+'…</p>';
-  return API.get('facturacion_lotes?select=*&periodo=eq.'+encodeURIComponent(S.periodo)+'&tipo=eq.'+S.vista+'&modo=eq.'+MODO+'&order=id.desc&limit=10').then(function(lotes){
+  return API.get('facturacion_lotes?select=*&periodo=eq.'+encodeURIComponent(S.periodo)+'&tipo=eq.'+S.vista+'&modo=in.(PRUEBA,PRODUCCION)&order=id.desc&limit=20').then(function(lotes){
     lotes=lotes||[];
-    S.lote=lotes.filter(function(l){return l.estado!=='ANULADO';})[0]||lotes[0]||null;
+    var real=lotes.filter(function(l){return l.modo==='PRODUCCION';}), prueba=lotes.filter(function(l){return l.modo===MODO;});
+    S.hayReal=real.length>0;S.hayPrueba=prueba.length>0;
+    if(S.verModo==null)S.verModo=S.hayReal?'PRODUCCION':MODO;   // por defecto: el grupo REAL del período, si existe
+    var ls=verReal()?real:prueba;
+    S.lote=ls.filter(function(l){return l.estado!=='ANULADO';})[0]||ls[0]||null;
     if(!S.lote){S.lineas=[];S.adic={};S.eventos=[];S.anterior={};return;}
     var lid=S.lote.id;
     return Promise.all([
@@ -258,6 +267,7 @@ function render(){
   $('vistaGrupo').hidden=ad;$('vistaAdic').hidden=!ad;$('fxPeriodoBox').hidden=false;
   $('tbSub').textContent=ad?'adicional':'mensual';
   document.querySelectorAll('[data-vista]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-vista')===S.vista);b.setAttribute('aria-pressed',b.getAttribute('data-vista')===S.vista?'true':'false');});
+  document.body.classList.toggle('fx-ver-real',!ad&&(verReal()||esReal()));
   if(ad){if(window.FX_ADICIONAL)window.FX_ADICIONAL.render({demo:DEMO,rol:esMaster()?'master':(esFact()?'facturador':'lectura'),periodo:S.periodo,uf:ufPeriodo()});return;}
   renderHero();renderPasos();renderAcciones();renderTabla();renderAnalisis();renderNoFact();renderBitacora();
   if(S.sel)renderDrawer();
@@ -269,8 +279,9 @@ function renderHero(){
     var uf=ufPeriodo();
     $('hero').innerHTML='<div class="hero-top"><div><small class="k">Período contable</small><h2>'+esc(mesTxt(per,true)||'Sin período')+' · <span>Grupo '+S.vista+'</span></h2>'
       +'<div class="meta"><span class="it">'+I('grafico','ic-cel')+(uf?'UF <b class="cifra">$'+ufFmt(uf)+'</b> (día 1 del mes siguiente)':'<b>Sin UF</b>: abre el período en Panel de Control')+'</span><span class="it">'+I('factura','ic-mor')+'Factura exenta <b>DTE 34</b></span></div></div>'
-      +'<div class="estado-lote"><span class="fx-est gris grande">Sin preparar</span><span class="prueba">'+ic('probeta')+'MODO PRUEBA</span></div></div>'
-      +'<div class="desfase">'+I('alerta','ic-cel')+'<span>'+(esFact()?'Aún no se prepara este grupo. Usa "Preparar grupo": el motor toma los clientes activos del grupo '+S.vista+' y calcula cada línea.':'Aún no se prepara este grupo. Lo prepara el facturador.')+'</span></div>';
+      +'<div class="estado-lote"><span class="fx-est gris grande">'+(verReal()?'Sin grupo real':'Sin preparar')+'</span>'+etiquetaModo(null)+'</div></div>'
+      +selectorModo()
+      +'<div class="desfase">'+I('alerta','ic-cel')+'<span>'+(verReal()?'No hay grupo REAL (emitido al SII) del grupo '+S.vista+' para este período. Para ver el grupo de prueba, usa "Prueba".':esFact()?'Aún no se prepara este grupo. Usa "Preparar grupo": el motor toma los clientes activos del grupo '+S.vista+' y calcula cada línea.':'Aún no se prepara este grupo. Lo prepara el facturador.')+'</span></div>';
     return;
   }
   var t=l.totales||{}, a=t.anterior||{}, e=l.estado, dif=+t.diferencia||0, pct=t.diferencia_pct;
@@ -281,7 +292,9 @@ function renderHero(){
    +'<div class="meta"><span class="it">'+I('grafico','ic-cel')+'UF <b class="cifra">$'+ufFmt(l.uf_valor)+'</b> ('+fFecha(l.uf_fecha)+')</span>'
    +'<span class="it">'+I('calendario','ic-ver')+'Emisión <b>'+fFecha(l.fecha_emision)+'</b></span><span class="it">'+I('reloj','ic-amb')+'Vencimiento <b>'+fFecha(l.fecha_vencimiento)+'</b></span>'
    +'<span class="it">'+I('factura','ic-mor')+'Factura exenta <b>DTE 34</b></span></div></div>'
-   +'<div class="estado-lote"><span class="'+(EST_LOTE[e]||['',''])[1]+' grande">'+esc((EST_LOTE[e]||[e])[0])+'</span><span class="prueba">'+ic('probeta')+'MODO '+esc(l.modo)+'</span></div></div>'
+   +'<div class="estado-lote"><span class="'+(EST_LOTE[e]||['',''])[1]+' grande">'+esc((EST_LOTE[e]||[e])[0])+'</span>'+etiquetaModo(l)+'</div></div>'
+   +selectorModo()
+   +(esReal()?kpisReal():'')
    +'<div class="fx-kpis">'
    +'<div class="fx-kpi"><span class="l">Líneas listas</span><span class="v cifra">'+nok+' <small style="font-size:15px;color:var(--t2)">de '+nl+'</small></span><span class="s">'+(nl-nok)+' no lista(s) quedan fuera al aprobar</span></div>'
    +'<div class="fx-kpi"><span class="l">Monto total</span><span class="v cifra">'+clp(t.monto_listas)+'</span><span class="s">Solo líneas listas</span></div>'
@@ -293,9 +306,34 @@ function renderHero(){
    +(e==='ANULADO'&&l.motivo_anulacion?'<div class="desfase" style="color:var(--roj)">'+I('basura','ic-roj')+'<span><b>Motivo de la anulación:</b> '+esc(l.motivo_anulacion)+'</span></div>':'')
    +((l.bloqueos||[]).length?'<div class="desfase" style="color:var(--roj)">'+I('alerta','ic-roj')+'<span><b>Grupo bloqueado:</b> '+l.bloqueos.length+' empresa(s) con tratamiento de facturación inválido. Corrígelo en Clientes y recalcula.</span></div>':'');
 }
+/* ── FACT-VER-REAL: selector Real / Prueba, etiqueta y totales emitidos (solo lectura) ── */
+function etiquetaModo(l){
+  if(l?l.modo===MODO:!verReal())return '<span class="prueba">'+ic('probeta')+'MODO PRUEBA</span>';
+  var est=l?(l.estado==='EMITIDO'?'EMITIDO':(EST_LOTE[l.estado]||[l.estado])[0].toUpperCase()):'';
+  return '<span class="prueba fx-real">'+ic('escudo')+'REAL'+(est?' · '+esc(est):'')+'</span>';
+}
+function selectorModo(){
+  function b(m,txt,icn,icc,hay){var on=S.verModo===m;
+    return '<button type="button" class="fb'+(on?' on':'')+'" data-act="'+(m==='PRODUCCION'?'ver-real':'ver-prueba')+'" aria-pressed="'+(on?'true':'false')+'">'+I(icn,icc)+esc(txt)+(hay?'':' <small>(sin grupo)</small>')+'</button>';}
+  return '<div class="g-seg fx-modo" role="group" aria-label="Ver grupo real o de prueba">'
+    +b('PRODUCCION','Real · emitido al SII','escudo','ic-ver',S.hayReal)+b(MODO,'Prueba','probeta','ic-amb',S.hayPrueba)+'</div>';
+}
+function emitidas(){return S.lineas.filter(function(x){return x.estado==='EMITIDA';});}
+function rangoFolios(ls){var f=ls.map(function(x){return Number(x.of_folio);}).filter(function(n){return isFinite(n)&&n>0;}).sort(function(a,b){return a-b;});
+  return f.length?(f[0]===f[f.length-1]?String(f[0]):f[0]+'–'+f[f.length-1]):'—';}
+function kpisReal(){
+  var em=emitidas(), monto=em.reduce(function(a,x){return a+(+x.total_clp||0);},0);
+  var otras=S.lineas.length-em.length, exc=S.lineas.filter(function(x){return x.estado==='EXCLUIDA';}).length;
+  return '<div class="fx-kpis fx-kpis-real">'
+   +'<div class="fx-kpi"><span class="l">Facturas emitidas (reales)</span><span class="v cifra">'+em.length+' <small style="font-size:15px;color:var(--t2)">de '+S.lineas.length+'</small></span><span class="s">'+(otras?otras+' sin emitir'+(exc?' ('+exc+' excluida(s) al aprobar)':''):'Todas emitidas')+'</span></div>'
+   +'<div class="fx-kpi"><span class="l">Monto emitido</span><span class="v cifra">'+clp(monto)+'</span><span class="s">Suma de las facturas emitidas</span></div>'
+   +'<div class="fx-kpi"><span class="l">Folios</span><span class="v cifra" style="font-size:20px">'+esc(rangoFolios(em))+'</span><span class="s">Factura exenta DTE 34</span></div>'
+   +'</div>';
+}
 function renderPasos(){
   var e=S.lote?S.lote.estado:null;
   var PS=[['Preparar','Calcular líneas'],['Revisar alertas','Facturador'],['Enviar a aprobación','Aviso al Master'],['Aprobado (Master)','Huella congelada'],['Emitir','Bloqueado hasta F1c/F1d'],['Documentos y correo','PDF, XML y aviso']];
+  if(esReal())PS[4]=['Emitido (real)','Al SII'];
   var actual=e==null?0:({BORRADOR:1,DEVUELTO:1,EN_REVISION:3,APROBADO:4,EMITIENDO:5,EMITIDO:6,EMITIDO_PARCIAL:5,ANULADO:-1}[e]);
   $('pasos').innerHTML=PS.map(function(p,i){
     var c=i<actual?'hecho':(i===actual?'actual':'');
@@ -308,6 +346,10 @@ function renderPasos(){
 function renderAcciones(){
   var l=S.lote, e=l?l.estado:null, h='';
   var noListas=S.lineas.filter(function(x){return x.estado==='BORRADOR';}).length;
+  if(verReal()||esReal()){   // grupo REAL: solo lectura, sin ningún botón de acción
+    $('acciones').innerHTML='<div class="quien">'+I('escudo','ic-ver')+'<span><b>Grupo REAL · solo lectura</b>: '+(l?'son las facturas emitidas al SII. Aquí no se prepara, recalcula, aprueba, emite ni anula.':'no hay grupo real para este período.')+' Las acciones están solo en "Prueba".</span></div>';
+    return;
+  }
   if(esFact()){
     if(!l||e==='ANULADO')h+=btn({txt:'Preparar grupo',ic:'repetir',cls:'pri',ok:!!S.periodo,act:'preparar',tip:'Crea el grupo '+S.vista+' de '+mesTxt(S.periodo)+' con los clientes activos y calcula cada línea con la UF del período.'});
     else h+=btn({txt:'Recalcular grupo',ic:'repetir',icc:'ic-cel',ok:editable(),act:'preparar',tip:editable()?'Vuelve a calcular todas las líneas con la ficha y la UF vigentes.':'Solo se recalcula en Borrador o Devuelto. Ahora el grupo está "'+(EST_LOTE[e]||[e])[0]+'".'});
@@ -341,6 +383,7 @@ function planCelda(l){
 }
 function accionesLinea(l){
   var h='';
+  if(esReal())return h;   // grupo REAL: sin acciones por línea
   if(enEmision()&&l.estado==='INCIERTO'){
     h+=btn({txt:'Conciliar',ic:'buscar',cls:'sm',ok:false,act:'conciliar',id:l.id,tip:'Conciliar llega en F1c: buscará el documento en OpenFactura por su clave. Nunca se reemite.'});
   }else if(enEmision()&&l.estado==='EMITIDA'&&l.correo_estado==='FALLIDO'){
@@ -386,7 +429,7 @@ function renderTabla(){
      +'<td><span class="'+est[1]+'">'+est[0]+'</span>'+mini+'</td>'
      +'<td style="white-space:nowrap">'+accionesLinea(l)+' <button type="button" class="g-ico" aria-label="Ver detalle" data-act="ver" data-id="'+l.id+'">'+I('ver','ic-mor')+'</button></td></tr>';
   });
-  if(!S.lote)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">'+(esFact()?'Aún no hay grupo. Usa "Preparar grupo".':'Aún no hay grupo preparado para este período.')+'</td></tr>';
+  if(!S.lote)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">'+(verReal()?'No hay grupo real para este período.':esFact()?'Aún no hay grupo. Usa "Preparar grupo".':'Aún no hay grupo preparado para este período.')+'</td></tr>';
   else if(!ls.length)h='<tr><td colspan="9" class="ninguna" style="padding:22px;cursor:default">'+(q?'Ninguna línea coincide con la búsqueda.':'El grupo no tiene líneas.')+'</td></tr>';
   $('tbody').innerHTML=h;
   $('tLote').textContent='grupo '+S.vista;
@@ -394,6 +437,8 @@ function renderTabla(){
   var t=S.lote&&S.lote.totales||{};
   $('porResolver').innerHTML=porResolver.length?'<button type="button" class="ind-ind'+(S.filtro?' on':'')+'" data-act="filtro" aria-pressed="'+(S.filtro?'true':'false')+'" title="'+(S.filtro?'Ver todas las líneas':'Ver solo las líneas por resolver')+'">'+I('alerta')+' <b>'+porResolver.length+'</b> por resolver'+(S.filtro?' · ver todas':'')+'</button>':(S.lote?'<span class="fx-est ver">Todas las líneas listas</span>':'');
   $('pie').innerHTML=S.lote?'<span>'+I('check','ic-ver')+' '+(+t.n_listas||0)+' listas · '+clp(t.monto_listas)+'</span><span>'+I('alerta','ic-amb')+' '+porResolver.length+' no listas (quedan EXCLUIDAS al aprobar)</span><span>'+I('correo','ic-cel')+' Modo prueba: correos solo a info@contadoor.cl</span>':'';
+  if(esReal()){var em=emitidas();$('porResolver').innerHTML='<span class="fx-est ver">REAL · solo lectura</span>';
+    $('pie').innerHTML='<span>'+I('check','ic-ver')+' '+em.length+' emitidas · '+clp(em.reduce(function(a,x){return a+(+x.total_clp||0);},0))+'</span><span>'+I('factura','ic-mor')+' Folios '+esc(rangoFolios(em))+'</span><span>'+I('escudo','ic-ver')+' Grupo REAL: solo lectura</span>';}
 }
 function renderAnalisis(){
   var t=S.lote&&S.lote.totales;
@@ -577,6 +622,8 @@ function accion(act,id){
   var l=id!=null?S.lineas.filter(function(x){return x.id===+id;})[0]:null, lt=S.lote;
   if(act==='recargar'){$('fxEstado').innerHTML='';iniciar();return;}
   if(act==='ver'){abrirDrawer(id);return;}
+  if(act==='ver-real'||act==='ver-prueba'){if(S.ocupado)return;S.verModo=act==='ver-real'?'PRODUCCION':MODO;S.filtro=false;cargar();return;}
+  if(act!=='filtro'&&(verReal()||esReal()))return;   // fail-closed: con el grupo REAL a la vista no se ejecuta ninguna acción del motor
   if(act==='filtro'){S.filtro=!S.filtro;renderTabla();var b=document.querySelector('[data-act="filtro"]');if(b)b.focus();return;}
   if(act==='preparar'){
     var nuevo=!lt||lt.estado==='ANULADO';
@@ -637,8 +684,8 @@ document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('[data-tab]').forEach(function(t){t.addEventListener('click',function(){S.tab=t.getAttribute('data-tab');
     document.querySelectorAll('[data-tab]').forEach(function(x){x.classList.toggle('on',x===t);x.setAttribute('aria-selected',x===t?'true':'false');});
     document.querySelectorAll('.fx-panel').forEach(function(p){p.classList.toggle('on',p.id==='p-'+S.tab);});});});
-  document.querySelectorAll('[data-vista]').forEach(function(b){b.addEventListener('click',function(){if(S.ocupado)return;S.vista=b.getAttribute('data-vista');S.filtro=false;cargar();});});
-  $('selPeriodo').addEventListener('change',function(e){S.periodo=e.target.value||null;cargar();});
+  document.querySelectorAll('[data-vista]').forEach(function(b){b.addEventListener('click',function(){if(S.ocupado)return;S.vista=b.getAttribute('data-vista');S.verModo=null;S.filtro=false;cargar();});});
+  $('selPeriodo').addEventListener('change',function(e){S.periodo=e.target.value||null;S.verModo=null;cargar();});
   $('fxBuscar').addEventListener('input',function(e){S.q=e.target.value;renderTabla();});
   if(DEMO){
     document.querySelectorAll('[data-rol]').forEach(function(b){b.addEventListener('click',function(){
