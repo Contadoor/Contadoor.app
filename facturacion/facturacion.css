@@ -720,3 +720,14 @@ body.fa-con-franja.g-mod-fact .fx-modal.on{top:calc(50% + 20px)}
 .g-mod-fact .fa-ocultar.on .fa-sw::after{transform:translateX(12px);background:#fff}
 .g-mod-fact .fa-pasos{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){.g-mod-fact .fa-pasos{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ── FACT-VER-REAL (13-11): selector Real / Prueba y grupo REAL en solo lectura ── */
+.g-mod-fact .prueba.fx-real{background:rgba(110,214,160,.14);border-color:rgba(110,214,160,.5);color:var(--ver)}
+.g-mod-fact .fx-modo{position:relative;margin-top:14px;background:rgba(127,127,127,.10);flex-wrap:wrap}
+.g-mod-fact .fx-modo .fb{background:transparent;color:var(--t2)}
+.g-mod-fact .fx-modo .fb.on{background:rgba(255,255,255,.12);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.g-mod-fact .fx-modo .fb small{font-weight:500;opacity:.75}
+.g-mod-fact .fx-kpis.fx-kpis-real{grid-template-columns:repeat(3,minmax(0,1fr))}
+body.g-mod-fact.fx-ver-real .topbar>.prueba{display:none}
+body.g-mod-fact.fx-ver-real .content>.fx-aviso[role="note"]{display:none}   /* el aviso "emisión real bloqueada" no aplica a un grupo ya emitido */
+@media (max-width:640px){.g-mod-fact .fx-kpis.fx-kpis-real{grid-template-columns:1fr}.g-mod-fact .fx-modo{display:flex}.g-mod-fact .fx-modo .fb{flex:1;justify-content:center}}
