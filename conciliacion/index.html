@@ -210,7 +210,7 @@ tr:hover td{background:#f0fdff;}
       <div class="stat"><div class="sv" id="st-sc" style="color:var(--red)">0</div><div class="sl">Sin cliente</div></div>
       <div class="stat"><div class="sv" id="st-co" style="color:var(--green)">0</div><div class="sl">Conciliados</div></div>
       <div class="stat"><div class="sv" id="st-de" style="color:var(--tm)">0</div><div class="sl">Descartados</div></div>
-      <div class="stat"><div class="sv" id="st-ob" style="color:#8FDBFF">0</div><div class="sl">Obligaciones abiertas</div></div>
+      <div class="stat"><div class="sv" id="st-ob" style="color:#8FDBFF">0</div><div class="sl">Obligaciones y facturas abiertas</div></div>
     </div>
     <div class="filtros">
       <button class="fb on" data-v="pend" onclick="setVista('pend')">🔄 Por conciliar</button>
@@ -227,7 +227,7 @@ tr:hover td{background:#f0fdff;}
       </div>
       <div id="tablaBody"></div>
     </div>
-    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
+    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente y con las facturas de nuestros servicios abiertas en Cobranza; si lo pagó otra empresa, usa ↺ para cambiar el cliente; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
   </div>
 </main>
 </div>
@@ -279,12 +279,13 @@ tr:hover td{background:#f0fdff;}
 
 <!-- MODAL ASIGNAR CLIENTE -->
 <div class="modal-bg" id="mAsig"><div class="modal ob-form">
-  <h2>Asignar cliente al ingreso</h2>
+  <h2 id="aTit">Asignar cliente al ingreso</h2>
   <div class="modal-sub" id="aSub"></div>
   <label for="aCli">Cliente</label><select id="aCli" data-buscador></select>
   <div id="aSug" class="info-box" style="display:none"></div>
   <label for="aMot">Motivo (obligatorio)</label><input id="aMot" maxlength="300" placeholder="Ej: el dueño transfiere desde su cuenta personal">
   <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--t1);margin-top:12px"><input type="checkbox" id="aRec" checked style="width:auto"> Recordar: las próximas transferencias de este RUT se asignan solas a este cliente</label>
+  <div id="aRecNota" style="display:none;font-size:11.5px;color:var(--tm);margin-top:4px"></div>
   <div class="ob-err" id="aErr"></div>
   <div class="modal-footer"><button class="btn-s" onclick="cerrar('mAsig')">Cancelar</button><button class="btn-purple" id="aBtn" onclick="asignar()">Asignar</button></div>
 </div></div>
@@ -295,9 +296,11 @@ tr:hover td{background:#f0fdff;}
 // Lee concil_movimientos / concil_operaciones / obligaciones_pago (RLS) y escribe SOLO por RPC:
 // registrar_transferencias, asignar_cliente_movimiento, conciliar_movimiento, descartar_movimiento,
 // revertir_descarte, anular_conciliacion. Nada se guarda en el navegador.
-var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _vista='pend', _seq=0, _ocupado=false;
+// CONC-A (13-11): también lee cobranza_documentos / cobranza_pagos (facturas de nuestros servicios) y las aplica con
+// cobranza_pago_registrar(p_movimiento_id) y las anula con cobranza_pago_anular (RPC existentes de Cobranza).
+var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _docs=[], _cobPagos=[], _vista='pend', _seq=0, _ocupado=false;
 var _filasCarga=null, _archivo=null, _sha=null;
-var _mov=null, _cands=[], _criterio='manual', _clave=null, _movDesc=null, _movAsig=null;
+var _mov=null, _cands=[], _criterio='manual', _clave=null, _claveCob=null, _movDesc=null, _movAsig=null;
 var EST={por_conciliar:['Por conciliar','eb-pend'],parcial:['Parcial','eb-parcial'],conciliado:['Conciliado','eb-ok'],descartado:['Descartado','eb-gris']};
 var CAT={servicios_contadoor:'Servicios Contadoor',devolucion:'Devolución',traspaso_propio:'Traspaso propio',pago_no_cliente:'No es cliente',otro:'Otro'};
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -323,15 +326,20 @@ function cargar(listo){
   var seq=++_seq;
   document.getElementById('meta').textContent='Cargando…';
   Promise.all([
-    todo('concil_movimientos?select=id,codigo,fecha_hora,rut_origen,nombre_origen,banco_origen,monto,saldo,monto_aplicado,estado,cliente_rut,cliente_asignado_manual,cliente_por_memoria,motivo_asignacion,categoria_descarte,motivo_descarte,descartado_at&order=fecha_hora.desc,id.desc',seq),
+    todo('concil_movimientos?select=id,codigo,fecha_hora,fecha,rut_origen,nombre_origen,banco_origen,monto,saldo,monto_aplicado,estado,cliente_rut,cliente_asignado_manual,cliente_por_memoria,motivo_asignacion,categoria_descarte,motivo_descarte,descartado_at&order=fecha_hora.desc,id.desc',seq),
     todo('concil_operaciones?select=id,movimiento_id,aplicaciones,total,criterio,created_at,anulada,motivo_anulacion&order=created_at.desc,id.desc',seq),
     todo('concil_cargas?select=id,archivo,filas,insertados,duplicados,rechazados,created_at&order=created_at.desc,id.desc',seq),
     todo('obligaciones_pago?select=id,cliente_rut,periodo,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado&estado=in.(pendiente_fondos,parcialmente_conciliada)&origen_fondos=eq.cliente&order=periodo.asc,id.asc',seq),
-    todo('concil_rut_cliente?select=id,rut_origen,cliente_rut,motivo,created_at&activo=eq.true&order=rut_origen.asc,id.asc',seq)
+    todo('concil_rut_cliente?select=id,rut_origen,cliente_rut,motivo,created_at&activo=eq.true&order=rut_origen.asc,id.asc',seq),
+    // CONC-A (13-11, Conciliación unificada): facturas de nuestros servicios abiertas en Cobranza y pagos de Cobranza
+    // hechos desde un ingreso. RLS cob_lectura (Master, rol pagos o módulo Cobranza).
+    todo('cobranza_documentos?select=id,cliente_id,folio,periodo,concepto,origen,fecha_emision,fecha_vencimiento,saldo,estado&estado=in.(PENDIENTE,CASTIGADO)&saldo=gt.0&order=fecha_vencimiento.asc,id.asc',seq),
+    todo('cobranza_pagos?select=id,cliente_id,movimiento_id,monto,aplicaciones_norm,estado,registrado_at&movimiento_id=not.is.null&estado=eq.VIGENTE&order=registrado_at.desc,id.desc',seq)
   ]).then(function(r){
     if(typeof listo==='function')listo();
     if(seq!==_seq||r.indexOf(null)>=0)return;
-    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_cacheSug={};stats();render();
+    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_docs=r[5];_cobPagos=r[6];_cacheSug={};stats();render();
+    if(_reabrir){var x=_reabrir;_reabrir=null;if(_movs.some(function(m){return m.id===x&&m.cliente_rut;}))abrirConciliar(x);}
   }).catch(function(){
     if(typeof listo==='function')listo();
     if(seq!==_seq)return;
@@ -346,7 +354,7 @@ function stats(){
   document.getElementById('st-sc').textContent=pc.filter(function(m){return !m.cliente_rut;}).length;
   document.getElementById('st-co').textContent=_movs.filter(function(m){return m.estado==='conciliado';}).length;
   document.getElementById('st-de').textContent=_movs.filter(function(m){return m.estado==='descartado';}).length;
-  document.getElementById('st-ob').textContent=_obs.length;
+  document.getElementById('st-ob').textContent=_obs.length+_docs.length; // obligaciones + facturas de Cobranza abiertas
 }
 function setVista(v){_vista=v;document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===v);});render();}
 function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo).toLowerCase().indexOf(q)>=0;}
@@ -376,11 +384,14 @@ function render(){
     var e=EST[m.estado]||[m.estado,'eb-gris'], acc='';
     if(_vista==='pend'){
       if(!m.cliente_rut) acc+='<button class="btn-amber" onclick="abrirAsignar('+m.id+')">Asignar cliente</button> ';
-      else acc+='<button class="btn-purple" onclick="abrirConciliar('+m.id+')">Conciliar</button> '+(m.estado==='por_conciliar'&&(m.cliente_asignado_manual||m.cliente_por_memoria)?'<button class="btn-s" onclick="abrirAsignar('+m.id+')" title="Cambiar cliente">↺</button> ':'');
+      else acc+='<button class="btn-purple" onclick="abrirConciliar('+m.id+')">Conciliar</button> '+(puedeCambiarCliente(m)?'<button class="btn-s" onclick="abrirAsignar('+m.id+',true)" title="Cambiar cliente (p. ej. lo pagó otra empresa)">↺</button> ':'');
       if(m.estado==='por_conciliar') acc+='<button class="btn-s" onclick="abrirDescartar('+m.id+')">No corresponde</button>';
     } else if(_vista==='conc'){
       _ops.filter(function(o){return o.movimiento_id===m.id&&!o.anulada;}).forEach(function(o){
         acc+='<div style="font-size:10.5px;color:var(--tm)">'+o.aplicaciones.map(function(a){var ob=_obsTodas[a.obligacion_id];return hesc(ob?ob:'Obligación #'+a.obligacion_id)+' '+ff(a.monto);}).join(' · ')+(esJefe()?' <a href="#" onclick="anular('+o.id+');return false" style="color:var(--red)">anular</a>':'')+'</div>';
+      });
+      _cobPagos.filter(function(p){return p.movimiento_id===m.id;}).forEach(function(p){ // CONC-A: pagos de facturas de Cobranza hechos desde este ingreso
+        acc+='<div style="font-size:10.5px;color:var(--tm)">'+(p.aplicaciones_norm||[]).map(function(a){var d=_docsTodos[a.documento_id];return hesc(d?d:'Factura #'+a.documento_id)+' '+ff(a.monto);}).join(' · ')+(esJefe()?' <a href="#" onclick="anularCob('+p.id+');return false" style="color:var(--red)">anular</a>':'')+'</div>';
       });
     } else acc='<button class="btn-s" onclick="revertir('+m.id+')">Revertir</button>';
     h+='<tr><td style="white-space:nowrap">'+hesc(fecha(m.fecha_hora))+'</td>'
@@ -394,6 +405,14 @@ function render(){
       +'<td>'+acc+'</td></tr>';
   });
   cont.innerHTML=h+'</tbody></table>';
+}
+var _docsTodos={}; // CONC-A: id de factura de Cobranza → "Factura N° folio (período)" (para mostrar en Conciliados)
+function cargarFolios(){
+  var ids={};_cobPagos.forEach(function(p){(p.aplicaciones_norm||[]).forEach(function(a){ids[a.documento_id]=1;});});
+  var lista=Object.keys(ids).filter(function(i){return !_docsTodos[i];});
+  for(var i=0;i<lista.length;i+=100){
+    sbFetch('cobranza_documentos?select=id,folio,periodo&id=in.('+lista.slice(i,i+100).join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){(rows||[]).forEach(function(d){_docsTodos[d.id]='Factura'+(d.folio?' N° '+d.folio:'')+(d.periodo?' ('+d.periodo+')':'');});render();}).catch(function(){});
+  }
 }
 var _obsTodas={}; // id → concepto (para mostrar en Conciliados); se completa al cargar obligaciones de las operaciones
 function cargarConceptos(){
@@ -459,90 +478,131 @@ function registrarCartola(){
 // Orden por defecto (Luciano 02-oct): período más antiguo primero; en el mismo período, lo que genera multa
 // (F29 / cotizaciones) antes que "otro" y que servicios Contadoor; luego vencimiento y id.
 // ── Sugerencias (NUNCA se aplican solas: Tesorería revisa y confirma) ───────
-// Fuentes: obligaciones abiertas del cliente, que incluyen las que nacen de los reportes mensuales (F29, cotizaciones)
-// y las de servicios Contadoor / facturas (servicio_contadoor) cuando existan. Criterios: RUT (o memoria) + monto exacto.
+// Fuentes (CONC-A 13-11, Conciliación unificada): (1) obligaciones abiertas del cliente (obligaciones_pago: F29,
+// cotizaciones, otros) y (2) facturas de nuestros servicios abiertas en Cobranza (cobranza_documentos PENDIENTE/CASTIGADO).
+// Cada partida es {fuente:'ob'|'doc', id, periodo, concepto, saldo, vencimiento, rango}. Criterios: RUT (o memoria) + monto.
+// Una aplicación usa UNA sola fuente (cada RPC es atómica por sí sola: conciliar_movimiento o cobranza_pago_registrar);
+// si el ingreso cubre partidas de las dos, se aplica una fuente, el ingreso queda "parcial" y se aplica la otra después.
 var NOMBRE_TIPO={f29:'F29',cotizaciones:'Cotizaciones',servicio_contadoor:'Servicios Contadoor',otro:'Pago'};
-function etiquetaOb(o){return (o.concepto||NOMBRE_TIPO[o.tipo_obligacion]||'Obligación')+' '+o.periodo;}
-function combinacionExacta(lista,obj){ // menor cantidad de obligaciones; a igual cantidad, las más antiguas
+var FUENTE={ob:'Obligación',doc:'Factura (Cobranza)'};
+function cliPorRut(rut){return _clientes.find(function(x){return x.rut===rut;})||null;}
+function cliPorId(id){return _clientes.find(function(x){return Number(x.id)===Number(id);})||null;}
+function partidaOb(o){return {fuente:'ob',id:o.id,periodo:o.periodo||'',concepto:o.concepto||NOMBRE_TIPO[o.tipo_obligacion]||'Obligación',saldo:Number(o.saldo_pendiente),vencimiento:o.vencimiento||null,rango:rangoTipo(o.tipo_obligacion),cliente_rut:o.cliente_rut};}
+function partidaDoc(d){var c=cliPorId(d.cliente_id);return {fuente:'doc',id:d.id,periodo:d.periodo||String(d.fecha_emision||'').slice(0,7),
+  concepto:'Factura'+(d.folio?' N° '+d.folio:'')+(d.origen==='MENSUALIDAD'?' · nuestros servicios':d.concepto?' · '+d.concepto:''),saldo:Number(d.saldo),vencimiento:d.fecha_vencimiento||null,rango:2,cliente_rut:c?c.rut:null,cliente_id:d.cliente_id,castigado:d.estado==='CASTIGADO'};}
+// Todas las partidas abiertas (las facturas solo cuando ya se conoce el cliente dueño: _clientes cargado)
+function partidas(){return _obs.map(partidaOb).concat(_docs.map(partidaDoc).filter(function(p){return !!p.cliente_rut;}));}
+function abiertasDe(rut){return partidas().filter(function(p){return p.cliente_rut===rut;}).sort(prioridad);}
+function etiquetaOb(p){return p.concepto+(p.periodo?' '+p.periodo:'');}
+function combinacionExacta(lista,obj){ // menor cantidad de partidas; a igual cantidad, las más antiguas
   var L=lista.slice(0,15),n=L.length,mejor=null;
-  for(var mask=1;mask<(1<<n);mask++){var s=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=Number(L[i].saldo_pendiente);idx.push(i);}
+  for(var mask=1;mask<(1<<n);mask++){var s=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=L[i].saldo;idx.push(i);}
     if(s===obj&&(!mejor||idx.length<mejor.length||(idx.length===mejor.length&&menorLex(idx,mejor))))mejor=idx;}
   return mejor?mejor.map(function(i){return L[i];}):null;
 }
 var _cacheSug={}; // se vacía en cada carga de datos (la búsqueda de combinaciones es costosa)
 function sugerencia(m){
-  var k=m.id+':'+m.saldo+':'+(m.cliente_rut||'');
+  var k=m.id+':'+m.saldo+':'+(m.cliente_rut||'')+':'+_clientes.length;
   if(!_cacheSug[k]) _cacheSug[k]=calcularSugerencia(m);
   return _cacheSug[k];
 }
 function calcularSugerencia(m){
   var saldo=Number(m.saldo);
   if(m.cliente_rut){
-    var ab=_obs.filter(function(o){return o.cliente_rut===m.cliente_rut;}).sort(prioridad);
-    if(!ab.length) return {txt:'Sin obligaciones abiertas: ¿pago de servicios u otro?',tipo:'nada'};
+    var ab=abiertasDe(m.cliente_rut);
+    if(!ab.length) return {txt:'Sin obligaciones ni facturas abiertas: ¿lo pagó otra empresa o es otra cosa?',tipo:'nada'};
     var ex=combinacionExacta(ab,saldo);
-    if(ex) return {txt:'Calza exacto con: '+ex.map(etiquetaOb).join(' + '),tipo:'exacto'};
-    var tot=ab.reduce(function(s,o){return s+Number(o.saldo_pendiente);},0);
-    return {txt:saldo<tot?'Abono parcial: cubre parte de '+ab.length+' obligación(es) (lo más antiguo primero)':'Paga de más: deuda abierta '+ff(tot),tipo:'parcial'};
+    if(ex) return {txt:'Calza exacto con: '+ex.map(etiquetaOb).join(' + ')+(ex.some(function(p){return p.fuente!==ex[0].fuente;})?' (en 2 pasos: obligaciones y facturas por separado)':''),tipo:'exacto'};
+    var tot=ab.reduce(function(s,o){return s+o.saldo;},0);
+    return {txt:saldo<tot?'Abono parcial: cubre parte de '+ab.length+' partida(s) (lo más antiguo primero)':'Paga de más: deuda abierta '+ff(tot),tipo:'parcial'};
   }
-  // Sin cliente: buscar obligaciones de cualquier cliente con el mismo monto y la memoria del RUT
+  // Sin cliente: buscar obligaciones/facturas de cualquier cliente con el mismo monto y la memoria del RUT
   var mem=_mem.filter(function(x){return x.rut_origen===m.rut_origen;}).map(function(x){return x.cliente_rut;});
-  var porMonto=_obs.filter(function(o){return Number(o.saldo_pendiente)===saldo;});
+  var porMonto=partidas().filter(function(o){return o.saldo===saldo;});
   var clis={};mem.forEach(function(r){clis[r]='🧠';});porMonto.forEach(function(o){clis[o.cliente_rut]=(clis[o.cliente_rut]||'')+'💲';});
   var ks=Object.keys(clis);
   if(!ks.length) return {txt:'',tipo:'nada'};
   return {txt:'¿Es de '+ks.slice(0,3).map(function(r){return cliNombre(r)+' '+clis[r];}).join(', ')+(ks.length>3?'…':'')+'?',tipo:'cliente',clientes:ks};
 }
 function rangoTipo(t){return t==='f29'||t==='cotizaciones'?0:t==='servicio_contadoor'?2:1;}
-function prioridad(a,b){return a.periodo<b.periodo?-1:a.periodo>b.periodo?1:rangoTipo(a.tipo_obligacion)-rangoTipo(b.tipo_obligacion)||((a.vencimiento||'9999')<(b.vencimiento||'9999')?-1:(a.vencimiento||'9999')>(b.vencimiento||'9999')?1:0)||a.id-b.id;}
+function prioridad(a,b){return a.periodo<b.periodo?-1:a.periodo>b.periodo?1:a.rango-b.rango||((a.vencimiento||'9999')<(b.vencimiento||'9999')?-1:(a.vencimiento||'9999')>(b.vencimiento||'9999')?1:0)||(a.fuente<b.fuente?-1:a.fuente>b.fuente?1:0)||a.id-b.id;}
+function puedeCambiarCliente(m){return !!m&&m.estado==='por_conciliar'&&Number(m.monto_aplicado)===0;}
 function abrirConciliar(id){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
-  _clave=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
-  _cands=_obs.filter(function(o){return o.cliente_rut===_mov.cliente_rut;}).sort(prioridad).map(function(o){return {o:o,monto:0};});
-  document.getElementById('kIngreso').innerHTML='<div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:8px"><div style="font-size:11px;opacity:.75">INGRESO '+hesc(fecha(_mov.fecha_hora))+' · '+hesc(_mov.rut_origen)+' · '+hesc(_mov.nombre_origen||'')+'</div><div style="font-size:24px;font-weight:800">'+ff(_mov.saldo)+(Number(_mov.monto_aplicado)>0?' <span style="font-size:12px;opacity:.75">por aplicar de '+ff(_mov.monto)+'</span>':'')+'</div><div style="font-size:12px;opacity:.8">'+hesc(cliNombre(_mov.cliente_rut))+'</div></div>';
+  _clave=nuevaClave();_claveCob=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
+  _cands=abiertasDe(_mov.cliente_rut).map(function(o){return {o:o,monto:0};});
+  document.getElementById('kIngreso').innerHTML='<div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:8px"><div style="font-size:11px;opacity:.75">INGRESO '+hesc(fecha(_mov.fecha_hora))+' · '+hesc(_mov.rut_origen)+' · '+hesc(_mov.nombre_origen||'')+'</div><div style="font-size:24px;font-weight:800">'+ff(_mov.saldo)+(Number(_mov.monto_aplicado)>0?' <span style="font-size:12px;opacity:.75">por aplicar de '+ff(_mov.monto)+'</span>':'')+'</div><div style="font-size:12px;opacity:.8">'+hesc(cliNombre(_mov.cliente_rut))+'</div></div>'
+    +(puedeCambiarCliente(_mov)?'<div style="font-size:12px;margin:-2px 0 6px"><a href="#" onclick="cambiarDesdeConciliar();return false" style="color:var(--p);font-weight:700">↺ ¿Lo pagó otra empresa o es de otro cliente? Cambiar cliente</a></div>':'');
   pintarCands();abrir('mConc');
   // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar conciliación".
   if(_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
 }
+function cambiarDesdeConciliar(){if(_ocupado||!_mov)return;var id=_mov.id;document.getElementById('mConc').classList.remove('on');abrirAsignar(id,true);}
 function pintarCands(){
   var h=_cands.length?'<table><thead><tr><th>Período</th><th>Concepto</th><th style="text-align:right">Saldo</th><th style="text-align:right">Aplicar</th></tr></thead><tbody>'+_cands.map(function(c,i){
-    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+hesc(c.o.concepto||c.o.tipo_obligacion)+(c.o.vencimiento?'<div style="font-size:10px;color:var(--tm)">vence '+hesc(c.o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo_pendiente)+'</td>'
+    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+hesc(c.o.concepto)+'<div style="font-size:10px;color:var(--tm)">'+hesc(FUENTE[c.o.fuente])+(c.o.castigado?' · castigada':'')+(c.o.vencimiento?' · vence '+hesc(String(c.o.vencimiento).split('-').reverse().join('-')):'')+'</div></td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo)+'</td>'
       +'<td style="text-align:right"><input inputmode="numeric" style="width:120px;text-align:right" value="'+(c.monto||'')+'" oninput="setMonto('+i+',this.value)"></td></tr>';}).join('')+'</tbody></table>'
-    :'<div class="info-box">Este cliente no tiene obligaciones abiertas. Si el ingreso no corresponde a una obligación, ciérralo y usa "No corresponde".</div>';
+    :'<div class="info-box">Este cliente no tiene obligaciones ni facturas abiertas.'+(puedeCambiarCliente(_mov)?' Si lo pagó otra empresa, usa "Cambiar cliente" (arriba).':'')+' Si el ingreso no corresponde a nada, ciérralo y usa "No corresponde".</div>';
   document.getElementById('kObs').innerHTML=h;totalizar();
 }
 function setMonto(i,v){var t=String(v||'').replace(/[.\s$]/g,'');_cands[i].monto=/^\d{1,12}$/.test(t)?Number(t):(t?NaN:0);_criterio=document.getElementById('kIndica').checked?'cliente_indica':'manual';totalizar();}
+function fuentesUsadas(){var f={};_cands.forEach(function(c){if(c.monto>0)f[c.o.fuente]=1;});return Object.keys(f);}
 function totalizar(){
-  var tot=0,mal=false;_cands.forEach(function(c){if(isNaN(c.monto))mal=true;else{tot+=c.monto;if(c.monto>Number(c.o.saldo_pendiente))mal=true;}});
-  var saldo=Number(_mov.saldo),dif=saldo-tot;
-  document.getElementById('kTotal').innerHTML='Total a aplicar: <strong>'+ff(tot)+'</strong> de '+ff(saldo)+(mal?' · <span style="color:var(--red)">revisa montos (enteros y sin superar el saldo de cada obligación)</span>':dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':dif>0&&tot>0?' · <span style="color:var(--amber)">quedan '+ff(dif)+' sin aplicar (el ingreso queda parcial)</span>':tot>0?' · <span style="color:var(--green)">cuadra exacto ✅</span>':'');
-  document.getElementById('kBtn').disabled=mal||tot<=0||dif<0;
+  var tot=0,mal=false;_cands.forEach(function(c){if(isNaN(c.monto))mal=true;else{tot+=c.monto;if(c.monto>c.o.saldo)mal=true;}});
+  var saldo=Number(_mov.saldo),dif=saldo-tot,mezcla=fuentesUsadas().length>1;
+  document.getElementById('kTotal').innerHTML='Total a aplicar: <strong>'+ff(tot)+'</strong> de '+ff(saldo)+(mal?' · <span style="color:var(--red)">revisa montos (enteros y sin superar el saldo de cada partida)</span>':dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':mezcla?' · <span style="color:var(--red)">mezcla obligaciones y facturas de Cobranza: aplica una fuente a la vez (el ingreso queda parcial y luego aplicas la otra)</span>':dif>0&&tot>0?' · <span style="color:var(--amber)">quedan '+ff(dif)+' sin aplicar (el ingreso queda parcial)</span>':tot>0?' · <span style="color:var(--green)">cuadra exacto ✅</span>':'');
+  document.getElementById('kBtn').disabled=mal||tot<=0||dif<0||mezcla;
 }
 function limpiarMontos(){_cands.forEach(function(c){c.monto=0;});_criterio='manual';document.getElementById('kSug').style.display='none';pintarCands();}
-function distribuirAntiguedad(){var resto=Number(_mov.saldo);_cands.forEach(function(c){var m=Math.min(resto,Number(c.o.saldo_pendiente));c.monto=m;resto-=m;});if(!document.getElementById('kIndica').checked)_criterio='antiguedad';pintarCands();}
-// Busca la combinación (subconjunto) de saldos que suma exacto el ingreso; prefiere menos obligaciones y más antiguas.
+function distribuirAntiguedad(){var resto=Number(_mov.saldo);_cands.forEach(function(c){var m=Math.min(resto,c.o.saldo);c.monto=m;resto-=m;});if(!document.getElementById('kIndica').checked)_criterio='antiguedad';pintarCands();}
+// Busca la combinación (subconjunto) de saldos que suma exacto el ingreso; prefiere menos partidas y más antiguas.
 function menorLex(a,b){for(var i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i];}return false;} // compara posiciones como números (más antiguas primero)
 function sugerirExacto(){
   var obj=Number(_mov.saldo), L=_cands.slice(0,15), mejor=null, n=L.length;
-  for(var mask=1;mask<(1<<n);mask++){var s=0,k=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=Number(L[i].o.saldo_pendiente);k++;idx.push(i);}
+  for(var mask=1;mask<(1<<n);mask++){var s=0,k=0,idx=[];for(var i=0;i<n;i++)if(mask&(1<<i)){s+=L[i].o.saldo;k++;idx.push(i);}
     if(s===obj&&(!mejor||k<mejor.length||(k===mejor.length&&menorLex(idx,mejor))))mejor=idx;}
   var sug=document.getElementById('kSug');sug.style.display='block';
-  if(!mejor){sug.innerHTML='No hay una combinación de obligaciones que sume exactamente '+ff(obj)+(_cands.length>15?' entre las 15 más antiguas':'')+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
-  _cands.forEach(function(c){c.monto=0;});mejor.forEach(function(i){_cands[i].monto=Number(_cands[i].o.saldo_pendiente);});
+  if(!mejor){sug.innerHTML='No hay una combinación de obligaciones/facturas que sume exactamente '+ff(obj)+(_cands.length>15?' entre las 15 más antiguas':'')+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
+  // Una aplicación = una fuente. Si la combinación exacta mezcla obligaciones y facturas, se precarga solo la fuente de la
+  // partida más prioritaria (más antigua / genera multa); el ingreso queda "parcial" y al reabrirlo calza exacto lo restante.
+  var f0=_cands[mejor[0]].o.fuente, paso2=mejor.filter(function(i){return _cands[i].o.fuente!==f0;});
+  var paso1=mejor.filter(function(i){return _cands[i].o.fuente===f0;});
+  _cands.forEach(function(c){c.monto=0;});paso1.forEach(function(i){_cands[i].monto=_cands[i].o.saldo;});
   if(!document.getElementById('kIndica').checked)_criterio='exacto';
-  sug.innerHTML='💡 Sugerencia: '+mejor.length+' obligación(es) suman exactamente '+ff(obj)+'. <strong>Nada se aplica hasta que confirmes.</strong>'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'');pintarCands();
+  sug.innerHTML='💡 Sugerencia: '+mejor.length+' partida(s) suman exactamente '+ff(obj)+'. <strong>Nada se aplica hasta que confirmes.</strong>'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'')
+    +(paso2.length?'<br>Se hace en <strong>2 pasos</strong>: ahora '+(f0==='doc'?'las facturas de Cobranza':'las obligaciones')+' ('+ff(paso1.reduce(function(s,i){return s+_cands[i].o.saldo;},0))+'); después vuelve a abrir el ingreso y aplica '+(f0==='doc'?'las obligaciones':'las facturas de Cobranza')+' ('+ff(paso2.reduce(function(s,i){return s+_cands[i].o.saldo;},0))+').':'');
+  pintarCands();
 }
+// Códigos de error de las RPC de Cobranza → texto claro
+var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro cliente. Cambia el cliente antes de aplicar.',FECHA_DISTINTA_AL_MOVIMIENTO:'La fecha del pago no coincide con la del ingreso.',
+  SUPERA_SALDO_MOVIMIENTO:'La suma supera el saldo del ingreso.',SUPERA_SALDO_DOCUMENTO:'El monto supera el saldo de una factura (puede haber cambiado: recarga).',
+  DOCUMENTO_NO_COBRABLE:'Una factura ya no está pendiente (puede haberse pagado o anulado: recarga).',MOVIMIENTO_NO_DISPONIBLE:'El ingreso ya no está disponible para conciliar (recarga).',
+  CLAVE_IDEM_USADA:'Cambiaste los montos tras un intento con resultado incierto: cierra y vuelve a abrir el ingreso.',SOLO_PAGOS:'No tienes permiso para registrar pagos de Cobranza.',
+  TRABAJOS_ESPECIALES_NO_INSTALADO:'Esa factura es cuota de un trabajo especial y aún no se puede pagar por aquí.'};
+function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
 function aplicar(){
   if(_ocupado)return;
-  var apps=_cands.filter(function(c){return c.monto>0;}).map(function(c){return {obligacion_id:c.o.id,monto:c.monto};});
-  if(!apps.length)return;
+  var usadas=fuentesUsadas();if(usadas.length!==1)return;
+  var fuente=usadas[0], sel=_cands.filter(function(c){return c.monto>0;});
+  var tot=sel.reduce(function(s,c){return s+c.monto;},0);
   if(document.getElementById('kIndica').checked)_criterio='cliente_indica';
-  if(!confirm('¿Aplicar '+ff(apps.reduce(function(s,a){return s+a.monto;},0))+' del ingreso a '+apps.length+' obligación(es)?'))return;
+  if(!confirm('¿Aplicar '+ff(tot)+' del ingreso a '+sel.length+(fuente==='doc'?' factura(s) de Cobranza?':' obligación(es)?')))return;
   _ocupado=true;var b=document.getElementById('kBtn');b.disabled=true;b.textContent='Aplicando…';
-  rpc('conciliar_movimiento',{p_movimiento_id:_mov.id,p_aplicaciones:apps,p_clave_idem:_clave,p_criterio:_criterio}).then(function(){
-    _ocupado=false;b.textContent='Aplicar conciliación';_clave=null;document.getElementById('mConc').classList.remove('on');cargar();
+  var llamada;
+  if(fuente==='doc'){
+    var cli=cliPorRut(_mov.cliente_rut);
+    if(!cli){_ocupado=false;b.textContent='Aplicar conciliación';err('kErr','No encuentro la ficha del cliente; recarga la página.');totalizar();return;}
+    // El pagador real queda en el ingreso (rut_origen / nombre_origen de la cartola) y en la referencia del pago.
+    llamada=rpc('cobranza_pago_registrar',{p_cliente_id:Number(cli.id),p_fecha_pago:String(_mov.fecha||String(_mov.fecha_hora).slice(0,10)),
+      p_aplicaciones:sel.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_clave_idem:_claveCob,p_movimiento_id:_mov.id,
+      p_referencia:('Conciliación ingreso #'+_mov.id+' · transfiere '+_mov.rut_origen+' '+(_mov.nombre_origen||'')).slice(0,200),p_abono:0});
+  } else {
+    llamada=rpc('conciliar_movimiento',{p_movimiento_id:_mov.id,p_aplicaciones:sel.map(function(c){return {obligacion_id:c.o.id,monto:c.monto};}),p_clave_idem:_clave,p_criterio:_criterio});
+  }
+  llamada.then(function(){
+    _ocupado=false;b.textContent='Aplicar conciliación';_clave=null;_claveCob=null;document.getElementById('mConc').classList.remove('on');cargar();
   }).catch(function(e){
-    err('kErr',e.claro?e.message:'No sabemos si se aplicó (problema de conexión). Revisa la lista antes de reintentar; si reintentas sin cambiar nada, no se duplica.');
+    err('kErr',e.claro?(fuente==='doc'?cobMsg(e):e.message):'No sabemos si se aplicó (problema de conexión). Revisa la lista antes de reintentar; si reintentas sin cambiar nada, no se duplica.');
     b.textContent='Revisando…';cargar(function(){_ocupado=false;b.textContent='Aplicar conciliación';totalizar();});
   });
 }
@@ -558,31 +618,55 @@ function accion(fn,args){if(_ocupado)return;_ocupado=true;rpc(fn,args).then(func
 function revertir(id){var mot=prompt('¿Por qué vuelve a "por conciliar"? (mínimo 5 caracteres)');if(!mot||mot.trim().length<5)return;accion('revertir_descarte',{p_movimiento_id:id,p_motivo:mot.trim()});}
 function anular(opId){if(!esJefe())return;var mot=prompt('Motivo para ANULAR esta conciliación (mínimo 5 caracteres). Las obligaciones vuelven a "por conciliar".');if(!mot||mot.trim().length<5)return;
   accion('anular_conciliacion',{p_operacion_id:opId,p_motivo:mot.trim()});}
+function anularCob(pagoId){if(!esJefe())return;var mot=prompt('Motivo para ANULAR este pago de Cobranza (mínimo 10 caracteres). Las facturas vuelven a quedar pendientes y el ingreso vuelve a "por conciliar".');if(!mot||mot.trim().length<10)return;
+  accion('cobranza_pago_anular',{p_pago_id:pagoId,p_motivo:mot.trim()});}
 function olvidar(id){var mot=prompt('¿Por qué se olvida esta asociación? (mínimo 5 caracteres). Solo afecta cargas futuras.');if(!mot||mot.trim().length<5)return;
   accion('olvidar_rut_cliente',{p_id:id,p_motivo:mot.trim()});}
-function abrirAsignar(id){
+// CONC-A (13-11): "Cambiar cliente" también para ingresos asignados SOLOS por el RUT del ordenante (antes solo los manuales
+// o por memoria). Caso: paga OTRA empresa (Artemisa paga por CreeSiente). Usa la RPC existente asignar_cliente_movimiento,
+// que solo deja reasignar un ingreso "por conciliar" sin nada aplicado. El pagador real queda en el ingreso (RUT y nombre de
+// la cartola no cambian) y el motivo queda en motivo_asignacion. En este modo "Recordar" NO viene marcado: es opt-in, y se
+// bloquea si el RUT ordenante es cliente (la memoria no se usa para RUT de clientes y podría deshacer otras asignaciones).
+var _asigCambio=false, _reabrir=null;
+function abrirAsignar(id,cambio){
   _movAsig=_movs.find(function(m){return m.id===id;});if(!_movAsig)return;
-  document.getElementById('aSub').textContent='Transfiere '+_movAsig.rut_origen+' · '+(_movAsig.nombre_origen||'')+' · '+ff(_movAsig.monto);
+  _asigCambio=!!cambio&&!!_movAsig.cliente_rut;
+  if(_asigCambio&&!puedeCambiarCliente(_movAsig)){alert('Solo se cambia el cliente de un ingreso por conciliar y sin nada aplicado.');return;}
+  document.getElementById('aTit').textContent=_asigCambio?'Cambiar cliente del ingreso':'Asignar cliente al ingreso';
+  document.getElementById('aSub').textContent='Transfiere '+_movAsig.rut_origen+' · '+(_movAsig.nombre_origen||'')+' · '+ff(_movAsig.monto)+(_asigCambio?' · hoy asignado a '+cliNombre(_movAsig.cliente_rut):'');
   // Sugerencias: clientes que este RUT ya pagó antes (memoria). Aparecen primero en la lista.
-  var sug=_mem.filter(function(x){return x.rut_origen===_movAsig.rut_origen;}).map(function(x){return x.cliente_rut;});
-  var porMonto=_obs.filter(function(o){return Number(o.saldo_pendiente)===Number(_movAsig.saldo)&&sug.indexOf(o.cliente_rut)<0;}).map(function(o){return o.cliente_rut;}).filter(function(r,i,a){return a.indexOf(r)===i;});
-  var orden=_clientes.slice().sort(function(a,b){var sa=sug.indexOf(a.rut)>=0?0:1,sb=sug.indexOf(b.rut)>=0?0:1;return sa-sb||String(a.razon).localeCompare(String(b.razon));});
+  var actual=_asigCambio?_movAsig.cliente_rut:null;
+  var sug=_mem.filter(function(x){return x.rut_origen===_movAsig.rut_origen&&x.cliente_rut!==actual;}).map(function(x){return x.cliente_rut;});
+  var porMonto=partidas().filter(function(o){return o.saldo===Number(_movAsig.saldo)&&sug.indexOf(o.cliente_rut)<0&&o.cliente_rut!==actual;}).map(function(o){return o.cliente_rut;}).filter(function(r,i,a){return a.indexOf(r)===i;});
+  var orden=_clientes.filter(function(c){return c.rut!==actual;}).sort(function(a,b){var sa=sug.indexOf(a.rut)>=0?0:1,sb=sug.indexOf(b.rut)>=0?0:1;return sa-sb||String(a.razon).localeCompare(String(b.razon));});
   document.getElementById('aCli').innerHTML='<option value="">Seleccionar…</option>'+orden.map(function(c){return '<option value="'+hesc(c.rut)+'">'+(sug.indexOf(c.rut)>=0?'🧠 ':'')+hesc(c.razon)+' · '+hesc(c.rut)+'</option>';}).join('');
   var bs=document.getElementById('aSug');
   var txt=[];
   if(sug.length) txt.push('🧠 Este RUT ya transfirió antes por: <strong>'+sug.map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>'+(sug.length>1?' (varias empresas: elige a cuál corresponde)':''));
-  if(porMonto.length) txt.push('💲 Monto igual a una obligación abierta de: <strong>'+porMonto.slice(0,5).map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>');
-  if(txt.length){bs.style.display='block';bs.innerHTML=txt.join('<br>')+'<br><span style="color:var(--tm)">Son sugerencias: tú eliges el cliente.</span>';if(sug.length===1)document.getElementById('aCli').value=sug[0];}
+  if(porMonto.length) txt.push('💲 Monto igual a una obligación o factura abierta de: <strong>'+porMonto.slice(0,5).map(function(r){return hesc(cliNombre(r));}).join(', ')+'</strong>');
+  if(txt.length){bs.style.display='block';bs.innerHTML=txt.join('<br>')+'<br><span style="color:var(--tm)">Son sugerencias: tú eliges el cliente.</span>';if(sug.length===1&&!_asigCambio)document.getElementById('aCli').value=sug[0];}
   else bs.style.display='none';
   // los sugeridos por monto también suben en la lista
   var sel=document.getElementById('aCli');Array.prototype.forEach.call(sel.options,function(op){if(porMonto.indexOf(op.value)>=0&&op.textContent.indexOf('💲')<0)op.textContent='💲 '+op.textContent;});
-  document.getElementById('aMot').value=sug.length?'Mismo RUT ya asociado a este cliente':'';document.getElementById('aRec').checked=sug.length<1;err('aErr','');abrir('mAsig');
+  var rec=document.getElementById('aRec'), recNota=document.getElementById('aRecNota'), ordenEsCliente=!!cliPorRut(_movAsig.rut_origen);
+  if(_asigCambio){
+    document.getElementById('aMot').value='Pagado por otra empresa: transfiere '+(_movAsig.nombre_origen||'')+' ('+_movAsig.rut_origen+')';
+    rec.checked=false;rec.disabled=ordenEsCliente;
+    recNota.style.display='block';
+    recNota.textContent=ordenEsCliente?'El RUT que transfiere es cliente de Contadoor: no se recuerda (sus otros ingresos siguen yendo a su propia ficha).':'"Recordar" es opcional: úsalo solo si este RUT paga SIEMPRE por este cliente.';
+  } else {
+    document.getElementById('aMot').value=sug.length?'Mismo RUT ya asociado a este cliente':'';rec.disabled=false;rec.checked=sug.length<1;recNota.style.display='none';
+  }
+  err('aErr','');abrir('mAsig');
 }
 function asignar(){
   if(_ocupado)return;var cli=sv('aCli'),mot=sv('aMot');if(!cli){err('aErr','Elige el cliente.');return;}if(mot.length<5){err('aErr','Escribe el motivo (mínimo 5 caracteres).');return;}
-  _ocupado=true;rpc('asignar_cliente_movimiento',{p_movimiento_id:_movAsig.id,p_cliente_rut:cli,p_motivo:mot,p_recordar:document.getElementById('aRec').checked}).then(function(n){
+  var rec=document.getElementById('aRec'), recordar=rec.checked&&!rec.disabled, cambio=_asigCambio, idMov=_movAsig.id;
+  if(cambio&&!confirm('¿Cambiar el cliente de este ingreso de '+cliNombre(_movAsig.cliente_rut)+' a '+cliNombre(cli)+'? El RUT que transfirió ('+_movAsig.rut_origen+') queda registrado en el ingreso.'))return;
+  _ocupado=true;rpc('asignar_cliente_movimiento',{p_movimiento_id:idMov,p_cliente_rut:cli,p_motivo:mot,p_recordar:recordar}).then(function(n){
       _ocupado=false;document.getElementById('mAsig').classList.remove('on');
       if(Number(n)>0)alert('Listo. Además se asignaron '+n+' ingreso(s) pendiente(s) del mismo RUT a este cliente.');
+      if(cambio)_reabrir=idMov; // vuelve a abrir "Conciliar" con las obligaciones y facturas del nuevo cliente
       cargar();})
     .catch(function(e){_ocupado=false;err('aErr',e.claro?e.message:'No sabemos si se guardó (problema de conexión). Revisa la lista antes de reintentar.');cargar();});
 }
@@ -614,7 +698,7 @@ esperarSesion().then(function(u){
     return;
   }
   sbGetClientes(function(rows){_clientes=rows||[];render();});
-  var _cargarBase=cargar;cargar=function(l){_cargarBase(function(){if(typeof l==='function')l();setTimeout(cargarConceptos,0);});};
+  var _cargarBase=cargar;cargar=function(l){_cargarBase(function(){if(typeof l==='function')l();setTimeout(cargarConceptos,0);setTimeout(cargarFolios,0);});};
   cargar();
 }).catch(function(){document.getElementById('meta').textContent='Sesión no disponible';});
 </script>
