@@ -179,7 +179,7 @@ tr:hover td{background:#f0fdff;}
 .eb-mal{background:#fdecea;color:#991b1b;}
 .eb-gris{background:#f3f4f6;color:#6b7280;}
 @media(max-width:800px){.stats{grid-template-columns:repeat(2,1fr);}.ob-grid{grid-template-columns:1fr;}}
-.stats4{grid-template-columns:repeat(5,1fr);}
+.stats4{grid-template-columns:repeat(4,1fr);}
 .ev-row{font-size:12px;padding:7px 0;border-bottom:1px solid var(--bdr);}
 .ev-row:last-child{border-bottom:none;}
 .ev-meta{font-size:10.5px;color:var(--tm);}
@@ -211,7 +211,6 @@ tr:hover td{background:#f0fdff;}
 
   <div class="content">
     <div class="stats stats4">
-      <div class="stat"><div class="sv" id="st-autorizar" style="color:var(--amber)">0</div><div class="sl">Por autorizar · plata de Contadoor</div></div>
       <div class="stat"><div class="sv" id="st-extra" style="color:var(--amber)">0</div><div class="sl">Por aprobar · extraordinarios</div></div>
       <div class="stat"><div class="sv" id="st-mensual" style="color:var(--amber)">0</div><div class="sl">Por aprobar · proceso mensual</div></div>
       <div class="stat"><div class="sv" id="st-monto" style="color:var(--t1)">$0</div><div class="sl">Monto por aprobar</div></div>
@@ -220,7 +219,6 @@ tr:hover td{background:#f0fdff;}
 
     <div class="filtros">
       <span class="fl">Ver:</span>
-      <button class="fb" data-f="autorizar" onclick="setVista('autorizar')">Por autorizar · Plata de Contadoor <span class="cnt" id="cnt-autorizar">0</span></button>
       <button class="fb on" data-f="extra" onclick="setVista('extra')">Por aprobar · Extraordinarios <span class="cnt" id="cnt-extra">0</span></button>
       <button class="fb" data-f="mensual" onclick="setVista('mensual')">Por aprobar · Proceso mensual <span class="cnt" id="cnt-mensual">0</span></button>
       <button class="fb" data-f="proceso" onclick="setVista('proceso')">Todas en proceso <span class="cnt" id="cnt-proceso">0</span></button>
@@ -285,7 +283,6 @@ var ESTADOS={
   conciliada:{l:'Conciliada',c:'eb-conc'},en_ejecucion:{l:'En pago',c:'eb-ejec'},pendiente_aprobacion:{l:'Por aprobar',c:'eb-aprob'},
   aprobada:{l:'Aprobada',c:'eb-ok'},rechazada:{l:'Rechazada',c:'eb-mal'},finalizada:{l:'Finalizada',c:'eb-ok'},anulada:{l:'Anulada',c:'eb-gris'}
 };
-function porAutorizar(o){return o.origen_fondos==='contadoor'&&o.estado==='pendiente_fondos'&&!o.fondos_autorizados_at;}
 var ACC_TXT={autorizar_fondos:'Autorizó usar plata de Contadoor',iniciar_ejecucion:'Registró el pago',comprobante:'Subió comprobante',enviar_aprobacion:'Envió a aprobación',aprobar:'Aprobó',rechazar:'Rechazó',corregir:'Volvió a corregir',finalizar:'Finalizó',anular:'Anuló'};
 var _obs=[],_clientes=[],_vista='extra',_cargaSeq=0,_ocupado=false,_motivo=null;
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -329,7 +326,7 @@ function cargar(){
   var seq=++_cargaSeq;
   document.getElementById('tabla-meta').textContent='Cargando…';
   var per=document.getElementById('selectPeriodo').value;
-  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at,ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,motivo_anulacion,origen_fondos,beneficiario_nombre,beneficiario_rut,fondos_autorizados_at'
+  var q='obligaciones_pago?select=id,cliente_rut,periodo,area_origen,tipo_obligacion,concepto,monto_exigible,monto_conciliado,saldo_pendiente,vencimiento,estado,created_at,ref_reporte_id,ref_factura_id,creado_por_usuario_id,comprobante_path,motivo_rechazo,motivo_anulacion,origen_fondos,beneficiario_nombre,beneficiario_rut,fondos_autorizados_at,depositante_nombre,depositante_rut'
     +(_vista==='hist'
       ?'&estado=in.(finalizada,anulada)&periodo=eq.'+encodeURIComponent(per)+'&order=created_at.desc,id.desc'
       :'&estado=not.in.(finalizada,anulada)&order=created_at.asc,id.asc');
@@ -350,33 +347,31 @@ function renderStats(){
   document.getElementById('st-extra').textContent=ex.length;document.getElementById('st-mensual').textContent=me.length;
   document.getElementById('st-monto').textContent=ff(por.reduce(function(s,o){return s+(Number(o.monto_exigible)||0);},0))+(_parcial?' *':'');
   document.getElementById('st-rech').textContent=_obs.filter(function(o){return o.estado==='rechazada';}).length;
-  var aut=_obs.filter(porAutorizar).length;document.getElementById('st-autorizar').textContent=aut;document.getElementById('cnt-autorizar').textContent=aut;
+
   document.getElementById('cnt-extra').textContent=ex.length;document.getElementById('cnt-mensual').textContent=me.length;
   document.getElementById('cnt-proceso').textContent=_obs.length+(_parcial?'+':'');
 }
 function filasVista(){
   var q=(document.getElementById('searchQ').value||'').trim().toLowerCase();
   return _obs.filter(function(o){
-    if(_vista==='autorizar'&&!porAutorizar(o)) return false;
     if(_vista==='extra'&&!(o.estado==='pendiente_aprobacion'&&!esMensual(o))) return false;
     if(_vista==='mensual'&&!(o.estado==='pendiente_aprobacion'&&esMensual(o))) return false;
     if(q&&(nombreCliente(o.cliente_rut)+' '+o.cliente_rut+' '+(o.concepto||'')+' '+(o.beneficiario_nombre||'')+' '+(o.beneficiario_rut||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   });
 }
-var TITULOS={autorizar:'Por autorizar · Plata de Contadoor',extra:'Por aprobar · Extraordinarios',mensual:'Por aprobar · Proceso mensual',proceso:'Todas en proceso',hist:'Historial'};
+var TITULOS={extra:'Por aprobar · Extraordinarios',mensual:'Por aprobar · Proceso mensual',proceso:'Todas en proceso',hist:'Historial'};
 function renderTabla(){
   var arr=filasVista(),hoy=hoyChile(),apr=esAprobador();
   document.getElementById('tabla-titulo').textContent=TITULOS[_vista]+(_vista==='hist'?' · '+periodoLabel(document.getElementById('selectPeriodo').value):'');
   document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(_parcial?' · ⚠️ RESULTADO PARCIAL (*)':'');
   var cont=document.getElementById('tablaBody');
-  if(!arr.length){cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(_vista==='extra'||_vista==='mensual'?'✅ No hay pagos esperando tu aprobación.':_vista==='autorizar'?'✅ No hay pagos con plata de Contadoor esperando tu autorización.':'No hay obligaciones en esta vista.')+'</div>';return;}
+  if(!arr.length){cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(_vista==='extra'||_vista==='mensual'?'✅ No hay pagos esperando tu aprobación.':'No hay obligaciones en esta vista.')+'</div>';return;}
   cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Origen</th><th style="text-align:right">Monto</th><th style="text-align:right">Conciliado</th><th>Estado</th><th>Comprobante</th><th>Acción</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'},id=Number(o.id);
       var venc=o.vencimiento&&o.vencimiento<hoy&&['finalizada','anulada'].indexOf(o.estado)<0;
       var acc=[];
-      if(apr&&porAutorizar(o)) acc.push('<button class="btn-ok" onclick="autorizarFondos('+id+')">✓ Autorizar fondos</button>');
       if(apr&&o.estado==='pendiente_aprobacion'){
         acc.push(o.comprobante_path?'<button class="btn-ok" onclick="aprobar('+id+')">✓ Aprobar</button>':'<button class="btn-ok" disabled style="opacity:.45;cursor:not-allowed" title="Sin comprobante">✓ Aprobar</button>');
         acc.push('<button class="btn-no" onclick="abrirMotivo('+id+',\'rechazar\')">Rechazar</button>');
@@ -394,7 +389,8 @@ function renderTabla(){
         +'<td><div class="cli-nombre">'+hesc(nombreCliente(o.cliente_rut))+'</div><div class="cli-rut">'+hesc(o.cliente_rut)+'</div></td>'
         +'<td>'+hesc(o.concepto||'—')
           +(o.beneficiario_nombre?'<div style="font-size:10.5px;color:var(--t2);margin-top:3px">→ '+hesc(o.beneficiario_nombre)+(o.beneficiario_rut?' · '+hesc(o.beneficiario_rut):'')+'</div>':'')
-          +(o.origen_fondos==='contadoor'?'<div style="margin-top:3px"><span class="eb eb-aprob" style="font-size:9.5px;padding:2px 8px">Plata de Contadoor</span></div>':'')
+          +(o.depositante_nombre?'<div style="font-size:10.5px;color:var(--tm);margin-top:2px">Deposita: '+hesc(o.depositante_nombre)+(o.depositante_rut?' · '+hesc(o.depositante_rut):'')+'</div>':'')
+          +(o.origen_fondos==='contadoor'?'<div style="margin-top:3px"><span class="eb eb-aprob" style="font-size:9.5px;padding:2px 8px">Gasto de Contadoor</span></div>':'')
           +(venc?'<div class="ob-venc" style="font-size:10.5px">Vencida '+hesc(o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
         +'<td>'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</td>'
@@ -414,17 +410,9 @@ function rpcPaso(id,acc,obs){
 function aprobar(id){
   if(_ocupado||!esAprobador()) return;
   var o=_obs.find(function(x){return Number(x.id)===id;});
-  if(!o||!confirm('¿Aprobar el pago de '+ff(o.monto_exigible)+' · '+(o.concepto||'')+' de '+nombreCliente(o.cliente_rut)+(o.beneficiario_nombre?'\nBeneficiario: '+o.beneficiario_nombre+(o.beneficiario_rut?' ('+o.beneficiario_rut+')':''):'')+(o.origen_fondos==='contadoor'?'\nPlata de Contadoor':'')+'?\n\nRevisaste el comprobante.')) return;
+  if(!o||!confirm('¿Aprobar el pago de '+ff(o.monto_exigible)+' · '+(o.concepto||'')+' de '+nombreCliente(o.cliente_rut)+(o.beneficiario_nombre?'\nBeneficiario: '+o.beneficiario_nombre+(o.beneficiario_rut?' ('+o.beneficiario_rut+')':''):'')+(o.origen_fondos==='contadoor'?'\nGasto de Contadoor':(o.depositante_nombre?'\nDepositó: '+o.depositante_nombre:''))+'?\n\nRevisaste el comprobante.')) return;
   _ocupado=true;
   rpcPaso(id,'aprobar').then(function(){_ocupado=false;cargar();}).catch(function(e){_ocupado=false;alert('No se pudo aprobar: '+e.message);cargar();});
-}
-function autorizarFondos(id){
-  if(_ocupado||!esAprobador()) return;
-  var o=_obs.find(function(x){return Number(x.id)===id;});
-  if(!o||!porAutorizar(o)) return;
-  if(!confirm('¿Autorizas usar PLATA DE CONTADOOR para este pago?\n\n'+ff(o.monto_exigible)+' · '+(o.concepto||'')+(o.beneficiario_nombre?'\nBeneficiario: '+o.beneficiario_nombre+(o.beneficiario_rut?' ('+o.beneficiario_rut+')':''):'')+'\n\nDespués el analista paga, sube el comprobante y tú das la aprobación final.')) return;
-  _ocupado=true;
-  rpcPaso(id,'autorizar_fondos').then(function(){_ocupado=false;cargar();}).catch(function(e){_ocupado=false;alert('No se pudo autorizar: '+e.message);cargar();});
 }
 function abrirMotivo(id,acc){
   if(!esAprobador()) return;
