@@ -61,7 +61,7 @@ test('Balance del año anterior se distingue por período; corrida con error es 
   const P = L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada: { efectivo: {}, bloqueos_final: [] } });
   const arch = Object.fromEntries(P[2].archivos.map((a) => [a.def.clave, a.estado]));
   assert.equal(arch.DIARIO, 'problema');
-  assert.equal(arch.BALANCE, 'pendiente');
+  assert.equal(arch.BALANCE, 'opcional');   // 3-nov-2026: el Balance del año es opcional (control)
   assert.equal(arch.BALANCE_ANT, 'sin_importar');
   assert.equal(P[2].estado, 'problema');
 });
@@ -131,4 +131,78 @@ test('confirmar en bloque: solo INFERRED con categoría y sin OTHER_*; motivo ob
   assert.equal(L.motivoObligatorio('OTHER_ASSET', 'OTHER_ASSET'), true);
   assert.equal(L.motivoObligatorio('REVENUE', 'EXPENSE'), true);
   assert.equal(L.motivoObligatorio('REVENUE', ''), true);
+});
+
+// ── 3-nov-2026 · Balance opcional, año del archivo, mensajes y mapeo automático ──
+test('Balance del año OPCIONAL: solo con el Diario (A2) el paso 3 queda listo y se puede seguir al mapeo', () => {
+  const fuentes = [fu(1, 'LIBRO_DIARIO')];
+  const corridas = [co(11, 1, 'LIBRO_DIARIO', 2026)];
+  const entrada = { efectivo: { conciliaciones: {}, apertura_contable: { estado: 'A2' } }, bloqueos_final: ['SIN_BALANCE_AC'] };
+  const P = L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada });
+  assert.equal(P[2].estado, 'listo');
+  assert.match(P[2].detalle[0], /Sin Balance 2026: la proyección usa los saldos del Diario/);
+  assert.equal(P[2].archivos[1].estado, 'opcional');
+  assert.equal(P[3].estado, 'pendiente');   // ya no espera: se calcula el mapeo
+  assert.equal(L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada: { ...entrada, efectivo: { apertura_contable: { estado: 'A3', asiento_numero: 1 } } } })[2].estado, 'revisar');
+  assert.match(L.textoBloqueo('SIN_BALANCE_AC'), /opcional para proyectar/);
+});
+test('Balance subido que no se pudo leer: el paso 3 queda en revisar (se puede seguir sin él); con Balance OK se exige que cuadre', () => {
+  const fuentes = [fu(1, 'LIBRO_DIARIO'), fu(2, 'BALANCE', 2026)];
+  const entrada = { efectivo: { conciliaciones: {}, apertura_contable: { estado: 'A2' } }, bloqueos_final: ['SIN_BALANCE_AC'] };
+  const P = L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas: [co(11, 1, 'LIBRO_DIARIO', 2026), co(12, 2, 'BALANCE', null, 'ERROR')], lecturas: [], entrada });
+  assert.equal(P[2].archivos[1].estado, 'problema');
+  assert.equal(P[2].estado, 'revisar');
+  assert.match(P[2].detalle[0], /Balance 2026 tiene problemas/);
+  const P2 = L.pasos({ yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas: [co(11, 1, 'LIBRO_DIARIO', 2026), co(12, 2, 'BALANCE', 2026)], lecturas: [],
+    entrada: { efectivo: { conciliaciones: { diario_balance: { evaluacion: 'CON_DIFERENCIAS', diferencias: 2 } }, apertura_contable: { estado: 'A2' } }, bloqueos_final: [] } });
+  assert.equal(P2[2].estado, 'problema');
+});
+test('rótulos con el año: "Balance 2026 (este año)" y "Balance 2025 (cierre del año anterior)"', () => {
+  const [dia, bal, ant] = L.ARCHIVOS;
+  assert.equal(dia.nombre(2026), 'Libro Diario 2026'); assert.equal(dia.etiqueta, 'Obligatorio');
+  assert.equal(bal.nombre(2026), 'Balance 2026 (este año)'); assert.equal(bal.etiqueta, 'Opcional (control)'); assert.equal(bal.obligatorio, false);
+  assert.equal(ant.nombre(2026), 'Balance 2025 (cierre del año anterior)');
+});
+test('año del nombre del archivo Masconta: no se sube en la tarjeta equivocada y se sugiere la correcta; sin año no se bloquea', () => {
+  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_76111222-3_0-2026.xls'), 2026);
+  assert.equal(L.anioDeNombre('BALANCE', 'Balance8Columnas_76111222-3_0-2025 (1).xls'), 2025);
+  assert.equal(L.anioDeNombre('LIBRO_DIARIO', 'LibroLibDiarioVouche_76111222-3_2026.xls'), 2026);
+  assert.equal(L.anioDeNombre('BALANCE', 'balance septiembre.xls'), null);
+  const r = L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_76111222-3_0-2026.xls');   // el error real del 3-nov
+  assert.equal(r.anio, 2026); assert.equal(r.sugerida, 'BALANCE');
+  assert.match(r.texto, /es del año 2026 y esta tarjeta es "Balance 2025 \(cierre del año anterior\)". No se subió. Súbelo en la tarjeta "Balance 2026 \(este año\)"/);
+  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2025.xls').sugerida, 'BALANCE_ANT');
+  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2026.xls'), null);
+  assert.equal(L.revisarAnioArchivo('BALANCE_ANT', 2026, 'Balance8Columnas_76111222-3_0-2025.xls'), null);
+  assert.equal(L.revisarAnioArchivo('BALANCE', 2026, 'mi balance.xls'), null);                     // sin año en el nombre: no se bloquea
+  const x = L.revisarAnioArchivo('BALANCE', 2026, 'Balance8Columnas_76111222-3_0-2023.xls');
+  assert.equal(x.sugerida, null); assert.match(x.texto, /exporta el Balance del año 2026/);
+  assert.match(L.revisarAnioArchivo('DIARIO', 2026, 'LibroLibDiarioVouche_76111222-3_2025.xls').texto, /Libro Diario del año 2026/);
+  assert.equal(L.revisarAnioArchivo('PLAN', 2026, 'PlanCuentas_0-2025.xls'), null);
+});
+test('mensajes comprensibles: período declarado ≠ archivo, período no detectado y archivo duplicado', () => {
+  assert.equal(L.mensajeError('PERIODO_DECLARADO_NO_COINCIDE: Se declaró el período 2025 y el archivo es del 2026'),
+    'Ese Balance es del año 2026 y lo subiste en la tarjeta del 2025. Súbelo en la tarjeta "Balance 2026".');
+  assert.match(L.mensajeError('PERIODO_NO_DETECTADO: No se encontró "Período aaaa"'), /no encontró el año dentro del Balance/);
+  assert.match(L.mensajeError('BALANCE_AUSENTE: sin Balance vigente del AC'), /todavía exige el Balance/);
+  assert.match(L.mensajeError('renta_fuente_registrar: duplicate key value violates unique constraint "renta_fuentes_uq_archivo_caso"'), /ya está cargado en este caso/);
+  const inc = [{ codigo: 'PERIODO_DECLARADO_NO_COINCIDE', severidad: 'BLOCKING', mensaje: 'Se declaró el período 2025 y el archivo es del 2026' },
+               { codigo: 'RUT_NO_INFORMADO', severidad: 'WARNING', mensaje: 'x' }];
+  assert.match(L.mensajeCorrida({ error_mensaje: '1 incidencia(s) BLOCKING' }, inc), /Ese Balance es del año 2026/);
+  assert.equal(L.mensajeCorrida({ error_mensaje: '1 incidencia(s) BLOCKING' }, [{ codigo: 'OTRA', severidad: 'BLOCKING', mensaje: 'Detalle propio' }]), 'Detalle propio');
+  assert.equal(L.mensajeCorrida({ error_mensaje: 'algo' }, []), 'algo');
+});
+test('mapeo automático: se confirman solas las propuestas seguras; el paso 4 queda listo si no queda nada que decidir', () => {
+  const res = [{ cuenta_codigo: 'a', estado: 'RESOLVED', categoria: 'REVENUE' }, { cuenta_codigo: 'b', estado: 'INFERRED', categoria: 'EXPENSE' },
+               { cuenta_codigo: 'c', estado: 'INFERRED', categoria: 'OTHER_EXPENSE' }, { cuenta_codigo: 'd', estado: 'UNKNOWN', categoria: null }];
+  assert.deepEqual(L.autoConfirmables(res).map((r) => r.cuenta_codigo), ['b']);
+  assert.match(L.MOTIVO_AUTO, /automática/);
+  const fuentes = [fu(1, 'LIBRO_DIARIO')], corridas = [co(11, 1, 'LIBRO_DIARIO', 2026)];
+  const entrada = { efectivo: { apertura_contable: { estado: 'A2' } }, bloqueos_final: ['SIN_BALANCE_AC'] };
+  const d = { yo: YO, cliente: CLI, rc: RC, caso: CASO, fuentes, corridas, lecturas: [], entrada, snapshot: { id: 9, cuentas_usadas: 4, cuentas_mapeadas: 4 } };
+  const tras = [res[0], { ...res[1], estado: 'CONFIRMED' }];                                     // tras la confirmación automática
+  const P = L.pasos({ ...d, resultados: tras });
+  assert.equal(P[3].estado, 'listo'); assert.equal(L.pasoActivo(P, 4), 5);                       // el paso 4 no se abre
+  const P2 = L.pasos({ ...d, resultados: [...tras, res[2], res[3]] });                          // queda algo que exige decisión
+  assert.equal(P2[3].estado, 'revisar'); assert.equal(L.pasoActivo(P2, 4), 4);
 });
