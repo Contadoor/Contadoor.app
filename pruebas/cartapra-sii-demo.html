@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo local · tarjeta SII (Cartapra F1)</title>
+<!-- PRUEBA LOCAL: datos FICTICIOS y Edge simulada. No se conecta a Supabase ni a Cartapra. ?estado=no_conectada|leyendo|conectada|clave_rechazada|sin_permiso -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style>body{padding:24px}.modal{max-width:640px;margin:0 auto}.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.det-item{background:rgba(12,7,14,.35);border-radius:12px;padding:8px 12px}.det-lbl{font-size:10px;color:#C9A8CC;text-transform:uppercase}.det-val{font-size:13px;font-weight:600}
+.demo-aviso{max-width:640px;margin:0 auto 12px;font:600 12px Inter,sans-serif;color:#5CC8FF}</style>
+</head>
+<body class="g-shell g-tema-noche">
+<div class="demo-aviso">DEMO LOCAL · DATOS FICTICIOS · Edge simulada</div>
+<div class="modal"><div class="modal-body" style="padding:22px">
+  <h2 class="g-ficha-t" style="font-size:18px;margin-bottom:4px">Empresa de Prueba SpA</h2>
+  <div style="font-size:12px;color:#9a849b;margin-bottom:14px">11111111-1 · Servicios de prueba</div>
+  <div class="det-grid">
+    <div class="det-item"><div class="det-lbl">Asesor(a) Contable</div><div class="det-val">Analista de prueba</div></div>
+    <div class="det-item"><div class="det-lbl">Valor mensual</div><div class="det-val">3 UF</div></div>
+  </div>
+  <div id="det-sii"></div>
+</div></div>
+<script src="../assets/gestoor-menu.js"></script>
+<script>
+  var est = (new URLSearchParams(location.search).get('estado')) || 'no_conectada';
+  var C = function (e, x) { return Object.assign({ estado: e, ultimaActualizacion: null, actualizando: false, cargaInicialLista: false, ultimoError: null }, x || {}); };
+  var R = {
+    no_conectada: { s: 200, b: { ok: true, conexion: C('no_conectada'), monitor: null, sii: {} } },
+    leyendo: { s: 200, b: { ok: true, conexion: C('conectada', { actualizando: true }), monitor: null, sii: {} } },
+    clave_rechazada: { s: 200, b: { ok: true, conexion: C('clave_rechazada', { ultimaActualizacion: '2026-11-10T12:00:00Z', ultimoError: 'El SII rechazó la clave' }), monitor: null, sii: {} } },
+    sin_permiso: { s: 403, b: { ok: false, error: 'SIN_PERMISO' } },
+    // Forma del monitor INVENTADA para la demo (la real se verá con la primera empresa conectada).
+    conectada: { s: 200, b: { ok: true, conexion: C('conectada', { cargaInicialLista: true, ultimaActualizacion: '2026-11-16T12:10:00Z' }),
+      monitor: { semaforo: 'aviso', ultimoMes: { periodo: '2026-10', ventasNeto: 12345678, comprasNeto: 4567890, ivaDebito: 2345679, ivaCredito: 867899 }, cuadraturaF29: { estado: 'Cuadra' } },
+      sii: { sii_cartas: { datos: [{ id: 1 }] }, sii_alertas: [] } } }
+  };
+  window.toast = function (m) { console.log('toast', m); };
+  window.edgeFetch = function (fn, body) {
+    var r = body.accion === 'ventana' ? { s: 200, b: { ok: true, widget: { url: 'https://app.cartapra.com/conecta-widget/DEMO' } } } : R[est];
+    return new Promise(function (ok) { setTimeout(function () { ok({ ok: r.s < 300, status: r.s, json: function () { return Promise.resolve(r.b); } }); }, 150); });
+  };
+</script>
+<script src="../clientes/sii-cartapra.js"></script>
+<script>GestoorSII.montar(document.getElementById('det-sii'), 7, { esMaster: new URLSearchParams(location.search).get('master') !== '0' });</script>
+</body>
+</html>
