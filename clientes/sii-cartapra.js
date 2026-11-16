@@ -6,7 +6,9 @@
      se aceptan mensajes con origen https://app.cartapra.com, de ese iframe, y con fuente "cartapra-conecta".
    · La clave SII se escribe dentro de la ventana de Cartapra: Gestoor no la ve ni la guarda.
    · Todo dato externo se pinta con textContent (nunca innerHTML con datos).
-   Uso: GestoorSII.montar(elemento, clienteId, { esMaster: true|false }) · GestoorSII.desmontar()
+   · El botón Conectar/Reconectar aparece solo si el servidor responde puede_conectar = true (Master o conector).
+   · Si "resumen" responde 403 (p. ej. un conector no asignado), se pide "estado" para mostrar solo la conexión.
+   Uso: GestoorSII.montar(elemento, clienteId) · GestoorSII.desmontar()   (op.esMaster ya no se usa)
    ============================================================ */
 (function () {
   var CARTAPRA = 'https://app.cartapra.com';
@@ -55,7 +57,16 @@
       '.sii-sem{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}',
       '.sii-sem.ok{background:rgba(70,214,154,.16);color:#46D69A}.sii-sem.aviso{background:rgba(255,200,90,.16);color:#FFC85A}.sii-sem.alerta{background:rgba(255,138,122,.16);color:#FF8A7A}',
       '.sii-nota{font-size:11.5px;color:#C9A8CC;margin-top:10px;line-height:1.45}',
-      '.sii-det{margin-top:10px;font-size:12px}.sii-det summary{cursor:pointer;color:#E39BE5}.sii-det pre{white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;background:rgba(12,7,14,.5);border-radius:10px;padding:10px;font-size:11px;color:#E9DCEB}',
+      '.sii-dato .n{font-size:10.5px;color:#FFC85A;margin-top:2px}',
+      '.sii-linea{margin-top:10px;font-size:12px;font-weight:600;color:#E9DCEB;line-height:1.45}',
+      '.sii-f29{display:flex;align-items:flex-start;gap:10px;margin-top:10px;border-radius:14px;padding:10px 12px;border:1px solid}',
+      '.sii-f29.mal{background:rgba(255,138,122,.12);border-color:rgba(255,138,122,.55)}.sii-f29.bien{background:rgba(70,214,154,.10);border-color:rgba(70,214,154,.45)}',
+      '.sii-f29 .txt{flex:1}.sii-f29 b{display:block;font-size:14px}.sii-f29.mal b{color:#FF8A7A}.sii-f29.bien b{color:#46D69A}.sii-f29 small{display:block;color:#E9DCEB;font-size:12px;margin-top:2px}',
+      '.sii-sec{margin-top:12px}.sii-sec-t{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#C9A8CC;margin-bottom:6px}',
+      '.sii-lista{margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5}.sii-lista li.amb::marker{color:#FFC85A}.sii-lista li.roj::marker{color:#FF8A7A}',
+      '.sii-lista.cartas{list-style:none;padding-left:0}.sii-lista.cartas li{padding:6px 0;border-top:1px solid #3A2140}.sii-lista.cartas li:first-child{border-top:0}',
+      '.sii-lista.cartas b{font-weight:700;color:#E39BE5}.sii-lista.cartas li.notif b{color:#FFC85A}.sii-lista.cartas small{display:block;color:#FFC85A;font-size:11.5px}',
+      '.sii-nota.roj{color:#FF8A7A}',
       '.sii-velo{position:fixed;inset:0;z-index:400;background:rgba(12,7,14,.78);display:flex;align-items:center;justify-content:center;padding:16px}',
       '.sii-velo iframe{width:440px;height:660px;max-width:100%;max-height:calc(100vh - 32px);border:0;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6)}',
       '.sii-velo .x{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}'
@@ -63,61 +74,117 @@
     document.head.appendChild(s);
   }
 
-  // ── Resumen del monitor: tolerante a la forma (la guía no la documenta campo a campo) ──
-  var DINERO = /monto|neto|iva|total|venta|compra|debito|credito|remanente|ppm|pagar|exento/i;
-  function etiqueta(k) {
-    return String(k).replace(/_/g, ' ').replace(/([a-záéíóú])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); });
+  // ── Resumen (R2): forma compacta que arma el servidor (ficha, f29, monitor reducido, sii). Todo con textContent. ──
+  var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var CATEGORIA = { carta: 'Carta', notificacion: 'Notificación' };
+  function esTxt(v) { return typeof v === 'string' && v.trim() !== ''; }
+  function nombreMes(p) { var m = Number(String(p).slice(4, 6)); return MESES[m - 1] || String(p); }
+  function unir(xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1]; }
+  function ddmm(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '-' + m[2] : ''; }
+  function ddmmaaaa(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
+  function pesos(v) { return typeof v === 'number' && isFinite(v) ? '$' + Math.round(v).toLocaleString('es-CL') : '—'; }
+  function capital(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function dato(g, l, v, nota) {
+    var d = el('div', 'sii-dato'); d.appendChild(el('div', 'l', l)); d.appendChild(el('div', 'v', v));
+    if (nota) d.appendChild(el('div', 'n', nota)); g.appendChild(d); return d;
   }
-  function valor(k, v) {
-    if (typeof v === 'number') return (DINERO.test(k) ? '$' : '') + Math.round(v).toLocaleString('es-CL');
-    if (typeof v === 'boolean') return v ? 'Sí' : 'No';
-    return String(v).slice(0, 80);
-  }
-  function datosSimples(obj, prefijo, salida) {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
-    Object.keys(obj).forEach(function (k) {
-      if (salida.length >= 12 || /semaforo/i.test(k)) return;
-      var v = obj[k];
-      if (v == null || v === '') return;
-      if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') salida.push([prefijo ? prefijo + ' · ' + etiqueta(k) : etiqueta(k), valor(k, v)]);
-      else if (!Array.isArray(v) && !prefijo) datosSimples(v, etiqueta(k), salida);
-      else if (Array.isArray(v) && !prefijo && v.length && typeof v[v.length - 1] === 'object') datosSimples(v[v.length - 1], etiqueta(k) + ' (último)', salida);
-    });
-  }
-  function nivelSemaforo(m) {
-    var s = m && m.semaforo; if (s && typeof s === 'object') s = s.nivel || s.estado || s.color || s.valor;
-    s = String(s || '').toLowerCase();
-    return s === 'ok' || s === 'aviso' || s === 'alerta' ? s : '';
-  }
-  function cuenta(x) {
-    if (Array.isArray(x)) return x.length;
-    if (x && typeof x === 'object') { for (var k in x) if (Array.isArray(x[k])) return x[k].length; }
-    return null;
+  function seccion(card, titulo) { var s = el('div', 'sii-sec'); s.appendChild(el('div', 'sii-sec-t', titulo)); card.appendChild(s); return s; }
+
+  function pintarF29(card, f) {
+    if (!f || !Array.isArray(f.periodos)) { card.appendChild(el('div', 'sii-nota', 'No se pudo revisar el F29 del año (falta la ficha o las declaraciones en Cartapra).')); return; }
+    var nd = Array.isArray(f.no_declarados) ? f.no_declarados : [], ep = Array.isArray(f.en_plazo) ? f.en_plazo : [];
+    var anio = String(f.anio || '');
+    var caja = el('div', 'sii-f29 ' + (nd.length ? 'mal' : 'bien'));
+    caja.setAttribute('data-f29', nd.length ? 'no_declarados' : 'al_dia');
+    caja.appendChild(icono(nd.length ? 'alerta' : 'check', nd.length ? 'sii-roj' : 'sii-ver'));
+    var t = el('div', 'txt');
+    if (nd.length) t.appendChild(el('b', null, 'F29 no declarados: ' + unir(nd.map(nombreMes)) + ' ' + anio));
+    else if (f.periodos.length) t.appendChild(el('b', null, 'F29 del año al día'));
+    else t.appendChild(el('b', null, 'Aún no hay F29 del año por revisar'));
+    if (ep.length) {
+      var venceDe = {}; f.periodos.forEach(function (p) { if (p && p.periodo) venceDe[p.periodo] = p.vence; });
+      t.appendChild(el('small', null, 'En plazo: ' + unir(ep.map(function (p) { var v = ddmm(venceDe[p]); return nombreMes(p) + (v ? ' (vence ' + v + ')' : ''); }))));
+    }
+    var rect = f.periodos.filter(function (p) { return p && p.rectificado === true; }).map(function (p) { return nombreMes(p.periodo); });
+    if (rect.length) t.appendChild(el('small', null, 'Con más de una declaración (rectificado): ' + unir(rect)));
+    if (nd.length) t.appendChild(el('small', null, 'Período vencido sin F29 en el SII = no declarado.'));
+    caja.appendChild(t); card.appendChild(caja);
   }
 
   function pintarResumen(card, j) {
-    var m = j.monitor;
-    if (!m) { card.appendChild(el('div', 'sii-nota', 'Cartapra todavía no entrega el resumen de esta empresa.')); return; }
-    var nivel = nivelSemaforo(m);
-    if (nivel) {
-      var txt = { ok: 'Todo en orden', aviso: 'Hay algo que revisar', alerta: 'Requiere atención' }[nivel];
-      var sem = el('div', 'sii-sem ' + nivel, '● ' + txt); sem.style.marginTop = '10px'; card.appendChild(sem);
+    var fi = j.ficha, m = j.monitor, sii = j.sii || {};
+    if (!fi && !j.f29 && !m && !Object.keys(sii).length) { card.appendChild(el('div', 'sii-nota', 'Cartapra todavía no entrega el resumen de esta empresa.')); return; }
+    // Línea superior: régimen · contabilidad · IVA
+    if (fi) {
+      var partes = [];
+      if (esTxt(fi.regimen)) partes.push(fi.regimen);
+      if (esTxt(fi.contabilidad)) partes.push('Contabilidad ' + String(fi.contabilidad).toLowerCase());
+      if (fi.afecta_iva === false) partes.push('Exenta de IVA'); else if (fi.afecta_iva === true) partes.push('Afecta a IVA');
+      if (partes.length) card.appendChild(el('div', 'sii-linea', partes.join(' · ')));
     }
-    var lista = []; datosSimples(m, '', lista);
-    var sii = j.sii || {};
-    [['sii_cartas', 'Cartas del SII'], ['sii_alertas', 'Alertas del SII']].forEach(function (p) {
-      var n = cuenta(sii[p[0]]); if (n != null) lista.push([p[1], String(n)]);
-    });
+    pintarF29(card, j.f29);
+
+    // Cumplimiento, socios y representante
+    var g = el('div', 'sii-grid');
     var cum = sii.sii_cumplimiento;
-    if (cum && typeof cum === 'object' && typeof (cum.estado || cum.situacion) === 'string') lista.push(['Cumplimiento tributario', String(cum.estado || cum.situacion).slice(0, 60)]);
-    if (lista.length) {
-      var g = el('div', 'sii-grid');
-      lista.forEach(function (p) { var d = el('div', 'sii-dato'); d.appendChild(el('div', 'l', p[0])); d.appendChild(el('div', 'v', p[1])); g.appendChild(d); });
-      card.appendChild(g);
+    if (cum && esTxt(cum.estado)) dato(g, 'Cumplimiento tributario', cum.estado);
+    if (fi && Array.isArray(fi.socios) && fi.socios.length) {
+      dato(g, fi.socios.length > 1 ? 'Socios vigentes' : 'Socio vigente', fi.socios.map(function (s) {
+        var pc = typeof s.participacionCapital === 'number' ? s.participacionCapital + '%' : '';
+        var pu = typeof s.participacionUtilidades === 'number' && s.participacionUtilidades !== s.participacionCapital ? ' (utilidades ' + s.participacionUtilidades + '%)' : '';
+        return (s.nombre || 'Sin nombre') + (pc ? ' · ' + pc + pu : '');
+      }).join(' — '));
     }
-    var det = el('details', 'sii-det'); det.appendChild(el('summary', null, 'Ver todo lo que entrega el SII'));
-    det.appendChild(el('pre', null, JSON.stringify({ monitor: m, sii: sii }, null, 2).slice(0, 20000)));
-    card.appendChild(det);
+    if (fi && Array.isArray(fi.representantes) && fi.representantes.length) {
+      dato(g, 'Representante vigente', fi.representantes.map(function (r) { return r.nombre || 'Sin nombre'; }).join(' — '));
+    }
+    if (g.childNodes.length) card.appendChild(g);
+
+    // Semáforo (ya filtrado en el servidor), IVA proyectado, totales del año
+    if (m) {
+      var s = m.semaforo, nivel = s && (s.tono === 'ok' || s.tono === 'aviso' || s.tono === 'alerta') ? s.tono : '';
+      if (nivel) {
+        var sec = seccion(card, 'Semáforo de Cartapra');
+        sec.appendChild(el('div', 'sii-sem ' + nivel, '● ' + { ok: 'Todo en orden', aviso: 'Hay algo que revisar', alerta: 'Requiere atención' }[nivel]));
+        var ul = el('ul', 'sii-lista');
+        (Array.isArray(s.puntos) ? s.puntos : []).forEach(function (p) { if (p && esTxt(p.texto)) ul.appendChild(el('li', p.tono === 'alerta' ? 'roj' : p.tono === 'aviso' ? 'amb' : '', p.texto)); });
+        if (ul.childNodes.length) sec.appendChild(ul);
+        if (m.exenta === true) sec.appendChild(el('div', 'sii-nota', 'Empresa exenta de IVA: no se compara el crédito fiscal del RCV con el F29.'));
+      }
+      var g2 = el('div', 'sii-grid');
+      var ip = m.ivaProyectado;
+      if (ip && typeof ip.totalEstimado === 'number') {
+        dato(g2, 'F29 estimado de ' + (ip.periodo ? nombreMes(ip.periodo) : 'este mes'), pesos(ip.totalEstimado), ip.provisorio === false ? null : 'Provisorio: el mes aún no cierra');
+      }
+      var anio = j.f29 && j.f29.anio, an = Array.isArray(m.anual) ? m.anual : [];
+      var a = an.filter(function (x) { return x && x.anio === anio; })[0] || an[0];
+      if (a && a.totales) {
+        dato(g2, 'Ventas ' + a.anio, pesos(a.totales.ventasTotal));
+        dato(g2, 'Compras ' + a.anio, pesos(a.totales.comprasTotal));
+      }
+      if (g2.childNodes.length) card.appendChild(g2);
+    }
+
+    // Últimas cartas y notificaciones del SII (máx. 5)
+    var ca = sii.sii_cartas;
+    if (ca && Array.isArray(ca.cartas) && ca.cartas.length) {
+      var sc = seccion(card, 'Cartas y notificaciones del SII' + (ca.total > ca.cartas.length ? ' · últimas ' + ca.cartas.length + ' de ' + ca.total : ''));
+      var ul2 = el('ul', 'sii-lista cartas');
+      ca.cartas.slice(0, 5).forEach(function (c) {
+        if (!c) return;
+        var li = el('li', c.categoria === 'notificacion' ? 'notif' : '');
+        var cuando = ddmmaaaa(c.fecha) || (esTxt(c.periodo) ? 'Período ' + c.periodo : 'Sin fecha');
+        li.appendChild(el('b', null, cuando + ' · ' + (CATEGORIA[c.categoria] || 'Documento')));
+        li.appendChild(el('span', null, ' ' + (c.titulo || '')));
+        if (Array.isArray(c.plazos) && c.plazos.length) li.appendChild(el('small', null, 'Plazo: ' + c.plazos.join(' · ')));
+        ul2.appendChild(li);
+      });
+      sc.appendChild(ul2);
+    } else if (ca) {
+      card.appendChild(el('div', 'sii-nota', 'Sin cartas ni notificaciones del SII.'));
+    }
+    var al = sii.sii_alertas;
+    if (al && al.total > 0) card.appendChild(el('div', 'sii-nota roj', 'Alertas del SII: ' + al.total));
   }
 
   // ── Ventana de conexión (iframe propio + postMessage verificado) ──
@@ -194,9 +261,9 @@
   }
   function pintar(j) {
     var card = nuevaCard(); if (!card) return;
-    var c = j.conexion || {}, puede = actual.esMaster === true;
+    var c = j.conexion || {}, puede = j.puede_conectar === true;
     if (c.estado === 'no_conectada') {
-      var f1 = fila(card, 'candado', 'sii-cel', 'Sin conectar con el SII', puede ? 'Se abre una ventana segura de Cartapra con el RUT ya puesto. Ahí se escribe la clave del SII: Gestoor no la ve.' : 'Pídele al Master que la conecte.');
+      var f1 = fila(card, 'candado', 'sii-cel', 'Sin conectar con el SII', puede ? 'Se abre una ventana segura de Cartapra con el RUT ya puesto. Ahí se escribe la clave del SII: Gestoor no la ve.' : 'Pídele al Master o a quien conecta empresas con el SII que la conecte.');
       if (puede) boton(f1, 'Conectar con el SII', 'llave', false, pedirVentana);
     } else if (c.estado === 'clave_rechazada') {
       var f2 = fila(card, 'alerta', 'sii-amb', 'La clave del SII cambió', 'Las lecturas se detuvieron. Hay que volver a conectar con la clave nueva.');
@@ -206,7 +273,8 @@
       boton(f3, 'Volver a revisar', 'repetir', true, function () { cargar(); });
     } else if (c.estado === 'conectada') {
       fila(card, 'check', 'sii-ver', 'Conectado', 'Última actualización: ' + (c.ultimaActualizacion ? horaChile(c.ultimaActualizacion) + ' (hora de Chile)' : 'No disponible') + ' · se actualiza sola una vez al día');
-      pintarResumen(card, j);
+      if (j.soloEstado) card.appendChild(el('div', 'sii-nota', 'Los datos del SII de este cliente los ve el Master y el equipo asignado.'));
+      else pintarResumen(card, j);
     } else {
       pintarError({ status: 502, detalle: 'Cartapra respondió algo inesperado.' }); return;
     }
@@ -218,15 +286,21 @@
     var mio = actual, n = ++seq;
     var card = nuevaCard(); fila(card, 'reloj', 'sii-cel', 'Revisando la conexión con el SII…', null);
     // "resumen" trae el estado y, si ya hay datos, el monitor: una sola ida al servidor.
+    // Sin permiso de resumen (403) → se intenta "estado" (conectores): solo la conexión y, si corresponde, el botón.
     llamar('resumen', mio.clienteId).then(function (j) { if (actual === mio && n === seq) pintar(j); })
-      .catch(function (e) { if (actual === mio && n === seq) pintarError(e); });
+      .catch(function (e) {
+        if (actual !== mio || n !== seq) return;
+        if (!e || e.status !== 403) { pintarError(e); return; }
+        llamar('estado', mio.clienteId).then(function (j) { if (actual === mio && n === seq) { j.soloEstado = true; pintar(j); } })
+          .catch(function () { if (actual === mio && n === seq) pintarError(e); });
+      });
   }
 
   window.GestoorSII = {
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;
       estilos(); cerrarVentana();
-      actual = { cont: cont, clienteId: Number(clienteId), esMaster: !!(op && op.esMaster === true) };
+      actual = { cont: cont, clienteId: Number(clienteId) };
       cargar();
     },
     desmontar: function () { cerrarVentana(); seq++; actual = null; }
