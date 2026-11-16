@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Demo local · tarjeta SII (Cartapra F1)</title>
 <!-- PRUEBA LOCAL: datos FICTICIOS/ANONIMIZADOS y Edge simulada. No se conecta a Supabase ni a Cartapra.
-     ?estado=no_conectada|leyendo|conectada|clave_rechazada|sin_permiso|conector  ·  &conectar=0 → el servidor responde puede_conectar=false -->
+     ?estado=conectada (piloto, cobertura NO confirmada)|cobertura (cobertura confirmada)|no_conectada|leyendo|clave_rechazada|sin_permiso|fuera_piloto|conector
+     &conectar=0 → puede_conectar=false  ·  &piloto=0 → sin piloto (para ver el botón Conectar) -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
 <style>body{padding:24px}.modal{max-width:640px;margin:0 auto}.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.det-item{background:rgba(12,7,14,.35);border-radius:12px;padding:8px 12px}.det-lbl{font-size:10px;color:#C9A8CC;text-transform:uppercase}.det-val{font-size:13px;font-weight:600}
@@ -26,17 +27,20 @@
 <script src="cartapra-sii-fixture.js"></script>
 <script>
   var q = new URLSearchParams(location.search);
-  var est = q.get('estado') || 'conectada', puede = q.get('conectar') !== '0';
+  var est = q.get('estado') || 'conectada', piloto = q.get('piloto') !== '0', puede = !piloto && q.get('conectar') !== '0';
   var C = function (e, x) { return Object.assign({ estado: e, ultimaActualizacion: null, actualizando: false, cargaInicialLista: false, ultimoError: null }, x || {}); };
-  var vacio = function (c) { return { ok: true, conexion: c, puede_conectar: puede, ficha: null, f29: null, monitor: null, sii: {} }; };
-  var FX = JSON.parse(JSON.stringify(window.CARTAPRA_FIXTURE_RESUMEN)); FX.puede_conectar = puede;
+  var vacio = function (c) { return { ok: true, conexion: c, puede_conectar: puede, piloto: piloto, ficha: null, f29: null, monitor: null, sii: {} }; };
+  var FX = JSON.parse(JSON.stringify(window.CARTAPRA_FIXTURE_RESUMEN)); FX.puede_conectar = puede; FX.piloto = piloto;
+  var FXC = JSON.parse(JSON.stringify(window.CARTAPRA_FIXTURE_RESUMEN_COBERTURA)); FXC.puede_conectar = puede; FXC.piloto = piloto;
   var R = {
     no_conectada: { s: 200, b: vacio(C('no_conectada')) },
     leyendo: { s: 200, b: vacio(C('conectada', { actualizando: true })) },
     clave_rechazada: { s: 200, b: vacio(C('clave_rechazada', { ultimaActualizacion: '2026-11-10T12:00:00Z', ultimoError: 'El SII rechazó la clave' })) },
     sin_permiso: { s: 403, b: { ok: false, error: 'SIN_PERMISO' } },
     conector: { s: 403, b: { ok: false, error: 'SIN_PERMISO' } },   // resumen 403; "estado" sí responde (conector no asignado)
-    conectada: { s: 200, b: FX }   // forma REAL (R2), datos anonimizados
+    fuera_piloto: { s: 403, b: { ok: false, error: 'EMPRESA_FUERA_PILOTO' } },
+    conectada: { s: 200, b: FX },    // forma REAL (R3), datos anonimizados, cobertura NO confirmada (lo que verá la empresa piloto al instalar)
+    cobertura: { s: 200, b: FXC }    // igual, con CARTAPRA_F29_COBERTURA_CONFIRMADA=true
   };
   window.toast = function (m) { console.log('toast', m); };
   window.edgeFetch = function (fn, body) {
