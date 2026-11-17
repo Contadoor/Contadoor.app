@@ -601,7 +601,7 @@ function abrirConciliar(id,op){
     pintarCands();pintarHecho();pintarManual();totalizar();
     revisarPendiente().then(function(pl){if(pl&&op.completar&&_mov&&_mov.id===id)seguirCompletando(pl);});
     // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar".
-    if(!pendienteDe(id)&&!pendDeOtro(id)&&_det&&_det.integro&&_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
+    if(!bloqueoPlan(id)&&_det&&_det.integro&&_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
   });
 }
 function pintarCabecera(){
@@ -650,7 +650,7 @@ function totalizar(){
   document.getElementById('kTotal').innerHTML='Total a aplicar ahora: <strong>'+ff(tot)+'</strong> de '+ff(saldo)+' disponibles'
     +(mal?' · <span style="color:var(--red)">revisa montos (enteros, sin superar el saldo de cada partida; los pagos manuales necesitan descripción)</span>'
       :dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':tot>0&&dif>0?' · <span style="color:var(--amber)">quedará '+ff(dif)+' por conciliar (parcial)</span>':'');
-  b.disabled=mal||tot<=0||dif<0||!_det||!_det.integro||!!pendienteDe(_mov.id)||_congelado;
+  b.disabled=mal||tot<=0||dif<0||!_det||!_det.integro||!!bloqueoPlan(_mov.id)||_congelado;
   b.textContent=tot>0&&dif===0?'✅ Conciliar 100%':'Guardar conciliación parcial';
   pintarProgreso(tot);
 }
@@ -734,35 +734,40 @@ var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro client
   CLAVE_IDEM_USADA:'Cambiaste los montos tras un intento con resultado incierto: cierra y vuelve a abrir el ingreso.',SOLO_PAGOS:'No tienes permiso para registrar pagos de Cobranza.',
   TRABAJOS_ESPECIALES_NO_INSTALADO:'Esa factura es cuota de un trabajo especial y aún no se puede pagar por aquí.'};
 function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
-// ── R2.1 · UX-01/02 + UX-R2-01/02/06: plan congelado, persistencia OBLIGATORIA y verificación de VIGENCIA ──
-// El plan (pasos, claves y montos) se arma ANTES de la primera RPC y debe quedar guardado y releído en este navegador;
-// si no se puede guardar, NO se ejecuta nada. Ámbito: entorno + usuario + ingreso. Sin datos del pagador (la referencia
-// se arma al momento desde el ingreso fresco). Al reabrir o completar, TODOS los pasos (también los ya confirmados) se
-// verifican en el servidor por su clave y su contenido: vigente · anulado · no_registrado · incierto · conflicto.
-// Si algo fue anulado o no coincide, el plan se bloquea: «El estado de la conciliación cambió».
-var PEND='gestoor_conc_plan_v2|';
+// ── R2.2 (dictamen R2.1): UN solo control para el ciclo de vida del plan ──
+// Todo lo que crea, modifica o elimina un plan ocurre DENTRO del candado (Web Locks) del entorno + ingreso:
+//   1) candado · 2) releer el plan guardado y comprobar su identidad · 3) verificar en el servidor ·
+//   4) guardar y comprobar · 5) RPC con las mismas claves · 6) registrar y liberar.
+// Sin Web Locks NO se aplica nada (se pide un navegador compatible). Las respuestas tardías no tocan pantalla ni almacenamiento.
+// Ámbito: entorno + usuario + ingreso (usuario = id estable; el hash del correo es solo respaldo y NO es cifrado).
+// Planes del formato R2 (sin autor): NO se atribuyen a nadie ni se ejecutan; se avisa y se resuelven con revisión.
+var PEND='gestoor_conc_plan_v2|', PEND_R2='gestoor_conc_pend_';
 function hashTxt(t){var h=2166136261;t=String(t||'');for(var i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h.toString(36);}
 function entornoPend(){return hashTxt(typeof SB_URL!=='undefined'?SB_URL:location.host);}
-function usuarioPend(){var u=getUsuario()||{};var k=u.id!=null?'id'+u.id:(u.email?'em'+hashTxt(String(u.email).toLowerCase()):'');return k;}
+function usuarioPend(){var u=getUsuario()||{};return u.id!=null?'id'+u.id:(u.email?'em'+hashTxt(String(u.email).toLowerCase()):'');}
 function clavePend(mid){var us=usuarioPend();return us?PEND+entornoPend()+'|'+us+'|'+mid:null;}
-function pendienteDe(mid){var k=clavePend(mid);if(!k)return null;try{var x=JSON.parse(localStorage.getItem(k)||'null');return x&&x.v===2&&x.pasos&&x.mov===mid?x:null;}catch(e){return null;}}
-// Guardado comprobado: escribe, relee y compara. Devuelve false si el navegador no lo guardó (bloqueado, lleno, privado).
+function pendienteDe(mid){var k=clavePend(mid);if(!k)return null;try{var x=JSON.parse(localStorage.getItem(k)||'null');return x&&x.v===2&&x.pasos&&x.mov===mid&&x.id?x:null;}catch(e){return null;}}
+// Guardado comprobado: escribe, relee y compara.
 function guardarPend(plan){var k=clavePend(plan.mov);if(!k)return false;try{var t=JSON.stringify(plan);localStorage.setItem(k,t);return localStorage.getItem(k)===t;}catch(e){return false;}}
-function borrarPend(mid){var k=clavePend(mid);if(!k)return;try{localStorage.removeItem(k);}catch(e){}}
-// Planes de OTRO usuario en este navegador para el mismo ingreso: no se muestran ni se ejecutan; solo se avisa.
+// Eliminación comprobada (R21-04): devuelve true solo si de verdad ya no está.
+function borrarPend(mid){var k=clavePend(mid);if(!k)return false;try{localStorage.removeItem(k);return localStorage.getItem(k)===null;}catch(e){return false;}}
 function pendDeOtro(mid){try{var pre=PEND+entornoPend()+'|',yo=clavePend(mid);for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(pre)===0&&k!==yo&&k.slice(-('|'+mid).length)==='|'+mid)return true;}}catch(e){}return false;}
-// Planes del formato R2 (publicado 17-11 18:27–18:40 UTC): se migran al usuario actual sin datos del pagador.
-(function migrarPendR2(){try{var viejos=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('gestoor_conc_pend_')===0)viejos.push(k);}
-  viejos.forEach(function(k){var x=JSON.parse(localStorage.getItem(k)||'null');if(x&&x.pasos&&usuarioPend()){x.v=2;x.migrado=true;x.pasos.forEach(function(p){if(p.args)delete p.args.p_referencia;});if(guardarPend(x))localStorage.removeItem(k);}});}catch(e){}})();
+// R21-01: plan histórico de R2 (sin autor verificable). Se conserva intacto; nunca se migra ni se ejecuta.
+function pendR2De(mid){try{var x=JSON.parse(localStorage.getItem(PEND_R2+mid)||'null');return x&&x.pasos?x:null;}catch(e){return null;}}
+function bloqueoPlan(mid){return pendienteDe(mid)||pendDeOtro(mid)||pendR2De(mid);}
 function congelar(on){_congelado=on;document.getElementById('mConc').classList.toggle('congelado',on);}
-// Exclusión entre pestañas del mismo navegador (Web Locks; si no existe, marca con vencimiento en el plan).
+var MSG_SIN_LOCKS='Este navegador no permite coordinar pestañas de forma segura, así que no se aplicará nada. Usa una versión actual de Chrome, Edge, Safari o Firefox.';
+var MSG_OCUPADO='Otra pestaña está trabajando este ingreso. Espera a que termine y actualiza.';
+function hayLocks(){return !!(navigator.locks&&navigator.locks.request);}
+// Candado único por entorno + ingreso. fn corre dentro; si no hay candado disponible, no corre.
 function conCandado(mid,fn){
-  if(navigator.locks&&navigator.locks.request)return navigator.locks.request('gestoor_conc_'+entornoPend()+'_'+mid,{ifAvailable:true},function(l){if(!l){err('kErr','Otra pestaña está aplicando este ingreso. Espera a que termine y actualiza.');return;}return fn();});
-  var p=pendienteDe(mid);if(p&&p.ejecutando&&Date.now()-p.ejecutando<120000){err('kErr','Otra pestaña está aplicando este ingreso. Espera a que termine y actualiza.');return Promise.resolve();}
-  return Promise.resolve(fn());
+  if(!hayLocks()){err('kErr',MSG_SIN_LOCKS);return Promise.resolve(false);}
+  return navigator.locks.request('gestoor_conc_'+entornoPend()+'_'+mid,{ifAvailable:true},function(l){if(!l){err('kErr',MSG_OCUPADO);return false;}return Promise.resolve(fn()).then(function(){return true;});});
 }
+function mismoPlan(a,b){return !!(a&&b&&a.id===b.id&&a.mov===b.mov&&a.pasos.length===b.pasos.length&&a.pasos.every(function(p,i){return p.clave===b.pasos[i].clave;}));}
 function aplicar(){
-  if(_ocupado||_congelado||!_det||!_det.integro||pendienteDe(_mov.id))return;
+  if(_ocupado||_congelado||!_det||!_det.integro||bloqueoPlan(_mov.id))return;
+  if(!hayLocks()){err('kErr',MSG_SIN_LOCKS);return;}
   var docs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='doc';}),obs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='ob';});
   var mans=_manuales.filter(function(x){return x.monto>0;});
   var tot=docs.concat(obs).reduce(function(s,c){return s+c.monto;},0)+mans.reduce(function(s,x){return s+x.monto;},0);
@@ -774,14 +779,18 @@ function aplicar(){
   var cli=cliPorRut(_mov.cliente_rut);
   if(docs.length&&!cli){err('kErr','No encuentro la ficha del cliente; recarga la página.');return;}
   if(!usuarioPend()){err('kErr','No pude identificar tu sesión. Vuelve a ingresar a Gestoor antes de conciliar.');return;}
-  var plan={v:2,mov:_mov.id,cliente_rut:_mov.cliente_rut,monto_mov:Number(_mov.monto),aplicado_inicial:Number(_mov.monto_aplicado),creado:new Date().toISOString(),parcial:parcial,pasos:[]};
+  var plan={v:2,id:nuevaClave(),mov:_mov.id,cliente_rut:_mov.cliente_rut,monto_mov:Number(_mov.monto),aplicado_inicial:Number(_mov.monto_aplicado),creado:new Date().toISOString(),parcial:parcial,pasos:[]};
   if(docs.length) plan.pasos.push({tipo:'cob',n:'facturas de nuestros servicios',clave:nuevaClave(),estado:'pendiente',args:{p_cliente_id:Number(cli.id),p_fecha_pago:String(_mov.fecha||String(_mov.fecha_hora).slice(0,10)),
     p_aplicaciones:docs.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_movimiento_id:_mov.id,p_abono:0}});
   if(obs.length) plan.pasos.push({tipo:'ob',n:'obligaciones',clave:nuevaClave(),estado:'pendiente',args:{p_movimiento_id:_mov.id,p_aplicaciones:obs.map(function(c){return {obligacion_id:c.o.id,monto:c.monto};}),p_criterio:_criterio}});
   mans.forEach(function(x){plan.pasos.push({tipo:'man',n:'concepto manual «'+String(x.concepto).trim()+'»',clave:nuevaClave(),estado:'pendiente',args:{p_movimiento_id:_mov.id,p_concepto:String(x.concepto).trim(),p_monto:x.monto}});});
-  // UX-R2-02: sin guardado comprobado no hay ninguna RPC.
-  if(!guardarPend(plan)||!pendienteDe(plan.mov)){err('kErr','No se pudo guardar el plan de conciliación en este navegador (almacenamiento bloqueado o lleno). No se aplicó nada. Revisa la configuración del navegador o usa otro, y vuelve a intentar.');return;}
-  conCandado(plan.mov,function(){return ejecutarPlan(plan);});
+  var mid=plan.mov;
+  conCandado(mid,function(){
+    // Dentro del candado: nadie más puede haber dejado un plan para este ingreso; recién aquí se persiste.
+    if(bloqueoPlan(mid)){err('kErr','Ya hay una conciliación en curso para este ingreso. Actualiza para revisarla.');return;}
+    if(!guardarPend(plan)||!mismoPlan(pendienteDe(mid),plan)){borrarPend(mid);err('kErr','No se pudo guardar el plan de conciliación en este navegador (almacenamiento bloqueado o lleno). No se aplicó nada. Revisa la configuración del navegador o usa otro, y vuelve a intentar.');return;}
+    return ejecutarPlan(plan);
+  });
 }
 function refCob(){return ('Conciliación ingreso #'+_mov.id+' · transfiere '+_mov.rut_origen+' '+(_mov.nombre_origen||'')).slice(0,200);}
 function llamadaPaso(p){
@@ -790,29 +799,29 @@ function llamadaPaso(p){
   if(p.tipo==='ob')return rpc('conciliar_movimiento',a);
   return rpc('concil_imputar_manual',a);
 }
+// Solo se llama DENTRO del candado. Devuelve una promesa que termina al final (libera el candado).
 function ejecutarPlan(plan){
   _ocupado=true;congelar(true);var b=document.getElementById('kBtn');b.disabled=true;b.textContent='Aplicando…';err('kErr','');
   return new Promise(function(fin){
   var i=0;(function sig(){
     while(i<plan.pasos.length&&plan.pasos[i].estado==='ok')i++;
-    if(i>=plan.pasos.length){borrarPend(plan.mov);_ocupado=false;congelar(false);document.getElementById('mConc').classList.remove('on');_reabrir=plan.parcial?plan.mov:null;cargar();return fin();}
-    var p=plan.pasos[i];plan.ejecutando=Date.now();
+    if(i>=plan.pasos.length){var limpio=borrarPend(plan.mov);_ocupado=false;congelar(false);document.getElementById('mConc').classList.remove('on');_reabrir=plan.parcial||!limpio?plan.mov:null;cargar();return fin();}
+    var p=plan.pasos[i];
     if(!guardarPend(plan)){p.msg='no se pudo guardar el avance en este navegador';terminarConFalla(plan,p);return fin();}
     llamadaPaso(p).then(function(r){
-      var x=Array.isArray(r)?r[0]:r;delete plan.ejecutando;
+      var x=Array.isArray(r)?r[0]:r;
       if(p.tipo==='man'&&x&&x.resultado==='existente_anulada'){p.estado='anulado';p.msg='esa imputación ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
       p.estado='ok';if(!guardarPend(plan)){terminarConFalla(plan,p);return fin();}i++;sig();
     }).catch(function(e){
-      delete plan.ejecutando;p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
+      p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
     });
   })();});
 }
 function terminarConFalla(plan,p){
   _ocupado=false;congelar(false);
-  // Se recarga y se reabre el ingreso: revisarPendiente() verifica TODO en el servidor y muestra el estado real.
   var id=plan.mov;document.getElementById('mConc').classList.remove('on');cargar(function(){abrirConciliar(id);});
 }
-// ── UX-R2-01: verificación de cada paso contra el servidor (por clave + contenido económico) ──
+// ── Verificación de cada paso contra el servidor (por clave + contenido económico). Solo LEE; no escribe. ──
 function mismasAplic(a,b,k){var n=function(L){return (L||[]).map(function(x){return String(x[k])+':'+Number(x.monto);}).sort().join(',');};return n(a)===n(b);}
 function verificarPaso(plan,p){
   var sel={cob:'cobranza_pagos?select=id,movimiento_id,monto,estado,aplicaciones_norm',ob:'concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada',man:'concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,anulada'}[p.tipo];
@@ -832,29 +841,54 @@ function verificarPaso(plan,p){
     return x.anulada?'anulado':'vigente';
   });
 }
-// Verifica TODOS los pasos (también los que este navegador tenía como confirmados). Devuelve {plan, ok:bool}.
+// Devuelve una COPIA del plan con el resultado de verificar TODOS sus pasos (también los «ok» locales). No persiste.
 function verificarPlan(plan){
-  return Promise.all(plan.pasos.map(function(p){return verificarPaso(plan,p).then(function(v){p.ver=v;},function(){p.ver='incierto';});}))
-    .then(function(){
-      plan.pasos.forEach(function(p){if(p.ver==='vigente'){p.estado='ok';p.msg='';}else if(p.ver==='no_registrado'&&p.estado==='ok'){p.ver='conflicto';p.msg='figuraba registrado y ya no está';}});
-      guardarPend(plan);return plan;});
+  var c=JSON.parse(JSON.stringify(plan));
+  return Promise.all(c.pasos.map(function(p){return verificarPaso(c,p).then(function(v){p.ver=v;},function(){p.ver='incierto';});}))
+    .then(function(){c.pasos.forEach(function(p){if(p.ver==='vigente'){p.estado='ok';p.msg='';}else if(p.ver==='no_registrado'&&p.estado==='ok'){p.ver='conflicto';p.msg='figuraba registrado y ya no está';}});return c;});
 }
 function resumenPlan(plan){
   var c={vigente:0,anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
   c.cambio=c.anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
 }
-// Al abrir un ingreso con un plan pendiente (protegido contra respuestas tardías y cambio rápido de ingreso).
-function revisarPendiente(){
-  var plan=pendienteDe(_mov.id);if(!plan){if(pendDeOtro(_mov.id))avisoOtro();return Promise.resolve(null);}
-  var mid=plan.mov,seq=_detSeq;
-  return verificarPlan(plan).then(function(pl){if(seq!==_detSeq||!_mov||_mov.id!==mid)return null;pintarPendiente(pl);return pl;});
+// Persistir el resultado de una verificación: SOLO dentro del candado, si el plan guardado sigue siendo el mismo
+// y la respuesta corresponde al ingreso y a la apertura vigentes (UX-R2-06 / R21-02).
+function persistirVerificacion(v,seq){
+  if(seq!==_detSeq||!_mov||_mov.id!==v.mov)return Promise.resolve(null);
+  return conCandado(v.mov,function(){
+    if(seq!==_detSeq||!_mov||_mov.id!==v.mov)return;
+    var actual=pendienteDe(v.mov);if(!mismoPlan(actual,v))return;
+    guardarPend(v);
+  }).then(function(ok){return ok&&seq===_detSeq?v:null;});
 }
+// Al abrir un ingreso: revisa el plan propio (o avisa de uno ajeno / histórico). Las respuestas tardías se descartan.
+function revisarPendiente(){
+  var mid=_mov.id,seq=_detSeq,plan=pendienteDe(mid);
+  if(!plan){if(pendR2De(mid))avisoR2();else if(pendDeOtro(mid))avisoOtro();return Promise.resolve(null);}
+  if(!hayLocks()){var s=document.getElementById('kSug');s.style.display='block';s.innerHTML='<div class="conc-alerta roja">'+hesc(MSG_SIN_LOCKS)+'</div>';return Promise.resolve(null);}
+  return verificarPlan(plan).then(function(v){
+    if(seq!==_detSeq||!_mov||_mov.id!==mid)return null;
+    return persistirVerificacion(v,seq).then(function(pl){if(!pl){if(seq===_detSeq&&_mov&&_mov.id===mid)avisoOcupado();return null;}pintarPendiente(pl);return pl;});
+  });
+}
+function avisoOcupado(){var s=document.getElementById('kSug');s.style.display='block';s.innerHTML='<div class="conc-alerta">'+hesc(MSG_OCUPADO)+' <button type="button" class="btn-s" onclick="abrirDeNuevo()">↻ Actualizar</button></div>';}
 function avisoOtro(){var s=document.getElementById('kSug');s.style.display='block';s.innerHTML='<div class="conc-alerta">En este navegador hay una conciliación de este ingreso sin terminar, iniciada con <b>otra sesión de Gestoor</b>. Debe revisarla esa persona entrando con su usuario. Lo que se registró en el servidor ya se ve en el detalle.</div>';}
+function avisoR2(){var s=document.getElementById('kSug');s.style.display='block';
+  s.innerHTML='<div class="conc-alerta roja"><b>Hay una conciliación anterior (versión del 17-11) pendiente de revisión.</b><br>No se sabe quién la inició, así que no se retoma ni se ejecuta. Revisa en el detalle (arriba) lo que quedó registrado en el servidor; si algo falta, prepara una conciliación nueva.'
+    +(esTesoreria()?'<br><button type="button" class="btn-s" style="color:#7a1f1f;border-color:#c98b8b;background:#fff;margin-top:6px" onclick="revisadoR2()">Ya revisé lo registrado: cerrar este aviso</button>':'')+'</div>';}
+function revisadoR2(){var mid=_mov.id;if(!esTesoreria())return;
+  conCandado(mid,function(){if(!pendR2De(mid))return;if(!confirm('¿Confirmas que revisaste en el detalle lo que quedó registrado en el servidor? El aviso se cierra; no se aplica ni se deshace nada.'))return;
+    try{localStorage.removeItem(PEND_R2+mid);}catch(e){}
+    if(pendR2De(mid)){err('kErr','No pude cerrar el aviso en este navegador.');return;}abrirDeNuevo();});}
 var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
 function pintarPendiente(plan){
   if(!_mov||_mov.id!==plan.mov)return;
   var c=resumenPlan(plan);
-  if(c.completo){borrarPend(plan.mov);abrirDeNuevo();return;}
+  if(c.completo){
+    // R21-04: si no se puede borrar el plan ya completo, se informa y NO se reabre en bucle.
+    var limpio=conCandado(plan.mov,function(){if(mismoPlan(pendienteDe(plan.mov),plan)&&!borrarPend(plan.mov))throw new Error('no_borra');});
+    limpio.then(function(ok){if(ok)abrirDeNuevo();},function(){var s=document.getElementById('kSug');s.style.display='block';s.innerHTML='<div class="conc-alerta">La conciliación quedó completa en el servidor, pero este navegador no permitió limpiar su registro local. No hace falta hacer nada más; revisa la configuración del navegador.</div>';});
+    return;}
   var d=new Date(plan.creado),cuando=isNaN(d)?'':d.toLocaleString('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   var lista='<ul style="margin:6px 0 6px 18px;padding:0">'+plan.pasos.map(function(p){var m=p.tipo==='man'?p.args.p_monto:p.args.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0);
     return '<li>'+hesc(p.n)+' · '+ff(m)+' — '+hesc(VER_TXT[p.ver]||p.ver)+(p.msg&&(p.ver==='conflicto'||(p.ver==='no_registrado'&&p.estado==='error'))?' <small>('+hesc(p.msg)+')</small>':'')+'</li>';}).join('')+'</ul>';
@@ -866,9 +900,10 @@ function pintarPendiente(plan){
     +'<button type="button" class="btn-purple" onclick="completarPendiente()">Completar lo que falta</button><button type="button" class="btn-s" onclick="descartarPendiente()">Descartar lo que falta</button>';}
   document.getElementById('kSug').style.display='block';document.getElementById('kSug').innerHTML='<div class="conc-alerta'+cls+'">'+h+'</div>';totalizar();
 }
-// UX-R2-02: antes de completar se recarga TODO (ingreso, detalle, documentos) y se revalida; solo entonces se ejecuta.
+// Completar: recarga TODO; luego, dentro del candado, relee el plan, verifica de nuevo en el servidor, revalida y ejecuta.
 function completarPendiente(){
   if(_congelado||_ocupado||!_mov)return;var mid=_mov.id;if(!pendienteDe(mid))return;
+  if(!hayLocks()){err('kErr',MSG_SIN_LOCKS);return;}
   congelar(true);document.getElementById('mConc').classList.remove('on');
   cargar(function(fresco){congelar(false);if(!fresco){abrirConciliar(mid);setTimeout(function(){err('kErr','No pude actualizar los datos (conexión). No se aplicó nada; intenta de nuevo.');},50);return;}abrirConciliar(mid,{completar:true});});
 }
@@ -886,17 +921,34 @@ function validarParaCompletar(plan){
   return '';
 }
 function seguirCompletando(plan){
-  var motivo=validarParaCompletar(plan);
-  if(motivo){err('kErr',motivo+' No se aplicó nada.');return;}
-  plan.pasos.forEach(function(p){if(p.ver==='no_registrado'){p.estado='pendiente';p.msg='';}});
-  if(!guardarPend(plan)){err('kErr','No se pudo guardar el plan en este navegador. No se aplicó nada.');return;}
-  conCandado(plan.mov,function(){var actual=pendienteDe(plan.mov);if(!actual)return;return ejecutarPlan(plan);});
+  var mid=plan.mov,seq=_detSeq;
+  conCandado(mid,function(){
+    var actual=pendienteDe(mid);
+    if(!mismoPlan(actual,plan)){err('kErr','El plan cambió en otra pestaña. Actualiza para revisarlo. No se aplicó nada.');return;}
+    return verificarPlan(actual).then(function(v){
+      if(seq!==_detSeq||!_mov||_mov.id!==mid)return;
+      var motivo=validarParaCompletar(v);
+      if(motivo){if(mismoPlan(pendienteDe(mid),v))guardarPend(v);err('kErr',motivo+' No se aplicó nada.');return;}
+      v.pasos.forEach(function(p){if(p.ver==='no_registrado'){p.estado='pendiente';p.msg='';}});
+      if(!guardarPend(v)){err('kErr','No se pudo guardar el plan en este navegador. No se aplicó nada.');return;}
+      return ejecutarPlan(v);
+    });
+  });
 }
+// Descartar: dentro del candado, con el plan releído y verificado de nuevo; nunca con pasos inciertos.
 function descartarPendiente(){
-  var plan=pendienteDe(_mov.id);if(!plan)return;
-  if(plan.pasos.some(function(p){return p.ver==='incierto'||!p.ver;})){alert('Primero hay que verificar en el servidor qué quedó registrado.');return;}
-  if(!confirm('¿Cerrar este plan? Lo registrado y vigente se mantiene (puedes desconciliarlo si corresponde); lo que no se registró no se aplicará.'))return;
-  borrarPend(_mov.id);abrirDeNuevo();
+  if(!_mov)return;var mid=_mov.id,seq=_detSeq,plan=pendienteDe(mid);if(!plan)return;
+  conCandado(mid,function(){
+    var actual=pendienteDe(mid);if(!mismoPlan(actual,plan)){err('kErr','El plan cambió en otra pestaña. Actualiza para revisarlo.');return;}
+    return verificarPlan(actual).then(function(v){
+      if(seq!==_detSeq||!_mov||_mov.id!==mid)return;
+      if(v.pasos.some(function(p){return p.ver==='incierto';})){err('kErr','Primero hay que verificar en el servidor qué quedó registrado (conexión).');return;}
+      if(!confirm('¿Cerrar este plan? Lo registrado y vigente se mantiene (puedes desconciliarlo si corresponde); lo que no se registró no se aplicará.'))return;
+      if(!mismoPlan(pendienteDe(mid),actual))return;
+      if(!borrarPend(mid)){err('kErr','Este navegador no permitió cerrar el plan. Revisa su configuración.');return;}
+      setTimeout(abrirDeNuevo,0);
+    });
+  });
 }
 // ── CONC-UX: desconciliar (con motivo; queda registrado quién y cuándo) ──
 // ── R2 · UX-05: desconciliar mostrando el alcance real (todas las partidas de esa aplicación) ──
@@ -918,7 +970,7 @@ function desconciliar(f,id){
   _ocupado=true;var mid=document.getElementById('mConc').classList.contains('on')&&_mov?_mov.id:null; // reabre solo si se desconcilió desde la ventana
   rpc(fn,args).then(function(){_ocupado=false;_reabrir=mid;cargar();}).catch(function(e){_ocupado=false;
     var t=String(e&&e.message||'');
-    alert(/permiso|No autorizado|Solo master|42501/i.test(t)&&f==='op'?'Por ahora solo el Master puede desconciliar IVA y cotizaciones. Se habilita para Tesorería con la próxima actualización de la base.':(e.claro?(f==='cob'?cobMsg(e):t):'No sabemos si se desconcilió (sin respuesta). Actualiza y revisa antes de reintentar.'));_reabrir=mid;cargar();});
+    alert(/permiso|No autorizado|Solo master|42501/i.test(t)&&f==='op'?'No tienes autorización para desconciliar. Pueden hacerlo Master, admin y Pagos con usuario activo, según el estado de cada operación.':(e.claro?(f==='cob'?cobMsg(e):t):'No sabemos si se desconcilió (sin respuesta). Actualiza y revisa antes de reintentar.'));_reabrir=mid;cargar();});
 }
 // ── Descartar / revertir / asignar / anular ─────────────────────────────
 function abrirDescartar(id){_movDesc=_movs.find(function(m){return m.id===id;});if(!_movDesc)return;document.getElementById('dSub').textContent=fecha(_movDesc.fecha_hora)+' · '+_movDesc.rut_origen+' · '+ff(_movDesc.monto);document.getElementById('dMot').value='';err('dErr','');abrir('mDesc');}
