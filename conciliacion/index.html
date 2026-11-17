@@ -123,16 +123,6 @@ tr:hover td{background:#f0fdff;}
 .btn-p{background:var(--pagos);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .btn-s{background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:7px;padding:6px 10px;font-size:10.5px;cursor:pointer;white-space:nowrap;}
 .btn-amber{background:var(--amber);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
-.conc-prog{margin:8px 0 4px}.conc-prog .bar{display:flex;height:16px;border-radius:999px;overflow:hidden;background:#eee6ee;border:1px solid var(--bdr)}
-.conc-prog .bar span{display:block;height:100%;min-width:0;transition:width .25s cubic-bezier(.23,1,.32,1)}
-.conc-prog .bar .nuevo{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 4px,transparent 4px 8px)}
-.conc-prog .tit{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;margin-bottom:6px}.conc-prog .tit b{font-size:20px;color:var(--p)}
-.conc-ley{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:11.5px;color:var(--t2)}.conc-ley i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.conc-sec{margin-top:12px}.conc-sec h3{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--tm);margin:0 0 6px}
-.conc-hecho{list-style:none;margin:0;padding:0;font-size:12.5px}.conc-hecho li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--bdr)}.conc-hecho li:first-child{border-top:0}
-.conc-hecho .des{color:var(--red);font-size:11px;margin-left:8px;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline}
-.conc-man td input{width:100%}.conc-mini{display:inline-block;width:56px;height:6px;border-radius:99px;background:#eee6ee;vertical-align:middle;margin-left:6px;overflow:hidden}.conc-mini span{display:block;height:100%;background:var(--green)}
-@media (prefers-reduced-motion: reduce){.conc-prog .bar span{transition:none}}
 .btn-purple{background:var(--p);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
 
 /* DETALLE EXPANDIDO */
@@ -269,12 +259,8 @@ tr:hover td{background:#f0fdff;}
     <button class="btn-s" onclick="limpiarMontos()">Limpiar</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto;text-transform:none;letter-spacing:0;color:var(--t1);margin-top:0"><input type="checkbox" id="kIndica" style="width:auto" onchange="_criterio=this.checked?'cliente_indica':'manual'"> El cliente indicó qué paga</label>
   </div>
-  <div id="kProg" class="conc-prog"></div>
-  <div id="kHecho" class="conc-sec"></div>
-  <div class="conc-sec"><h3>💡 Sugerencias · lo que el cliente tiene pendiente</h3>
   <div id="kSug" class="info-box" style="display:none"></div>
-  <div id="kObs"></div></div>
-  <div class="conc-sec"><h3>✍️ Otros pagos recibidos (manual)</h3><div id="kMan"></div></div>
+  <div id="kObs"></div>
   <div id="kTotal" style="margin-top:10px;font-size:13px"></div>
   <div class="ob-err" id="kErr"></div>
   <div class="modal-footer"><button class="btn-s" onclick="cerrar('mConc')">Cancelar</button><button class="btn-purple" id="kBtn" onclick="aplicar()">Aplicar conciliación</button></div>
@@ -315,8 +301,6 @@ tr:hover td{background:#f0fdff;}
 var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _docs=[], _cobPagos=[], _vista='pend', _seq=0, _ocupado=false;
 var _filasCarga=null, _archivo=null, _sha=null;
 var _mov=null, _cands=[], _criterio='manual', _clave=null, _claveCob=null, _movDesc=null, _movAsig=null;
-var _manuales=[], _imputMan=[], _manualActivo=false, _claveMan=null; // CONC-UX: pagos manuales (requiere SQL CONC-MAN-1)
-var _obsTipo={}; // id de obligación → tipo (f29/cotizaciones/servicio_contadoor/otro) para el gráfico
 var EST={por_conciliar:['Por conciliar','eb-pend'],parcial:['Parcial','eb-parcial'],conciliado:['Conciliado','eb-ok'],descartado:['Descartado','eb-gris']};
 var CAT={servicios_contadoor:'Servicios Contadoor',devolucion:'Devolución',traspaso_propio:'Traspaso propio',pago_no_cliente:'No es cliente',otro:'Otro'};
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -354,11 +338,7 @@ function cargar(listo){
   ]).then(function(r){
     if(typeof listo==='function')listo();
     if(seq!==_seq||r.indexOf(null)>=0)return;
-    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_docs=r[5];_cobPagos=r[6];_cacheSug={};
-    _obs.forEach(function(o){_obsTipo[o.id]=o.tipo_obligacion;});stats();render();
-    // CONC-UX: pagos manuales (tabla de CONC-MAN-1). Si aún no está instalada, la sección queda informativa.
-    sbFetch('concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,created_at&anulada=eq.false&order=created_at.asc,id.asc&limit=1000')
-      .then(function(x){_manualActivo=x.ok;return x.ok?x.json():[];}).then(function(rows){if(seq!==_seq)return;_imputMan=rows||[];render();}).catch(function(){_manualActivo=false;});
+    _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_docs=r[5];_cobPagos=r[6];_cacheSug={};stats();render();
     if(_reabrir){var x=_reabrir;_reabrir=null;if(_movs.some(function(m){return m.id===x&&m.cliente_rut;}))abrirConciliar(x);}
   }).catch(function(){
     if(typeof listo==='function')listo();
@@ -408,10 +388,10 @@ function render(){
       if(m.estado==='por_conciliar') acc+='<button class="btn-s" onclick="abrirDescartar('+m.id+')">No corresponde</button>';
     } else if(_vista==='conc'){
       _ops.filter(function(o){return o.movimiento_id===m.id&&!o.anulada;}).forEach(function(o){
-        acc+='<div style="font-size:10.5px;color:var(--tm)">'+o.aplicaciones.map(function(a){var ob=_obsTodas[a.obligacion_id];return hesc(ob?ob:'Obligación #'+a.obligacion_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'op\','+o.id+','+(o.aplicaciones||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
+        acc+='<div style="font-size:10.5px;color:var(--tm)">'+o.aplicaciones.map(function(a){var ob=_obsTodas[a.obligacion_id];return hesc(ob?ob:'Obligación #'+a.obligacion_id)+' '+ff(a.monto);}).join(' · ')+(esJefe()?' <a href="#" onclick="anular('+o.id+');return false" style="color:var(--red)">anular</a>':'')+'</div>';
       });
       _cobPagos.filter(function(p){return p.movimiento_id===m.id;}).forEach(function(p){ // CONC-A: pagos de facturas de Cobranza hechos desde este ingreso
-        acc+='<div style="font-size:10.5px;color:var(--tm)">'+(p.aplicaciones_norm||[]).map(function(a){var d=_docsTodos[a.documento_id];return hesc(d?d:'Factura #'+a.documento_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'cob\','+p.id+','+(p.aplicaciones_norm||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
+        acc+='<div style="font-size:10.5px;color:var(--tm)">'+(p.aplicaciones_norm||[]).map(function(a){var d=_docsTodos[a.documento_id];return hesc(d?d:'Factura #'+a.documento_id)+' '+ff(a.monto);}).join(' · ')+(esJefe()?' <a href="#" onclick="anularCob('+p.id+');return false" style="color:var(--red)">anular</a>':'')+'</div>';
       });
     } else acc='<button class="btn-s" onclick="revertir('+m.id+')">Revertir</button>';
     h+='<tr><td style="white-space:nowrap">'+hesc(fecha(m.fecha_hora))+'</td>'
@@ -419,7 +399,7 @@ function render(){
       +'<td>'+(m.cliente_rut?hesc(cliNombre(m.cliente_rut))+(m.cliente_por_memoria?' <span title="Asignado por RUT recordado">🧠</span>':m.cliente_asignado_manual?' <span title="'+hesc(m.motivo_asignacion)+'">✋</span>':'')
         :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+'</td>'
       +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(m.monto)+'</td>'
-      +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo)+(m.estado==='parcial'?'<span class="conc-mini" title="'+Math.round(Number(m.monto_aplicado)*100/Math.max(1,Number(m.monto)))+'% conciliado"><span style="width:'+Math.round(Number(m.monto_aplicado)*100/Math.max(1,Number(m.monto)))+'%"></span></span>':''))+'</td>'
+      +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo))+'</td>'
       +'<td><span class="eb '+hesc(e[1])+'">'+hesc(e[0])+'</span></td>'
       +(_vista==='pend'?(function(){var sg=sugerencia(m);return '<td style="font-size:11px;max-width:260px;color:'+(sg.tipo==='exacto'?'var(--green)':sg.tipo==='cliente'?'var(--amber)':'var(--tm)')+'">'+hesc(sg.txt)+'</td>';})():'')
       +'<td>'+acc+'</td></tr>';
@@ -440,7 +420,7 @@ function cargarConceptos(){
   var lista=Object.keys(ids).filter(function(i){return !_obsTodas[i];});
   if(!lista.length)return;
   for(var i=0;i<lista.length;i+=100){ // en lotes de 100 para que la URL no crezca sin límite
-    sbFetch('obligaciones_pago?select=id,concepto,periodo,tipo_obligacion&id=in.('+lista.slice(i,i+100).join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){(rows||[]).forEach(function(o){_obsTodas[o.id]=(o.concepto||'')+' ('+o.periodo+')';_obsTipo[o.id]=o.tipo_obligacion;});render();}).catch(function(){});
+    sbFetch('obligaciones_pago?select=id,concepto,periodo&id=in.('+lista.slice(i,i+100).join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){(rows||[]).forEach(function(o){_obsTodas[o.id]=(o.concepto||'')+' ('+o.periodo+')';});render();}).catch(function(){});
   }
 }
 
@@ -551,10 +531,9 @@ function abrirConciliar(id){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
   _clave=nuevaClave();_claveCob=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
   _cands=abiertasDe(_mov.cliente_rut).map(function(o){return {o:o,monto:0};});
-  _manuales=[];_claveMan=null;
   document.getElementById('kIngreso').innerHTML='<div style="background:linear-gradient(135deg,var(--pd),var(--p));border-radius:10px;padding:12px 16px;color:#fff;margin-bottom:8px"><div style="font-size:11px;opacity:.75">INGRESO '+hesc(fecha(_mov.fecha_hora))+' · '+hesc(_mov.rut_origen)+' · '+hesc(_mov.nombre_origen||'')+'</div><div style="font-size:24px;font-weight:800">'+ff(_mov.saldo)+(Number(_mov.monto_aplicado)>0?' <span style="font-size:12px;opacity:.75">por aplicar de '+ff(_mov.monto)+'</span>':'')+'</div><div style="font-size:12px;opacity:.8">'+hesc(cliNombre(_mov.cliente_rut))+'</div></div>'
     +(puedeCambiarCliente(_mov)?'<div style="font-size:12px;margin:-2px 0 6px"><a href="#" onclick="cambiarDesdeConciliar();return false" style="color:var(--p);font-weight:700">↺ ¿Lo pagó otra empresa o es de otro cliente? Cambiar cliente</a></div>':'');
-  pintarCands();pintarHecho();pintarManual();abrir('mConc');
+  pintarCands();abrir('mConc');
   // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar conciliación".
   if(_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
 }
@@ -568,66 +547,12 @@ function pintarCands(){
 }
 function setMonto(i,v){var t=String(v||'').replace(/[.\s$]/g,'');_cands[i].monto=/^\d{1,12}$/.test(t)?Number(t):(t?NaN:0);_criterio=document.getElementById('kIndica').checked?'cliente_indica':'manual';totalizar();}
 function fuentesUsadas(){var f={};_cands.forEach(function(c){if(c.monto>0)f[c.o.fuente]=1;});return Object.keys(f);}
-function totalManual(){var t=0,mal=false;_manuales.forEach(function(x){if(isNaN(x.monto)||(x.monto>0&&String(x.concepto||'').trim().length<3))mal=true;else t+=x.monto;});return {t:t,mal:mal};}
 function totalizar(){
   var tot=0,mal=false;_cands.forEach(function(c){if(isNaN(c.monto))mal=true;else{tot+=c.monto;if(c.monto>c.o.saldo)mal=true;}});
-  var tm=totalManual();if(tm.mal)mal=true;tot+=tm.t;
-  var saldo=Number(_mov.saldo),dif=saldo-tot,b=document.getElementById('kBtn');
-  document.getElementById('kTotal').innerHTML='Total a aplicar ahora: <strong>'+ff(tot)+'</strong> de '+ff(saldo)+' disponibles'
-    +(mal?' · <span style="color:var(--red)">revisa montos (enteros, sin superar el saldo de cada partida; los pagos manuales necesitan descripción)</span>'
-      :dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':tot>0&&dif>0?' · <span style="color:var(--amber)">quedará '+ff(dif)+' por conciliar (parcial)</span>':'');
-  b.disabled=mal||tot<=0||dif<0;
-  b.textContent=tot>0&&dif===0?'✅ Conciliar 100%':'Guardar conciliación parcial';
-  pintarProgreso(tot);
+  var saldo=Number(_mov.saldo),dif=saldo-tot,mezcla=fuentesUsadas().length>1;
+  document.getElementById('kTotal').innerHTML='Total a aplicar: <strong>'+ff(tot)+'</strong> de '+ff(saldo)+(mal?' · <span style="color:var(--red)">revisa montos (enteros y sin superar el saldo de cada partida)</span>':dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':mezcla?' · <span style="color:var(--red)">mezcla obligaciones y facturas de Cobranza: aplica una fuente a la vez (el ingreso queda parcial y luego aplicas la otra)</span>':dif>0&&tot>0?' · <span style="color:var(--amber)">quedan '+ff(dif)+' sin aplicar (el ingreso queda parcial)</span>':tot>0?' · <span style="color:var(--green)">cuadra exacto ✅</span>':'');
+  document.getElementById('kBtn').disabled=mal||tot<=0||dif<0||mezcla;
 }
-// ── CONC-UX: gráfico de avance del ingreso (lo ya conciliado por tipo + lo que se aplica ahora + lo que falta) ──
-var COLOR={servicios:'#904891',f29:'#3B82F6',cotizaciones:'#0e7490',otro:'#C07A1A',manual:'#2D9B6F'};
-var ETQ={servicios:'Nuestros servicios',f29:'IVA / F29',cotizaciones:'Cotizaciones',otro:'Otros pagos',manual:'Pagos manuales'};
-function catOb(id){var t=_obsTipo[id];return t==='f29'?'f29':t==='cotizaciones'?'cotizaciones':t==='servicio_contadoor'?'servicios':'otro';}
-function hechoDe(m){ // lo ya aplicado de este ingreso, con cómo deshacerlo
-  var L=[];
-  _ops.filter(function(o){return o.movimiento_id===m.id&&!o.anulada;}).forEach(function(o){(o.aplicaciones||[]).forEach(function(a,k){
-    L.push({cat:catOb(a.obligacion_id),txt:_obsTodas[a.obligacion_id]||'Obligación #'+a.obligacion_id,monto:Number(a.monto),des:k===0?{f:'op',id:o.id,n:(o.aplicaciones||[]).length}:null});});});
-  _cobPagos.filter(function(p){return p.movimiento_id===m.id;}).forEach(function(p){(p.aplicaciones_norm||[]).forEach(function(a,k){
-    L.push({cat:'servicios',txt:_docsTodos[a.documento_id]||'Factura #'+a.documento_id,monto:Number(a.monto),des:k===0?{f:'cob',id:p.id,n:(p.aplicaciones_norm||[]).length}:null});});});
-  _imputMan.filter(function(x){return x.movimiento_id===m.id;}).forEach(function(x){L.push({cat:'manual',txt:x.concepto,monto:Number(x.monto),des:{f:'man',id:x.id,n:1}});});
-  return L;
-}
-function pintarProgreso(ahora){
-  var m=_mov,monto=Number(m.monto)||1,por={},hecho=0;
-  hechoDe(m).forEach(function(x){por[x.cat]=(por[x.cat]||0)+x.monto;hecho+=x.monto;});
-  var pct=Math.min(100,Math.round((hecho+ahora)*100/monto)),pctH=Math.round(hecho*100/monto);
-  var seg='',ley='';
-  ['servicios','f29','cotizaciones','otro','manual'].forEach(function(k){if(por[k]>0){seg+='<span style="width:'+(por[k]*100/monto)+'%;background:'+COLOR[k]+'" title="'+hesc(ETQ[k]+' '+ff(por[k]))+'"></span>';
-    ley+='<span><i style="background:'+COLOR[k]+'"></i>'+hesc(ETQ[k])+' '+ff(por[k])+'</span>';}});
-  if(ahora>0){seg+='<span class="nuevo" style="width:'+(ahora*100/monto)+'%;background:#46D69A;opacity:.7" title="Lo que aplicas ahora"></span>';ley+='<span><i style="background:#46D69A;opacity:.7"></i>Aplicando ahora '+ff(ahora)+'</span>';}
-  var falta=Math.max(0,monto-hecho-ahora);if(falta>0)ley+='<span><i style="background:#eee6ee;border:1px solid var(--bdr)"></i>Falta '+ff(falta)+'</span>';
-  var hechoTxt=['servicios','f29','cotizaciones','otro','manual'].filter(function(k){return por[k]>0;}).map(function(k){return ETQ[k];});
-  document.getElementById('kProg').innerHTML='<div class="tit"><span>Conciliado del ingreso '+(hechoTxt.length?'· se pagó: '+hesc(hechoTxt.join(', ')):'· aún no se aplica nada')+'</span><span><b>'+pct+'%</b>'+(ahora>0&&pctH!==pct?' <small style="color:var(--tm)">(hoy '+pctH+'%)</small>':'')+'</span></div>'
-    +'<div class="bar" role="img" aria-label="'+pct+'% conciliado">'+seg+'</div><div class="conc-ley">'+ley+'</div>';
-}
-function pintarHecho(){
-  var L=hechoDe(_mov),el=document.getElementById('kHecho');
-  if(!L.length){el.innerHTML='';return;}
-  el.innerHTML='<h3>✅ Lo que ya se concilió con este ingreso</h3><ul class="conc-hecho">'+L.map(function(x){
-    return '<li><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+COLOR[x.cat]+';margin-right:6px"></i>'+hesc(ETQ[x.cat])+' · '+hesc(x.txt)+'</span><span style="white-space:nowrap;font-family:monospace">'+ff(x.monto)
-      +(x.des?'<button type="button" class="des" onclick="desconciliar(\''+x.des.f+'\','+x.des.id+','+x.des.n+')">desconciliar</button>':'')+'</span></li>';}).join('')+'</ul>';
-}
-// ── CONC-UX: pagos manuales (cualquier pago recibido que el sistema no sugiere) ──
-function pintarManual(){
-  var el=document.getElementById('kMan');
-  if(!_manualActivo){el.innerHTML='<div class="info-box" style="font-size:12px">Pronto podrás agregar aquí cualquier otro pago recibido (descripción + monto). Se habilita con la próxima actualización de la base.</div>';return;}
-  el.innerHTML='<table class="conc-man"><tbody>'+_manuales.map(function(x,i){
-    return '<tr><td><input maxlength="200" placeholder="¿Qué pagó? Ej: patente municipal, trámite notaría" value="'+hesc(x.concepto)+'" oninput="setMan('+i+',\'concepto\',this.value)"></td>'
-      +'<td style="width:140px"><input inputmode="numeric" style="text-align:right" placeholder="Monto" value="'+(x.monto||'')+'" oninput="setMan('+i+',\'monto\',this.value)"></td>'
-      +'<td style="width:30px"><button type="button" class="btn-s" title="Quitar" onclick="quitarMan('+i+')">✕</button></td></tr>';}).join('')+'</tbody></table>'
-    +'<button type="button" class="btn-s" style="margin-top:6px" onclick="agregarMan()">+ Agregar pago manual</button>'
-    +(Number(_mov.saldo)-sumaSel()>0?' <button type="button" class="btn-s" style="margin-top:6px" onclick="agregarMan(true)">+ Agregar lo que falta ('+ff(Number(_mov.saldo)-sumaSel())+')</button>':'');
-}
-function sumaSel(){return _cands.reduce(function(s,c){return s+(c.monto>0?c.monto:0);},0)+totalManual().t;}
-function agregarMan(resto){_manuales.push({concepto:'',monto:resto?Math.max(0,Number(_mov.saldo)-sumaSel()):0});_claveMan=null;pintarManual();totalizar();}
-function quitarMan(i){_manuales.splice(i,1);_claveMan=null;pintarManual();totalizar();}
-function setMan(i,k,v){if(k==='monto'){var t=String(v||'').replace(/[.\s$]/g,'');_manuales[i].monto=/^\d{1,12}$/.test(t)?Number(t):(t?NaN:0);}else _manuales[i].concepto=v;_claveMan=null;totalizar();}
 function limpiarMontos(){_cands.forEach(function(c){c.monto=0;});_criterio='manual';document.getElementById('kSug').style.display='none';pintarCands();}
 function distribuirAntiguedad(){var resto=Number(_mov.saldo);_cands.forEach(function(c){var m=Math.min(resto,c.o.saldo);c.monto=m;resto-=m;});if(!document.getElementById('kIndica').checked)_criterio='antiguedad';pintarCands();}
 // Busca la combinación (subconjunto) de saldos que suma exacto el ingreso; prefiere menos partidas y más antiguas.
@@ -638,10 +563,14 @@ function sugerirExacto(){
     if(s===obj&&(!mejor||k<mejor.length||(k===mejor.length&&menorLex(idx,mejor))))mejor=idx;}
   var sug=document.getElementById('kSug');sug.style.display='block';
   if(!mejor){sug.innerHTML='No hay una combinación de obligaciones/facturas que sume exactamente '+ff(obj)+(_cands.length>15?' entre las 15 más antiguas':'')+'. Puedes usar "Distribuir por antigüedad" o asignar montos a mano (abono parcial).';return;}
-  // CONC-UX: se pueden mezclar facturas, obligaciones y pagos manuales en una misma aplicación (se registran en orden).
-  _cands.forEach(function(c){c.monto=0;});mejor.forEach(function(i){_cands[i].monto=_cands[i].o.saldo;});
+  // Una aplicación = una fuente. Si la combinación exacta mezcla obligaciones y facturas, se precarga solo la fuente de la
+  // partida más prioritaria (más antigua / genera multa); el ingreso queda "parcial" y al reabrirlo calza exacto lo restante.
+  var f0=_cands[mejor[0]].o.fuente, paso2=mejor.filter(function(i){return _cands[i].o.fuente!==f0;});
+  var paso1=mejor.filter(function(i){return _cands[i].o.fuente===f0;});
+  _cands.forEach(function(c){c.monto=0;});paso1.forEach(function(i){_cands[i].monto=_cands[i].o.saldo;});
   if(!document.getElementById('kIndica').checked)_criterio='exacto';
-  sug.innerHTML='💡 Sugerencia: '+mejor.length+' partida(s) suman exactamente '+ff(obj)+'. <strong>Nada se aplica hasta que confirmes.</strong>'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'');
+  sug.innerHTML='💡 Sugerencia: '+mejor.length+' partida(s) suman exactamente '+ff(obj)+'. <strong>Nada se aplica hasta que confirmes.</strong>'+(_cands.length>15?' (Busqué entre las 15 más antiguas de '+_cands.length+'.)':'')
+    +(paso2.length?'<br>Se hace en <strong>2 pasos</strong>: ahora '+(f0==='doc'?'las facturas de Cobranza':'las obligaciones')+' ('+ff(paso1.reduce(function(s,i){return s+_cands[i].o.saldo;},0))+'); después vuelve a abrir el ingreso y aplica '+(f0==='doc'?'las obligaciones':'las facturas de Cobranza')+' ('+ff(paso2.reduce(function(s,i){return s+_cands[i].o.saldo;},0))+').':'');
   pintarCands();
 }
 // Códigos de error de las RPC de Cobranza → texto claro
@@ -653,45 +582,29 @@ var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro client
 function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
 function aplicar(){
   if(_ocupado)return;
-  var docs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='doc';}),obs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='ob';});
-  var mans=_manuales.filter(function(x){return x.monto>0;});
-  var tot=docs.concat(obs).reduce(function(s,c){return s+c.monto;},0)+mans.reduce(function(s,x){return s+x.monto;},0);
-  if(tot<=0)return;
+  var usadas=fuentesUsadas();if(usadas.length!==1)return;
+  var fuente=usadas[0], sel=_cands.filter(function(c){return c.monto>0;});
+  var tot=sel.reduce(function(s,c){return s+c.monto;},0);
   if(document.getElementById('kIndica').checked)_criterio='cliente_indica';
-  var parcial=tot<Number(_mov.saldo);
-  if(!confirm('¿Aplicar '+ff(tot)+' del ingreso'+(parcial?' (quedará parcial: faltan '+ff(Number(_mov.saldo)-tot)+')':'')+'?\n'
-    +(docs.length?'· '+docs.length+' factura(s) de nuestros servicios\n':'')+(obs.length?'· '+obs.length+' obligación(es) (IVA, cotizaciones u otros)\n':'')+(mans.length?'· '+mans.length+' pago(s) manual(es)\n':'')))return;
+  if(!confirm('¿Aplicar '+ff(tot)+' del ingreso a '+sel.length+(fuente==='doc'?' factura(s) de Cobranza?':' obligación(es)?')))return;
   _ocupado=true;var b=document.getElementById('kBtn');b.disabled=true;b.textContent='Aplicando…';
-  var pasos=[],hechos=[];
-  if(docs.length){var cli=cliPorRut(_mov.cliente_rut);
-    if(!cli){_ocupado=false;err('kErr','No encuentro la ficha del cliente; recarga la página.');totalizar();return;}
-    pasos.push({n:'facturas',f:function(){return rpc('cobranza_pago_registrar',{p_cliente_id:Number(cli.id),p_fecha_pago:String(_mov.fecha||String(_mov.fecha_hora).slice(0,10)),
-      p_aplicaciones:docs.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_clave_idem:_claveCob,p_movimiento_id:_mov.id,
-      p_referencia:('Conciliación ingreso #'+_mov.id+' · transfiere '+_mov.rut_origen+' '+(_mov.nombre_origen||'')).slice(0,200),p_abono:0});},cob:true});}
-  if(obs.length) pasos.push({n:'obligaciones',f:function(){return rpc('conciliar_movimiento',{p_movimiento_id:_mov.id,p_aplicaciones:obs.map(function(c){return {obligacion_id:c.o.id,monto:c.monto};}),p_clave_idem:_clave,p_criterio:_criterio});}});
-  mans.forEach(function(x,k){if(!x.clave)x.clave=nuevaClave();
-    pasos.push({n:'pago manual «'+x.concepto+'»',f:function(){return rpc('concil_imputar_manual',{p_movimiento_id:_mov.id,p_concepto:String(x.concepto).trim(),p_monto:x.monto,p_clave_idem:x.clave});}});});
-  // Una fuente a la vez, en orden; cada paso tiene su propia clave (reintentar no duplica).
-  var i=0;(function sig(){
-    if(i>=pasos.length){_ocupado=false;b.textContent='Aplicar';_clave=null;_claveCob=null;document.getElementById('mConc').classList.remove('on');_reabrir=parcial?_mov.id:null;cargar();return;}
-    var p=pasos[i];p.f().then(function(){hechos.push(p.n);i++;sig();}).catch(function(e){
-      var msg=e.claro?(p.cob?cobMsg(e):e.message):'No sabemos si se aplicó (problema de conexión). Revisa antes de reintentar; si reintentas sin cambiar nada, no se duplica.';
-      err('kErr',(hechos.length?'Se aplicó: '+hechos.join(', ')+'. ':'')+'Falló '+p.n+': '+msg);
-      b.textContent='Revisando…';var id=_mov.id;cargar(function(){_ocupado=false;if(hechos.length){_reabrir=id;}totalizar();});
-    });
-  })();
-}
-// ── CONC-UX: desconciliar (con motivo; queda registrado quién y cuándo) ──
-function desconciliar(f,id,n){
-  if(_ocupado)return;
-  var aviso=n>1?' Se deshace la aplicación completa ('+n+' partidas).':'';
-  var mot=prompt('¿Por qué se desconcilia? (mínimo 10 caracteres)'+aviso);if(!mot||mot.trim().length<10){if(mot)alert('El motivo debe tener al menos 10 caracteres.');return;}
-  var fn=f==='op'?'anular_conciliacion':f==='cob'?'cobranza_pago_anular':'concil_imputacion_manual_anular';
-  var args=f==='op'?{p_operacion_id:id,p_motivo:mot.trim()}:f==='cob'?{p_pago_id:id,p_motivo:mot.trim()}:{p_id:id,p_motivo:mot.trim()};
-  _ocupado=true;var mid=document.getElementById('mConc').classList.contains('on')&&_mov?_mov.id:null; // reabre solo si se desconcilió desde la ventana
-  rpc(fn,args).then(function(){_ocupado=false;_reabrir=mid;cargar();}).catch(function(e){_ocupado=false;
-    var t=String(e&&e.message||'');
-    alert(/No autorizado|Solo master|42501/i.test(t)?'Por ahora solo el Master puede desconciliar IVA y cotizaciones. Se habilita para ti con la próxima actualización de la base.':(e.claro?(f==='cob'?cobMsg(e):t):'No sabemos si se desconcilió (problema de conexión). Revisa antes de reintentar.'));cargar();});
+  var llamada;
+  if(fuente==='doc'){
+    var cli=cliPorRut(_mov.cliente_rut);
+    if(!cli){_ocupado=false;b.textContent='Aplicar conciliación';err('kErr','No encuentro la ficha del cliente; recarga la página.');totalizar();return;}
+    // El pagador real queda en el ingreso (rut_origen / nombre_origen de la cartola) y en la referencia del pago.
+    llamada=rpc('cobranza_pago_registrar',{p_cliente_id:Number(cli.id),p_fecha_pago:String(_mov.fecha||String(_mov.fecha_hora).slice(0,10)),
+      p_aplicaciones:sel.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_clave_idem:_claveCob,p_movimiento_id:_mov.id,
+      p_referencia:('Conciliación ingreso #'+_mov.id+' · transfiere '+_mov.rut_origen+' '+(_mov.nombre_origen||'')).slice(0,200),p_abono:0});
+  } else {
+    llamada=rpc('conciliar_movimiento',{p_movimiento_id:_mov.id,p_aplicaciones:sel.map(function(c){return {obligacion_id:c.o.id,monto:c.monto};}),p_clave_idem:_clave,p_criterio:_criterio});
+  }
+  llamada.then(function(){
+    _ocupado=false;b.textContent='Aplicar conciliación';_clave=null;_claveCob=null;document.getElementById('mConc').classList.remove('on');cargar();
+  }).catch(function(e){
+    err('kErr',e.claro?(fuente==='doc'?cobMsg(e):e.message):'No sabemos si se aplicó (problema de conexión). Revisa la lista antes de reintentar; si reintentas sin cambiar nada, no se duplica.');
+    b.textContent='Revisando…';cargar(function(){_ocupado=false;b.textContent='Aplicar conciliación';totalizar();});
+  });
 }
 
 // ── Descartar / revertir / asignar / anular ─────────────────────────────
