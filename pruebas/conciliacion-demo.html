@@ -365,7 +365,9 @@ function ejecutarRpc(t,a){
 }
 // Utilidades de prueba: anular "desde otra sesión" (como haría otro usuario del rol pagos).
 window.DEMO_anular=function(tabla,clave){var L=DEMO[tabla],x=L.find(function(r){return r.clave_idem===clave;});if(!x)return false;var m=movDe(x.movimiento_id),v=x.monto!=null?x.monto:x.total;
-  if(tabla==='cobranza_pagos')x.estado='ANULADO';else x.anulada=true;aplicarMov(m,-v);return true;};
+  if(tabla==='cobranza_pagos'){x.estado='ANULADO';(x.aplicaciones_norm||[]).forEach(function(a){var dd=DEMO.cobranza_documentos.find(function(y){return y.id===a.documento_id;});if(dd){dd.saldo+=a.monto;dd.estado='PENDIENTE';}});}
+  else{x.anulada=true;if(tabla==='concil_operaciones')(x.aplicaciones||[]).forEach(function(a){var ob=DEMO.obligaciones_pago.find(function(y){return y.id===a.obligacion_id;});if(ob){ob.saldo_pendiente+=a.monto;ob.monto_conciliado-=a.monto;}});}
+  aplicarMov(m,-v);return true;};
 function sbFetch(path,opt){
   var t=path.split('?')[0], qs=path.split('?')[1]||'', body, st=200, F=window.DEMO_F;
   if(t==='concil_imputaciones_manuales'&&(FALLA==='manual404'||F.man==='404')){st=404;body={code:'PGRST205',message:'Could not find the table'};}
@@ -899,10 +901,10 @@ function pintarPendiente(plan){
   if(c.completo){borrarPend(plan.mov);abrirDeNuevo();return;}
   var d=new Date(plan.creado),cuando=isNaN(d)?'':d.toLocaleString('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   var lista='<ul style="margin:6px 0 6px 18px;padding:0">'+plan.pasos.map(function(p){var m=p.tipo==='man'?p.args.p_monto:p.args.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0);
-    return '<li>'+hesc(p.n)+' · '+ff(m)+' — '+hesc(VER_TXT[p.ver]||p.ver)+(p.msg&&p.ver!=='vigente'?' <small>('+hesc(p.msg)+')</small>':'')+'</li>';}).join('')+'</ul>';
+    return '<li>'+hesc(p.n)+' · '+ff(m)+' — '+hesc(VER_TXT[p.ver]||p.ver)+(p.msg&&(p.ver==='conflicto'||(p.ver==='no_registrado'&&p.estado==='error'))?' <small>('+hesc(p.msg)+')</small>':'')+'</li>';}).join('')+'</ul>';
   var h,cls;
   if(c.cambio){cls=' roja';h='<b>El estado de la conciliación cambió.</b>'+lista+'Revisa las operaciones vigentes (abajo) y vuelve a preparar las aplicaciones pendientes. «Completar lo que falta» queda bloqueado.'
-    +'<br><button type="button" class="btn-s" onclick="descartarPendiente()">Cerrar este plan y preparar de nuevo</button>';}
+    +'<br><button type="button" class="btn-s" style="color:#7a1f1f;border-color:#c98b8b;background:#fff;margin-top:6px" onclick="descartarPendiente()">Cerrar este plan y preparar de nuevo</button>';}
   else if(c.incierto){cls=' roja';h='<b>Hay una conciliación iniciada '+hesc(cuando)+' que no terminó.</b>'+lista+'No pude verificar todo en el servidor (conexión). <button type="button" class="btn-s" onclick="abrirDeNuevo()">↻ Verificar de nuevo</button>';}
   else{cls='';h='<b>Hay una conciliación iniciada '+hesc(cuando)+' que no terminó.</b>'+lista
     +'<button type="button" class="btn-purple" onclick="completarPendiente()">Completar lo que falta</button><button type="button" class="btn-s" onclick="descartarPendiente()">Descartar lo que falta</button>';}
