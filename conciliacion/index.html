@@ -341,6 +341,9 @@ function cargar(listo){
     if(seq!==_seq||r.indexOf(null)>=0)return;
     _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_docs=r[5];_cobPagos=r[6];_cacheSug={};stats();render();
     if(_reabrir){var x=_reabrir;_reabrir=null;if(_movs.some(function(m){return m.id===x&&m.cliente_rut;}))abrirConciliar(x);}
+    // 17-11: llegada desde Pagos extraordinarios (?mov=id): abre ese ingreso UNA vez (conciliar o asignar cliente). Nada se aplica solo.
+    if(!_movUrlUsado){_movUrlUsado=true;var mu=Number(new URLSearchParams(location.search).get('mov'));var mm=mu&&_movs.find(function(m){return m.id===mu&&(m.estado==='por_conciliar'||m.estado==='parcial');});
+      if(mm){if(mm.cliente_rut)abrirConciliar(mm.id);else abrirAsignar(mm.id);}}
   }).catch(function(){
     if(typeof listo==='function')listo();
     if(seq!==_seq)return;
@@ -438,6 +441,7 @@ function renderObligaciones(q,cont){
       +(mismo?'<div style="color:var(--amber)">'+mismo+' ingreso(s) sin cliente por el mismo monto</div>':'')+'</td></tr>';}).join('')+'</tbody></table>'
     +'<div class="info-box" style="margin-top:10px">💡 Aquí solo se <strong>ve</strong> lo pendiente. Para conciliar, abre el ingreso del cliente (columna de la derecha) y aplica: los pagos extraordinarios aparecen en la lista junto al IVA, las cotizaciones y las facturas.</div>';
 }
+var _movUrlUsado=false;
 var _docsTodos={}; // CONC-A: id de factura de Cobranza → "Factura N° folio (período)" (para mostrar en Conciliados)
 function cargarFolios(){
   var ids={};_cobPagos.forEach(function(p){(p.aplicaciones_norm||[]).forEach(function(a){ids[a.documento_id]=1;});});

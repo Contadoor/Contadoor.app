@@ -184,6 +184,7 @@ tr:hover td{background:#f0fdff;}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="../assets/equipo.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body class="g-shell g-tema-noche g-mod-pag">
@@ -282,6 +283,7 @@ tr:hover td{background:#f0fdff;}
 
 <script src="../supabase.js"></script>
 <script src="../assets/comprobantes.js"></script>
+<script src="../assets/equipo.js"></script>
 <input type="file" id="fileComprobante" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="comprobanteElegido(this)">
 <script>
 // ═══ PAG-1 · Pagos · Obligaciones ═══════════════════════════════════════════
@@ -416,7 +418,7 @@ function cargar(listo){
       document.getElementById('tablaBody').innerHTML='<div style="padding:30px;text-align:center;color:var(--red);font-size:13px">No se pudieron cargar las obligaciones. Recarga la página; si sigue, avísale a Luciano.</div>';
       renderStats();return;
     }
-    _obs=rows||[];renderStats();renderTabla();
+    _obs=rows||[];renderStats();renderTabla();cargarUsuarios(_obs.map(function(o){return o.creado_por_usuario_id;}));if(!esHistorial())cargarIngresos();
   };
   // sbFetch directo: un error HTTP o de red se muestra como error, no como "no hay obligaciones".
   traerTodo(q,seq).then(function(r){if(r.obsoleta){fin([],null);return;}fin(r.filas,null,r.parcial);}).catch(function(e){fin([],e);});
@@ -465,7 +467,7 @@ function renderTabla(){
       +(areasPermitidas().length?'<br><br><button class="btn-purple" onclick="abrirNueva()">+ Nueva obligación</button>':'')+'</div>';
     return;
   }
-  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Área</th><th>Responsable</th><th style="text-align:right">Monto</th><th style="text-align:right">Por conciliar</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=etiquetaEstado(o);
       var abierta=e.g!=='cerr';
@@ -475,10 +477,11 @@ function renderTabla(){
         +'<td>'+hesc(o.concepto||'—')+benefHtml(o)+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
         +'<td>'+hesc(AREAS[o.area_origen]||o.area_origen)+'</td>'
+        +'<td style="white-space:nowrap">'+respHtml(o)+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+(Number(o.monto_postergado)>0?'<div style="font-size:10px;color:var(--amber);font-weight:500">+ '+ff(o.monto_postergado)+' postergado</div>':'')+'</td>'
         +'<td style="text-align:right;font-family:monospace">'+(abierta?ff(o.saldo_pendiente):'—')+'</td>'
         +'<td'+(vencida?' class="ob-venc"':'')+'>'+(o.vencimiento?hesc(o.vencimiento.split('-').reverse().join('-'))+(vencida?' · vencida':''):'—')+'</td>'
-        +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span>'+(o.estado==='rechazada'&&o.motivo_rechazo?'<div style="font-size:10.5px;color:var(--red);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_rechazo)+'</div>':'')+'</td>'
+        +'<td><span class="eb '+e.c+'">'+hesc(e.l)+'</span>'+(abierta?calceHtml(o):'')+(o.estado==='rechazada'&&o.motivo_rechazo?'<div style="font-size:10.5px;color:var(--red);margin-top:4px;max-width:220px">Motivo: '+hesc(o.motivo_rechazo)+'</div>':'')+'</td>'
         +'<td>'+accionesHtml(o)+'</td>'
         +'</tr>';
     }).join('')+'</tbody></table>';
@@ -502,7 +505,7 @@ function benefHtml(o){
 function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
-  if(!esMio(o)){ return b.join(' ')||'<span style="color:var(--tm);font-size:11px">—</span>'; }
+  if(!esMio(o)){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>'; }
   if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
   if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
   if(o.estado==='en_ejecucion') b.push('<button class="btn-purple"'+(o.comprobante_path?'':' disabled title="Primero sube el comprobante" style="opacity:.45;cursor:not-allowed"')+' onclick="pasoObligacion('+id+',\'enviar_aprobacion\')">Enviar a aprobación</button>');
@@ -512,6 +515,37 @@ function accionesHtml(o){
   if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
 }
+// ── 17-11 · Responsable con foto y calce con ingresos del banco ─────────────────────────────
+// Responsable = quien creó el pago (creado_por_usuario_id). Nombres leídos con la RLS del usuario; si no se ve, "Usuario #id".
+var _usuarios={};
+function cargarUsuarios(ids){
+  var falta=[];(ids||[]).forEach(function(i){i=+i;if(i&&isFinite(i)&&!(i in _usuarios)&&falta.indexOf(i)<0)falta.push(i);});
+  if(!falta.length)return;falta.forEach(function(i){_usuarios[i]=null;});
+  sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    var c=false;(rows||[]).forEach(function(u){if(u&&u.id!=null&&u.nombre){_usuarios[+u.id]=String(u.nombre);c=true;}});if(c)renderTabla();}).catch(function(){});
+}
+function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
+  if(window.GEquipo&&n)return GEquipo.celda(n);
+  return id?'<span style="color:var(--tm);font-size:11px">Usuario #'+id+'</span>':'<span style="color:var(--tm);font-size:11px">—</span>';}
+// Calce con ingresos del banco (solo lectura; igual criterio que Conciliación: mismo cliente o ingreso sin cliente por el mismo monto).
+// Lo ve quien puede leer Conciliación (RLS de Tesorería); para el resto no aparece nada.
+var _ingresos=[];
+function cargarIngresos(){
+  sbFetch('concil_movimientos?select=id,fecha_hora,rut_origen,nombre_origen,saldo,cliente_rut,estado&estado=in.(por_conciliar,parcial)&order=fecha_hora.desc&limit=1000')
+    .then(function(r){return r.ok?r.json():[];}).then(function(rows){_ingresos=rows||[];renderTabla();}).catch(function(){});
+}
+function calceHtml(o){
+  if(esPlataContadoor(o)||!_ingresos.length||['pendiente_fondos','parcialmente_conciliada'].indexOf(o.estado)<0)return '';
+  var sp=Number(o.saldo_pendiente);if(!(sp>0))return '';
+  var exacto=_ingresos.filter(function(m){return Number(m.saldo)===sp&&(m.cliente_rut===o.cliente_rut||!m.cliente_rut);});
+  var delCli=_ingresos.filter(function(m){return m.cliente_rut===o.cliente_rut&&Number(m.saldo)>=sp;});
+  var m=exacto[0]||null,txt;
+  if(m)txt='💡 Calza con un ingreso del '+fechaCorta(m.fecha_hora)+' por '+ff(m.saldo)+(m.cliente_rut?'':' (sin cliente, de '+(m.nombre_origen||m.rut_origen)+')');
+  else if(delCli.length){m=delCli[0];txt='💡 El cliente tiene '+delCli.length+' ingreso(s) por conciliar que alcanzan';}
+  else return '';
+  return '<div style="font-size:10.5px;color:var(--green);margin-top:5px;max-width:240px"><a href="../conciliacion/?mov='+Number(m.id)+'" style="color:var(--green);font-weight:600">'+hesc(txt)+' → conciliar</a></div>';
+}
+function fechaCorta(iso){var d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit'});}
 var TEXTO_PASO={
   iniciar_ejecucion:'¿Confirmas que ya pagaste esta obligación en TGR, Previred o el banco? Después tendrás que subir el comprobante.',
   enviar_aprobacion:'¿Enviar este pago a aprobación de Luciano?',
