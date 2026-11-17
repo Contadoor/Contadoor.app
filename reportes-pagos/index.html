@@ -543,9 +543,15 @@ function cargarUsuarios(ids){
   // La RLS de usuarios_sistema solo deja leer la ficha PROPIA. El Master usa la RPC existente listar_usuarios_asignables
   // (solo master, usuarios activos: id, nombre, rol); el resto ve su propio nombre y "Usuario #id" para los demás.
   var u=getUsuario()||{};
-  if(u.esMaster||u.rol==='master')
-    sbFetch('rpc/listar_usuarios_asignables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
-  sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+  var respaldo=function(){ // si equipo_nombres aún no existe (o falla): Master vía listar_usuarios_asignables; el resto, su propia ficha
+    if(u.esMaster||u.rol==='master')
+      sbFetch('rpc/listar_usuarios_asignables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+    sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+  };
+  // EQUIPO-NOMBRES-1: RPC de solo lectura (id, nombre, activo) para cualquier usuario activo de Gestoor.
+  sbFetch('rpc/equipo_nombres',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){if(!Array.isArray(rows)||!rows.every(function(x){return x&&x.id!=null&&typeof x.nombre==='string';}))throw new Error('formato');poner(rows);})
+    .catch(respaldo); // A-NOM-01: también un 200 con formato inesperado o un error al procesar vuelve al comportamiento anterior
 }
 function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
   if(window.GEquipo&&n)return GEquipo.celda(n);
