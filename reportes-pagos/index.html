@@ -521,8 +521,13 @@ var _usuarios={};
 function cargarUsuarios(ids){
   var falta=[];(ids||[]).forEach(function(i){i=+i;if(i&&isFinite(i)&&!(i in _usuarios)&&falta.indexOf(i)<0)falta.push(i);});
   if(!falta.length)return;falta.forEach(function(i){_usuarios[i]=null;});
-  sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(function(rows){
-    var c=false;(rows||[]).forEach(function(u){if(u&&u.id!=null&&u.nombre){_usuarios[+u.id]=String(u.nombre);c=true;}});if(c)renderTabla();}).catch(function(){});
+  var poner=function(rows){var c=false;(rows||[]).forEach(function(u){if(u&&u.id!=null&&u.nombre&&_usuarios[+u.id]==null){_usuarios[+u.id]=String(u.nombre);c=true;}});if(c)renderTabla();};
+  // La RLS de usuarios_sistema solo deja leer la ficha PROPIA. El Master usa la RPC existente listar_usuarios_asignables
+  // (solo master, usuarios activos: id, nombre, rol); el resto ve su propio nombre y "Usuario #id" para los demás.
+  var u=getUsuario()||{};
+  if(u.esMaster||u.rol==='master')
+    sbFetch('rpc/listar_usuarios_asignables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+  sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
 }
 function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
   if(window.GEquipo&&n)return GEquipo.celda(n);
