@@ -550,7 +550,7 @@ function cargarUsuarios(ids){
   };
   // EQUIPO-NOMBRES-1: RPC de solo lectura (id, nombre, activo) para cualquier usuario activo de Gestoor.
   sbFetch('rpc/equipo_nombres',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    .then(function(rows){if(!Array.isArray(rows))throw new Error('formato');poner(rows);})
+    .then(function(rows){if(!Array.isArray(rows)||!rows.every(function(x){return x&&x.id!=null&&typeof x.nombre==='string';}))throw new Error('formato');poner(rows);})
     .catch(respaldo); // A-NOM-01: también un 200 con formato inesperado o un error al procesar vuelve al comportamiento anterior
 }
 function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
