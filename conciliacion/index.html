@@ -210,10 +210,11 @@ tr:hover td{background:#f0fdff;}
       <div class="stat"><div class="sv" id="st-sc" style="color:var(--red)">0</div><div class="sl">Sin cliente</div></div>
       <div class="stat"><div class="sv" id="st-co" style="color:var(--green)">0</div><div class="sl">Conciliados</div></div>
       <div class="stat"><div class="sv" id="st-de" style="color:var(--tm)">0</div><div class="sl">Descartados</div></div>
-      <div class="stat"><div class="sv" id="st-ob" style="color:#8FDBFF">0</div><div class="sl">Obligaciones y facturas abiertas</div></div>
+      <div class="stat" style="cursor:pointer" onclick="setVista('obl')" title="Ver todas las obligaciones y facturas abiertas"><div class="sv" id="st-ob" style="color:#8FDBFF">0</div><div class="sl">Obligaciones y facturas abiertas</div></div>
     </div>
     <div class="filtros">
       <button class="fb on" data-v="pend" onclick="setVista('pend')">🔄 Por conciliar</button>
+      <button class="fb" data-v="obl" onclick="setVista('obl')">📋 Obligaciones abiertas</button>
       <button class="fb" data-v="conc" onclick="setVista('conc')">✅ Conciliados</button>
       <button class="fb" data-v="desc" onclick="setVista('desc')">🚫 Descartados</button>
       <button class="fb" data-v="cargas" onclick="setVista('cargas')">🗂️ Cargas</button>
@@ -360,7 +361,7 @@ function setVista(v){_vista=v;document.querySelectorAll('.filtros .fb').forEach(
 function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo).toLowerCase().indexOf(q)>=0;}
 function render(){
   var q=sv('searchQ').toLowerCase(), cont=document.getElementById('tablaBody'), h='';
-  var T={pend:'Ingresos por conciliar',conc:'Ingresos conciliados',desc:'Ingresos descartados',cargas:'Cartolas cargadas',mem:'RUT recordados (quién transfiere por cada cliente)'};
+  var T={obl:'Obligaciones y facturas abiertas (lo que los clientes nos deben transferir)',pend:'Ingresos por conciliar',conc:'Ingresos conciliados',desc:'Ingresos descartados',cargas:'Cartolas cargadas',mem:'RUT recordados (quién transfiere por cada cliente)'};
   if(_vista==='mem'){
     var lm=_mem.filter(function(x){return !q||(x.rut_origen+' '+cliNombre(x.cliente_rut)).toLowerCase().indexOf(q)>=0;});
     document.getElementById('titulo').textContent=T.mem;document.getElementById('meta').textContent=lm.length+' asociación(es)';
@@ -369,6 +370,7 @@ function render(){
     return;
   }
   document.getElementById('titulo').textContent=T[_vista];
+  if(_vista==='obl'){renderObligaciones(q,cont);return;}
   if(_vista==='cargas'){
     document.getElementById('meta').textContent=_cargas.length+' carga(s)';
     cont.innerHTML=_cargas.length?'<table><thead><tr><th>Fecha</th><th>Archivo</th><th>Filas</th><th>Nuevos</th><th>Duplicados</th><th>Rechazados</th></tr></thead><tbody>'+_cargas.map(function(c){return '<tr><td>'+hesc(fechaTz(c.created_at))+'</td><td>'+hesc(c.archivo)+'</td><td>'+c.filas+'</td><td>'+c.insertados+'</td><td>'+c.duplicados+'</td><td>'+c.rechazados+'</td></tr>';}).join('')+'</tbody></table>':'<div style="padding:30px;text-align:center;color:var(--tm)">Aún no se carga ninguna cartola.</div>';
@@ -397,7 +399,7 @@ function render(){
     h+='<tr><td style="white-space:nowrap">'+hesc(fecha(m.fecha_hora))+'</td>'
       +'<td><div class="cli-nombre" style="font-size:12px">'+hesc(m.nombre_origen||'—')+'</div><div class="cli-rut">'+hesc(m.rut_origen)+' · '+hesc(m.banco_origen||'')+'</div></td>'
       +'<td>'+(m.cliente_rut?hesc(cliNombre(m.cliente_rut))+(m.cliente_por_memoria?' <span title="Asignado por RUT recordado">🧠</span>':m.cliente_asignado_manual?' <span title="'+hesc(m.motivo_asignacion)+'">✋</span>':'')
-        :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+'</td>'
+        :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+(_vista==='pend'?marcaExtra(m.cliente_rut):'')+'</td>'
       +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(m.monto)+'</td>'
       +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo))+'</td>'
       +'<td><span class="eb '+hesc(e[1])+'">'+hesc(e[0])+'</span></td>'
@@ -405,6 +407,36 @@ function render(){
       +'<td>'+acc+'</td></tr>';
   });
   cont.innerHTML=h+'</tbody></table>';
+}
+// ── Obligaciones abiertas (solo lectura, 17-11): ver lo que cada cliente debe transferir sin abrir cada ingreso ──
+// Incluye los pagos extraordinarios del módulo Pagos (finiquitos, convenios, devoluciones…; tipo 'otro'), IVA/F29,
+// cotizaciones y facturas de nuestros servicios. Nada se aplica desde aquí: se concilia desde el ingreso.
+function tipoPartida(p){if(p.fuente==='doc')return 'Factura · nuestros servicios';var o=_obs.find(function(x){return x.id===p.id;})||{};
+  return o.tipo_obligacion==='otro'?'Pago extraordinario':o.tipo_obligacion==='f29'?'IVA / F29':o.tipo_obligacion==='cotizaciones'?'Cotizaciones':NOMBRE_TIPO[o.tipo_obligacion]||'Obligación';}
+function ingresosAbiertosDe(rut){return _movs.filter(function(m){return m.cliente_rut===rut&&(m.estado==='por_conciliar'||m.estado==='parcial');});}
+function marcaExtra(rut){
+  if(!rut)return '';var L=_obs.filter(function(o){return o.cliente_rut===rut&&o.tipo_obligacion==='otro'&&Number(o.saldo_pendiente)>0;});
+  if(!L.length)return '';var t=L.reduce(function(s,o){return s+Number(o.saldo_pendiente);},0);
+  return '<div style="font-size:10.5px;color:var(--amber);margin-top:2px" title="'+hesc(L.map(function(o){return (o.concepto||'Pago')+' '+ff(o.saldo_pendiente);}).join(' · '))+'">💼 '+(L.length===1?'Pago extraordinario pendiente: '+hesc(L[0].concepto||'Pago')+' '+ff(t):L.length+' pagos extraordinarios pendientes · '+ff(t))+'</div>';
+}
+function verIngresosDe(rut){var i=document.getElementById('searchQ');if(i)i.value=cliNombre(rut);setVista('pend');}
+function renderObligaciones(q,cont){
+  var L=partidas().filter(function(p){var t=(cliNombre(p.cliente_rut)+' '+p.cliente_rut+' '+p.concepto+' '+tipoPartida(p)).toLowerCase();return !q||t.indexOf(q)>=0;});
+  L.sort(function(a,b){var ea=tipoPartida(a)==='Pago extraordinario'?0:1,eb=tipoPartida(b)==='Pago extraordinario'?0:1;return ea-eb||((a.vencimiento||'9999')<(b.vencimiento||'9999')?-1:(a.vencimiento||'9999')>(b.vencimiento||'9999')?1:0)||(a.periodo<b.periodo?-1:a.periodo>b.periodo?1:0);});
+  var tot=L.reduce(function(s,p){return s+p.saldo;},0);
+  document.getElementById('meta').textContent=L.length+' abierta(s) · '+ff(tot)+' por recibir';
+  if(!L.length){cont.innerHTML='<div style="padding:30px;text-align:center;color:var(--tm)">No hay obligaciones ni facturas abiertas 👍</div>';return;}
+  var hoy=new Date().toISOString().slice(0,10);
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Tipo</th><th>Concepto</th><th>Período</th><th>Vence</th><th style="text-align:right">Por conciliar</th><th>Ingresos del cliente</th></tr></thead><tbody>'+L.map(function(p){
+    var ing=ingresosAbiertosDe(p.cliente_rut),venc=p.vencimiento?String(p.vencimiento).slice(0,10):'',vencida=venc&&venc<hoy;
+    var mismo=_movs.filter(function(m){return !m.cliente_rut&&m.estado==='por_conciliar'&&Number(m.saldo)===p.saldo;}).length;
+    return '<tr><td><div class="cli-nombre" style="font-size:12px">'+hesc(cliNombre(p.cliente_rut))+'</div><div class="cli-rut">'+hesc(p.cliente_rut||'')+'</div></td>'
+      +'<td style="font-size:12px">'+(tipoPartida(p)==='Pago extraordinario'?'💼 ':'')+hesc(tipoPartida(p))+'</td><td style="font-size:12px">'+hesc(p.concepto)+(p.castigado?' <span style="color:var(--tm)">· castigada</span>':'')+'</td>'
+      +'<td>'+hesc(p.periodo)+'</td><td style="white-space:nowrap'+(vencida?';color:var(--red);font-weight:700':'')+'">'+(venc?hesc(venc.split('-').reverse().join('-'))+(vencida?' · vencida':''):'—')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(p.saldo)+'</td>'
+      +'<td style="font-size:11.5px">'+(ing.length?'<a href="#" onclick="verIngresosDe(\''+hesc(p.cliente_rut)+'\');return false" style="color:var(--p);font-weight:700">'+ing.length+' por conciliar →</a>':'<span style="color:var(--tm)">Sin ingresos del cliente</span>')
+      +(mismo?'<div style="color:var(--amber)">'+mismo+' ingreso(s) sin cliente por el mismo monto</div>':'')+'</td></tr>';}).join('')+'</tbody></table>'
+    +'<div class="info-box" style="margin-top:10px">💡 Aquí solo se <strong>ve</strong> lo pendiente. Para conciliar, abre el ingreso del cliente (columna de la derecha) y aplica: los pagos extraordinarios aparecen en la lista junto al IVA, las cotizaciones y las facturas.</div>';
 }
 var _docsTodos={}; // CONC-A: id de factura de Cobranza → "Factura N° folio (período)" (para mostrar en Conciliados)
 function cargarFolios(){
