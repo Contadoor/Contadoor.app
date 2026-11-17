@@ -246,6 +246,21 @@ tr:hover td{background:#f0fdff;}
 </main>
 </div>
 
+<!-- MODAL ANULAR (solo Luciano/Master; misma acción que en Aprobaciones) -->
+<div class="modal-bg" id="modalAnular">
+  <div class="modal ob-form">
+    <h2>Anular pago extraordinario</h2>
+    <div class="modal-sub" id="an-sub"></div>
+    <label for="an-motivo">Motivo (obligatorio, mínimo 5 caracteres)</label>
+    <textarea id="an-motivo" maxlength="300" placeholder="Ej: creado por error"></textarea>
+    <div class="ob-err" id="an-err"></div>
+    <div class="modal-footer">
+      <button class="btn-s" onclick="cerrarAnular()">Cancelar</button>
+      <button class="btn-no" id="an-ok" onclick="confirmarAnular()">Anular</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL NUEVA OBLIGACIÓN -->
 <div class="modal-bg" id="modalNueva">
   <div class="modal ob-form">
@@ -505,6 +520,7 @@ function benefHtml(o){
 function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
+  if(puedeAnular(o)) b.push('<button class="btn-s" onclick="abrirAnular('+id+')">Anular</button>');
   if(!esMio(o)){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>'; }
   if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
   if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
@@ -515,7 +531,7 @@ function accionesHtml(o){
   if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
 }
-// ── 17-11 · Responsable con foto y calce con ingresos del banco ─────────────────────────────
+// ── 17-11 · Responsable con foto, Anular (Master) y calce con ingresos del banco ─────────────────────────────
 // Responsable = quien creó el pago (creado_por_usuario_id). Nombres leídos con la RLS del usuario; si no se ve, "Usuario #id".
 var _usuarios={};
 function cargarUsuarios(ids){
@@ -527,6 +543,26 @@ function cargarUsuarios(ids){
 function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
   if(window.GEquipo&&n)return GEquipo.celda(n);
   return id?'<span style="color:var(--tm);font-size:11px">Usuario #'+id+'</span>':'<span style="color:var(--tm);font-size:11px">—</span>';}
+// Anular: solo Master (la base lo vuelve a validar) y solo si no tiene dinero conciliado. Queda en el Historial con el motivo.
+function esMasterPag(){var u=getUsuario();return !!(u.esMaster||u.rol==='master');}
+function puedeAnular(o){return esMasterPag()&&['finalizada','anulada'].indexOf(o.estado)<0&&!(Number(o.monto_conciliado)>0);}
+var _anular=null;
+function abrirAnular(id){
+  var o=_obs.find(function(x){return Number(x.id)===id;});if(!o||!puedeAnular(o))return;_anular=id;
+  document.getElementById('an-sub').textContent=nombreCliente(o.cliente_rut)+' · '+(o.concepto||'')+' · '+ff(o.monto_exigible)+' — queda anulado en el Historial (no se borra).';
+  document.getElementById('an-motivo').value='';document.getElementById('an-err').style.display='none';
+  document.getElementById('modalAnular').classList.add('on');document.getElementById('an-motivo').focus();
+}
+function cerrarAnular(){_anular=null;document.getElementById('modalAnular').classList.remove('on');}
+function confirmarAnular(){
+  if(_accOcupado||!_anular)return;var txt=document.getElementById('an-motivo').value.trim(),err=document.getElementById('an-err');
+  if(txt.length<5){err.textContent='Escribe el motivo (mínimo 5 caracteres).';err.style.display='block';return;}
+  _accOcupado=true;document.getElementById('an-ok').disabled=true;
+  sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:_anular,p_accion:'anular',p_obs:txt})})
+    .then(function(r){if(!r.ok)return r.json().catch(function(){return {};}).then(function(j){throw new Error(j.message||('Error '+r.status));});})
+    .then(function(){_accOcupado=false;document.getElementById('an-ok').disabled=false;cerrarAnular();cargar();})
+    .catch(function(e){_accOcupado=false;document.getElementById('an-ok').disabled=false;err.textContent='No se pudo anular: '+(e&&e.message?e.message:e);err.style.display='block';});
+}
 // Calce con ingresos del banco (solo lectura; igual criterio que Conciliación: mismo cliente o ingreso sin cliente por el mismo monto).
 // Lo ve quien puede leer Conciliación (RLS de Tesorería); para el resto no aparece nada.
 var _ingresos=[];
