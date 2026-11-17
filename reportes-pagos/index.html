@@ -246,6 +246,21 @@ tr:hover td{background:#f0fdff;}
 </main>
 </div>
 
+<!-- MODAL ANULAR (solo Luciano/Master; misma acción que en Aprobaciones) -->
+<div class="modal-bg" id="modalAnular">
+  <div class="modal ob-form">
+    <h2>Anular pago extraordinario</h2>
+    <div class="modal-sub" id="an-sub"></div>
+    <label for="an-motivo">Motivo (obligatorio, mínimo 5 caracteres)</label>
+    <textarea id="an-motivo" maxlength="300" placeholder="Ej: creado por error"></textarea>
+    <div class="ob-err" id="an-err"></div>
+    <div class="modal-footer">
+      <button class="btn-s" id="an-cancel" onclick="cerrarAnular()">Cancelar</button>
+      <button class="btn-no" id="an-ok" onclick="confirmarAnular()">Anular</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL NUEVA OBLIGACIÓN -->
 <div class="modal-bg" id="modalNueva">
   <div class="modal ob-form">
@@ -411,6 +426,8 @@ function cargar(listo){
   var fin=function(rows,err,parcial){
     if(typeof listo==='function') listo();
     if(seq!==_cargaSeq) return; // respuesta de una carga anterior: se ignora
+    // PAG-AN-01: solo una carga INICIADA DESPUÉS del bloqueo trae el estado real y lo levanta
+    if(!err) Object.keys(_anBloq).forEach(function(k){if(seq>_anBloq[k])delete _anBloq[k];});
     _parcial=!!parcial;
     if(err){
       _obs=[];
@@ -505,6 +522,7 @@ function benefHtml(o){
 function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
+  if(puedeAnular(o)) b.push('<button class="btn-s" onclick="abrirAnular('+id+')">Anular</button>');
   if(!esMio(o)){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>'; }
   if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
   if(o.estado==='en_ejecucion'||o.estado==='rechazada') b.push('<button class="btn-s" onclick="subirComprobante('+id+')">'+(o.comprobante_path?'Cambiar comprobante':'📎 Subir comprobante')+'</button>');
@@ -515,7 +533,7 @@ function accionesHtml(o){
   if(o.estado==='aprobada') b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'finalizar\')">Finalizar</button>');
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>';
 }
-// ── 17-11 · Responsable con foto y calce con ingresos del banco ─────────────────────────────
+// ── 17-11 · Responsable con foto, Anular (Master) y calce con ingresos del banco ─────────────────────────────
 // Responsable = quien creó el pago (creado_por_usuario_id). Nombres leídos con la RLS del usuario; si no se ve, "Usuario #id".
 var _usuarios={};
 function cargarUsuarios(ids){
@@ -532,6 +550,62 @@ function cargarUsuarios(ids){
 function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
   if(window.GEquipo&&n)return GEquipo.celda(n);
   return id?'<span style="color:var(--tm);font-size:11px">Usuario #'+id+'</span>':'<span style="color:var(--tm);font-size:11px">—</span>';}
+// Anular: solo Master (la base lo vuelve a validar) y solo si no tiene dinero conciliado. Queda en el Historial con el motivo.
+function esMasterPag(){var u=getUsuario();return !!(u.esMaster||u.rol==='master');}
+function puedeAnular(o){return esMasterPag()&&['finalizada','anulada'].indexOf(o.estado)<0&&Number(o.monto_conciliado||0)===0&&!(o.id in _anBloq);}
+// PAG-AN-01: estado de la anulación en curso. Mientras la RPC no responde, el modal no se cierra ni se reemplaza.
+// Si el resultado es incierto (sin respuesta o 5xx), esa obligación queda BLOQUEADA hasta leer su estado real.
+var _anular=null, _anEnCurso=false, _anBloq={};
+function abrirAnular(id){
+  if(_accOcupado||_anEnCurso)return;
+  var o=_obs.find(function(x){return Number(x.id)===id;});if(!o||!puedeAnular(o))return;_anular=id;
+  document.getElementById('an-sub').textContent=nombreCliente(o.cliente_rut)+' · '+(o.concepto||'')+' · '+ff(o.monto_exigible)+' — queda anulado en el Historial (no se borra).';
+  document.getElementById('an-motivo').value='';document.getElementById('an-motivo').disabled=false;anErr('');anBotones(false,false);
+  document.getElementById('modalAnular').classList.add('on');document.getElementById('an-motivo').focus();
+}
+function anErr(t){var e=document.getElementById('an-err');e.innerHTML=t;e.style.display=t?'block':'none';}
+function anBotones(ocupado,bloqueado){
+  document.getElementById('an-ok').disabled=ocupado||bloqueado;document.getElementById('an-cancel').disabled=ocupado;
+  document.getElementById('an-ok').textContent=ocupado?'Anulando…':'Anular';
+}
+function cerrarAnular(){if(_anEnCurso)return;_anular=null;document.getElementById('modalAnular').classList.remove('on');}
+function confirmarAnular(){
+  if(_accOcupado||_anEnCurso||!_anular||(_anular in _anBloq))return;
+  var id=_anular,txt=document.getElementById('an-motivo').value.trim();
+  if(txt.length<5){anErr('Escribe el motivo (mínimo 5 caracteres).');return;}
+  _accOcupado=true;_anEnCurso=true;anBotones(true,false);document.getElementById('an-motivo').disabled=true;anErr('');
+  sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:id,p_accion:'anular',p_obs:txt})})
+    .then(function(r){
+      if(r.ok)return {ok:true};
+      return r.json().catch(function(){return {};}).then(function(j){return {ok:false,claro:r.status>=400&&r.status<500,msg:j.message||('Error '+r.status)};});
+    },function(){return {ok:false,claro:false,msg:'sin respuesta del servidor'};})
+    .then(function(x){
+      _anEnCurso=false;
+      if(x.ok){_accOcupado=false;anBotones(false,false);cerrarAnular();cargar();return;}
+      if(x.claro){ // la base lo rechazó con certeza: error visible; se relee el estado real antes de permitir otro intento
+        anErr('No se pudo anular: '+hesc(x.msg));verificarAnulacion(id,false);return;}
+      _anBloq[id]=_cargaSeq; // incierto (red, timeout o 5xx): no se reintenta hasta conocer el estado real
+      anErr('No hubo respuesta clara del servidor ('+hesc(x.msg)+'). Estoy revisando si quedó anulada…');verificarAnulacion(id,true);
+    });
+}
+// Lee el estado REAL de la obligación. Solo con esa lectura se levanta el bloqueo; si falla, el reintento sigue bloqueado.
+function verificarAnulacion(id,incierto){
+  _accOcupado=true;anBotones(true,true);
+  sbFetch('obligaciones_pago?select=id,estado,monto_conciliado&id=eq.'+Number(id))
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){
+      var o=rows&&rows[0];delete _anBloq[id];_accOcupado=false;
+      if(o&&o.estado==='anulada'){anBotones(false,false);cerrarAnular();cargar();alert('Revisé el estado real: la obligación quedó anulada.');return;}
+      anBotones(false,false);document.getElementById('an-motivo').disabled=false;
+      if(incierto)anErr('Revisé el estado real: <b>no se anuló</b> (estado: '+hesc(o?o.estado:'no encontrada')+'). Puedes intentarlo de nuevo.');
+      cargar();
+    })
+    .catch(function(){
+      _accOcupado=false;_anBloq[id]=_cargaSeq;anBotones(false,true);
+      anErr((incierto?'No sabemos si se anuló y ':'')+'no pude leer el estado actual. <b>No se puede reintentar</b> hasta confirmarlo. '
+        +'<button type="button" class="btn-s" onclick="verificarAnulacion('+Number(id)+','+(incierto?'true':'false')+')">↻ Verificar de nuevo</button>');
+    });
+}
 // Calce con ingresos del banco (solo lectura; igual criterio que Conciliación: mismo cliente o ingreso sin cliente por el mismo monto).
 // Lo ve quien puede leer Conciliación (RLS de Tesorería); para el resto no aparece nada.
 var _ingresos=[];
