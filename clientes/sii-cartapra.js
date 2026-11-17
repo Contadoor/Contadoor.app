@@ -75,6 +75,9 @@
       '.sii-nota.roj{color:#FF8A7A}',
       '.sii-f29.dudoso{background:rgba(255,200,90,.10);border-color:rgba(255,200,90,.5)}.sii-f29 b.roj{color:#FF8A7A}.sii-f29 b.amb{color:#FFC85A}.sii-f29 b.ver{color:#46D69A}.sii-f29 b+b{margin-top:4px}',
       '.sii-meses{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
+      '.sii-obs{margin-top:8px;font-size:12.5px;line-height:1.45;padding:7px 10px;border-radius:10px;border:1px solid}.sii-obs b{display:block;font-weight:700}',
+      '.sii-obs.ver{color:#46D69A;background:rgba(70,214,154,.08);border-color:rgba(70,214,154,.3)}.sii-obs.amb{color:#FFC85A;background:rgba(255,200,90,.10);border-color:rgba(255,200,90,.45)}.sii-obs.roj{color:#FF8A7A;background:rgba(255,138,122,.12);border-color:rgba(255,138,122,.55)}.sii-obs b.amb{color:#FFC85A}',
+      '.sii-renta-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13px}.sii-renta-cab b{font-size:14px}.sii-renta-cab.ver b{color:#46D69A}.sii-renta-cab.amb b{color:#FFC85A}.sii-renta-cab span{color:#E9DCEB;font-size:12px}',
       '.sii-mes{display:inline-flex;flex-direction:column;min-width:74px;padding:5px 8px;border-radius:10px;font-size:10.5px;line-height:1.25;border:1px solid}',
       '.sii-mes b{font-size:11.5px;text-transform:capitalize}',
       '.sii-mes.ok{background:rgba(70,214,154,.10);border-color:rgba(70,214,154,.35);color:#46D69A}.sii-mes.plazo{background:rgba(92,200,255,.10);border-color:rgba(92,200,255,.35);color:#5CC8FF}',
@@ -147,11 +150,22 @@
     if (rect.length) t.appendChild(el('small', null, 'Con más de una declaración (rectificado): ' + unir(rect)));
     if (nd.length) t.appendChild(el('small', null, 'Período vencido sin F29 en el SII = no declarado.'));
     caja.appendChild(t); card.appendChild(caja);
+    // R4: IVA observado (letra del SII en la grilla de declaraciones, todo el historial)
+    var ob = arr(f.observados), al = ob.filter(function (o) { return o && o.nivel === 'alerta'; }), rv2 = ob.filter(function (o) { return o && o.nivel === 'revisar'; });
+    var obs = el('div', 'sii-obs ' + (al.length ? 'roj' : rv2.length ? 'amb' : 'ver'));
+    obs.setAttribute('data-iva-observado', al.length ? 'alerta' : rv2.length ? 'revisar' : 'sin_observaciones');
+    var lista2 = function (xs) { return xs.slice(0, 6).map(function (o) { return nombreMes(o.periodo) + ' ' + String(o.periodo).slice(0, 4) + ' (' + (o.texto || o.letra) + ')'; }).join(' · ') + (xs.length > 6 ? ' y ' + (xs.length - 6) + ' más' : ''); };
+    if (al.length) obs.appendChild(el('b', null, 'IVA observado o impugnado: ' + lista2(al)));
+    if (rv2.length) obs.appendChild(el('b', al.length ? 'amb' : null, 'F29 para revisar: ' + lista2(rv2)));
+    if (!ob.length && typeof f.revisados === 'number' && f.revisados > 0) obs.appendChild(el('b', null, 'Sin IVA observado: ' + f.revisados + ' F29 revisados en el SII'));
+    if (obs.childNodes.length) card.appendChild(obs);
     // Período a período (No aplica no se muestra)
     var fila12 = el('div', 'sii-meses');
     f.periodos.forEach(function (p) {
       if (!p || p.estado === 'no_aplica') return;
       var e = ESTADO_F29[p.estado] || ['Sin verificar', 'gris'];
+      if (p.estado === 'declarado' && p.observacion === 'alerta') e = ['Impugnado', 'roj'];
+      else if (p.estado === 'declarado' && p.observacion === 'revisar') e = ['Para revisar', 'amb'];
       var c = el('span', 'sii-mes ' + e[1]);
       c.setAttribute('data-estado', p.estado);
       c.title = e[0] + (p.vence ? ' · vence ' + ddmmaaaa(p.vence) + (p.vence_confirmado ? '' : ' (estimado)') : '');
@@ -160,6 +174,48 @@
       fila12.appendChild(c);
     });
     if (fila12.childNodes.length) card.appendChild(fila12);
+  }
+
+  // ── R4: Renta (F22) por año tributario. El F22 no confirma el pago diferido: nunca se dice "pagado". ──
+  var ESTADO_RENTA = { aceptada: ['Aceptada', 'ver'], observada: ['Con observaciones', 'amb'], en_proceso: ['En proceso', 'amb'], presentada: ['Presentada', 'ver'] };
+  function textoPago(a) {
+    var c = a.cifras || {};
+    if (a.pago === 'devolucion') return ['Devolución' + (typeof c.devolucion === 'number' ? ' ' + pesos(c.devolucion) : ''), null];
+    if (a.pago === 'sin_pago') return ['Sin impuesto a pagar', null];
+    if (a.pago === 'pago_diferido_verificar') return ['A pagar ' + pesos(c.total_a_pagar), 'Pago diferido: verificar si se pagó'];
+    if (a.pago === 'pagado_en_declaracion') return ['Pagado al declarar ' + pesos(c.pagado), null];
+    return [typeof c.total_a_pagar === 'number' ? 'A pagar ' + pesos(c.total_a_pagar) : '—', null];
+  }
+  function pintarRenta(card, r) {
+    if (!r || !Array.isArray(r.anios)) return;
+    var sec = seccion(card, 'Renta (F22)');
+    if (r.at_actual_vencido) sec.appendChild(el('div', 'sii-obs amb', 'Renta AT ' + r.at_actual + ' no encontrada en el SII (verificar)'));
+    if (!r.anios.length) { sec.appendChild(el('div', 'sii-nota', 'El SII no muestra declaraciones de renta para esta empresa.')); return; }
+    var a = r.anios[0], c = a.cifras || {}, e = ESTADO_RENTA[a.estado] || ['Presentada', 'ver'];
+    var cab = el('div', 'sii-renta-cab ' + e[1]);
+    cab.appendChild(el('b', null, 'AT ' + a.anio_tributario + ' · ' + e[0]));
+    cab.appendChild(el('span', null, a.fecha_ingreso ? 'Declarada el ' + ddmmaaaa(a.fecha_ingreso) : 'Declarada'));
+    sec.appendChild(cab);
+    arr(a.observaciones).forEach(function (o) { if (o && esTxt(o.codigo)) sec.appendChild(el('div', 'sii-nota', 'Observación ' + o.codigo + (esTxt(o.descripcion) ? ': ' + o.descripcion : '') + (a.estado === 'aceptada' ? ' (justificada)' : ''))); });
+    var g = el('div', 'sii-grid');
+    if (typeof c.ingresos === 'number') dato(g, 'Ingresos', pesos(c.ingresos));
+    if (typeof c.egresos === 'number') dato(g, 'Gastos', pesos(c.egresos));
+    var base = typeof c.base_antes_incentivo === 'number' ? c.base_antes_incentivo : c.base_o_perdida;
+    if (typeof base === 'number') dato(g, base < 0 ? 'Pérdida tributaria' : 'Utilidad tributaria', pesos(Math.abs(base)));
+    if (typeof c.idpc === 'number') dato(g, 'Impuesto 1ª categoría', pesos(c.idpc));
+    if (typeof c.ppm === 'number') dato(g, 'PPM del año', pesos(c.ppm));
+    var tp = textoPago(a); dato(g, 'Resultado', tp[0], tp[1]);
+    if (g.childNodes.length) sec.appendChild(g);
+    if (r.anios.length > 1) {
+      var ul = el('ul', 'sii-lista');
+      r.anios.slice(1).forEach(function (x) {
+        var ex = ESTADO_RENTA[x.estado] || ['Presentada', 'ver'], cx = x.cifras || {};
+        var b = typeof cx.base_antes_incentivo === 'number' ? cx.base_antes_incentivo : cx.base_o_perdida;
+        ul.appendChild(el('li', ex[1] === 'amb' ? 'amb' : '', 'AT ' + x.anio_tributario + ' · ' + ex[0] + (x.fecha_ingreso ? ' · ' + ddmmaaaa(x.fecha_ingreso) : '') +
+          (typeof b === 'number' ? ' · ' + (b < 0 ? 'pérdida ' : 'utilidad ') + pesos(Math.abs(b)) : '') + (typeof cx.idpc === 'number' ? ' · impuesto ' + pesos(cx.idpc) : '')));
+      });
+      sec.appendChild(ul);
+    }
   }
 
   function pintarResumen(card, j) {
@@ -176,6 +232,7 @@
       if (partes.length) card.appendChild(el('div', 'sii-linea', partes.join(' · ')));
     }
     pintarF29(card, j.f29);
+    pintarRenta(card, j.renta);
 
     // Cumplimiento, socios y representante
     var g = el('div', 'sii-grid');

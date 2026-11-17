@@ -836,3 +836,23 @@ window.CARTAPRA_FIXTURE_RESUMEN_COBERTURA = {
   }
  }
 };
+
+/* R4 (17-11): renta F22 e IVA observado. FICTICIO: montos inventados (no son de ninguna empresa real). */
+(function (r) {
+  r.f29.observados = [{ periodo: '202608', letra: 'S', nivel: 'revisar', texto: 'Observada (secundaria)' }];
+  r.f29.revisados = 58;
+  r.f29.periodos.forEach(function (p) { if (p.periodo === '202608' && p.estado === 'declarado') { p.letra = 'S'; p.observacion = 'revisar'; } });
+  r.renta = {
+    at_actual: 2026, at_actual_encontrado: true, at_actual_vencido: false,
+    anios: [
+      { anio_tributario: 2026, fecha_ingreso: '2026-04-28', vigente: true, estado: 'aceptada', estado_texto: 'Su declaración ha sido aceptada.',
+        observaciones: [{ codigo: 'F135', descripcion: 'Contribuyente Pro Pyme con créditos observados en su DJ 1948 o DJ 1949' }],
+        cifras: { ingresos: 84500000, egresos: 70100000, base_antes_incentivo: 14400000, base_o_perdida: 13900000, idpc: 1737500, ppm: 420000, total_a_pagar: 1330000, pagado: 0, pago_diferido: 1330000, rai_final: 21000000, cpts_final: 22500000 },
+        pago: 'pago_diferido_verificar' },
+      { anio_tributario: 2025, fecha_ingreso: '2025-04-29', vigente: true, estado: 'presentada', estado_texto: null, observaciones: [],
+        cifras: { base_antes_incentivo: 9800000, idpc: 1225000, total_a_pagar: 0 }, pago: 'sin_pago' },
+      { anio_tributario: 2024, fecha_ingreso: '2024-04-02', vigente: true, estado: 'presentada', estado_texto: null, observaciones: [],
+        cifras: { base_o_perdida: -2100000 }, pago: 'desconocido' }
+    ]
+  };
+})(window.CARTAPRA_FIXTURE_RESUMEN);
