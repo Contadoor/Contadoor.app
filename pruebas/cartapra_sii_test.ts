@@ -18,7 +18,10 @@ res('0.3 el módulo no carga scripts de terceros (sin conecta.js ni <script src=
 res('0.4 el módulo no usa la llave ni llama a Cartapra directo (solo edgeFetch("cartapra"))', !/ck_live|Bearer|api\/conecta/.test(JS) && /f\('cartapra', cuerpo\)/.test(JS));
 
 type Resp = { status: number; body: unknown };
-async function montar(respuestas: Record<string, Resp>, puede: boolean) {
+async function montar(respuestas: Record<string, Resp>, puede: boolean, vista = 'ficha') {
+  // R4: cada vista pide su acción; las respuestas de prueba de 'resumen' sirven para la vista elegida.
+  const ACC: Record<string, string> = { ficha: 'resumen', contable: 'contable', renta: 'renta' };
+  if (vista !== 'ficha' && respuestas.resumen && !respuestas[ACC[vista]]) respuestas = { ...respuestas, [ACC[vista]]: respuestas.resumen };
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="det-sii"></div></body></html>', { url: 'https://gestoor.contadoor.cl/clientes/', runScripts: 'outside-only' });
   const w: any = dom.window;
   const pedidos: any[] = [];
@@ -32,7 +35,7 @@ async function montar(respuestas: Record<string, Resp>, puede: boolean) {
   w.eval(JS);
   // puede_conectar lo decide el SERVIDOR: se inyecta en cada respuesta ok que no lo traiga.
   for (const r of Object.values(respuestas)) { const b = r.body as Record<string, unknown>; if (b && b.ok === true && !('puede_conectar' in b) && (b.conexion)) b.puede_conectar = puede; }
-  w.GestoorSII.montar(w.document.getElementById('det-sii'), 7, { esMaster: !puede }); // esMaster ya no se usa: se pasa al revés a propósito
+  w.GestoorSII.montar(w.document.getElementById('det-sii'), 7, { esMaster: !puede, vista }); // esMaster ya no se usa: se pasa al revés a propósito
   await espera();
   await espera();
   return { w, d: w.document as Document, pedidos };
@@ -59,25 +62,27 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   const lista = { status: 200, body: { ...FX, conexion: { ...FX.conexion, ultimaActualizacion: '2026-11-16T12:00:00.000Z' },
     ficha: { ...FX.ficha, socios: [{ nombre: '<img src=x onerror=alert(1)>', rut: '11111111-1', participacionCapital: 60, participacionUtilidades: 60 }, ...FX.ficha.socios] } } };
   const c = await montar({ resumen: lista }, true);
-  const t = texto(c.d);
-  res('2.3 listo → «Conectado» + última actualización 09:00 hora de Chile', t.includes('Conectado') && t.includes('09:00') && t.includes('hora de Chile'), t);
+  const cc = await montar({ resumen: lista }, true, 'contable');
+  const tf = texto(c.d), t = texto(cc.d);
+  res('2.3 listo → «Conectado» + última actualización 09:00 hora de Chile', tf.includes('Conectado') && t.includes('Conectado') && t.includes('09:00') && t.includes('hora de Chile'), t);
   res('2.4 semáforo «Hay algo que revisar» (aviso), IVA estimado provisorio y totales del año con separador chileno',
     t.includes('Hay algo que revisar') && t.includes('3 factura(s) de compra pendientes') && t.includes('F29 estimado de noviembre') && t.includes('$184.786') && t.includes('Provisorio') && t.includes('Ventas 2026') && t.includes('$74.938.600') && t.includes('Compras 2026'), t);
-  res('2.5 cartas: máx. 5, «últimas 5 de 7», fecha dd-mm-aaaa y plazo de la notificación', c.d.querySelectorAll('.sii-lista.cartas li').length === 5 && t.includes('últimas 5 de 7') && t.includes('18-02-2026 · Carta') && t.includes('Plazo: Dentro de los 5 días hábiles'), t);
-  res('2.6 datos externos como texto: ningún <img> inyectado', c.d.querySelectorAll('#det-sii img').length === 0 && t.includes('<img src=x'));
-  res('2.7 línea superior: régimen · contabilidad · «Exenta de IVA»', t.includes('REGIMEN PRO PYME GENERAL (14D) · Contabilidad simplificada · Exenta de IVA'), t);
+  res('2.5 cartas: máx. 5, «últimas 5 de 7», fecha dd-mm-aaaa y plazo de la notificación', cc.d.querySelectorAll('.sii-lista.cartas li').length === 5 && t.includes('últimas 5 de 7') && t.includes('18-02-2026 · Carta') && t.includes('Plazo: Dentro de los 5 días hábiles'), t);
+  res('2.6 datos externos como texto: ningún <img> inyectado', c.d.querySelectorAll('#det-sii img').length === 0 && tf.includes('<img src=x'));
+  res('2.7 R4 Ficha: régimen, contabilidad y «Exenta de IVA»; Contable: línea «Empresa exenta de IVA»', tf.includes('Régimen tributarioREGIMEN PRO PYME GENERAL (14D)') && tf.includes('ContabilidadSimplificada') && tf.includes('IVAExenta de IVA') && t.includes('Empresa exenta de IVA'), tf);
   res('2.8 F29 (cobertura confirmada): aviso rojo «F29 no declarados: marzo, abril y septiembre 2026» + «En plazo: octubre (vence 20-11)»',
-    c.d.querySelector('.sii-f29.mal') != null && c.d.querySelectorAll('.sii-mes[data-estado="no_declarado"]').length === 3 && t.includes('F29 no declarados: marzo, abril y septiembre 2026') && t.includes('En plazo: octubre (vence 20-11)'), t);
-  res('2.9 cumplimiento, socios con % y representante vigente', t.includes('Cumple sus obligaciones tributarias') && t.includes('Socia Ficticia Uno (••••••11-1) · 100%') && /Representante vigente\s*Socia Ficticia Uno/.test(t), t);
+    cc.d.querySelector('.sii-f29.mal') != null && cc.d.querySelectorAll('.sii-mes[data-estado="no_declarado"]').length === 3 && t.includes('F29 no declarados: marzo, abril y septiembre 2026') && t.includes('En plazo: octubre (vence 20-11)'), t);
+  res('2.9 cumplimiento, socios con % y representante vigente', tf.includes('Cumple sus obligaciones tributarias') && tf.includes('Socia Ficticia Uno (••••••11-1) · 100%') && /Representante vigente\s*Socia Ficticia Uno/.test(tf), tf);
   res('2.10 exenta: nota de crédito no comparado y SIN el punto de cuadratura', t.includes('Empresa exenta de IVA') && !t.includes('no cuadra'), t);
-  res('2.11 ya no se vuelca el JSON crudo («Ver todo lo que entrega el SII»)', !t.includes('Ver todo lo que entrega') && !c.d.querySelector('#det-sii pre'));
+  res('2.11 ya no se vuelca el JSON crudo («Ver todo lo que entrega el SII»)', !t.includes('Ver todo lo que entrega') && !tf.includes('Ver todo lo que entrega') && !c.d.querySelector('#det-sii pre') && !cc.d.querySelector('#det-sii pre'));
   const alDia = { status: 200, body: { ...FX, ficha: { ...FX.ficha, afecta_iva: true }, monitor: { ...FX.monitor, exenta: undefined },
     f29: { ...FX.f29, no_declarados: [], sin_verificar: [], periodos: FX.f29.periodos.map((p: any) => (p.estado === 'no_declarado' ? { ...p, estado: 'declarado', folio: '1' } : p)) } } };
-  const e = await montar({ resumen: alDia }, true);
-  const te = texto(e.d);
+  const e = await montar({ resumen: alDia }, true, 'contable');
+  const ef = await montar({ resumen: alDia }, true);
+  const te = texto(e.d) + ' ' + texto(ef.d);
   res('2.12 sin no declarados → verde «F29 al día (últimos 12 meses)» (y sigue «En plazo: octubre»); afecta → «Afecta a IVA»',
     e.d.querySelector('.sii-f29.bien') != null && te.includes('F29 al día (últimos 12 meses)') && te.includes('En plazo: octubre') && te.includes('Afecta a IVA') && !te.includes('no declarados'), te);
-  const sinF = await montar({ resumen: { status: 200, body: { ...FX, f29: null } } }, true);
+  const sinF = await montar({ resumen: { status: 200, body: { ...FX, f29: null } } }, true, 'contable');
   res('2.13 f29 null → aviso neutro (nunca «al día» ni «no declarados» sin datos)', texto(sinF.d).includes('No se pudo revisar el F29') && !texto(sinF.d).includes('F29 al día') && !texto(sinF.d).includes('no declarados') && !sinF.d.querySelector('.sii-f29'), texto(sinF.d));
 }
 // ── 2b. Botón según puede_conectar (servidor) y conector sin acceso al resumen ──
@@ -96,8 +101,9 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   const w0 = new JSDOM('', { runScripts: 'outside-only' }).window as any; w0.eval(FIXTURE);
   const FXP = JSON.parse(JSON.stringify(w0.CARTAPRA_FIXTURE_RESUMEN));            // piloto + cobertura NO confirmada
   const FXC = JSON.parse(JSON.stringify(w0.CARTAPRA_FIXTURE_RESUMEN_COBERTURA));
-  const a = await montar({ resumen: { status: 200, body: FXP } }, false);
-  const ta = texto(a.d);
+  const a = await montar({ resumen: { status: 200, body: FXP } }, false, 'contable');
+  const af = await montar({ resumen: { status: 200, body: FXP } }, false);
+  const ta = texto(a.d), taf = texto(af.d);
   res('R3.1 piloto + cobertura no confirmada → ámbar «F29 no encontrados en el SII (pendiente de verificar): marzo, abril y septiembre 2026», nunca rojo',
     a.d.querySelector('.sii-f29.dudoso') != null && !a.d.querySelector('.sii-f29.mal') && ta.includes('F29 no encontrados en el SII (pendiente de verificar): marzo, abril y septiembre 2026')
     && ta.includes('Cartapra aún no confirma que la información esté completa') && !ta.includes('no declarados'), ta);
@@ -106,13 +112,13 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
     && a.d.querySelectorAll('.sii-mes[data-estado="declarado"]').length === 8 && !a.d.querySelector('.sii-mes[data-estado="no_declarado"]'));
   res('R3.3 piloto: sello «Piloto: solo lectura de empresas propias» y ningún botón de conexión', ta.includes('Piloto: solo lectura de empresas propias') && a.d.querySelectorAll('button').length === 0, ta);
   res('R3.4 RUT de socios/representantes enmascarados y ningún RUT completo en la tarjeta',
-    ta.includes('Socia Ficticia Uno (••••••11-1)') && !/(\d{1,2}\.\d{3}\.\d{3}|\d{7,8})-[\dkK]/.test(ta), ta);
+    taf.includes('Socia Ficticia Uno (••••••11-1)') && !/(\d{1,2}\.\d{3}\.\d{3}|\d{7,8})-[\dkK]/.test(ta + taf), taf);
   const sinCon = await montar({ resumen: { status: 200, body: { ok: true, conexion: { estado: 'no_conectada' }, puede_conectar: true, piloto: true, ficha: null, f29: null, monitor: null, sii: {} } } }, true);
   res('R3.5 piloto con empresa sin conectar → sin botón «Conectar» aunque llegue puede_conectar=true', ![...sinCon.d.querySelectorAll('button')].some((b) => /Conectar/.test(b.textContent || '')) && texto(sinCon.d).includes('Piloto: solo lectura'));
   const per = (p: string, estado: string, vence: string, extra: Record<string, unknown> = {}) => ({ periodo: p, estado, vence, vence_confirmado: estado !== 'revisar_vencimiento', ...extra });
   const mix = { ...FXC, f29: { ...FXC.f29, no_declarados: [], en_plazo: [], declarados: [], sin_verificar: ['202511', '202603'], revisar_vencimiento: ['202612'], no_aplica: ['202601'],
     periodos: [per('202511', 'sin_verificar', '2025-12-22'), per('202601', 'no_aplica', '2026-02-20'), per('202603', 'sin_verificar', '2026-04-20'), per('202612', 'revisar_vencimiento', '2027-01-20')] } };
-  const b = await montar({ resumen: { status: 200, body: mix } }, true);
+  const b = await montar({ resumen: { status: 200, body: mix } }, true, 'contable');
   const tb = texto(b.d);
   res('R3.6 meses de dos años: «noviembre 2025 y marzo 2026»; «Revisar vencimiento: diciembre 2026» con «confirmar vencimiento»',
     tb.includes('pendiente de verificar): noviembre 2025 y marzo 2026') && tb.includes('Revisar vencimiento: diciembre 2026') && tb.includes('Venció la fecha estimada; confirmar vencimiento.'), tb);
@@ -194,6 +200,50 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   await espera();
   res('5.5 una url que no es de app.cartapra.com NO se abre', !m2.d.querySelector('.sii-velo iframe'));
   m2.w.GestoorSII.desmontar();
+}
+
+// ═════════ R4 (dictamen 17-11): tres vistas (Ficha / Contable / MiRenta), solo lectura ═════════
+{
+  const RC = leer('reportes-contable/index.html'), PIR = leer('pir/index.html'), AP = leer('pir/apertura.js');
+  const w0 = new JSDOM('', { runScripts: 'outside-only' }).window as any; w0.eval(leer('pruebas/cartapra-sii-fixture-r4.js'));
+  const R4 = JSON.parse(JSON.stringify(w0.CARTAPRA_FIXTURE_R4));
+  res('R4.0a Contable carga el módulo y monta la vista "contable" con data-cid al abrir el detalle (no para toda la lista)',
+    RC.includes('<script src="../clientes/sii-cartapra.js"></script>') && /sii-cartapra-slot" data-cid="'\+Number\(c\.id\)/.test(RC) && /GestoorSII\.montar\(slot, Number\(slot\.getAttribute\('data-cid'\)\), \{vista:'contable'\}\)/.test(RC));
+  res('R4.0b MiRenta carga el módulo y monta la vista "renta" fuera de #mr-app, una vez por caso',
+    PIR.includes('<script src="../clientes/sii-cartapra.js"></script>') && PIR.includes('<div id="mr-sii"') && /montar\(cont, cid, \{ vista: 'renta' \}\)/.test(AP) && /if \(siiMontado === cid\) return;/.test(AP));
+  // Ficha
+  const f = await montar({ resumen: { status: 200, body: R4.resumen } }, true);
+  const tf = texto(f.d);
+  res('R4.1 Ficha: identidad (régimen + desde, inicio de actividades, actividades, socios, domicilio) y SIN F29 ni renta',
+    tf.includes('Identidad tributaria SII') && tf.includes('Desde 01-01-2025') && tf.includes('Inicio de actividades04-01-2021') && tf.includes('869091 ·') && tf.includes('Domicilio tributarioCALLE FICTICIA 123 · Santiago') && !tf.includes('F29 no') && !tf.includes('Situación mensual') && !tf.includes('AT 2026'), tf);
+  res('R4.2 Ficha pide SOLO {accion:"resumen"}', JSON.stringify(f.pedidos.map((p: any) => p.body.accion)) === '["resumen"]', f.pedidos);
+  // Contable
+  const c = await montar({ contable: { status: 200, body: R4.contable } }, true, 'contable');
+  const tc = texto(c.d);
+  res('R4.3 Contable pide SOLO {accion:"contable"} y titula «Situación mensual SII»', JSON.stringify(c.pedidos.map((p: any) => p.body.accion)) === '["contable"]' && tc.includes('Situación mensual SII'), tc);
+  res('R4.4 Letra S → alerta: «F29 con observación del SII: agosto 2026 (S: Observada (secundaria))» y chip «Observado (S)» en rojo',
+    tc.includes('F29 con observación del SII: agosto 2026 (S: Observada (secundaria))') && c.d.querySelector('.sii-obs.roj') != null && [...c.d.querySelectorAll('.sii-mes.roj')].some((x: any) => /Observado \(S\)/.test(x.textContent)), tc);
+  res('R4.5 Pago del F29 «no disponible» y nunca «pagado/girado»', tc.includes('Pago del F29: no disponible') && !/pagado|girado|sin pago/i.test(tc), tc);
+  res('R4.6 Contable: acuse manual y cuadratura reservada a la fase siguiente', tc.includes('El acuse de recibo (aceptar o reclamar) se hace a mano en el SII.') && tc.includes('Cuadratura automática RCV vs F29: llega con el motor tributario'), tc);
+  // MiRenta
+  const r = await montar({ renta: { status: 200, body: R4.renta } }, true, 'renta');
+  const tr = texto(r.d);
+  res('R4.7 MiRenta pide SOLO {accion:"renta"}; AT 2026 «Aceptada · inconsistencias justificadas» + observación F135',
+    JSON.stringify(r.pedidos.map((p: any) => p.body.accion)) === '["renta"]' && tr.includes('AT 2026 · Aceptada · inconsistencias justificadas') && tr.includes('Observación F135'), tr);
+  res('R4.8 Cifras con código (Ingresos · 1410, Base imponible · 1729, IDPC · 20, PPM · 36) y separador chileno',
+    tr.includes('Ingresos · 1410$84.500.000') && tr.includes('Base imponible · 1729$14.400.000') && tr.includes('Impuesto 1ª categoría (IDPC) · 20$1.737.500') && tr.includes('PPM acumulados · 36$420.000'), tr);
+  res('R4.9 Pago: «Situación de pago: no disponible» + texto exacto de pago diferido; nunca «pagado»',
+    tr.includes('Situación de pago: no disponible') && tr.includes('Pago diferido informado en F22. Su regularización posterior debe verificarse.') && !/\bpagado\b/i.test(tr), tr);
+  res('R4.10 Saldos de cierre solo consulta (RAI · 1484, SAC · 1563, CPTS · 1545) con aviso «no modifica la apertura»',
+    tr.includes('Saldos de cierre · antecedentes para la futura apertura') && tr.includes('RAI · 1484$21.000.000') && tr.includes('SAC · 1563') && tr.includes('CPTS · 1545') && tr.includes('Solo consulta: no modifica la apertura de MiRenta.'), tr);
+  const tabs = [...r.d.querySelectorAll('.sii-tab')] as any[];
+  res('R4.11 Pestañas por AT (2026, 2025, 2024); al elegir 2024 muestra «pérdida» con signo conservado',
+    tabs.map((b) => b.textContent).join(',') === 'AT 2026,AT 2025,AT 2024' && (tabs[2].click(), texto(r.d).includes('Base imponible o pérdida · 1440-$2.100.000')), texto(r.d));
+  const vac = await montar({ renta: { status: 200, body: { ...R4.renta, renta: { anios: [], at_actual: 2027, at_actual_estado: 'no_encontrada_verificar' } } } }, true, 'renta');
+  res('R4.12 Sin F22 tras el vencimiento → «Renta AT 2027 no encontrada en el SII · verificar»', texto(vac.d).includes('Renta AT 2027 no encontrada en el SII · verificar'), texto(vac.d));
+  const nul = await montar({ renta: { status: 200, body: { ...R4.renta, renta: null } } }, true, 'renta');
+  res('R4.13 Fuente incompleta (renta null) → «Sin verificar», sin cifras', texto(nul.d).includes('Sin verificar') && !texto(nul.d).includes('$'), texto(nul.d));
+  res('R4.14 Datos externos como texto también en renta (sin <img>)', r.d.querySelectorAll('#det-sii img').length === 0);
 }
 
 console.log(`\n${ok}/${ok + mal} OK`);

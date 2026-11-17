@@ -75,6 +75,8 @@
       '.sii-nota.roj{color:#FF8A7A}',
       '.sii-f29.dudoso{background:rgba(255,200,90,.10);border-color:rgba(255,200,90,.5)}.sii-f29 b.roj{color:#FF8A7A}.sii-f29 b.amb{color:#FFC85A}.sii-f29 b.ver{color:#46D69A}.sii-f29 b+b{margin-top:4px}',
       '.sii-meses{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
+      '.sii-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.sii-tab{border:1px solid #3A2140;background:rgba(12,7,14,.35);color:#E9DCEB;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer}.sii-tab.on{background:#924893;border-color:#924893;color:#fff}',
+      '.sii-obs.gris{color:#E9DCEB;background:rgba(201,168,204,.08);border-color:rgba(201,168,204,.3)}.sii-obs span{display:block;font-size:12px;margin-top:2px}',
       '.sii-obs{margin-top:8px;font-size:12.5px;line-height:1.45;padding:7px 10px;border-radius:10px;border:1px solid}.sii-obs b{display:block;font-weight:700}',
       '.sii-obs.ver{color:#46D69A;background:rgba(70,214,154,.08);border-color:rgba(70,214,154,.3)}.sii-obs.amb{color:#FFC85A;background:rgba(255,200,90,.10);border-color:rgba(255,200,90,.45)}.sii-obs.roj{color:#FF8A7A;background:rgba(255,138,122,.12);border-color:rgba(255,138,122,.55)}.sii-obs b.amb{color:#FFC85A}',
       '.sii-renta-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13px}.sii-renta-cab b{font-size:14px}.sii-renta-cab.ver b{color:#46D69A}.sii-renta-cab.amb b{color:#FFC85A}.sii-renta-cab span{color:#E9DCEB;font-size:12px}',
@@ -100,7 +102,7 @@
   function unir(xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1]; }
   function ddmm(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '-' + m[2] : ''; }
   function ddmmaaaa(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
-  function pesos(v) { return typeof v === 'number' && isFinite(v) ? '$' + Math.round(v).toLocaleString('es-CL') : '—'; }
+  function pesos(v) { return typeof v === 'number' && isFinite(v) ? (v < 0 ? '-' : '') + '$' + Math.abs(Math.round(v)).toLocaleString('es-CL') : '—'; }
   function capital(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
   function dato(g, l, v, nota) {
     var d = el('div', 'sii-dato'); d.appendChild(el('div', 'l', l)); d.appendChild(el('div', 'v', v));
@@ -151,21 +153,24 @@
     if (nd.length) t.appendChild(el('small', null, 'Período vencido sin F29 en el SII = no declarado.'));
     caja.appendChild(t); card.appendChild(caja);
     // R4: IVA observado (letra del SII en la grilla de declaraciones, todo el historial)
-    var ob = arr(f.observados), al = ob.filter(function (o) { return o && o.nivel === 'alerta'; }), rv2 = ob.filter(function (o) { return o && o.nivel === 'revisar'; });
-    var obs = el('div', 'sii-obs ' + (al.length ? 'roj' : rv2.length ? 'amb' : 'ver'));
-    obs.setAttribute('data-iva-observado', al.length ? 'alerta' : rv2.length ? 'revisar' : 'sin_observaciones');
-    var lista2 = function (xs) { return xs.slice(0, 6).map(function (o) { return nombreMes(o.periodo) + ' ' + String(o.periodo).slice(0, 4) + ' (' + (o.texto || o.letra) + ')'; }).join(' · ') + (xs.length > 6 ? ' y ' + (xs.length - 6) + ' más' : ''); };
-    if (al.length) obs.appendChild(el('b', null, 'IVA observado o impugnado: ' + lista2(al)));
+    var ob = arr(f.observados), nv = function (n) { return ob.filter(function (o) { return o && o.nivel === n; }); };
+    var al = nv('alerta'), rv2 = nv('revisar'), sv2 = nv('sin_verificar');
+    var obs = el('div', 'sii-obs ' + (al.length ? 'roj' : (rv2.length || sv2.length) ? 'amb' : 'ver'));
+    obs.setAttribute('data-iva-observado', al.length ? 'alerta' : rv2.length ? 'revisar' : sv2.length ? 'sin_verificar' : 'sin_observaciones');
+    var lista2 = function (xs) { return xs.slice(0, 6).map(function (o) { return nombreMes(o.periodo) + ' ' + String(o.periodo).slice(0, 4) + ' (' + (o.letra ? o.letra + ': ' : '') + (o.texto || '') + ')'; }).join(' · ') + (xs.length > 6 ? ' y ' + (xs.length - 6) + ' más' : ''); };
+    if (al.length) obs.appendChild(el('b', null, 'F29 con observación del SII: ' + lista2(al)));
     if (rv2.length) obs.appendChild(el('b', al.length ? 'amb' : null, 'F29 para revisar: ' + lista2(rv2)));
-    if (!ob.length && typeof f.revisados === 'number' && f.revisados > 0) obs.appendChild(el('b', null, 'Sin IVA observado: ' + f.revisados + ' F29 revisados en el SII'));
+    if (sv2.length) obs.appendChild(el('b', (al.length || rv2.length) ? 'amb' : null, 'F29 sin código del SII (verificar): ' + lista2(sv2)));
+    if (!ob.length && typeof f.revisados === 'number' && f.revisados > 0) obs.appendChild(el('b', null, 'Sin observaciones del SII en los ' + f.revisados + ' F29 encontrados'));
     if (obs.childNodes.length) card.appendChild(obs);
+    if (f.pago === 'no_disponible') card.appendChild(el('div', 'sii-nota', 'Pago del F29: no disponible (el SII no lo informa en esta consulta).'));
     // Período a período (No aplica no se muestra)
     var fila12 = el('div', 'sii-meses');
     f.periodos.forEach(function (p) {
       if (!p || p.estado === 'no_aplica') return;
       var e = ESTADO_F29[p.estado] || ['Sin verificar', 'gris'];
-      if (p.estado === 'declarado' && p.observacion === 'alerta') e = ['Impugnado', 'roj'];
-      else if (p.estado === 'declarado' && p.observacion === 'revisar') e = ['Para revisar', 'amb'];
+      if (p.estado === 'declarado' && p.observacion === 'alerta') e = ['Observado (' + (p.letra || '?') + ')', 'roj'];
+      else if (p.estado === 'declarado' && p.observacion === 'revisar') e = ['Revisar (' + (p.letra || '?') + ')', 'amb'];
       var c = el('span', 'sii-mes ' + e[1]);
       c.setAttribute('data-estado', p.estado);
       c.title = e[0] + (p.vence ? ' · vence ' + ddmmaaaa(p.vence) + (p.vence_confirmado ? '' : ' (estimado)') : '');
@@ -176,106 +181,123 @@
     if (fila12.childNodes.length) card.appendChild(fila12);
   }
 
-  // ── R4: Renta (F22) por año tributario. El F22 no confirma el pago diferido: nunca se dice "pagado". ──
-  var ESTADO_RENTA = { aceptada: ['Aceptada', 'ver'], observada: ['Con observaciones', 'amb'], en_proceso: ['En proceso', 'amb'], presentada: ['Presentada', 'ver'] };
-  function textoPago(a) {
-    var c = a.cifras || {};
-    if (a.pago === 'devolucion') return ['Devolución' + (typeof c.devolucion === 'number' ? ' ' + pesos(c.devolucion) : ''), null];
-    if (a.pago === 'sin_pago') return ['Sin impuesto a pagar', null];
-    if (a.pago === 'pago_diferido_verificar') return ['A pagar ' + pesos(c.total_a_pagar), 'Pago diferido: verificar si se pagó'];
-    if (a.pago === 'pagado_en_declaracion') return ['Pagado al declarar ' + pesos(c.pagado), null];
-    return [typeof c.total_a_pagar === 'number' ? 'A pagar ' + pesos(c.total_a_pagar) : '—', null];
-  }
+  // ── R4 MiRenta: F22 por año tributario (solo consulta). Pago SIEMPRE no disponible; pago diferido = verificar. ──
+  var ESTADO_RENTA = {
+    aceptada: ['Aceptada', 'ver'], aceptada_justificada: ['Aceptada · inconsistencias justificadas', 'ver'],
+    requiere_revision: ['Declarada · requiere revisión', 'amb'], declarada: ['Renta declarada', 'ver'],
+    vigente_por_verificar: ['Declaraciones encontradas · vigente por verificar', 'amb']
+  };
+  var CIFRAS_RENTA = [['ingresos', 'Ingresos', 1410], ['egresos', 'Egresos', 1430], ['base_antes_incentivo', 'Base imponible', 1729],
+    ['base_o_perdida', 'Base imponible o pérdida', 1440], ['idpc', 'Impuesto 1ª categoría (IDPC)', 20], ['ppm', 'PPM acumulados', 36],
+    ['resultado', 'Resultado liquidación', 305], ['total_a_pagar', 'Total a pagar declarado', 91]];
+  var SALDOS_RENTA = [['rai_final', 'RAI', 1484], ['sac_1563', 'SAC', 1563], ['sac_1564', 'SAC', 1564], ['sac_1565', 'SAC', 1565], ['sac_1566', 'SAC', 1566],
+    ['sac_1567', 'SAC', 1567], ['sac_1513', 'SAC', 1513], ['sac_1540', 'SAC', 1540], ['cpts_final', 'CPTS', 1545], ['cpts_negativo', 'CPTS negativo', 1546],
+    ['rex_1486', 'REX', 1486], ['rex_1487', 'REX', 1487], ['capital_aportado', 'Capital aportado', 1494]];
   function pintarRenta(card, r) {
-    if (!r || !Array.isArray(r.anios)) return;
-    var sec = seccion(card, 'Renta (F22)');
-    if (r.at_actual_vencido) sec.appendChild(el('div', 'sii-obs amb', 'Renta AT ' + r.at_actual + ' no encontrada en el SII (verificar)'));
-    if (!r.anios.length) { sec.appendChild(el('div', 'sii-nota', 'El SII no muestra declaraciones de renta para esta empresa.')); return; }
-    var a = r.anios[0], c = a.cifras || {}, e = ESTADO_RENTA[a.estado] || ['Presentada', 'ver'];
-    var cab = el('div', 'sii-renta-cab ' + e[1]);
+    if (!r || !Array.isArray(r.anios)) { card.appendChild(el('div', 'sii-nota', 'Sin verificar: Cartapra no entregó las declaraciones de renta ahora.')); return; }
+    if (r.at_actual_estado === 'no_encontrada_verificar') card.appendChild(el('div', 'sii-obs amb', 'Renta AT ' + r.at_actual + ' no encontrada en el SII · verificar'));
+    else if (r.at_actual_estado === 'en_plazo') card.appendChild(el('div', 'sii-nota', 'AT ' + r.at_actual + ': en plazo para declarar.'));
+    if (!r.anios.length) { card.appendChild(el('div', 'sii-nota', 'El SII no muestra declaraciones de renta para esta empresa.')); return; }
+    var sel = el('div', 'sii-tabs'), cuerpo = el('div');
+    var ver = function (k) {
+      [].forEach.call(sel.childNodes, function (b, i) { b.className = 'sii-tab' + (i === k ? ' on' : ''); b.setAttribute('aria-pressed', i === k ? 'true' : 'false'); });
+      cuerpo.textContent = ''; pintarAnio(cuerpo, r.anios[k]);
+    };
+    r.anios.forEach(function (a, k) { var b = el('button', 'sii-tab', 'AT ' + a.anio_tributario); b.type = 'button'; b.onclick = function () { ver(k); }; sel.appendChild(b); });
+    if (r.anios.length > 1) card.appendChild(sel);
+    card.appendChild(cuerpo); ver(0);
+  }
+  function pintarAnio(cont, a) {
+    var e = ESTADO_RENTA[a.estado] || ['Renta declarada', 'ver'], c = a.cifras || {};
+    var cab = el('div', 'sii-renta-cab ' + e[1]); cab.setAttribute('data-renta-estado', a.estado);
     cab.appendChild(el('b', null, 'AT ' + a.anio_tributario + ' · ' + e[0]));
-    cab.appendChild(el('span', null, a.fecha_ingreso ? 'Declarada el ' + ddmmaaaa(a.fecha_ingreso) : 'Declarada'));
-    sec.appendChild(cab);
-    arr(a.observaciones).forEach(function (o) { if (o && esTxt(o.codigo)) sec.appendChild(el('div', 'sii-nota', 'Observación ' + o.codigo + (esTxt(o.descripcion) ? ': ' + o.descripcion : '') + (a.estado === 'aceptada' ? ' (justificada)' : ''))); });
+    cab.appendChild(el('span', null, (a.fecha_ingreso ? 'Ingresada el ' + ddmmaaaa(a.fecha_ingreso) : 'Fecha no informada') + (a.folio ? ' · folio ' + a.folio : '') + (a.folios > 1 ? ' · ' + a.folios + ' declaraciones' : '')));
+    cont.appendChild(cab);
+    if (esTxt(a.estado_texto)) cont.appendChild(el('div', 'sii-nota', 'SII: ' + a.estado_texto));
+    arr(a.observaciones).forEach(function (o) { if (o && esTxt(o.codigo)) cont.appendChild(el('div', 'sii-obs amb', 'Observación ' + o.codigo + (esTxt(o.descripcion) ? ': ' + o.descripcion : ''))); });
     var g = el('div', 'sii-grid');
-    if (typeof c.ingresos === 'number') dato(g, 'Ingresos', pesos(c.ingresos));
-    if (typeof c.egresos === 'number') dato(g, 'Gastos', pesos(c.egresos));
-    var base = typeof c.base_antes_incentivo === 'number' ? c.base_antes_incentivo : c.base_o_perdida;
-    if (typeof base === 'number') dato(g, base < 0 ? 'Pérdida tributaria' : 'Utilidad tributaria', pesos(Math.abs(base)));
-    if (typeof c.idpc === 'number') dato(g, 'Impuesto 1ª categoría', pesos(c.idpc));
-    if (typeof c.ppm === 'number') dato(g, 'PPM del año', pesos(c.ppm));
-    var tp = textoPago(a); dato(g, 'Resultado', tp[0], tp[1]);
-    if (g.childNodes.length) sec.appendChild(g);
-    if (r.anios.length > 1) {
-      var ul = el('ul', 'sii-lista');
-      r.anios.slice(1).forEach(function (x) {
-        var ex = ESTADO_RENTA[x.estado] || ['Presentada', 'ver'], cx = x.cifras || {};
-        var b = typeof cx.base_antes_incentivo === 'number' ? cx.base_antes_incentivo : cx.base_o_perdida;
-        ul.appendChild(el('li', ex[1] === 'amb' ? 'amb' : '', 'AT ' + x.anio_tributario + ' · ' + ex[0] + (x.fecha_ingreso ? ' · ' + ddmmaaaa(x.fecha_ingreso) : '') +
-          (typeof b === 'number' ? ' · ' + (b < 0 ? 'pérdida ' : 'utilidad ') + pesos(Math.abs(b)) : '') + (typeof cx.idpc === 'number' ? ' · impuesto ' + pesos(cx.idpc) : '')));
-      });
-      sec.appendChild(ul);
+    CIFRAS_RENTA.forEach(function (x) { if (typeof c[x[0]] === 'number') dato(g, x[1] + ' · ' + x[2], pesos(c[x[0]])); });
+    if (g.childNodes.length) { var s1 = seccion(cont, 'Resultado tributario declarado'); s1.appendChild(g); }
+    var pg = el('div', 'sii-obs ' + (a.pago_diferido_informado ? 'amb' : 'gris'));
+    pg.appendChild(el('b', null, 'Situación de pago: no disponible'));
+    if (a.pago_diferido_informado) pg.appendChild(el('span', null, 'Pago diferido informado en F22. Su regularización posterior debe verificarse.'));
+    cont.appendChild(pg);
+    var g2 = el('div', 'sii-grid');
+    SALDOS_RENTA.forEach(function (x) { if (typeof c[x[0]] === 'number') dato(g2, x[1] + ' · ' + x[2], pesos(c[x[0]])); });
+    if (g2.childNodes.length) {
+      var s2 = seccion(cont, 'Saldos de cierre · antecedentes para la futura apertura');
+      s2.appendChild(g2); s2.appendChild(el('div', 'sii-nota', 'Solo consulta: no modifica la apertura de MiRenta.'));
+    }
+    if (Array.isArray(a.codigos_crudos) && a.codigos_crudos.length) {
+      var s3 = seccion(cont, 'Códigos informados (AT sin diccionario validado)');
+      var ul = el('ul', 'sii-lista'); a.codigos_crudos.forEach(function (x) { ul.appendChild(el('li', null, 'Código ' + x.codigo + ': ' + pesos(x.valor))); }); s3.appendChild(ul);
     }
   }
 
-  function pintarResumen(card, j) {
-    var fi = j.ficha, m = j.monitor, sii = j.sii || {};
-    if (!fi && !j.f29 && !m && !Object.keys(sii).length) { card.appendChild(el('div', 'sii-nota', 'Cartapra todavía no entrega el resumen de esta empresa.')); return; }
-    // Línea superior: régimen · contabilidad · IVA
-    if (fi) {
-      var partes = [];
-      if (esTxt(fi.regimen)) partes.push(fi.regimen);
-      if (esTxt(fi.contabilidad)) partes.push('Contabilidad ' + String(fi.contabilidad).toLowerCase());
-      if (fi.afecta_iva === false) partes.push('Exenta de IVA');
-      else if (fi.iva_mixto === true) partes.push('IVA mixto (actividades afectas y exentas)');
-      else if (fi.afecta_iva === true) partes.push('Afecta a IVA');
-      if (partes.length) card.appendChild(el('div', 'sii-linea', partes.join(' · ')));
-    }
-    pintarF29(card, j.f29);
-    pintarRenta(card, j.renta);
-
-    // Cumplimiento, socios y representante
+  // ── R4 Ficha: identidad tributaria ──
+  function pintarFicha(card, j) {
+    var fi = j.ficha, sii = j.sii || {};
+    if (!fi && !Object.keys(sii).length) { card.appendChild(el('div', 'sii-nota', 'Cartapra todavía no entrega la ficha de esta empresa.')); return; }
     var g = el('div', 'sii-grid');
+    if (fi && esTxt(fi.regimen)) dato(g, 'Régimen tributario', fi.regimen, fi.regimen_desde ? 'Desde ' + ddmmaaaa(fi.regimen_desde) : null);
+    if (fi && esTxt(fi.contabilidad)) dato(g, 'Contabilidad', capital(fi.contabilidad));
+    if (fi) dato(g, 'IVA', fi.afecta_iva === false ? 'Exenta de IVA' : fi.iva_mixto === true ? 'Mixta (afecta y exenta)' : fi.afecta_iva === true ? 'Afecta a IVA' : 'No informado');
+    if (fi && fi.inicio_actividades) dato(g, 'Inicio de actividades', ddmmaaaa(fi.inicio_actividades));
+    if (fi && fi.termino_giro) dato(g, 'Término de giro', ddmmaaaa(fi.termino_giro));
     var cum = sii.sii_cumplimiento;
     if (cum && esTxt(cum.estado)) dato(g, 'Cumplimiento tributario', cum.estado);
+    if (g.childNodes.length) card.appendChild(g);
+    if (fi && Array.isArray(fi.actividades) && fi.actividades.length) {
+      var sa = seccion(card, 'Actividades económicas'), ul = el('ul', 'sii-lista');
+      fi.actividades.forEach(function (a) { if (a) ul.appendChild(el('li', null, (a.codigo ? a.codigo + ' · ' : '') + (a.descripcion || 'Sin descripción') + (a.afecta_iva === false ? ' · exenta' : a.afecta_iva === true ? ' · afecta' : ''))); });
+      sa.appendChild(ul);
+    }
+    var g2 = el('div', 'sii-grid');
     if (fi && Array.isArray(fi.socios) && fi.socios.length) {
-      dato(g, fi.socios.length > 1 ? 'Socios vigentes' : 'Socio vigente', fi.socios.map(function (s) {
+      dato(g2, fi.socios.length > 1 ? 'Socios vigentes' : 'Socio vigente', fi.socios.map(function (s) {
         var pc = typeof s.participacionCapital === 'number' ? s.participacionCapital + '%' : '';
         var pu = typeof s.participacionUtilidades === 'number' && s.participacionUtilidades !== s.participacionCapital ? ' (utilidades ' + s.participacionUtilidades + '%)' : '';
         return (s.nombre || 'Sin nombre') + (esTxt(s.rut) ? ' (' + s.rut + ')' : '') + (pc ? ' · ' + pc + pu : '');
       }).join(' — '));
     }
     if (fi && Array.isArray(fi.representantes) && fi.representantes.length) {
-      dato(g, 'Representante vigente', fi.representantes.map(function (r) { return (r.nombre || 'Sin nombre') + (esTxt(r.rut) ? ' (' + r.rut + ')' : ''); }).join(' — '));
+      dato(g2, 'Representante vigente', fi.representantes.map(function (r) { return (r.nombre || 'Sin nombre') + (esTxt(r.rut) ? ' (' + r.rut + ')' : ''); }).join(' — '));
     }
-    if (g.childNodes.length) card.appendChild(g);
+    if (fi && fi.domicilio) dato(g2, 'Domicilio tributario', [fi.domicilio.direccion, fi.domicilio.comuna, fi.domicilio.region].filter(esTxt).join(' · '));
+    if (g2.childNodes.length) card.appendChild(g2);
+    card.appendChild(el('div', 'sii-nota', 'El cumplimiento informado por el SII es evidencia separada: no reemplaza la revisión de F29 en Contable.'));
+  }
+
+  // ── R4 Contable: estado tributario mensual ──
+  function pintarContable(card, j) {
+    var m = j.monitor, sii = j.sii || {}, iva = j.iva || {};
+    if (!j.f29 && !m && !Object.keys(sii).length) { card.appendChild(el('div', 'sii-nota', 'Cartapra todavía no entrega la situación mensual de esta empresa.')); return; }
+    if (iva.exenta === true) card.appendChild(el('div', 'sii-linea', 'Empresa exenta de IVA'));
+    else if (iva.iva_mixto === true) card.appendChild(el('div', 'sii-linea', 'IVA mixto (actividades afectas y exentas)'));
+    pintarF29(card, j.f29);
 
     // Semáforo (ya filtrado en el servidor), IVA proyectado, totales del año
     if (m) {
       var s = m.semaforo, nivel = s && (s.tono === 'ok' || s.tono === 'aviso' || s.tono === 'alerta') ? s.tono : '';
       if (nivel) {
-        var sec = seccion(card, 'Semáforo de Cartapra');
+        var sec = seccion(card, 'Pendientes informados por Cartapra');
         sec.appendChild(el('div', 'sii-sem ' + nivel, '● ' + { ok: 'Todo en orden', aviso: 'Hay algo que revisar', alerta: 'Requiere atención' }[nivel]));
         var ul = el('ul', 'sii-lista');
         (Array.isArray(s.puntos) ? s.puntos : []).forEach(function (p) { if (p && esTxt(p.texto)) ul.appendChild(el('li', p.tono === 'alerta' ? 'roj' : p.tono === 'aviso' ? 'amb' : '', p.texto)); });
         if (ul.childNodes.length) sec.appendChild(ul);
+        sec.appendChild(el('div', 'sii-nota', 'El acuse de recibo (aceptar o reclamar) se hace a mano en el SII.'));
         if (m.exenta === true) sec.appendChild(el('div', 'sii-nota', 'Empresa exenta de IVA: no se compara el crédito fiscal del RCV con el F29.'));
       }
       var g2 = el('div', 'sii-grid');
       var ip = m.ivaProyectado;
       if (ip && typeof ip.totalEstimado === 'number') {
-        dato(g2, 'F29 estimado de ' + (ip.periodo ? nombreMes(ip.periodo) : 'este mes'), pesos(ip.totalEstimado), ip.provisorio === false ? null : 'Provisorio: el mes aún no cierra');
+        dato(g2, 'F29 estimado de ' + (ip.periodo ? nombreMes(ip.periodo) : 'este mes'), pesos(ip.totalEstimado), ip.provisorio === false ? 'Estimación de Cartapra' : 'Provisorio: el mes aún no cierra');
       }
-      var anio = j.f29 && j.f29.anio, an = Array.isArray(m.anual) ? m.anual : [];
-      var a = an.filter(function (x) { return x && x.anio === anio; })[0] || an[0];
-      if (a && a.totales) {
-        dato(g2, 'Ventas ' + a.anio, pesos(a.totales.ventasTotal));
-        dato(g2, 'Compras ' + a.anio, pesos(a.totales.comprasTotal));
-      }
+      var an = Array.isArray(m.anual) ? m.anual : [], a = an[0];
+      if (a && a.totales) { dato(g2, 'Ventas ' + a.anio + ' (RCV)', pesos(a.totales.ventasTotal)); dato(g2, 'Compras ' + a.anio + ' (RCV)', pesos(a.totales.comprasTotal)); }
       if (g2.childNodes.length) card.appendChild(g2);
     }
-
-    // Últimas cartas y notificaciones del SII (máx. 5)
+    // Cartas y notificaciones del SII (máx. 5)
     var ca = sii.sii_cartas;
     if (ca && Array.isArray(ca.cartas) && ca.cartas.length) {
       var sc = seccion(card, 'Cartas y notificaciones del SII' + (ca.total > ca.cartas.length ? ' · últimas ' + ca.cartas.length + ' de ' + ca.total : ''));
@@ -295,6 +317,7 @@
     }
     var al = sii.sii_alertas;
     if (al && al.total > 0) card.appendChild(el('div', 'sii-nota roj', 'Alertas del SII: ' + al.total));
+    card.appendChild(el('div', 'sii-nota', 'Cuadratura automática RCV vs F29: llega con el motor tributario (fase siguiente).'));
   }
 
   // ── Ventana de conexión (iframe propio + postMessage verificado) ──
@@ -340,9 +363,15 @@
   }
 
   // ── Pintado de la tarjeta ──
+  var VISTAS = {
+    ficha: { accion: 'resumen', titulo: 'Identidad tributaria ', icono: 'edificio' },
+    contable: { accion: 'contable', titulo: 'Situación mensual ', icono: 'contable' },
+    renta: { accion: 'renta', titulo: 'Renta en el ', icono: 'pir' }
+  };
   function cabecera(card) {
-    var hd = el('div', 'sii-hd'); hd.appendChild(icono('edificio', 'sii-amb'));
-    var h = el('h3'); h.appendChild(document.createTextNode('Datos del ')); h.appendChild(el('span', null, 'SII')); hd.appendChild(h);
+    var v = VISTAS[(actual && actual.vista) || 'ficha'];
+    var hd = el('div', 'sii-hd'); hd.appendChild(icono(v.icono, 'sii-amb'));
+    var h = el('h3'); h.appendChild(document.createTextNode(v.titulo)); h.appendChild(el('span', null, 'SII')); hd.appendChild(h);
     card.appendChild(hd);
   }
   function fila(card, ic, color, titulo, sub) {
@@ -391,7 +420,9 @@
     } else if (c.estado === 'conectada') {
       fila(card, 'check', 'sii-ver', 'Conectado', 'Última actualización: ' + (c.ultimaActualizacion ? horaChile(c.ultimaActualizacion) + ' (hora de Chile)' : 'No disponible') + ' · se actualiza sola una vez al día');
       if (j.soloEstado) card.appendChild(el('div', 'sii-nota', 'Los datos del SII de este cliente los ve el Master y el equipo asignado.'));
-      else pintarResumen(card, j);
+      else if (actual.vista === 'contable') pintarContable(card, j);
+      else if (actual.vista === 'renta') pintarRenta(card, j.renta);
+      else pintarFicha(card, j);
     } else {
       pintarError({ status: 502, detalle: 'Cartapra respondió algo inesperado.' }); return;
     }
@@ -412,18 +443,19 @@
     return b;
   }
   // ── Una sola solicitud por cliente (R3 F1-10): si hay una en curso, se reutiliza su promesa ──
-  function obtener(clienteId) {
-    if (enCurso && enCurso.clienteId === clienteId) return enCurso.promesa;
+  function obtener(clienteId, vista) {
+    if (enCurso && enCurso.clienteId === clienteId && enCurso.vista === vista) return enCurso.promesa;
+    var accion = VISTAS[vista].accion;
     // "resumen" trae el estado y, si ya hay datos, el resumen: una sola ida al servidor.
     // Sin permiso de resumen (403 SIN_PERMISO) → se intenta "estado" (conectores): solo la conexión.
-    var p = llamar('resumen', clienteId).catch(function (e) {
+    var p = llamar(accion, clienteId).catch(function (e) {
       if (!e || e.status !== 403 || e.error === 'EMPRESA_FUERA_PILOTO' || e.error === 'MODO_PILOTO') throw e;
       return llamar('estado', clienteId).then(function (j) { j.soloEstado = true; return j; }, function () { throw e; });
     }).catch(function (e) {
       if (e && e.status === 429) esperaHasta = Date.now() + (Number(e.reintentarEn) > 0 ? Number(e.reintentarEn) : 60) * 1000;
       throw e;
     });
-    var reg = { clienteId: clienteId, promesa: p };
+    var reg = { clienteId: clienteId, vista: vista, promesa: p };
     enCurso = reg;
     var fin = function () { if (enCurso === reg) enCurso = null; };
     p.then(fin, fin);
@@ -434,7 +466,7 @@
     var mio = actual, n = ++seq;
     if (enEspera()) { pintarError({ status: 429, error: 'CARTAPRA_LIMITE' }); return; } // no se consulta mientras dure la espera
     var card = nuevaCard(); fila(card, 'reloj', 'sii-cel', 'Revisando la conexión con el SII…', null);
-    obtener(mio.clienteId).then(function (j) { if (actual === mio && n === seq) pintar(j); })
+    obtener(mio.clienteId, mio.vista).then(function (j) { if (actual === mio && n === seq) pintar(j); })
       .catch(function (e) { if (actual === mio && n === seq) pintarError(e); });
   }
 
@@ -482,7 +514,8 @@
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;
       estilos(); cerrarVentana();
-      actual = { cont: cont, clienteId: Number(clienteId) };
+      var vista = op && VISTAS[op.vista] ? op.vista : 'ficha';
+      actual = { cont: cont, clienteId: Number(clienteId), vista: vista };
       cargar();
     },
     desmontar: function () { cerrarVentana(); seq++; actual = null; if (relojEspera) { clearTimeout(relojEspera); relojEspera = null; } }
