@@ -559,9 +559,12 @@ function confirmarAnular(){
   if(txt.length<5){err.textContent='Escribe el motivo (mínimo 5 caracteres).';err.style.display='block';return;}
   _accOcupado=true;document.getElementById('an-ok').disabled=true;
   sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:_anular,p_accion:'anular',p_obs:txt})})
-    .then(function(r){if(!r.ok)return r.json().catch(function(){return {};}).then(function(j){throw new Error(j.message||('Error '+r.status));});})
+    .then(function(r){if(!r.ok)return r.json().catch(function(){return {};}).then(function(j){var e=new Error(j.message||('Error '+r.status));e.claro=true;throw e;});})
     .then(function(){_accOcupado=false;document.getElementById('an-ok').disabled=false;cerrarAnular();cargar();})
-    .catch(function(e){_accOcupado=false;document.getElementById('an-ok').disabled=false;err.textContent='No se pudo anular: '+(e&&e.message?e.message:e);err.style.display='block';});
+    .catch(function(e){_accOcupado=false;document.getElementById('an-ok').disabled=false;
+      if(e&&e.claro){err.textContent='No se pudo anular: '+e.message;err.style.display='block';cargar();return;} // la base lo rechazó: se muestra y se refresca
+      // Sin respuesta (red/timeout): no sabemos si se anuló. Se cierra, se refresca el estado real y recién ahí se puede reintentar.
+      cerrarAnular();alert('No hubo respuesta del servidor y no sabemos si se anuló. Actualicé la lista: revisa el estado antes de intentar de nuevo.');cargar();});
 }
 // Calce con ingresos del banco (solo lectura; igual criterio que Conciliación: mismo cliente o ingreso sin cliente por el mismo monto).
 // Lo ve quien puede leer Conciliación (RLS de Tesorería); para el resto no aparece nada.
