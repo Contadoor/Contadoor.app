@@ -548,6 +548,7 @@ function accionesHtml(o){
   var b=[], id=Number(o.id);
   if(o.comprobante_path) b.push('<button class="btn-s" onclick="gComprobanteVer(\''+hesc(o.comprobante_path)+'\')">📎 Ver comprobante</button>');
   if(puedeEditar(o)) b.push('<button class="btn-s" onclick="abrirEditar('+id+')">Editar</button>');
+  if(id in _edBloq) b.push('<button class="btn-amber" title="La última edición no tuvo respuesta clara" onclick="verificarEdicion('+id+',null)">↻ Verificar edición</button>');
   if(puedeAnular(o)) b.push('<button class="btn-s" onclick="abrirAnular('+id+')">Anular</button>');
   if(!esMio(o)){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(b.join('')||'<span style="color:var(--tm);font-size:11px">—</span>')+'</div>'; }
   if(o.estado==='conciliada'||(contadoorPendiente(o)&&o.fondos_autorizados_at&&!(Number(o.monto_conciliado)>0))) b.push('<button class="btn-purple" onclick="pasoObligacion('+id+',\'iniciar_ejecucion\')">Registrar pago</button>');
@@ -632,64 +633,97 @@ function verificarAnulacion(id,incierto){
         +'<button type="button" class="btn-s" onclick="verificarAnulacion('+Number(id)+','+(incierto?'true':'false')+')">↻ Verificar de nuevo</button>');
     });
 }
-// ── PAGOS-EXTRA-EDITAR-1: Master corrige un pago extraordinario SIN movimiento (misma regla que el servidor) ──
-// Una sola RPC editar_pago_extraordinario. Resultado incierto (red/timeout/5xx) → se bloquea ese pago hasta leer su estado real
-// y comparar con lo pedido (mismo criterio que Anular, PAG-AN-01). La base vuelve a validar todo con la fila bloqueada.
+// ── PAGOS-EXTRA-EDITAR-1 R2: Master corrige un pago extraordinario SIN movimiento (misma regla que el servidor) ──
+// UNA RPC editar_pago_extraordinario con los valores ORIGINALES que se vieron al abrir (concurrencia optimista en la base).
+// Resultado incierto (red/timeout/5xx) → ese pago queda bloqueado para editar (_edBloq, independiente de Anular) hasta leer
+// su estado real y clasificarlo: igual a lo pedido · igual al original · distinto a ambos (conflicto) · ya no editable · ilegible.
+var _editar=null,_edEnCurso=false,_edAp=0,_edOrig=null,_edBloq={},_edPend={};
 function puedeEditar(o){return esMasterPag()&&o.tipo_obligacion==='otro'&&!o.ref_reporte_id&&!o.ref_factura_id&&o.estado==='pendiente_fondos'
-  &&Number(o.monto_conciliado||0)===0&&!o.fondos_autorizados_at&&!(o.id in _anBloq);}
-var _editar=null,_edEnCurso=false;
+  &&Number(o.monto_conciliado||0)===0&&!o.fondos_autorizados_at&&!(o.id in _anBloq)&&!(o.id in _edBloq);}
 function edVal(id){return document.getElementById(id).value;}
+// B-FRONT-04: pesos enteros; acepta «1500000» o con miles bien agrupados «1.500.000» (y «$» al inicio). Rechaza decimales y formatos ambiguos.
+function montoCLP(t){t=String(t||'').trim().replace(/^\$\s*/,'');
+  if(/^\d{1,12}$/.test(t))return Number(t);
+  if(/^\d{1,3}(\.\d{3}){1,3}$/.test(t)){var n=Number(t.replace(/\./g,''));return n<=999999999999?n:NaN;}
+  return NaN;}
+// Misma normalización que normalizar_rut en la base: sin puntos ni espacios, DV en mayúscula, con guion.
+function rutNorm(r){if(r==null||String(r).trim()==='')return null;var x=String(r).replace(/[.\s]/g,'').toUpperCase();var m=x.match(/^(\d{1,8})-?([\dK])$/);return m?m[1]+'-'+m[2]:x;}
+function edCampos(on){['ed-benef','ed-benef-rut','ed-concepto','ed-monto','ed-venc','ed-motivo'].forEach(function(i){document.getElementById(i).disabled=!on;});}
+function edErr(t){var e=document.getElementById('ed-err');e.innerHTML=t;e.style.display=t?'block':'none';}
+function edBotones(ocupado,bloqueado){document.getElementById('ed-ok').disabled=ocupado||bloqueado;document.getElementById('ed-cancel').disabled=ocupado;document.getElementById('ed-ok').textContent=ocupado?'Guardando…':'Guardar cambios';}
 function abrirEditar(id){
   if(_accOcupado||_anEnCurso||_edEnCurso)return;
-  var o=_obs.find(function(x){return Number(x.id)===id;});if(!o||!puedeEditar(o))return;_editar=id;
+  var o=_obs.find(function(x){return Number(x.id)===id;});if(!o||!puedeEditar(o))return;
+  _editar=id;_edAp++;
+  _edOrig={concepto:o.concepto||null,monto:Number(o.monto_exigible),vencimiento:o.vencimiento||null,beneficiario_nombre:o.beneficiario_nombre||null,beneficiario_rut:o.beneficiario_rut||null};
   document.getElementById('ed-sub').textContent=nombreCliente(o.cliente_rut)+' · '+periodoLabel(o.periodo)+' — el cambio queda registrado con tu motivo.';
   document.getElementById('ed-benef').value=o.beneficiario_nombre||'';document.getElementById('ed-benef-rut').value=o.beneficiario_rut||'';
   document.getElementById('ed-concepto').value=o.concepto||'';document.getElementById('ed-monto').value=String(Math.round(Number(o.monto_exigible)||0));
   document.getElementById('ed-venc').value=o.vencimiento||'';document.getElementById('ed-motivo').value='';
   edCampos(true);edErr('');edBotones(false,false);document.getElementById('modalEditar').classList.add('on');document.getElementById('ed-concepto').focus();
 }
-function edErr(t){var e=document.getElementById('ed-err');e.innerHTML=t;e.style.display=t?'block':'none';}
-function edCampos(on){['ed-benef','ed-benef-rut','ed-concepto','ed-monto','ed-venc','ed-motivo'].forEach(function(i){document.getElementById(i).disabled=!on;});}
-function edBotones(ocupado,bloqueado){document.getElementById('ed-ok').disabled=ocupado||bloqueado;document.getElementById('ed-cancel').disabled=ocupado;document.getElementById('ed-ok').textContent=ocupado?'Guardando…':'Guardar cambios';}
 function cerrarEditar(){if(_edEnCurso)return;_editar=null;document.getElementById('modalEditar').classList.remove('on');}
 function confirmarEditar(){
-  if(_accOcupado||_edEnCurso||!_editar||(_editar in _anBloq))return;
-  var id=_editar,montoTxt=edVal('ed-monto').replace(/[.\s$]/g,'');
-  var p={p_obligacion_id:id,p_concepto:edVal('ed-concepto').trim(),p_monto:/^\d{1,12}$/.test(montoTxt)?Number(montoTxt):NaN,p_vencimiento:edVal('ed-venc')||null,
-    p_beneficiario_nombre:edVal('ed-benef').trim(),p_beneficiario_rut:edVal('ed-benef-rut').trim()||null,p_motivo:edVal('ed-motivo').trim()};
+  if(_accOcupado||_edEnCurso||!_editar||(_editar in _anBloq)||(_editar in _edBloq))return;
+  var id=_editar,ap=_edAp;
+  var p={p_obligacion_id:id,p_concepto:edVal('ed-concepto').trim(),p_monto:montoCLP(edVal('ed-monto')),p_vencimiento:edVal('ed-venc')||null,
+    p_beneficiario_nombre:edVal('ed-benef').trim(),p_beneficiario_rut:edVal('ed-benef-rut').trim()||null,p_motivo:edVal('ed-motivo').trim(),p_original:_edOrig};
   if(p.p_concepto.length<3){edErr('Escribe el concepto (mínimo 3 caracteres).');return;}
-  if(!(p.p_monto>0)){edErr('Monto inválido: entero en pesos mayor que cero.');return;}
+  if(!(p.p_monto>0)){edErr('Monto inválido: escribe pesos enteros (por ejemplo 150000 o 150.000), sin decimales.');return;}
   if(p.p_beneficiario_nombre.length<3){edErr('Indica el beneficiario (mínimo 3 caracteres).');return;}
   if(p.p_motivo.length<5){edErr('Escribe el motivo de la corrección (mínimo 5 caracteres).');return;}
   _accOcupado=true;_edEnCurso=true;edBotones(true,false);edCampos(false);edErr('');
   sbFetch('rpc/editar_pago_extraordinario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
-    .then(function(r){if(r.ok)return r.json().then(function(j){return {ok:true,res:(Array.isArray(j)&&j[0]||{}).resultado};},function(){return {ok:true};});
+    .then(function(r){
+      if(r.ok)return r.json().then(function(j){var x=Array.isArray(j)&&j[0];return x&&x.resultado?{ok:true,res:x.resultado}:{ok:false,claro:false,msg:'respuesta sin resultado'};},function(){return {ok:false,claro:false,msg:'respuesta ilegible'};});
       return r.json().catch(function(){return {};}).then(function(j){return {ok:false,claro:r.status>=400&&r.status<500,msg:j.message||('Error '+r.status),noInst:r.status===404};});},
       function(){return {ok:false,claro:false,msg:'sin respuesta del servidor'};})
     .then(function(x){
-      _edEnCurso=false;
-      if(x.ok){_accOcupado=false;edBotones(false,false);cerrarEditar();cargar();if(x.res==='sin_cambios')alert('No había cambios que guardar.');return;}
-      if(x.claro){_accOcupado=false;edBotones(false,false);edCampos(true);edErr(x.noInst?'La edición todavía no está habilitada en la base de datos.':'No se pudo guardar: '+hesc(x.msg));cargar();return;}
-      _anBloq[id]=_cargaSeq;edErr('No hubo respuesta clara del servidor ('+hesc(x.msg)+'). Estoy revisando si se guardó…');verificarEdicion(id,p);
+      if(x.ok&&(x.res==='editada'||x.res==='sin_cambios')){_edEnCurso=false;_accOcupado=false;edBotones(false,false);cerrarEditar();cargar();if(x.res==='sin_cambios')alert('No había cambios que guardar.');return;}
+      if(x.ok&&x.res==='conflicto'){_edEnCurso=false;_accOcupado=false;edBotones(false,true);
+        edErr('<b>Otro cambio se guardó mientras editabas</b> (por ejemplo, en otra pestaña). No se aplicó nada. Cierra y vuelve a abrir para ver los datos actuales.');cargar();return;}
+      if(!x.ok&&x.claro){_edEnCurso=false;_accOcupado=false;edBotones(false,false);edCampos(true);edErr(x.noInst?'La edición todavía no está habilitada en la base de datos.':'No se pudo guardar: '+hesc(x.msg));cargar();return;}
+      // Incierto: se bloquea ESTE pago para editar y se sigue protegiendo el modal mientras se lee el estado real.
+      _edBloq[id]=true;_edPend[id]={p:p,orig:_edOrig};
+      edErr('No hubo respuesta clara del servidor ('+hesc(x.msg)+'). Estoy revisando el estado real del pago…');
+      verificarEdicion(id,ap);
     });
 }
-function verificarEdicion(id,p){
-  _accOcupado=true;edBotones(true,true);
-  sbFetch('obligaciones_pago?select=id,concepto,monto_exigible,vencimiento,beneficiario_nombre,beneficiario_rut,estado&id=eq.'+Number(id))
+function edIgual(o,v){ // v = {concepto, monto, vencimiento, beneficiario_nombre, beneficiario_rut}
+  return (o.concepto||null)===(v.concepto||null)&&Number(o.monto_exigible)===Number(v.monto)&&Number(o.monto_total)===Number(v.monto)
+    &&Number(o.monto_postergado||0)===0&&(o.vencimiento||null)===(v.vencimiento||null)
+    &&(o.beneficiario_nombre||null)===(v.beneficiario_nombre||null)&&rutNorm(o.beneficiario_rut)===rutNorm(v.beneficiario_rut);
+}
+// ap = apertura del modal que inició la edición (null si se verifica desde la tabla con el modal cerrado).
+function verificarEdicion(id,ap){
+  var pend=_edPend[id];if(!pend)return;
+  var enModal=function(){return ap!=null&&ap===_edAp&&_editar===id&&document.getElementById('modalEditar').classList.contains('on');};
+  _accOcupado=true;_edEnCurso=enModal();if(enModal())edBotones(true,true);
+  var fin=function(msgModal,msgAlerta,cerrar,permitir){
+    _accOcupado=false;_edEnCurso=false;
+    if(enModal()){if(cerrar){cerrarEditar();}else{edBotones(false,!permitir);edCampos(!!permitir);edErr(msgModal);}}
+    else if(msgAlerta)alert(msgAlerta);
+    renderTabla();
+  };
+  sbFetch('obligaciones_pago?select=id,concepto,monto_total,monto_exigible,monto_postergado,monto_conciliado,vencimiento,beneficiario_nombre,beneficiario_rut,estado,fondos_autorizados_at,tipo_obligacion&id=eq.'+Number(id))
     .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
     .then(function(rows){
-      var o=rows&&rows[0];delete _anBloq[id];_accOcupado=false;edBotones(false,false);
-      var igual=o&&o.concepto===p.p_concepto&&Number(o.monto_exigible)===p.p_monto&&(o.vencimiento||null)===(p.p_vencimiento||null)&&o.beneficiario_nombre===p.p_beneficiario_nombre;
-      if(igual){cerrarEditar();cargar();alert('Revisé el estado real: los cambios quedaron guardados.');return;}
-      edCampos(true);edErr('Revisé el estado real: <b>no se guardó</b>. Puedes intentarlo de nuevo.');cargar();
+      var o=Array.isArray(rows)&&rows.length===1&&rows[0]&&Number(rows[0].id)===Number(id)?rows[0]:null;
+      if(!o){fin('No pude confirmar el estado del pago (la lectura vino vacía o inválida). <b>No se puede reintentar</b> hasta confirmarlo. <button type="button" class="btn-s" onclick="verificarEdicion('+Number(id)+','+(ap==null?'null':ap)+')">↻ Verificar de nuevo</button>',
+        'No pude confirmar el estado del pago. La edición sigue bloqueada; usa «Verificar edición» en la fila.',false,false);return;}
+      var pedido={concepto:pend.p.p_concepto,monto:pend.p.p_monto,vencimiento:pend.p.p_vencimiento,beneficiario_nombre:pend.p.p_beneficiario_nombre,beneficiario_rut:pend.p.p_beneficiario_rut};
+      var editable=o.estado==='pendiente_fondos'&&Number(o.monto_conciliado||0)===0&&!o.fondos_autorizados_at;
+      delete _edBloq[id];delete _edPend[id];
+      if(edIgual(o,pedido)){fin('',null,true,false);cargar();alert('Revisé el estado real: el pago tiene exactamente los datos que pediste.');return;}
+      if(!editable){fin('',null,true,false);cargar();alert('Revisé el estado real: el pago cambió de estado ('+o.estado+') y ya no se puede editar.');return;}
+      if(edIgual(o,pend.orig)){fin('Revisé el estado real: el pago sigue con los datos originales, así que la corrección no se aplicó. Puedes intentarlo de nuevo.',
+        'Revisé el estado real: el pago sigue con los datos originales; la corrección no se aplicó.',false,true);cargar();return;}
+      fin('<b>El pago tiene datos distintos a los originales y a los pedidos</b> (hubo otro cambio). Cierra y vuelve a abrir para ver los datos actuales.',
+        'El pago tiene datos distintos a los originales y a los pedidos (hubo otro cambio). Ábrelo de nuevo para revisarlo.',false,false);cargar();
     })
-    .catch(function(){
-      _accOcupado=false;_anBloq[id]=_cargaSeq;edBotones(false,true);
-      edErr('No sabemos si se guardó y no pude leer el estado actual. <b>No se puede reintentar</b> hasta confirmarlo. <button type="button" class="btn-s" onclick="verificarEdicionDe('+Number(id)+')">↻ Verificar de nuevo</button>');
-      _edPend={id:id,p:p};
-    });
+    .catch(function(){fin('No sabemos si se guardó y no pude leer el estado actual. <b>No se puede reintentar</b> hasta confirmarlo. <button type="button" class="btn-s" onclick="verificarEdicion('+Number(id)+','+(ap==null?'null':ap)+')">↻ Verificar de nuevo</button>',
+      'No pude leer el estado del pago. La edición sigue bloqueada; usa «Verificar edición» en la fila.',false,false);});
 }
-var _edPend=null; function verificarEdicionDe(id){if(_edPend&&_edPend.id===id)verificarEdicion(id,_edPend.p);}
 // Calce con ingresos del banco (solo lectura; igual criterio que Conciliación: mismo cliente o ingreso sin cliente por el mismo monto).
 // Lo ve quien puede leer Conciliación (RLS de Tesorería); para el resto no aparece nada.
 var _ingresos=[];
