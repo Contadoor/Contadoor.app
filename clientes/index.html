@@ -1005,7 +1005,7 @@ function sincronizarBloqueoModales(){
   document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-bg.on')));
 }
 function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
-function cerrarDetalle() { g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarDetalle() { if (window.GestoorSII) GestoorSII.desmontar(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
@@ -1147,8 +1147,10 @@ function verDetalle(id) {
   h += '<div class="det-item"><div class="det-lbl">Trabajadores incl.</div><div class="det-val">'+(c.trab||0)+'</div></div>';
   h += '</div>';
   if (c.obs) h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:8px"><b>Obs:</b> '+esc(c.obs)+'</div>';
+  h += '<div id="det-sii"></div>';   // Cartapra F1: tarjeta "Datos del SII" (sii-cartapra.js)
   g('detalleContent').innerHTML = h;
   g('modalDetalle').classList.add('on');
+  if (window.GestoorSII) GestoorSII.montar(g('det-sii'), c.id, { esMaster: !!(window._contadoorSesion && window._contadoorSesion.esMaster === true) });
 }
 
 // ─────────────────────────────────────────────────────
@@ -1887,6 +1889,7 @@ function precargarDesdeCotizacion() {
   obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
+<script src="sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
 </body>

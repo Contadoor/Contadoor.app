@@ -1,0 +1,838 @@
+/* pruebas/cartapra-sii-fixture.js — Respuestas de la Edge `cartapra` (accion "resumen", R3) con la FORMA REAL.
+   FICTICIAS / ANONIMIZADAS: RUT 76000000-0, nombres, folios e ids inventados; RUT de personas enmascarados por la Edge.
+   Las generó la lógica del backend (logica.ts R3) a partir del fixture anonimizado del backend, con hoy = 16-11-2026.
+   · CARTAPRA_FIXTURE_RESUMEN: piloto activo y cobertura NO confirmada (lo que verá la empresa piloto al instalar).
+   · CARTAPRA_FIXTURE_RESUMEN_COBERTURA: igual pero con CARTAPRA_F29_COBERTURA_CONFIRMADA=true (no declarados en rojo).
+   Solo para la demo y las pruebas. */
+window.CARTAPRA_FIXTURE_RESUMEN = {
+ "ok": true,
+ "conexion": {
+  "estado": "conectada",
+  "ultimaActualizacion": "2026-11-16T15:11:42.275Z",
+  "actualizando": false,
+  "cargaInicialLista": true,
+  "ultimoError": null,
+  "conectadaEn": "2026-11-16T15:10:08.000Z"
+ },
+ "puede_conectar": false,
+ "piloto": true,
+ "ficha": {
+  "regimen": "REGIMEN PRO PYME GENERAL (14D)",
+  "contabilidad": "SIMPLIFICADA",
+  "segmento": "Pequena Empresa",
+  "glosaActividad": "SERVICIOS DE PRUEBA",
+  "afecta_iva": false,
+  "iva_mixto": false,
+  "socios": [
+   {
+    "nombre": "Socia Ficticia Uno",
+    "rut": "••••••11-1",
+    "participacionCapital": 100,
+    "participacionUtilidades": 100
+   }
+  ],
+  "representantes": [
+   {
+    "nombre": "Socia Ficticia Uno",
+    "rut": "••••••11-1"
+   }
+  ]
+ },
+ "f29": {
+  "hoy": "2026-11-16",
+  "desde": "202511",
+  "hasta": "202610",
+  "vence_dia": 20,
+  "cobertura": {
+   "confirmada": false,
+   "actualizada_en": "2026-11-16T15:11:42.275Z",
+   "motivo": "cobertura_no_confirmada"
+  },
+  "periodos": [
+   {
+    "periodo": "202511",
+    "vence": "2025-12-22",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000007",
+    "rectificado": false
+   },
+   {
+    "periodo": "202512",
+    "vence": "2026-01-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000006",
+    "rectificado": false
+   },
+   {
+    "periodo": "202601",
+    "vence": "2026-02-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000005",
+    "rectificado": false
+   },
+   {
+    "periodo": "202602",
+    "vence": "2026-03-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000004",
+    "rectificado": false
+   },
+   {
+    "periodo": "202603",
+    "vence": "2026-04-20",
+    "vence_confirmado": true,
+    "estado": "sin_verificar",
+    "motivo": "cobertura_no_confirmada"
+   },
+   {
+    "periodo": "202604",
+    "vence": "2026-05-20",
+    "vence_confirmado": true,
+    "estado": "sin_verificar",
+    "motivo": "cobertura_no_confirmada"
+   },
+   {
+    "periodo": "202605",
+    "vence": "2026-06-22",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000003",
+    "rectificado": false
+   },
+   {
+    "periodo": "202606",
+    "vence": "2026-07-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000002",
+    "rectificado": false
+   },
+   {
+    "periodo": "202607",
+    "vence": "2026-08-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000001",
+    "rectificado": false
+   },
+   {
+    "periodo": "202608",
+    "vence": "2026-09-21",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000000",
+    "rectificado": false
+   },
+   {
+    "periodo": "202609",
+    "vence": "2026-10-20",
+    "vence_confirmado": true,
+    "estado": "sin_verificar",
+    "motivo": "cobertura_no_confirmada"
+   },
+   {
+    "periodo": "202610",
+    "vence": "2026-11-20",
+    "vence_confirmado": true,
+    "estado": "en_plazo"
+   }
+  ],
+  "declarados": [
+   "202511",
+   "202512",
+   "202601",
+   "202602",
+   "202605",
+   "202606",
+   "202607",
+   "202608"
+  ],
+  "en_plazo": [
+   "202610"
+  ],
+  "revisar_vencimiento": [],
+  "no_declarados": [],
+  "sin_verificar": [
+   "202603",
+   "202604",
+   "202609"
+  ],
+  "no_aplica": []
+ },
+ "monitor": {
+  "semaforo": {
+   "tono": "aviso",
+   "puntos": [
+    {
+     "clave": "compras_pendientes",
+     "tono": "aviso",
+     "texto": "3 factura(s) de compra pendientes de aceptar o reclamar."
+    }
+   ]
+  },
+  "anual": [
+   {
+    "anio": 2026,
+    "totales": {
+     "ventasNeto": 74938600,
+     "ventasTotal": 74938600,
+     "comprasNeto": 35887802,
+     "comprasTotal": 37060259,
+     "ivaRcv": -1146630,
+     "honorariosBruto": 6343189,
+     "retencion": 967336,
+     "meses": 11
+    }
+   },
+   {
+    "anio": 2025,
+    "totales": {
+     "ventasNeto": 101133000,
+     "ventasTotal": 101133000,
+     "comprasNeto": 57878328,
+     "comprasTotal": 59518299,
+     "ivaRcv": -1639971,
+     "honorariosBruto": 13052097,
+     "retencion": 1892558,
+     "meses": 12
+    }
+   }
+  ],
+  "ivaProyectado": {
+   "periodo": "202611",
+   "debito": 0,
+   "credito": 40968,
+   "remanente": 0,
+   "ppm": 4740,
+   "retencion": 180046,
+   "totalEstimado": 184786,
+   "remanenteQueda": 40968,
+   "provisorio": true
+  },
+  "mesesFaltantes": [],
+  "cuadraturaF29": [
+   {
+    "periodo": "202610",
+    "estado": "sin_f29",
+    "folio": null,
+    "lineas": []
+   },
+   {
+    "periodo": "202609",
+    "estado": "sin_f29",
+    "folio": null,
+    "lineas": []
+   },
+   {
+    "periodo": "202608",
+    "estado": "difiere",
+    "folio": "1000000000",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 128958,
+      "f29": 0,
+      "diferencia": 128958,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 143095,
+      "f29": 143095,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202607",
+    "estado": "difiere",
+    "folio": "1000000001",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 123026,
+      "f29": 0,
+      "diferencia": 123026,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 113291,
+      "f29": 113291,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202606",
+    "estado": "difiere",
+    "folio": "1000000002",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 127395,
+      "f29": 0,
+      "diferencia": 127395,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 123306,
+      "f29": 123306,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202605",
+    "estado": "difiere",
+    "folio": "1000000003",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 101754,
+      "f29": 0,
+      "diferencia": 101754,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 76058,
+      "f29": 76058,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   }
+  ],
+  "exenta": true
+ },
+ "sii": {
+  "sii_cumplimiento": {
+   "estado": "Cumple sus obligaciones tributarias",
+   "cumple": true,
+   "condiciones": [
+    {
+     "titulo": "No tener atrasos en declaración de IVA y/o Renta",
+     "cumple": true
+    },
+    {
+     "titulo": "No tener denuncias o querellas por delito",
+     "cumple": true
+    },
+    {
+     "titulo": "No tener antecedentes y/o documentos tributarios por justificar",
+     "cumple": true
+    }
+   ]
+  },
+  "sii_cartas": {
+   "total": 7,
+   "cartas": [
+    {
+     "id": "90000000",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2026-02-18",
+     "periodo": null
+    },
+    {
+     "id": "90000006",
+     "categoria": "notificacion",
+     "titulo": "Notificación de Giro por Pago Diferido Impuesto a la Renta AT2026",
+     "fecha": null,
+     "periodo": "2026",
+     "plazos": [
+      "Dentro de los 5 días hábiles"
+     ]
+    },
+    {
+     "id": "90000001",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2024-05-27",
+     "periodo": null
+    },
+    {
+     "id": "90000002",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2023-10-17",
+     "periodo": null
+    },
+    {
+     "id": "90000003",
+     "categoria": "carta",
+     "titulo": "SOLICITUD DE CORRECCIÓN O NUEVO REQUERIMIENTO PARA RESOLVER EL TRÁMITE",
+     "fecha": "2023-09-05",
+     "periodo": null
+    }
+   ]
+  },
+  "sii_alertas": {
+   "total": 0,
+   "alertas": []
+  }
+ }
+};
+window.CARTAPRA_FIXTURE_RESUMEN_COBERTURA = {
+ "ok": true,
+ "conexion": {
+  "estado": "conectada",
+  "ultimaActualizacion": "2026-11-16T15:11:42.275Z",
+  "actualizando": false,
+  "cargaInicialLista": true,
+  "ultimoError": null,
+  "conectadaEn": "2026-11-16T15:10:08.000Z"
+ },
+ "puede_conectar": false,
+ "piloto": true,
+ "ficha": {
+  "regimen": "REGIMEN PRO PYME GENERAL (14D)",
+  "contabilidad": "SIMPLIFICADA",
+  "segmento": "Pequena Empresa",
+  "glosaActividad": "SERVICIOS DE PRUEBA",
+  "afecta_iva": false,
+  "iva_mixto": false,
+  "socios": [
+   {
+    "nombre": "Socia Ficticia Uno",
+    "rut": "••••••11-1",
+    "participacionCapital": 100,
+    "participacionUtilidades": 100
+   }
+  ],
+  "representantes": [
+   {
+    "nombre": "Socia Ficticia Uno",
+    "rut": "••••••11-1"
+   }
+  ]
+ },
+ "f29": {
+  "hoy": "2026-11-16",
+  "desde": "202511",
+  "hasta": "202610",
+  "vence_dia": 20,
+  "cobertura": {
+   "confirmada": true,
+   "actualizada_en": "2026-11-16T15:11:42.275Z"
+  },
+  "periodos": [
+   {
+    "periodo": "202511",
+    "vence": "2025-12-22",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000007",
+    "rectificado": false
+   },
+   {
+    "periodo": "202512",
+    "vence": "2026-01-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000006",
+    "rectificado": false
+   },
+   {
+    "periodo": "202601",
+    "vence": "2026-02-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000005",
+    "rectificado": false
+   },
+   {
+    "periodo": "202602",
+    "vence": "2026-03-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000004",
+    "rectificado": false
+   },
+   {
+    "periodo": "202603",
+    "vence": "2026-04-20",
+    "vence_confirmado": true,
+    "estado": "no_declarado"
+   },
+   {
+    "periodo": "202604",
+    "vence": "2026-05-20",
+    "vence_confirmado": true,
+    "estado": "no_declarado"
+   },
+   {
+    "periodo": "202605",
+    "vence": "2026-06-22",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000003",
+    "rectificado": false
+   },
+   {
+    "periodo": "202606",
+    "vence": "2026-07-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000002",
+    "rectificado": false
+   },
+   {
+    "periodo": "202607",
+    "vence": "2026-08-20",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000001",
+    "rectificado": false
+   },
+   {
+    "periodo": "202608",
+    "vence": "2026-09-21",
+    "vence_confirmado": true,
+    "estado": "declarado",
+    "folio": "1000000000",
+    "rectificado": false
+   },
+   {
+    "periodo": "202609",
+    "vence": "2026-10-20",
+    "vence_confirmado": true,
+    "estado": "no_declarado"
+   },
+   {
+    "periodo": "202610",
+    "vence": "2026-11-20",
+    "vence_confirmado": true,
+    "estado": "en_plazo"
+   }
+  ],
+  "declarados": [
+   "202511",
+   "202512",
+   "202601",
+   "202602",
+   "202605",
+   "202606",
+   "202607",
+   "202608"
+  ],
+  "en_plazo": [
+   "202610"
+  ],
+  "revisar_vencimiento": [],
+  "no_declarados": [
+   "202603",
+   "202604",
+   "202609"
+  ],
+  "sin_verificar": [],
+  "no_aplica": []
+ },
+ "monitor": {
+  "semaforo": {
+   "tono": "aviso",
+   "puntos": [
+    {
+     "clave": "compras_pendientes",
+     "tono": "aviso",
+     "texto": "3 factura(s) de compra pendientes de aceptar o reclamar."
+    }
+   ]
+  },
+  "anual": [
+   {
+    "anio": 2026,
+    "totales": {
+     "ventasNeto": 74938600,
+     "ventasTotal": 74938600,
+     "comprasNeto": 35887802,
+     "comprasTotal": 37060259,
+     "ivaRcv": -1146630,
+     "honorariosBruto": 6343189,
+     "retencion": 967336,
+     "meses": 11
+    }
+   },
+   {
+    "anio": 2025,
+    "totales": {
+     "ventasNeto": 101133000,
+     "ventasTotal": 101133000,
+     "comprasNeto": 57878328,
+     "comprasTotal": 59518299,
+     "ivaRcv": -1639971,
+     "honorariosBruto": 13052097,
+     "retencion": 1892558,
+     "meses": 12
+    }
+   }
+  ],
+  "ivaProyectado": {
+   "periodo": "202611",
+   "debito": 0,
+   "credito": 40968,
+   "remanente": 0,
+   "ppm": 4740,
+   "retencion": 180046,
+   "totalEstimado": 184786,
+   "remanenteQueda": 40968,
+   "provisorio": true
+  },
+  "mesesFaltantes": [],
+  "cuadraturaF29": [
+   {
+    "periodo": "202610",
+    "estado": "sin_f29",
+    "folio": null,
+    "lineas": []
+   },
+   {
+    "periodo": "202609",
+    "estado": "sin_f29",
+    "folio": null,
+    "lineas": []
+   },
+   {
+    "periodo": "202608",
+    "estado": "difiere",
+    "folio": "1000000000",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 128958,
+      "f29": 0,
+      "diferencia": 128958,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 143095,
+      "f29": 143095,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202607",
+    "estado": "difiere",
+    "folio": "1000000001",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 123026,
+      "f29": 0,
+      "diferencia": 123026,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 113291,
+      "f29": 113291,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202606",
+    "estado": "difiere",
+    "folio": "1000000002",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 127395,
+      "f29": 0,
+      "diferencia": 127395,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 123306,
+      "f29": 123306,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   },
+   {
+    "periodo": "202605",
+    "estado": "difiere",
+    "folio": "1000000003",
+    "lineas": [
+     {
+      "concepto": "debito",
+      "etiqueta": "IVA débito (ventas)",
+      "rcv": 0,
+      "f29": 0,
+      "diferencia": 0,
+      "coincide": true
+     },
+     {
+      "concepto": "credito",
+      "etiqueta": "IVA crédito del mes (compras)",
+      "rcv": 101754,
+      "f29": 0,
+      "diferencia": 101754,
+      "coincide": false
+     },
+     {
+      "concepto": "retencion",
+      "etiqueta": "Retención de honorarios",
+      "rcv": 76058,
+      "f29": 76058,
+      "diferencia": 0,
+      "coincide": true
+     }
+    ]
+   }
+  ],
+  "exenta": true
+ },
+ "sii": {
+  "sii_cumplimiento": {
+   "estado": "Cumple sus obligaciones tributarias",
+   "cumple": true,
+   "condiciones": [
+    {
+     "titulo": "No tener atrasos en declaración de IVA y/o Renta",
+     "cumple": true
+    },
+    {
+     "titulo": "No tener denuncias o querellas por delito",
+     "cumple": true
+    },
+    {
+     "titulo": "No tener antecedentes y/o documentos tributarios por justificar",
+     "cumple": true
+    }
+   ]
+  },
+  "sii_cartas": {
+   "total": 7,
+   "cartas": [
+    {
+     "id": "90000000",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2026-02-18",
+     "periodo": null
+    },
+    {
+     "id": "90000006",
+     "categoria": "notificacion",
+     "titulo": "Notificación de Giro por Pago Diferido Impuesto a la Renta AT2026",
+     "fecha": null,
+     "periodo": "2026",
+     "plazos": [
+      "Dentro de los 5 días hábiles"
+     ]
+    },
+    {
+     "id": "90000001",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2024-05-27",
+     "periodo": null
+    },
+    {
+     "id": "90000002",
+     "categoria": "carta",
+     "titulo": "Modificación del registro de contribuyentes",
+     "fecha": "2023-10-17",
+     "periodo": null
+    },
+    {
+     "id": "90000003",
+     "categoria": "carta",
+     "titulo": "SOLICITUD DE CORRECCIÓN O NUEVO REQUERIMIENTO PARA RESOLVER EL TRÁMITE",
+     "fecha": "2023-09-05",
+     "periodo": null
+    }
+   ]
+  },
+  "sii_alertas": {
+   "total": 0,
+   "alertas": []
+  }
+ }
+};
