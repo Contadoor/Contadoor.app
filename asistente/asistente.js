@@ -206,6 +206,7 @@
   // ── Columna 1 · lista ──────────────────────────────────────────────────────
   // Archivo enviado por el equipo desde la bandeja: saliente, autor humano, tipo documento (PDF) o imagen (JPG/PNG).
   function esAdjuntoEquipo(m){return !!m&&m.direccion==='saliente'&&m.autor==='humano'&&(m.tipo==='documento'||m.tipo==='imagen');}
+  function momentoConv(c){var u=c&&c.ultimo,t=(u&&u.created_at)||c.last_activity_at||'';var n=Date.parse(t);return isNaN(n)?0:n;}
   function previa(c){
     var u=c.ultimo;
     if(!u)return {t:'Sin mensajes',vacia:true};
@@ -241,6 +242,8 @@
       var p=previa(c).t;
       return [p,c.telefono_mascara,S.nombres[c.id],c.etapa].join(' ').toLowerCase().indexOf(q)>=0;
     });
+    // 17-11 (Luciano): como WhatsApp, arriba la conversación con el mensaje más reciente (entrante o saliente).
+    l.sort(function(a,b){var ta=momentoConv(a),tb=momentoConv(b);return ta<tb?1:ta>tb?-1:0;});
     var top=cont.scrollTop;
     if(!l.length){
       cont.innerHTML='<div class="as-vacio">'+(S.convs.length?'No hay conversaciones con este filtro.':'Todavía no hay conversaciones.')+'</div>';
