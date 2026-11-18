@@ -1598,8 +1598,13 @@ function prepararSiiLista(forzar) {
   var ses = window._contadoorSesion || {};
   GestoorSII.prepararLista(cs[0].id, ses.esMaster === true || ses.rol === 'master').then(function (r) { if (r && r.puede) renderClientes(); });
 }
+// Onboarding L1 (18-11): ?abrir=<id> abre la ficha del cliente recién creado (una sola vez, cuando la lista ya cargó).
+var _abrirPedido = (function(){ try { var v = new URLSearchParams(location.search).get('abrir'); return /^\d{1,18}$/.test(v || '') ? Number(v) : null; } catch (e) { return null; } })();
 function renderClientes() {
   setTimeout(function(){ prepararSiiLista(false); }, 0);
+  if (_abrirPedido && getClientes().some(function(x){ return Number(x.id) === _abrirPedido; })) {
+    var idA = _abrirPedido; _abrirPedido = null; setTimeout(function(){ abrirEditar(idA); }, 0);
+  }
   var q   = (gv('searchQ') || '').toLowerCase();
   var fp  = gv('filterPlan');
   var fe  = gv('filterEstado');

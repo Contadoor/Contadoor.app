@@ -1,0 +1,18 @@
+/* prospectos/onboarding.css — Onboarding L1 (18-11). Encima de comercial.css + simple.css (misma lista + ficha). */
+.g-mod-com .onb-row{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 150px 140px}
+.g-mod-com .onb-vacio{padding:28px 20px;text-align:center;color:var(--t1);font-size:15px}
+.g-mod-com .onb-vacio small{display:block;color:var(--t2);font-size:13px;margin-top:6px}
+.g-mod-com .onb-lead{background:#1b0d1f;border:1px solid var(--borde);border-radius:12px;padding:12px 14px;margin-top:10px}
+.g-mod-com .onb-lead p{margin:2px 0;font-size:13.5px;color:var(--t1)}
+.g-mod-com .onb-sit{color:var(--t2)!important;font-style:italic}
+.g-mod-com .onb-sl{display:block;font-size:12px;color:var(--t2);margin:6px 0 4px}
+.g-mod-com .onb-check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--t1)}
+.g-mod-com .onb-check input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--verde)}
+.g-mod-com .cs-ficha .onb-mini{width:64px!important;min-height:32px!important;padding:4px 8px!important;text-align:center}
+.g-mod-com .onb-faltan{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(255,200,90,.1);border:1px solid rgba(255,200,90,.35);color:var(--ambar);font-size:12.5px}
+.g-mod-com .onb-faltan b{color:var(--t1);font-weight:600}
+.g-mod-com .onb-ok{margin-top:12px;padding:12px 14px;border-radius:12px;background:#173a2c;border:1px solid #2f6b52}
+.g-mod-com .onb-ok b{color:var(--verde)}.g-mod-com .onb-ok p{margin:6px 0 10px;font-size:13px;color:var(--t1)}
+.g-mod-com .btn.onb-desc{border-color:#6b3530;color:var(--rojo);background:transparent}
+.g-mod-com .btn.onb-desc:hover{background:#3a1a17}
+@media (max-width:980px){.g-mod-com .onb-row{grid-template-columns:1fr auto}.g-mod-com .onb-row>span:nth-child(2),.g-mod-com .onb-row>span:nth-child(3){display:none}}

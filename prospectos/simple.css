@@ -66,3 +66,5 @@
   .g-mod-com .cs-dos{grid-template-columns:1fr}
   .g-mod-com .cs-pend .cs-acc{width:100%}.g-mod-com .cs-pend .cs-acc .btn{flex:1}
 }
+/* Onboarding L1 (18-11): acceso desde un prospecto Ganado */
+.g-mod-com .btn.cs-onb{border-color:#2f6b52;background:#173a2c;color:var(--verde)}.g-mod-com .btn.cs-onb:hover{background:#1d4a38}
