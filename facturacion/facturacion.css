@@ -731,3 +731,26 @@ body.fa-con-franja.g-mod-fact .fx-modal.on{top:calc(50% + 20px)}
 body.g-mod-fact.fx-ver-real .topbar>.prueba{display:none}
 body.g-mod-fact.fx-ver-real .content>.fx-aviso[role="note"]{display:none}   /* el aviso "emisión real bloqueada" no aplica a un grupo ya emitido */
 @media (max-width:640px){.g-mod-fact .fx-kpis.fx-kpis-real{grid-template-columns:1fr}.g-mod-fact .fx-modo{display:flex}.g-mod-fact .fx-modo .fb{flex:1;justify-content:center}}
+
+/* Resumen del período (18-11): facturación total sin cambiar de grupo */
+.g-mod-fact .fx-resumen:empty{display:none}
+.g-mod-fact .fx-resumen{margin-bottom:16px}
+.g-mod-fact .fx-res-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.g-mod-fact .fx-res-h b{font:800 15px var(--g-titulo);color:#fff}
+.g-mod-fact .fx-res-h small{color:var(--t2);font-size:12px;margin-left:auto}
+.g-mod-fact .fx-res-grid{display:grid;grid-template-columns:1.3fr repeat(3,minmax(0,1fr));gap:12px}
+.g-mod-fact .fx-res-caja{display:flex;flex-direction:column;gap:3px;text-align:left;font:inherit;color:inherit;background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:16px;padding:14px 16px;min-width:0}
+.g-mod-fact button.fx-res-caja{cursor:pointer;transition:border-color .15s ease,background-color .15s ease}
+@media (hover:hover) and (pointer:fine){.g-mod-fact button.fx-res-caja:hover{border-color:rgba(227,155,229,.45);background:rgba(255,255,255,.06)}}
+.g-mod-fact button.fx-res-caja.on{border-color:var(--mor2);background:rgba(146,72,147,.14)}
+.g-mod-fact .fx-res-caja.total{background:linear-gradient(135deg,rgba(128,56,137,.35),rgba(164,89,156,.18));border-color:rgba(199,123,201,.5)}
+.g-mod-fact .fx-res-caja .l{display:flex;align-items:center;gap:6px;font:700 10px var(--g-texto);letter-spacing:1.2px;color:var(--t2);text-transform:uppercase}
+.g-mod-fact .fx-res-caja .v{font:900 24px/1.15 var(--g-titulo);letter-spacing:-.01em;color:#fff}
+.g-mod-fact .fx-res-caja.total .v{font-size:30px}
+.g-mod-fact .fx-res-caja .s{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2)}
+.g-mod-fact .fx-res-caja .s.pend{color:var(--amb)}
+.g-mod-fact .fx-res-caja .s.ok{color:var(--ver)}
+.g-mod-fact .fx-res-caja .s .ic svg,.g-mod-fact .fx-res-caja .l .ic svg{width:13px;height:13px}
+.g-mod-fact .fx-aviso.ok{background:rgba(95,207,156,.08);border-color:rgba(95,207,156,.4)}
+@media (max-width:900px){.g-mod-fact .fx-res-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.g-mod-fact .fx-res-h small{margin-left:0}}
+@media (max-width:520px){.g-mod-fact .fx-res-grid{grid-template-columns:1fr}}
