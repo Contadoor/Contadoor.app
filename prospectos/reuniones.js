@@ -37,12 +37,17 @@ function enVista(g){
   if(VISTA==='semana')return g==='hoy'||g==='manana'||g==='semana';
   return g==='proximas';
 }
+// 18-11 (Luciano: "la reunión de venta también la íbamos a acotar"): cada reunión abre la FICHA SIMPLE del prospecto
+// (estado, situación, plan, próximo contacto). La bitácora con guion queda como opción secundaria ("Guion").
 function botonBitacora(x,grande){
-  var b=x.bitacora, puede=DATA.yo&&DATA.yo.escribe, url='bitacora.html?reserva='+Number(x.reserva_id)+(D.DEMO?'&demo=1':'');
-  if(b&&b.estado!=='abierta')return '<a class="btn sm" href="bitacora.html?id='+Number(b.id)+(D.DEMO?'&demo=1':'')+'">📄 Ver bitácora</a>';
-  if(b)return '<a class="btn p'+(grande?' xl':' sm')+'" href="'+url+'">📝 Continuar bitácora</a>';
-  if(!puede||x.estado==='cancelada'||x.estado==='inconsistente')return '';
-  return '<a class="btn p'+(grande?' xl':' sm')+'" href="'+url+'">📝 Abrir bitácora</a>';
+  var b=x.bitacora, puede=DATA.yo&&DATA.yo.escribe, dm=D.DEMO?'&demo=1':'', lid=x.lead&&x.lead.id;
+  var url='bitacora.html?reserva='+Number(x.reserva_id)+dm;
+  var ficha=lid?'<a class="btn p'+(grande?' xl':' sm')+'" href="simple.html?id='+Number(lid)+dm+'">📝 Abrir ficha</a>':'';
+  var guion='';
+  if(b&&b.estado!=='abierta')guion='<a class="btn sm" href="bitacora.html?id='+Number(b.id)+dm+'" title="Bitácora con guion (cerrada)">📄 Guion</a>';
+  else if(b)guion='<a class="btn sm" href="'+url+'" title="Seguir la bitácora con guion">📋 Guion</a>';
+  else if(puede&&x.estado!=='cancelada'&&x.estado!=='inconsistente')guion='<a class="btn sm" href="'+url+'" title="Opcional: reunión guiada paso a paso">📋 Guion</a>';
+  return ficha+guion;
 }
 function reuHTML(x,g){
   var l=x.lead||{}, o=D.origen(l), est=D.ESTADO_RES[x.estado]||[x.estado,'gris'];
