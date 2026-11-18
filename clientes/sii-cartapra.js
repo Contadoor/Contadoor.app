@@ -510,11 +510,11 @@
   // Pide "resumen" (Master y analista contable asignado) y devuelve solo la ficha. Nada se guarda aquí:
   // el formulario se llena en pantalla y el usuario decide con «Guardar».
   function fichaParaFormulario(clienteId) {
-    return llamar('resumen', Number(clienteId)).then(function (j) {
+    return llamar('formulario', Number(clienteId)).then(function (j) {
       var c = j.conexion || {};
       if (c.estado !== 'conectada') throw { status: 409, error: 'NO_CONECTADA', detalle: 'Esta empresa aún no está conectada con el SII. Conéctala primero con el botón de la lista de clientes.' };
-      if (!j.ficha) throw { status: 409, error: 'SIN_FICHA', detalle: c.cargaInicialLista ? 'Cartapra todavía no entrega la ficha de esta empresa.' : 'Cartapra está leyendo el SII por primera vez. Intenta en unos minutos.' };
-      return j.ficha;
+      if (!j.formulario) throw { status: 409, error: 'SIN_FICHA', detalle: c.cargaInicialLista ? 'Cartapra todavía no entrega la ficha de esta empresa.' : 'Cartapra está leyendo el SII por primera vez. Intenta en unos minutos.' };
+      return j.formulario;
     });
   }
   function regimenCodigo(t) {
