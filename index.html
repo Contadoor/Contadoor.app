@@ -108,6 +108,29 @@
 @media(max-width:1100px){.in-grid2{grid-template-columns:1fr}}
 @media(max-width:560px){.in-aprob{flex-wrap:wrap;padding-top:46px}.in-est,.in-pr{grid-template-columns:1fr}.in-bars{height:170px;gap:6px}.in-bar .v{font-size:10px}}
 </style>
+<style>
+.md-ir{float:right;font:600 12px var(--g-texto,Inter,sans-serif);color:#C77BC9;text-decoration:none}
+.md-ir:hover{text-decoration:underline}
+.md-kpis{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 12px}
+.md-kpis div{display:flex;flex-direction:column}
+.md-kpis b{font:800 20px Montserrat,sans-serif}
+.md-kpis span{font-size:11.5px;opacity:.75}
+.md-lista{list-style:none;margin:0;padding:0}
+.md-lista li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid rgba(255,255,255,.07);font-size:12.5px}
+.md-lista li span:last-child{font-family:monospace;white-space:nowrap}
+.md-tramos{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:8px 0 4px;background:#2A1430}
+.md-tramos i{display:block;height:100%}
+.md-ley{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;opacity:.85;margin-bottom:10px}
+.md-ley i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.md-barras{display:flex;align-items:flex-end;gap:3px;height:110px;margin:6px 0}
+.md-barras .d{flex:1;background:linear-gradient(180deg,#C77BC9,#924893);border-radius:3px 3px 0 0;min-height:2px}
+.md-barras .d.cero{background:#2A1430}
+.md-pares{display:flex;align-items:flex-end;gap:14px;height:130px;margin:8px 0 4px}
+.md-pares .m{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
+.md-pares .b2{display:flex;align-items:flex-end;gap:3px;height:100px}
+.md-pares .b2 i{display:block;width:14px;border-radius:3px 3px 0 0;min-height:2px}
+.md-err{font-size:12px;color:#E07A6E}
+</style>
 </head>
 <body class="g-shell g-tema-noche g-mod-inicio">
 <div class="layout">
@@ -123,10 +146,10 @@
     <div class="in-err" id="in-err" role="alert"></div>
     <div id="in-hero"></div>
 
-    <section class="in-card in-pronto in-aprob">
-      <span class="tag">Próximamente</span>
-      <span class="ic"><span data-g-ic="aprobar"></span></span>
-      <div><h2 style="margin:0">Pagos por aprobar</h2><p>Aquí verás los pagos que el equipo envía a tu aprobación. Se activa cuando Aprobaciones guarde sus datos en la base de Gestoor (hoy los guarda en el navegador).</p></div>
+    <section class="in-card" id="md-aprob">
+      <h2><span data-g-ic="aprobar"></span> Pagos por aprobar <a class="md-ir" href="pagos/index.html">Ir a Aprobaciones →</a></h2>
+      <div class="sub">Pagos que el equipo envió a tu aprobación y pagos con plata de Contadoor esperando tu autorización</div>
+      <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
     </section>
 
     <div class="in-grid2">
@@ -155,13 +178,31 @@
         <div class="sub">Toca un estado para ver cuáles son</div>
         <div class="in-est" id="in-est"></div>
       </section>
-      <div class="in-pr">
-        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="banco"></span> Recaudación diaria</h3><p>Pagos recibidos día a día, de Nuestros servicios y adicionales.</p></section>
-        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="cobranza"></span> Cuentas por cobrar</h3><p>Antigüedad de la deuda y principales deudores.</p></section>
-        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="grafico"></span> Ingresos vs facturación</h3><p>Cuánto de lo facturado se ha recaudado, mes a mes.</p></section>
-        <section class="in-card in-pronto"><span class="tag">Pronto</span><h3><span data-g-ic="factura"></span> Servicios adicionales</h3><p>Operación Renta, regularizaciones, informes y otros.</p></section>
-      </div>
+      <section class="in-card" id="md-cxc">
+        <h2><span data-g-ic="cobranza"></span> Cuentas por cobrar <a class="md-ir" href="cobranza/index.html">Ir a Cobranza →</a></h2>
+        <div class="sub">Facturas de Nuestros servicios pendientes · antigüedad y principales deudores</div>
+        <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
+      </section>
     </div>
+
+    <div class="in-grid2">
+      <section class="in-card" id="md-recaudacion">
+        <h2><span data-g-ic="banco"></span> Recaudación diaria <a class="md-ir" href="conciliacion/index.html">Ir a Conciliación →</a></h2>
+        <div class="sub">Transferencias recibidas en el banco · últimos 30 días</div>
+        <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
+      </section>
+      <section class="in-card" id="md-ivf">
+        <h2><span data-g-ic="grafico"></span> Facturado vs recaudado <a class="md-ir" href="cobranza/index.html">Ir a Cobranza →</a></h2>
+        <div class="sub">Nuestros servicios · últimos 6 meses (facturado por período, recaudado por fecha de pago)</div>
+        <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
+      </section>
+    </div>
+
+    <section class="in-card" id="md-adic" style="margin-top:16px">
+      <h2><span data-g-ic="factura"></span> Servicios adicionales <a class="md-ir" href="facturacion/index.html">Ir a Facturación →</a></h2>
+      <div class="sub">Facturas adicionales (Operación Renta, regularizaciones, informes y otros)</div>
+      <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
+    </section>
 
     <section class="in-card in-pronto" style="margin-top:16px">
       <span class="tag">Próximamente</span>
@@ -335,6 +376,78 @@ function pintar(meses){
   document.getElementById('in-est').innerHTML=EST.map(function(e){var n=_cli.filter(function(c){return e[0]==='inactivo'?(c.estado==='inactivo'||c.estado==='termino'||c.estado==='en_termino'):c.estado===e[0];}).length;
     return '<button type="button" class="'+e[0]+'" onclick="verCuales(\''+e[0]+'\',\''+e[1]+'\')"><span>'+e[1]+'<small>Ver cuáles</small></span><b>'+n+'</b></button>';}).join('');
   if(window.gIconos)gIconos(document);
+  cargarModulos();
+}
+
+// ── Dashboard conectado a los módulos (17-11): cada tarjeta carga por su cuenta y falla sola (nunca ceros inventados) ──
+function mdCuerpo(id,html){var e=document.querySelector('#'+id+' .md-cuerpo');if(e)e.innerHTML=html;}
+function mdError(id){mdCuerpo(id,'<div class="md-err">No se pudo cargar esta información. Recarga la página; si persiste, avísanos.</div>');}
+function cliPorId(id){return _cli.find(function(c){return Number(c.id)===Number(id);})||null;}
+function nomCli(rut){var c=_cli.find(function(x){return x.rut===rut;});return c?c.razon:rut;}
+function hoyYmd(){return hoyChile();}
+function diasEntre(a,b){return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/864e5);}
+function cargarModulos(){
+  // 1) Pagos por aprobar (Aprobaciones = obligaciones_pago en la base)
+  q('obligaciones_pago?select=id,cliente_rut,concepto,monto_exigible,estado,origen_fondos,fondos_autorizados_at&or=(estado.eq.pendiente_aprobacion,and(origen_fondos.eq.contadoor,estado.eq.pendiente_fondos,fondos_autorizados_at.is.null))&order=created_at.asc&limit=200')
+    .then(function(rows){rows=rows||[];
+      var apr=rows.filter(function(o){return o.estado==='pendiente_aprobacion';}),aut=rows.filter(function(o){return o.estado!=='pendiente_aprobacion';});
+      var tot=function(L){return L.reduce(function(s,o){return s+Number(o.monto_exigible||0);},0);};
+      if(!rows.length){mdCuerpo('md-aprob','<div class="g-vacio">✅ No hay pagos esperando tu aprobación ni autorización.</div>');return;}
+      mdCuerpo('md-aprob','<div class="md-kpis"><div><b>'+apr.length+'</b><span>por aprobar · '+ff(tot(apr))+'</span></div><div><b>'+aut.length+'</b><span>plata de Contadoor por autorizar · '+ff(tot(aut))+'</span></div></div>'
+        +'<ul class="md-lista">'+rows.slice(0,6).map(function(o){return '<li><span>'+(o.estado==='pendiente_aprobacion'?'Aprobar':'Autorizar')+' · '+hesc(nomCli(o.cliente_rut))+' · '+hesc(o.concepto||'')+'</span><span>'+ff(o.monto_exigible)+'</span></li>';}).join('')+'</ul>');
+    },function(){mdError('md-aprob');});
+  // 2) Cuentas por cobrar (Cobranza: documentos pendientes)
+  q('cobranza_documentos?select=cliente_id,saldo,fecha_vencimiento&estado=eq.PENDIENTE&saldo=gt.0&limit=5000')
+    .then(function(rows){rows=rows||[];var hoy=hoyYmd();
+      if(!rows.length){mdCuerpo('md-cxc','<div class="g-vacio">✅ No hay facturas pendientes.</div>');return;}
+      var T=[['Por vencer','#5FCF9C',function(d){return d<=0;}],['1–30 días','#E8C25B',function(d){return d>=1&&d<=30;}],['31–60','#E89A5B',function(d){return d>=31&&d<=60;}],['61–90','#E07A6E',function(d){return d>=61&&d<=90;}],['+90 días','#B3443A',function(d){return d>90;}]];
+      var tr=T.map(function(){return 0;}),total=0,porCli={};
+      rows.forEach(function(r){var s=Number(r.saldo)||0,d=r.fecha_vencimiento?diasEntre(String(r.fecha_vencimiento).slice(0,10),hoy):0;total+=s;
+        for(var i=0;i<T.length;i++)if(T[i][2](d)){tr[i]+=s;break;}porCli[r.cliente_id]=(porCli[r.cliente_id]||0)+s;});
+      var top=Object.keys(porCli).map(function(k){return [k,porCli[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+      var venc=total-tr[0];
+      mdCuerpo('md-cxc','<div class="md-kpis"><div><b>'+ff(total)+'</b><span>por cobrar · '+rows.length+' facturas</span></div><div><b style="color:#E07A6E">'+ff(venc)+'</b><span>vencido</span></div></div>'
+        +'<div class="md-tramos">'+T.map(function(t,i){return tr[i]>0?'<i style="width:'+(tr[i]*100/total)+'%;background:'+t[1]+'" title="'+hesc(t[0]+' '+ff(tr[i]))+'"></i>':'';}).join('')+'</div>'
+        +'<div class="md-ley">'+T.map(function(t,i){return '<span><i style="background:'+t[1]+'"></i>'+t[0]+' '+ffc(tr[i])+'</span>';}).join('')+'</div>'
+        +'<ul class="md-lista">'+top.map(function(x){var c=cliPorId(x[0]);return '<li><span>'+hesc(c?c.razon:'Cliente #'+x[0])+'</span><span>'+ff(x[1])+'</span></li>';}).join('')+'</ul>');
+    },function(){mdError('md-cxc');});
+  // 3) Recaudación diaria (Conciliación: ingresos del banco) + lo que falta conciliar
+  var desde=new Date(Date.now()-29*864e5).toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
+  Promise.all([q('concil_movimientos?select=fecha,monto,estado&fecha=gte.'+desde+'&order=fecha.asc&limit=5000'),
+               q('concil_movimientos?select=saldo&estado=in.(por_conciliar,parcial)&limit=5000')])
+    .then(function(r){var rows=r[0]||[],pend=r[1]||[];var dias={},tot=0;
+      for(var i=0;i<30;i++){var d=new Date(Date.now()-(29-i)*864e5).toLocaleDateString('en-CA',{timeZone:'America/Santiago'});dias[d]=0;}
+      rows.forEach(function(m){if(m.estado==='descartado')return;var d=String(m.fecha).slice(0,10);if(d in dias){dias[d]+=Number(m.monto)||0;tot+=Number(m.monto)||0;}});
+      var mx=Math.max.apply(null,Object.keys(dias).map(function(k){return dias[k];}).concat([1]));
+      var porConc=pend.reduce(function(s,m){return s+Number(m.saldo||0);},0);
+      mdCuerpo('md-recaudacion','<div class="md-kpis"><div><b>'+ff(tot)+'</b><span>recibido en 30 días</span></div><div><b style="color:#E8C25B">'+ff(porConc)+'</b><span>por conciliar · '+pend.length+' ingresos</span></div></div>'
+        +'<div class="md-barras">'+Object.keys(dias).map(function(k){var v=dias[k];return '<span class="d'+(v?'':' cero')+'" style="height:'+(v?Math.max(3,v/mx*100):2)+'%" title="'+hesc(k.split('-').reverse().join('-')+': '+ff(v))+'"></span>';}).join('')+'</div>'
+        +'<div class="md-ley"><span>'+hesc(desde.split('-').reverse().join('-'))+'</span><span style="margin-left:auto">hoy</span></div>');
+    },function(){mdError('md-recaudacion');});
+  // 4) Facturado vs recaudado (Cobranza)
+  var meses=mesesAtras(_perAct?_perAct.periodo:hoyChile().slice(0,7),6);
+  Promise.all([q('cobranza_documentos?select=periodo,monto,estado&estado=neq.ANULADO&periodo=in.('+meses.join(',')+')&limit=5000'),
+               q('cobranza_pagos?select=fecha_pago,monto&estado=eq.VIGENTE&fecha_pago=gte.'+meses[0]+'-01&limit=5000')])
+    .then(function(r){var F={},R={};meses.forEach(function(m){F[m]=0;R[m]=0;});
+      (r[0]||[]).forEach(function(d){var m=perDash(d.periodo);if(m in F)F[m]+=Number(d.monto)||0;});
+      (r[1]||[]).forEach(function(p){var m=String(p.fecha_pago).slice(0,7);if(m in R)R[m]+=Number(p.monto)||0;});
+      var mx=Math.max.apply(null,meses.map(function(m){return Math.max(F[m],R[m]);}).concat([1]));
+      var tf=meses.reduce(function(s,m){return s+F[m];},0),trc=meses.reduce(function(s,m){return s+R[m];},0);
+      mdCuerpo('md-ivf','<div class="md-kpis"><div><b>'+ff(tf)+'</b><span>facturado 6 meses</span></div><div><b style="color:#5FCF9C">'+ff(trc)+'</b><span>recaudado 6 meses'+(tf?' · '+Math.round(trc*100/tf)+'%':'')+'</span></div></div>'
+        +'<div class="md-pares">'+meses.map(function(m){var mm=+m.split('-')[1];return '<div class="m"><div class="b2"><i style="height:'+(F[m]/mx*100)+'%;background:#924893" title="Facturado '+hesc(ff(F[m]))+'"></i><i style="height:'+(R[m]/mx*100)+'%;background:#5FCF9C" title="Recaudado '+hesc(ff(R[m]))+'"></i></div>'+MES[mm-1]+'</div>';}).join('')+'</div>'
+        +'<div class="md-ley"><span><i style="background:#924893"></i>Facturado</span><span><i style="background:#5FCF9C"></i>Recaudado</span></div>');
+    },function(){mdError('md-ivf');});
+  // 5) Servicios adicionales (Facturación: facturas adicionales)
+  q('facturas_adicionales?select=estado,total,emitida_at,creado_at&limit=5000')
+    .then(function(rows){rows=rows||[];
+      if(!rows.length){mdCuerpo('md-adic','<div class="g-vacio">Aún no hay facturas adicionales.</div>');return;}
+      var por={};rows.forEach(function(f){por[f.estado]=(por[f.estado]||0)+1;});
+      var mes=hoyChile().slice(0,7),emMes=rows.filter(function(f){return f.estado==='EMITIDA'&&String(f.emitida_at||'').slice(0,7)===mes;});
+      var totMes=emMes.reduce(function(s,f){return s+Number(f.total||0);},0),totEm=rows.filter(function(f){return f.estado==='EMITIDA';}).reduce(function(s,f){return s+Number(f.total||0);},0);
+      var ET={BORRADOR:'Borrador',ENVIADA:'Por aprobar',APROBADA:'Aprobada',EMITIDA:'Emitida',DEVUELTA:'Devuelta',ANULADA:'Anulada',RECHAZADA:'Rechazada',INCIERTA:'Incierta'};
+      mdCuerpo('md-adic','<div class="md-kpis"><div><b>'+ff(totMes)+'</b><span>emitido este mes · '+emMes.length+' factura(s)</span></div><div><b>'+ff(totEm)+'</b><span>emitido en total</span></div>'
+        +Object.keys(por).map(function(k){return '<div><b>'+por[k]+'</b><span>'+hesc(ET[k]||k)+'</span></div>';}).join('')+'</div>');
+    },function(){mdError('md-adic');});
 }
 function _vigente(c){return c.estado==='activo'||c.estado==='onboarding';}
 var _repActCarga=[], _ultTrabCarga={};
