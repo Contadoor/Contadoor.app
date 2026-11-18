@@ -155,7 +155,7 @@
     <div class="in-grid2">
       <section class="in-card">
         <h2><span data-g-ic="grafico"></span> Facturación de Nuestros servicios</h2>
-        <div class="sub">Últimos 6 meses · calculada igual que el Panel de Control (plan + trabajadores − descuento)</div>
+        <div class="sub" id="in-bars-sub">Últimos 6 meses · lo facturado real (SII): Gestoor desde octubre 2026 e historial de OpenFactura antes</div>
         <div class="in-bars" id="in-bars"></div>
         <div class="in-ley"><span><i style="background:linear-gradient(180deg,#C77BC9,#924893)"></i>Completa</span><span><i style="background:repeating-linear-gradient(135deg,#924893 0 3px,#6D2E6E 3px 6px)"></i>Parcial (faltan datos en algún cliente)</span><span><i style="background:#2A1430"></i>Sin nómina</span></div>
       </section>
@@ -193,7 +193,7 @@
       </section>
       <section class="in-card" id="md-ivf">
         <h2><span data-g-ic="grafico"></span> Facturado vs recaudado <a class="md-ir" href="cobranza/index.html">Ir a Cobranza →</a></h2>
-        <div class="sub">Nuestros servicios · últimos 6 meses (facturado por período, recaudado por fecha de pago)</div>
+        <div class="sub">Nuestros servicios · últimos 6 meses (lo facturado de cada período y cuánto de eso ya se cobró)</div>
         <div class="md-cuerpo"><div class="g-vacio">Cargando…</div></div>
       </section>
     </div>
@@ -326,22 +326,23 @@ function cargar(){
   });
 }
 
+var _servEstimado=0;
 function pintar(meses){
   var u=getUsuario()||{}, nombre=String(u.nombre||'').split(' ')[0];
   var hr=new Date().getHours(), saludo=hr<12?'Buenos días':hr<20?'Buenas tardes':'Buenas noches';
   var pa=_perAct?perDash(_perAct.periodo):null;
   var repAct=_rep.filter(function(r){return pa&&String(r.periodo).replace('-','')===pa.replace('-','');});
-  var serv=0,parcial=0;repAct.forEach(function(r){var s=calcularServicios(r);serv+=s.total;if(!s.ok)parcial++;});
+  var serv=0,parcial=0;repAct.forEach(function(r){var s=calcularServicios(r);serv+=s.total;if(!s.ok)parcial++;});_servEstimado=serv;
   var completos=repAct.filter(function(r){return _estadoSecciones(r).completo;}).length;
   var enviados=repAct.filter(function(r){return _estadoSecciones(r).enviado;}).length;
   var activos=_cli.filter(function(c){return c.estado==='activo';}).length, onb=_cli.filter(function(c){return c.estado==='onboarding';}).length;
   var chip=document.getElementById('in-per');
   if(_perAct){chip.innerHTML=gIcon('calendario')+' '+hesc(perTxt(pa))+(_ufDelPeriodo(pa)?' <em>· UF $'+_ufDelPeriodo(pa).toLocaleString('es-CL')+'</em>':' <em>· sin UF</em>');chip.style.display='';}
-  var kpi=function(v,l,s,cls){return '<div class="'+(cls||'')+'"><b class="cifra">'+v+'</b><span>'+l+(s?'<em>'+s+'</em>':'')+'</span></div>';};
+  var kpi=function(v,l,s,cls){return '<div class="'+(cls||'')+'"'+(cls?' id="'+cls+'"':'')+'><b class="cifra">'+v+'</b><span>'+l+(s?'<em>'+s+'</em>':'')+'</span></div>';};
   document.getElementById('in-hero').innerHTML='<section class="g-hero"><small>'+(pa?hesc(perTxt(pa))+' · período activo':'Sin período activo')+'</small>'
     +'<h2>'+saludo+(nombre?', '+hesc(nombre):'')+' 👋</h2><p>'+(!pa?'Abre un período en el Panel de Control para ver el avance.':'Así va Contadoor este mes.')+'</p>'
     +'<div class="g-hk">'
-      +kpi(ff(serv),parcial?'Nuestros servicios (parcial)':'Nuestros servicios del período',parcial?parcial+' cliente(s) con datos incompletos en la ficha o RRHH':'Plan + trabajadores − descuento')
+      +kpi(ff(serv),'Facturado del período','Cargando lo emitido al SII…','in-kpi-fact')
       +kpi(completos+' / '+repAct.length,'Reportes completos',repAct.length?Math.round(completos/repAct.length*100)+'% del período':'')
       +kpi(enviados,'Enviados al cliente','')
       +kpi(activos,'Clientes activos',onb+' en onboarding')
@@ -387,6 +388,7 @@ function nomCli(rut){var c=_cli.find(function(x){return x.rut===rut;});return c?
 function hoyYmd(){return hoyChile();}
 function diasEntre(a,b){return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/864e5);}
 function cargarModulos(){
+  cargarFacturadoReal();
   // 1) Pagos por aprobar (Aprobaciones = obligaciones_pago en la base)
   q('obligaciones_pago?select=id,cliente_rut,concepto,monto_exigible,estado,origen_fondos,fondos_autorizados_at&or=(estado.eq.pendiente_aprobacion,and(origen_fondos.eq.contadoor,estado.eq.pendiente_fondos,fondos_autorizados_at.is.null))&order=created_at.asc&limit=200')
     .then(function(rows){rows=rows||[];
@@ -426,11 +428,10 @@ function cargarModulos(){
     },function(){mdError('md-recaudacion');});
   // 4) Facturado vs recaudado (Cobranza)
   var meses=mesesAtras(_perAct?_perAct.periodo:hoyChile().slice(0,7),6);
-  Promise.all([q('cobranza_documentos?select=periodo,monto,estado&estado=neq.ANULADO&periodo=in.('+meses.join(',')+')&limit=5000'),
-               q('cobranza_pagos?select=fecha_pago,monto&estado=eq.VIGENTE&fecha_pago=gte.'+meses[0]+'-01&limit=5000')])
-    .then(function(r){var F={},R={};meses.forEach(function(m){F[m]=0;R[m]=0;});
-      (r[0]||[]).forEach(function(d){var m=perDash(d.periodo);if(m in F)F[m]+=Number(d.monto)||0;});
-      (r[1]||[]).forEach(function(p){var m=String(p.fecha_pago).slice(0,7);if(m in R)R[m]+=Number(p.monto)||0;});
+  // 18-11: lo recaudado se mide por PERÍODO del documento (monto − saldo), así octubre muestra lo cobrado aunque se pague en noviembre.
+  q('cobranza_documentos?select=periodo,monto,saldo,estado&estado=neq.ANULADO&periodo=in.('+meses.join(',')+')&limit=5000')
+    .then(function(docs){var F={},R={};meses.forEach(function(m){F[m]=0;R[m]=0;});
+      (docs||[]).forEach(function(d){var m=perDash(d.periodo);if(!(m in F))return;var mo=Number(d.monto)||0,sa=Number(d.saldo);F[m]+=mo;R[m]+=Math.max(0,mo-(isFinite(sa)?sa:mo));});
       var mx=Math.max.apply(null,meses.map(function(m){return Math.max(F[m],R[m]);}).concat([1]));
       var tf=meses.reduce(function(s,m){return s+F[m];},0),trc=meses.reduce(function(s,m){return s+R[m];},0);
       mdCuerpo('md-ivf','<div class="md-kpis"><div><b>'+ff(tf)+'</b><span>facturado 6 meses</span></div><div><b style="color:#5FCF9C">'+ff(trc)+'</b><span>recaudado 6 meses'+(tf?' · '+Math.round(trc*100/tf)+'%':'')+'</span></div></div>'
@@ -438,7 +439,7 @@ function cargarModulos(){
         +'<div class="md-ley"><span><i style="background:#924893"></i>Facturado</span><span><i style="background:#5FCF9C"></i>Recaudado</span></div>');
     },function(){mdError('md-ivf');});
   // 5) Servicios adicionales (Facturación: facturas adicionales)
-  q('facturas_adicionales?select=estado,total,emitida_at,creado_at&limit=5000')
+  q('facturas_adicionales?select=estado,total,emitida_at,creado_at&modo=eq.PRODUCCION&limit=5000')
     .then(function(rows){rows=rows||[];
       if(!rows.length){mdCuerpo('md-adic','<div class="g-vacio">Aún no hay facturas adicionales.</div>');return;}
       var por={};rows.forEach(function(f){por[f.estado]=(por[f.estado]||0)+1;});
@@ -448,6 +449,34 @@ function cargarModulos(){
       mdCuerpo('md-adic','<div class="md-kpis"><div><b>'+ff(totMes)+'</b><span>emitido este mes · '+emMes.length+' factura(s)</span></div><div><b>'+ff(totEm)+'</b><span>emitido en total</span></div>'
         +Object.keys(por).map(function(k){return '<div><b>'+por[k]+'</b><span>'+hesc(ET[k]||k)+'</span></div>';}).join('')+'</div>');
     },function(){mdError('md-adic');});
+}
+// ── 18-11: facturación REAL (lo emitido al SII), no el estimado de las fichas ──
+// Meses con grupo real en Gestoor → facturacion (PRODUCCION, EMITIDA) + adicionales reales emitidos con fecha del mes siguiente.
+// Meses anteriores a Gestoor → facturacion_historial (Excel de OpenFactura importado el 26-10).
+function _mesSig(m){var a=m.split('-').map(Number),d=new Date(a[0],a[1],1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function cargarFacturadoReal(){
+  var pa=_perAct?perDash(_perAct.periodo):null;
+  var meses=mesesAtras(_perAct?_perAct.periodo:hoyChile().slice(0,7),6);
+  var desde=_mesSig(meses[0])+'-01', hasta=_mesSig(_mesSig(meses[meses.length-1]))+'-01';
+  Promise.all([
+    q('facturacion?select=periodo,total_clp&modo=eq.PRODUCCION&estado=eq.EMITIDA&periodo=in.('+meses.join(',')+')&limit=10000'),
+    q('facturacion_historial?select=periodo,total&periodo=in.('+meses.join(',')+')&limit=10000'),
+    q('facturas_adicionales?select=total,fecha_emision&modo=eq.PRODUCCION&estado=eq.EMITIDA&fecha_emision=gte.'+desde+'&fecha_emision=lt.'+hasta+'&limit=5000')
+  ]).then(function(r){
+    var G={},H={},A={},NG={};meses.forEach(function(m){G[m]=0;H[m]=0;A[m]=0;NG[m]=0;});
+    (r[0]||[]).forEach(function(x){var m=perDash(x.periodo);if(m in G){G[m]+=Number(x.total_clp)||0;NG[m]++;}});
+    (r[1]||[]).forEach(function(x){var m=perDash(x.periodo);if(m in H)H[m]+=Number(x.total)||0;});
+    (r[2]||[]).forEach(function(x){var e=String(x.fecha_emision).slice(0,7);meses.forEach(function(m){if(_mesSig(m)===e)A[m]+=Number(x.total)||0;});});
+    var datos=meses.map(function(m){var gest=NG[m]>0;var t=(gest?G[m]:H[m])+A[m];return{m:m,t:t,fuente:gest?'Gestoor':(H[m]?'historial':''),n:gest||H[m]>0};});
+    var max=Math.max.apply(null,datos.map(function(d){return d.t;}).concat([1]));
+    document.getElementById('in-bars').innerHTML=datos.map(function(d){var mm=+d.m.split('-')[1];
+      var cls='in-bar'+(!d.n?' vacio':'')+(d.m===pa?' actual':'');
+      return '<div class="'+cls+'" title="'+hesc(perTxt(d.m))+': '+(d.n?ff(d.t)+' · fuente '+d.fuente:'sin facturación registrada')+'"><span class="v">'+(d.n?ffc(d.t):'—')+'</span><span class="b" style="height:'+(d.n?Math.max(3,d.t/max*150):3)+'px"></span><span class="m">'+MES[mm-1]+'</span></div>';}).join('');
+    var ley=document.querySelector('#in-bars + .in-ley');if(ley)ley.innerHTML='<span><i style="background:linear-gradient(180deg,#C77BC9,#924893)"></i>Facturado real (SII)</span><span><i style="background:#2A1430"></i>Sin facturación registrada</span>';
+    var k=document.getElementById('in-kpi-fact');
+    if(k&&pa){var d=datos.filter(function(x){return x.m===pa;})[0]||{t:0,n:false};
+      k.innerHTML='<b class="cifra">'+ff(d.t)+'</b><span>Facturado del período'+'<em>'+(d.n?'Emitido al SII'+(A[pa]?' · incluye '+ff(A[pa])+' adicionales':'')+' · estimado fichas '+ff(_servEstimado):'Aún sin facturas emitidas · estimado fichas '+ff(_servEstimado))+'</em></span>';}
+  },function(){var k=document.getElementById('in-kpi-fact');if(k)k.querySelector('em').textContent='No se pudo leer lo facturado; recarga la página.';});
 }
 function _vigente(c){return c.estado==='activo'||c.estado==='onboarding';}
 var _repActCarga=[], _ultTrabCarga={};
