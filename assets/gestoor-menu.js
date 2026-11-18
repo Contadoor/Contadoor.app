@@ -72,7 +72,7 @@
     // Cotizaciones (K1, 27-oct): la PROPUESTA antes de que el cliente acepte (plan mensual o trabajo especial). Trabajos especiales (Gestión interna)
     // es la EJECUCIÓN del trabajo ya aceptado.
     // Comercial (Luciano, 26-oct): todo lo de venta junto. Las reuniones con clientes activos irán aparte ("Asesorías").
-    ['Comercial',[['calendario','Reuniones de venta','prospectos','reuniones.html'],['objetivo','Prospectos','prospectos','simple.html'],['chat','Asistente IA','asistente'],
+    ['Comercial',[['calendario','Reuniones de venta','prospectos','reuniones.html'],['objetivo','Prospectos','prospectos','simple.html'],['check','Onboarding','prospectos','onboarding.html'],['chat','Asistente IA','asistente'],
       ['lista','Cotizaciones','cotizaciones'],['campana','Campañas',null],['chat','CRM',null]]],
     ['Gestión interna',[['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['correo','Comunicaciones',null],['grafico','Performance',null]]],
