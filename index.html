@@ -460,7 +460,8 @@ function cargarFacturadoReal(){
   var desde=_mesSig(meses[0])+'-01', hasta=_mesSig(_mesSig(meses[meses.length-1]))+'-01';
   Promise.all([
     q('facturacion?select=periodo,total_clp&modo=eq.PRODUCCION&estado=eq.EMITIDA&periodo=in.('+meses.join(',')+')&limit=10000'),
-    q('facturacion_historial?select=periodo,total&periodo=in.('+meses.join(',')+')&limit=10000'),
+    // Una consulta por mes: la API corta en 1.000 filas y 6 meses de historial (~240 por mes) se pasan.
+    Promise.all(meses.map(function(m){return q('facturacion_historial?select=periodo,total&periodo=eq.'+m+'&limit=1000');})).then(function(L){return [].concat.apply([],L);}),
     q('facturas_adicionales?select=total,fecha_emision&modo=eq.PRODUCCION&estado=eq.EMITIDA&fecha_emision=gte.'+desde+'&fecha_emision=lt.'+hasta+'&limit=5000')
   ]).then(function(r){
     var G={},H={},A={},NG={};meses.forEach(function(m){G[m]=0;H[m]=0;A[m]=0;NG[m]=0;});
