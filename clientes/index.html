@@ -185,7 +185,9 @@ body.modal-open{overflow:hidden;}
     </div>
     <div class="modal-body" id="modalBody">
 
-      <div class="card-hd"><span data-g-ic="edificio"></span> Empresa</div>
+      <div class="card-hd" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span data-g-ic="edificio"></span> Empresa
+        <button type="button" id="btnCompletarSii" class="btn-secondary" style="margin-left:auto;display:none;font-size:12px;padding:6px 12px" onclick="completarConSii()">Completar con datos del SII</button></div>
+      <div id="siiCompletarRes" style="display:none;margin:-4px 0 12px;padding:10px 12px;border-radius:10px;border:1px solid #4A2B50;font-size:12.5px;line-height:1.5"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fgroup" style="grid-column:1/3"><label>Razón Social *</label><input type="text" id="f-razon" placeholder="Transportes del Sur SpA"></div>
         <div class="fgroup"><label>RUT *</label><input type="text" id="f-rut" placeholder="77123456-7" title="Se guarda sin puntos y con guion"></div>
@@ -897,6 +899,7 @@ function updatePct() {
 }
 
 function resetForm() {
+  siiCompletarUI(false);
   // text/number/email/date/textarea
   ['f-razon','f-rut','f-giro','f-email','f-contacto','f-tel','f-wa','f-ciudad','f-direccion','f-comuna',
    'f-obs-trib','f-monto','f-trab','f-var','f-precio-obs','f-inicio','f-obs',
@@ -939,6 +942,73 @@ function abrirNuevo() {
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
   sincronizarBloqueoModales();
+}
+
+// «Completar con datos del SII» (18-11, Luciano): llena SOLO los campos vacíos con la ficha de Cartapra; lo que ya
+// tiene valor y difiere se muestra para decidir. Nada se guarda hasta que el usuario presiona «Guardar».
+function siiTxt(v) { return String(v == null ? '' : v).trim(); }
+function siiIgual(a, b) { return siiTxt(a).toLowerCase().replace(/\s+/g, ' ') === siiTxt(b).toLowerCase().replace(/\s+/g, ' '); }
+function siiCompletarUI(on) { var b = g('btnCompletarSii'), r = g('siiCompletarRes'); if (b) b.style.display = on ? '' : 'none'; if (r) { r.style.display = 'none'; r.textContent = ''; } }
+function completarConSii() {
+  var id = _editId, btn = g('btnCompletarSii'), res = g('siiCompletarRes');
+  if (!id || !window.GestoorSII || !GestoorSII.fichaParaFormulario) return;
+  btn.disabled = true; btn.textContent = 'Consultando el SII…';
+  GestoorSII.fichaParaFormulario(id).then(function (fi) {
+    if (_editId !== id) return;
+    var ETQ_REG = { '14D3': 'PYME General 14D N°3', '14D8': 'Transparente 14D N°8', presunta: 'Renta Presunta' };
+    var ETQ_IVA = { afecto: 'Afecto', exento: 'Exento', mixto: 'Mixto' };
+    var giro = siiTxt(fi.glosaActividad) || siiTxt(fi.actividades && fi.actividades[0] && fi.actividades[0].descripcion);
+    var dom = fi.domicilio || {};
+    var reg = GestoorSII.regimenCodigo(fi.regimen);
+    var iva = fi.afecta_iva === false ? 'exento' : fi.iva_mixto === true ? 'mixto' : fi.afecta_iva === true ? 'afecto' : '';
+    var campos = [
+      { id: 'f-giro', l: 'Giro', v: giro },
+      { id: 'f-direccion', l: 'Dirección', v: siiTxt(dom.direccion) },
+      { id: 'f-comuna', l: 'Comuna', v: siiTxt(dom.comuna) },
+      { id: 'f-reg', l: 'Régimen', v: reg || '', ver: reg ? ETQ_REG[reg] : '' },
+      { id: 'f-iva', l: 'IVA', v: iva, ver: ETQ_IVA[iva] || '', soloDif: true }   // el formulario parte en «Afecto»: nunca se trata como vacío
+    ];
+    var llenos = [], difs = [];
+    campos.forEach(function (c) {
+      if (!c.v) return;
+      var actual = gv(c.id);
+      if (siiIgual(actual, c.v)) return;
+      if (!siiTxt(actual) && !c.soloDif) { sv(c.id, c.v); llenos.push(c.l); }
+      else difs.push(c);
+    });
+    if (fi.regimen && !reg) difs.push({ l: 'Régimen', v: '', ver: fi.regimen, sinOpcion: true });
+    // Socios: si la tabla está vacía se agregan; si no, se ofrece reemplazar.
+    var socSii = (fi.socios || []).filter(function (x) { return x && siiTxt(x.nombre); });
+    var socForm = getSocios().filter(function (x) { return siiTxt(x.nombre); });
+    var socTxt = socSii.map(function (x) { return x.nombre + (x.rut ? ' (' + x.rut + ')' : '') + (typeof x.participacionCapital === 'number' ? ' · ' + x.participacionCapital + '%' : ''); }).join(' — ');
+    function ponerSocios() { g('sociosBody').innerHTML = ''; _socioCount = 0; socSii.forEach(function (x) { addSocio(x.nombre, x.rut || '', typeof x.participacionCapital === 'number' ? x.participacionCapital : ''); }); }
+    var socDif = false;
+    if (socSii.length && !socForm.length) { ponerSocios(); llenos.push('Socios (' + socSii.length + ')'); }
+    else if (socSii.length && socForm.map(function (x) { return siiTxt(x.rut).toUpperCase(); }).sort().join() !== socSii.map(function (x) { return siiTxt(x.rut).toUpperCase(); }).sort().join()) socDif = true;
+
+    res.textContent = ''; res.style.display = '';
+    var t = document.createElement('div'); t.style.fontWeight = '700';
+    t.textContent = llenos.length ? '✅ Completado desde el SII: ' + llenos.join(', ') + '. Revisa y presiona «Guardar».' : (difs.length || socDif ? 'Los campos vacíos ya estaban al día.' : '✅ La ficha ya coincide con el SII.');
+    res.appendChild(t);
+    function fila(texto, accion, fn) {
+      var d = document.createElement('div'); d.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap';
+      var s = document.createElement('span'); s.textContent = texto; d.appendChild(s);
+      if (fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'btn-secondary'; b.style.cssText = 'font-size:11.5px;padding:3px 10px'; b.textContent = accion;
+        b.onclick = function () { fn(); b.disabled = true; b.textContent = 'Listo ✓'; calcPreview && calcPreview(); }; d.appendChild(b); }
+      res.appendChild(d);
+    }
+    if (difs.length || socDif) { var h = document.createElement('div'); h.style.marginTop = '8px'; h.textContent = '⚠️ El SII dice otra cosa (tú decides):'; res.appendChild(h); }
+    difs.forEach(function (c) {
+      var actual = c.id === 'f-reg' || c.id === 'f-iva' ? ((g(c.id).selectedOptions[0] || {}).textContent || '') : gv(c.id);
+      if (c.sinOpcion) fila('• ' + c.l + ': el SII informa «' + c.ver + '», que no está en la lista de regímenes. Revísalo a mano.', null, null);
+      else fila('• ' + c.l + ': ficha «' + (siiTxt(actual) || '—') + '» · SII «' + (c.ver || c.v) + '»', 'Usar el del SII', function () { sv(c.id, c.v); });
+    });
+    if (socDif) fila('• Socios: el SII informa ' + socTxt, 'Reemplazar por los del SII', ponerSocios);
+    var n = document.createElement('div'); n.style.cssText = 'margin-top:8px;opacity:.75'; n.textContent = 'Nada se guarda hasta que presiones «Guardar». Fuente: SII vía Cartapra.'; res.appendChild(n);
+  }).catch(function (e) {
+    if (_editId !== id) return;
+    res.style.display = ''; res.textContent = (e && e.detalle) || (e && e.status === 403 ? 'Los datos del SII de este cliente los ve el Master y el analista contable asignado.' : 'No se pudo consultar el SII ahora. Intenta de nuevo en unos minutos.');
+  }).then(function () { btn.disabled = false; btn.textContent = 'Completar con datos del SII'; });
 }
 
 function abrirEditar(id) {
@@ -998,6 +1068,7 @@ function abrirEditar(id) {
   g('modalClaves').classList.remove('on');
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
+  siiCompletarUI(true);
   sincronizarBloqueoModales();
 }
 

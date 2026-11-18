@@ -506,7 +506,28 @@
     });
   }
 
+  // ── Formulario del cliente (18-11, Luciano): «Completar con datos del SII» ──
+  // Pide "resumen" (Master y analista contable asignado) y devuelve solo la ficha. Nada se guarda aquí:
+  // el formulario se llena en pantalla y el usuario decide con «Guardar».
+  function fichaParaFormulario(clienteId) {
+    return llamar('resumen', Number(clienteId)).then(function (j) {
+      var c = j.conexion || {};
+      if (c.estado !== 'conectada') throw { status: 409, error: 'NO_CONECTADA', detalle: 'Esta empresa aún no está conectada con el SII. Conéctala primero con el botón de la lista de clientes.' };
+      if (!j.ficha) throw { status: 409, error: 'SIN_FICHA', detalle: c.cargaInicialLista ? 'Cartapra todavía no entrega la ficha de esta empresa.' : 'Cartapra está leyendo el SII por primera vez. Intenta en unos minutos.' };
+      return j.ficha;
+    });
+  }
+  function regimenCodigo(t) {
+    t = String(t || '').toLowerCase();
+    if (/presunt/.test(t)) return 'presunta';
+    if (/transparente|14\s*d\s*(n[°º.]?\s*)?8|14d8/.test(t)) return '14D8';
+    if (/pro\s*pyme|14\s*d\s*(n[°º.]?\s*)?3|14d3/.test(t)) return '14D3';
+    return null;
+  }
+
   window.GestoorSII = {
+    fichaParaFormulario: fichaParaFormulario,
+    regimenCodigo: regimenCodigo,
     prepararLista: prepararLista,
     lista: function () { return lista; },
     estadoRut: estadoRut,
