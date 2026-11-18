@@ -1500,7 +1500,19 @@ function coincidePrioridad(c, fpr, fa) {
   return pc === fpr || (c.tieneRrhh !== false && pr === fpr);
 }
 
+// Cartapra (18-11): estado de conexión para los botones de la lista. Una consulta al cargar y otra tras cerrar la ventana.
+var _siiListaPedida = false;
+function prepararSiiLista(forzar) {
+  if (!window.GestoorSII || !GestoorSII.prepararLista) return;
+  if (_siiListaPedida && !forzar) return;
+  var cs = getClientes(); if (!cs || !cs.length) return;
+  if (window._esMasterUI !== true && window._esMasterUI !== false) return; // sesión aún no cargada
+  _siiListaPedida = true;
+  var ses = window._contadoorSesion || {};
+  GestoorSII.prepararLista(cs[0].id, ses.esMaster === true || ses.rol === 'master').then(function (r) { if (r && r.puede) renderClientes(); });
+}
 function renderClientes() {
+  setTimeout(function(){ prepararSiiLista(false); }, 0);
   var q   = (gv('searchQ') || '').toLowerCase();
   var fp  = gv('filterPlan');
   var fe  = gv('filterEstado');
@@ -1616,6 +1628,18 @@ function renderClientes() {
     b1.onclick = (function(id){ return function(){ verClaves(id); }; })(c.id);
     var b2 = document.createElement('button'); b2.className='g-ico'; b2.title='Ver ficha'; b2.setAttribute('aria-label','Ver ficha'); b2.innerHTML=gIcon('ver'); b2.style.margin='0 6px';
     b2.onclick = (function(id){ return function(){ verDetalle(id); }; })(c.id);
+    // Cartapra (18-11, Luciano): «Conectar con el SII» junto a las claves. Solo si el servidor dice que puede conectar
+    // (Master o conector). Verde = ya conectada; ámbar = clave rechazada; sin color = sin conectar.
+    var siiL = window.GestoorSII && GestoorSII.lista && GestoorSII.lista();
+    if (siiL && siiL.puede) {
+      var eSii = GestoorSII.estadoRut(c.rut);
+      var b0 = document.createElement('button'); b0.className = 'g-ico sii-l' + (eSii === 'conectada' ? ' ok' : eSii === 'clave_rechazada' ? ' rech' : '');
+      var tSii = eSii === 'conectada' ? 'Conectado al SII (volver a conectar)' : eSii === 'clave_rechazada' ? 'La clave del SII cambió: reconectar' : 'Conectar con el SII';
+      b0.title = tSii; b0.setAttribute('aria-label', tSii); b0.innerHTML = gIcon(eSii === 'conectada' ? 'check' : 'edificio'); b0.style.marginRight = '6px';
+      if (eSii === 'conectada') { b0.style.color = '#5FCF9C'; b0.style.borderColor = '#5FCF9C'; } else if (eSii === 'clave_rechazada') { b0.style.color = '#E0A84E'; b0.style.borderColor = '#E0A84E'; }
+      b0.onclick = (function(id){ return function(){ GestoorSII.conectar(id, this, function(){ prepararSiiLista(true); }); }; })(c.id);
+      td6.appendChild(b0);
+    }
     td6.appendChild(b1); td6.appendChild(b2);
     // FIX2.3B.2: botón ✏️ solo visible para Master. No renderizar para no-Master.
     // FIX2.3B.2-R1: === true (fail-closed) — el botón solo existe tras confirmar Master.

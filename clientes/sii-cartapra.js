@@ -246,7 +246,9 @@
     document.removeEventListener('keydown', alTeclado);
     if (modal) { modal.remove(); modal = null; }
   }
-  function alTeclado(e) { if (e.key === 'Escape') { cerrarVentana(); if (actual) cargar(); } }
+  var ventanaCb = null; // lista de clientes: refrescar su estado al cerrar la ventana
+  function trasCerrar() { var f = ventanaCb; ventanaCb = null; if (actual) cargar(); if (f) f(); }
+  function alTeclado(e) { if (e.key === 'Escape') { cerrarVentana(); trasCerrar(); } }
   function abrirVentana(url) {
     if (typeof url !== 'string' || url.indexOf(CARTAPRA + '/') !== 0) throw new Error('ventana no válida');
     cerrarVentana();
@@ -255,14 +257,14 @@
     fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
     fr.setAttribute('referrerpolicy', 'no-referrer');
     var x = el('button', 'x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Cerrar');
-    x.onclick = function () { cerrarVentana(); if (actual) cargar(); };
-    modal.onclick = function (e) { if (e.target === modal) { cerrarVentana(); if (actual) cargar(); } };
+    x.onclick = function () { cerrarVentana(); trasCerrar(); };
+    modal.onclick = function (e) { if (e.target === modal) { cerrarVentana(); trasCerrar(); } };
     modal.appendChild(fr); modal.appendChild(x); document.body.appendChild(modal);
     alMensaje = function (ev) {
       if (ev.origin !== CARTAPRA || ev.source !== fr.contentWindow) return;
       var d = ev.data; if (!d || d.fuente !== 'cartapra-conecta') return;
       if (d.evento === 'conectada' && window.toast) window.toast('El SII aceptó la clave. Gestoor ya puede leer los datos.');
-      if (d.evento === 'cerrar') { cerrarVentana(); if (actual) cargar(); }
+      if (d.evento === 'cerrar') { cerrarVentana(); trasCerrar(); }
     };
     window.addEventListener('message', alMensaje);
     document.addEventListener('keydown', alTeclado);
@@ -379,7 +381,47 @@
       .catch(function (e) { if (actual === mio && n === seq) pintarError(e); });
   }
 
+  // ── Lista de clientes (18-11, pedido de Luciano): botón «Conectar con el SII» junto a las claves ──
+  // Una sola consulta al cargar: Master → "cartera" (estado de conexión de todas las empresas por RUT);
+  // otros → "estado" de un cliente para saber si puede conectar (conectores). Sin permiso → sin botón.
+  var lista = null, listaEnCurso = null;
+  function rutNorm(r) { return String(r || '').replace(/[^0-9kK]/g, '').toUpperCase(); }
+  function prepararLista(primerClienteId, esMaster) {
+    if (lista) return Promise.resolve(lista);
+    if (listaEnCurso) return listaEnCurso;
+    function porEstado() {
+      return (Number(primerClienteId) > 0 ? llamar('estado', Number(primerClienteId)) : Promise.reject())
+        .then(function (j) { return { puede: j.puede_conectar === true && j.piloto !== true, conexiones: null }; }, function () { return { puede: false, conexiones: null }; });
+    }
+    var p = esMaster
+      ? llamar('cartera', 0).then(function (j) {
+          var m = {};
+          arr(j.cartera && j.cartera.empresas).forEach(function (x) { var e = x && x.empresa; if (e && esTxt(e.rut)) m[rutNorm(e.rut)] = String(e.conexion || ''); });
+          return { puede: true, conexiones: m };
+        }, porEstado)
+      : porEstado();
+    listaEnCurso = p.then(function (r) { lista = r; listaEnCurso = null; return r; });
+    return listaEnCurso;
+  }
+  function estadoRut(rut) { return lista && lista.conexiones ? (lista.conexiones[rutNorm(rut)] || 'no_conectada') : null; }
+  function conectarDesdeLista(clienteId, btn, alTerminar) {
+    if (btn) btn.disabled = true;
+    llamar('ventana', Number(clienteId)).then(function (j) {
+      if (btn) btn.disabled = false;
+      ventanaCb = function () { lista = null; if (alTerminar) alTerminar(); };
+      estilos(); abrirVentana(j.widget && j.widget.url);
+    }).catch(function (e) {
+      if (btn) btn.disabled = false;
+      var msg = (e && e.detalle) || (e && e.status === 429 ? 'Cartapra pide esperar un momento.' : 'No se pudo abrir la ventana de Cartapra.');
+      if (window.toast) window.toast(msg); else alert(msg);
+    });
+  }
+
   window.GestoorSII = {
+    prepararLista: prepararLista,
+    lista: function () { return lista; },
+    estadoRut: estadoRut,
+    conectar: conectarDesdeLista,
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;
       estilos(); cerrarVentana();
