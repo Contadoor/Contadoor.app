@@ -28,7 +28,7 @@
 <div class="wrap">
   <div class="topbar">
     <h1 class="tb-title">Facturación <span id="tbSub">mensual</span></h1>
-    <span class="prueba" title="Modo PRUEBA: emisión en el ambiente de pruebas de OpenFactura (sin SII) y correos solo a info@contadoor.cl"><i class="ic ic-amb" data-ic="probeta"></i>MODO PRUEBA</span>
+    <span class="prueba" id="fxBadgePrueba" title="Modo PRUEBA: emisión en el ambiente de pruebas de OpenFactura (sin SII) y correos solo a info@contadoor.cl"><i class="ic ic-amb" data-ic="probeta"></i>MODO PRUEBA</span>
     <span class="prueba" id="fxDemo" hidden style="background:rgba(92,200,255,.12);border-color:rgba(92,200,255,.45);color:var(--cel)" title="Datos ficticios locales: no se conecta a Supabase y nada se guarda"><i class="ic ic-cel" data-ic="probeta"></i>DEMO LOCAL · DATOS FICTICIOS</span>
     <span class="g-espacio"></span>
     <div class="g-seg" id="verComo" role="group" aria-label="Ver como (solo demo)" hidden>
@@ -40,11 +40,13 @@
   </div>
 
   <main class="content" id="fxMain">
-    <div class="fx-aviso" role="note">
+    <div class="fx-aviso" role="note" id="fxAvisoEmision">
       <i class="ic placa ic-cel" data-ic="candado"></i>
       <div><b>La emisión real está bloqueada hasta el GO de producción.</b>
         <p>Grupos FIJO y VARIABLE: preparar, revisar y aprobar. Facturación adicional: la factura nueva es siempre real (SII); se puede crear y aprobar, y se emite cuando la emisión esté activada. Para practicar se usa el entorno local/DEV, no esta pantalla. La primera factura real sale solo con el GO de producción y el OK expreso de Luciano.</p></div>
     </div>
+
+    <section class="fx-resumen" id="fxResumen" aria-label="Facturación total del período"></section>
 
     <div class="barra-lote">
       <div class="g-seg" role="group" aria-label="Grupo">

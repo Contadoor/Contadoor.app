@@ -183,7 +183,7 @@ function iniciar(){
   API.rpc('facturacion_yo',{}).then(function(yo){
     S.yo=yo||{};
     if(!S.yo.puede_leer){sinPermiso();return;}
-    pintarQuien();
+    pintarQuien();cargarEmision();
     return API.get('periodos?select=periodo,uf&order=periodo.desc&limit=12').then(function(rows){
       S.periodos=(rows||[]).filter(function(r){return r&&r.periodo;});
       var sel=$('selPeriodo');
@@ -206,6 +206,7 @@ function errorCarga(m){
 }
 function cargar(){
   S.cargando=true;S.sel=null;cerrarDrawer();
+  if(!S.resumen||S.resumen.per!==S.periodo)cargarResumen();
   if(S.vista==='ADICIONAL'){S.cargando=false;render();return Promise.resolve();}
   if(!S.periodo){S.lote=null;S.lineas=[];S.cargando=false;render();return Promise.resolve();}
   $('fxEstado').innerHTML='<p class="ninguna">Cargando el grupo '+esc(S.vista)+' de '+esc(mesTxt(S.periodo))+'…</p>';
@@ -232,6 +233,66 @@ function cargar(){
     });
   }).then(function(){S.cargando=false;$('fxEstado').innerHTML='';render();})
     .catch(function(e){S.cargando=false;errorCarga(mensajeError(e));});
+}
+/* ── RESUMEN DEL PERÍODO (18-11): la facturación TOTAL del período en una sola vista (FIJO + VARIABLE + adicionales),
+   sin tener que cambiar de grupo. Solo lectura. Cuenta solo lo REAL (PRODUCCION): emitido y por emitir. Los adicionales
+   del período son los reales con fecha de emisión en el mes siguiente al período (misma regla que la mensual). ── */
+function mesSig(per){var y=+per.slice(0,4),m=+per.slice(5,7)+1;if(m>12){m=1;y++;}return y+'-'+(m<10?'0':'')+m;}
+function cargarResumen(){
+  var per=S.periodo, box=$('fxResumen');
+  if(!box)return Promise.resolve();
+  if(!per){box.innerHTML='';return Promise.resolve();}
+  var em=mesSig(per), desde=em+'-01', hasta=mesSig(em)+'-01', q=encodeURIComponent(per);
+  return Promise.all([
+    API.get('facturacion_lotes?select=tipo,modo,estado,totales&periodo=eq.'+q+'&estado=neq.ANULADO&order=id.desc&limit=20'),
+    API.get('facturacion?select=tipo_lote,estado,total_clp&periodo=eq.'+q+'&modo=eq.PRODUCCION&limit=2000'),
+    API.get('facturas_adicionales?select=estado,total&modo=eq.PRODUCCION&fecha_emision=gte.'+desde+'&fecha_emision=lt.'+hasta+'&limit=1000')
+  ]).then(function(r){if(per!==S.periodo)return;S.resumen={per:per,lotes:r[0]||[],lineas:r[1]||[],adic:r[2]||[]};renderResumen();})
+    .catch(function(){if(per===S.periodo)box.innerHTML='';});
+}
+var FUERA={EXCLUIDA:1,ANULADA:1};
+function resGrupo(tipo){
+  var R=S.resumen, ls=R.lineas.filter(function(x){return x.tipo_lote===tipo;});
+  var em=ls.filter(function(x){return x.estado==='EMITIDA';}), pe=ls.filter(function(x){return x.estado!=='EMITIDA'&&!FUERA[x.estado];});
+  var suma=function(a){return a.reduce(function(s,x){return s+(+x.total_clp||0);},0);};
+  var o={n:em.length,monto:suma(em),nPend:pe.length,pend:suma(pe),prep:null};
+  if(!ls.length){var lp=R.lotes.filter(function(l){return l.tipo===tipo&&l.modo===MODO;})[0];if(lp)o.prep=+((lp.totales||{}).monto_listas)||0;}
+  return o;
+}
+function renderResumen(){
+  var R=S.resumen, box=$('fxResumen');if(!R||!box)return;
+  var f=resGrupo('FIJO'), v=resGrupo('VARIABLE');
+  var aEm=R.adic.filter(function(x){return x.estado==='EMITIDA';}), aPe=R.adic.filter(function(x){return x.estado!=='EMITIDA'&&x.estado!=='ANULADA';});
+  var a={n:aEm.length,monto:aEm.reduce(function(s,x){return s+(+x.total||0);},0),nPend:aPe.length,pend:aPe.reduce(function(s,x){return s+(+x.total||0);},0),prep:null};
+  var tot=f.monto+v.monto+a.monto, nTot=f.n+v.n+a.n, pend=f.pend+v.pend+a.pend, nPend=f.nPend+v.nPend+a.nPend;
+  function sub(o){
+    if(o.n||o.nPend)return (o.nPend?'<span class="s pend">'+I('reloj','ic-amb')+'Por emitir: '+o.nPend+' · '+clp(o.pend)+'</span>':'<span class="s ok">'+I('check','ic-ver')+'Todo emitido</span>');
+    if(o.prep!=null)return '<span class="s">Preparado en prueba: '+clp(o.prep)+'</span>';
+    return '<span class="s">Sin facturas reales</span>';
+  }
+  function caja(tipo,tit,icn,icc,o){
+    return '<button type="button" class="fx-res-caja'+(S.vista===tipo?' on':'')+'" data-act="ir-vista" data-id="'+tipo+'" aria-pressed="'+(S.vista===tipo?'true':'false')+'">'
+      +'<span class="l">'+I(icn,icc)+esc(tit)+'</span><span class="v cifra">'+clp(o.monto)+'</span>'
+      +'<span class="s">'+o.n+' factura'+(o.n===1?'':'s')+' emitida'+(o.n===1?'':'s')+'</span>'+sub(o)+'</button>';
+  }
+  box.innerHTML='<div class="fx-res-h">'+I('grafico','ic-mor')+'<b>Facturación total · '+esc(mesTxt(R.per,true))+'</b><small>Solo facturas reales (SII). Haz clic en un grupo para ver su detalle.</small></div>'
+    +'<div class="fx-res-grid">'
+    +'<div class="fx-res-caja total"><span class="l">'+I('factura','ic-mor')+'Total emitido</span><span class="v cifra">'+clp(tot)+'</span>'
+    +'<span class="s">'+nTot+' factura'+(nTot===1?'':'s')+'</span>'
+    +(nPend?'<span class="s pend">'+I('reloj','ic-amb')+'Por emitir: '+nPend+' · '+clp(pend)+'</span><span class="s">Total con lo pendiente: <b>'+clp(tot+pend)+'</b></span>':'<span class="s ok">'+I('check','ic-ver')+'Nada pendiente</span>')+'</div>'
+    +caja('FIJO','Grupo FIJO','calendario','ic-ver',f)
+    +caja('VARIABLE','Grupo VARIABLE','personas','ic-cel',v)
+    +caja('ADICIONAL','Adicionales','factura','ic-ama',a)
+    +'</div>';
+}
+/* Estado real de la emisión: el aviso y la etiqueta "MODO PRUEBA" fijos quedaron desactualizados al abrir la emisión real (18-11). */
+function cargarEmision(){
+  if(DEMO)return;
+  API.get('facturacion_parametros?select=produccion_habilitada&id=eq.1').then(function(r){
+    if(!r||!r[0]||r[0].produccion_habilitada!==true)return;
+    var b=$('fxBadgePrueba');if(b)b.hidden=true;
+    var a=$('fxAvisoEmision');if(a){a.classList.add('ok');a.innerHTML=I('check','placa ic-ver')+'<div><b>Emisión real activa.</b><p>Las facturas se emiten al SII desde cada grupo o desde Facturación adicional con el botón «Emitir factura real».</p></div>';}
+  }).catch(function(){});
 }
 /* Total del mes anterior por RUT (misma fuente que usó el motor para el comparativo) */
 function cargarAnterior(l){
@@ -267,6 +328,7 @@ function render(){
   $('vistaGrupo').hidden=ad;$('vistaAdic').hidden=!ad;$('fxPeriodoBox').hidden=false;
   $('tbSub').textContent=ad?'adicional':'mensual';
   document.querySelectorAll('[data-vista]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-vista')===S.vista);b.setAttribute('aria-pressed',b.getAttribute('data-vista')===S.vista?'true':'false');});
+  if(S.resumen)renderResumen();
   document.body.classList.toggle('fx-ver-real',!ad&&(verReal()||esReal()));
   if(ad){if(window.FX_ADICIONAL)window.FX_ADICIONAL.render({demo:DEMO,rol:esMaster()?'master':(esFact()?'facturador':'lectura'),periodo:S.periodo,uf:ufPeriodo()});return;}
   renderHero();renderPasos();renderAcciones();renderTabla();renderAnalisis();renderNoFact();renderBitacora();
@@ -622,6 +684,7 @@ function accion(act,id){
   var l=id!=null?S.lineas.filter(function(x){return x.id===+id;})[0]:null, lt=S.lote;
   if(act==='recargar'){$('fxEstado').innerHTML='';iniciar();return;}
   if(act==='ver'){abrirDrawer(id);return;}
+  if(act==='ir-vista'){if(S.ocupado||!/^(FIJO|VARIABLE|ADICIONAL)$/.test(id||''))return;S.vista=id;S.verModo=null;S.filtro=false;cargar();return;}
   if(act==='ver-real'||act==='ver-prueba'){if(S.ocupado)return;S.verModo=act==='ver-real'?'PRODUCCION':MODO;S.filtro=false;cargar();return;}
   if(act!=='filtro'&&(verReal()||esReal()))return;   // fail-closed: con el grupo REAL a la vista no se ejecuta ninguna acción del motor
   if(act==='filtro'){S.filtro=!S.filtro;renderTabla();var b=document.querySelector('[data-act="filtro"]');if(b)b.focus();return;}
