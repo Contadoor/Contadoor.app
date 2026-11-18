@@ -191,8 +191,8 @@ window.CARTAPRA_FIXTURE_RESUMEN = {
    {
     "anio": 2025,
     "totales": {
-     "ventasNeto": 101133000,
-     "ventasTotal": 101133000,
+     "ventasNeto": 98765000,
+     "ventasTotal": 98765000,
      "comprasNeto": 57878328,
      "comprasTotal": 59518299,
      "ivaRcv": -1639971,
@@ -605,8 +605,8 @@ window.CARTAPRA_FIXTURE_RESUMEN_COBERTURA = {
    {
     "anio": 2025,
     "totales": {
-     "ventasNeto": 101133000,
-     "ventasTotal": 101133000,
+     "ventasNeto": 98765000,
+     "ventasTotal": 98765000,
      "comprasNeto": 57878328,
      "comprasTotal": 59518299,
      "ivaRcv": -1639971,

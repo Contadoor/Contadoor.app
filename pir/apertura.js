@@ -309,6 +309,16 @@
     return h;
   }
 
+  // Cartapra R4: F22 del SII del cliente del caso (solo consulta; se pide una vez por caso, no en cada redibujo).
+  var siiMontado = null;
+  function montarSii() {
+    var cont = $('#mr-sii'), cid = S.caso ? Number(S.caso.cliente_id) : 0;
+    if (!cont || !window.GestoorSII) return;
+    if (!cid) { if (siiMontado) { window.GestoorSII.desmontar(); cont.textContent = ''; siiMontado = null; } return; }
+    if (siiMontado === cid) return;
+    siiMontado = cid;
+    window.GestoorSII.montar(cont, cid, { vista: 'renta' });
+  }
   function render() {
     var raiz = $('#mr-app'); if (!raiz) return;
     // Asistente Proyectar: desde aquí se vuelve a él con el mismo caso (la revisión de la apertura es su paso 2).
@@ -326,6 +336,7 @@
     var act = document.activeElement, clave = act && act.getAttribute && act.getAttribute('data-accion') ? '[data-accion="' + act.getAttribute('data-accion') + '"]' + (act.hasAttribute('data-i') ? '[data-i="' + act.getAttribute('data-i') + '"]' : '') : null;
     var cur = null; try { cur = act && act.selectionStart; } catch (e) {}
     raiz.innerHTML = h;
+    montarSii();
     if (clave && raiz.contains(act) === false) { var n = $(clave, raiz); if (n && !n.disabled) { n.focus(); try { if (cur != null) n.setSelectionRange(cur, cur); } catch (e) {} } }
   }
 

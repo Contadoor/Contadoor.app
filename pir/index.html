@@ -112,6 +112,8 @@ body.g-mod-mr{--g-acento:#C77BC9;--grad:linear-gradient(160deg,#A4599C,#803889);
   </div>
   <div class="content">
     <div id="mr-app"><div class="aviso lila"><span class="mr-spin"></span>Cargando MiRenta…</div></div>
+    <!-- Cartapra R4: historial de renta en el SII (F22), solo consulta; fuera de #mr-app para no redibujarse -->
+    <div id="mr-sii" style="max-width:1080px"></div>
   </div>
 </main>
 </div>
@@ -124,6 +126,7 @@ body.g-mod-mr{--g-acento:#C77BC9;--grad:linear-gradient(160deg,#A4599C,#803889);
 })();
 </script>
 <script src="../supabase.js"></script>
+<script src="../clientes/sii-cartapra.js"></script>
 <script src="apertura-logica.js"></script>
 <script src="apertura.js"></script>
 <script src="../notifications.js"></script>

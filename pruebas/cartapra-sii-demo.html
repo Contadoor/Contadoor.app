@@ -25,6 +25,7 @@
 </div></div>
 <script src="../assets/gestoor-menu.js"></script>
 <script src="cartapra-sii-fixture.js"></script>
+<script src="cartapra-sii-fixture-r4.js"></script>
 <script>
   var q = new URLSearchParams(location.search);
   var est = q.get('estado') || 'conectada', piloto = q.get('piloto') !== '0', puede = !piloto && q.get('conectar') !== '0';
@@ -46,11 +47,12 @@
   window.edgeFetch = function (fn, body) {
     var r = body.accion === 'ventana' ? { s: 200, b: { ok: true, widget: { url: 'https://app.cartapra.com/conecta-widget/DEMO' } } }
       : body.accion === 'estado' ? (est === 'conector' ? { s: 200, b: { ok: true, conexion: C('no_conectada'), puede_conectar: true } } : { s: 403, b: { ok: false, error: 'SIN_PERMISO' } })
+      : (est === 'conectada' && window.CARTAPRA_FIXTURE_R4 && window.CARTAPRA_FIXTURE_R4[body.accion]) ? { s: 200, b: window.CARTAPRA_FIXTURE_R4[body.accion] }
       : R[est];
     return new Promise(function (ok) { setTimeout(function () { ok({ ok: r.s < 300, status: r.s, json: function () { return Promise.resolve(r.b); } }); }, 150); });
   };
 </script>
 <script src="../clientes/sii-cartapra.js"></script>
-<script>GestoorSII.montar(document.getElementById('det-sii'), 7);</script>
+<script>GestoorSII.montar(document.getElementById('det-sii'), 7, { vista: new URLSearchParams(location.search).get('vista') || 'ficha' });</script>
 </body>
 </html>

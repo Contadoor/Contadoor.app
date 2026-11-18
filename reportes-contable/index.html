@@ -1121,6 +1121,8 @@ function renderTabla(){
     if(c.tieneContabilidad!==false){
       html+=renderSeccionLibros(rep,c);
     }
+    // Cartapra R4: "Situación mensual SII" (se llena al abrir el detalle)
+    if(c.id) html+='<div class="sii-cartapra-slot" data-cid="'+Number(c.id)+'"></div>';
     // Tarjetas IVA + PPM en vivo desde borrador (sin esperar rep.f29 guardado)
     if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29||borrador._exentoNoCuadra){
       html+='<div class="det-grid">';
@@ -1258,6 +1260,9 @@ function _cargarSiiDe(rut){
   var det=document.getElementById('det-'+rut); if(!det) return;
   var fila=det.querySelector('.libro-sii[data-cid]');
   if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
+  // Cartapra R4: situación mensual SII (solo lectura, bajo demanda, un cliente a la vez)
+  var slot=det.querySelector('.sii-cartapra-slot[data-cid]');
+  if(slot&&window.GestoorSII) GestoorSII.montar(slot, Number(slot.getAttribute('data-cid')), {vista:'contable'});
 }
 function restaurarFilaAbierta(rut, porAccion){
   // Tras un renderTabla. porAccion = el usuario acaba de actuar sobre ese cliente (libro, Pre-IVA): se abre ese.
@@ -1289,6 +1294,7 @@ function toggleRow(rut){
     det.classList.remove('open');
     var row=document.getElementById('row-'+rut); if(row) row.classList.remove('sel');
     if(_rutAbierto===rut) _rutAbierto=null;
+    if(window.GestoorSII) GestoorSII.desmontar();
     return;
   }
   _abrirSolo(rut);
@@ -4999,6 +5005,7 @@ function _siiF29MostrarMensaje(tipo, texto){
 
 <script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
+<script src="../clientes/sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
 <script>
 window.GESTOOR_MODULO = 'reportes-contable';
