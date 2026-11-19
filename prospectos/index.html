@@ -300,7 +300,7 @@ function abrir(id){
     if(!(p.reuniones||[]).length) h+='<p class="pr-vacio">Sin reuniones agendadas.</p>';
     (p.reuniones||[]).forEach(function(x){var s=x.seguimiento||{};
       h+='<div class="reu"><b style="color:#F3E9F4">'+esc(fecha(x.inicio,true))+'</b> · <span class="chip e-'+(x.estado==='confirmada'?'agendado':x.estado==='realizada'?'reunion_realizada':'no_asistio')+'">'+esc(x.estado)+'</span>'
-        +(x.teams?' · <a href="'+esc(x.teams)+'" target="_blank" rel="noopener" style="color:#E39BE5;font-weight:700">Abrir Teams</a>':'')
+        +(x.teams?' · <a href="'+esc(x.teams)+'" target="_blank" rel="noopener" style="color:#E39BE5;font-weight:700">Unirme a la reunión</a>':'')
         +(x.estado!=='cancelada'&&x.estado!=='inconsistente'?' · <a href="bitacora.html?reserva='+Number(x.id)+'" style="color:#E39BE5;font-weight:700">📝 Bitácora</a>':'')
         +'<div class="pasos">'+Object.keys(PASOS).map(function(k){var ok=s[k]&&s[k]!=='error';return '<span class="paso'+(ok?' ok':'')+'">'+(ok?'✓ ':'')+esc(PASOS[k])+'</span>';}).join('')+'</div></div>';});
     h+='</div>';

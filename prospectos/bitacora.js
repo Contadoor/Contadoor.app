@@ -93,7 +93,7 @@ function pintar(){
     +(r?' · '+esc(D.fechaHora(r.inicio)):' · sin reserva')+' · <span class="guardado" id="guardado"></span></small></div>'
     +'<div class="reloj"><div class="t" id="reloj" aria-live="off" title="Reloj de la reunión (30 min)">30:00</div>'
     +(EDIT?'<button class="rbtn" id="btnPlay" type="button" aria-label="Iniciar o pausar el reloj">▶</button><button class="rbtn" id="btnRst" type="button" aria-label="Reiniciar el reloj" title="Reiniciar">↺</button>':'')
-    +(r&&r.teams&&!cerrada?'<a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Teams</a>':'')
+    +(r&&r.teams&&!cerrada?'<a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Unirme</a>':'')
     +'<span id="waSlot">'+waHtml()+'</span></div>'
     +'<div class="fase" id="fase"></div></div>';
   h+='<div class="mr"><div class="mr-col">';

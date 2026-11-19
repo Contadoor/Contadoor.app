@@ -1,7 +1,7 @@
 /* ============================================================
    prospectos/reuniones.js — Reuniones (puerta de entrada del módulo Comercial · C1)
    Agenda de diagnósticos: hoy, mañana, la semana y las próximas, con hora, prospecto, origen, responsable, estado de la reserva,
-   enlace a Teams y "Abrir bitácora" / "Continuar". Más "+ Bitácora sin reserva" (llamada o WhatsApp fuera de la agenda).
+   enlace a la videollamada y "Abrir bitácora" / "Continuar". Más "+ Bitácora sin reserva" (llamada o WhatsApp fuera de la agenda).
    Datos: RPC com_listar_hoy (la base decide qué ve cada uno: el Master todo; cada responsable lo suyo y lo sin asignar).
    ============================================================ */
 (function(){
@@ -56,7 +56,7 @@ function reuHTML(x,g){
   var pronto=x.estado==='confirmada'&&min>=0&&min<=30;
   var clase='reu'+((pronto||enCurso)?' ahora':'')+(porCerrar(x)?' pasada':'')+(x.estado==='cancelada'?' apagada':'');
   var r=l.responsable;
-  var teams=x.teams&&x.estado==='confirmada'?'<a class="btn sm" href="'+esc(x.teams)+'" target="_blank" rel="noopener">🎥 Teams</a>':'';
+  var teams=x.teams&&x.estado==='confirmada'?'<a class="btn sm" href="'+esc(x.teams)+'" target="_blank" rel="noopener">🎥 Unirme</a>':'';
   return '<div class="'+clase+'"><div class="hora">'+esc(D.hora(x.inicio))+'<small>'+(g==='cerrar'||g==='proximas'||g==='semana'?esc(D.diaLargo(D.ymd(x.inicio)).replace(/,.*/,'')+' '+D.ymd(x.inicio).slice(8)+'-'+D.ymd(x.inicio).slice(5,7)):'30 min')+'</small></div>'
     +'<div style="min-width:0"><h3>'+esc(l.nombre||'Prospecto')+'</h3><p>'+esc(l.empresa||'Empresa no informada')+'</p>'
     +'<div class="meta">'+(l.semaforo?'<span class="sem '+esc(l.semaforo)+'" title="Semáforo '+esc(l.semaforo)+'"></span>':'')
@@ -106,7 +106,7 @@ function pintar(){
   // Agenda por día
   var vis=todas.filter(function(t){return enVista(t.g);}).sort(function(a,b){return new Date(a.x.inicio)-new Date(b.x.inicio);});
   var titulo={hoy:'Reuniones de hoy',manana:'Reuniones de mañana',semana:'Próximos 7 días',proximas:'Más adelante',todo:'Toda la agenda'}[VISTA];
-  col+='<div class="card acc c-lil"><div class="h"><span class="ic">📅</span><h2>'+esc(titulo)+'</h2><small>diagnóstico gratuito · 30 min por Teams</small></div>';
+  col+='<div class="card acc c-lil"><div class="h"><span class="ic">📅</span><h2>'+esc(titulo)+'</h2><small>diagnóstico gratuito · 30 min por videollamada</small></div>';
   if(!vis.length)col+='<div class="cm-vacio">'+(VISTA==='hoy'?'No hay reuniones hoy. ':'No hay reuniones en este periodo. ')+'Revisa “Próximas” o “Todo”.</div>';
   var dia='';
   vis.forEach(function(t){var d=D.ymd(t.x.inicio);if(d!==dia){dia=d;col+='<div class="dia"><b>'+(d===h?'Hoy':d===D.sumarDias(h,1)?'Mañana':'')+'</b>'+esc(D.diaLargo(d))+'<i></i></div>';}col+=reuHTML(t.x,t.g);});
