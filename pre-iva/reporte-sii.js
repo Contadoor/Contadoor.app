@@ -1,7 +1,9 @@
 /* ============================================================
-   pre-iva/reporte-sii.js — «Validar y pasar al reporte» (REPORTE-AUTO A).
-   El analista contable responsable (o el Master) valida el Pre-IVA calculado con los datos del SII (Cartapra) y los montos pasan
-   al reporte mensual EN EL SERVIDOR (RPC public.reporte_aplicar_preiva_sii). Esta pantalla NO calcula ni envía montos:
+   pre-iva/reporte-sii.js — «Revisar y pasar al reporte (opcional)» (REPORTE-AUTO A).
+   OPCIONAL (decisión de Luciano 19-11): «🔒 Cerrar reporte» del Panel pasa los datos del SII al reporte por sí solo. Aquí el
+   analista contable responsable (o el Master) puede revisar el Pre-IVA calculado con los datos del SII (Cartapra) y pasar los montos
+   antes, EN EL SERVIDOR (RPC public.reporte_aplicar_preiva_sii). El Panel reusa validarManual, filasResumen y crearObligacion.
+   Esta pantalla NO calcula ni envía montos:
      1) pide la vista al servidor (public.reporte_preiva_sii_vista): montos, remanente, bloqueos, avisos y huella;
      2) si no hay F29 del mes anterior en Cartapra, pide el remanente anterior (cód. 77) A MANO con un motivo (≥ 10 caracteres);
      3) confirma con la huella (si los datos del SII cambiaron entremedio, el servidor rechaza: DATOS_CAMBIARON);
@@ -30,7 +32,7 @@
   var MAPA = [
     [/SOLO_ANALISTA_ASIGNADO/, 'Solo el analista contable responsable del cliente o el Master pueden validar este Pre-IVA.'],
     [/SIN_SESION/, 'Tu sesión terminó. Vuelve a ingresar a Gestoor.'],
-    [/DATOS_CAMBIARON/, 'Los datos del SII cambiaron mientras revisabas. Vuelve a abrir «Validar y pasar al reporte».'],
+    [/DATOS_CAMBIARON/, 'Los datos del SII cambiaron mientras revisabas. Vuelve a abrir «Revisar y pasar al reporte».'],
     [/REPORTE_YA_VALIDADO/, 'Este Pre-IVA ya está validado en el reporte. Para cambiarlo, el Master reabre el reporte contable.'],
     [/REPORTE_CERRADO/, 'El reporte ya está cerrado. El Master debe reabrirlo primero.'],
     [/REPORTE_NO_EXISTE/, 'No existe el reporte de este período (la nómina la genera el Master).']
@@ -106,7 +108,7 @@
     estilo();
     var viejo = document.getElementById('rsii-fondo'); if (viejo) viejo.remove();
     var fondo = document.createElement('div'); fondo.id = 'rsii-fondo'; fondo.className = 'rsii-fondo';
-    fondo.innerHTML = '<div class="rsii" role="dialog" aria-modal="true" aria-labelledby="rsii-t"><div class="rsii-cab"><h3 id="rsii-t">Validar y pasar al reporte · ' + esc(mes(o.periodo)) + '</h3>'
+    fondo.innerHTML = '<div class="rsii" role="dialog" aria-modal="true" aria-labelledby="rsii-t"><div class="rsii-cab"><h3 id="rsii-t">Revisar y pasar al reporte · ' + esc(mes(o.periodo)) + '</h3>'
       + '<button type="button" class="btn sec chico" data-rsii="cerrar" aria-label="Cerrar">×</button></div><div class="rsii-cuerpo" id="rsii-cuerpo">Consultando al servidor…</div>'
       + '<div class="rsii-pie" id="rsii-pie"><button type="button" class="btn sec" data-rsii="cerrar">Cancelar</button></div></div>';
     document.body.appendChild(fondo);
@@ -114,7 +116,8 @@
     fondo.addEventListener('click', function (ev) { var b = ev.target.closest('[data-rsii="cerrar"]'); if (b || ev.target === fondo) cerrar(); });
     var cuerpo = fondo.querySelector('#rsii-cuerpo'), pie = fondo.querySelector('#rsii-pie');
     vista(o.cliente.id, o.periodo).then(function (v) {
-      var h = '<div><b>' + esc(o.cliente.razon || o.cliente.rut || '') + '</b> · los montos los calcula el servidor con los datos del SII (Cartapra)</div>';
+      var h = '<div><b>' + esc(o.cliente.razon || o.cliente.rut || '') + '</b> · los montos los calcula el servidor con los datos del SII (Cartapra)</div>'
+        + '<p class="rsii-av">ℹ️ Este paso es opcional: si no lo haces, «🔒 Cerrar reporte» en el Panel pasa estos mismos montos al cerrar.</p>';
       (v.bloqueos || []).forEach(function (b) { h += '<p class="rsii-bl">⛔ ' + esc(b.mensaje || b.codigo) + '</p>'; });
       (v.avisos || []).forEach(function (a) { h += '<p class="rsii-av">⚠️ ' + esc(a.mensaje || a.codigo) + '</p>'; });
       if (v.remanente && v.remanente.aviso) h += '<p class="rsii-av">⚠️ ' + esc(v.remanente.aviso) + '</p>';
@@ -129,7 +132,7 @@
       h += '<div class="rsii-err" id="rsii-err" role="alert"></div>';
       cuerpo.innerHTML = h;
       if (v.puede_aplicar) {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Validar y pasar al reporte'; pie.appendChild(b);
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Pasar al reporte ahora'; pie.appendChild(b);
         b.onclick = function () {
           var err = fondo.querySelector('#rsii-err'), cod = null, mot = null;
           if (v.requiere_remanente_manual) {
@@ -139,15 +142,15 @@
           b.disabled = true; b.textContent = 'Guardando…'; err.textContent = '';
           aplicar(o.cliente.id, o.periodo, v.huella, cod, mot).then(function (res) {
             return crearObligacion(o.cliente.rut, res).then(function (ob) {
-              cuerpo.innerHTML = '<p class="rsii-ok">✓ Pre-IVA validado y pasado al reporte de ' + esc(mes(o.periodo)) + '.</p>'
+              cuerpo.innerHTML = '<p class="rsii-ok">✓ Montos del SII pasados al reporte de ' + esc(mes(o.periodo)) + '.</p>'
                 + '<div class="rsii-fila tot"><span>Total F29</span><b>' + esc(fmt(res.montos && res.montos.total_f29)) + '</b></div>'
                 + '<div>Remanente anterior: ' + esc(fmt(res.remanente && res.remanente.cod504)) + ' (' + esc(res.remanente && res.remanente.fuente === 'manual' ? 'ingresado a mano' : 'SII') + ')</div>'
                 + (ob.estado === 'error' ? '<p class="rsii-av">⚠️ El reporte quedó validado, pero la obligación F29 de Pagos no se pudo crear: avisa a Pagos. (' + esc(mensajeError(ob.mensaje)) + ')</p>' : '')
-                + '<div>Siguiente paso: en el Panel de Control, «Cerrar reporte».</div>';
+                + '<div>Siguiente paso: en el Panel de Control, «🔒 Cerrar reporte».</div>';
               pie.innerHTML = '<button type="button" class="btn" data-rsii="cerrar">Listo</button>';
               if (typeof o.alTerminar === 'function') o.alTerminar(res);
             });
-          }).catch(function (e) { b.disabled = false; b.textContent = 'Validar y pasar al reporte'; err.textContent = mensajeError(e && e.message); });
+          }).catch(function (e) { b.disabled = false; b.textContent = 'Pasar al reporte ahora'; err.textContent = mensajeError(e && e.message); });
         };
       }
     }).catch(function (e) {
