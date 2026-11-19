@@ -22,15 +22,29 @@ const CARTERA = { ok: true, cartera: { empresas: [{ empresa: { rut: '11.111.111-
   res('RUT ausente → no_conectada', w.GestoorSII.estadoRut('33333333-3') === 'no_conectada');
   await w.GestoorSII.prepararLista(5, true); res('segunda vez: sin nueva llamada', llamadas.length === 1);
 }
+{ // 19-11: distintivo en la lista (Master con cartera)
+  const { w } = montar((b) => b.accion === 'cartera' ? [200, CARTERA] : [500, {}]);
+  w.gIcon = (n: string) => '<svg data-n="' + n + '"></svg>';
+  res('antes de cargar: sin distintivo', w.GestoorSII.insignia('11111111-1') === null);
+  await w.GestoorSII.prepararLista(5, true);
+  const ok = w.GestoorSII.insignia('11.111.111-1');
+  res('conectada → «SII conectado» verde con check', !!ok && ok.className === 'sii-tag ok' && ok.textContent === 'SII conectado' && !!ok.querySelector('i.ic svg[data-n="check"]') && /conectada con el SII/.test(ok.title));
+  const am = w.GestoorSII.insignia('22222222-k');
+  res('clave rechazada → «Revisar conexión SII» ámbar', !!am && am.className === 'sii-tag rech' && am.textContent === 'Revisar conexión SII' && !!am.querySelector('svg[data-n="alerta"]') && am.title.length > 0);
+  res('sin conexión → nada', w.GestoorSII.insignia('33333333-3') === null);
+  res('estilos del distintivo cargados', /\.sii-tag\.ok\{color:#5FCF9C/.test(w.document.getElementById('sii-cartapra-css')?.textContent || ''));
+}
 { // Master con cartera caída → respaldo por estado
   const { w, llamadas } = montar((b) => b.accion === 'cartera' ? [502, { ok: false }] : [200, { ok: true, puede_conectar: true, piloto: false }]);
   const r = await w.GestoorSII.prepararLista(7, true);
   res('cartera falla → estado → puede', r.puede === true && llamadas[1].accion === 'estado' && llamadas[1].cliente_id === 7);
   res('sin cartera: estadoRut null (botón neutro)', w.GestoorSII.estadoRut('1-9') === null);
+  res('sin cartera: sin distintivo (otros roles)', w.GestoorSII.insignia('11111111-1') === null);
 }
 { // Conector (Benedicta)
   const { w } = montar((b) => [200, { ok: true, puede_conectar: true, piloto: false }]);
   res('conector: puede', (await w.GestoorSII.prepararLista(9, false)).puede === true);
+  res('conector: no ve distintivo (sin cartera)', w.GestoorSII.insignia('11111111-1') === null);
 }
 { // Analista sin permiso / piloto
   const a = montar(() => [403, { ok: false, error: 'SIN_PERMISO' }]);
