@@ -146,6 +146,8 @@ tr[data-rut]{cursor:pointer}
 .bulk-bar.on{display:flex;}
 </style>
 <script src="../supabase.js"></script>
+<script src="../assets/vencimientos.js"></script>
+<script>(function(){var y=new Date().getFullYear();function go(){if(window.GestoorVencimientos)window.GestoorVencimientos.cargarFeriados([y,y+1]);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();</script>
 <link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1971,9 +1973,11 @@ function buildPreReporteRrhhHTML(r,data){
   var mes=parseInt(partes[1])||1;
   mes++;if(mes>12){mes=1;anio++;}
   var MESES2=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  var fechaPostergar='10 de '+MESES2[mes-1]+' de '+anio;
-  var fechaTope='13 de '+MESES2[mes-1]+' de '+anio;
-  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,13,12,30)-new Date())/(864e5)));
+  // RRHH-VENC-1: día 10 y 13 corridos al hábil ANTERIOR si son sábado, domingo o feriado (assets/vencimientos.js).
+  var _V=window.GestoorVencimientos, _vPost=_V&&_V.postergacion(r.periodo), _vTope=_V&&_V.previred(r.periodo);
+  var fechaPostergar=_vPost?_vPost.texto:'10 de '+MESES2[mes-1]+' de '+anio;
+  var fechaTope=_vTope?_vTope.texto:'13 de '+MESES2[mes-1]+' de '+anio;
+  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,_vTope?_vTope.dia:13,12,30)-new Date())/(864e5)));
   var nomina=0,dctoAfp=0,apv=0,dctoSalud=0,cesTrab=0;
   var sis=0,mutual=0,cesEmp=0,capInd=0,expVida=0,rentProt=0,iuEmail=0;
   var nTrab=0,nActivos=0,nLic=0;
@@ -2652,9 +2656,11 @@ function buildRecordatorioRrhhHTML(r,diasSinPagar,esUrgente){
   var mes=parseInt(partes[1])||1;
   mes++;if(mes>12){mes=1;anio++;}
   var MESES2=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  var fechaPostergar='10 de '+MESES2[mes-1]+' de '+anio;
-  var fechaTope='13 de '+MESES2[mes-1]+' de '+anio;
-  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,13,12,30)-new Date())/(864e5)));
+  // RRHH-VENC-1: día 10 y 13 corridos al hábil ANTERIOR si son sábado, domingo o feriado (assets/vencimientos.js).
+  var _V=window.GestoorVencimientos, _vPost=_V&&_V.postergacion(r.periodo), _vTope=_V&&_V.previred(r.periodo);
+  var fechaPostergar=_vPost?_vPost.texto:'10 de '+MESES2[mes-1]+' de '+anio;
+  var fechaTope=_vTope?_vTope.texto:'13 de '+MESES2[mes-1]+' de '+anio;
+  var diasRest=Math.max(0,Math.floor((new Date(anio,mes-1,_vTope?_vTope.dia:13,12,30)-new Date())/(864e5)));
   // Fuente oficial: r.totalCot de Supabase (sin IU, sin otros descuentos)
   var _tcFallback=(r.afp||0)+(r.apv||0)+(r.salud||0)+(r.cesTrab||0)
     +(r.sis||0)+(r.mutual||0)+(r.cesEmp||0)
