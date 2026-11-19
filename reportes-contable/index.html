@@ -153,10 +153,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 .libro-total-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bdr);}
 .libro-total-row:last-child{border-bottom:none;font-weight:700;}
 .libro-actions{display:flex;gap:4px;flex-wrap:wrap;}
-.libro-sii{margin-top:8px;padding:7px 9px;border-radius:8px;font-size:10.5px;line-height:1.5;color:var(--tm);background:rgba(255,255,255,.03);border-left:3px solid #6B5A70}
-.libro-sii .libsii-t{display:inline-block;font-weight:800;letter-spacing:.5px;margin-right:4px;color:#A98AAE}
-.libro-sii.libsii-ok{border-left-color:#5FCF9C}.libro-sii.libsii-dif{border-left-color:#FFC85A}.libro-sii.libsii-err{border-left-color:#E07A6E}
-.libro-sii b{color:var(--t1,#F3E9F4);font-weight:700}.libsii-error{color:#F2A49A}.libsii-dif-t{color:#FFC85A}.libsii-okt{color:#5FCF9C}
 .preview-bloque{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:12px;}
 .preview-row{display:flex;justify-content:space-between;padding:3px 0;}
 .preview-totales{background:var(--contable-bg);border:1px solid var(--contable-bdr);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:12px;}
@@ -1258,8 +1254,12 @@ function renderTabla(){
 var _rutAbierto=null;   // único cliente abierto (acordeón). Reporte OK lo deja en null para que no se reabra.
 function _cargarSiiDe(rut){
   var det=document.getElementById('det-'+rut); if(!det) return;
-  var fila=det.querySelector('.libro-sii[data-cid]');
-  if(fila) libSiiCargar(Number(fila.getAttribute('data-cid')));
+  // Resumen automático del SII en «Documentos contables del período» (una consulta por cliente y período, en caché)
+  var dslot=det.querySelector('.docsii-slot[data-cid]');
+  if(dslot&&window.ContableDocsSii){
+    var dcid=Number(dslot.getAttribute('data-cid')), dcli=getClientes().find(function(x){ return Number(x.id)===dcid; })||{};
+    ContableDocsSii.montar(dslot,{clienteId:dcid, periodo:_periodoActual, nombre:dcli.razonSocial||dcli.nombre||dcli.rut||''});
+  }
   // Cartapra R4: situación mensual SII (solo lectura, bajo demanda, un cliente a la vez)
   var slot=det.querySelector('.sii-cartapra-slot[data-cid]');
   if(slot&&window.GestoorSII) GestoorSII.montar(slot, Number(slot.getAttribute('data-cid')), {vista:'contable'});
@@ -4455,9 +4455,6 @@ function renderTarjetaLibro(tipo, cab, c, rep){
   var cid = c.id;
   var rut = c.rut;
 
-  // SII en la tarjeta (compras/ventas): estado de la última sincronización + botón manual. Se llena al abrir el detalle (libSiiCargar).
-  var conSii = (tipo==='compras'||tipo==='ventas') && !!cid;
-  var btnSii = conSii ? '<button class="btn-s" style="font-size:10px" data-libsii-btn="'+tipo+'" data-cid="'+cid+'" onclick="event.stopPropagation();libSiiSincronizar('+cid+',\''+tipo+'\')" title="Traer ahora el registro de '+etiqueta.toLowerCase()+' desde el SII">'+gIcon('repetir')+' Sincronizar SII</button>' : '';
   var h = '<div class="libro-card">';
   h += '<div class="libro-card-hd"><span class="libro-titulo">'+etiqueta+'</span>'+renderLibroBadge(estado)+'</div>';
 
@@ -4484,7 +4481,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     }
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('repetir')+' Reemplazar</button>';
-    h += btnQuitar + btnSii;
+    h += btnQuitar;
     h += '</div>';
   } else if(estado==='sin_movimientos'){
     h += '<div class="libro-meta">Sin movimientos en el período.';
@@ -4492,7 +4489,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     h += '</div>';
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('subir')+' Cargar de todas formas</button>';
-    h += btnQuitar + btnSii;
+    h += btnQuitar;
     h += '</div>';
   } else if(estado==='no_aplica'){
     h += '<div class="libro-meta">No aplica este período.';
@@ -4500,7 +4497,7 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     h += '</div>';
     h += '<div class="libro-actions">';
     h += '<button class="btn-s" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'reemplazo\')">'+gIcon('subir')+' Cargar de todas formas</button>';
-    h += btnQuitar + btnSii;
+    h += btnQuitar;
     h += '</div>';
   } else {
     // no_cargado
@@ -4509,17 +4506,12 @@ function renderTarjetaLibro(tipo, cab, c, rep){
     if(tipo!=='honorarios'){
       h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">'+gIcon('subir')+' Cargar</button>';
       h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">Sin movimientos</button>';
-      h += btnSii;
     } else {
       h += '<button class="btn-p" style="font-size:10px" onclick="cargarLibro('+cid+',\''+rut+'\',\''+tipo+'\',\'carga_inicial\')">'+gIcon('subir')+' Cargar</button>';
       h += '<button class="btn-s" style="font-size:10px" onclick="marcarSinMovimientosLibro('+cid+',\''+rut+'\',\''+tipo+'\')">Sin movimientos</button>';
       h += '<button class="btn-s" style="font-size:10px" onclick="marcarNoAplicaLibro('+cid+',\''+rut+'\',\''+tipo+'\')">No aplica</button>';
     }
     h += '</div>';
-  }
-  if(conSii){
-    var nLibro=(cab&&(estado==='validado'||estado==='con_observaciones'))?(cab.nDocsIncluidos||0):(estado==='sin_movimientos'?0:'');   // se compara con los documentos incluidos
-    h += '<div class="libro-sii" data-libsii="'+tipo+'" data-cid="'+cid+'" data-ndocs="'+nLibro+'"><span class="libsii-t">SII</span> <span class="libsii-txt">se revisa al abrir el detalle</span></div>';
   }
   h += '</div>';
   return h;
@@ -4529,11 +4521,16 @@ function renderSeccionLibros(rep, c){
   var libros = rep.libros || (_librosMap[String(c.id||'')] || {});
   var h = '<div style="margin-bottom:14px">';
   h += '<div class="libros-sec-titulo">'+gIcon('contable')+' Documentos contables del período</div>';
+  // 19-11 (Luciano): resumen automático con los datos del SII (Cartapra) + lupa «Ver detalle» (docs-sii.js). La carga manual
+  // queda a la vista si la empresa no está conectada (o no hay datos) y plegada como respaldo si sí lo está.
+  var conResumenSii = !!c.id && !!window.ContableDocsSii;
+  if(conResumenSii) h += '<div class="docsii-slot" data-cid="'+Number(c.id)+'"></div>';
+  h += '<div class="libros-manual" data-cid="'+Number(c.id||0)+'" data-modo="'+(conResumenSii?'pendiente':'visible')+'">';
   h += '<div class="libros-grid">';
   h += renderTarjetaLibro('compras',   libros.compras,   c, rep);
   h += renderTarjetaLibro('ventas',    libros.ventas,    c, rep);
   h += renderTarjetaLibro('honorarios',libros.honorarios,c, rep);
-  h += '</div></div>';
+  h += '</div></div></div>';
   return h;
 }
 
@@ -4679,75 +4676,6 @@ function normFechaLib(val){
     intentarInicio();
   }
 })();
-
-// ═══════════════════════════════════════════════════════════════
-// SII EN LAS TARJETAS DE LIBROS (Compras/Ventas): última sincronización + botón manual.
-// Usa las mismas Edge del bloque SII del Pre-IVA (gestoor-rcv-estado / gestoor-rcv-consultar, sin cambios).
-// Solo informa: no modifica libros, f29 ni rep.
-var _libSiiOcupado={};
-var _libSiiUx={
-  'provider_error':'el servicio SII no respondió',
-  'config_error':'el proveedor SII rechazó la conexión (clave o plan de SimpleAPI)',
-  'normalization_error':'la respuesta del SII no se pudo procesar',
-  'persistence_error':'no se pudo guardar la respuesta',
-  'sii_not_authorized':'falta la autorización SII del cliente',
-  'internal_error':'error interno'
-};
-function _libSiiFilas(cid){ return document.querySelectorAll('.libro-sii[data-cid="'+cid+'"]'); }
-function _libSiiPintar(cid, data, aviso){
-  var auth=data&&data.autorizacionSii?data.autorizacionSii.estado:'no_validado';
-  _libSiiFilas(cid).forEach(function(el){
-    var tipo=el.getAttribute('data-libsii'), f=(data&&data[tipo])||{estado:'nunca'};
-    var tiene=(f.esActual===true&&f.version!=null);
-    var partes=[];
-    if(tiene) partes.push('<b>'+(Number(f.nDocumentos)||0)+' documentos</b>'+(f.datosActualizadosAt?' · sincronizado '+hesc(_siiF29FormatoFecha(f.datosActualizadosAt)||''):''));
-    else partes.push(f.estado==='ejecutando'?'actualizando…':'sin datos del SII todavía');
-    var cls='libsii-ok';
-    if(f.estado==='error'){
-      cls='libsii-err';
-      partes.push('<span class="libsii-error">último intento '+hesc(_siiF29FormatoFecha(f.ultimaSincronizacion)||'')+' con error: '+hesc(_libSiiUx[f.estadoUxCode]||'error')+'</span>');
-    }
-    var nLib=el.getAttribute('data-ndocs');
-    if(tiene&&nLib!==''&&Number(nLib)!==Number(f.nDocumentos||0)){
-      cls=cls==='libsii-err'?cls:'libsii-dif';
-      partes.push('<span class="libsii-dif-t">no coincide con el libro ('+Number(nLib)+' documentos)</span>');
-    }
-    if(auth!=='validado') partes.push('<span class="libsii-error">falta validar la autorización SII</span>');
-    if(aviso&&aviso.tipo===tipo) partes.push('<span class="'+(aviso.ok?'libsii-okt':'libsii-error')+'">'+hesc(aviso.texto)+'</span>');
-    el.className='libro-sii '+cls;
-    el.innerHTML='<span class="libsii-t">SII</span> <span class="libsii-txt">'+partes.join('<br>')+'</span>';
-    var btn=document.querySelector('[data-libsii-btn="'+tipo+'"][data-cid="'+cid+'"]');
-    if(btn){ var dis=(auth!=='validado')||f.estado==='ejecutando'||!!_libSiiOcupado[cid+tipo];
-      btn.disabled=dis; btn.style.opacity=dis?'.45':''; btn.title=auth!=='validado'?'Falta validar la autorización SII del cliente':'Traer ahora el registro desde el SII'; }
-  });
-}
-function libSiiCargar(cid, aviso){
-  if(!cid||!_periodoActual) return;
-  var per=_periodoActual;
-  _siiF29CallEdge('gestoor-rcv-estado',{clienteId:cid,periodo:per})
-    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
-    .then(function(x){
-      if(per!==_periodoActual) return;
-      if(x.ok&&x.d&&x.d.ok) _libSiiPintar(cid,x.d,aviso);
-      else _libSiiFilas(cid).forEach(function(el){ el.querySelector('.libsii-txt').textContent='no se pudo consultar el estado del SII'; });
-    })
-    .catch(function(){ _libSiiFilas(cid).forEach(function(el){ el.querySelector('.libsii-txt').textContent='no se pudo consultar el estado del SII'; }); });
-}
-function libSiiSincronizar(cid, tipo){
-  if(_libSiiOcupado[cid+tipo]||!_periodoActual) return;
-  _libSiiOcupado[cid+tipo]=true;
-  var btn=document.querySelector('[data-libsii-btn="'+tipo+'"][data-cid="'+cid+'"]');
-  if(btn){ btn.disabled=true; btn.innerHTML=gIcon('repetir')+' Sincronizando…'; }
-  var per=_periodoActual;
-  var fin=function(aviso){ _libSiiOcupado[cid+tipo]=false;
-    var b=document.querySelector('[data-libsii-btn="'+tipo+'"][data-cid="'+cid+'"]');
-    if(b){ b.innerHTML=gIcon('repetir')+' Sincronizar SII'; b.disabled=false; b.style.opacity=''; }
-    if(per===_periodoActual) libSiiCargar(cid, aviso); };
-  _siiF29CallEdge('gestoor-rcv-consultar',{clienteId:cid,periodo:per,tipo:tipo})
-    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,d:d}; }); })
-    .then(function(x){ var ok=x.ok&&x.d&&x.d.ok; fin({tipo:tipo,ok:ok,texto:ok?'Sincronización completada.':_siiF29MensajeError(x.d)}); })
-    .catch(function(){ fin({tipo:tipo,ok:false,texto:'No fue posible completar la sincronización.'}); });
-}
 
 // ═══════════════════════════════════════════════════════════════
 // SINCRONIZACIÓN SII — RCV-PROD-4F-B-R1
@@ -5005,6 +4933,7 @@ function _siiF29MostrarMensaje(tipo, texto){
 
 <script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
+<script src="docs-sii.js?v=20261119"></script>
 <script src="../clientes/sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
 <script>

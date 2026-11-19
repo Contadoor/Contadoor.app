@@ -1597,6 +1597,7 @@ function prepararSiiLista(forzar) {
   var cs = getClientes(); if (!cs || !cs.length) return;
   if (window._esMasterUI !== true && window._esMasterUI !== false) return; // sesión aún no cargada
   _siiListaPedida = true;
+  if (GestoorSII.prepararInsignias) GestoorSII.prepararInsignias().then(function (hay) { if (hay) renderClientes(); });
   var ses = window._contadoorSesion || {};
   GestoorSII.prepararLista(cs[0].id, ses.esMaster === true || ses.rol === 'master').then(function (r) { if (r && r.puede) renderClientes(); });
 }
@@ -1673,8 +1674,8 @@ function renderClientes() {
     var sp = document.createElement('span');
     sp.innerHTML = '<strong>'+esc(c.razon||'')+'</strong><small>'+esc(c.rut||'')+(c.ciudad?' · '+esc(c.ciudad):'')+'</small>';
     // 19-11 (Luciano): distintivo «SII conectado» (verde) o «Revisar conexión SII» (ámbar) bajo el RUT.
-    // El estado viene de la Edge cartapra («cartera»), que solo responde al Master: los demás roles no ven el distintivo.
-    var tagSii = window.GestoorSII && GestoorSII.insignia ? GestoorSII.insignia(c.rut) : null;
+    // Todo el equipo: RPC sii_conexiones_equipo (por cliente_id). Si aún no existe, el estado viene de la Edge («cartera», solo Master).
+    var tagSii = window.GestoorSII && GestoorSII.insignia ? GestoorSII.insignia(c.rut, c.id) : null;
     if (tagSii) sp.appendChild(tagSii);
     cli.appendChild(sp); td1.appendChild(cli); tr.appendChild(td1);
 
