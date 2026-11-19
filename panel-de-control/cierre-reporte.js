@@ -85,7 +85,7 @@
   // Vista previa de los impuestos que el cierre pasará desde el SII (puras, se prueban aparte).
   function filasPuente(p) {
     if (!p || !p.previa) return [];
-    var v = { previa: p.previa, entrada: p.entrada || {}, remanente: p.remanente || {}, iu_pendiente: p.iu_pendiente };
+    var v = { previa: p.previa, entrada: p.entrada || {}, remanente: p.remanente || {}, iu_pendiente: p.iu_pendiente, rrhh: p.rrhh || null };
     if (R && R.filasResumen) return R.filasResumen(v);
     return [['Total F29 (datos del SII)', fmt(p.previa.total_f29)]];
   }
@@ -114,7 +114,12 @@
     + '.crep-ok{color:#5fd39a;font-weight:700}.crep-err{color:#ff8a7a;font-size:12px}'
     + '.crep label{display:flex;flex-direction:column;gap:4px;font-size:12px}'
     + '.crep textarea,.crep input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #3a2b40;background:#24182a;color:inherit;width:100%;box-sizing:border-box}'
-    + '.crep-pie{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #3a2b40}';
+    + '.crep-pie{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #3a2b40}'
+    // Distintivos de fuente (AUTO-A02), mismos que el Pre-IVA.
+    + '.rsii-f{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;vertical-align:1px}'
+    + '.rsii-f-sii{background:rgba(95,211,154,.15);color:#5fd39a;border:1px solid rgba(95,211,154,.45)}'
+    + '.rsii-f-man{background:rgba(255,196,0,.14);color:#ffc400;border:1px solid rgba(255,196,0,.5)}'
+    + '.rsii-f-ges{background:rgba(200,143,202,.14);color:#d6a5d7;border:1px solid rgba(200,143,202,.45)}';
 
   function abrir(o) {
     // o = { reporteId, empresa, periodoTxt, alTerminar(estado, fechaEnvio) }
@@ -161,7 +166,7 @@
         filasFoto(e.datos).forEach(function (f) { h += '<div class="crep-f"><span>' + esc(f[0]) + '</span><b>' + esc(f[1]) + '</b></div>'; });
         if (pu) {
           h += '<p style="font-size:12px;margin:4px 0 0"><b>Impuestos que se pasan al reporte al cerrar</b> (los calcula el servidor con los datos del SII; no hace falta validar antes en el Pre-IVA):</p>';
-          filasPuente(pu).forEach(function (f) { h += '<div class="crep-f"><span>' + esc(f[0]) + '</span><b>' + esc(f[1]) + '</b></div>'; });
+          filasPuente(pu).forEach(function (f) { h += '<div class="crep-f"><span>' + esc(f[0]) + (R && R.chipFuente ? R.chipFuente(f[2]) : '') + '</span><b>' + esc(f[1]) + '</b></div>'; });
           (pu.avisos || []).forEach(function (a) { if (a.codigo !== 'F29_SIN_DECLARAR') h += '<p class="crep-av">ℹ️ ' + esc(a.mensaje || a.codigo) + '</p>'; });
           if (pu.remanente && pu.remanente.aviso) h += '<p class="crep-av">ℹ️ ' + esc(pu.remanente.aviso) + '</p>';
           if (manual) {
