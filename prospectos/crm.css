@@ -73,6 +73,8 @@
 .g-mod-com .crm-ev.can{background:rgba(255,255,255,.04);border-color:rgba(201,168,204,.25);opacity:.7}.g-mod-com .crm-ev.can b{text-decoration:line-through}
 .g-mod-com .crm-ev.rev{background:rgba(255,200,90,.12);border-color:rgba(255,200,90,.5)}
 .g-mod-com .crm-ev.sel{box-shadow:0 0 0 2px #fff}
+/* AGENDA-WA (P8): etiqueta del estado WhatsApp dentro de la reunión del calendario */
+.g-mod-com .crm-ev .crm-wa{display:inline-flex;margin-top:5px;white-space:normal;max-width:100%;font-size:10.5px;padding:2px 8px}
 .g-mod-com .crm-cal .libre{font-size:11px;color:rgba(201,168,204,.35)}
 /* Ficha lateral */
 .g-mod-com .crm-ficha{border-left:1px solid var(--borde);background:rgba(12,7,14,.6);padding:18px 20px;position:sticky;top:76px;align-self:start;max-height:calc(100vh - 92px);overflow:auto}

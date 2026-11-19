@@ -120,6 +120,21 @@ function ordenar(lista,reus,hoy,pend,ahora){
     .sort(function(a,b){if(a.k[0]!==b.k[0])return a.k[0]-b.k[0];if(a.k[1]<b.k[1])return -1;if(a.k[1]>b.k[1])return 1;return a.i-b.i;})
     .map(function(x){return x.p;});
 }
+// ── AGENDA-WA (P8): estado de la confirmación por WhatsApp de cada reunión agendada que viene (RPC agenda_wa_estado_reservas).
+// Mismas etiquetas que Reuniones de venta (reuniones.js). Si la RPC falla o no responde, el CRM funciona igual, sin la etiqueta.
+var WA_TXT={confirmo:['✅ Confirmó por WhatsApp','verde'],reagendar:['🔄 Pidió reagendar','ambar'],esperando:['💬 Esperando respuesta','cel'],
+  no_entregado:['📵 WhatsApp no entregado','rojo'],programado:['🕒 Recordatorio programado','gris'],baja:['🔕 Sin avisos (baja)','gris'],
+  sin_consentimiento:['✋ Sin WhatsApp: confirmar a mano','gris']};
+var WA_AYUDA={sin_consentimiento:'Agendó con el texto anterior (sin WhatsApp) o se le cambió el número. El asistente no le escribe.'};
+function reunionVigente(r,ahora){return !!r&&r.estado==='confirmada'&&new Date(r.fin||r.inicio).getTime()>(ahora||Date.now());}
+function idsWa(reus,ahora){
+  var vistos={};return (reus||[]).filter(function(r){return reunionVigente(r,ahora);}).map(function(r){return Number(r.id);})
+    .filter(function(n){if(!(n>0)||vistos[n])return false;vistos[n]=true;return true;}).slice(0,300);
+}
+function etiquetaWa(w){
+  var t=w&&WA_TXT[w.estado];if(!t)return null;var leido=w.estado==='esperando'&&!!w.leido;
+  return {txt:t[0]+(leido?' · leído':''),cls:t[1],ayuda:WA_AYUDA[w.estado]||''};
+}
 function mapaPendientes(pendientes){var m={};(pendientes||[]).forEach(function(x){m[String(x.lead_id)]=true;});return m;}
 function totales(lista,reus,hoy,pendientes){
   var pend=mapaPendientes(pendientes), dias=semana(hoy,0), mes=String(hoy).slice(0,7);
@@ -139,12 +154,12 @@ function filtrar(lista,txt){
 root.ComCRM={COLUMNAS:COLUMNAS,CERRADAS:CERRADAS,ETAPAS_RPC:ETAPAS_RPC,columnaDe:columnaDe,esDestino:esDestino,agrupar:agrupar,nombreEtapa:nombreEtapa,
   avance:avance,argsMover:argsMover,ymdDe:ymdDe,lunesDe:lunesDe,semana:semana,horaDe:horaDe,tituloSemana:tituloSemana,unirReuniones:unirReuniones,
   reunionesSemana:reunionesSemana,horasCalendario:horasCalendario,claseReunion:claseReunion,proximaReunion:proximaReunion,atrasado:atrasado,
-  totales:totales,filtrar:filtrar,ordenar:ordenar};
+  totales:totales,filtrar:filtrar,ordenar:ordenar,idsWa:idsWa,etiquetaWa:etiquetaWa};
 
 if(typeof document==='undefined'||!root.ComDatos||!document.getElementById('crmApp'))return;
 // ═════════════════════════════ Pantalla ═════════════════════════════
 var D=root.ComDatos, esc=D.esc, app=document.getElementById('crmApp'), dm=D.DEMO?'&demo=1':'';
-var DATA=null, AGENDA=[], REUS=[], TAB='embudo', SEL=null, TXT='', OFF=0, DET={}, OCUPADO=false, ARRASTRANDO=false;
+var DATA=null, AGENDA=[], REUS=[], WA={}, TAB='embudo', SEL=null, TXT='', OFF=0, DET={}, OCUPADO=false, ARRASTRANDO=false;
 
 if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dmo=document.getElementById('cmDemo');if(dmo)dmo.hidden=false;}
 try{var q=new URLSearchParams(location.search),qi=q.get('id');if(qi&&/^\d{1,18}$/.test(qi))SEL=Number(qi);if(q.get('vista')==='reuniones')TAB='reuniones';}catch(e){}
@@ -162,10 +177,23 @@ function cargar(){
     DATA=r[0]||{};DATA.prospectos=DATA.prospectos||[];DATA.pendientes=DATA.pendientes||[];AGENDA=(r[1]&&r[1].reuniones)||[];
     REUS=unirReuniones(AGENDA,DATA.prospectos);
     if(SEL&&!prospecto(SEL))SEL=null;
-    pintar();
+    pintar();cargarWa();
   }).catch(function(e){app.innerHTML='<div class="aviso rojo">'+esc(mensaje(e))+'</div>';});
 }
 
+function cargarWa(){
+  var ids=idsWa(REUS);if(!ids.length)return;
+  D.rpc('agenda_wa_estado_reservas',{p_reservas:ids}).then(function(r){
+    WA=(r&&typeof r==='object')?r:{};
+    // no repinta encima de un arrastre, un guardado, un modal o mientras se escribe (se verá en el próximo pintado)
+    if(!OCUPADO&&!ARRASTRANDO&&!document.querySelector('.wa-menu,.tel-modal,.cm-modal')&&!(document.activeElement&&/^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName)))pintar();
+  }).catch(function(){});
+}
+function chipWa(r){
+  if(!reunionVigente(r))return '';var e=etiquetaWa(WA[String(r.id)]);if(!e)return '';
+  var w=WA[String(r.id)], tit=e.ayuda||(w.at?D.fechaHora(w.at):'');
+  return '<span class="estado '+e.cls+' crm-wa"'+(tit?' title="'+esc(tit)+'"':'')+'>'+esc(e.txt)+'</span>';
+}
 function pintar(){
   if(!DATA)return;
   var Y=yo(), hoy=D.hoy(), T=totales(DATA.prospectos,REUS,hoy,DATA.pendientes);
@@ -229,7 +257,7 @@ function calendarioHtml(){
       h+='<div class="cel'+(d===hoy?' hoy':'')+'">'+(en.length?en.map(function(r){var p=prospecto(r.lead_id),e=EST_REU[r.estado]||['ag',r.estado];if(r.estado==='confirmada'&&new Date(r.fin||r.inicio).getTime()<Date.now())e=['ag','Por cerrar'];
         return '<button type="button" class="crm-ev '+e[0]+(Number(r.lead_id)===SEL?' sel':'')+'" data-id="'+Number(r.lead_id)+'" title="'+esc(e[1])+'">'
           +'<span class="hh">'+esc(horaDe(r.inicio))+' · '+esc(e[1])+'</span><b>'+esc(r.nombre||'Prospecto')+'</b>'+esc(r.empresa||'Empresa no informada')
-          +(p&&p.dolor?'<small>'+esc(p.dolor)+'</small>':'')+'</button>';}).join(''):'<span class="libre">libre</span>')+'</div>';
+          +(p&&p.dolor?'<small>'+esc(p.dolor)+'</small>':'')+chipWa(r)+'</button>';}).join(''):'<span class="libre">libre</span>')+'</div>';
     });
   });
   h+='</div></div>';
@@ -259,7 +287,7 @@ function fichaHtml(p){
     +fila('Plan conversado',esc(plan?plan[1]:'—'));
   if(r){var e=EST_REU[r.estado]||['ag',r.estado],vig=r.estado==='confirmada'&&new Date(r.fin||r.inicio).getTime()>=Date.now();
     h+=fila('Reunión',esc(diaCorto(ymdDe(r.inicio))+' '+MESES[+ymdDe(r.inicio).slice(5,7)-1].slice(0,3)+' · '+horaDe(r.inicio)+' · '+e[1])
-      +(vig&&r.teams?' <a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Unirme</a>':''));}
+      +(vig&&r.teams?' <a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Unirme</a>':'')+(vig?' '+chipWa(r):''));}
   h+=fila('Responsable',D.avatarResp(p.responsable)+(p.responsable?esc(p.responsable.nombre):'<span class="nd">Sin asignar</span>'))+'</div>';
   // Mover a… (alternativa accesible al arrastre: teclado y celular)
   var ops=todas().filter(function(c){return esDestino(c.id)&&c.id!==p.etapa;});
