@@ -280,6 +280,7 @@ tr:hover td{background:#f0fdff;}
   <div id="kObs"></div></div>
   <div class="conc-sec"><h3>✍️ Otros pagos recibidos (manual)</h3><div id="kMan"></div></div>
   <div id="kTotal" style="margin-top:10px;font-size:13px"></div>
+  <div id="kDif" class="conc-alerta" style="display:none;margin-top:8px;font-size:13px"></div>
   <div class="ob-err" id="kErr"></div>
   <div class="modal-footer"><button class="btn-s" onclick="cerrar('mConc')">Cancelar</button><button class="btn-purple" id="kBtn" onclick="aplicar()">Aplicar conciliación</button></div>
 </div></div>
@@ -651,8 +652,22 @@ function totalizar(){
     +(mal?' · <span style="color:var(--red)">revisa montos (enteros, sin superar el saldo de cada partida; los pagos manuales necesitan descripción)</span>'
       :dif<0?' · <span style="color:var(--red)">supera el ingreso</span>':tot>0&&dif>0?' · <span style="color:var(--amber)">quedará '+ff(dif)+' por conciliar (parcial)</span>':'');
   b.disabled=mal||tot<=0||dif<0||!_det||!_det.integro||!!bloqueoPlan(_mov.id)||_congelado;
-  b.textContent=tot>0&&dif===0?'✅ Conciliar 100%':'Guardar conciliación parcial';
+  var conDif=_cands.some(function(c){return !isNaN(c.monto)&&c.monto>0&&c.monto<c.o.saldo;});
+  b.textContent=tot>0&&dif===0?(conDif?'✅ Conciliar 100% del ingreso (con diferencias)':'✅ Conciliar 100%'):'Guardar conciliación parcial';
+  pintarDiferencias();
   pintarProgreso(tot);
+}
+// 19-11 (Luciano): el 100 % es del dinero recibido; si una partida se paga menos que su saldo, se muestra la DIFERENCIA
+// (lo que queda pendiente en esa factura/obligación) para que no pase inadvertida.
+function pintarDiferencias(){
+  var el=document.getElementById('kDif');if(!el)return;
+  var L=_cands.filter(function(c){return !isNaN(c.monto)&&c.monto>0&&c.monto<c.o.saldo;});
+  if(!L.length){el.style.display='none';el.innerHTML='';return;}
+  var t=0;L.forEach(function(c){t+=c.o.saldo-c.monto;});
+  el.style.display='block';
+  el.innerHTML='<b>⚠️ Diferencias: '+ff(t)+' quedan pendientes</b>'
+    +'<ul style="margin:6px 0 4px;padding-left:18px">'+L.map(function(c){return '<li>'+hesc((c.o.periodo?c.o.periodo+' · ':'')+(c.o.concepto||'Partida'))+': se aplican '+ff(c.monto)+' de '+ff(c.o.saldo)+' → <b>queda '+ff(c.o.saldo-c.monto)+' pendiente</b></li>';}).join('')+'</ul>'
+    +'<span style="color:var(--tm)">Esa diferencia sigue como saldo por cobrar en esa partida. Revisa si el cliente pagó de menos o si el otro concepto (p. ej. F29) no corresponde exacto.</span>';
 }
 // ── CONC-UX: gráfico de avance del ingreso (lo ya conciliado por tipo + lo que se aplica ahora + lo que falta) ──
 var COLOR={servicios:'#904891',f29:'#3B82F6',cotizaciones:'#0e7490',otro:'#C07A1A',manual:'#2D9B6F'};
