@@ -5,6 +5,8 @@
 //   · Total F29 estimado = IVA a pagar (nunca negativo) + PPM.
 //   · El remanente de crédito fiscal solo se imputa contra IVA: NUNCA rebaja el PPM, y el PPM NUNCA genera remanente.
 // Esta pantalla no considera retenciones de honorarios ni impuesto único (eso lo valida Contable).
+// ARCHIVO COMPARTIDO (19-11): reportes-contable/calculo-f29.js usa calcularF29Completo / aplicarEdicionPPM / tasaPPMDesdeGuardado
+// para que el Pre-IVA y la tarjeta «Cálculo del F29» del Reporte Contable den exactamente el mismo resultado.
 (function (raiz) {
   'use strict';
   function n(x) { var v = Number(x); return isFinite(v) ? v : 0; }
@@ -75,8 +77,96 @@
     return null;
   }
 
+  // ── PPM editable (pedido de Luciano 19-11) ─────────────────────────────────────────────────────────────
+  // Se parte del PPM calculado (base × tasa del último F29). El analista puede cambiar la TASA (%) o el MONTO, siempre con motivo.
+  //   e = { tasa: número|null, monto: número|null, motivo, por, at } | null.  Monto escrito manda sobre la tasa.
+  // Se guarda en preiva_historial: ppm = PPM final, tasa_ppm = tasa usada y sii_detalle.ppm_editado = e + lo calculado (sin SQL nuevo).
+  var MOTIVO_PPM_MIN = 5, MOTIVO_PPM_MAX = 300;
+  function hayEdicionPPM(e) { return !!e && (conocido(e.tasa) || conocido(e.monto)); }
+  function aplicarEdicionPPM(base, tasaCalculada, e) {
+    var tc = n(tasaCalculada), calc = calcularPPM(base, tc);
+    var out = { ppm: calc, tasa: tc, calculado: calc, tasaCalculada: tc, editado: false, modo: null, motivo: null };
+    if (!hayEdicionPPM(e)) return out;
+    out.editado = true; out.motivo = e.motivo ? String(e.motivo) : null;
+    if (conocido(e.monto)) { out.modo = 'monto'; out.ppm = Math.max(0, Math.round(n(e.monto))); out.tasa = conocido(e.tasa) ? n(e.tasa) : tc; }
+    else { out.modo = 'tasa'; out.tasa = Math.max(0, n(e.tasa)); out.ppm = calcularPPM(base, out.tasa); }
+    return out;
+  }
+  function tasaTxt(t) { return String(Math.round(n(t) * 1000) / 1000).replace('.', ','); }
+  function pesosTxt(v) { return '$' + Math.round(Math.abs(n(v))).toLocaleString('es-CL'); }
+  // «PPM editado (calculado: $X · tasa Y%)»
+  function etiquetaPPMEditado(r) {
+    if (!r || !(r.editado || r.ppmEditado)) return '';   // acepta aplicarEdicionPPM() o calcularF29Completo()
+    return 'PPM editado (calculado: ' + pesosTxt(r.ppmCalculado != null ? r.ppmCalculado : r.calculado) + ' · tasa ' + tasaTxt(r.tasaCalculada) + '%)';
+  }
+  // Validación antes de aplicar: al menos tasa o monto; tasa 0–10 %; monto entero ≥ 0; motivo 5–300 caracteres.
+  function validarEdicionPPM(o) {
+    o = o || {};
+    var tRaw = String(o.tasa == null ? '' : o.tasa).trim().replace(',', '.'), mRaw = String(o.monto == null ? '' : o.monto).trim().replace(/\./g, '');
+    if (tRaw === '' && mRaw === '') return 'Escribe la nueva tasa (%) o el monto del PPM.';
+    if (tRaw !== '') { if (!/^\d+(\.\d+)?$/.test(tRaw)) return 'La tasa debe ser un número (ej: 1,25).'; if (Number(tRaw) > 10) return 'La tasa no puede ser mayor a 10 %.'; }
+    if (mRaw !== '' && !/^\d+$/.test(mRaw)) return 'El monto debe ser en pesos, sin decimales.';
+    var m = String(o.motivo || '').trim();
+    if (m.length < MOTIVO_PPM_MIN) return 'Escribe el motivo del cambio (mínimo ' + MOTIVO_PPM_MIN + ' caracteres).';
+    if (m.length > MOTIVO_PPM_MAX) return 'El motivo puede tener como máximo ' + MOTIVO_PPM_MAX + ' caracteres.';
+    return null;
+  }
+  // Edición tal como se guarda (valores ya validados) → objeto para sii_detalle.ppm_editado
+  function edicionPPMDesdeForm(o, r) {
+    var tRaw = String(o.tasa == null ? '' : o.tasa).trim().replace(',', '.'), mRaw = String(o.monto == null ? '' : o.monto).trim().replace(/\./g, '');
+    return { tasa: tRaw === '' ? null : Number(tRaw), monto: mRaw === '' ? null : Number(mRaw), motivo: String(o.motivo || '').trim().slice(0, MOTIVO_PPM_MAX),
+             por: o.por || null, at: o.at || null, calculado: r ? r.calculado : null, tasa_calculada: r ? r.tasaCalculada : null };
+  }
+  // sii_detalle guardado → edición (o null si no hay)
+  function edicionPPMGuardada(det) {
+    var e = det && typeof det === 'object' ? det.ppm_editado : null;
+    return hayEdicionPPM(e) ? e : null;
+  }
+  // sii_detalle a guardar con la edición (o sin ella). null si queda vacío (la columna acepta null u objeto ≤ 4000 bytes).
+  function detalleConEdicionPPM(det, e) {
+    var d = det && typeof det === 'object' ? Object.assign({}, det) : {};
+    delete d.ppm_editado;
+    if (hayEdicionPPM(e)) d.ppm_editado = e;
+    return Object.keys(d).length ? d : null;
+  }
+  // Tasa PPM (igual que Pre-IVA): la del Pre-IVA guardado del período → la última usada (historial) → la ficha del cliente.
+  // Si el período tiene el PPM editado, la tasa de partida es la CALCULADA (la guardada en tasa_ppm puede ser la editada).
+  function tasaPPMDesdeGuardado(fila, hist, fichaTasa) {
+    var e = edicionPPMGuardada(fila && fila.sii_detalle);
+    if (e && n(e.tasa_calculada) > 0) return { tasa: n(e.tasa_calculada), fuente: 'preiva', periodo: fila.periodo || null };
+    if (fila && parseFloat(fila.tasa_ppm) > 0) return { tasa: parseFloat(fila.tasa_ppm), fuente: 'preiva', periodo: fila.periodo || null };
+    var h = (hist || []).find(function (x) { return x && parseFloat(x.tasa_ppm) > 0; });
+    if (h) return { tasa: parseFloat(h.tasa_ppm), fuente: 'historial', periodo: h.periodo || null };
+    if (parseFloat(fichaTasa) > 0) return { tasa: parseFloat(fichaTasa), fuente: 'ficha', periodo: null };
+    return { tasa: 0, fuente: null, periodo: null };
+  }
+
+  // ── Cálculo COMPLETO del F29 estimado — COMPARTIDO por Pre-IVA (calcular()) y Reporte Contable (tarjeta «Cálculo del F29») ──
+  // Misma secuencia que siempre usó el Pre-IVA: proyección (solo mes en curso) → base PPM → PPM (con edición) → IVA a pagar + PPM.
+  // o: { debitoRegistrado, creditoRegistrado, netoVentas (null = desconocido → débito ÷ 0,19), exentoVentas (null = sin dato),
+  //      remanente, tasa, edicionPPM, horizonte: {diasTranscurridos, diasRestantesMes, esMesActual} (de pre-iva/proyeccion.js) }
+  // Reporte Contable suma aparte retención de honorarios e impuesto único (totalF29); Pre-IVA no los considera.
+  function calcularF29Completo(o) {
+    o = o || {}; var hz = o.horizonte || {};
+    var debReg = n(o.debitoRegistrado), credReg = n(o.creditoRegistrado);
+    var pry = proyectarMes({ debitoRegistrado: debReg, creditoRegistrado: credReg, diasTranscurridos: hz.diasTranscurridos, diasRestantes: hz.diasRestantesMes, esMesActual: hz.esMesActual });
+    var b = calcularBasePPM({ debito: debReg, netoAfecto: o.netoVentas, exento: o.exentoVentas });
+    var base = proyectarMes({ debitoRegistrado: b.base, creditoRegistrado: 0, diasTranscurridos: hz.diasTranscurridos, diasRestantes: hz.diasRestantesMes, esMesActual: hz.esMesActual }).debito;
+    var P = aplicarEdicionPPM(base, o.tasa, o.edicionPPM);
+    var r = calcularF29Estimado({ debito: pry.debito, credito: pry.credito, remanente: o.remanente, ppm: P.ppm });
+    return { debito: pry.debito, credito: pry.credito, remanente: Math.max(0, n(o.remanente)), ivaDeterminado: r.ivaDeterminado, ivaPagar: r.ivaPagar,
+             nuevoRemanente: r.nuevoRemanente, ppmBase: base, ppm: P.ppm, ppmCalculado: P.calculado, tasa: P.tasa, tasaCalculada: P.tasaCalculada,
+             ppmEditado: P.editado, ppmModo: P.modo, ppmMotivo: P.motivo, ppmAvisos: n(P.tasa) > 0 && !(P.editado && P.modo === 'monto') ? b.avisos : [],
+             sinTasa: !(n(o.tasa) > 0) && !P.editado, total: r.total };
+  }
+  // Total a pagar del F29 en Reporte Contable = IVA a pagar + PPM + retención de honorarios + impuesto único (RR. HH.).
+  function totalF29(r, retHon, iu) { return n(r && r.ivaPagar) + n(r && r.ppm) + n(retHon) + n(iu); }
+
   var api = { validarMonto: validarMonto, proyectarMes: proyectarMes, calcularF29Estimado: calcularF29Estimado, calcularBasePPM: calcularBasePPM,
-              calcularPPM: calcularPPM, f29DesdeEdicion: f29DesdeEdicion, accionesSugeridas: accionesSugeridas };
+              calcularPPM: calcularPPM, f29DesdeEdicion: f29DesdeEdicion, accionesSugeridas: accionesSugeridas,
+              aplicarEdicionPPM: aplicarEdicionPPM, etiquetaPPMEditado: etiquetaPPMEditado, validarEdicionPPM: validarEdicionPPM,
+              edicionPPMDesdeForm: edicionPPMDesdeForm, edicionPPMGuardada: edicionPPMGuardada, detalleConEdicionPPM: detalleConEdicionPPM,
+              tasaPPMDesdeGuardado: tasaPPMDesdeGuardado, calcularF29Completo: calcularF29Completo, totalF29: totalF29 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.PreIvaF29 = api;
 })(typeof window !== 'undefined' ? window : globalThis);

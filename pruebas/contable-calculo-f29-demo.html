@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo local · Cálculo del F29</title>
+<!-- PRUEBA LOCAL: datos FICTICIOS y sbFetch simulado. No se conecta a Supabase.
+     ?caso=completo (por defecto: PPM editado, Pre-IVA validado) | falta (sin F29 anterior, RR. HH. pendiente) | sin_conexion -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style>body{padding:24px 16px}.caja{max-width:980px;margin:0 auto}
+.demo-aviso{font:600 12px Inter,sans-serif;color:#5CC8FF;margin-bottom:12px}
+.libros-sec-titulo{font-size:10px;font-weight:700;color:#E39BE5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #4A2B50;display:flex;gap:6px;align-items:center}
+.libros-sec-titulo .g-ic{width:13px;height:13px}</style>
+</head>
+<body class="g-shell g-tema-noche">
+<div class="caja">
+  <div class="demo-aviso">DEMO LOCAL · DATOS FICTICIOS · sbFetch simulado</div>
+  <div class="libros-sec-titulo" id="tit"></div>
+  <div class="docsii-slot" data-cid="9001"></div>
+  <div class="cf29-slot" data-cid="9001"></div>
+</div>
+<script src="../assets/gestoor-menu.js"></script>
+<script>
+  var q = new URLSearchParams(location.search), caso = q.get('caso') || 'completo';
+  document.getElementById('tit').innerHTML = gIcon('contable') + ' Documentos contables del período';
+  var R = { conexion: { estado: 'conectada' }, datos_al: '2026-11-19T10:00:00Z', avisos: [], cobertura: { rcv_ventas: 'completa', rcv_compras: 'completa', honorarios: 'completa' },
+    ventas: { documentos: 5, neto: 1380000, exento: 240000, iva: 262200, total: 1882200, por_tipo: {} },
+    compras: { registro: { documentos: 4, neto: 642000, exento: 35000, iva: 121980, total: 798980 }, pendiente: { documentos: 1, iva: 9500, total: 59500 }, por_tipo: {} },
+    honorarios: { honorarios_recibidos: { documentos: 2, bruto: 450000, retencion: 61875 }, honorarios_emitidos: { documentos: 0 } },
+    remanente_anterior: caso === 'falta' ? { periodo: '2026-09', cod77: null, cod504: null, fuente: 'sin_f29' }
+      : { periodo: '2026-09', folio: 4417, cod77: 52000, cod504: 52520, fuente: 'sii_codigo_77', mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', utm_origen: 69000, utm_destino: 69690, falta_utm: [] } };
+  var FILA = caso === 'falta' ? [] : [{ periodo: '2026-10', tasa_ppm: 1.25, ppm: 18225, f29: 0, fecha_envio: '2026-11-19T14:32:00Z', enviado_por: 'Analista Ficticia',
+    sii_detalle: { debito: 262200, ppm_editado: { tasa: 1.25, monto: null, motivo: 'Tasa nueva informada por el SII', por: 'Analista Ficticia', at: '2026-11-19T14:30:00Z', calculado: 19440, tasa_calculada: 1.2 } } }];
+  var HIST = [{ periodo: '2026-09', tasa_ppm: 1.2 }];
+  window.sbFetch = function (p, o) {
+    var j, st = 200;
+    if (p === 'rpc/sii_preiva_periodo') j = caso === 'sin_conexion' ? { conexion: { estado: 'sin_conexion' }, ventas: null, compras: null, avisos: ['sin_conexion'] } : R;
+    else if (/^preiva_historial/.test(p)) j = /periodo=eq\./.test(p) ? FILA : HIST;
+    else { st = 404; j = { code: 'PGRST202' }; }
+    return Promise.resolve({ ok: st === 200, status: st, text: function () { return Promise.resolve(JSON.stringify(j)); }, json: function () { return Promise.resolve(j); } });
+  };
+</script>
+<script src="../reportes-contable/docs-sii.js"></script>
+<script src="../pre-iva/f29-formula.js"></script>
+<script src="../pre-iva/proyeccion.js"></script>
+<script src="../pre-iva/sii-cartapra.js"></script>
+<script src="../reportes-contable/calculo-f29.js"></script>
+<script>
+  ContableDocsSii.montar(document.querySelector('.docsii-slot'), { clienteId: 9001, periodo: '2026-10', nombre: 'Empresa Ficticia SpA' });
+  ContableCalculoF29.montar(document.querySelector('.cf29-slot'), { clienteId: 9001, rut: '76000000-0', periodo: '2026-10',
+    cliente: { id: 9001, rut: '76000000-0', ppmTasaDefault: null, tieneRrhh: true },
+    rep: { iuSii: caso === 'falta' ? null : 38500, iuSiiActualizadoAt: '2026-11-18T15:00:00Z', estadoContable: null },
+    remContable: { valor: 0, fuente: 'sin' } });
+</script>
+</body>
+</html>

@@ -122,7 +122,7 @@ function pintar(){
   var sinDato=(val('inp-debito')===''&&val('inp-credito')===''&&(!exenta||val('inp-exento-ventas')===''))||errores;
   clase($('pio-kpis'),'pio-sin-dato',sinDato);clase($('pio-liq'),'pio-sin-dato',sinDato);
   pon('pio-hero-nd',errores?'Corrige los montos marcados en rojo en "Datos del mes".':exenta?'Escribe los ingresos exentos del mes y la tasa PPM.':'Carga los libros o escribe el débito y el crédito del mes.');
-  var tasa=parseFloat(val('inp-tasa-ppm'))||0, sinTasa=!sinDato&&!(tasa>0);
+  var tasa=parseFloat(val('inp-tasa-ppm'))||0, sinTasa=!sinDato&&!(tasa>0)&&!datos.ppmEdicion;   // PPM editado (19-11) cuenta como dato
   clase($('pio-kpi-ppm'),'sin-tasa',sinTasa);clase($('pio-fila-ppm'),'sin-tasa',sinTasa);
   pon('pio-ppm-nd',sinTasa?'Falta la tasa PPM':'Sin datos del mes');
 
@@ -140,7 +140,7 @@ function pintar(){
     var F=window.PreIvaF29, debR=parseFloat(val('inp-debito'))||0, credR=parseFloat(val('inp-credito'))||0, remR=pesos(txt('res-remanente'));
     var netoOk=datos.debitoDeLibro!=null&&datos.debitoDeLibro===debR, exRaw=val('inp-exento-ventas');
     var bR=F.calcularBasePPM({debito:debR,netoAfecto:netoOk?datos.netoVentas:null,exento:exRaw===''?null:exRaw});
-    var ppmR=F.calcularPPM(bR.base,tasa), rR=F.calcularF29Estimado({debito:debR,credito:credR,remanente:remR,ppm:ppmR});
+    var ppmR=F.aplicarEdicionPPM(bR.base,tasa,datos.ppmEdicion||null).ppm, rR=F.calcularF29Estimado({debito:debR,credito:credR,remanente:remR,ppm:ppmR});
     real={debito:debR,credito:credR,remanente:remR,ppm:ppmR,ivaPagar:rR.ivaPagar,nuevoRemanente:rR.nuevoRemanente,f29:rR.total,ventasBase:bR.base};
   }
   var cerrado=!!(P&&!P.actual);

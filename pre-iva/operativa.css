@@ -374,3 +374,10 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-pio .pio-sii-cartapra-av:empty{display:none}
 .g-mod-pio .pio-sii-cartapra-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 .g-mod-pio .pio-sii-cartapra-al{font:800 13.5px var(--tit);color:var(--t1)}
+
+/* 19-11 · PPM editable con motivo */
+.g-mod-pio .pio-ppm-btn{display:flex;margin-top:6px;min-height:28px;padding:0 10px;font-size:11px}
+.g-mod-pio .pio-ppm-btn [data-g-ic],.g-mod-pio .pio-ppm-btn .g-ic{width:12px;height:12px;color:#FFC85A}
+.g-mod-pio .pio-ppm-ed{margin:12px 0 4px;padding:12px 14px;border:1px solid rgba(199,123,201,.45);border-radius:14px;background:rgba(199,123,201,.08)}
+.g-mod-pio .pio-ppm-ed .pio-sub-t small{font-weight:500;color:var(--t2);margin-left:4px}
+.g-mod-pio .pio-ppm-ed-acc{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}

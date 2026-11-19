@@ -1260,6 +1260,15 @@ function _cargarSiiDe(rut){
     var dcid=Number(dslot.getAttribute('data-cid')), dcli=getClientes().find(function(x){ return Number(x.id)===dcid; })||{};
     ContableDocsSii.montar(dslot,{clienteId:dcid, periodo:_periodoActual, nombre:dcli.razonSocial||dcli.nombre||dcli.rut||''});
   }
+  // Cálculo del F29 (calculo-f29.js): mismo cálculo del Pre-IVA; remanente de Contable solo como respaldo del oficial del SII
+  var fslot=det.querySelector('.cf29-slot[data-cid]');
+  if(fslot&&window.ContableCalculoF29){
+    var fcid=Number(fslot.getAttribute('data-cid')), fcli=getClientes().find(function(x){ return Number(x.id)===fcid; })||{};
+    var frep=getReportes().find(function(r){ return normalizarRutContable(r.rut)===normalizarRutContable(fcli.rut||rut)&&r.periodo===_periodoActual; })||null;
+    var remC={valor:0,fuente:'sin'};
+    try{ var RI=infoRemanenteAnterior(frep||{rut:fcli.rut||rut},_periodoActual); remC=!RI.bloquea?{valor:RI.monto,fuente:RI.fuente==='manual'?'manual':'contable',info:RI}:{valor:0,fuente:'sin',info:RI}; }catch(e){ remC={valor:0,fuente:'error'}; }
+    ContableCalculoF29.montar(fslot,{clienteId:fcid, rut:fcli.rut||rut, periodo:_periodoActual, cliente:fcli, rep:frep, remContable:remC});
+  }
   // Cartapra R4: situación mensual SII (solo lectura, bajo demanda, un cliente a la vez)
   var slot=det.querySelector('.sii-cartapra-slot[data-cid]');
   if(slot&&window.GestoorSII) GestoorSII.montar(slot, Number(slot.getAttribute('data-cid')), {vista:'contable'});
@@ -4525,6 +4534,8 @@ function renderSeccionLibros(rep, c){
   // queda a la vista si la empresa no está conectada (o no hay datos) y plegada como respaldo si sí lo está.
   var conResumenSii = !!c.id && !!window.ContableDocsSii;
   if(conResumenSii) h += '<div class="docsii-slot" data-cid="'+Number(c.id)+'"></div>';
+  // 19-11: debajo del resumen, el cálculo del F29 del período (mismo cálculo del Pre-IVA) + botón a validar en Pre-IVA
+  if(conResumenSii && window.ContableCalculoF29) h += '<div class="cf29-slot" data-cid="'+Number(c.id)+'"></div>';
   h += '<div class="libros-manual" data-cid="'+Number(c.id||0)+'" data-modo="'+(conResumenSii?'pendiente':'visible')+'">';
   h += '<div class="libros-grid">';
   h += renderTarjetaLibro('compras',   libros.compras,   c, rep);
@@ -4933,7 +4944,12 @@ function _siiF29MostrarMensaje(tipo, texto){
 
 <script src="../assets/remanente-anterior.js"></script>
 <script src="../supabase.js"></script>
-<script src="docs-sii.js?v=20261119"></script>
+<script src="docs-sii.js?v=20261119b"></script>
+<!-- 19-11 · «Cálculo del F29»: reutiliza la fórmula y la lectura del SII del Pre-IVA (archivos compartidos de pre-iva/) -->
+<script src="../pre-iva/f29-formula.js?v=20261119"></script>
+<script src="../pre-iva/proyeccion.js?v=20261119"></script>
+<script src="../pre-iva/sii-cartapra.js?v=20261119"></script>
+<script src="calculo-f29.js?v=20261119"></script>
 <script src="../clientes/sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
 <script>
