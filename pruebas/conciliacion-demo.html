@@ -283,7 +283,7 @@ tr:hover td{background:#f0fdff;}
   <div id="kTer" class="conc-ter" style="display:none">
     <div style="font-size:12px;margin-bottom:6px">El ingreso es de <b id="kTerPag"></b>, pero también paga facturas de otras empresas. Búscala: al elegirla, sus facturas pendientes se agregan a la lista (sin montos). Cada factura queda pagada <b>en su propia empresa</b> y queda registrado quién pagó.</div>
     <div class="fila"><div><select id="kTerCli" data-buscador data-buscador-placeholder="🔍 Empresa que también se paga (nombre o RUT)…" onchange="if(this.value)agregarEmpresaSel()"></select></div></div>
-    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--t1);margin-top:8px"><input type="checkbox" id="kTerRec" checked style="width:auto"> <span>Recordar: cuando pague <b id="kTerPag2"></b>, mostrar también las facturas pendientes de estas empresas (solo sugerencia)</span></label>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--t1);margin-top:8px"><input type="checkbox" id="kTerRec" style="width:auto"> <span>Recordar: cuando pague <b id="kTerPag2"></b>, mostrar también las facturas pendientes de estas empresas (solo sugerencia)</span></label>
     <div id="kTerMsg" style="font-size:11.5px;color:var(--amber);margin-top:4px"></div>
     <ul id="kTerLista"></ul>
   </div>
@@ -350,7 +350,7 @@ var DEMO={
  cobranza_documentos_por_id:[{id:50,folio:'16540',periodo:'2026-10'}],
  cobranza_pagos:[{id:4,cliente_id:7,movimiento_id:1,monto:120000,aplicaciones_norm:[{documento_id:50,monto:120000}],estado:'VIGENTE',registrado_at:'2026-11-12T12:00:00Z'}],
  concil_imputaciones_manuales:[],
- concil_tercero_operaciones:[], // CONC-OTRA
+ concil_tercero_operaciones:[], concil_tercero_aplicaciones:[], // CONC-OTRA (R2: + detalle por factura)
  concil_tercero_relacion:new URLSearchParams(location.search).get('rel')==='1'?[{id:1,cliente_pagador_rut:'76111111-1',cliente_beneficiario_rut:'76222222-2',motivo:'Recordado al conciliar el ingreso #0',created_at:'2026-11-10T12:00:00Z',activo:true}]:[]
 };
 var FALLA=new URLSearchParams(location.search).get('falla')||'';
@@ -387,21 +387,31 @@ function ejecutarRpc(t,a){
     var r3={id:++_nid,movimiento_id:m.id,concepto:a.p_concepto,monto:a.p_monto,anulada:false,clave_idem:a.p_clave_idem,created_at:new Date().toISOString()};
     DEMO.concil_imputaciones_manuales.push(r3);aplicarMov(m,a.p_monto);return {body:[{imputacion_id:r3.id,resultado:'aplicada'}]};}
   // CONC-OTRA: simula concil_pagar_otra_empresa (un pago de Cobranza por empresa, enlazado al ingreso) y concil_tercero_olvidar
-  if(t==='rpc/concil_pagar_otra_empresa'){var e4=DEMO.concil_tercero_operaciones.find(function(x){return x.clave_idem===a.p_clave_idem;});if(e4)return {body:{operacion_id:e4.id,resultado:'existente'}};
+  if(t==='rpc/concil_pagar_otra_empresa'){
+    if(FALLA==='drenaje')return {st:403,body:{code:'42501',message:'permission denied for function concil_pagar_otra_empresa'}};
+    var usr=getUsuario(),norm=a.p_aplicaciones.map(function(x){return {documento_id:Number(x.documento_id),monto:x.monto};}).sort(function(x,y){return x.documento_id-y.documento_id;});
+    var e4=DEMO.concil_tercero_operaciones.find(function(x){return x.clave_idem===a.p_clave_idem;});
+    if(e4){ // R2 · CONC-OTRA-04: estados de una clave ya usada
+      if(e4.movimiento_id!==a.p_movimiento_id||e4.cliente_pagador_rut!==a.p_pagador_rut||JSON.stringify(e4.aplicaciones)!==JSON.stringify(norm)||e4.usuario_id!==usr.id||e4.recordar!==!!a.p_recordar)return errRpc('CLAVE_IDEM_USADA: la clave ya se usó con otros datos');
+      var pg=DEMO.cobranza_pagos.filter(function(q){return e4.pago_ids.indexOf(q.id)>=0&&q.movimiento_id===e4.movimiento_id;});if(pg.length!==e4.pago_ids.length)return errRpc('OPERACION_INCONSISTENTE');
+      var nv=pg.filter(function(q){return q.estado==='VIGENTE';}).length;return {body:{operacion_id:e4.id,resultado:nv===pg.length?'existente':nv===0?'existente_anulada':'existente_parcialmente_anulada',pago_ids:e4.pago_ids}};}
     if(!m)return errRpc('MOVIMIENTO_NO_EXISTE');if(m.cliente_rut!==a.p_pagador_rut)return errRpc('MOVIMIENTO_DE_OTRO_PAGADOR');
-    var pag=DEMO_CLI.find(function(c){return c.rut===a.p_pagador_rut;}),t4=a.p_aplicaciones.reduce(function(s,x){return s+x.monto;},0);if(t4>m.saldo)return errRpc('SUPERA_SALDO_MOVIMIENTO: $'+t4+' > $'+m.saldo);
-    var grupos={};for(var j=0;j<a.p_aplicaciones.length;j++){var d4=DEMO.cobranza_documentos.find(function(x){return x.id===a.p_aplicaciones[j].documento_id;});
-      if(!d4)return errRpc('DOCUMENTO_INVALIDO');if(d4.cliente_id===pag.id)return errRpc('DOCUMENTO_DEL_PAGADOR');if(d4.estado!=='PENDIENTE')return errRpc('DOCUMENTO_NO_COBRABLE');if(d4.saldo<a.p_aplicaciones[j].monto)return errRpc('SUPERA_SALDO_DOCUMENTO');
-      (grupos[d4.cliente_id]=grupos[d4.cliente_id]||[]).push(a.p_aplicaciones[j]);}
-    var ids=[];Object.keys(grupos).sort(function(x,y){return x-y;}).forEach(function(cid){var L=grupos[cid];
+    var pag=DEMO_CLI.find(function(c){return c.rut===a.p_pagador_rut;}),t4=norm.reduce(function(s,x){return s+x.monto;},0);if(t4>m.saldo)return errRpc('SUPERA_SALDO_MOVIMIENTO: $'+t4+' > $'+m.saldo);
+    var grupos={};for(var j=0;j<norm.length;j++){var d4=DEMO.cobranza_documentos.find(function(x){return x.id===norm[j].documento_id;});
+      if(!d4)return errRpc('DOCUMENTO_INVALIDO');if(d4.cliente_id===pag.id)return errRpc('DOCUMENTO_DEL_PAGADOR');if(d4.estado!=='PENDIENTE')return errRpc('DOCUMENTO_NO_COBRABLE');if(d4.saldo<norm[j].monto)return errRpc('SUPERA_SALDO_DOCUMENTO');
+      if(DEMO.cobranza_pagos.some(function(q){return q.estado==='VIGENTE'&&q.movimiento_id===m.id&&(q.aplicaciones_norm||[]).some(function(z){return z.documento_id===d4.id;});}))return errRpc('DOCUMENTO_YA_APLICADO_EN_INGRESO: '+d4.id);
+      (grupos[d4.cliente_id]=grupos[d4.cliente_id]||[]).push(norm[j]);}
+    var ids=[],opId=++_nid,det=[];Object.keys(grupos).sort(function(x,y){return x-y;}).forEach(function(cid){var L=grupos[cid];
       L.forEach(function(x){var dd=DEMO.cobranza_documentos.find(function(y){return y.id===x.documento_id;});dd.saldo-=x.monto;if(!dd.saldo)dd.estado='PAGADO';});
       var rp={id:++_nid,cliente_id:Number(cid),movimiento_id:m.id,monto:L.reduce(function(s,x){return s+x.monto;},0),aplicaciones_norm:L.map(function(x){return {documento_id:x.documento_id,monto:x.monto};}),estado:'VIGENTE',registrado_at:new Date().toISOString()};
       DEMO.cobranza_pagos.push(rp);ids.push(rp.id);
+      L.forEach(function(x){det.push({id:++_nid,operacion_id:opId,movimiento_id:m.id,pago_id:rp.id,documento_id:x.documento_id,monto:x.monto,cliente_beneficiario_id:Number(cid),usuario_id:usr.id});});
       var ben=DEMO_CLI.find(function(c){return c.id===Number(cid);});
       if(a.p_recordar&&!DEMO.concil_tercero_relacion.some(function(r){return r.activo&&r.cliente_pagador_rut===pag.rut&&r.cliente_beneficiario_rut===ben.rut;}))
         DEMO.concil_tercero_relacion.push({id:++_nid,cliente_pagador_rut:pag.rut,cliente_beneficiario_rut:ben.rut,motivo:'Recordado al conciliar el ingreso #'+m.id,created_at:new Date().toISOString(),activo:true});});
-    var op={id:++_nid,clave_idem:a.p_clave_idem,movimiento_id:m.id,cliente_pagador_rut:pag.rut,aplicaciones:a.p_aplicaciones.slice().sort(function(x,y){return x.documento_id-y.documento_id;}),total:t4,pago_ids:ids};
-    DEMO.concil_tercero_operaciones.push(op);aplicarMov(m,t4);return {body:{operacion_id:op.id,resultado:'aplicado',estado_movimiento:m.estado,saldo_movimiento:m.saldo,pago_ids:ids}};}
+    var op={id:opId,clave_idem:a.p_clave_idem,movimiento_id:m.id,cliente_pagador_rut:pag.rut,aplicaciones:norm,total:t4,pago_ids:ids,recordar:!!a.p_recordar,usuario_id:usr.id};
+    DEMO.concil_tercero_operaciones.push(op);DEMO.concil_tercero_aplicaciones=DEMO.concil_tercero_aplicaciones.concat(det);aplicarMov(m,t4);
+    return {body:{operacion_id:op.id,resultado:'aplicado',estado_movimiento:m.estado,saldo_movimiento:m.saldo,pago_ids:ids}};}
   if(t==='rpc/concil_tercero_olvidar'){var r5=DEMO.concil_tercero_relacion.find(function(x){return x.id===a.p_id&&x.activo;});if(!r5)return errRpc('Sugerencia no encontrada o ya olvidada');r5.activo=false;return {st:204,body:null};}
   if(t==='rpc/cobranza_pago_anular'){var p6=DEMO.cobranza_pagos.find(function(x){return x.id===a.p_pago_id&&x.estado==='VIGENTE';});if(!p6)return errRpc('PAGO_YA_ANULADO');
     p6.estado='ANULADO';(p6.aplicaciones_norm||[]).forEach(function(x){var dd=DEMO.cobranza_documentos.find(function(y){return y.id===x.documento_id;});if(dd){dd.saldo+=x.monto;dd.estado='PENDIENTE';}});aplicarMov(movDe(p6.movimiento_id),-p6.monto);return {body:{pago_id:p6.id,estado:'ANULADO'}};}
@@ -416,6 +426,7 @@ function sbFetch(path,opt){
   var t=path.split('?')[0], qs=path.split('?')[1]||'', body, st=200, F=window.DEMO_F;
   if(t==='concil_tercero_relacion'&&FALLA==='tercero404'){st=404;body={code:'PGRST205',message:'Could not find the table'};} else
   if(t==='concil_tercero_relacion'&&FALLA==='tercero500'){st=500;body={message:'error'};} else
+  if(t==='concil_tercero_relacion'&&FALLA==='drenaje'){st=403;body={code:'42501',message:'permission denied for table concil_tercero_relacion'};} else
   if(t==='concil_imputaciones_manuales'&&(FALLA==='manual404'||F.man==='404')){st=404;body={code:'PGRST205',message:'Could not find the table'};}
   else if(t==='concil_imputaciones_manuales'&&F.man==='403'){st=403;body={code:'42501',message:'permission denied'};}
   else if(t==='concil_imputaciones_manuales'&&F.man==='red'){return Promise.reject(new TypeError('Failed to fetch'));}
@@ -719,7 +730,7 @@ function abrirConciliar(id,op){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
   _clave=nuevaClave();_claveCob=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
   _cands=abiertasDe(_mov.cliente_rut).map(function(o){return {o:o,monto:0};});
-  _manuales=[];_claveMan=null;_det=null;_terEmp=[];document.getElementById('kTer').style.display='none';document.getElementById('kTerRec').checked=true;
+  _manuales=[];_claveMan=null;_det=null;_terEmp=[];document.getElementById('kTer').style.display='none';document.getElementById('kTerRec').checked=false; // F02 (Luciano 19-11): «Recordar» parte desmarcado
   pintarCabecera();
   ['kProg','kHecho','kMan','kObs','kTotal'].forEach(function(x){document.getElementById(x).innerHTML='';});
   document.getElementById('kProg').innerHTML='<div class="info-box">Cargando el detalle del ingreso…</div>';
@@ -955,7 +966,10 @@ var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro client
   MOVIMIENTO_DE_OTRO_PAGADOR:'El ingreso cambió de cliente desde que lo abriste. Recarga antes de aplicar.',MOVIMIENTO_SIN_CLIENTE:'El ingreso no tiene cliente asignado.',
   DOCUMENTO_DEL_PAGADOR:'Una factura es del propio cliente del ingreso: se aplica en el paso normal (recarga).',DOCUMENTO_INVALIDO:'Una factura ya no existe (recarga).',
   PAGADOR_NO_EXISTE:'No encuentro la ficha del cliente del ingreso (recarga).',SOLO_TESORERIA_PAGOS:'Solo Master o Pagos pueden aplicar facturas de otra empresa.',
-  MOVIMIENTO_NO_EXISTE:'El ingreso ya no existe (recarga).'};
+  MOVIMIENTO_NO_EXISTE:'El ingreso ya no existe (recarga).',
+  // CONC-OTRA R2
+  DOCUMENTO_REPETIDO:'Una factura está dos veces en la lista (recarga).',DOCUMENTO_YA_APLICADO_EN_INGRESO:'Una factura de otra empresa ya está pagada con este ingreso; para cambiar el monto, desconcílala primero.',
+  OPERACION_INCONSISTENTE:'La operación registrada ya no calza con sus pagos. No se aplicó nada; revisa el detalle del ingreso.',INTEGRIDAD_INGRESO:'El ingreso no cuadra en el servidor (lo aplicado no suma). No se aplicó nada; avisa a Master.'};
 function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
 // ── R2.2 (dictamen R2.1): UN solo control para el ciclo de vida del plan ──
 // Todo lo que crea, modifica o elimina un plan ocurre DENTRO del candado (Web Locks) del entorno + ingreso:
@@ -1044,6 +1058,8 @@ function ejecutarPlan(plan){
     llamadaPaso(p).then(function(r){
       var x=Array.isArray(r)?r[0]:r;
       if(p.tipo==='man'&&x&&x.resultado==='existente_anulada'){p.estado='anulado';p.msg='esa imputación ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&x&&(x.resultado==='existente_anulada'||x.resultado==='existente_parcialmente_anulada')){p.estado='anulado';p.msg=x.resultado==='existente_anulada'?'esas facturas ya habían sido desconciliadas':'parte de esas facturas ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&!(x&&(x.resultado==='aplicado'||x.resultado==='existente'))){p.estado='incierto';p.msg='respuesta inesperada del servidor';guardarPend(plan);terminarConFalla(plan,p);return fin();}
       p.estado='ok';if(!guardarPend(plan)){terminarConFalla(plan,p);return fin();}i++;sig();
     }).catch(function(e){
       p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'||p.tipo==='otra'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
@@ -1058,20 +1074,14 @@ function terminarConFalla(plan,p){
 function mismasAplic(a,b,k){var n=function(L){return (L||[]).map(function(x){return String(x[k])+':'+Number(x.monto);}).sort().join(',');};return n(a)===n(b);}
 function verificarPaso(plan,p){
   var sel={cob:'cobranza_pagos?select=id,movimiento_id,monto,estado,aplicaciones_norm',ob:'concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada',man:'concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,anulada',
-    otra:'concil_tercero_operaciones?select=id,movimiento_id,cliente_pagador_rut,aplicaciones,total,pago_ids'}[p.tipo];
+    otra:'concil_tercero_operaciones?select=id,movimiento_id,cliente_pagador_rut,aplicaciones,total,pago_ids,recordar,usuario_id'}[p.tipo];
   return sbFetch(sel+'&clave_idem=eq.'+encodeURIComponent(p.clave)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(rows){
     rows=rows||[];
     if(!rows.length)return 'no_registrado';
     if(rows.length>1)return 'conflicto';
     var x=rows[0],a=p.args;
     if(Number(x.movimiento_id)!==plan.mov)return 'conflicto';
-    if(p.tipo==='otra'){ // CONC-OTRA: misma operación (pagador, facturas, total) y TODOS sus pagos de Cobranza vigentes
-      var t3=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0),ids=(x.pago_ids||[]).map(Number);
-      if(x.cliente_pagador_rut!==a.p_pagador_rut||Number(x.total)!==t3||!mismasAplic(x.aplicaciones,a.p_aplicaciones,'documento_id')||!ids.length||ids.some(function(i){return !(i>0);}))return 'conflicto';
-      return sbFetch('cobranza_pagos?select=id,estado,movimiento_id&id=in.('+ids.join(',')+')').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(ps){
-        ps=ps||[];if(ps.length!==ids.length||ps.some(function(q){return Number(q.movimiento_id)!==plan.mov;}))return 'conflicto';
-        return ps.every(function(q){return q.estado==='VIGENTE';})?'vigente':'anulado';});
-    }
+    if(p.tipo==='otra')return verificarOtra(plan,p,x);
     if(p.tipo==='cob'){var tot=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0);
       if(Number(x.monto)!==tot||!mismasAplic(x.aplicaciones_norm,a.p_aplicaciones,'documento_id'))return 'conflicto';
       return x.estado==='VIGENTE'?'vigente':'anulado';}
@@ -1082,6 +1092,34 @@ function verificarPaso(plan,p){
     return x.anulada?'anulado':'vigente';
   });
 }
+// CONC-OTRA R2 (F01): el paso 'otra' se da por hecho SOLO si en el servidor coincide TODO lo planeado:
+//  · la operación (clave): ingreso, pagador, facturas y montos, total, «recordar» y el MISMO usuario de esta sesión;
+//  · su detalle: una fila por factura (misma factura y monto), cada una con un pago de la operación;
+//  · sus pagos de Cobranza: enlazados a este ingreso, de la empresa de cada factura, con monto y facturas iguales al detalle.
+// Resultado: 'vigente' (todos los pagos vigentes) · 'anulado' (todos anulados) · 'parcial_anulado' (algunos) · 'conflicto'.
+function verificarOtra(plan,p,x){
+  var a=p.args,u=getUsuario()||{},t3=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0),ids=(x.pago_ids||[]).map(Number);
+  p.msg='';var mal=function(m){p.msg=m;return 'conflicto';};
+  if(x.cliente_pagador_rut!==a.p_pagador_rut||Number(x.total)!==t3||!mismasAplic(x.aplicaciones,a.p_aplicaciones,'documento_id'))return mal('facturas, montos o pagador distintos');
+  if(!!x.recordar!==!!a.p_recordar)return mal('«recordar» distinto');
+  if(u.id==null||Number(x.usuario_id)!==Number(u.id))return mal('la registró otro usuario');
+  if(!ids.length||ids.some(function(i){return !(i>0);}))return mal('sin pagos');
+  var leer=function(q){return sbFetch(q).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});};
+  return Promise.all([leer('concil_tercero_aplicaciones?select=operacion_id,movimiento_id,pago_id,documento_id,monto,cliente_beneficiario_id&operacion_id=eq.'+Number(x.id)),
+                      leer('cobranza_pagos?select=id,cliente_id,estado,movimiento_id,monto,aplicaciones_norm&id=in.('+ids.join(',')+')')]).then(function(r){
+    var det=r[0]||[],ps=r[1]||[];
+    if(det.length!==a.p_aplicaciones.length||!mismasAplic(det,a.p_aplicaciones,'documento_id'))return mal('el detalle no coincide con las facturas');
+    if(det.some(function(d){return Number(d.movimiento_id)!==plan.mov||ids.indexOf(Number(d.pago_id))<0;}))return mal('el detalle apunta a otro ingreso o pago');
+    if(ps.length!==ids.length)return mal('falta un pago');
+    for(var i=0;i<ps.length;i++){var q=ps[i],dq=det.filter(function(d){return Number(d.pago_id)===Number(q.id);});
+      if(Number(q.movimiento_id)!==plan.mov)return mal('un pago no está enlazado a este ingreso');
+      if(!dq.length||dq.some(function(d){return Number(d.cliente_beneficiario_id)!==Number(q.cliente_id);}))return mal('un pago es de otra empresa');
+      if(Number(q.monto)!==dq.reduce(function(s,d){return s+Number(d.monto);},0)||!mismasAplic(q.aplicaciones_norm,dq,'documento_id'))return mal('un pago no calza con sus facturas');
+      if(q.estado!=='VIGENTE'&&q.estado!=='ANULADO')return mal('estado de pago desconocido');}
+    var vig=ps.filter(function(q){return q.estado==='VIGENTE';}).length;
+    return vig===ps.length?'vigente':vig===0?'anulado':'parcial_anulado';
+  });
+}
 // Devuelve una COPIA del plan con el resultado de verificar TODOS sus pasos (también los «ok» locales). No persiste.
 function verificarPlan(plan){
   var c=JSON.parse(JSON.stringify(plan));
@@ -1089,8 +1127,8 @@ function verificarPlan(plan){
     .then(function(){c.pasos.forEach(function(p){if(p.ver==='vigente'){p.estado='ok';p.msg='';}else if(p.ver==='no_registrado'&&p.estado==='ok'){p.ver='conflicto';p.msg='figuraba registrado y ya no está';}});return c;});
 }
 function resumenPlan(plan){
-  var c={vigente:0,anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
-  c.cambio=c.anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
+  var c={vigente:0,anulado:0,parcial_anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
+  c.cambio=c.anulado>0||c.parcial_anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
 }
 // Persistir el resultado de una verificación: SOLO dentro del candado, si el plan guardado sigue siendo el mismo
 // y la respuesta corresponde al ingreso y a la apertura vigentes (UX-R2-06 / R21-02).
@@ -1121,7 +1159,7 @@ function revisadoR2(){var mid=_mov.id;if(!esTesoreria())return;
   conCandado(mid,function(){if(!pendR2De(mid))return;if(!confirm('¿Confirmas que revisaste en el detalle lo que quedó registrado en el servidor? El aviso se cierra; no se aplica ni se deshace nada.'))return;
     try{localStorage.removeItem(PEND_R2+mid);}catch(e){}
     if(pendR2De(mid)){err('kErr','No pude cerrar el aviso en este navegador.');return;}abrirDeNuevo();});}
-var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
+var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',parcial_anulado:'⛔ desconciliado en parte después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
 function pintarPendiente(plan){
   if(!_mov||_mov.id!==plan.mov)return;
   var c=resumenPlan(plan);
