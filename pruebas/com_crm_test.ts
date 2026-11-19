@@ -20,6 +20,19 @@ const g: any = {};
 new Function('window', simpleJs)(g);
 new Function('window', crmJs)(g);
 const C = g.ComCRM;
+
+// Prioridad (19-11): la reunión que viene más pronto primero; luego por cerrar, atrasadas, próxima fecha y resto.
+{
+  const ahora = Date.parse('2026-11-19T14:40:00Z'); // 11:40 Chile
+  const reus = [
+    { id: 1, lead_id: 10, inicio: '2026-11-20T14:00:00Z', fin: '2026-11-20T14:30:00Z', estado: 'confirmada' },
+    { id: 2, lead_id: 11, inicio: '2026-11-19T14:50:00Z', fin: '2026-11-19T15:20:00Z', estado: 'confirmada' },
+    { id: 3, lead_id: 12, inicio: '2026-11-19T14:00:00Z', fin: '2026-11-19T14:30:00Z', estado: 'confirmada' },
+  ];
+  const lista = [{ id: 13, proxima_fecha: '2026-11-25' }, { id: 10 }, { id: 12 }, { id: 14, proxima_fecha: '2026-11-10' }, { id: 11 }];
+  const o = C.ordenar(lista, reus, '2026-11-19', { '12': true }, ahora).map((p: { id: number }) => p.id);
+  res('orden por prioridad: 11:50 de hoy primero, luego mañana, por cerrar, atrasada, próxima fecha', JSON.stringify(o) === JSON.stringify([11, 10, 12, 14, 13]));
+}
 res('columnas principales en el orden del flujo', C.COLUMNAS.map((c: any) => c.id).join(',') === 'nuevo,agendado,reunion_realizada,propuesta,seguimiento,cliente');
 res('cerradas: no asistió, perdido, no calificado y Otros', C.CERRADAS.map((c: any) => c.id).join(',') === 'no_asistio,descartado,no_calificado,otros');
 res('etapas del RPC = las 10 de ck_leads_etapa (iguales a la demo de com_ficha_guardar)',

@@ -104,6 +104,22 @@ function atrasado(p,hoy,pend){
   if(pend&&pend[String(p.id)])return true;   // reunión que ya pasó y sigue sin cerrar
   return !!(p.proxima_fecha&&String(p.proxima_fecha)<hoy);
 }
+// Orden por prioridad dentro de cada columna (Luciano 19-11): primero la reunión que viene más pronto (la de hoy a las 11:50 arriba),
+// luego las reuniones que ya pasaron y faltan por cerrar, luego acciones atrasadas, luego por fecha de próxima acción y al final el resto
+// (lo más reciente primero).
+function prioridad(p,reus,hoy,pend,ahora){
+  var t=ahora||Date.now(), r=proximaReunion(reus,p.id,t);
+  if(r)return [0,new Date(r.inicio).getTime()];
+  if(pend&&pend[String(p.id)])return [1,0];
+  if(p.proxima_fecha&&String(p.proxima_fecha)<hoy)return [2,String(p.proxima_fecha)];
+  if(p.proxima_fecha)return [3,String(p.proxima_fecha)];
+  return [4,-new Date(p.updated_at||p.actualizado||0).getTime()];
+}
+function ordenar(lista,reus,hoy,pend,ahora){
+  return (lista||[]).map(function(p,i){return {p:p,k:prioridad(p,reus,hoy,pend,ahora),i:i};})
+    .sort(function(a,b){if(a.k[0]!==b.k[0])return a.k[0]-b.k[0];if(a.k[1]<b.k[1])return -1;if(a.k[1]>b.k[1])return 1;return a.i-b.i;})
+    .map(function(x){return x.p;});
+}
 function mapaPendientes(pendientes){var m={};(pendientes||[]).forEach(function(x){m[String(x.lead_id)]=true;});return m;}
 function totales(lista,reus,hoy,pendientes){
   var pend=mapaPendientes(pendientes), dias=semana(hoy,0), mes=String(hoy).slice(0,7);
@@ -123,7 +139,7 @@ function filtrar(lista,txt){
 root.ComCRM={COLUMNAS:COLUMNAS,CERRADAS:CERRADAS,ETAPAS_RPC:ETAPAS_RPC,columnaDe:columnaDe,esDestino:esDestino,agrupar:agrupar,nombreEtapa:nombreEtapa,
   avance:avance,argsMover:argsMover,ymdDe:ymdDe,lunesDe:lunesDe,semana:semana,horaDe:horaDe,tituloSemana:tituloSemana,unirReuniones:unirReuniones,
   reunionesSemana:reunionesSemana,horasCalendario:horasCalendario,claseReunion:claseReunion,proximaReunion:proximaReunion,atrasado:atrasado,
-  totales:totales,filtrar:filtrar};
+  totales:totales,filtrar:filtrar,ordenar:ordenar};
 
 if(typeof document==='undefined'||!root.ComDatos||!document.getElementById('crmApp'))return;
 // ═════════════════════════════ Pantalla ═════════════════════════════
@@ -192,7 +208,7 @@ function columnaHtml(c,lista,pend,hoy){
     +'<div class="lista">'+(lista.length?lista.map(function(p){return tarjeta(p,pend,hoy);}).join(''):'<div class="crm-vacio">Sin prospectos</div>')+'</div></div>';
 }
 function embudoHtml(){
-  var hoy=D.hoy(), pend=mapaPendientes(DATA.pendientes), g=agrupar(filtrar(DATA.prospectos,TXT));
+  var hoy=D.hoy(), pend=mapaPendientes(DATA.pendientes), g=agrupar(filtrar(DATA.prospectos,TXT));Object.keys(g).forEach(function(k){g[k]=ordenar(g[k],REUS,hoy,pend);});
   return '<div id="crmEmbudo" role="tabpanel" aria-labelledby="tabEmb"><div class="crm-scroll"><div class="crm-embudo">'+COLUMNAS.map(function(c){return columnaHtml(c,g[c.id],pend,hoy);}).join('')+'</div></div>'
     +'<div class="crm-cerr-t">Cerrados</div><div class="crm-scroll"><div class="crm-cerr">'+CERRADAS.map(function(c){return columnaHtml(c,g[c.id],pend,hoy);}).join('')+'</div></div>'
     +(yo().escribe?'<p class="crm-nota">Arrastra una tarjeta a otra columna para cambiar su etapa (queda en su historial). En celular o con teclado: abre la ficha y usa «Mover a…».</p>':'')+'</div>';
