@@ -15,6 +15,11 @@
    · R3: una sola solicitud en curso por cliente (se reutiliza la promesa) y se respeta Retry-After (reintentarEn):
      "Volver a revisar" queda deshabilitado hasta que pase la espera.
    · R3: estados del F29 por período: declarado, en_plazo, revisar_vencimiento, no_declarado, sin_verificar, no_aplica.
+   · 19-11 (CARTAPRA-AL-CONECTAR): apenas Cartapra avisa «conectada» en la ventana (y otra vez al cerrarla, por si el
+     aviso no llegó) se pide a la Edge la acción "traer": el servidor confirma con Cartapra que está conectada y programa
+     la lectura de ESA empresa al tiro (idempotente). Mientras tanto se muestra «Conectada · trayendo datos del SII…»
+     (ficha y distintivo de la lista) y se vuelve a revisar sola hasta que Gestoor la tenga lista; ahí se refresca.
+     Si la empresa la conecta el cliente con un enlace, la trae el reloj del servidor (cada 5 minutos).
    Uso: GestoorSII.montar(elemento, clienteId) · GestoorSII.desmontar()   (op.esMaster ya no se usa)
    ============================================================ */
 (function () {
@@ -107,6 +112,7 @@
       '.sii-tag .ic{display:inline-flex;line-height:0;font-style:normal}.sii-tag .g-ic{width:12px;height:12px}',
       '.sii-tag.ok{color:#5FCF9C;border-color:rgba(95,207,156,.45);background:rgba(95,207,156,.12)}',
       '.sii-tag.rech{color:#E0A84E;border-color:rgba(224,168,78,.5);background:rgba(224,168,78,.12)}',
+      '.sii-tag.trae{color:#8FB8E8;border-color:rgba(143,184,232,.45);background:rgba(143,184,232,.12)}',
       '.sii-velo{position:fixed;inset:0;z-index:400;background:rgba(12,7,14,.78);display:flex;align-items:center;justify-content:center;padding:16px}',
       '.sii-velo iframe{width:440px;height:660px;max-width:100%;max-height:calc(100vh - 32px);border:0;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6)}',
       '.sii-velo .x{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}',
@@ -352,11 +358,73 @@
     if (modal) { modal.remove(); modal = null; }
   }
   var ventanaCb = null; // lista de clientes: refrescar su estado al cerrar la ventana
-  function trasCerrar() { var f = ventanaCb; ventanaCb = null; if (actual) cargar(); if (f) f(); }
+  var ventanaCliente = null; // cliente de la ventana abierta (para «traer» al conectar o al cerrar)
+  function trasCerrar() {
+    var f = ventanaCb, cid = ventanaCliente; ventanaCb = null; ventanaCliente = null;
+    var seguir = function () { if (actual) cargar(); if (f) f(); };
+    if (cid) traerAhora(cid, true).then(seguir, seguir); else seguir();
+  }
+
+  // ── 19-11 «traer»: la empresa recién conectada entra a Gestoor al tiro (CARTAPRA-AL-CONECTAR) ──
+  var trayendo = {};          // clienteId → hora en que se pidió (solo en memoria)
+  var traerEnCurso = {};      // clienteId → promesa (una sola a la vez por cliente)
+  var vigia = null, vigiaDesde = 0, vigiaVueltas = 0, sbUsado = null, alListo = [];
+  var VIGIA_MAX_MS = 90 * 60000;
+  function vigiaMs() { var v = Number(window.GESTOOR_SII_VIGIA_MS); return v > 0 && v < 30000 ? v : 30000; }   // override solo para pruebas locales
+  // silencioso = sin aviso (cierre de ventana tras haberlo pedido, o la revisión periódica).
+  function traerAhora(clienteId, silencioso) {
+    var cid = Number(clienteId); if (!(cid > 0)) return Promise.resolve(null);
+    if (traerEnCurso[cid]) return traerEnCurso[cid];
+    var p = llamar('traer', cid).then(function (j) {
+      var t = j && j.traer || {};
+      // Ya conectada en Gestoor → nada que esperar. no_conectada justo tras el aviso de la ventana (Cartapra aún no lo
+      // refleja) → se mantiene la marca y la revisión periódica vuelve a pedir «traer».
+      if (t.estado === 'conectada') delete trayendo[cid];
+      else if (t.resultado && t.resultado !== 'no_conectada') {
+        var nuevo = !trayendo[cid];
+        trayendo[cid] = trayendo[cid] || Date.now();
+        if (nuevo && !silencioso && window.toast) window.toast('Conectada · trayendo datos del SII…');
+      }
+      if (trayendo[cid]) vigilar();
+      return j;
+    }, function () { return null; });   // si falla, el reloj del servidor la trae igual (≤ 5 min)
+    traerEnCurso[cid] = p;
+    var fin = function () { delete traerEnCurso[cid]; };
+    p.then(fin, fin);
+    return p;
+  }
+  function hayTrayendo() { for (var k in trayendo) if (Object.prototype.hasOwnProperty.call(trayendo, k)) return true; return false; }
+  // Revisión periódica mientras haya empresas «trayendo»: el distintivo del equipo (base de Gestoor, sin llamar a Cartapra)
+  // cada 30 s; cada 4 vueltas (2 min) se vuelve a pedir «traer» (si Cartapra ya terminó su primera lectura, se lee YA).
+  function vigilar() {
+    if (vigia) return;
+    vigiaDesde = Date.now(); vigiaVueltas = 0;
+    vigia = setTimeout(vuelta, vigiaMs());
+  }
+  function vuelta() {
+    vigia = null;
+    if (!hayTrayendo()) return;
+    if (Date.now() - vigiaDesde > VIGIA_MAX_MS) { trayendo = {}; return; }
+    vigiaVueltas++;
+    var ids = Object.keys(trayendo).map(Number);
+    if (vigiaVueltas % 4 === 0) ids.forEach(function (cid) { traerAhora(cid, true); });
+    equipo = null;
+    prepararInsignias(sbUsado).then(function (hay) {
+      var listos = hay ? ids.filter(function (cid) { return equipo && equipo[cid] === 'conectada'; }) : [];
+      listos.forEach(function (cid) { delete trayendo[cid]; });
+      if (listos.length) {
+        if (window.toast) window.toast(listos.length === 1 ? 'Listo: la empresa ya tiene sus datos del SII en Gestoor.' : 'Listo: ' + listos.length + ' empresas ya tienen sus datos del SII en Gestoor.');
+        if (actual && listos.indexOf(actual.clienteId) >= 0) cargar();
+        alListo.slice().forEach(function (f) { try { f(listos); } catch (e) {} });
+      }
+      if (hayTrayendo()) vigia = setTimeout(vuelta, vigiaMs());
+    });
+  }
   function alTeclado(e) { if (e.key === 'Escape') { cerrarVentana(); trasCerrar(); } }
-  function abrirVentana(url) {
+  function abrirVentana(url, clienteId) {
     if (typeof url !== 'string' || url.indexOf(CARTAPRA + '/') !== 0) throw new Error('ventana no válida');
     cerrarVentana();
+    ventanaCliente = Number(clienteId) > 0 ? Number(clienteId) : null;
     modal = el('div', 'sii-velo'); modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-label', 'Conectar con el SII');
     var fr = el('iframe'); fr.src = url; fr.title = 'Conectar con el SII (Cartapra)';
     fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
@@ -368,7 +436,10 @@
     alMensaje = function (ev) {
       if (ev.origin !== CARTAPRA || ev.source !== fr.contentWindow) return;
       var d = ev.data; if (!d || d.fuente !== 'cartapra-conecta') return;
-      if (d.evento === 'conectada' && window.toast) window.toast('El SII aceptó la clave. Gestoor ya puede leer los datos.');
+      if (d.evento === 'conectada') {
+        if (window.toast) window.toast('El SII aceptó la clave. Conectada · trayendo datos del SII…');
+        if (ventanaCliente) { trayendo[ventanaCliente] = trayendo[ventanaCliente] || Date.now(); traerAhora(ventanaCliente, true); }
+      }
       if (d.evento === 'cerrar') { cerrarVentana(); trasCerrar(); }
     };
     window.addEventListener('message', alMensaje);
@@ -380,7 +451,7 @@
     var mio = actual;
     llamar('ventana', mio.clienteId).then(function (j) {
       if (actual !== mio) return;
-      abrirVentana(j.widget && j.widget.url);
+      abrirVentana(j.widget && j.widget.url, mio.clienteId);
     }).catch(function (e) {
       if (actual !== mio) return;
       pintarError(e);
@@ -492,9 +563,11 @@
       var f2 = fila(card, 'alerta', 'sii-amb', 'La clave del SII cambió', 'Las lecturas se detuvieron. Hay que volver a conectar con la clave nueva.');
       if (puede) { boton(f2, 'Reconectar', 'repetir', false, pedirVentana); boton(f2, 'Enviar enlace al cliente', 'enviar', true, pedirEnlace); }
     } else if (c.estado === 'conectada' && (c.actualizando || !c.cargaInicialLista)) {
-      var f3 = fila(card, 'reloj', 'sii-ama', 'Leyendo el SII…', c.ultimaActualizacion ? 'Última actualización: ' + horaChile(c.ultimaActualizacion) + ' (hora de Chile)' : 'La primera lectura toma unos minutos.');
+      var f3 = fila(card, 'reloj', 'sii-ama', 'Conectada · trayendo datos del SII…', (c.ultimaActualizacion ? 'Última actualización: ' + horaChile(c.ultimaActualizacion) + ' (hora de Chile). ' : 'La primera lectura del SII toma unos minutos. ') + 'Esta tarjeta se actualiza sola.');
       botonRevisar(f3);
+      revisarLuego();
     } else if (c.estado === 'conectada') {
+      alPintarConectada(actual.clienteId);
       fila(card, 'check', 'sii-ver', 'Conectado', 'Última actualización: ' + (c.ultimaActualizacion ? horaChile(c.ultimaActualizacion) + ' (hora de Chile)' : 'No disponible') + ' · se actualiza sola una vez al día');
       if (j.soloEstado) card.appendChild(el('div', 'sii-nota', 'Los datos del SII de este cliente los ve el Master y el equipo asignado.'));
       else if (actual.vista === 'contable') pintarContable(card, j);
@@ -506,6 +579,19 @@
     if (c.ultimoError && c.estado !== 'no_conectada') card.appendChild(el('div', 'sii-nota', 'Último aviso de Cartapra: ' + c.ultimoError));
     if (j.piloto === true) card.appendChild(el('div', 'sii-piloto', 'Piloto: solo lectura de empresas propias'));
     card.appendChild(el('div', 'sii-nota', 'Solo lectura: Cartapra consulta el SII, no presenta declaraciones ni cambia nada.'));
+  }
+  // Ficha en «trayendo datos»: se vuelve a revisar sola cada 60 s (máx. 60 veces) mientras siga abierta en ese cliente.
+  // Al pasar a «carga inicial lista» se pide «traer» para que Gestoor la lea al tiro (sin esperar el reloj).
+  var relojFicha = null, vueltasFicha = 0;
+  function revisarLuego() {
+    if (!actual || relojFicha || vueltasFicha >= 60) return;
+    var mio = actual;
+    trayendo[mio.clienteId] = trayendo[mio.clienteId] || Date.now(); vigilar();
+    relojFicha = setTimeout(function () { relojFicha = null; if (actual === mio && !enEspera()) { vueltasFicha++; cargar(); } }, 60000);
+  }
+  function alPintarConectada(clienteId) {
+    if (trayendo[clienteId] && !relojFicha) traerAhora(clienteId, true);   // Cartapra terminó: que Gestoor lea YA
+    vueltasFicha = 0;
   }
   // ── Espera por Retry-After (R3 F1-10) ──
   function segundosEspera() { return Math.max(1, Math.ceil((esperaHasta - Date.now()) / 1000)); }
@@ -575,6 +661,7 @@
   // Si la RPC aún no existe o falla → se queda el comportamiento anterior (solo Master, vía «cartera»). Una consulta por carga.
   var equipo = null, equipoEnCurso = null;
   function prepararInsignias(sbFetchFn) {
+    if (sbFetchFn) sbUsado = sbFetchFn;
     if (equipo !== null) return Promise.resolve(equipo !== false);
     if (equipoEnCurso) return equipoEnCurso;
     var f = sbFetchFn || window.sbFetch;
@@ -594,6 +681,13 @@
   // Sin estado o sin conexión → null (no se pinta nada).
   function insignia(rut, clienteId) {
     var e = equipo && Number(clienteId) > 0 && equipo[Number(clienteId)] ? equipo[Number(clienteId)] : estadoRut(rut);
+    if (Number(clienteId) > 0 && trayendo[Number(clienteId)] && !(equipo && equipo[Number(clienteId)] === 'conectada')) {
+      estilos();
+      var tr = el('span', 'sii-tag trae'); tr.title = 'Gestoor está trayendo los datos del SII de esta empresa. Se actualiza sola.';
+      var it = el('i', 'ic'); it.innerHTML = window.gIcon ? window.gIcon('reloj') : ''; tr.appendChild(it);
+      tr.appendChild(el('span', null, 'Conectada · trayendo datos del SII…'));
+      return tr;
+    }
     if (e !== 'conectada' && e !== 'clave_rechazada') return null;
     estilos();
     var ok = e === 'conectada';
@@ -608,7 +702,7 @@
     llamar('ventana', Number(clienteId)).then(function (j) {
       if (btn) btn.disabled = false;
       ventanaCb = function () { lista = null; equipo = null; if (alTerminar) alTerminar(); };
-      estilos(); abrirVentana(j.widget && j.widget.url);
+      estilos(); abrirVentana(j.widget && j.widget.url, clienteId);
     }).catch(function (e) {
       if (btn) btn.disabled = false;
       var msg = (e && e.detalle) || (e && e.status === 429 ? 'Cartapra pide esperar un momento.' : 'No se pudo abrir la ventana de Cartapra.');
@@ -644,6 +738,10 @@
     insignia: insignia,
     prepararInsignias: prepararInsignias,
     conectar: conectarDesdeLista,
+    traer: traerAhora,
+    trayendo: function (clienteId) { return !!trayendo[Number(clienteId)]; },
+    /** fn(listos: clienteId[]) cuando una empresa «trayendo» ya quedó conectada en Gestoor (p. ej. para repintar la lista). */
+    alListo: function (fn) { if (typeof fn === 'function' && alListo.indexOf(fn) < 0) alListo.push(fn); },
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;
       estilos(); cerrarVentana();
@@ -651,6 +749,6 @@
       actual = { cont: cont, clienteId: Number(clienteId), vista: vista };
       cargar();
     },
-    desmontar: function () { cerrarVentana(); seq++; actual = null; if (relojEspera) { clearTimeout(relojEspera); relojEspera = null; } }
+    desmontar: function () { cerrarVentana(); seq++; actual = null; if (relojEspera) { clearTimeout(relojEspera); relojEspera = null; } if (relojFicha) { clearTimeout(relojFicha); relojFicha = null; } vueltasFicha = 0; }
   };
 })();

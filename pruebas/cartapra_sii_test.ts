@@ -55,9 +55,9 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
 // ── 2. Conectado (leyendo y listo) ──
 {
   const a = await montar({ resumen: con('conectada', { actualizando: true, ultimaActualizacion: '2026-11-16T13:05:00.000Z' }) }, true);
-  res('2.1 actualizando → «Leyendo el SII…» con hora de Chile (10:05)', texto(a.d).includes('Leyendo el SII…') && texto(a.d).includes('10:05'), texto(a.d));
+  res('2.1 actualizando → «Conectada · trayendo datos del SII…» con hora de Chile (10:05)', texto(a.d).includes('Conectada · trayendo datos del SII…') && texto(a.d).includes('10:05'), texto(a.d));
   const b = await montar({ resumen: con('conectada', { cargaInicialLista: false }) }, true);
-  res('2.2 !cargaInicialLista → «Leyendo el SII…»', texto(b.d).includes('Leyendo el SII…'));
+  res('2.2 !cargaInicialLista → «Conectada · trayendo datos del SII…» (se actualiza sola)', texto(b.d).includes('Conectada · trayendo datos del SII…') && texto(b.d).includes('se actualiza sola'), texto(b.d));
   const w0 = new JSDOM('', { runScripts: 'outside-only' }).window as any; w0.eval(FIXTURE);
   const FX = JSON.parse(JSON.stringify(w0.CARTAPRA_FIXTURE_RESUMEN_COBERTURA)); // cobertura confirmada (no declarados en rojo)
   const lista = { status: 200, body: { ...FX, conexion: { ...FX.conexion, ultimaActualizacion: '2026-11-16T12:00:00.000Z' },
@@ -195,7 +195,7 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   w.dispatchEvent(new w.MessageEvent('message', { origin: 'https://app.cartapra.com', source: fr!.contentWindow, data: { fuente: 'cartapra-conecta', evento: 'conectada', rut: '77166269-2' } }));
   w.dispatchEvent(new w.MessageEvent('message', { origin: 'https://app.cartapra.com', source: fr!.contentWindow, data: { fuente: 'cartapra-conecta', evento: 'cerrar' } }));
   await espera();
-  res('5.4 «conectada» avisa; «cerrar» cierra la ventana y vuelve a consultar el estado', !d.querySelector('.sii-velo') && /SII aceptó/.test(w._toast || '') && pedidos.length === 3 && pedidos[2].body.accion === 'resumen', pedidos);
+  res('5.4 «conectada» avisa y pide «traer» UNA vez (solo accion y cliente_id); «cerrar» cierra la ventana y vuelve a consultar el estado', !d.querySelector('.sii-velo') && /SII aceptó/.test(w._toast || '') && pedidos.length === 4 && JSON.stringify(pedidos[2].body) === '{"accion":"traer","cliente_id":7}' && pedidos[3].body.accion === 'resumen', pedidos);
   const m2 = await montar({ resumen: con('no_conectada'), ventana: { status: 200, body: { ok: true, widget: { url: 'https://evil.example/x' } } } }, true);
   ([...m2.d.querySelectorAll('button')].find((b) => b.textContent === 'Conectar con el SII') as HTMLButtonElement).click();
   await espera();
@@ -317,4 +317,4 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
 }
 
 console.log(`\n${ok}/${ok + mal} OK`);
-if (mal) Deno.exit(1);
+Deno.exit(mal ? 1 : 0);   // 19-11: la ficha «trayendo datos» deja relojes de revisión vivos (normal en el navegador)
