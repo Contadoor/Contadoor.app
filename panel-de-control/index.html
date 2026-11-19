@@ -687,6 +687,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <button class="btn-s" onclick="imprimirReportePdf()" title="Imprime solo el reporte, en páginas A4 completas">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
       <button class="btn-s" onclick="abrirEnvioManual()" style="color:var(--blue);border-color:var(--blue)" title="Puente 12-nov: PDF + Outlook + registro con evidencia">📤 Registrar envío manual</button>
+      <button class="btn-p" onclick="abrirCierreReporte()" title="Guarda la foto del reporte, lo marca enviado y lo publica en MiContadoor (REPORTE-AUTO B)">🔒 Cerrar reporte</button>
       <button class="btn-p" onclick="enviarEmail()" style="opacity:.55" title="Se activa con el servicio seguro de correos (PR #10B)">✉️ Enviar reporte mensual</button>
       <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
     </div>
@@ -731,6 +732,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <script src="../reporte-email.js"></script>
 <script src="../assets/reporte-pdf.js"></script>
 <script src="envio-manual.js"></script>
+<script src="cierre-reporte.js"></script>
 <script>
 
 // ═══════════════════════════════════════════════════════════
@@ -1813,6 +1815,17 @@ function abrirEnvioManual(){
   });
 }
 
+// REPORTE-AUTO B · «Cerrar reporte»: el servidor arma y guarda la foto (panel-de-control/cierre-reporte.js). r.id es el id del REPORTE.
+function abrirCierreReporte(){
+  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
+  if(!r||!/^\d+$/.test(String(r.id))){alert('Reporte no encontrado (recarga el Panel).');return;}
+  if(typeof GestoorCierreReporte==='undefined'){alert('No se cargó el módulo de cierre. Recarga la página.');return;}
+  GestoorCierreReporte.abrir({reporteId:r.id, empresa:r.clienteNombre||r.rut, periodoTxt:formatPer(r.periodo), alTerminar:function(estado,fecha){
+    var arr=getReportes(), x=arr.find(function(y){return String(y.id)===String(r.id);});
+    if(x){x.estado=estado;x.fechaEnvio=fecha||null;setReportesCache(arr);}
+    if(typeof renderAll==='function')renderAll();
+  }});
+}
 function closeVista(){
   document.getElementById('modalVista').classList.remove('on');
   // Resetear estado SII para que fetches tardíos sean ignorados

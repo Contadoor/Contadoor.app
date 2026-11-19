@@ -167,6 +167,8 @@
             <div class="pio-sii-cartapra-cab">
               <span class="pio-sii-cartapra-al" id="pio-sii-cartapra-al">Datos del SII actualizados al —</span>
               <button type="button" class="btn sec chico" id="btn-usar-sii" title="Vuelve a leer los datos del SII guardados por Cartapra">Actualizar ahora</button>
+              <!-- REPORTE-AUTO A: el servidor valida el Pre-IVA del SII y pasa los montos al reporte (pre-iva/reporte-sii.js) -->
+              <button type="button" class="btn chico" id="btn-sii-al-reporte" title="Valida el Pre-IVA con los datos del SII y pasa los montos al reporte mensual">Validar y pasar al reporte</button>
             </div>
             <p class="pio-libro-lbl" id="pio-sii-cartapra-txt"></p>
             <ul class="pio-sii-cartapra-av" id="pio-sii-cartapra-av"></ul>
@@ -282,6 +284,7 @@
 <script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
 <script src="sii-cartapra.js"></script>
+<script src="reporte-sii.js"></script>
 <script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
@@ -1488,6 +1491,7 @@ function subirLocales(){
   var filV=document.getElementById('file-ventas');if(filV)filV.onchange=function(){onLibroChange(this,'ventas');};
   var filC=document.getElementById('file-compras');if(filC)filC.onchange=function(){onLibroChange(this,'compras');};
   var btnSii=document.getElementById('btn-usar-sii');if(btnSii)btnSii.onclick=function(){if(_clienteActual)cargarSiiCartapra(_clienteActual,_periodoActual,_filaPreiva);};
+  var btnRep=document.getElementById('btn-sii-al-reporte');if(btnRep)btnRep.onclick=function(){if(_clienteActual&&window.PreIvaReporteSii)PreIvaReporteSii.abrir({cliente:{id:_clienteActual.id,rut:_clienteActual.rut,razon:_clienteActual.razonSocial},periodo:_periodoActual});};
   ['inp-debito','inp-credito','inp-exento-ventas'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('input',marcarFuenteManual);});
   // Inputs de cálculo
   ['inp-debito','inp-credito','inp-exento-ventas','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=function(){calcular();marcarCambio();};});
