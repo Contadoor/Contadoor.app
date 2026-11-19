@@ -1672,6 +1672,10 @@ function renderClientes() {
     cli.appendChild(lg);
     var sp = document.createElement('span');
     sp.innerHTML = '<strong>'+esc(c.razon||'')+'</strong><small>'+esc(c.rut||'')+(c.ciudad?' · '+esc(c.ciudad):'')+'</small>';
+    // 19-11 (Luciano): distintivo «SII conectado» (verde) o «Revisar conexión SII» (ámbar) bajo el RUT.
+    // El estado viene de la Edge cartapra («cartera»), que solo responde al Master: los demás roles no ven el distintivo.
+    var tagSii = window.GestoorSII && GestoorSII.insignia ? GestoorSII.insignia(c.rut) : null;
+    if (tagSii) sp.appendChild(tagSii);
     cli.appendChild(sp); td1.appendChild(cli); tr.appendChild(td1);
 
     // Plan
