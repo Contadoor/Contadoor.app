@@ -368,3 +368,9 @@ body.g-mod-pio{--grad:linear-gradient(160deg,#A4599C,#803889);--lila:#C77BC9;--l
 .g-mod-pio .pio-traz table.pio-t td small{display:block;font-size:10.5px;margin-top:2px}
 .g-mod-pio .pio-traz table.pio-t{font-size:12px}
 .g-mod-pio .pio-traz{overflow-x:auto}
+/* SII-PREIVA-F2b: bloque de compras y ventas del SII (Cartapra) */
+.g-mod-pio .pio-sii-cartapra{display:flex;flex-direction:column;gap:6px;border:1px solid var(--borde2);border-radius:16px;padding:10px 12px;margin:4px 0 6px}
+.g-mod-pio .pio-sii-cartapra-av{margin:0;padding-left:18px;font-size:11.5px;color:var(--t2);line-height:1.45}
+.g-mod-pio .pio-sii-cartapra-av:empty{display:none}
+.g-mod-pio .pio-sii-cartapra-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.g-mod-pio .pio-sii-cartapra-al{font:800 13.5px var(--tit);color:var(--t1)}
