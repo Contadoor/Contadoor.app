@@ -151,7 +151,7 @@ res('R2 6: ANTES — la reunión pendiente de un Perdido avisa que saldrá de Pe
   dom.window.close();
 }
 // ── 3) Menú y vista completa ──
-res('menú: "Prospectos" abre la vista simple', /\['objetivo','Prospectos','prospectos','simple\.html'\]/.test(leer('assets/gestoor-menu.js')));
+res('menú: solo el CRM (19-11); la vista simple se abre desde el CRM', /\['grafico','CRM','prospectos','crm\.html'\]/.test(leer('assets/gestoor-menu.js')) && !/'simple\.html'\]/.test(leer('assets/gestoor-menu.js')));
 res('vista completa (index.html) enlaza a la simple', leer('prospectos/index.html').includes('href="simple.html"'));
 res('simple.html cumple el estándar (auth-pending, guardia, supabase.js antes del módulo, auth.js al final)', (() => { const h = leer('prospectos/simple.html');
   return h.includes('class="auth-pending"') && h.includes('id="gestoor-auth-guard"') && h.indexOf('../supabase.js') < h.indexOf('simple.js') && h.lastIndexOf('../auth.js') > h.indexOf('simple.js'); })());

@@ -30,12 +30,11 @@
   <div class="topbar">
     <div class="cm-marca">
       <span class="cm-ico" aria-hidden="true"><span data-g-ic="grafico"></span></span>
-      <div><h1 class="tb-title">Pros<span>pectos</span></h1><p>Embudo de ventas y reuniones de la semana, con lo que nos contó cada uno.</p></div>
+      <div><h1 class="tb-title">C<span>RM</span></h1><p>Embudo de ventas y reuniones de la semana, con lo que nos contó cada uno.</p></div>
     </div>
     <div class="g-espacio"></div>
-    <a class="g-chip-per" href="simple.html" style="text-decoration:none">📝 Lista simple</a>
-    <a class="g-chip-per" href="reuniones.html" style="text-decoration:none">📅 Reuniones</a>
-    <a class="g-chip-per" href="index.html" style="text-decoration:none">📊 Vista completa</a>
+    <button type="button" class="g-btn sm" id="as-avisos" hidden data-etiqueta="🔔 Activar avisos en este dispositivo"
+            data-ayuda="Recibe en este celular o computador el aviso de reunión en 15 minutos (los demás avisos llegan a la campana)">🔔 Activar avisos en este dispositivo</button>
     <span class="cm-demo" id="cmDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
     <span class="tb-analista" id="tb-analista-nombre"></span>
   </div>
@@ -44,6 +43,7 @@
   </div>
 </main>
 </div>
+<div class="cm-toast" id="as-aviso" role="status" aria-live="polite"></div>
 <script src="../supabase.js"></script>
 <script src="../assets/equipo.js"></script>
 <script src="comercial-datos.js"></script>
@@ -52,6 +52,6 @@
 <script src="telefono.js"></script>
 <script src="simple.js"></script>
 <script src="crm.js"></script>
-<script>if(!window.COM_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+<script>if(!window.COM_DEMO)document.write('<script src="../avisos-push.js"><\/script><script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
 </body>
 </html>
