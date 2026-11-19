@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo local · Documentos contables SII</title>
+<!-- PRUEBA LOCAL: datos FICTICIOS y sbFetch simulado. No se conecta a Supabase.
+     ?caso=conectada (por defecto) | sin_conexion | sin_detalle (RPC de detalle aún no instalada)  ·  &abrir=compra|venta|honorarios abre la lupa
+     &tipo=33 despliega ese tipo dentro del panel -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style>body{padding:24px}.caja{max-width:980px;margin:0 auto}
+.demo-aviso{font:600 12px Inter,sans-serif;color:#5CC8FF;margin-bottom:12px}
+.libros-sec-titulo{font-size:10px;font-weight:700;color:#E39BE5;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #4A2B50;display:flex;gap:6px;align-items:center}
+.libros-sec-titulo .g-ic{width:13px;height:13px}
+.libros-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.libro-card{border:1px solid #3A2140;border-radius:10px;padding:10px 12px;color:#C9A8CC;font:12px Inter,sans-serif}
+.libro-card button{margin-top:6px}</style>
+</head>
+<body class="g-shell g-tema-noche">
+<div class="caja">
+  <div class="demo-aviso">DEMO LOCAL · DATOS FICTICIOS · sbFetch simulado</div>
+  <div class="libros-sec-titulo" id="tit"></div>
+  <div class="docsii-slot" data-cid="9001"></div>
+  <div class="libros-manual" data-cid="9001" data-modo="pendiente"><div class="libros-grid">
+    <div class="libro-card"><b>COMPRAS</b><br>No cargado para este período.<br><button class="btn-p">Cargar</button> <button class="btn-s">Sin movimientos</button></div>
+    <div class="libro-card"><b>VENTAS</b><br>No cargado para este período.<br><button class="btn-p">Cargar</button> <button class="btn-s">Sin movimientos</button></div>
+    <div class="libro-card"><b>HONORARIOS</b><br>No cargado para este período.<br><button class="btn-p">Cargar</button> <button class="btn-s">No aplica</button></div>
+  </div></div>
+</div>
+<script src="../assets/gestoor-menu.js"></script>
+<script>
+  var q = new URLSearchParams(location.search), caso = q.get('caso') || 'conectada';
+  document.getElementById('tit').innerHTML = gIcon('contable') + ' Documentos contables del período';
+  var R = { conexion: { estado: 'conectada' }, datos_al: '2026-11-19T10:00:00Z', avisos: [],
+    ventas: { documentos: 5, neto: 1380000, exento: 240000, iva: 262200, total: 1882200, por_tipo: {
+      '33': { n: 3, neto: 1500000, exento: 0, iva: 285000, total: 1785000 }, '34': { n: 1, neto: 0, exento: 240000, iva: 0, total: 240000 },
+      '61': { n: 1, neto: -120000, exento: 0, iva: -22800, total: -142800 } } },
+    compras: { registro: { documentos: 4, neto: 642000, exento: 35000, iva: 121980, total: 798980 }, pendiente: { documentos: 1, iva: 9500, total: 59500 },
+      por_tipo: { '33': { n: 2, neto: 680000, exento: 0, iva: 129200, total: 809200 }, '34': { n: 1, neto: 0, exento: 35000, iva: 0, total: 35000 },
+        '61': { n: 1, neto: -38000, exento: 0, iva: -7220, total: -45220 } } },
+    honorarios: { honorarios_recibidos: { documentos: 2, bruto: 450000, retencion: 61875 }, honorarios_emitidos: { documentos: 0 } } };
+  function d(t, f, fe, rut, rs, neto, ex, iva, est) { return { tipo_dte: t, folio: f, fecha: fe, rut: rut, razon_social: rs, neto: neto, exento: ex, iva: iva, total: neto + ex + iva, signo: (t === 61 ? -1 : 1), estado: est || 'registro' }; }
+  var DOCS = {
+    venta: [d(33, 1201, '2026-09-02', '76111111-1', 'Comercial Ficticia Norte SpA', 800000, 0, 152000), d(33, 1202, '2026-09-11', '76222222-2', 'Servicios Ficticios Sur Ltda', 450000, 0, 85500),
+      d(33, 1203, '2026-09-25', '76333333-3', 'Distribuidora Ejemplo SA', 250000, 0, 47500), d(34, 88, '2026-09-18', '76444444-4', 'Fundación de Prueba', 0, 240000, 0),
+      d(61, 77, '2026-09-28', '76222222-2', 'Servicios Ficticios Sur Ltda', 120000, 0, 22800)],
+    compra: [d(33, 50120, '2026-09-04', '96555555-5', 'Proveedor Ficticio Uno SA', 500000, 0, 95000), d(33, 8841, '2026-09-14', '77666666-6', 'Insumos de Prueba Ltda', 180000, 0, 34200),
+      d(34, 311, '2026-09-20', '77777777-7', 'Arriendo Ejemplo SpA', 0, 35000, 0), d(61, 902, '2026-09-22', '77666666-6', 'Insumos de Prueba Ltda', 38000, 0, 7220),
+      d(33, 9910, '2026-09-29', '78888888-8', 'Proveedor Pendiente SpA', 50000, 0, 9500, 'pendiente')],
+    honorarios: [{ tipo_dte: 0, folio: 154, fecha: '2026-09-08', rut: '12345678-5', razon_social: 'Profesional Ficticia Uno', total: 250000, retencion: 34375, estado: 'vig' },
+      { tipo_dte: 0, folio: 31, fecha: '2026-09-26', rut: '9876543-3', razon_social: 'Profesional Ficticio Dos', total: 200000, retencion: 27500, estado: 'vig' }] };
+  window.sbFetch = function (p, o) {
+    var b = JSON.parse(o.body || '{}'), st = 200, j;
+    if (p === 'rpc/sii_preiva_periodo') j = caso === 'sin_conexion' ? { conexion: { estado: 'sin_conexion' }, ventas: null, compras: null, avisos: ['sin_conexion'] } : R;
+    else if (caso === 'sin_detalle') { st = 404; j = { code: 'PGRST202' }; }
+    else j = { conexion: { estado: 'conectada' }, total_documentos: DOCS[b.p_libro].length, truncado: false, documentos: DOCS[b.p_libro] };
+    return Promise.resolve({ ok: st === 200, status: st, text: function () { return Promise.resolve(JSON.stringify(j)); } });
+  };
+</script>
+<script src="../reportes-contable/docs-sii.js"></script>
+<script>
+  ContableDocsSii.montar(document.querySelector('.docsii-slot'), { clienteId: 9001, periodo: '2026-09', nombre: 'Empresa Ficticia SpA' }).then(function () {
+    var ab = q.get('abrir'); if (!ab) return;
+    var i = { compra: 0, venta: 1, honorarios: 2 }[ab];
+    document.querySelectorAll('.dsii-lupa')[i].click();
+    setTimeout(function () { var t = q.get('tipo'); if (t == null) return;
+      document.querySelectorAll('tr.tipo').forEach(function (tr) { if (tr.textContent.indexOf(t + ' · ') === 0 || (t === '0' && /Boleta de honorarios/.test(tr.textContent))) tr.querySelector('.dsii-abre').click(); }); }, 60);
+  });
+</script>
+</body>
+</html>

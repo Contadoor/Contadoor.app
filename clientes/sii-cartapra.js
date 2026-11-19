@@ -558,10 +558,30 @@
     return listaEnCurso;
   }
   function estadoRut(rut) { return lista && lista.conexiones ? (lista.conexiones[rutNorm(rut)] || 'no_conectada') : null; }
-  // 19-11 (Luciano): distintivo «SII conectado» / «Revisar conexión SII» junto al RUT en la lista.
-  // Solo hay estado cuando la Edge entrega "cartera" (Master). Sin estado o sin conexión → null (no se pinta nada).
-  function insignia(rut) {
-    var e = estadoRut(rut);
+  // 19-11 (Luciano): distintivo para TODO el equipo. RPC de solo lectura public.sii_conexiones_equipo (CONTABLE-SII-DETALLE):
+  // por cada cliente visible para el usuario solo {cliente_id, estado: conectada|clave_rechazada|sin_conexion}.
+  // Si la RPC aún no existe o falla → se queda el comportamiento anterior (solo Master, vía «cartera»). Una consulta por carga.
+  var equipo = null, equipoEnCurso = null;
+  function prepararInsignias(sbFetchFn) {
+    if (equipo !== null) return Promise.resolve(equipo !== false);
+    if (equipoEnCurso) return equipoEnCurso;
+    var f = sbFetchFn || window.sbFetch;
+    if (typeof f !== 'function') { equipo = false; return Promise.resolve(false); }
+    equipoEnCurso = Promise.resolve().then(function () {
+      return f('rpc/sii_conexiones_equipo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    }).then(function (r) {
+      if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
+      return r.json();
+    }).then(function (j) {
+      var m = {};
+      arr(j).forEach(function (x) { if (x && Number(x.cliente_id) > 0 && esTxt(x.estado)) m[Number(x.cliente_id)] = String(x.estado); });
+      equipo = m; equipoEnCurso = null; return true;
+    }, function () { equipo = false; equipoEnCurso = null; return false; });
+    return equipoEnCurso;
+  }
+  // Sin estado o sin conexión → null (no se pinta nada).
+  function insignia(rut, clienteId) {
+    var e = equipo && Number(clienteId) > 0 && equipo[Number(clienteId)] ? equipo[Number(clienteId)] : estadoRut(rut);
     if (e !== 'conectada' && e !== 'clave_rechazada') return null;
     estilos();
     var ok = e === 'conectada';
@@ -575,7 +595,7 @@
     if (btn) btn.disabled = true;
     llamar('ventana', Number(clienteId)).then(function (j) {
       if (btn) btn.disabled = false;
-      ventanaCb = function () { lista = null; if (alTerminar) alTerminar(); };
+      ventanaCb = function () { lista = null; equipo = null; if (alTerminar) alTerminar(); };
       estilos(); abrirVentana(j.widget && j.widget.url);
     }).catch(function (e) {
       if (btn) btn.disabled = false;
@@ -610,6 +630,7 @@
     lista: function () { return lista; },
     estadoRut: estadoRut,
     insignia: insignia,
+    prepararInsignias: prepararInsignias,
     conectar: conectarDesdeLista,
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;
