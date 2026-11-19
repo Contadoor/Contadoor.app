@@ -50,7 +50,7 @@ function argsFicha(p,v){
     p_motivo_perdida:v.etapa==='descartado'?(v.motivo||null):null,p_proxima_fecha:v.proxima||null,p_actualizado:p.actualizado};   // R2 H1: obligatoria
 }
 root.ComSimple={ESTADOS:ESTADOS,OTRAS:OTRAS,FILTROS:FILTROS,MOTIVOS:MOTIVOS,PLANES:PLANES,etapaInfo:etapaInfo,pasaFiltro:pasaFiltro,
-  cuenta:cuenta,guionUrl:guionUrl,argsFicha:argsFicha};
+  cuenta:cuenta,guionUrl:guionUrl,argsFicha:argsFicha,MSJ:MSJ};   // MSJ: también lo usa crm.js (mismos mensajes al mover de etapa)
 
 if(typeof document==='undefined'||!root.ComDatos||!document.getElementById('csApp'))return;
 var D=root.ComDatos, esc=D.esc, app=document.getElementById('csApp');

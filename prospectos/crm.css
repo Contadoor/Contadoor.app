@@ -1,0 +1,118 @@
+/* ============================================================
+   prospectos/crm.css — CRM de Prospectos (maqueta aprobada: embudo + reuniones + ficha lateral)
+   Encima de comercial.css (body.g-mod-com: tokens --t1/--t2/--borde/--lila, .btn, .aviso, .cm-modal, .cm-toast). Prefijo crm-.
+   Escritorio: vista + ficha fija a la derecha (400 px). Celular (≤ 980 px): la ficha va debajo; embudo y calendario
+   se desplazan de lado DENTRO de su caja (la página nunca se desplaza de lado).
+   ============================================================ */
+.g-mod-com .crm,.g-mod-com .crm *{box-sizing:border-box}
+.g-mod-com .crm{--panel:#221027;--panel2:#2A1430;max-width:1600px;min-width:0}
+.g-mod-com .crm-esp{flex:1}
+.g-mod-com .crm .nd{color:var(--t3);font-size:12.5px}
+.g-mod-com .crm .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Barra: pestañas + búsqueda + nuevo */
+.g-mod-com .crm-barra{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.g-mod-com .crm-tabs{display:flex;gap:6px;background:var(--panel);padding:4px;border-radius:999px;border:1px solid var(--borde)}
+.g-mod-com .crm-tabs button{border:0;background:none;color:var(--t2);font:600 13px var(--txt);padding:8px 16px;border-radius:999px;cursor:pointer;min-height:36px}
+.g-mod-com .crm-tabs button.on{background:var(--grad);color:#fff}
+.g-mod-com .crm-busca{background:var(--panel);border:1px solid var(--borde);border-radius:999px;color:var(--t1);padding:0 14px;min-height:40px;width:240px;font:500 13px var(--txt)}
+.g-mod-com .crm-busca:focus{outline:none;border-color:var(--lila);box-shadow:0 0 0 3px rgba(199,123,201,.2)}
+/* Totales */
+.g-mod-com .crm-tot{display:flex;gap:10px;padding:12px 0;flex-wrap:wrap}
+.g-mod-com .crm-kpi{background:var(--panel);border:1px solid var(--borde);border-radius:14px;padding:8px 14px;font-size:12px;color:var(--t2);min-width:120px}
+.g-mod-com .crm-kpi b{display:block;font:800 18px var(--tit);color:var(--t1)}
+.g-mod-com .crm-kpi.atr{border-color:rgba(224,122,110,.55)}.g-mod-com .crm-kpi.atr b{color:var(--rojo)}
+/* Vista + ficha */
+.g-mod-com .crm-main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:0;border:1px solid var(--borde);border-radius:18px;overflow:hidden;background:rgba(12,7,14,.35);align-items:stretch}
+.g-mod-com .crm-vista{min-width:0;padding:14px}
+.g-mod-com .crm-scroll{overflow-x:auto;min-width:0;padding-bottom:4px}
+/* Embudo */
+.g-mod-com .crm-embudo{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:12px;min-width:1300px}
+.g-mod-com .crm-col{background:rgba(255,255,255,.03);border:1px solid var(--borde);border-radius:16px;display:flex;flex-direction:column;min-height:420px;transition:background .15s,outline-color .15s}
+.g-mod-com .crm-col.sobre{outline:2px dashed var(--lila);outline-offset:-2px;background:rgba(199,123,201,.08)}
+.g-mod-com .crm-col h3{margin:0;padding:12px 14px 8px;font:800 13px var(--tit);display:flex;align-items:center;gap:8px;color:var(--t1)}
+.g-mod-com .crm-col h3 .n{margin-left:auto;background:var(--panel2);border-radius:999px;padding:1px 9px;font:700 12px var(--txt);color:var(--t2)}
+.g-mod-com .crm-col h3 i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.g-mod-com .crm-col .hint{padding:0 14px 8px;font-size:11px;color:var(--t2)}
+.g-mod-com .crm-col .lista{padding:0 10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.g-mod-com .crm-vacio{font-size:12px;color:var(--t3);text-align:center;padding:14px 4px;border:1px dashed rgba(201,168,204,.15);border-radius:12px}
+.g-mod-com .crm-card{background:var(--panel);border:1px solid var(--borde);border-radius:13px;padding:10px 12px;cursor:pointer;transition:transform .15s,border-color .15s;min-width:0}
+.g-mod-com .crm-card[draggable="true"]{cursor:grab}
+.g-mod-com .crm-card:hover{border-color:var(--lila)}
+.g-mod-com .crm-card.sel{border-color:var(--lila);box-shadow:0 0 0 2px rgba(199,123,201,.35)}
+.g-mod-com .crm-card.arr{opacity:.5}
+.g-mod-com .crm-card .t{font-weight:700;display:flex;gap:6px;align-items:center;color:var(--t1);min-width:0}
+.g-mod-com .crm-card .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .crm-card .e{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .crm-card .m{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;min-width:0}
+.g-mod-com .crm-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--t2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .crm-chip.prox{background:rgba(92,200,255,.12);color:var(--cel)}
+.g-mod-com .crm-chip.atr{background:rgba(224,122,110,.15);color:var(--rojo)}
+.g-mod-com .crm-sem{width:9px;height:9px;border-radius:50%;flex:none}
+.g-mod-com .crm-cerr-t{font:800 12px var(--tit);letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin:16px 2px 8px}
+.g-mod-com .crm-cerr{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;min-width:660px}
+.g-mod-com .crm-cerr .crm-col{min-height:auto}
+.g-mod-com .crm-col.fija{border-style:dashed}
+.g-mod-com .crm-nota{font-size:12px;color:var(--t2);margin:8px 0 0}
+/* Calendario */
+.g-mod-com .crm-ley{display:flex;gap:14px;margin:0 0 10px;font-size:12px;color:var(--t2);align-items:center;flex-wrap:wrap}
+.g-mod-com .crm-ley b{color:var(--t1);font:800 13px var(--tit)}
+.g-mod-com .crm-nav{display:inline-flex;gap:6px}
+.g-mod-com .crm-cal{display:grid;grid-template-columns:70px repeat(5,minmax(150px,1fr));border:1px solid var(--borde);border-radius:16px;overflow:hidden;min-width:900px}
+.g-mod-com .crm-cal .hd{background:var(--panel2);padding:10px;font:700 12px var(--txt);text-align:center;border-bottom:1px solid var(--borde);color:var(--t1)}
+.g-mod-com .crm-cal .hd.hoy{color:#fff;background:var(--grad)}
+.g-mod-com .crm-cal .hr{padding:10px 8px;font:700 12px var(--txt);color:var(--t2);border-bottom:1px solid var(--borde);text-align:right}
+.g-mod-com .crm-cal .cel{border-left:1px solid var(--borde);border-bottom:1px solid var(--borde);padding:6px;min-height:64px;display:flex;flex-direction:column;gap:6px}
+.g-mod-com .crm-cal .cel.hoy{background:rgba(199,123,201,.05)}
+.g-mod-com .crm-ev{display:block;width:100%;text-align:left;border-radius:11px;padding:7px 9px;cursor:pointer;font:400 12px var(--txt);color:var(--t1);border:1px solid transparent}
+.g-mod-com .crm-ev b{display:block;font-size:13px}
+.g-mod-com .crm-ev .hh{display:block;font-size:11px;color:var(--t2);font-weight:600}
+.g-mod-com .crm-ev small{display:block;color:var(--t2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-mod-com .crm-ev.ag{background:rgba(146,72,147,.35);border-color:var(--lila)}
+.g-mod-com .crm-ev.hecha{background:rgba(95,207,156,.14);border-color:rgba(95,207,156,.5)}
+.g-mod-com .crm-ev.na{background:rgba(224,122,110,.14);border-color:rgba(224,122,110,.5)}
+.g-mod-com .crm-ev.can{background:rgba(255,255,255,.04);border-color:rgba(201,168,204,.25);opacity:.7}.g-mod-com .crm-ev.can b{text-decoration:line-through}
+.g-mod-com .crm-ev.rev{background:rgba(255,200,90,.12);border-color:rgba(255,200,90,.5)}
+.g-mod-com .crm-ev.sel{box-shadow:0 0 0 2px #fff}
+.g-mod-com .crm-cal .libre{font-size:11px;color:rgba(201,168,204,.35)}
+/* Ficha lateral */
+.g-mod-com .crm-ficha{border-left:1px solid var(--borde);background:rgba(12,7,14,.6);padding:18px 20px;position:sticky;top:76px;align-self:start;max-height:calc(100vh - 92px);overflow:auto}
+.g-mod-com .crm-vacio-f{color:var(--t2);text-align:center;margin:80px 0}
+.g-mod-com .crm-ficha h2{font:800 19px var(--tit);margin:10px 0 0;color:var(--t1);overflow-wrap:anywhere}
+.g-mod-com .crm-ficha .emp{color:var(--t2);margin-bottom:10px;overflow-wrap:anywhere}
+.g-mod-com .crm-etq{display:inline-flex;align-items:center;gap:6px;font:700 11px var(--txt);letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--panel2)}
+.g-mod-com .crm-bloq{background:var(--panel);border:1px solid var(--borde);border-radius:14px;padding:12px 14px;margin-top:12px}
+.g-mod-com .crm-bloq h4{margin:0 0 8px;font:800 13px var(--tit);color:var(--lila)}
+.g-mod-com .crm-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(201,168,204,.18);font-size:13px;color:var(--t1)}
+.g-mod-com .crm-fila:last-child{border:0}
+.g-mod-com .crm-fila>span:first-child{color:var(--t2);flex:none}
+.g-mod-com .crm-fila>span:last-child{text-align:right;min-width:0;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.g-mod-com .crm-dolor{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px;overflow-wrap:anywhere}
+.g-mod-com .crm-sit{font-size:12.5px;color:var(--t2);margin-bottom:6px;overflow-wrap:anywhere}.g-mod-com .crm-sit b{color:var(--t1)}
+.g-mod-com .crm-pasos{display:flex;gap:4px;margin-top:10px}
+.g-mod-com .crm-pasos div{flex:1;height:6px;border-radius:9px;background:var(--panel2)}
+.g-mod-com .crm-pasos div.ok{background:var(--lila)}
+.g-mod-com .crm-mover{display:flex;gap:8px}
+.g-mod-com .crm-mover select{flex:1;min-width:0;background:#12080f;border:1px solid var(--borde);border-radius:9px;color:var(--t1);padding:0 10px;min-height:38px;font:14px var(--txt)}
+.g-mod-com .crm-msg{font-size:12.5px;min-height:16px;margin-top:6px;color:var(--t2)}.g-mod-com .crm-msg.err{color:#FF8A8A}
+.g-mod-com .crm-acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.g-mod-com .crm-macc{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+.g-mod-com .cm-modal select.inp{width:100%}
+@media(max-width:1180px){.g-mod-com .crm-main{grid-template-columns:minmax(0,1fr) 340px}}
+@media(max-width:980px){
+  .g-mod-com .crm-main{grid-template-columns:minmax(0,1fr)}
+  .g-mod-com .crm-ficha{position:static;max-height:none;border-left:0;border-top:1px solid var(--borde)}
+  .g-mod-com .crm-vacio-f{margin:24px 0}
+}
+@media(max-width:640px){
+  .g-mod-com .content{padding:12px 16px 80px}
+  .g-mod-com .crm-busca{width:100%;order:3}
+  .g-mod-com .crm-barra .btn{flex:1}
+  .g-mod-com .crm-tabs{width:100%}.g-mod-com .crm-tabs button{flex:1;padding:8px 8px}
+  .g-mod-com .crm-kpi{flex:1 1 calc(50% - 10px);min-width:0}
+  .g-mod-com .crm-vista{padding:10px}
+  .g-mod-com .crm-embudo{grid-template-columns:repeat(6,250px);min-width:0;scroll-snap-type:x mandatory}
+  .g-mod-com .crm-scroll{scroll-snap-type:x mandatory}
+  .g-mod-com .crm-col{scroll-snap-align:start;min-height:260px}
+  .g-mod-com .crm-cerr{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:250px;min-width:0}
+  .g-mod-com .crm-ficha{padding:16px}
+}

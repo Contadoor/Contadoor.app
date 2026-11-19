@@ -7,7 +7,7 @@
 (function(){
 'use strict';
 var h=location.hostname;if(!(h==='localhost'||h==='127.0.0.1'||h==='[::1]'))return;
-var KEY='gestoor.com.demo.v3';   // v3 (COM-SIMPLE-1): + correos ficticios, situación, plan y 3 prospectos cerrados
+var KEY='gestoor.com.demo.v4';   // v4 (CRM 19-11): + 5 prospectos ficticios en las etapas que faltaban (hecha, seguimiento, no asistió, no calificado, otros)   // v3 (COM-SIMPLE-1): + correos ficticios, situación, plan y 3 prospectos cerrados
 // Teléfonos ficticios por prospecto (formatos que debe aceptar o rechazar el botón WhatsApp).
 var TEL={101:'+56 9 1234 5678',102:'912345678',103:'12345678',104:'',105:'abc',106:'(9) 1234-5678',107:'+56 9 8765 4321',108:'987654321',109:'+56 9 1111 2222',110:'922223333'};
 function ahoraMin(m){var d=new Date();d.setSeconds(0,0);return new Date(d.getTime()+m*60000).toISOString();}
@@ -34,7 +34,16 @@ function semilla(){
     {id:111,nombre:'Andrea Soto',empresa:'Estudio Soto Diseño',semaforo:'verde',etapa:'propuesta',origen:'agenda',campana:'meta · renta',resp:1,email:'andrea@ejemplo.test',plan:'pro',
      obs:'Su contador no le responde. Tiene 2 F29 atrasados y quiere saber cuánto pagará de renta.',respuestas:{ventas:'5a20',rubro:'diseño',dolor:'No sé cuánto voy a pagar de renta.'}},
     {id:112,nombre:'Felipe Lagos',empresa:'Lagos Importaciones',semaforo:'verde',etapa:'cliente',origen:'agenda',campana:'google · contador-pyme',resp:2,email:'felipe@ejemplo.test',plan:'pro',obs:'Empresa nueva, necesita partir ordenado.',respuestas:{rubro:'importación'}},
-    {id:113,nombre:'Marta Díaz',empresa:'Almacén Doña Marta',semaforo:'amarillo',etapa:'descartado',origen:'instagram',campana:'ig · reel',resp:1,motivo:'precio',obs:'Buscaba solo precio, se quedó con su contador.',respuestas:{rubro:'almacén'}}
+    {id:113,nombre:'Marta Díaz',empresa:'Almacén Doña Marta',semaforo:'amarillo',etapa:'descartado',origen:'instagram',campana:'ig · reel',resp:1,motivo:'precio',obs:'Buscaba solo precio, se quedó con su contador.',respuestas:{rubro:'almacén'}},
+    // CRM (19-11): una tarjeta por cada etapa restante del embudo (todo ficticio)
+    {id:114,nombre:'Tomás Fuenzalida',empresa:'Fletes Ficticios Ltda.',semaforo:'rojo',etapa:'reunion_realizada',origen:'agenda',campana:'meta · renta',resp:1,plan:'pro',
+     respuestas:{ventas:'20a50',trabajadores:'6a20',contabilidad:'nadie',sociedades:'si',historicos:'si',rubro:'transporte',dolor:'Ponerme al día con el SII.'}},
+    {id:115,nombre:'Carolina Ibáñez',empresa:'Constructora Ejemplo SpA',semaforo:'amarillo',etapa:'seguimiento',origen:'agenda',campana:null,resp:2,plan:'estrategico',proxima_accion:'Llamar a su socio',proxima_fecha:'2026-11-10',
+     respuestas:{ventas:'mas50',trabajadores:'mas20',contabilidad:'interno',sociedades:'si',historicos:'nose',rubro:'construcción',dolor:'Pagar lo justo de impuestos.'}},
+    {id:116,nombre:'Nicolás Araya',empresa:'Lagos Diseño Demo',semaforo:'verde',etapa:'no_asistio',origen:'instagram',campana:'ig · reel',resp:null,
+     respuestas:{ventas:'hasta5',trabajadores:'ninguno',contabilidad:'yo',sociedades:'no',historicos:'no',rubro:'diseño',dolor:'Ordenar mis impuestos.'}},
+    {id:117,nombre:'Pía Contreras',empresa:'Kiosco Prueba',semaforo:'rojo',etapa:'no_calificado',origen:'whatsapp',campana:null,resp:null,respuestas:{ventas:'hasta5',rubro:'kiosco'}},
+    {id:118,nombre:'Benjamín Rivas',empresa:'Emprende Demo E.I.R.L.',semaforo:'verde',etapa:'emprendedor_solicitado',origen:'agenda',campana:null,resp:null,respuestas:{ventas:'hasta5',rubro:'servicios'}}
   ];
   var RS=[
     {id:201,lead:101,inicio:ahoraMin(9),dur:30,estado:'confirmada'},
@@ -48,7 +57,9 @@ function semilla(){
     {id:209,lead:109,inicio:diaHora(2,'09','30'),dur:30,estado:'cancelada'},
     {id:211,lead:111,inicio:diaHora(-6,'10','00'),dur:30,estado:'realizada'},
     {id:212,lead:112,inicio:diaHora(-8,'12','00'),dur:30,estado:'realizada'},
-    {id:213,lead:113,inicio:diaHora(-10,'09','00'),dur:30,estado:'realizada'}
+    {id:213,lead:113,inicio:diaHora(-10,'09','00'),dur:30,estado:'realizada'},
+    {id:214,lead:114,inicio:diaHora(-1,'11','30'),dur:30,estado:'realizada'},
+    {id:216,lead:116,inicio:diaHora(-1,'17','00'),dur:30,estado:'no_asistio'}
   ];
   return {L:L,RS:RS,B:[],E:[],seq:300};
 }
@@ -114,7 +125,8 @@ var F={
     if(a.p_desenlace==='perdido')ev(l.id,'perdido',{motivo:a.p_motivo_perdida},b.id);
     persistir();return ok(Object.assign(payload(b),{ya_cerrada:false}));
   },
-  detalle_prospecto:function(a){var l=lead(a.p_id);if(!l)return err('NO_EXISTE');return ok({id:l.id,nombre:l.nombre,empresa:l.empresa,tel:TEL[l.id]!==undefined?TEL[l.id]:null});},
+  detalle_prospecto:function(a){var l=lead(a.p_id);if(!l)return err('NO_EXISTE');return ok({id:l.id,nombre:l.nombre,empresa:l.empresa,tel:TEL[l.id]!==undefined?TEL[l.id]:null,
+    etapa:l.etapa,semaforo:l.semaforo,respuestas:l.respuestas||null});},   // respuestas: la usa la ficha lateral del CRM (crm.js)
   com_linea_tiempo:function(a){
     var l=lead(a.p_lead_id);if(!l)return err('NO_EXISTE');
     var out=[{t:new Date(Date.now()-3*864e5).toISOString(),tipo:'origen',origen:l.origen,campana:l.campana,formulario:!!l.respuestas,consentimiento:true}];
