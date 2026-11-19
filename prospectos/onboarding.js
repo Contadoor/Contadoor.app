@@ -4,6 +4,8 @@
      y se crea el cliente en estado 'onboarding'. Después: conectar Cartapra y «Completar con datos del SII» en la ficha del cliente.
    · Datos SOLO por RPC (onb_listar / onb_guardar / onb_crear_cliente / onb_descartar), con la versión del caso (no pisa lo de otro).
    · Todo texto de la base pasa por esc(); el formulario arma el HTML con valores escapados.
+   · L2 (19-11): con el cliente creado, la ficha muestra los 15 pasos (assets/onboarding-pasos.js: onb_pasos / onb_paso_marcar /
+     onb_activar) y la lista muestra el avance de cada uno (onb_tablero). Filtro «En marcha» = creados que aún no están activos.
    ============================================================ */
 (function(){
 'use strict';
@@ -16,7 +18,7 @@ var MSJ={RUT_INVALIDO:'El RUT no es válido (revisa el dígito verificador).',RU
   CLAVE_PROHIBIDA:'No anotes claves aquí: la clave del SII se conecta con Cartapra desde la ficha del cliente.',SIN_PERMISO:'Onboarding es solo para el Master y el equipo Comercial.',
   SIN_PERMISO_ESCRITURA:'Tu usuario puede ver pero no editar.',NO_EXISTE:'No encontramos ese caso.'};
 function msg(e){var m=String(e&&e.message||e||'');for(var k in MSJ)if(m.indexOf(k)>=0)return MSJ[k];return D.mensaje(e);}
-var S={casos:[],analistas:[],yo:null,sel:null,filtro:'por_iniciar'};
+var S={casos:[],analistas:[],yo:null,sel:null,filtro:'por_iniciar',tab:{}};
 var app=function(){return document.getElementById('csApp');};
 function q(){try{return new URLSearchParams(location.search);}catch(e){return new URLSearchParams('');}}
 function caso(id){return S.casos.filter(function(c){return c.id===id;})[0]||null;}
@@ -25,29 +27,37 @@ function planTxt(v){var x=PLANES.filter(function(p){return p[0]===v;})[0];return
 function hoyMas(n){return D.sumarDias(D.hoy(),n);}
 
 function cargar(seleccion){
-  return D.rpc('onb_listar',{}).then(function(r){
-    S.casos=r.casos||[];S.analistas=r.analistas||[];S.yo=r.yo||{};
+  return Promise.all([D.rpc('onb_listar',{}),D.rpc('onb_tablero',{}).catch(function(){return {casos:[]};})]).then(function(rr){
+    var r=rr[0];S.casos=r.casos||[];S.analistas=r.analistas||[];S.yo=r.yo||{};
+    S.tab={};((rr[1]&&rr[1].casos)||[]).forEach(function(t){S.tab[Number(t.caso_id)]=t;});
     var p=q(), c=Number(p.get('caso'))||null, l=Number(p.get('lead'))||null;
     if(seleccion)S.sel=seleccion;
     else if(c&&caso(c))S.sel=c;
     else if(l){var x=S.casos.filter(function(y){return y.lead_id===l&&y.estado!=='descartado';})[0];S.sel=x?x.id:null;}
-    if(S.sel&&caso(S.sel)&&caso(S.sel).estado!=='por_iniciar')S.filtro='todos';
-    if(!S.sel){var f=S.casos.filter(function(y){return y.estado==='por_iniciar';})[0];S.sel=f?f.id:null;}
+    if(S.sel&&caso(S.sel)&&caso(S.sel).estado!=='por_iniciar')S.filtro=enMarcha(caso(S.sel))?'en_marcha':'todos';
+    if(!S.sel){var f=S.casos.filter(function(y){return y.estado==='por_iniciar';})[0]||S.casos.filter(enMarcha)[0];S.sel=f?f.id:null;if(f&&enMarcha(f))S.filtro='en_marcha';}
     pintar();
   }).catch(function(e){app().innerHTML='<div class="aviso rojo">'+esc(msg(e))+'</div>';});
 }
+function enMarcha(c){var t=S.tab[Number(c.id)];return c.estado==='cliente_creado'&&!!t&&!t.activado_at;}
 function chipEst(c){
+  var t=S.tab[Number(c.id)];
+  if(c.estado==='cliente_creado'&&t&&t.activado_at)return '<span class="estado verde">✅ Activo</span>';
+  if(c.estado==='cliente_creado'&&t)return '<span class="estado '+(t.resumen&&t.resumen.vencidos>0?'ambar':'cel')+'">🚀 '+Number(t.resumen.listos)+'/15'+(t.resumen.vencidos>0?' · ⏰':'')+'</span>';
   if(c.estado==='cliente_creado')return '<span class="estado verde">✅ Cliente creado</span>';
   if(c.estado==='descartado')return '<span class="estado gris">Descartado</span>';
   return c.faltan&&c.faltan.length?'<span class="estado ambar">Faltan '+c.faltan.length+'</span>':'<span class="estado cel">Listo ✓</span>';
 }
 function pintar(){
   var por=S.casos.filter(function(c){return c.estado==='por_iniciar';});
-  var vis=S.filtro==='todos'?S.casos:por;
+  var mar=S.casos.filter(enMarcha);
+  var vis=S.filtro==='todos'?S.casos:S.filtro==='en_marcha'?mar:por;
   var h='<div class="cs-wrap"><div>';
   h+='<div class="cs-chips"><button type="button" class="cs-chip'+(S.filtro==='por_iniciar'?' on':'')+'" data-f="por_iniciar">Por iniciar<i>'+por.length+'</i></button>'
+    +'<button type="button" class="cs-chip'+(S.filtro==='en_marcha'?' on':'')+'" data-f="en_marcha">En marcha<i>'+mar.length+'</i></button>'
     +'<button type="button" class="cs-chip'+(S.filtro==='todos'?' on':'')+'" data-f="todos">Todos<i>'+S.casos.length+'</i></button></div>';
-  if(!vis.length)h+='<div class="cs-lista"><div class="onb-vacio">🎉 No hay clientes por iniciar.<small>Cuando marques un prospecto como <b>Ganado</b>, aparece aquí solo.</small></div></div>';
+  if(!vis.length&&S.filtro==='en_marcha')h+='<div class="cs-lista"><div class="onb-vacio">No hay clientes en onboarding.<small>Al crear un cliente desde aquí, sus 15 pasos aparecen en «En marcha».</small></div></div>';
+  else if(!vis.length)h+='<div class="cs-lista"><div class="onb-vacio">🎉 No hay clientes por iniciar.<small>Cuando marques un prospecto como <b>Ganado</b>, aparece aquí solo.</small></div></div>';
   else h+='<div class="cs-lista">'+vis.map(function(c){var l=c.lead||{};
     return '<button type="button" class="cs-row onb-row'+(c.id===S.sel?' sel':'')+'" data-id="'+Number(c.id)+'"><span><b>'+esc(c.razon_social||l.empresa||l.nombre||('Prospecto #'+c.lead_id))+'</b><small>'+esc(l.nombre||'')+(c.responsable?' · ganado con '+esc(c.responsable.split(' ')[0]):'')+'</small></span>'
       +'<span><small>'+esc(planTxt(c.plan))+(c.valor_uf?' · '+esc(String(c.valor_uf).replace('.',','))+' UF':'')+'</small></span>'
@@ -58,6 +68,16 @@ function pintar(){
   app().querySelectorAll('.onb-row').forEach(function(b){b.onclick=function(){S.sel=Number(b.getAttribute('data-id'));pintar();
     if(window.innerWidth<=980){var f=document.getElementById('onbFicha');if(f)f.scrollIntoView({block:'start'});}};});
   enlazar();
+  var cs=caso(S.sel);if(cs&&cs.estado==='cliente_creado')cargarPasos(cs.id);
+}
+function cargarPasos(id){
+  var box=document.getElementById('onbPasos');if(!box||!window.OnbPasos)return;
+  D.rpc('onb_pasos',{p_caso_id:id}).then(function(d){
+    if(S.sel!==id)return;
+    window.OnbPasos.render(box,d,{rpc:D.rpc,recargar:function(){cargar(id);},alCambiar:function(n){
+      var t=S.tab[id]||{};t.resumen=n.resumen;t.activado_at=n.activado_at;S.tab[id]=t;
+      var fila=app().querySelector('.onb-row[data-id="'+Number(id)+'"] span:last-child');if(fila)fila.innerHTML=chipEst(caso(id));}});
+  }).catch(function(e){box.innerHTML='<p class="onb-faltan">'+esc(msg(e))+'</p>';});
 }
 function opt(v,txt,sel){return '<option value="'+esc(v)+'"'+(String(sel)===String(v)?' selected':'')+'>'+esc(txt)+'</option>';}
 function ficha(c){
@@ -69,8 +89,9 @@ function ficha(c){
     +'<p class="nd">'+[l.email,l.tel,l.rut?('RUT '+rutFmt(l.rut)):null,l.n_trabajadores?(l.n_trabajadores+' trabajador(es)'):null].filter(Boolean).map(esc).join(' · ')+'</p>'
     +(l.situacion?'<p class="onb-sit">«'+esc(l.situacion)+'»</p>':'')+'</div>';
   if(c.estado==='cliente_creado'){
-    h+='<div class="onb-ok"><b>✅ Cliente creado en Gestoor</b><p>Siguiente paso, en su ficha: <b>🔌 conectar el SII</b> (Cartapra) y luego <b>«Completar con datos del SII»</b> para traer giro, dirección, régimen, socios y PPM.</p>'
-      +'<a class="btn p" href="../clientes/index.html?abrir='+Number(c.cliente_id)+'">Abrir ficha del cliente</a></div>';
+    h+='<div class="onb-ok"><b>✅ Cliente creado en Gestoor</b><p>Sigue los pasos de abajo: casi todos se marcan solos. En su ficha: <b>🔌 conectar el SII</b> (Cartapra) y luego <b>«Completar con datos del SII»</b>.</p>'
+      +'<a class="btn p" href="../clientes/index.html?abrir='+Number(c.cliente_id)+'">Abrir ficha del cliente</a></div>'
+      +'<div id="onbPasos"><p class="nd">Cargando los pasos…</p></div>';
   }else if(c.estado==='descartado'){
     h+='<p class="cs-nota">Descartado: '+esc(c.motivo_descarte||'')+'</p>';
   }

@@ -20,7 +20,7 @@ const win = { location: { hostname: 'localhost' }, ComDemo: { rpc: () => Promise
 vm.runInNewContext(R('prospectos/onboarding-demo.js'), { window: win, location: win.location, setTimeout, Promise, Date, JSON, Math, Number, String, Error });
 const rpc = (f, a) => win.ComDemo.rpc(f, a).then(x => x, e => 'ERR:' + e.message);
 const L = await rpc('onb_listar'); const c1 = L.casos[0];
-t(L.casos.length === 2 && c1.faltan.includes('rut') && c1.faltan.includes('analista_rrhh'), 'demo: caso con faltantes (RUT, analista de remuneraciones porque tiene Gestión Laboral)');
+t(L.casos.filter(x => x.estado === 'por_iniciar').length === 2 && c1.faltan.includes('rut') && c1.faltan.includes('analista_rrhh'), 'demo: caso con faltantes (RUT, analista de remuneraciones porque tiene Gestión Laboral)');
 t(await rpc('onb_crear_cliente', { p_id: 1, p_actualizado: c1.actualizado }) === 'ERR:FALTAN_DATOS', 'demo: no crea con datos faltantes');
 t(await rpc('onb_guardar', { p_id: 1, p_datos: { rut: '11.111.111-2' }, p_actualizado: c1.actualizado }) === 'ERR:RUT_INVALIDO', 'demo: RUT con dígito malo');
 t(await rpc('onb_guardar', { p_id: 1, p_datos: { rut: '1' }, p_actualizado: 'vieja' }) === 'ERR:VERSION_CONFLICTO', 'demo: versión vieja');

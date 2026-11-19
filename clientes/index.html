@@ -1234,10 +1234,12 @@ function verDetalle(id) {
   h += '<div class="det-item"><div class="det-lbl">Trabajadores incl.</div><div class="det-val">'+(c.trab||0)+'</div></div>';
   h += '</div>';
   if (c.obs) h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:8px"><b>Obs:</b> '+esc(c.obs)+'</div>';
+  h += '<div id="det-onb"></div>';   // ONBOARDING-L2: pasos que faltan (onboarding-ficha.js); vacío si no vino de Onboarding
   h += '<div id="det-sii"></div>';   // Cartapra F1: tarjeta "Datos del SII" (sii-cartapra.js)
   g('detalleContent').innerHTML = h;
   g('modalDetalle').classList.add('on');
   if (window.GestoorSII) GestoorSII.montar(g('det-sii'), c.id, { esMaster: !!(window._contadoorSesion && window._contadoorSesion.esMaster === true) });
+  if (window.OnbFicha) OnbFicha.montar(g('det-onb'), c.id);
 }
 
 // ─────────────────────────────────────────────────────
@@ -2006,6 +2008,8 @@ function precargarDesdeCotizacion() {
 })();
 </script>
 <script src="sii-cartapra.js"></script>
+<script src="../assets/onboarding-pasos.js"></script>
+<script src="onboarding-ficha.js"></script>
 <script src="../notifications.js"></script>
 <script src="../auth.js"></script>
 </body>
