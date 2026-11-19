@@ -7,6 +7,9 @@
    · La clave SII se escribe dentro de la ventana de Cartapra: Gestoor no la ve ni la guarda.
    · Todo dato externo se pinta con textContent (nunca innerHTML con datos).
    · El botón Conectar/Reconectar aparece solo si el servidor responde puede_conectar = true (Master o conector).
+   · 19-11 (tarea 1e): «Enviar enlace al cliente» — pide a la Edge (accion "enlace") un enlace de UN uso (14 días)
+     para que el propio cliente conecte su empresa; se muestra con Copiar y un mensaje de WhatsApp listo. El enlace
+     no se guarda en Gestoor (si se pierde, se genera otro). Mismos permisos que Conectar.
    · Si "resumen" responde 403 (p. ej. un conector no asignado), se pide "estado" para mostrar solo la conexión.
      Excepciones: EMPRESA_FUERA_PILOTO y MODO_PILOTO no reintentan con "estado".
    · R3: una sola solicitud en curso por cliente (se reutiliza la promesa) y se respeta Retry-After (reintentarEn):
@@ -89,7 +92,12 @@
       '.sii-btn[disabled].espera{cursor:not-allowed}',
       '.sii-velo{position:fixed;inset:0;z-index:400;background:rgba(12,7,14,.78);display:flex;align-items:center;justify-content:center;padding:16px}',
       '.sii-velo iframe{width:440px;height:660px;max-width:100%;max-height:calc(100vh - 32px);border:0;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6)}',
-      '.sii-velo .x{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}'
+      '.sii-velo .x{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}',
+      '.sii-enl{width:460px;max-width:100%;max-height:calc(100vh - 32px);overflow:auto;background:#1E1222;color:#F2EAF4;border:1px solid #3A2140;border-radius:18px;padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px}',
+      '.sii-enl h4{margin:0;font-size:16px}.sii-enl p{margin:0;font-size:13px;line-height:1.5;color:#E9DCEB}',
+      '.sii-enl textarea{width:100%;min-height:150px;resize:vertical;font:inherit;font-size:13px;line-height:1.45;padding:10px;border-radius:12px;border:1px solid #3A2140;background:#140B17;color:#F2EAF4;box-sizing:border-box}',
+      '.sii-enl .fila{display:flex;flex-wrap:wrap;gap:8px}.sii-enl .vence{font-size:12px;color:#FFC85A}',
+      '.sii-enl a.sii-btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}'
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -362,6 +370,58 @@
     });
   }
 
+  // ── Enlace para el cliente (19-11): un uso, 14 días; la clave la escribe el cliente en Cartapra ──
+  function fechaChile(iso) {
+    var d = new Date(iso); if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  function mensajeEnlace(url, vence) {
+    return 'Hola 👋 Para tener tu información del SII siempre al día en Contadoor, conecta tu empresa en este enlace seguro:\n\n' + url +
+      '\n\n🔒 Ahí escribes tu clave del SII. Queda cifrada en Cartapra, nuestra plataforma de conexión, y no pasa por nosotros: solo la usamos para leer la información de tu empresa.' +
+      '\n\n⏳ El enlace sirve una sola vez' + (vence ? ' y vence el ' + vence : '') + '. Cualquier duda, te ayudamos por aquí.';
+  }
+  function abrirEnlace(enl) {
+    var url = enl && enl.url;
+    if (typeof url !== 'string' || url.indexOf(CARTAPRA + '/conecta-alta/') !== 0) throw new Error('enlace no válido');
+    cerrarVentana();
+    var vence = fechaChile(enl.expiraEn);
+    modal = el('div', 'sii-velo'); modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-label', 'Enlace para que el cliente conecte el SII');
+    var caja = el('div', 'sii-enl');
+    caja.appendChild(el('h4', null, 'Enlace para que el cliente conecte su SII'));
+    caja.appendChild(el('p', null, 'Envíaselo por WhatsApp o correo. El cliente escribe su clave en la página de Cartapra: Gestoor no la ve. Sirve una sola vez; si se pierde, genera otro.'));
+    if (vence) caja.appendChild(el('div', 'vence', 'Vence el ' + vence));
+    var ta = el('textarea'); ta.id = 'sii-enlace-msg'; ta.readOnly = true; ta.value = mensajeEnlace(url, vence); caja.appendChild(ta);
+    var fl = el('div', 'fila');
+    var cp = el('button', 'sii-btn', 'Copiar mensaje'); cp.type = 'button';
+    cp.onclick = function () {
+      var ok = function () { cp.textContent = 'Copiado ✓'; if (window.toast) window.toast('Mensaje copiado. Pégalo en WhatsApp o en un correo.'); };
+      var manual = function () { ta.focus(); ta.select(); try { if (document.execCommand('copy')) { ok(); return; } } catch (e) {} cp.textContent = 'Selecciona y copia'; };
+      try { navigator.clipboard.writeText(ta.value).then(ok, manual); } catch (e) { manual(); }
+    };
+    var sl = el('button', 'sii-btn sec', 'Copiar solo el enlace'); sl.type = 'button';
+    sl.onclick = function () { try { navigator.clipboard.writeText(url).then(function () { sl.textContent = 'Enlace copiado ✓'; }, function () { sl.textContent = 'No se pudo copiar'; }); } catch (e) { sl.textContent = 'No se pudo copiar'; } };
+    var wa = el('a', 'sii-btn sec', 'Abrir WhatsApp'); wa.href = 'https://wa.me/?text=' + encodeURIComponent(ta.value); wa.target = '_blank'; wa.rel = 'noopener noreferrer';
+    fl.appendChild(cp); fl.appendChild(sl); fl.appendChild(wa); caja.appendChild(fl);
+    var x = el('button', 'x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Cerrar');
+    x.onclick = function () { cerrarVentana(); trasCerrar(); };
+    modal.onclick = function (e) { if (e.target === modal) { cerrarVentana(); trasCerrar(); } };
+    modal.appendChild(caja); modal.appendChild(x); document.body.appendChild(modal);
+    document.addEventListener('keydown', alTeclado);
+  }
+  function pedirEnlace(btn) {
+    if (!actual) return;
+    btn.disabled = true; btn.lastChild.textContent = 'Generando…';
+    var mio = actual;
+    llamar('enlace', mio.clienteId).then(function (j) {
+      if (actual !== mio) return;
+      btn.disabled = false; btn.lastChild.textContent = 'Enviar enlace al cliente';
+      abrirEnlace(j.enlace);
+    }).catch(function (e) {
+      if (actual !== mio) return;
+      pintarError(e);
+    });
+  }
+
   // ── Pintado de la tarjeta ──
   var VISTAS = {
     ficha: { accion: 'resumen', titulo: 'Identidad tributaria ', icono: 'edificio' },
@@ -406,14 +466,14 @@
     var card = nuevaCard(); if (!card) return;
     var c = j.conexion || {}, puede = j.puede_conectar === true && j.piloto !== true;
     var subNo = j.piloto === true ? 'Piloto: solo lectura de empresas propias. La conexión la hace el proveedor por ahora.'
-      : puede ? 'Se abre una ventana segura de Cartapra con el RUT ya puesto. Ahí se escribe la clave del SII: Gestoor no la ve.'
+      : puede ? 'Conéctala tú en una ventana segura de Cartapra, o envíale un enlace al cliente para que la conecte él. La clave del SII se escribe en Cartapra: Gestoor no la ve.'
         : 'Pídele al Master o a quien conecta empresas con el SII que la conecte.';
     if (c.estado === 'no_conectada') {
       var f1 = fila(card, 'candado', 'sii-cel', 'Sin conectar con el SII', subNo);
-      if (puede) boton(f1, 'Conectar con el SII', 'llave', false, pedirVentana);
+      if (puede) { boton(f1, 'Conectar con el SII', 'llave', false, pedirVentana); boton(f1, 'Enviar enlace al cliente', 'enviar', true, pedirEnlace); }
     } else if (c.estado === 'clave_rechazada') {
       var f2 = fila(card, 'alerta', 'sii-amb', 'La clave del SII cambió', 'Las lecturas se detuvieron. Hay que volver a conectar con la clave nueva.');
-      if (puede) boton(f2, 'Reconectar', 'repetir', false, pedirVentana);
+      if (puede) { boton(f2, 'Reconectar', 'repetir', false, pedirVentana); boton(f2, 'Enviar enlace al cliente', 'enviar', true, pedirEnlace); }
     } else if (c.estado === 'conectada' && (c.actualizando || !c.cargaInicialLista)) {
       var f3 = fila(card, 'reloj', 'sii-ama', 'Leyendo el SII…', c.ultimaActualizacion ? 'Última actualización: ' + horaChile(c.ultimaActualizacion) + ' (hora de Chile)' : 'La primera lectura toma unos minutos.');
       botonRevisar(f3);

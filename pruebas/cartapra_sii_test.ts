@@ -246,5 +246,37 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   res('R4.14 Datos externos como texto también en renta (sin <img>)', r.d.querySelectorAll('#det-sii img').length === 0);
 }
 
+// ── E. 19-11 · «Enviar enlace al cliente» (tarea 1e) ──
+{
+  const URL_E = 'https://app.cartapra.com/conecta-alta/Tok3n_PRUEBA';
+  const okEnl = { status: 200, body: { ok: true, enlace: { url: URL_E, expiraEn: '2026-12-03T02:24:49.885Z', dias: 14 } } };
+  const m = await montar({ resumen: con('no_conectada'), enlace: okEnl }, true);
+  const btns = [...m.d.querySelectorAll('button')] as any[];
+  const be = btns.find((b) => b.textContent === 'Enviar enlace al cliente');
+  res('E.1 Sin conectar y puede_conectar → botones «Conectar con el SII» y «Enviar enlace al cliente»', !!be && btns.some((b) => b.textContent === 'Conectar con el SII'));
+  be.click(); await espera(); await espera();
+  res('E.2 el pedido del enlace lleva SOLO { accion: "enlace", cliente_id }', JSON.stringify(m.pedidos.at(-1)) === JSON.stringify({ fn: 'cartapra', body: { accion: 'enlace', cliente_id: 7 } }), m.pedidos);
+  const ta = m.d.getElementById('sii-enlace-msg') as any;
+  res('E.3 Modal con el mensaje listo: incluye el enlace, «cifrada en Cartapra», «no pasa por nosotros», un solo uso y vencimiento 02-12-2026 (hora Chile)',
+    !!ta && ta.value.includes(URL_E) && ta.value.includes('cifrada en Cartapra') && ta.value.includes('no pasa por nosotros') && ta.value.includes('una sola vez') && ta.value.includes('02-12-2026'), ta && ta.value);
+  const wa = m.d.querySelector('.sii-enl a') as any;
+  res('E.4 «Abrir WhatsApp» = wa.me con el mensaje codificado, en pestaña nueva y sin opener',
+    !!wa && wa.href.startsWith('https://wa.me/?text=') && decodeURIComponent(wa.href.split('text=')[1]).includes(URL_E) && wa.target === '_blank' && /noopener/.test(wa.rel));
+  res('E.5 El mensaje no contiene RUT ni datos del cliente (solo el enlace)', !/\d{7,8}-[\dkK]/.test(ta.value));
+  const n = await montar({ resumen: con('no_conectada'), enlace: okEnl }, false);
+  res('E.6 puede_conectar=false → sin botón de enlace', ![...n.d.querySelectorAll('button')].some((b: any) => b.textContent === 'Enviar enlace al cliente'));
+  const r = await montar({ resumen: con('clave_rechazada'), enlace: okEnl }, true);
+  res('E.7 Clave rechazada → «Reconectar» y «Enviar enlace al cliente»', [...r.d.querySelectorAll('button')].some((b: any) => b.textContent === 'Enviar enlace al cliente'));
+  const c = await montar({ resumen: con('conectada', { cargaInicialLista: true }) }, true);
+  res('E.8 Conectada → no ofrece enlace', ![...c.d.querySelectorAll('button')].some((b: any) => b.textContent === 'Enviar enlace al cliente'));
+  const mal = await montar({ resumen: con('no_conectada'), enlace: { status: 200, body: { ok: true, enlace: { url: 'https://evil.example/conecta-alta/x' } } } }, true);
+  const bm = [...mal.d.querySelectorAll('button')].find((b: any) => b.textContent === 'Enviar enlace al cliente') as any;
+  let lanzo = false; try { bm.click(); await espera(); await espera(); } catch { lanzo = true; }
+  res('E.9 Enlace ajeno → no se muestra modal', !mal.d.getElementById('sii-enlace-msg'), lanzo);
+  const den = await montar({ resumen: con('no_conectada'), enlace: { status: 403, body: { ok: false, error: 'SIN_PERMISO', detalle: 'Solo el Master o un usuario autorizado para conectar empresas puede hacerlo.' } } }, true);
+  ([...den.d.querySelectorAll('button')].find((b: any) => b.textContent === 'Enviar enlace al cliente') as any).click(); await espera(); await espera();
+  res('E.10 403 al pedir el enlace → mensaje de permiso, sin modal', texto(den.d).includes('Solo el Master') && !den.d.getElementById('sii-enlace-msg'), texto(den.d));
+}
+
 console.log(`\n${ok}/${ok + mal} OK`);
 if (mal) Deno.exit(1);

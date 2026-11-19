@@ -46,6 +46,7 @@
   window.toast = function (m) { console.log('toast', m); };
   window.edgeFetch = function (fn, body) {
     var r = body.accion === 'ventana' ? { s: 200, b: { ok: true, widget: { url: 'https://app.cartapra.com/conecta-widget/DEMO' } } }
+      : body.accion === 'enlace' ? { s: 200, b: { ok: true, enlace: { url: 'https://app.cartapra.com/conecta-alta/DEMO_enlace_de_ejemplo', expiraEn: new Date(Date.now() + 14 * 864e5).toISOString(), dias: 14 } } }
       : body.accion === 'estado' ? (est === 'conector' ? { s: 200, b: { ok: true, conexion: C('no_conectada'), puede_conectar: true } } : { s: 403, b: { ok: false, error: 'SIN_PERMISO' } })
       : (est === 'conectada' && window.CARTAPRA_FIXTURE_R4 && window.CARTAPRA_FIXTURE_R4[body.accion]) ? { s: 200, b: window.CARTAPRA_FIXTURE_R4[body.accion] }
       : R[est];
@@ -54,5 +55,6 @@
 </script>
 <script src="../clientes/sii-cartapra.js"></script>
 <script>GestoorSII.montar(document.getElementById('det-sii'), 7, { vista: new URLSearchParams(location.search).get('vista') || 'ficha' });</script>
+<script>/* ?abrir=enlace: pulsa «Enviar enlace al cliente» para capturas */ if (new URLSearchParams(location.search).get('abrir') === 'enlace') setTimeout(function () { var b = [].slice.call(document.querySelectorAll('button')).filter(function (x) { return x.textContent === 'Enviar enlace al cliente'; })[0]; if (b) b.click(); }, 400);</script>
 </body>
 </html>
