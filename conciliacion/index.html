@@ -284,7 +284,7 @@ tr:hover td{background:#f0fdff;}
   <div id="kTer" class="conc-ter" style="display:none">
     <div style="font-size:12px;margin-bottom:6px">El ingreso es de <b id="kTerPag"></b>, pero también paga facturas de otras empresas. Búscala: al elegirla, sus facturas pendientes se agregan a la lista (sin montos). Cada factura queda pagada <b>en su propia empresa</b> y queda registrado quién pagó.</div>
     <div class="fila"><div><select id="kTerCli" data-buscador data-buscador-placeholder="🔍 Empresa que también se paga (nombre o RUT)…" onchange="if(this.value)agregarEmpresaSel()"></select></div></div>
-    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--t1);margin-top:8px"><input type="checkbox" id="kTerRec" checked style="width:auto"> <span>Recordar: cuando pague <b id="kTerPag2"></b>, mostrar también las facturas pendientes de estas empresas (solo sugerencia)</span></label>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--t1);margin-top:8px"><input type="checkbox" id="kTerRec" style="width:auto"> <span>Recordar: cuando pague <b id="kTerPag2"></b>, mostrar también las facturas pendientes de estas empresas (solo sugerencia)</span></label>
     <div id="kTerMsg" style="font-size:11.5px;color:var(--amber);margin-top:4px"></div>
     <ul id="kTerLista"></ul>
   </div>
@@ -631,7 +631,7 @@ function abrirConciliar(id,op){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
   _clave=nuevaClave();_claveCob=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
   _cands=abiertasDe(_mov.cliente_rut).map(function(o){return {o:o,monto:0};});
-  _manuales=[];_claveMan=null;_det=null;_terEmp=[];document.getElementById('kTer').style.display='none';document.getElementById('kTerRec').checked=true;
+  _manuales=[];_claveMan=null;_det=null;_terEmp=[];document.getElementById('kTer').style.display='none';document.getElementById('kTerRec').checked=false; // F02 (Luciano 19-11): «Recordar» parte desmarcado
   pintarCabecera();
   ['kProg','kHecho','kMan','kObs','kTotal'].forEach(function(x){document.getElementById(x).innerHTML='';});
   document.getElementById('kProg').innerHTML='<div class="info-box">Cargando el detalle del ingreso…</div>';
@@ -867,7 +867,10 @@ var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro client
   MOVIMIENTO_DE_OTRO_PAGADOR:'El ingreso cambió de cliente desde que lo abriste. Recarga antes de aplicar.',MOVIMIENTO_SIN_CLIENTE:'El ingreso no tiene cliente asignado.',
   DOCUMENTO_DEL_PAGADOR:'Una factura es del propio cliente del ingreso: se aplica en el paso normal (recarga).',DOCUMENTO_INVALIDO:'Una factura ya no existe (recarga).',
   PAGADOR_NO_EXISTE:'No encuentro la ficha del cliente del ingreso (recarga).',SOLO_TESORERIA_PAGOS:'Solo Master o Pagos pueden aplicar facturas de otra empresa.',
-  MOVIMIENTO_NO_EXISTE:'El ingreso ya no existe (recarga).'};
+  MOVIMIENTO_NO_EXISTE:'El ingreso ya no existe (recarga).',
+  // CONC-OTRA R2
+  DOCUMENTO_REPETIDO:'Una factura está dos veces en la lista (recarga).',DOCUMENTO_YA_APLICADO_EN_INGRESO:'Una factura de otra empresa ya está pagada con este ingreso; para cambiar el monto, desconcílala primero.',
+  OPERACION_INCONSISTENTE:'La operación registrada ya no calza con sus pagos. No se aplicó nada; revisa el detalle del ingreso.',INTEGRIDAD_INGRESO:'El ingreso no cuadra en el servidor (lo aplicado no suma). No se aplicó nada; avisa a Master.'};
 function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
 // ── R2.2 (dictamen R2.1): UN solo control para el ciclo de vida del plan ──
 // Todo lo que crea, modifica o elimina un plan ocurre DENTRO del candado (Web Locks) del entorno + ingreso:
@@ -956,6 +959,8 @@ function ejecutarPlan(plan){
     llamadaPaso(p).then(function(r){
       var x=Array.isArray(r)?r[0]:r;
       if(p.tipo==='man'&&x&&x.resultado==='existente_anulada'){p.estado='anulado';p.msg='esa imputación ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&x&&(x.resultado==='existente_anulada'||x.resultado==='existente_parcialmente_anulada')){p.estado='anulado';p.msg=x.resultado==='existente_anulada'?'esas facturas ya habían sido desconciliadas':'parte de esas facturas ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&!(x&&(x.resultado==='aplicado'||x.resultado==='existente'))){p.estado='incierto';p.msg='respuesta inesperada del servidor';guardarPend(plan);terminarConFalla(plan,p);return fin();}
       p.estado='ok';if(!guardarPend(plan)){terminarConFalla(plan,p);return fin();}i++;sig();
     }).catch(function(e){
       p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'||p.tipo==='otra'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
@@ -970,20 +975,14 @@ function terminarConFalla(plan,p){
 function mismasAplic(a,b,k){var n=function(L){return (L||[]).map(function(x){return String(x[k])+':'+Number(x.monto);}).sort().join(',');};return n(a)===n(b);}
 function verificarPaso(plan,p){
   var sel={cob:'cobranza_pagos?select=id,movimiento_id,monto,estado,aplicaciones_norm',ob:'concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada',man:'concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,anulada',
-    otra:'concil_tercero_operaciones?select=id,movimiento_id,cliente_pagador_rut,aplicaciones,total,pago_ids'}[p.tipo];
+    otra:'concil_tercero_operaciones?select=id,movimiento_id,cliente_pagador_rut,aplicaciones,total,pago_ids,recordar,usuario_id'}[p.tipo];
   return sbFetch(sel+'&clave_idem=eq.'+encodeURIComponent(p.clave)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(rows){
     rows=rows||[];
     if(!rows.length)return 'no_registrado';
     if(rows.length>1)return 'conflicto';
     var x=rows[0],a=p.args;
     if(Number(x.movimiento_id)!==plan.mov)return 'conflicto';
-    if(p.tipo==='otra'){ // CONC-OTRA: misma operación (pagador, facturas, total) y TODOS sus pagos de Cobranza vigentes
-      var t3=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0),ids=(x.pago_ids||[]).map(Number);
-      if(x.cliente_pagador_rut!==a.p_pagador_rut||Number(x.total)!==t3||!mismasAplic(x.aplicaciones,a.p_aplicaciones,'documento_id')||!ids.length||ids.some(function(i){return !(i>0);}))return 'conflicto';
-      return sbFetch('cobranza_pagos?select=id,estado,movimiento_id&id=in.('+ids.join(',')+')').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(ps){
-        ps=ps||[];if(ps.length!==ids.length||ps.some(function(q){return Number(q.movimiento_id)!==plan.mov;}))return 'conflicto';
-        return ps.every(function(q){return q.estado==='VIGENTE';})?'vigente':'anulado';});
-    }
+    if(p.tipo==='otra')return verificarOtra(plan,p,x);
     if(p.tipo==='cob'){var tot=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0);
       if(Number(x.monto)!==tot||!mismasAplic(x.aplicaciones_norm,a.p_aplicaciones,'documento_id'))return 'conflicto';
       return x.estado==='VIGENTE'?'vigente':'anulado';}
@@ -994,6 +993,34 @@ function verificarPaso(plan,p){
     return x.anulada?'anulado':'vigente';
   });
 }
+// CONC-OTRA R2 (F01): el paso 'otra' se da por hecho SOLO si en el servidor coincide TODO lo planeado:
+//  · la operación (clave): ingreso, pagador, facturas y montos, total, «recordar» y el MISMO usuario de esta sesión;
+//  · su detalle: una fila por factura (misma factura y monto), cada una con un pago de la operación;
+//  · sus pagos de Cobranza: enlazados a este ingreso, de la empresa de cada factura, con monto y facturas iguales al detalle.
+// Resultado: 'vigente' (todos los pagos vigentes) · 'anulado' (todos anulados) · 'parcial_anulado' (algunos) · 'conflicto'.
+function verificarOtra(plan,p,x){
+  var a=p.args,u=getUsuario()||{},t3=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0),ids=(x.pago_ids||[]).map(Number);
+  p.msg='';var mal=function(m){p.msg=m;return 'conflicto';};
+  if(x.cliente_pagador_rut!==a.p_pagador_rut||Number(x.total)!==t3||!mismasAplic(x.aplicaciones,a.p_aplicaciones,'documento_id'))return mal('facturas, montos o pagador distintos');
+  if(!!x.recordar!==!!a.p_recordar)return mal('«recordar» distinto');
+  if(u.id==null||Number(x.usuario_id)!==Number(u.id))return mal('la registró otro usuario');
+  if(!ids.length||ids.some(function(i){return !(i>0);}))return mal('sin pagos');
+  var leer=function(q){return sbFetch(q).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});};
+  return Promise.all([leer('concil_tercero_aplicaciones?select=operacion_id,movimiento_id,pago_id,documento_id,monto,cliente_beneficiario_id&operacion_id=eq.'+Number(x.id)),
+                      leer('cobranza_pagos?select=id,cliente_id,estado,movimiento_id,monto,aplicaciones_norm&id=in.('+ids.join(',')+')')]).then(function(r){
+    var det=r[0]||[],ps=r[1]||[];
+    if(det.length!==a.p_aplicaciones.length||!mismasAplic(det,a.p_aplicaciones,'documento_id'))return mal('el detalle no coincide con las facturas');
+    if(det.some(function(d){return Number(d.movimiento_id)!==plan.mov||ids.indexOf(Number(d.pago_id))<0;}))return mal('el detalle apunta a otro ingreso o pago');
+    if(ps.length!==ids.length)return mal('falta un pago');
+    for(var i=0;i<ps.length;i++){var q=ps[i],dq=det.filter(function(d){return Number(d.pago_id)===Number(q.id);});
+      if(Number(q.movimiento_id)!==plan.mov)return mal('un pago no está enlazado a este ingreso');
+      if(!dq.length||dq.some(function(d){return Number(d.cliente_beneficiario_id)!==Number(q.cliente_id);}))return mal('un pago es de otra empresa');
+      if(Number(q.monto)!==dq.reduce(function(s,d){return s+Number(d.monto);},0)||!mismasAplic(q.aplicaciones_norm,dq,'documento_id'))return mal('un pago no calza con sus facturas');
+      if(q.estado!=='VIGENTE'&&q.estado!=='ANULADO')return mal('estado de pago desconocido');}
+    var vig=ps.filter(function(q){return q.estado==='VIGENTE';}).length;
+    return vig===ps.length?'vigente':vig===0?'anulado':'parcial_anulado';
+  });
+}
 // Devuelve una COPIA del plan con el resultado de verificar TODOS sus pasos (también los «ok» locales). No persiste.
 function verificarPlan(plan){
   var c=JSON.parse(JSON.stringify(plan));
@@ -1001,8 +1028,8 @@ function verificarPlan(plan){
     .then(function(){c.pasos.forEach(function(p){if(p.ver==='vigente'){p.estado='ok';p.msg='';}else if(p.ver==='no_registrado'&&p.estado==='ok'){p.ver='conflicto';p.msg='figuraba registrado y ya no está';}});return c;});
 }
 function resumenPlan(plan){
-  var c={vigente:0,anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
-  c.cambio=c.anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
+  var c={vigente:0,anulado:0,parcial_anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
+  c.cambio=c.anulado>0||c.parcial_anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
 }
 // Persistir el resultado de una verificación: SOLO dentro del candado, si el plan guardado sigue siendo el mismo
 // y la respuesta corresponde al ingreso y a la apertura vigentes (UX-R2-06 / R21-02).
@@ -1033,7 +1060,7 @@ function revisadoR2(){var mid=_mov.id;if(!esTesoreria())return;
   conCandado(mid,function(){if(!pendR2De(mid))return;if(!confirm('¿Confirmas que revisaste en el detalle lo que quedó registrado en el servidor? El aviso se cierra; no se aplica ni se deshace nada.'))return;
     try{localStorage.removeItem(PEND_R2+mid);}catch(e){}
     if(pendR2De(mid)){err('kErr','No pude cerrar el aviso en este navegador.');return;}abrirDeNuevo();});}
-var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
+var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',parcial_anulado:'⛔ desconciliado en parte después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
 function pintarPendiente(plan){
   if(!_mov||_mov.id!==plan.mov)return;
   var c=resumenPlan(plan);
