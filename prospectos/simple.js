@@ -200,7 +200,7 @@ function cerrarRapido(rid,res,btn){
 }
 function abrirGuion(){
   var p=prospecto(SEL);if(!p)return;var b=document.getElementById('csGuion');if(b)b.disabled=true;
-  D.rpc('com_bitacora_abrir',{p_lead_id:Number(p.id),p_guion_version:root.ComGuionVersion||'c1-2026-10-26'})
+  D.rpc('com_bitacora_abrir',{p_lead_id:Number(p.id),p_guion_version:root.ComGuionVersion||'c2-2026-11-19'})
     .then(function(x){location.href='bitacora.html?id='+Number(x.id)+(D.DEMO?'&demo=1':'');})
     .catch(function(e){if(b)b.disabled=false;var m=document.getElementById('csMsg');if(m){m.className='cs-msg err';m.textContent=mensaje(e);}});
 }

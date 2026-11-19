@@ -162,7 +162,7 @@ function modalSinReserva(){
     var bus=m.querySelector('#mBus');if(bus){bus.oninput=function(){var pos=bus.selectionStart;dibujar();var n=m.querySelector('#mBus');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}};}
     m.querySelector('#mNo').onclick=cerrar;
     m.querySelector('#mSi').onclick=function(){
-      var args={p_guion_version:window.ComGuionVersion||'c1-2026-10-26'}, msg=m.querySelector('#mMsg');
+      var args={p_guion_version:window.ComGuionVersion||'c2-2026-11-19'}, msg=m.querySelector('#mMsg');
       if(modo==='existente'){if(!elegido){msg.textContent='Elige un prospecto de la lista.';return;}args.p_lead_id=elegido;}
       else{var n=m.querySelector('#mNom').value.trim();if(n.length<2){msg.textContent='Escribe el nombre (mínimo 2 letras).';return;}args.p_nombre=n;args.p_empresa=m.querySelector('#mEmp').value.trim()||null;}
       this.disabled=true;msg.className='msg';msg.textContent='Abriendo…';

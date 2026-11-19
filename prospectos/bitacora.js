@@ -1,7 +1,8 @@
 /* ============================================================
    prospectos/bitacora.js — Bitácora de la reunión de diagnóstico (Modo reunión · Comercial C1)
    Se abre desde Reuniones o desde el aviso ⏰ de la campana:  bitacora.html?reserva=ID  ·  ?id=ID  ·  ?lead=ID
-   · Guion completo en bloques plegables (comercial-guion.js, versión guardada en la bitácora), casillas rápidas, notas por bloque,
+   · Guion COMPACTO de 15 preguntas por tiempos (comercial-guion.js c2, versión guardada en la bitácora), toques rápidos, notas por bloque,
+     ✓ en lo que ya respondió en la agenda, datos 🧩 opcionales plegados, y lo anotado con el guion anterior (c1) visible en solo lectura,
      campos 🧩, reloj de 30 min, brújula por REGLAS (sin IA) y autoguardado con control de versión (nunca pisa otra pestaña).
    · Cierre: resultado (realizada / no asistió), temperatura, próximo paso y fecha, o perdido con motivo. Lo aplica la base en una
      sola transacción (reserva + prospecto + línea de tiempo + aviso).
@@ -12,7 +13,7 @@
 var D=window.ComDatos, G=window.ComGuion, esc=D.esc;
 var app=document.getElementById('cmApp');
 var B=null, S={}, N={}, ORIG={}, PISTAS={}, VER=1, EDIT=false, BLOQ=false;
-var ABIERTOS={sit:true}, C={resultado:null,temperatura:null,desenlace:'seguimiento',accion:'',fecha:'',motivo:null};
+var ABIERTOS={ape:true,emp:true}, DET={}, C={resultado:null,temperatura:null,desenlace:'seguimiento',accion:'',fecha:'',motivo:null};
 var WA=null; // {nombre,empresa,tel} del prospecto para el botón WhatsApp (el teléfono se lee aparte con detalle_prospecto)
 var reloj={seg:0,corre:false,t0:0,base:0,int:null}, sucio=false, guardando=false, tGuardar=null, reintento=0, ultimoOk=null;
 var ETAPAS={nuevo:'Nuevo',agendado:'Reunión agendada',reunion_realizada:'Diagnóstico hecho',no_asistio:'No asistió',propuesta:'Propuesta enviada',
@@ -41,13 +42,16 @@ function abrir(){
 function cargarBitacora(b){
   B=b;VER=b.version;S=JSON.parse(JSON.stringify(b.campos||{}));N=JSON.parse(JSON.stringify(b.notas||{}));
   EDIT=!!b.puede_editar;reloj.base=b.reloj_seg||0;reloj.seg=reloj.base;
-  if(b.guion_version&&b.guion_version!==G.GUION_VERSION&&EDIT)D.toast('Esta bitácora usa el guion '+b.guion_version+'; se muestra con el guion vigente.');
+  if(b.guion_version&&b.guion_version!==G.GUION_VERSION&&EDIT)D.toast('Esta bitácora usa el guion '+b.guion_version+': se muestra con el guion vigente y lo que ya no se pregunta queda en «Del guion anterior».');
   // Precarga desde el formulario de la agenda (solo campos vacíos; queda marcada "de la agenda").
-  if(EDIT){var pc=G.precarga(b.lead&&b.lead.respuestas,b.lead&&b.lead.empresa,S);Object.keys(pc.campos).forEach(function(k){S[k]=pc.campos[k];});ORIG=pc.origen;PISTAS=pc.pistas;
+  var resp=b.lead&&b.lead.respuestas, emp=b.lead&&b.lead.empresa;
+  if(EDIT){var pc=G.precarga(resp,emp,S);Object.keys(pc.campos).forEach(function(k){S[k]=pc.campos[k];});PISTAS=pc.pistas;
     if(Object.keys(pc.campos).length)sucio=true;}
-  else{var pc2=G.precarga(b.lead&&b.lead.respuestas,null,{});PISTAS=pc2.pistas;}
+  else{var pc2=G.precarga(resp,null,{});PISTAS=pc2.pistas;}
+  // ✓ "ya respondió en la agenda": todo valor que coincide con lo que respondió (también tras recargar). Al tocarlo, se quita la marca.
+  ORIG=G.deLaAgenda(S,resp,emp);
   // Recuperar cambios que no alcanzaron a guardarse (caché local de ESTA bitácora y de ESTA versión).
-  if(EDIT){var c=leerCache();if(c&&c.v===VER&&(JSON.stringify(c.campos)!==JSON.stringify(S)||JSON.stringify(c.notas)!==JSON.stringify(N))){S=c.campos;N=c.notas;sucio=true;D.toast('Recuperamos cambios que no alcanzaron a guardarse.');}
+  if(EDIT){var c=leerCache();if(c&&c.v===VER&&(JSON.stringify(c.campos)!==JSON.stringify(S)||JSON.stringify(c.notas)!==JSON.stringify(N))){S=c.campos;N=c.notas;sucio=true;ORIG=G.deLaAgenda(S,resp,emp);D.toast('Recuperamos cambios que no alcanzaron a guardarse.');}
     else if(c&&c.v!==VER)borrarCache();}
   if(b.lead&&b.lead.proxima_accion&&!C.accion)C.accion='';
   pintar();
@@ -100,7 +104,7 @@ function pintar(){
   // Lo que ya nos contó
   var rs=l.respuestas||{}, ch=[];
   if(VENTAS[rs.ventas])ch.push(VENTAS[rs.ventas]);if(TRAB[rs.trabajadores])ch.push(TRAB[rs.trabajadores]);if(CONTAB[rs.contabilidad])ch.push(CONTAB[rs.contabilidad]);
-  if(rs.sociedades==='si')ch.push('Más de una sociedad');if(rs.sociedades==='no')ch.push('Una sociedad');if(rs.historicos==='si')ch.push('Atrasos: sí');if(rs.rubro)ch.push('Rubro: '+rs.rubro);
+  if(rs.sociedades==='si')ch.push('Más de una sociedad');if(rs.sociedades==='no')ch.push('Una sociedad');if(rs.historicos==='si')ch.push('Atrasos: sí');if(rs.historicos==='nose')ch.push('Atrasos: no sabe');if(rs.rubro)ch.push('Rubro: '+rs.rubro);
   h+='<div class="card acc c-cel"><div class="h"><span class="ic">📥</span><h2>Lo que ya nos contó</h2><small>'+(ch.length?'ya volcado en el guion · se puede corregir':'sin formulario de la agenda')+'</small></div>'
     +(ch.length?'<div class="ya">'+ch.map(function(x){return '<span>'+esc(x)+'</span>';}).join('')+'</div>':'<p class="nd" style="margin:0">Este prospecto no llenó el formulario de la agenda: parte por la situación actual.</p>')
     +(rs.dolor?'<p class="dolor"><b>Lo que quiere resolver:</b> “'+esc(rs.dolor)+'”</p>':'')
@@ -112,8 +116,9 @@ function pintar(){
   h+='<div class="card" id="guion"><div class="gu-cab"><span class="ic c-lil">🗺️</span><h2 style="font:800 16px var(--tit);margin:0;color:var(--t1)">Guion de la reunión</h2>'
     +'<span class="estado gris" id="onbCount" title="Datos que alimentan el onboarding">🧩 '+on.n+'/'+on.t+'</span><span class="cm-esp"></span>'
     +'<button type="button" class="link" id="btnTodos">'+(Object.keys(ABIERTOS).length>=G.BLOQUES.length?'Contraer todo':'Abrir todo')+'</button></div>'
-    +'<p class="nd" style="margin:0 0 4px">Empieza entendiendo, no ofreciendo planes. 🧩 = alimenta el onboarding si acepta.</p>'
+    +'<p class="nd" style="margin:0 0 4px">15 preguntas en 30 min · escuchar más que hablar: diagnosticamos antes de recomendar. ✓ = ya respondió en la agenda (se puede corregir). 🧩 = alimenta el onboarding si acepta.</p>'
     +G.BLOQUES.map(function(b,i){return bloqueHTML(b,i);}).join('')
+    +extrasHTML()
     +'<div class="campo"><label for="nota_general">🗒️ Nota libre (lo que no calza en el guion) <span class="sin-claves">🔐 No registres claves aquí</span></label><textarea class="inp" id="nota_general" data-nota="general" maxlength="4000" placeholder="Ej.: decide con su socia; le preocupa la fiscalización del año pasado…"'+(EDIT?'':' disabled')+'>'+esc(N.general||'')+'</textarea></div></div>';
   // Cierre
   h+=cerrada?resumenCierre():(EDIT?cierreHTML():'');
@@ -130,18 +135,39 @@ function pintar(){
 function bloqueHTML(b,i){
   var av=G.avanceBloque(S,b), ab=!!ABIERTOS[b.id];
   return '<div class="bq'+(ab?' abierto':'')+'" style="--c:'+b.c+'" data-bq="'+b.id+'">'
-    +'<button type="button" class="bq-h" aria-expanded="'+ab+'" aria-controls="bqb-'+b.id+'"><span class="ic" style="--c:'+b.c+'">'+b.i+'</span><span class="n">'+(i+1)+'. '+esc(b.n)+'</span>'
+    +'<button type="button" class="bq-h" aria-expanded="'+ab+'" aria-controls="bqb-'+b.id+'"><span class="ic" style="--c:'+b.c+'">'+b.i+'</span><span class="n">'+esc(b.num||String(i+1))+' · '+(b.grupo?'<span class="gr">'+esc(b.grupo)+':</span> ':'')+esc(b.n)+'<small class="tt">'+esc(b.t||'')+'</small></span>'
     +'<span class="av'+(av.ok?' ok':'')+'">'+(av.ok?'✓ ':'')+av.n+'/'+av.t+'</span><span class="fl" aria-hidden="true">▾</span></button>'
     +'<div class="bq-b" id="bqb-'+b.id+'"'+(ab?'':' hidden')+'>'+cuerpoBloque(b)+'</div></div>';
 }
 function cuerpoBloque(b){
-  return '<div class="frase" style="--c:'+b.c+'">'+esc(b.f)+'</div>'+b.campos.map(function(c){return campoHTML(c,b.c);}).join('')
+  return '<div class="frase" style="--c:'+b.c+'">'+esc(b.f)+'</div>'
+    +(b.guia?'<ul class="gu-guia">'+b.guia.map(function(g){return '<li>'+esc(g)+'</li>';}).join('')+'</ul>':'')
+    +grupos(b).map(function(g){return preguntaHTML(b,g);}).join('')
     +'<div class="campo"><label for="nota_'+b.id+'">Nota del bloque <span class="sin-claves">🔐 No registres claves aquí</span></label><textarea class="inp" id="nota_'+b.id+'" data-nota="'+b.id+'" maxlength="4000" placeholder="Apunte rápido…"'+(EDIT?'':' disabled')+'>'+esc(N[b.id]||'')+'</textarea></div>';
+}
+// Agrupa los campos por pregunta (q). Los opcionales (opc) van plegados al final de su pregunta.
+function grupos(b){var r=[],act=null;b.campos.forEach(function(c){var q=c.q||('_'+c.k);if(!act||act.q!==q){act={q:q,cs:[]};r.push(act);}act.cs.push(c);});return r;}
+function preguntaHTML(b,g){
+  var cab=null;g.cs.forEach(function(c){if(c.qt&&!cab)cab=c;});
+  var base=g.cs.filter(function(c){return !c.opc;}), opc=g.cs.filter(function(c){return c.opc&&G.visible(S,c);});
+  var h='';
+  if(cab)h+='<div class="preg" style="--c:'+b.c+'"><span class="qn">'+esc(String(cab.q))+'</span><span class="qt">'+esc(cab.qt)+(cab.qa?'<small>'+esc(cab.qa)+'</small>':'')+'</span></div>';
+  h+=base.map(function(c){return campoHTML(c,b.c);}).join('');
+  if(opc.length){var did=b.id+'_'+g.q, n=opc.filter(function(c){return G.lleno(S,c);}).length, todosOnb=opc.every(function(c){return c.onb;});
+    h+='<details class="opc" data-det="'+esc(did)+'"'+(DET[did]?' open':'')+'><summary>'+(todosOnb?'🧩 Datos para el onboarding':'➕ Dato')+' (opcional) · '+n+'/'+opc.length+'</summary>'
+      +opc.map(function(c){return campoHTML(c,b.c);}).join('')+'</details>';}
+  return '<div class="pq">'+h+'</div>';
+}
+function extrasHTML(){
+  var x=G.extras(S,N);if(!x.campos.length&&!x.notas.length)return '';
+  return '<div class="bq abierto legado" style="--c:#8F6F94"><div class="bq-h" style="cursor:default"><span class="ic" style="--c:#8F6F94">📜</span><span class="n">Del guion anterior'+(B&&B.guion_version&&B.guion_version!==G.GUION_VERSION?' ('+esc(B.guion_version)+')':'')+'<small class="tt">solo lectura · se conserva tal cual</small></span></div>'
+    +'<div class="bq-b"><dl class="resumen-c">'+x.campos.map(function(c){return '<dt>'+esc(c.l)+'</dt><dd>'+esc(c.v)+'</dd>';}).join('')
+    +x.notas.map(function(n){return '<dt>Nota · '+esc(n.n)+'</dt><dd style="white-space:pre-wrap">'+esc(n.v)+'</dd>';}).join('')+'</dl></div></div>';
 }
 function campoHTML(c,color){
   if(!G.visible(S,c))return '';
   var dis=EDIT?'':' disabled', id='f_'+c.k;
-  var lab=(c.onb?'<span class="onb" title="Alimenta el onboarding">🧩</span>':'')+esc(c.l)+(ORIG[c.k]?'<span class="pre">de la agenda</span>':'')+(PISTAS[c.k]?'<span class="pista">'+esc(PISTAS[c.k])+'</span>':'');
+  var lab=(c.onb?'<span class="onb" title="Alimenta el onboarding">🧩</span>':'')+esc(c.l)+(ORIG[c.k]?'<span class="pre" title="Lo respondió en el formulario de la agenda. Puedes corregirlo.">✓ ya respondió en la agenda</span>':'')+(PISTAS[c.k]?'<span class="pista">'+esc(PISTAS[c.k])+'</span>':'');
   var h='<div class="campo" style="--c:'+color+'" data-campo="'+c.k+'">';
   if(c.t==='op'||c.t==='chk'){
     h+='<div class="l" id="l_'+c.k+'">'+lab+'</div><div class="opts" role="group" aria-labelledby="l_'+c.k+'">'+c.o.map(function(o){
@@ -181,7 +207,7 @@ function resumenCierre(){
 
 // ── Eventos ──
 function enlazar(){
-  app.querySelectorAll('.bq-h').forEach(function(bt){bt.onclick=function(){var id=bt.parentNode.getAttribute('data-bq');if(ABIERTOS[id])delete ABIERTOS[id];else ABIERTOS[id]=true;refrescarBloque(id);actualizarBtnTodos();};});
+  app.querySelectorAll('.bq[data-bq] > .bq-h').forEach(function(bt){bt.onclick=function(){var id=bt.parentNode.getAttribute('data-bq');if(ABIERTOS[id])delete ABIERTOS[id];else ABIERTOS[id]=true;refrescarBloque(id);actualizarBtnTodos();};});
   var bt=document.getElementById('btnTodos');if(bt)bt.onclick=function(){var todos=Object.keys(ABIERTOS).length>=G.BLOQUES.length;ABIERTOS={};if(!todos)G.BLOQUES.forEach(function(b){ABIERTOS[b.id]=true;});G.BLOQUES.forEach(function(b){refrescarBloque(b.id);});actualizarBtnTodos();};
   if(app._deleg)return enlazarResto();
   app._deleg=true;
@@ -199,6 +225,7 @@ function enlazar(){
       if(ck==='resultado'){if(!C.accion||C.accion==='Enviar propuesta'||C.accion==='Reagendar reunión')C.accion=cv==='no_asistio'?'Reagendar reunión':'Enviar propuesta';if(!C.fecha)C.fecha=D.habilSiguiente(D.hoy());}
       redibujarCierre();}
   });
+  app.addEventListener('toggle',function(e){var d=e.target;if(d&&d.matches&&d.matches('details[data-det]')){var id=d.getAttribute('data-det');if(d.open)DET[id]=true;else delete DET[id];}},true);
   app.addEventListener('input',function(e){
     var t=e.target;if(!EDIT||BLOQ)return;
     if(t.hasAttribute('data-k')){var k=t.getAttribute('data-k');if(t.value.trim())S[k]=t.value;else delete S[k];delete ORIG[k];actualizarCab(t.closest('.bq'));cambio();}
