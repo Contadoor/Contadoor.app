@@ -4,6 +4,7 @@
    Nombres, RUT y montos son inventados: no corresponden a ningún cliente real.
    Uso:  pre-iva/index.html?demo=1&cliente=1   (1 = afecta con todo · 2 = exenta de IVA · 3 = sin datos ni condición de IVA)
          &sii=al_dia | desactualizado | sin_datos   simula la conexión con el SII activa (por defecto: pendiente de activación)
+         &cartapra=1   simula la RPC sii_preiva_periodo (SII-PREIVA-F2b) con compras y ventas del SII para el cliente 1
    ============================================================ */
 (function(){
   var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
@@ -133,6 +134,17 @@
     if(tabla==='rcv_documentos'){var off=+(par(path,'offset')||0);if(off>0)return resp(200,[]);var ids=inL(path,'snapshot_id')||[],o3=[];ids.forEach(function(s){(DOCS[s]||[]).forEach(function(x){o3.push(x);});});return resp(200,o3);}
     if(tabla==='renta_casos'){var c4=eq(path,'cliente_id');return resp(200,c4==='1'?[{id:501,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'OPEN'}]:c4==='2'?[{id:502,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'OPEN'}]:[]);}
     if(tabla==='rpc/renta_e1_proyeccion_vigente'){var a={};try{a=JSON.parse(opts.body||'{}');}catch(e){}return resp(200,RENTA[a.p_caso_id]||{estado:'SIN_PROYECCION'});}
+    if(tabla==='rpc/sii_preiva_periodo'){   // SII-PREIVA-F2b (demo): solo con &cartapra=1; si no, como si la RPC no estuviera instalada
+      if(qs.get('cartapra')!=='1')return resp(404,{code:'PGRST202',message:'Could not find the function public.sii_preiva_periodo'});
+      var bS={};try{bS=JSON.parse(opts.body||'{}');}catch(e){}
+      if(bS.p_cliente_id!==1)return resp(200,{conexion:{estado:'sin_conexion'},ventas:null,compras:null,avisos:['sin_conexion']});
+      var pS=String(bS.p_periodo).replace('-',''), aS=mover(pS.slice(0,4)+'-'+pS.slice(4),-1).replace('-','');
+      return resp(200,{cliente_id:1,periodo:pS,fuente:'cartapra',conexion:{estado:'conectada',carga_inicial_lista:true},datos_al:new Date(hoy.getTime()-3*36e5).toISOString(),
+        cobertura:{rcv_ventas:'completa',rcv_compras:'completa',honorarios:'completa'},
+        ventas:{documentos:18,neto:9200000,exento:350000,iva:1748000,total:11298000,por_tipo:{'33':{n:16},'61':{n:1},'34':{n:1}}},
+        compras:{registro:{documentos:41,neto:5100000,exento:0,iva:969000,total:6069000},pendiente:{documentos:2,iva:85500,total:535500},reclamado:{documentos:0,iva:0,total:0},no_incluir:{documentos:0,iva:0,total:0},por_tipo:{'33':{n:39},'61':{n:2}}},
+        honorarios:null,f29_periodo:null,remanente_anterior:{periodo:aS,valor:120000,fuente:'sii_codigo_77',folio:9100000001},avisos:['compras_pendientes']});
+    }
     if(tabla==='rpc/sapi_frescura'){
       if(!SII)return resp(404,{code:'PGRST202',message:'Could not find the function public.sapi_frescura'});
       var ult=SII==='sin_datos'?null:new Date(hoy.getTime()-(SII==='desactualizado'?6:0.2)*864e5).toISOString();

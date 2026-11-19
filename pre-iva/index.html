@@ -162,6 +162,13 @@
           <div class="h"><h2>Datos <span>del mes</span></h2><small>Al cambiar un dato se guarda solo</small></div>
           <!-- Carga manual de libros: respaldo TEMPORAL mientras se activa la conexión con el SII.
                Interruptor: PIO_CONFIG.cargaManual en operativa-vista.js ('auto' = se oculta cuando la conexión SII está activa). -->
+          <!-- SII-PREIVA-F2b: compras y ventas del SII desde Cartapra (pre-iva/sii-cartapra.js). Oculto si no hay datos o la RPC no está instalada. -->
+          <div class="pio-sii-cartapra" id="pio-sii-cartapra" hidden>
+            <div class="pio-sub-t"><span data-g-ic="contable"></span>Compras y ventas del SII <small id="pio-sii-cartapra-al"></small></div>
+            <p class="pio-libro-lbl" id="pio-sii-cartapra-txt"></p>
+            <ul class="pio-sii-cartapra-av" id="pio-sii-cartapra-av"></ul>
+            <button type="button" class="btn sm" id="btn-usar-sii">Usar datos del SII</button>
+          </div>
           <details class="pio-manual" id="pio-manual">
           <summary><span data-g-ic="subir"></span>Carga manual <small>(temporal, mientras se activa la conexión con el SII)</small><i class="pio-chev" aria-hidden="true"></i></summary>
           <div class="pio-sub-t"><span data-g-ic="subir"></span>Libros de MasContable (.xls)</div>
@@ -270,6 +277,7 @@
 <script>if(window.PIO_DEMO)document.write('<script src="operativa-demo.js"><\/script>');</script>
 <script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
+<script src="sii-cartapra.js"></script>
 <script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
@@ -361,6 +369,7 @@ var PREIVA_COLS='cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,ta
 function perDb(p){p=String(p||'');return /^\d{6}$/.test(p)?p.slice(0,4)+'-'+p.slice(4,6):p;}
 function perUi(p){return String(p||'').replace('-','');}
 function numDe(v){if(typeof v==='number')return v;return parseInt(String(v||'').replace(/[^0-9]/g,''),10)||0;}
+var _remInfo=null, _siiCartapra=null;   // SII-PREIVA-F2b: remanente leído de Contable y datos del SII (Cartapra) del cliente abierto
 var _filaPreiva=null;        // fila guardada del cliente/período abierto (null = no existe; undefined = no se pudo leer)
 var _autoTimer=null, _cargando=false, _sucio=false, _colaGuardado=Promise.resolve(), _ultimoModoFallido=null;
 function mensajeErrorSb(status,j){
@@ -588,6 +597,7 @@ function cargarDatos(){
   Promise.all([pFila, getRemanenteContable(rut, perAnt, per), getHistorialSupabase(rut)]).then(function(res){
     if(_clienteActual!==c) return;   // cambió de cliente mientras cargaba
     var fila=res[0], rem=res[1], hist=res[2];
+    _remInfo=rem;
     if(fila&&fila.__error){
       _filaPreiva=undefined;
       estadoGuardado('errorCarga',fila.__error.message);
@@ -625,6 +635,7 @@ function cargarDatos(){
     if(inpTasa) inpTasa.value=tasa||'';
     calcular();
     pintarHistorial(hist);
+    cargarSiiCartapra(c, per, fila);
     if(_filaPreiva!==undefined){setSyncStatus('ok');estadoGuardado(fila?(fila.fecha_envio?'enviado':'ok'):'nuevo');
       if(fila&&!fila.fecha_envio){var el=document.getElementById('estado-guardado');if(el)el.textContent='Guardado en Gestoor ✓ · borrador';}}
   }).catch(function(e){
@@ -632,6 +643,45 @@ function cargarDatos(){
     setSyncStatus('error');
     calcular();
   }).then(function(){if(_clienteActual===c)_cargando=false;});
+}
+// ── SII-PREIVA-F2b: compras y ventas del SII desde Cartapra ─────────────
+// Si no hay nada guardado ni escrito, se usan solas al abrir; si no, el botón "Usar datos del SII" las aplica.
+// El remanente NO se toca (cód. 504 de Contable, reajustado por UTM): el cód. 77 del SII solo se compara y se avisa.
+function cargarSiiCartapra(c, per, fila){
+  var box=document.getElementById('pio-sii-cartapra');
+  _siiCartapra=null;if(box)box.hidden=true;
+  if(!box||!window.PreIvaSii||!c||!c.id)return;
+  PreIvaSii.leer(c.id, per).then(function(r){
+    if(_clienteActual!==c||_periodoActual!==per||r.estado!=='ok')return;
+    var p=PreIvaSii.aPantalla(r.datos,_remInfo);
+    if(!p.conectado||(!p.hayVentas&&!p.hayCompras))return;
+    _siiCartapra=p;
+    var t=[];
+    if(p.hayVentas)t.push('Ventas: '+p.docsVentas+' docs · Débito IVA '+ff(p.debito));
+    if(p.hayCompras)t.push('Compras registradas: '+p.docsCompras+' docs · Crédito IVA '+ff(p.credito));
+    document.getElementById('pio-sii-cartapra-txt').textContent=t.join(' · ');
+    document.getElementById('pio-sii-cartapra-al').textContent=p.datosAl?'(datos al '+new Date(p.datosAl).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+')':'';
+    var ul=document.getElementById('pio-sii-cartapra-av');ul.innerHTML='';
+    p.avisos.forEach(function(a){var li=document.createElement('li');li.textContent=a;ul.appendChild(li);});
+    box.hidden=false;
+    if(PreIvaSii.aplicarSolo(fila, nv('inp-debito'), nv('inp-credito')))usarSiiCartapra(true);
+  });
+}
+function usarSiiCartapra(auto){
+  var p=_siiCartapra;if(!p)return;
+  if(p.debito!=null){
+    document.getElementById('inp-debito').value=p.debito;
+    _datos.netoVentas=p.netoVentas||0;_datos.exentoVentas=p.exentoVentas||0;_datos.debitoDeLibro=p.debito;_datos.porTipoDocVentas=p.porTipoVentas||{};
+    var ex=document.getElementById('inp-exento-ventas');if(ex)ex.value=p.exentoVentas==null?'':p.exentoVentas;
+    var lv=document.getElementById('lbl-libro-ventas');if(lv){lv.textContent='Desde el SII (Cartapra) · '+p.docsVentas+' docs · Débito IVA: '+ff(p.debito);lv.style.color='var(--p)';}
+  }
+  if(p.credito!=null){
+    document.getElementById('inp-credito').value=p.credito;
+    _datos.netoCompras=p.netoCompras||0;_datos.exentoCompras=p.exentoCompras||0;_datos.porTipoDocCompras=p.porTipoCompras||{};
+    var lc=document.getElementById('lbl-libro-compras');if(lc){lc.textContent='Desde el SII (Cartapra) · '+p.docsCompras+' docs · Crédito IVA: '+ff(p.credito);lc.style.color='var(--green)';}
+  }
+  calcular();
+  if(!auto)marcarCambio();   // al abrir solo se muestra; se guarda cuando el analista cambia algo o aprieta el botón
 }
 function mostrarPanel(show){
   var p=document.getElementById('panel-simulacion');if(p)p.style.display=show?'block':'none';
@@ -1416,6 +1466,7 @@ function subirLocales(){
   var inpBusNom=document.getElementById('inp-buscar-nomina');if(inpBusNom)inpBusNom.oninput=function(){renderNomina(this.value);};
   var filV=document.getElementById('file-ventas');if(filV)filV.onchange=function(){onLibroChange(this,'ventas');};
   var filC=document.getElementById('file-compras');if(filC)filC.onchange=function(){onLibroChange(this,'compras');};
+  var btnSii=document.getElementById('btn-usar-sii');if(btnSii)btnSii.onclick=function(){usarSiiCartapra(false);};
   // Inputs de cálculo
   ['inp-debito','inp-credito','inp-exento-ventas','inp-dias-transc','inp-dias-tot','inp-f29-ant'].forEach(function(id){var e=document.getElementById(id);if(e)e.oninput=function(){calcular();marcarCambio();};});
   var inpPPM=document.getElementById('inp-tasa-ppm');if(inpPPM)inpPPM.oninput=function(){calcular();marcarCambio();};
