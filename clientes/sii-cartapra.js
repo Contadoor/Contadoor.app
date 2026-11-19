@@ -31,9 +31,21 @@
     var d = new Date(iso); if (isNaN(d.getTime())) return 'No disponible';
     return d.toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
+  // 19-11: Reporte Contable y Apertura MiRenta cargan este módulo pero NO definen edgeFetch (solo la ficha de
+  // Clientes lo tiene). Sin él la tarjeta fallaba siempre con «No pudimos revisar el SII ahora» sin llamar a la Edge.
+  // Respaldo: la misma llamada que edgeFetch de clientes/index.html, con el JWT de la sesión (supabase.js);
+  // la clave anon va solo como apikey, nunca como Authorization. Sin sesión → 401 («Tu sesión venció»).
+  function edgeSesion(fn, body) {
+    var tok = window._gestoorAccessToken;
+    if (!tok || typeof window.SB_URL !== 'string' || typeof window.SB_KEY !== 'string') return Promise.reject({ status: 401, error: 'SIN_SESION' });
+    return fetch(window.SB_URL + '/functions/v1/' + fn, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: window.SB_KEY, Authorization: 'Bearer ' + tok },
+      body: JSON.stringify(body || {})
+    });
+  }
   function llamar(accion, clienteId) {
-    var f = window.edgeFetch;
-    if (typeof f !== 'function') return Promise.reject({ status: 0, error: 'SIN_CONEXION' });
+    var f = typeof window.edgeFetch === 'function' ? window.edgeFetch : edgeSesion;
     var cuerpo = accion === 'cartera' ? { accion: accion } : { accion: accion, cliente_id: Number(clienteId) };
     return f('cartapra', cuerpo).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
