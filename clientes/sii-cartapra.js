@@ -31,9 +31,21 @@
     var d = new Date(iso); if (isNaN(d.getTime())) return 'No disponible';
     return d.toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
+  // 19-11: Reporte Contable y Apertura MiRenta cargan este módulo pero NO definen edgeFetch (solo la ficha de
+  // Clientes lo tiene). Sin él la tarjeta fallaba siempre con «No pudimos revisar el SII ahora» sin llamar a la Edge.
+  // Respaldo: la misma llamada que edgeFetch de clientes/index.html, con el JWT de la sesión (supabase.js);
+  // la clave anon va solo como apikey, nunca como Authorization. Sin sesión → 401 («Tu sesión venció»).
+  function edgeSesion(fn, body) {
+    var tok = window._gestoorAccessToken;
+    if (!tok || typeof window.SB_URL !== 'string' || typeof window.SB_KEY !== 'string') return Promise.reject({ status: 401, error: 'SIN_SESION' });
+    return fetch(window.SB_URL + '/functions/v1/' + fn, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: window.SB_KEY, Authorization: 'Bearer ' + tok },
+      body: JSON.stringify(body || {})
+    });
+  }
   function llamar(accion, clienteId) {
-    var f = window.edgeFetch;
-    if (typeof f !== 'function') return Promise.reject({ status: 0, error: 'SIN_CONEXION' });
+    var f = typeof window.edgeFetch === 'function' ? window.edgeFetch : edgeSesion;
     var cuerpo = accion === 'cartera' ? { accion: accion } : { accion: accion, cliente_id: Number(clienteId) };
     return f('cartapra', cuerpo).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
@@ -90,6 +102,11 @@
       '.sii-mes.gris{background:rgba(201,168,204,.08);border-color:rgba(201,168,204,.3);color:#C9A8CC}.sii-mes.tenue{opacity:.5;color:#9a849b;border-color:#3A2140}',
       '.sii-piloto{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:rgba(92,200,255,.14);color:#5CC8FF}',
       '.sii-btn[disabled].espera{cursor:not-allowed}',
+      // 19-11 (Luciano): distintivo junto al RUT en la lista de clientes. Sin animación.
+      '.sii-tag{display:inline-flex;align-self:flex-start;align-items:center;gap:4px;margin-top:4px;padding:1px 7px 1px 5px;border-radius:999px;font-size:10.5px;font-weight:600;line-height:16px;white-space:nowrap;border:1px solid}',
+      '.sii-tag .ic{display:inline-flex;line-height:0;font-style:normal}.sii-tag .g-ic{width:12px;height:12px}',
+      '.sii-tag.ok{color:#5FCF9C;border-color:rgba(95,207,156,.45);background:rgba(95,207,156,.12)}',
+      '.sii-tag.rech{color:#E0A84E;border-color:rgba(224,168,78,.5);background:rgba(224,168,78,.12)}',
       '.sii-velo{position:fixed;inset:0;z-index:400;background:rgba(12,7,14,.78);display:flex;align-items:center;justify-content:center;padding:16px}',
       '.sii-velo iframe{width:440px;height:660px;max-width:100%;max-height:calc(100vh - 32px);border:0;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6)}',
       '.sii-velo .x{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}',
@@ -553,6 +570,19 @@
     return listaEnCurso;
   }
   function estadoRut(rut) { return lista && lista.conexiones ? (lista.conexiones[rutNorm(rut)] || 'no_conectada') : null; }
+  // 19-11 (Luciano): distintivo «SII conectado» / «Revisar conexión SII» junto al RUT en la lista.
+  // Solo hay estado cuando la Edge entrega "cartera" (Master). Sin estado o sin conexión → null (no se pinta nada).
+  function insignia(rut) {
+    var e = estadoRut(rut);
+    if (e !== 'conectada' && e !== 'clave_rechazada') return null;
+    estilos();
+    var ok = e === 'conectada';
+    var t = el('span', 'sii-tag ' + (ok ? 'ok' : 'rech'));
+    t.title = ok ? 'Empresa conectada con el SII vía Cartapra' : 'El SII rechazó la clave guardada en Cartapra: hay que reconectar';
+    var i = el('i', 'ic'); i.innerHTML = window.gIcon ? window.gIcon(ok ? 'check' : 'alerta') : ''; t.appendChild(i);
+    t.appendChild(el('span', null, ok ? 'SII conectado' : 'Revisar conexión SII'));
+    return t;
+  }
   function conectarDesdeLista(clienteId, btn, alTerminar) {
     if (btn) btn.disabled = true;
     llamar('ventana', Number(clienteId)).then(function (j) {
@@ -591,6 +621,7 @@
     prepararLista: prepararLista,
     lista: function () { return lista; },
     estadoRut: estadoRut,
+    insignia: insignia,
     conectar: conectarDesdeLista,
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;

@@ -15,7 +15,8 @@ res('0.1 clientes/index.html carga sii-cartapra.js después del script del módu
 res('0.2 verDetalle monta la tarjeta con c.id (nunca con RUT) y cerrarDetalle la desmonta',
   /GestoorSII\.montar\(g\('det-sii'\), c\.id,/.test(CL) && /function cerrarDetalle\(\) \{ if \(window\.GestoorSII\) GestoorSII\.desmontar\(\);/.test(CL));
 res('0.3 el módulo no carga scripts de terceros (sin conecta.js ni <script src=http>)', !/conecta\.js['"]?\s*[;)]|createElement\(['"]script/.test(JS));
-res('0.4 el módulo no usa la llave ni llama a Cartapra directo (solo edgeFetch("cartapra"))', !/ck_live|Bearer|api\/conecta/.test(JS) && /f\('cartapra', cuerpo\)/.test(JS));
+res('0.4 el módulo no usa la llave ni llama a Cartapra directo (solo edgeFetch("cartapra") o la misma llamada con el JWT de la sesión)',
+  !/ck_live|api\/conecta/.test(JS) && /f\('cartapra', cuerpo\)/.test(JS) && (JS.match(/Bearer/g) || []).length === 1 && /Authorization: 'Bearer ' \+ tok\b/.test(JS) && /var tok = window\._gestoorAccessToken;/.test(JS));
 
 type Resp = { status: number; body: unknown };
 async function montar(respuestas: Record<string, Resp>, puede: boolean, vista = 'ficha') {
@@ -276,6 +277,43 @@ const texto = (d: Document) => (d.getElementById('det-sii')?.textContent || '').
   const den = await montar({ resumen: con('no_conectada'), enlace: { status: 403, body: { ok: false, error: 'SIN_PERMISO', detalle: 'Solo el Master o un usuario autorizado para conectar empresas puede hacerlo.' } } }, true);
   ([...den.d.querySelectorAll('button')].find((b: any) => b.textContent === 'Enviar enlace al cliente') as any).click(); await espera(); await espera();
   res('E.10 403 al pedir el enlace → mensaje de permiso, sin modal', texto(den.d).includes('Solo el Master') && !den.d.getElementById('sii-enlace-msg'), texto(den.d));
+}
+
+// ═════════ 19-11: páginas SIN edgeFetch (Reporte Contable, Apertura MiRenta) ═════════
+// Antes: llamar() rechazaba {status:0} sin pedir nada → «No pudimos revisar el SII ahora / Intenta de nuevo en unos minutos».
+{
+  const RC = leer('reportes-contable/index.html'), PIR = leer('pir/index.html');
+  res('SE.0 Reporte Contable y MiRenta cargan sii-cartapra.js y no definen edgeFetch (por eso el respaldo)',
+    RC.includes('sii-cartapra.js') && PIR.includes('sii-cartapra.js') && !/edgeFetch/.test(RC) && !/edgeFetch/.test(PIR));
+  const w0 = new JSDOM('', { runScripts: 'outside-only' }).window as any; w0.eval(leer('pruebas/cartapra-sii-fixture-r4.js'));
+  const R4 = JSON.parse(JSON.stringify(w0.CARTAPRA_FIXTURE_R4));
+  const sinEdge = async (token: string | null, resp?: Resp) => {
+    const dom = new JSDOM('<!doctype html><html><head></head><body><div id="det-sii"></div></body></html>', { url: 'https://gestoor.contadoor.cl/reportes-contable/', runScripts: 'outside-only' });
+    const w: any = dom.window;
+    const pedidos: any[] = [];
+    w.SB_URL = 'https://proyecto.supabase.test'; w.SB_KEY = 'clave-anon-de-prueba'; w._gestoorAccessToken = token;
+    w.fetch = (url: string, init: any) => {
+      pedidos.push({ url, init });
+      const r = resp ?? { status: 200, body: R4.contable };
+      return Promise.resolve({ ok: r.status >= 200 && r.status < 300, status: r.status, json: () => Promise.resolve(r.body) });
+    };
+    w.eval(MENU.replace(/if\(document\.readyState[\s\S]*$/, '})();'));
+    w.eval(JS);
+    w.GestoorSII.montar(w.document.getElementById('det-sii'), 7, { vista: 'contable' });
+    await espera(); await espera();
+    return { d: w.document as Document, pedidos };
+  };
+  const a = await sinEdge('jwt-de-sesion');
+  const ta = texto(a.d), p = a.pedidos[0] || { init: { headers: {} } };
+  res('SE.1 sin edgeFetch: pide la Edge cartapra con el JWT de la sesión y pinta la situación mensual (no el error genérico)',
+    a.pedidos.length === 1 && p.url === 'https://proyecto.supabase.test/functions/v1/cartapra' && ta.includes('Situación mensual SII') && ta.includes('Conectado') && !ta.includes('No pudimos revisar el SII ahora'), ta);
+  res('SE.2 Authorization = JWT del usuario (nunca la clave anon); anon solo como apikey; cuerpo solo accion + cliente_id',
+    p.init.headers.Authorization === 'Bearer jwt-de-sesion' && p.init.headers.apikey === 'clave-anon-de-prueba' && p.init.body === JSON.stringify({ accion: 'contable', cliente_id: 7 }), p.init);
+  const b = await sinEdge(null);
+  res('SE.3 sin sesión: no llama a nada y muestra «Tu sesión venció»', b.pedidos.length === 0 && texto(b.d).includes('Tu sesión venció'), texto(b.d));
+  const c = await sinEdge('jwt-de-sesion', { status: 403, body: { ok: false, error: 'SIN_PERMISO' } });
+  res('SE.4 sin edgeFetch y 403: mismo trato que en la ficha (reintenta «estado» y muestra sin acceso)',
+    c.pedidos.length === 2 && JSON.parse(c.pedidos[1].init.body).accion === 'estado' && texto(c.d).includes('Sin acceso a los datos del SII'), texto(c.d));
 }
 
 console.log(`\n${ok}/${ok + mal} OK`);
