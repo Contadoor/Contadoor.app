@@ -102,7 +102,10 @@ function pintar(){
     cls(est,'estado '+e[0]);pon('pio-estado',e[1]);pon('pio-estado-sub',sub);
   }
   var fu=$('pio-fuente');
-  if(fu){var sii=!!(fila&&fila.fuente==='SII');cls(fu,'estado '+(sii?'cel':'gris'));pon('pio-fuente',sii?'SII automático':'Manual');}
+  // SII-PREIVA-F2b: la fuente sale de lo que hay en pantalla (sii · sii_editado · libro · manual)
+  if(fu){var fm=(g('_datos')||{}).fuenteMontos, sc=g('_siiCartapra'), F={sii:['cel','SII (Cartapra)'],sii_editado:['ambar','SII ajustado a mano'],libro:['gris','Libro MasContable']}[fm]||['gris','Manual'];
+    cls(fu,'estado '+F[0]);pon('pio-fuente',F[1]);
+    pon('pio-fuente-sub',sc&&sc.datosAlTxt?'Datos del SII al '+sc.datosAlTxt:(fm==='libro'?'Cargado desde el libro':'SII automático: sin datos de Cartapra'));}
 
   // ── Empresa exenta de IVA: el F29 es solo el PPM (misma fórmula con débito = crédito = remanente = 0) ──
   var panel=$('panel-simulacion');
@@ -163,7 +166,7 @@ function pintar(){
       lim.push('hay '+comp.length+' de 4 meses cerrados comparables para usar tu promedio');}
     // Limitaciones explícitas: que el estimado no parezca un monto confirmado
     var se=S.D.sii&&S.D.sii.estado;
-    if(se==='pendiente'||se==='error')lim.push('los montos registrados vienen de la carga manual (conexión con el SII '+(se==='pendiente'?'pendiente de activación':'no disponible')+')');
+    if(!g('_siiCartapra')&&(se==='pendiente'||se==='error'))lim.push('los montos registrados vienen de la carga manual (conexión con el SII '+(se==='pendiente'?'pendiente de activación':'no disponible')+')');
     if(se==='desactualizado')lim.push('datos del SII desactualizados'+(S.D.sii.ultima?' (última consulta '+fDM(S.D.sii.ultima)+')':'')+': lo registrado puede estar incompleto');
     if(se==='sin_datos')lim.push('aún no hay datos del SII para este período');
     if((datos.ppmAvisos||[]).length)lim.push('el PPM usa una base estimada');
@@ -211,6 +214,15 @@ function pintar(){
 /* ── Sincronización con el SII ── */
 function pintarSii(){
   var D=S.D, s=D&&D.sii, chipEl=$('pio-sii-chip'), btn=$('pio-sii-btn');if(!chipEl)return;
+  // SII-PREIVA-F2b: con datos de Cartapra, el aviso viejo de SimpleAPI («pendiente de activación» y la bolsa manual) no aplica
+  var sc=g('_siiCartapra');
+  if(sc){
+    if(!cambio('sii',['cartapra',sc.datosAlTxt]))return;
+    cls(chipEl,'estado verde');chipEl.textContent='Conectado al SII · datos al '+(sc.datosAlTxt||'—');
+    pon('pio-sii-det','Compras, ventas y F29 desde Cartapra (lectura diaria). Hora de Chile.');
+    if(btn)oculto(btn,true);oculto($('pio-sii-nota'),true);return;
+  }
+  if(btn)oculto(btn,false);oculto($('pio-sii-nota'),false);
   var e=s?s.estado:'cargando', m={
     cargando:['gris','Revisando la conexión con el SII…',''],
     pendiente:['gris','Conexión con el SII pendiente de activación','Mientras tanto, los montos se cargan a mano en "Carga manual".'],
@@ -238,7 +250,7 @@ function actualizarSii(){
 /* ── Carga manual (respaldo temporal) ── */
 function pintarManual(){
   var d=$('pio-manual');if(!d)return;
-  var ver=CFG.cargaManual==='siempre'||(CFG.cargaManual==='auto'&&!siiActiva());
+  var ver=CFG.cargaManual==='siempre'||(CFG.cargaManual==='auto'&&!siiActiva()&&!g('_siiCartapra'));
   oculto(d,!ver);
 }
 

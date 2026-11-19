@@ -143,7 +143,7 @@
         cobertura:{rcv_ventas:'completa',rcv_compras:'completa',honorarios:'completa'},
         ventas:{documentos:18,neto:9200000,exento:350000,iva:1748000,total:11298000,por_tipo:{'33':{n:16},'61':{n:1},'34':{n:1}}},
         compras:{registro:{documentos:41,neto:5100000,exento:0,iva:969000,total:6069000},pendiente:{documentos:2,iva:85500,total:535500},reclamado:{documentos:0,iva:0,total:0},no_incluir:{documentos:0,iva:0,total:0},por_tipo:{'33':{n:39},'61':{n:2}}},
-        honorarios:null,f29_periodo:null,remanente_anterior:{periodo:aS,valor:120000,fuente:'sii_codigo_77',folio:9100000001},avisos:['compras_pendientes']});
+        honorarios:null,f29_periodo:null,remanente_anterior:{periodo:aS,folio:9100000001,cod77:118000,fuente:'sii_codigo_77',metodo:'ART27_UTM_V1',mes_utm_origen:pS.slice(0,4)+'-'+pS.slice(4),mes_utm_destino:mover(pS.slice(0,4)+'-'+pS.slice(4),1),utm_origen:68000,utm_destino:68500,cod504:Math.round(118000*68500/68000),falta_utm:[]},sincronizado_en:new Date(hoy.getTime()-2*36e5).toISOString(),avisos:['compras_pendientes']});
     }
     if(tabla==='rpc/sapi_frescura'){
       if(!SII)return resp(404,{code:'PGRST202',message:'Could not find the function public.sapi_frescura'});

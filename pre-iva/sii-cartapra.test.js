@@ -1,41 +1,55 @@
-// node --test pre-iva/sii-cartapra.test.js  (datos ficticios)
+// node --test pre-iva/sii-cartapra.test.js  (datos ficticios) — SII-PREIVA-F2b R2
 const test = require('node:test'); const assert = require('node:assert');
 const S = require('./sii-cartapra.js');
-const R = { conexion: { estado: 'conectada' }, datos_al: '2026-11-18T07:25:00Z', avisos: ['compras_pendientes'],
+const REM = { periodo: '202609', folio: 209, cod77: 12345, fuente: 'sii_codigo_77', metodo: 'ART27_UTM_V1', mes_utm_origen: '2026-10', mes_utm_destino: '2026-11',
+  utm_origen: 72151, utm_destino: 72440, cod504: 12394, falta_utm: [] };
+const R = { conexion: { estado: 'conectada' }, datos_al: '2026-11-18T10:25:00Z', avisos: ['compras_pendientes'],
   ventas: { documentos: 4, neto: 140000, exento: 20000, iva: 26600, por_tipo: { '33': { n: 2 }, '61': { n: 1 }, '34': { n: 1 } } },
   compras: { registro: { documentos: 2, neto: 35000, exento: 0, iva: 6650 }, pendiente: { documentos: 1, iva: 5700 }, por_tipo: { '33': { n: 1 }, '61': { n: 1 } } },
-  remanente_anterior: { periodo: '202609', valor: 12345, fuente: 'sii_codigo_77', folio: 209 }, f29_periodo: null };
-test('mapea débito, crédito, neto, exento y desglose por tipo', () => {
-  const p = S.aPantalla(R, { fuente: 'contable', valor: 12345, info: { cod77: 12345 } });
+  remanente_anterior: REM, f29_periodo: null };
+test('mapea débito, crédito, neto, exento, desglose y fecha en hora de Chile', () => {
+  const p = S.aPantalla(R, { fuente: 'contable', valor: 12394 }, null);
   assert.deepStrictEqual([p.debito, p.credito, p.netoVentas, p.exentoVentas, p.netoCompras], [26600, 6650, 140000, 20000, 35000]);
   assert.deepStrictEqual(p.porTipoVentas, { 'Factura electrónica': 2, 'Nota de crédito': 1, 'Factura exenta': 1 });
-  assert.deepStrictEqual(p.remanenteSii, { cod77: 12345, periodo: '202609', folio: 209 });
-  assert.strictEqual(p.avisos.length, 1, 'solo el aviso de pendientes (Contable coincide con el SII)');
-  assert.match(p.avisos[0], /1 factura\(s\) de compra pendiente/);
+  assert.strictEqual(p.datosAlTxt, '18-11-2026, 07:25', '10:25 UTC = 07:25 en Chile (verano, UTC−3)');
+  assert.strictEqual(p.avisos.length, 1, 'solo pendientes: Contable coincide y no hay guardado');
 });
-test('remanente: nunca se reemplaza; solo se compara con el cód. 77 de Contable', () => {
-  assert.ok(!('remanente' in S.aPantalla(R, {})), 'no entrega un remanente para aplicar');
-  assert.match(S.aPantalla(R, { fuente: 'contable', valor: 999, info: { cod77: 999 } }).avisos.join(' '), /Contable tiene cód\. 77 \$999 y el F29 de 09\/2026 en el SII dice \$12\.345/);
-  assert.match(S.aPantalla(R, { fuente: 'sin', info: { cod77: null } }).avisos.join(' '), /Regístralo en Contable/);
-  assert.doesNotMatch(S.aPantalla(R, { fuente: 'manual', info: { cod77: null } }).avisos.join(' '), /Regístralo/, 'manual: no se insiste');
-  const sin77 = { ...R, remanente_anterior: { periodo: '202609', valor: 0, fuente: 'sii_sin_codigo_77', folio: 9 } };
-  assert.match(S.aPantalla(sin77, { fuente: 'contable', info: { cod77: 500 } }).avisos.join(' '), /dice \$0/);
-  assert.strictEqual(S.aPantalla({ ...R, remanente_anterior: { fuente: 'sin_f29' } }, {}).remanenteSii, null);
+test('remanente oficial del SII: cód. 77 × UTM = cód. 504, con su origen', () => {
+  const p = S.aPantalla(R, { fuente: 'contable', valor: 12394 });
+  assert.strictEqual(p.remanente.valor, 12394);
+  assert.strictEqual(p.remanente.texto, 'F29 de septiembre 2026 en el SII (folio 209): cód. 77 $12.345 × UTM noviembre 2026 $72.440 ÷ UTM octubre 2026 $72.151 = cód. 504 $12.394');
+  assert.match(S.aPantalla(R, { fuente: 'contable', valor: 999 }).avisos.join(' '), /Contable tiene \$999 y el F29 del SII da \$12\.394\. Se usa el del SII/);
+  assert.match(S.aPantalla(R, { fuente: 'manual', valor: 5 }).avisos.join(' '), /ingresado a mano/);
 });
-test('sin lectura = null (nunca 0) y sin conexión', () => {
+test('sin F29 anterior, sin montos o sin UTM → Contable y aviso', () => {
+  const con = (ra) => S.aPantalla({ ...R, remanente_anterior: ra }, { fuente: 'contable', valor: 100 });
+  let p = con({ periodo: '202609', cod77: null, cod504: null, fuente: 'sin_f29' });
+  assert.strictEqual(p.remanente, null); assert.match(p.avisos.join(' '), /no hay F29 de septiembre 2026 en Cartapra\. Se usa el de Contable/);
+  assert.match(con({ periodo: '202609', fuente: 'f29_sin_montos', folio: 1, cod504: null }).avisos.join(' '), /aún no trae los montos/);
+  assert.match(con({ ...REM, cod504: null, utm_destino: null, falta_utm: ['2026-11'] }).avisos.join(' '), /falta la UTM de noviembre 2026 en Gestoor/);
+  assert.strictEqual(con({ ...REM, cod77: 0, cod504: 0, fuente: 'sii_sin_codigo_77' }).remanente.valor, 0, 'SII sin remanente = 0 oficial');
+});
+test('diferencia contra lo guardado: se avisa, no se oculta', () => {
+  const p = S.aPantalla(R, { fuente: 'contable', valor: 12394 }, { debito_iva: 20000, credito_iva: 6650 });
+  assert.deepStrictEqual(p.diferencia, { guardado: { debito: 20000, credito: 6650 }, sii: { debito: 26600, credito: 6650 } });
+  assert.match(p.avisos.join(' '), /Lo guardado en Gestoor \(débito \$20\.000 · crédito \$6\.650\) es distinto del SII \(débito \$26\.600/);
+  assert.strictEqual(S.aPantalla(R, {}, { debito_iva: 26600, credito_iva: 6650 }).diferencia, null, 'iguales: sin aviso');
+});
+test('sin lectura = null (nunca 0), sin conexión y F29 ya presentado', () => {
   const p = S.aPantalla({ conexion: { estado: 'conectada' }, ventas: null, compras: null, avisos: ['cobertura_incompleta'] }, {});
   assert.deepStrictEqual([p.debito, p.credito, p.hayVentas, p.hayCompras], [null, null, false, false]);
   assert.match(p.avisos.join(' '), /aún no entrega completo/);
   assert.strictEqual(S.aPantalla({ conexion: { estado: 'sin_conexion' } }, {}).conectado, false);
-});
-test('F29 ya presentado avisa', () => {
   assert.match(S.aPantalla({ ...R, f29_periodo: { folio: 210 } }, {}).avisos.join(' '), /ya tiene F29 presentado/);
 });
-test('aplicarSolo: no pisa lo guardado ni lo escrito', () => {
-  assert.strictEqual(S.aplicarSolo(null, '', ''), true);
-  assert.strictEqual(S.aplicarSolo({ debito_iva: 0, credito_iva: 0 }, 0, 0), true);
-  assert.strictEqual(S.aplicarSolo({ debito_iva: 100, credito_iva: 0 }, 0, 0), false);
-  assert.strictEqual(S.aplicarSolo(null, 50, ''), false);
+test('registro para guardar: fuente, fecha de lectura y cifras usadas', () => {
+  const p = S.aPantalla(R, {});
+  const g = S.registro(p, 'sii');
+  assert.strictEqual(g.fuente_montos, 'sii'); assert.strictEqual(g.sii_datos_al, '2026-11-18T10:25:00Z');
+  assert.deepStrictEqual([g.sii_detalle.debito, g.sii_detalle.credito, g.sii_detalle.remanente.cod504, g.sii_detalle.remanente.folio], [26600, 6650, 12394, 209]);
+  assert.strictEqual(S.registro(p, 'sii_editado').fuente_montos, 'sii_editado');
+  assert.deepStrictEqual(S.registro(p, 'libro'), { fuente_montos: 'libro', sii_datos_al: null, sii_detalle: null });
+  assert.deepStrictEqual(S.registro(null, null), { fuente_montos: null, sii_datos_al: null, sii_detalle: null });
 });
 test('leer: RPC no instalada = no_disponible; 42501 = sin_permiso; ok devuelve datos', async () => {
   const resp = (status, body) => async () => ({ ok: status < 300, status, text: async () => JSON.stringify(body) });
