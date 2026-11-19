@@ -861,10 +861,14 @@ function cargarReportesSupabase(periodo,callback){
   var perNorm=String(periodo).replace('-','');
   var perDash=perNorm.length===6?perNorm.slice(0,4)+'-'+perNorm.slice(4):periodo;
   var pAnt=_rpCargarAnterior(perDash);   // 1 request del período anterior (remanentes), en paralelo
+  // REPORTE-AUTO B03: el cierre oficial es public.reportes_cierres (foto vigente); se lee en paralelo y marca «Publicado».
+  var pCie=(typeof GestoorCierreReporte!=='undefined')?GestoorCierreReporte.cierresVigentes(perDash):Promise.resolve({});
   sbGetReportesPeriodo(perDash,function(reportes){
-    var otros=getReportes().filter(function(x){return String(x.periodo||'').replace('-','')!==perNorm;});
-    setReportesCache(otros.concat(reportes||[]));
-    pAnt.then(function(){if(callback)callback(reportes||[]);});
+    pCie.then(function(cie){(reportes||[]).forEach(function(r){r.cierreVigente=cie[String(r.id)]||null;});}).catch(function(){}).then(function(){
+      var otros=getReportes().filter(function(x){return String(x.periodo||'').replace('-','')!==perNorm;});
+      setReportesCache(otros.concat(reportes||[]));
+      pAnt.then(function(){if(callback)callback(reportes||[]);});
+    });
   });
 }
 var _nominaConsultada={};
@@ -1403,6 +1407,7 @@ function renderNomina(){
     }
     html+='<div class="g-acc">';
     if(est.enviado)html+='<span class="g-est env">'+gIcon('enviar')+' Enviado</span>';
+    if(r.cierreVigente)html+='<span class="g-est env" title="Cerrado y publicado en MiContadoor (versión '+hesc(String(r.cierreVigente.version))+')">🔒 Publicado</span>';
     html+='<button class="g-ico" data-accion="ver" data-rid="'+rid+'" title="Ver reporte" aria-label="Ver reporte">'+gIcon('ver')+'</button>';
     if(est.enviado)html+='<button class="g-ico opc" data-accion="rec" data-rid="'+rid+'" title="Enviar recordatorio" aria-label="Enviar recordatorio">'+gIcon('campana')+'</button>';
     else html+='<button class="g-btn pri sm" data-accion="mail" data-rid="'+rid+'" title="Enviar reporte por correo">'+gIcon('correo')+' Enviar</button>';
@@ -1822,9 +1827,9 @@ function abrirCierreReporte(){
   var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
   if(!r||!/^\d+$/.test(String(r.id))){alert('Reporte no encontrado (recarga el Panel).');return;}
   if(typeof GestoorCierreReporte==='undefined'){alert('No se cargó el módulo de cierre. Recarga la página.');return;}
-  GestoorCierreReporte.abrir({reporteId:r.id, empresa:r.clienteNombre||r.rut, periodoTxt:formatPer(r.periodo), alTerminar:function(estado,fecha){
+  GestoorCierreReporte.abrir({reporteId:r.id, empresa:r.clienteNombre||r.rut, periodoTxt:formatPer(r.periodo), alTerminar:function(estado,fecha,version){
     var arr=getReportes(), x=arr.find(function(y){return String(y.id)===String(r.id);});
-    if(x){x.estado=estado;x.fechaEnvio=fecha||null;setReportesCache(arr);}
+    if(x){x.estado=estado;x.fechaEnvio=fecha||null;x.cierreVigente=estado==='enviado'?{version:version||null,cerrado_at:fecha||null}:null;setReportesCache(arr);}
     if(typeof renderAll==='function')renderAll();
   }});
 }

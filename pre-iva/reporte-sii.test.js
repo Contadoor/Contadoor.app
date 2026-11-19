@@ -27,14 +27,35 @@ test('filasResumen: montos del servidor, IU pendiente y total', () => {
   assert.ok(f.some((x) => /0,25 % \(ficha\)/.test(x[0])));
   assert.deepEqual(R.filasResumen({ previa: null }), []);
 });
-test('aplicar y crearObligacion envían lo que espera el servidor (fetch simulado)', async () => {
+test('aplicar envía lo que espera el servidor y NO llama a crear_obligacion (R2: la obligación la crea el servidor)', async () => {
   const llamadas = [];
-  const f = (path, o) => { llamadas.push([path, JSON.parse(o.body)]); return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(path.includes('crear_obligacion') ? '[{"resultado":"creada"}]' : '{"ok":true}') }); };
-  await R.aplicar(2, '202610', 'a'.repeat(32), '120000', 'motivo de prueba', f);
+  const f = (path, o) => { llamadas.push([path, JSON.parse(o.body)]); return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"ok":true,"obligacion_f29":{"resultado":"creada","id":7}}') }); };
+  const res = await R.aplicar(2, '202610', 'a'.repeat(32), '120000', 'motivo de prueba', f);
   assert.deepEqual(llamadas[0], ['rpc/reporte_aplicar_preiva_sii', { p_cliente_id: 2, p_periodo: '2026-10', p_huella: 'a'.repeat(32), p_rem_cod77: 120000, p_rem_motivo: 'motivo de prueba' }]);
-  const ob = await R.crearObligacion('77000001-7', { reporte_id: 308, periodo: '2026-10', obligacion: { concepto: 'F29 2026/10', monto_total: 10, monto_exigible: 10, monto_postergado: 0, vencimiento: '2026-11-20' } }, f);
-  assert.equal(ob.resultado, 'creada');
-  assert.equal(llamadas[1][1].p_ref_reporte_id, 308); assert.equal(llamadas[1][1].p_tipo_obligacion, 'f29'); assert.equal(llamadas[1][1].p_area_origen, 'contable');
+  assert.equal(llamadas.length, 1);
+  assert.equal(R.crearObligacion, undefined);
+  assert.equal(R.textoObligacion(res.obligacion_f29), 'Obligación F29 registrada en Pagos.');
+  assert.match(R.textoObligacion({ resultado: 'reutilizada' }), /sin duplicar/);
+  assert.equal(R.textoObligacion(null), '');
+});
+test('el código del Pre-IVA ya no contiene llamadas a crear_obligacion', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, 'reporte-sii.js'), 'utf8');
+  assert.ok(!/rpc\(\s*'crear_obligacion'/.test(src));
+});
+test('AUTO-A02: cada dato muestra su fuente (SII, a mano, Gestoor, ficha, RR. HH.)', () => {
+  const v = { rrhh: { iu_estado: 'no_aplica' }, entrada: { ppm_tasa: 0.5, ppm_tasa_fuente: 'sii' }, remanente: { accion: 'usar', fuente: 'mes_anterior' },
+    previa: { debito: 1, credito: 1, remanente_anterior: 1, iva_pagar: 0, remanente_siguiente: 0, ppm: 1, ret_hon: 0, iu: 0, otros_imp: 0, total_f29: 1 } };
+  const f = R.filasResumen(v);
+  assert.equal(f.find((x) => /^Remanente anterior/.test(x[0]))[2], 'mes_anterior');
+  assert.equal(f.find((x) => /^IVA débito/.test(x[0]))[2], 'sii');
+  assert.equal(f.find((x) => /^PPM/.test(x[0]))[2], 'sii');
+  assert.equal(f.find((x) => /^Impuesto único/.test(x[0]))[1], 'No aplica (sin trabajadores)');
+  assert.equal(R.filasResumen({ ...v, remanente: { accion: 'registrar_manual', fuente: 'manual' } }).find((x) => /^Remanente anterior/.test(x[0]))[2], 'manual');
+  assert.match(R.chipFuente('manual'), /A mano/); assert.match(R.chipFuente('sii'), /SII/); assert.equal(R.chipFuente('x'), '');
+});
+test('mensajeError: bloqueos del puente sin códigos internos', () => {
+  assert.equal(R.mensajeError('PREIVA_SII_BLOQUEADO: IU_PENDIENTE_RRHH (RR. HH. aún no informa el impuesto único); CREDITO_PROPORCIONAL (Hay IVA de uso común)'),
+    'RR. HH. aún no informa el impuesto único; Hay IVA de uso común');
 });
 test('error del servidor se propaga (fail-closed, nada se da por guardado)', async () => {
   const f = () => Promise.resolve({ ok: false, status: 400, text: () => Promise.resolve('{"code":"22023","message":"REPORTE_YA_VALIDADO: x"}') });

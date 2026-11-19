@@ -45,3 +45,43 @@ test('mensajeError: permisos, huella y cierre detenido por el puente', () => {
   assert.equal(C.mensajeError('CIERRE_DETENIDO: el paso de los datos del SII al reporte se detuvo: REMANENTE_SIN_F29: No hay F29 de 2026-09 en Cartapra: ingresa el remanente'),
     'El cierre se detuvo: No hay F29 de 2026-09 en Cartapra: ingresa el remanente');
 });
+test('R2 · RR. HH.: «no aplica» confirmado por RR. HH., por quien cierra o pendiente de confirmar', () => {
+  const g = (rr) => C.filasFoto({ impuestos: { estado: 'ok', total_f29: 1, iu_estado: 'no_aplica', iu: 0 }, rrhh: rr, servicios: {} });
+  assert.equal(g({ estado: 'no_aplica' }).find((x) => x[0] === 'RR. HH.')[1], 'No aplica (sin trabajadores con sueldo)');
+  assert.equal(g({ estado: 'no_aplica', confirmacion: 'cierre' }).find((x) => x[0] === 'RR. HH.')[1], 'No aplica (confirmado al cerrar)');
+  assert.equal(g({ estado: 'no_aplica', confirmacion: 'requerida' }).find((x) => x[0] === 'RR. HH.')[1], 'Sin confirmar si hubo trabajadores');
+  assert.equal(g({ estado: 'no_aplica' }).find((x) => x[0] === '· Impuesto único')[1], 'No aplica ($0, sin trabajadores)');
+});
+test('R2 · soloConfirmable: solo RRHH_SITUACION_DESCONOCIDA se resuelve con la casilla; IU pendiente u otros, no', () => {
+  assert.equal(C.soloConfirmable([{ codigo: 'RRHH_SITUACION_DESCONOCIDA', confirmable: true }]), true);
+  assert.equal(C.soloConfirmable([{ codigo: 'RRHH_SITUACION_DESCONOCIDA', confirmable: true }, { codigo: 'IU_PENDIENTE_RRHH' }]), false);
+  assert.equal(C.soloConfirmable([]), false);
+});
+test('R2 · textoAviso: avisos internos de la obligación, F29 no encontrado / no verificable y estado sin verificar', () => {
+  assert.match(C.textoAviso({ codigo: 'OBLIGACION_F29_SE_CREA', mensaje: 'Al cerrar se registra la obligación F29 en Pagos por $10000.' }), /^Interno: Al cerrar se registra/);
+  assert.match(C.textoAviso({ codigo: 'F29_NO_ENCONTRADO', periodos: ['2026-09'] }), /^Interno: .*2026-09/);
+  assert.match(C.textoAviso({ codigo: 'F29_NO_VERIFICABLE' }), /^Interno: /);
+  assert.equal(C.textoAviso({ codigo: 'F29_ESTADO_SIN_VERIFICAR', periodos: ['2026-09'] }), 'F29 declarados con un estado del SII por verificar: 2026-09.');
+});
+test('R2 · cierresVigentes lee la fuente oficial (reportes_cierres VIGENTE del período) y falla cerrado a {}', async () => {
+  const pedidos = [];
+  const f = (p) => { pedidos.push(p); return Promise.resolve({ ok: true, json: () => Promise.resolve([{ reporte_id: 308, version: 2, cerrado_at: '2026-11-19T12:00:00Z' }]) }); };
+  const m = await C.cierresVigentes('2026-10', f);
+  assert.deepEqual(m, { 308: { version: 2, cerrado_at: '2026-11-19T12:00:00Z' } });
+  assert.equal(pedidos[0], 'reportes_cierres?select=reporte_id,version,cerrado_at&estado=eq.VIGENTE&periodo=eq.2026-10');
+  assert.deepEqual(await C.cierresVigentes('2026-10', () => Promise.resolve({ ok: false, status: 404 })), {});
+  assert.deepEqual(await C.cierresVigentes('2026-10', () => Promise.reject(new Error('red'))), {});
+  assert.deepEqual(await C.cierresVigentes('x', f), {});
+});
+test('R2 · el cierre ya no crea la obligación desde el navegador; solo informa el resultado del servidor', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, 'cierre-reporte.js'), 'utf8');
+  assert.ok(!/crearObligacion\(|crear_obligacion'/.test(src));
+  assert.ok(/p_confirma_sin_trabajadores/.test(src));
+  assert.equal(C.textoObligacion({ resultado: 'actualizada' }), 'Obligación F29 de Pagos actualizada (no tenía dinero conciliado).');
+});
+test('R2 · mensajeError: obligación con pagos y cierre concurrente en lenguaje simple', () => {
+  assert.equal(C.mensajeError('CIERRE_DETENIDO: la obligación F29 de Pagos no se pudo registrar o confirmar: OBLIGACION_F29_CON_PAGOS: La obligación F29 tiene pagos'),
+    'El cierre se detuvo: La obligación F29 tiene pagos');
+  assert.match(C.mensajeError('REPORTE_YA_CERRADO: x'), /otra persona lo cerró/);
+  assert.equal(C.mensajeError('REPORTE_NO_LISTO: RRHH_PENDIENTE (RR. HH. no está listo)'), 'RR. HH. no está listo');
+});
