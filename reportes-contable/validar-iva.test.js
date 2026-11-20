@@ -57,7 +57,7 @@ function entorno(o = {}) {
   const ctx = {
     console, JSON, Math, Number, String, Object, Array, Promise, Date, RegExp, isFinite, parseFloat, parseInt,
     document: { getElementById: () => null },
-    _periodoActual: '2026-10', _librosMap: {}, _remanentes: { periodo: '2026-10', lecturaOk: true, porRut: { [RUT]: o.info === undefined ? INFO_OK : o.info } },
+    _periodoActual: '2026-10', _librosMap: {}, GestoorSII: { estadoCliente: (id) => (o.conectada && Number(id) === 9001 ? 'conectada' : null) }, _remanentes: { periodo: '2026-10', lecturaOk: true, porRut: { [RUT]: o.info === undefined ? INFO_OK : o.info } },
     _reportes: [rep], getReportes: () => ctx._reportes, setReportes: (r) => { ctx._reportes = r; }, getClientes: () => [cli],
     getUsuario: () => ({ nombre: 'Analista Prueba', email: 'analista@example.invalid', rol: 'contable' }),
     sbRowToReporte: (f) => ({ id: f.id, rut: RUT, periodo: '2026-10', estadoContable: f.estado_contable, listoPanelControl: f.listo_panel_control, f29: {} }),
@@ -74,7 +74,7 @@ function entorno(o = {}) {
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'assets', 'remanente-anterior.js'), 'utf8'), ctx);
   for (const f of ['f29-formula.js', 'sii-cartapra.js', 'iva-validacion.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'pre-iva', f), 'utf8'), ctx);
-  vm.runInContext(['ff', 'periodoAnterior', 'normalizarRutContable', 'buildBorradorF29', 'infoRemanenteAnterior', 'remMensajeError', 'validarCierrePreF29', 'sbPatchReporteDetallado',
+  vm.runInContext(['ff', 'siiConectado', 'librosListos', 'periodoAnterior', 'normalizarRutContable', 'buildBorradorF29', 'infoRemanenteAnterior', 'remMensajeError', 'validarCierrePreF29', 'sbPatchReporteDetallado',
     'guardarFilaReporteLocal', '_cf29Ctx', '_cf29Refrescar', 'pendientesValidarIva', 'validarIvaDesdeTarjeta', 'guardarPPMDesdeTarjeta', 'remanenteManualDesdeTarjeta'].map(extraer).join('\n'), ctx);
   return { ctx, peticiones, dialogos, notifs };
 }
@@ -214,4 +214,31 @@ test('flujo de Contable: el paso se llama «IVA» (mismas claves) y el Pre-IVA y
   const pre = fs.readFileSync(path.join(__dirname, '..', 'pre-iva', 'index.html'), 'utf8');
   assert.match(pre, /Estimado del mes en curso<\/b> · la validación del IVA se hace en Contable al cerrar el período\./);
   assert.doesNotMatch(pre, /Validar Pre-IVA|pasar al reporte/);
+});
+
+test('19-11 · empresa CONECTADA: el resumen del SII basta (sin libros); sin datos del período → «Esperando datos del SII»', async () => {
+  // Conectada y SIN libros cargados: valida igual (mismas escrituras), sin exigir Compras/Ventas
+  let E = entorno({ conectada: true, rep: { libros: {} } });
+  assert.equal(E.ctx.librosListos(E.ctx._reportes[0], { id: 9001 }), true, 'el paso «Libros» queda cumplido como «Datos del SII»');
+  let a = tarjeta(E.ctx);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), true);
+  assert.equal(E.peticiones.length, 2); assert.doesNotMatch(E.dialogos.join('\n'), /Libro de/);
+  assert.equal(E.peticiones[0].body.estado_contable, 'completado');
+  // No conectada y sin libros: sigue exigiendo la carga manual
+  E = entorno({ conectada: false, rep: { libros: {} } });
+  assert.equal(E.ctx.librosListos(E.ctx._reportes[0], { id: 9001 }), false);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, tarjeta(E.ctx), null), false);
+  assert.match(E.dialogos.join('\n'), /Libro de Compras pendiente/);
+  // Conectada, pero Cartapra aún no trae el período → «Esperando datos del SII»; no escribe nada
+  E = entorno({ conectada: true, rep: { libros: {} } });
+  const sinDatos = Object.assign({}, RAW, { ventas: null, compras: null, honorarios: null, cobertura: { rcv_ventas: 'pendiente', rcv_compras: 'pendiente', honorarios: 'pendiente' } });
+  a = C.armar({ raw: sinDatos, remContable: { valor: 101000, fuente: 'contable' }, fila: null, hist: [{ periodo: '2026-09', tasa_ppm: 1.5 }], tieneRrhh: true, iuSii: 45000, periodo: '2026-10', hoy: new Date(2026, 10, 19), conectada: true });
+  assert.equal(a.bloqueosValidar[0], 'Esperando datos del SII (próxima sincronización 10:00/17:00).');
+  assert.doesNotMatch(a.bloqueosValidar.join(' '), /ventas del SII|compras del SII|honorarios del SII/);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), false); assert.equal(E.peticiones.length, 0);
+  // Sin lectura del SII (conectada según el equipo) → mismo aviso
+  assert.deepEqual(V.bloqueosValidar(null, null, { conectada: true }), ['Esperando datos del SII (próxima sincronización 10:00/17:00).']);
+  // Barra del flujo: «Datos del SII» en vez de «Libros» para conectadas
+  assert.match(extraer('renderPipelineContable'), /lbl:siiConectado\(c\)\?'Datos del SII':'Libros'/);
+  assert.match(extraer('renderSeccionLibros'), /if\(conResumenSii && siiConectado\(c\)\)\{ h \+= '<\/div>'; return h; \}/);
 });

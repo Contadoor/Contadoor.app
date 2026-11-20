@@ -111,7 +111,7 @@
       edicionPPM: ed, ppmCalculado: R.ppmCalculado, tasaCalculada: R.tasaCalculada, sii: p, fuenteMontos: 'sii',
       netoVentas: p.netoVentas || 0, netoCompras: p.netoCompras || 0, porTipoVentas: p.porTipoVentas || {}, porTipoCompras: p.porTipoCompras || {},
       ivaPagar: R.ivaPagar, f29IvaPpm: R.total };
-    out.bloqueosValidar = V ? V.bloqueosValidar(out, RV, { estadoContable: o.estadoContable }) : [];
+    out.bloqueosValidar = V ? V.bloqueosValidar(out, RV, { estadoContable: o.estadoContable, conectada: o.conectada }) : [];
     if (hz.esMesActual) out.notas.push('Mes en curso: débito, crédito y base del PPM proyectados a fin de mes (igual que el Pre-IVA).');
     if (p.f29) out.notas.push('Este mes ya tiene F29 presentado en el SII (folio ' + p.f29.folio + ').');
     if ((raw.avisos || []).indexOf('cobertura_incompleta') >= 0) out.notas.push('El SII aún no entrega completo este mes en Cartapra: los montos pueden cambiar.');
@@ -198,7 +198,9 @@
     t.appendChild(el('b', null, 'Cálculo del F29 · ' + mesTxt(op.periodo)));
     t.appendChild(el('small', null, a && a.datosAlTxt ? 'Datos del SII al ' + a.datosAlTxt + ' (hora de Chile) · período contable: aquí se valida el IVA' : 'Período contable: aquí se valida el IVA'));
     hd.appendChild(t); box.appendChild(hd);
-    if (!a) box.appendChild(el('div', 'cf29-nota', 'No se pudieron leer los datos del SII para calcular el F29.'));
+    var ESPERA = 'Esperando datos del SII (próxima sincronización 10:00/17:00): el IVA se valida cuando Cartapra traiga el período.';
+    if (!a) box.appendChild(el('div', op.conectada ? 'cf29-nov' : 'cf29-nota', op.conectada ? ESPERA : 'No se pudieron leer los datos del SII para calcular el F29.'));
+    else if (!a.conectado && op.conectada) box.appendChild(el('div', 'cf29-nov', ESPERA));
     else if (!a.conectado) box.appendChild(el('div', 'cf29-nota', 'Esta empresa aún no está conectada al SII: el cálculo aparece cuando Cartapra traiga sus datos. Mientras tanto, valida el IVA con «Revisar / Validar IVA».'));
     else {
       if (a.remanenteBloqueo) box.appendChild(el('div', 'cf29-bloq', a.remanenteBloqueo.mensaje));   // 19-11: «⚠️ <mes> no está declarado…»
@@ -295,7 +297,7 @@
       if (slot.getAttribute('data-seq') !== String(n) || !slot.isConnected) return;
       var sii = x[0], pv = x[1], c = op.cliente || {}, rep = op.rep || {};
       var a = sii.estado === 'ok' && sii.raw ? armar({ raw: sii.raw, remContable: op.remContable, fila: pv.fila, hist: pv.hist, fichaTasa: c.ppmTasaDefault,
-        tieneRrhh: c.tieneRrhh, iuSii: rep.iuSii, iuAt: rep.iuSiiActualizadoAt, periodo: op.periodo, hoy: new Date(), estadoContable: rep.estadoContable, ppm: x[2] }) : null;
+        tieneRrhh: c.tieneRrhh, iuSii: rep.iuSii, iuAt: rep.iuSiiActualizadoAt, periodo: op.periodo, hoy: new Date(), estadoContable: rep.estadoContable, ppm: x[2], conectada: op.conectada }) : null;
       if (a) { a.fila = pv.fila; a.filaLeida = pv.estado === 'ok'; a.clienteRut = op.rut; }
       if (a && pv.estado !== 'ok' && a.bloqueosValidar) a.bloqueosValidar.push('No se pudo leer el Pre-IVA guardado del período (PPM editado): recarga la página.');
       if (a && pv.estado !== 'ok') a.notas.push('No se pudo leer el Pre-IVA guardado: la tasa PPM sale de la ficha del cliente y no se ve si el PPM fue editado.');
