@@ -11,6 +11,9 @@
      meses «condicionados» (remanente desconocido), «F29 sin montos» con el IVA del RCV, totales separados (conocido /
      provisional / no calculable: nunca se suma lo que falta), medio de declaración (día 20/12) y el PDF con el aviso
      «Estimación preliminar, no constituye determinación definitiva». Cada PDF queda en la bitácora (RPC registrar_pdf).
+   · CARTAPRA-HISTORIA (20-11-2026): botón «Historia SII» dentro del diálogo (historia-sii.js: trae hasta 6 años de
+     compras y ventas de Cartapra), columna «Origen» por mes (RPC public.sii_historia_origenes: sincronización diaria o
+     Historia SII; si no está instalada, «—») y aviso fijo «Cartapra entrega montos de F29 solo de los últimos 6 folios».
    · Al cliente: «nuestros servicios» (nunca otra palabra).
    Uso: GestoorLevIVA.montar(elemento, {id, razon, rut}, sesion)
    ============================================================ */
@@ -59,6 +62,16 @@
     vencimiento_corrido_habil: 'El vencimiento cayó en día inhábil: se corrió al siguiente día hábil.',
     feriados_no_cargados: 'No hay feriados cargados para ese año: solo se consideraron fines de semana.'
   };
+  var AVISO_F29 = 'Cartapra entrega montos de F29 solo de los últimos 6 folios';
+  var ORIGEN = { historia: 'Historia SII', sync: 'Sincronización diaria' };
+  /** Texto del origen del RCV de un mes (ventas y compras). */
+  function origenTxt(o) {
+    if (!o) return '—';
+    var v = o.ventas, c = o.compras;
+    if (!v && !c) return '—';
+    if (v && c && v !== c) return 'Mixto (Historia SII y diaria)';
+    return ORIGEN[v || c] || '—';
+  }
   var NOMBRE_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
   function el(tag, cls, txt) { var e = doc.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -143,7 +156,9 @@
       '.liva-chip.cond{margin-left:4px;background:transparent;border:1px dashed #FFC85A;color:#FFC85A}.liva-t td.prov{color:#FFC85A}',
       '.liva-ctl select{min-height:38px;border-radius:10px;border:1px solid #4A2B50;background:#140B17;color:#F3E9F4;padding:0 10px;font:inherit;font-size:13px}',
       '.liva-aviso{margin-top:12px;font-size:11.5px;color:#FFC85A;line-height:1.5}',
-      '.liva-sup{margin:6px 0 0;padding-left:18px;font-size:11.5px;color:#C9A8CC;line-height:1.5}'
+      '.liva-sup{margin:6px 0 0;padding-left:18px;font-size:11.5px;color:#C9A8CC;line-height:1.5}',
+      '.liva-f29{margin-top:10px;font-size:11.5px;color:#FFC85A;line-height:1.5}',
+      '.liva-t td.orig{text-align:left;color:#C9A8CC;font-size:11.5px}'
     ].join('\n');
     doc.head.appendChild(s);
   }
@@ -189,7 +204,12 @@
     var bCalc = boton('Calcular', 'grafico', 'liva-calcular');
     var bHist = boton('Pedir historial a Cartapra', 'repetir', 'liva-historial', true);
     var bPdf = boton('Exportar PDF', 'descargar', 'liva-pdf', true); bPdf.disabled = true;
+    if (raiz.GestoorHistoriaSII) {   // CARTAPRA-HISTORIA: varios años de compras y ventas de una vez (abre su propio diálogo encima)
+      var bHsii = boton('Historia SII', 'calendario', 'liva-historia-sii', true);
+      bHsii.addEventListener('click', function () { raiz.GestoorHistoriaSII.abrir(cliente, { desde: iDesde.value, hasta: iHasta.value }); });
+    }
     caja.appendChild(ctl);
+    var avF29 = el('div', 'liva-f29', AVISO_F29 + ': los F29 más antiguos se muestran como «F29 sin montos» (con el IVA del RCV, sin comparar).'); avF29.id = 'liva-aviso-f29'; caja.appendChild(avF29);
     var msg = el('div', 'liva-msg', 'Elige el rango y presiona Calcular. Por defecto: los últimos 36 meses cerrados.'); msg.id = 'liva-msg'; caja.appendChild(msg);
     var res = el('div'); res.id = 'liva-res'; caja.appendChild(res);
 
@@ -204,9 +224,21 @@
           if (!vista || s !== vista.seq) return;
           vista.datos = d; bCalc.disabled = false; bPdf.disabled = false;
           pintar(res, d); aviso(textoResumen(d), claseResumen(d));
+          pintarOrigenes(s, d);
         })
         .catch(function (e) { if (!vista || s !== vista.seq) return; bCalc.disabled = false; aviso(mensajeError(e), 'roj'); });
     });
+    // Origen por mes (solo metadatos). Si la RPC no está o falla, la columna queda «—» (no afecta el cálculo).
+    function pintarOrigenes(s, d) {
+      rpc('sii_historia_origenes', { p_cliente_id: Number(cliente.id), p_desde: d.desde, p_hasta: d.hasta })
+        .then(function (o) { if (!vista || s !== vista.seq) return; var m = {}; ((o && o.meses) || []).forEach(function (x) { m[x.periodo] = x; }); vista.origenes = m; llenar(m); })
+        .catch(function () { if (!vista || s !== vista.seq) return; vista.origenes = null; llenar({}); });
+      function llenar(m) {
+        Array.prototype.forEach.call(doc.querySelectorAll('#liva-tabla tr.fila'), function (f) {
+          var td = f.querySelector('td.orig'); if (td) td.textContent = origenTxt(m[f.getAttribute('data-periodo')]);
+        });
+      }
+    }
     bHist.addEventListener('click', function () {
       bHist.disabled = true; aviso('Pidiendo a Cartapra lo que falta…');
       rpc('sii_levantamiento_pedir_historial', { p_cliente_id: Number(cliente.id), p_desde: aAAAAMM(iDesde.value), p_hasta: aAAAAMM(iHasta.value) })
@@ -296,7 +328,7 @@
 
     var tw = el('div', 'liva-tw'), t = el('table', 'liva-t'); t.id = 'liva-tabla';
     var th = el('thead'), tr = el('tr');
-    ['Mes', 'Estado', 'IVA ventas RCV', 'Débito F29', 'IVA compras RCV', 'Crédito F29', 'Rem. anterior', 'IVA declarado', 'IVA recalculado', 'Diferencia', 'Estimado a pagar']
+    ['Mes', 'Estado', 'IVA ventas RCV', 'Débito F29', 'IVA compras RCV', 'Crédito F29', 'Rem. anterior', 'IVA declarado', 'IVA recalculado', 'Diferencia', 'Estimado a pagar', 'Origen']
       .forEach(function (x) { tr.appendChild(el('th', null, x)); });
     th.appendChild(tr); t.appendChild(th);
     var tb = el('tbody');
@@ -315,8 +347,9 @@
       f.appendChild(el('td', null, pesos(iva.declarado))); f.appendChild(el('td', null, pesos(iva.recalculado)));
       var cd = el('td', 'dif' + (num(iva.diferencia) > 0 ? ' roj' : num(iva.diferencia) < 0 ? ' amb' : ''), pesos(iva.diferencia)); f.appendChild(cd);
       var em = estimadoMes(m); f.appendChild(el('td', em.c || null, em.t));
+      f.appendChild(el('td', 'orig', '…'));   // se llena con sii_historia_origenes
       tb.appendChild(f);
-      var det = el('tr', 'det'); det.hidden = true; var dc = el('td'); dc.colSpan = 11; det.appendChild(dc);
+      var det = el('tr', 'det'); det.hidden = true; var dc = el('td'); dc.colSpan = 12; det.appendChild(dc);
       if (m.motivo && MOTIVOS[m.motivo]) dc.appendChild(el('div', null, MOTIVOS[m.motivo]));
       var ul = el('ul'); (m.alertas || []).forEach(function (a) { ul.appendChild(el('li', null, ALERTAS[a] || a)); });
       if (ul.childNodes.length) dc.appendChild(ul);
@@ -359,6 +392,7 @@
       '<h2>Detalle mes a mes</h2><table><thead><tr><th>Mes</th><th>Estado</th><th>IVA ventas SII</th><th>Débito declarado</th><th>IVA compras SII</th><th>Crédito declarado</th><th>IVA declarado</th><th>IVA recalculado</th><th>Diferencia</th><th>Estimado</th></tr></thead><tbody>' + filas + '</tbody></table>' +
       '<h2>Supuestos</h2><ul>' + (e.supuestos || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') +
       '<li>«Sin datos» significa que aún no tenemos la información del SII de ese mes; no se considera cero. «Sin declaración encontrada»: no se encontró declaración en los antecedentes disponibles.</li>' +
+      '<li>' + esc(AVISO_F29) + ': los F29 más antiguos figuran como «F29 sin montos» (se muestra el IVA del RCV, sin comparar).</li>' +
       '<li>«Provisional» y «Condicionado»: el mes depende de información incompleta o de un supuesto (por ejemplo, remanente inicial desconocido tomado como 0); su monto no se suma al subtotal conocido.</li></ul>' +
       '<div class="pie">Asesorías Contadoor Ltda. · contadoor.cl</div></div>';
   }
@@ -398,5 +432,5 @@
     doc.body.appendChild(f);
   }
 
-  raiz.GestoorLevIVA = { montar: montar, abrir: abrir, cerrar: cerrar, puedeVer: puedeVer, rangoPorDefecto: rangoPorDefecto, documentoPdf: documentoPdf, mensajeError: mensajeError, ESTADOS: ESTADOS };
+  raiz.GestoorLevIVA = { montar: montar, abrir: abrir, cerrar: cerrar, puedeVer: puedeVer, rangoPorDefecto: rangoPorDefecto, documentoPdf: documentoPdf, mensajeError: mensajeError, origenTxt: origenTxt, ESTADOS: ESTADOS };
 })(window);
