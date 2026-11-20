@@ -595,6 +595,6 @@
   }
 
   var D = { abrirMes: abrirMes, cerrarMes: cerrarMes, verBorradorMes: verBorradorMes, borradorTodos: borradorTodos, exportarExcel: exportarExcel, libroExcel: libroExcel,
-            documentoBorrador: documentoBorrador, alDescargar: alDescargar, TIPOS: TIPOS, EXCELJS_URL: EXCELJS_URL, EXCELJS_SRI: EXCELJS_SRI, AVISO_BORRADOR: AVISO_BORRADOR };
+            documentoBorrador: documentoBorrador, imprimirHtml: imprimirHtml, alDescargar: alDescargar, TIPOS: TIPOS, EXCELJS_URL: EXCELJS_URL, EXCELJS_SRI: EXCELJS_SRI, AVISO_BORRADOR: AVISO_BORRADOR };
   raiz.GestoorLevDetalle = D;
 })(window);

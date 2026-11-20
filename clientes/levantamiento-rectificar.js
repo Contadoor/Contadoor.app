@@ -8,6 +8,7 @@
      total del escenario y del levantamiento, rotulado «ingresado a mano». NO se guarda en la base (solo vista y exportes).
    · Colores: gris sin cambio · ámbar solo remanente (sin pago) · rojo IVA a pagar · verde pagó de más.
    · Datos externos SIEMPRE con textContent; el PDF se arma con texto escapado. Al cliente: «nuestros servicios».
+   · INFORME PARA EL CLIENTE (20-11-2026): si está levantamiento-informe.js, el panel suma «Informe para el cliente (PDF)».
    Uso: GestoorLevRect.abrir(ctx) · escenario(ctx) · paginaPdf(esc, cliente, logo, otros) · hojaExcel(wb, esc, ctx, img)
    ============================================================ */
 (function (raiz) {
@@ -143,10 +144,13 @@
     var caja = el('div', 'livr-caja'); velo.appendChild(caja);
     var cab = el('div', 'livr-cab'), h = el('h3', null, 'Si rectificamos todo · ' + mesTxt(ctx.desde) + ' a ' + mesTxt(ctx.hasta));
     h.appendChild(el('span', null, (ctx.cliente.razon || 'Cliente') + (ctx.cliente.rut ? ' · ' + ctx.cliente.rut : ''))); cab.appendChild(h);
-    var LD = raiz.GestoorLevDetalle, bPdf = null, bXls = null;
+    var LD = raiz.GestoorLevDetalle, bPdf = null, bXls = null, bInf = null;
     if (LD) {
       bPdf = el('button', 'liva-btn sec', 'Borradores F29 (PDF)'); bPdf.type = 'button'; bPdf.id = 'livr-pdf'; bPdf.disabled = true; cab.appendChild(bPdf);
       bXls = el('button', 'liva-btn sec', 'Exportar Excel'); bXls.type = 'button'; bXls.id = 'livr-excel'; bXls.disabled = true; cab.appendChild(bXls);
+      if (raiz.GestoorLevInforme) {   // INFORME PARA EL CLIENTE (levantamiento-informe.js): PDF en lenguaje simple, sin notas internas
+        bInf = el('button', 'liva-btn', 'Informe para el cliente (PDF)'); bInf.type = 'button'; bInf.id = 'livr-informe'; bInf.disabled = true; cab.appendChild(bInf);
+      }
     }
     var x = el('button', 'liva-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Cerrar'); x.addEventListener('click', cerrar); cab.appendChild(x);
     caja.appendChild(cab);
@@ -167,6 +171,7 @@
         bPdf.disabled = false; bXls.disabled = false;
         bPdf.addEventListener('click', function () { LD.borradorTodos(ctx, { boton: bPdf, aviso: aviso }); });
         bXls.addEventListener('click', function () { LD.exportarExcel(ctx, { boton: bXls, aviso: aviso }); });
+        if (bInf) { bInf.disabled = false; bInf.addEventListener('click', function () { raiz.GestoorLevInforme.exportar(ctx, esc, { boton: bInf, aviso: aviso }); }); }
       }
     }).catch(function (e) {
       if (panel !== velo) return;

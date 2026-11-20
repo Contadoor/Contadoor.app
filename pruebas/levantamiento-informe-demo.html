@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo · Informe para el cliente</title>
+</head>
+<body>
+<!-- DEMO LOCAL con datos 100 % FICTICIOS («Empresa Ficticia SpA», levantamiento-rectificar-datos.js, que sale tal cual de la réplica local).
+     Muestra el «Informe para el cliente (PDF)» tal como se imprime desde «Si rectificamos todo» (Cmd+P → Guardar como PDF).
+     ?escenario=todo → rango con «pagó de más» · &otros=1 → suma «Otros cargos» con motivo. Sin servidor: no llama a ninguna RPC.
+     El flujo completo con el botón (y la bitácora simulada) está en levantamiento-rectificar-demo.html. -->
+<script src="levantamiento-rectificar-datos.js"></script>
+<script src="../clientes/levantamiento-informe.js"></script>
+<script>
+  (function () {
+    var q = location.search, esc = /escenario=todo/.test(q) ? window.LIVR_TODO : window.LIVR_PARCIAL;
+    var otros = /otros=1/.test(q) ? { monto: 150000, motivo: 'Multa por declaración fuera de plazo (ejemplo ficticio)' } : null;
+    var html = window.GestoorLevInforme.documento(esc, { id: 1, razon: 'Empresa Ficticia SpA', rut: '76.000.000-0' },
+      new URL('../assets/contadoor-lockup-glossy.png', location.href).href, otros);
+    document.open(); document.write(html); document.close();
+  })();
+</script>
+</body>
+</html>
