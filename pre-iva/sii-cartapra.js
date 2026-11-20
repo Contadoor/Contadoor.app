@@ -118,6 +118,59 @@
     return { valor: null, origen: null, texto: 'sin remanente de ' + mA, aviso: null,
              bloqueo: { tipo: tipo, mensaje: msg, puedeManual: puedeManual, detalleContable: info.aviso || null, mesAnterior: mA, mes: mP } };
   }
+  // ── Remanente ingresado a mano (19-11) — COMPARTIDO: Pre-IVA hoy y el «Validar IVA» de Contable después ──
+  // Usa la RPC EXISTENTE public.registrar_remanente_anterior_manual(p_reporte_id, p_cod77, p_motivo) (SECURITY DEFINER):
+  // solo Master o analista contable asignado; exige que el reporte del mes anterior NO exista en Gestoor, UTM registrada y motivo ≥ 10.
+  var MOTIVO_REM_MIN = 10, MOTIVO_REM_MAX = 500;
+  // o: { cod77 (texto o número; se aceptan puntos), motivo } → { error } o { cod77: entero, motivo }
+  function validarRemanenteManual(o) {
+    o = o || {};
+    var t = String(o.cod77 == null ? '' : o.cod77).replace(/[.\s$]/g, ''), m = String(o.motivo || '').trim();
+    if (!/^\d+$/.test(t)) return { error: 'El código 77 debe ser un número entero en pesos, 0 o mayor (sin puntos ni decimales).' };
+    if (m.length < MOTIVO_REM_MIN) return { error: 'Escribe el motivo: de dónde sale el monto (mínimo ' + MOTIVO_REM_MIN + ' caracteres).' };
+    if (m.length > MOTIVO_REM_MAX) return { error: 'El motivo puede tener como máximo ' + MOTIVO_REM_MAX + ' caracteres.' };
+    return { cod77: Number(t), motivo: m };
+  }
+  // Error de la base → texto para el analista (mesAnterior: 'octubre 2026')
+  function mensajeErrorRemanenteManual(m, mesAnterior) {
+    m = String(m || 'Error desconocido'); var ant = mesAnterior || 'el mes anterior';
+    var mapa = [[/SOLO_ANALISTA_ASIGNADO/, 'Solo el analista contable asignado a este cliente o el Master pueden registrar el remanente.'],
+      [/NO_AUTORIZADO/, 'Tu sesión no es válida o tu usuario está inactivo. Vuelve a iniciar sesión.'],
+      [/MES_ANTERIOR_EXISTE/, 'El reporte de ' + ant + ' existe en Gestoor: el remanente se toma de ese reporte (si no está validado, valídalo primero en Reporte Contable).'],
+      [/SIN_UTM/, m.replace(/^.*SIN_UTM:\s*/, 'Falta la UTM: ')],
+      [/REPORTE_CERRADO/, 'El reporte de este mes ya está validado: el Master debe reabrirlo para cambiar el remanente.'],
+      [/REPORTE_NO_EXISTE/, 'Aún no existe el reporte de este mes en Gestoor. Pide al Master registrar el remanente manual.'],
+      [/MONTO_INVALIDO/, 'El código 77 debe ser un entero en pesos, 0 o mayor.'], [/MOTIVO_OBLIGATORIO/, 'El motivo debe tener al menos 10 caracteres.']];
+    for (var i = 0; i < mapa.length; i++) { if (mapa[i][0].test(m)) return mapa[i][1]; }
+    return m.replace(/<[^>]+>/g, '').substring(0, 300);
+  }
+  // Respuesta de public.remanente_anterior → remContable {valor, fuente, info, raw} (lo que recibe remanenteDelPeriodo)
+  function remContableDesdeInfo(info, periodo) {
+    var RA = raiz.RemanenteAnterior || (typeof require === 'function' ? require('../assets/remanente-anterior.js') : null);
+    var R = RA.resolver({ periodo: perSin(periodo).replace(/^(\d{4})(\d{2})$/, '$1-$2'), lecturaOk: true, info: info || null });
+    return R.bloquea ? { valor: null, fuente: 'sin', info: R, raw: info || null } : { valor: R.monto, fuente: R.fuente === 'manual' ? 'manual' : 'contable', info: R, raw: info || null };
+  }
+  // o: { clienteRut, periodo, reporteId (opcional: si no, se busca en reportes_mensuales), cod77, motivo }
+  // → Promise { ok: true, info, remContable } | { ok: false, error }   (nunca lanza)
+  function registrarRemanenteManual(o, sbFetchFn) {
+    o = o || {};
+    var f = sbFetchFn || (typeof sbFetch === 'function' ? sbFetch : null), per = perSin(o.periodo), perG = per.replace(/^(\d{4})(\d{2})$/, '$1-$2');
+    var mA = mesTxt(perAnterior(per)), v = validarRemanenteManual(o);
+    if (v.error) return Promise.resolve({ ok: false, error: v.error });
+    if (!f) return Promise.resolve({ ok: false, error: 'Sin conexión con Gestoor.' });
+    function json(r) { return r.text().then(function (t) { var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { /* */ } return { r: r, j: j }; }); }
+    var pId = Number(o.reporteId) > 0 ? Promise.resolve(Number(o.reporteId))
+      : f('reportes_mensuales?cliente_rut=eq.' + encodeURIComponent(o.clienteRut) + '&periodo=eq.' + perG + '&select=id').then(json).then(function (x) {
+          if (!x.r.ok) throw new Error((x.j && x.j.message) || ('HTTP ' + x.r.status));
+          var id = x.j && x.j[0] && x.j[0].id; if (!id) throw new Error('REPORTE_NO_EXISTE'); return Number(id); });
+    return pId.then(function (id) {
+      return f('rpc/registrar_remanente_anterior_manual', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_reporte_id: id, p_cod77: v.cod77, p_motivo: v.motivo }) }).then(json);
+    }).then(function (x) {
+      if (!x.r.ok || !x.j || x.j.ok !== true) throw new Error((x.j && (x.j.message || x.j.error)) || ('HTTP ' + x.r.status));
+      return { ok: true, info: x.j.info || null, remContable: remContableDesdeInfo(x.j.info, per) };
+    }).catch(function (e) { return { ok: false, error: mensajeErrorRemanenteManual(e && e.message, mA) }; });
+  }
   // Registro que se guarda con el Pre-IVA (preiva_historial.fuente_montos / sii_datos_al / sii_detalle)
   function registro(p, fuente) {
     if (!p || (fuente !== 'sii' && fuente !== 'sii_editado')) return { fuente_montos: fuente || null, sii_datos_al: null, sii_detalle: null };
@@ -140,7 +193,9 @@
       })
       .catch(function (e) { return { estado: noInstalada(e) ? 'no_disponible' : (e && e.code === '42501' ? 'sin_permiso' : 'error'), error: e && e.message }; });
   }
-  var api = { aPantalla: aPantalla, remanenteDelPeriodo: remanenteDelPeriodo, registro: registro, leer: leer, fechaChile: fechaChile, TIPOS: TIPOS };
+  var api = { aPantalla: aPantalla, remanenteDelPeriodo: remanenteDelPeriodo, validarRemanenteManual: validarRemanenteManual,
+              mensajeErrorRemanenteManual: mensajeErrorRemanenteManual, remContableDesdeInfo: remContableDesdeInfo, registrarRemanenteManual: registrarRemanenteManual,
+              registro: registro, leer: leer, fechaChile: fechaChile, TIPOS: TIPOS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.PreIvaSii = api;
 })(typeof window !== 'undefined' ? window : globalThis);

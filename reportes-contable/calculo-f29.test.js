@@ -61,6 +61,16 @@ test('sin F29 anterior: usa el remanente de Contable si lo tiene; si no, «Falta
   const b = C.armar(base({ raw: sinF29, remContable: { valor: 0, fuente: 'sin' } }));
   assert.equal(linea(b, 'remanente').falta, 'remanente anterior'); assert.equal(linea(b, 'iva').valor, null);
   assert.equal(b.total, null); assert.match(b.faltas.join(' '), /F29 de septiembre 2026/);
+  // 19-11: el mismo bloqueo y texto que el Pre-IVA (nunca $0) y el IVA no se calcula
+  assert.equal(b.remanenteBloqueo.tipo, 'sin_declarar');
+  assert.equal(linea(b, 'remanente').bloqueo, '⚠️ Septiembre 2026 no está declarado en el SII (o falta su remanente). Primero hay que declararlo: su remanente arrastra el de meses anteriores. Mientras tanto no se puede calcular octubre 2026.');
+  assert.equal(b.calculo.ivaPagar, null); assert.equal(b.calculo.faltaRemanente, true);
+  assert.equal(C.armar(base({ raw: sinF29 })).remanenteBloqueo, null);
+});
+test('19-11: nunca dos meses atrás en la tarjeta: noviembre con F29 de septiembre (cód. 77 > 0) y sin Contable → bloqueado', () => {
+  const a = C.armar(base({ periodo: '2026-11', raw: raw({ periodo: '202611' }), remContable: { valor: null, fuente: 'sin' } }));
+  assert.equal(linea(a, 'remanente').valor, null); assert.equal(a.total, null);
+  assert.match(a.remanenteBloqueo.mensaje, /^⚠️ Octubre 2026 no está declarado en el SII/);
 });
 test('sin UTM: «Falta: UTM de …» sin inventar el remanente', () => {
   const r = raw({ remanente_anterior: { periodo: '2026-09', cod77: 100000, cod504: null, fuente: 'sii_codigo_77', falta_utm: ['2026-11'] } });

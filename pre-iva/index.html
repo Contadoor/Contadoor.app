@@ -786,40 +786,22 @@ function abrirRemanenteManual(){
   f.hidden=false;document.getElementById('ed-rem-77').focus();
 }
 function cerrarRemanenteManual(){var f=document.getElementById('pio-rem-man-form');if(f)f.hidden=true;}
-function remManualError(m){
-  m=String(m||'Error desconocido');var ant=PreIvaSii.remanenteDelPeriodo({periodo:_periodoActual}).bloqueo.mesAnterior;
-  var mapa=[[/SOLO_ANALISTA_ASIGNADO/,'Solo el analista contable asignado a este cliente o el Master pueden registrar el remanente.'],
-    [/NO_AUTORIZADO/,'Tu sesión no es válida o tu usuario está inactivo. Vuelve a iniciar sesión.'],
-    [/MES_ANTERIOR_EXISTE/,'El reporte de '+ant+' existe en Gestoor: el remanente se toma de ese reporte (si no está validado, valídalo primero en Reporte Contable).'],
-    [/SIN_UTM/,m.replace(/^.*SIN_UTM:\s*/,'Falta la UTM: ')],
-    [/REPORTE_CERRADO/,'El reporte de este mes ya está validado: el Master debe reabrirlo para cambiar el remanente.'],
-    [/REPORTE_NO_EXISTE/,'Aún no existe el reporte de este mes en Gestoor. Pide al Master registrar el remanente manual.'],
-    [/MONTO_INVALIDO/,'El código 77 debe ser un entero en pesos, 0 o mayor.'],[/MOTIVO_OBLIGATORIO/,'El motivo debe tener al menos 10 caracteres.']];
-  for(var i=0;i<mapa.length;i++){if(mapa[i][0].test(m))return mapa[i][1];}
-  return m.replace(/<[^>]+>/g,'').substring(0,300);
-}
+// Registro a mano: lógica COMPARTIDA (PreIvaSii.registrarRemanenteManual: valida, busca el reporte del mes y llama a la RPC existente)
 function guardarRemanenteManual(){
   if(!_clienteActual)return Promise.resolve();
   var c=_clienteActual, per=_periodoActual, er=document.getElementById('ed-rem-err'), btn=document.getElementById('btn-rem-guardar');
-  function error(t){if(er){er.textContent='⚠️ '+t;er.hidden=false;}}
-  var m77=String(document.getElementById('ed-rem-77').value||'').replace(/[.\s$]/g,''), motivo=String(document.getElementById('ed-rem-motivo').value||'').trim();
-  if(!/^\d+$/.test(m77))return Promise.resolve(error('El código 77 debe ser un número entero en pesos, 0 o mayor (sin puntos ni decimales).'));
-  if(motivo.length<10)return Promise.resolve(error('Escribe el motivo: de dónde sale el monto (mínimo 10 caracteres).'));
+  var o={clienteRut:c.rut,periodo:per,cod77:document.getElementById('ed-rem-77').value,motivo:document.getElementById('ed-rem-motivo').value};
+  var v=PreIvaSii.validarRemanenteManual(o);
+  if(v.error){if(er){er.textContent='⚠️ '+v.error;er.hidden=false;}return Promise.resolve();}
   if(btn)btn.disabled=true;if(er)er.hidden=true;
-  return sbJson('reportes_mensuales?cliente_rut=eq.'+encodeURIComponent(c.rut)+'&periodo=eq.'+perDb(per)+'&select=id').then(function(rows){
-    var id=rows&&rows[0]&&rows[0].id;
-    if(!id)throw new Error('REPORTE_NO_EXISTE');
-    return sbFetch('rpc/registrar_remanente_anterior_manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_reporte_id:Number(id),p_cod77:Number(m77),p_motivo:motivo})})
-      .then(function(r){return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null;}catch(e){}
-        if(!r.ok||!j||j.ok!==true)throw new Error((j&&(j.message||j.error))||('HTTP '+r.status));return j;});});
-  }).then(function(d){
+  return PreIvaSii.registrarRemanenteManual(o).then(function(r){
+    if(btn)btn.disabled=false;
+    if(!r.ok){if(er){er.textContent='⚠️ '+r.error;er.hidden=false;}return;}
     if(_clienteActual!==c||_periodoActual!==per)return;
-    var R=window.RemanenteAnterior.resolver({periodo:perDb(per),lecturaOk:true,info:d.info||null});
-    _remInfo=R.bloquea?{valor:null,fuente:'sin',info:R,raw:d.info||null}:{valor:R.monto,fuente:R.fuente==='manual'?'manual':'contable',info:R,raw:d.info||null};
+    _remInfo=r.remContable;
     cerrarRemanenteManual();aplicarRemanente();calcular();marcarCambio();
-    mostrarToast(R.bloquea?'⚠️ Se registró, pero el remanente aún no queda confirmado: revisa el aviso':'✅ Remanente ingresado a mano · F29 recalculado');
-  }).catch(function(e){error(remManualError(e&&e.message));})
-    .then(function(){if(btn)btn.disabled=false;});
+    mostrarToast(r.remContable.fuente==='sin'?'⚠️ Se registró, pero el remanente aún no queda confirmado: revisa el aviso':'✅ Remanente ingresado a mano · F29 recalculado');
+  });
 }
 // Si el analista corrige a mano un monto que vino del SII, queda registrado como "sii_editado"; sin SII, "manual".
 function marcarFuenteManual(){_datos.fuenteMontos=(_datos.fuenteMontos==='sii'||_datos.fuenteMontos==='sii_editado')?'sii_editado':(_datos.fuenteMontos==='libro'?'libro':'manual');}
