@@ -10,6 +10,9 @@
    (si no se sabe, quien cierra lo confirma con una casilla); cierran SOLO el Master o el analista contable asignado; reabre SOLO el
    Master, con motivo (public.reporte_reabrir). reportes_cierres es la fuente oficial: cierresVigentes() marca «Publicado» en Contable y
    en el Panel de Control (que solo lo muestra; ya no cierra).
+   R4 (dictamen R3): el servidor exige además la evidencia de «Validar IVA» (VALIDACION_REQUERIDA / VALIDACION_VENCIDA / DATOS_CAMBIARON
+   llegan como bloqueos con su mensaje) y muestra con qué se validó (SII o libros, quién y cuándo). «Sin trabajadores» no se ofrece si hay
+   antecedentes de RR. HH. (RRHH_ANTECEDENTES_PENDIENTES, no confirmable).
    Esta pantalla no calcula montos ni marca nada sola: si la RPC no está instalada (404 / PGRST202), lo dice y no hace nada. */
 (function (raiz) {
   'use strict';
@@ -29,7 +32,9 @@
     [/^CONTABLE_NO_VALIDADO/, 'El IVA del período aún no está validado en Contable: valídalo («Validar IVA») y después cierra el reporte.'],
     [/DATOS_CAMBIARON/, 'El reporte cambió mientras lo revisabas. Vuelve a abrir «Cerrar reporte».'], [/REAPERTURA_SOLO_MASTER/, 'Solo el Master puede reabrir un reporte cerrado.'],
     [/MOTIVO_OBLIGATORIO/, 'El motivo debe tener entre 10 y 500 caracteres.'], [/SIN_SESION/, 'Tu sesión terminó. Vuelve a ingresar a Gestoor.'],
-    [/REPORTE_YA_CERRADO/, 'Este reporte ya está cerrado (otra persona lo cerró). Vuelve a abrir «Cerrar reporte».']];
+    [/REPORTE_YA_CERRADO/, 'Este reporte ya está cerrado (otra persona lo cerró). Vuelve a abrir «Cerrar reporte».'],
+    // R4 (dictamen R3, D5): «sin trabajadores» solo cuando la situación de RR. HH. es desconocida y sin antecedentes.
+    [/RRHH_CONFIRMACION_NO_CORRESPONDE/, 'La situación de RR. HH. de este período no admite marcar «sin trabajadores»: recarga «Cerrar reporte».']];
   function mensajeError(m) {
     m = String(m || '').replace(/<[^>]+>/g, ''); for (var i = 0; i < MAPA.length; i++) if (MAPA[i][0].test(m)) return MAPA[i][1];
     // CIERRE_DETENIDO: la obligación F29 o el OK del reporte se detuvieron; se muestra el motivo del servidor, sin los códigos internos.
@@ -149,6 +154,8 @@
         var e = v.evaluacion || {}, bl = e.bloqueos || [], conf = soloConfirmable(bl);
         h += '<p class="crep-av">ℹ️ ' + esc(e.conectada_sii ? 'Empresa conectada al SII: el IVA se valida en Contable comparando con el SII (no se piden libros).'
           : 'Empresa no conectada al SII: se exigen los libros de ventas y compras validados en Contable.') + '</p>';
+        if (e.validacion_iva) h += '<p class="crep-av">✅ ' + esc('IVA validado con ' + (e.validacion_iva.metodo === 'sii' ? 'los datos del SII' : 'los libros') + ' por '
+          + (e.validacion_iva.validado_por || '—') + ' el ' + fecha(e.validacion_iva.validado_at)) + '</p>';
         bl.forEach(function (b) { h += '<p class="crep-bl">⛔ ' + esc(b.mensaje || b.codigo) + '</p>'; });
         (e.avisos || []).forEach(function (a) { h += '<p class="crep-av">⚠️ ' + esc(textoAviso(a)) + '</p>'; });
         (e.avisos_internos || []).forEach(function (a) { h += '<p class="crep-av">🗂️ ' + esc(textoAviso(a)) + '</p>'; });

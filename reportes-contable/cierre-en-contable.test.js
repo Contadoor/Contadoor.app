@@ -38,7 +38,9 @@ function entorno(o = {}) {
   ctx.window = ctx;
   if (o.modulo !== false) ctx.GestoorCierreReporte = { abrir: (op) => abiertos.push(op), cierresVigentes: () => Promise.resolve(o.cierres || {}) };
   vm.createContext(ctx);
-  vm.runInContext(['cierreVigenteDe', 'htmlAccionCierre', 'abrirCierreContable', 'cargarCierresPeriodo'].map((n) => extraer(n)).join('\n'), ctx);
+  const msg = HTML.match(/var MSG_CIERRE_NO_DISPONIBLE='[^']+';/);
+  assert.ok(msg, 'R4: falta MSG_CIERRE_NO_DISPONIBLE');
+  vm.runInContext([msg[0], extraer('hesc'), 'cierreVigenteDe', 'htmlAccionCierre', 'abrirCierreContable', 'cargarCierresPeriodo'].map((n) => (n.startsWith('var ') || n.startsWith('function') ? n : extraer(n))).join('\n'), ctx);
   return { ctx, rep, abiertos, navegaciones, avisos };
 }
 const C1 = { rut: '76000000-0' };
@@ -72,9 +74,11 @@ test('R3 · Contable: carga el módulo de cierre y muestra «🔒 Cerrar reporte
   E = entorno({ cierres: { 555: { version: 2, cerrado_at: '2026-11-20T12:00:00Z' } } });
   const k = E.ctx.htmlAccionCierre(E.rep, C1, false);
   assert.match(k, /🔒 Publicado v2/); assert.match(k, /Ver cierre/); assert.doesNotMatch(k, /🔒 Cerrar reporte/);
-  // Sin el módulo cargado: el paso de siempre («Marcar reporte OK»)
+  // R4 · RA-H3/D3: sin el módulo cargado NO hay respaldo: mensaje fijo y ningún botón que cierre o marque OK
   E = entorno({ modulo: false });
-  assert.match(E.ctx.htmlAccionCierre(E.rep, C1, true), /Marcar reporte OK/);
+  const sin = E.ctx.htmlAccionCierre(E.rep, C1, true);
+  assert.match(sin, /El módulo de cierre del reporte no está disponible\. Recarga la página o contacta al administrador\. El reporte no ha sido cerrado\./);
+  assert.doesNotMatch(sin, /Marcar reporte OK|<button|onclick/);
 });
 
 test('R3 · Contable usa htmlAccionCierre en la fila y en el detalle (reemplaza «Marcar reporte OK»)', () => {
@@ -94,6 +98,9 @@ test('R3 · «🔒 Cerrar reporte» abre el cierre en Contable (sin navegar) y a
   assert.equal(E.ctx._reportes[0].listoPanelControl, true); assert.equal(E.ctx.obligRecargadas, true);
   E.abiertos[0].alTerminar('borrador', null);   // el Master reabrió el cierre
   assert.deepEqual(JSON.parse(JSON.stringify(E.ctx._cierresVigentes)), {});
+  // R4 · RA-H3: sin el módulo, abrir el cierre avisa el mensaje fijo y no hace nada más
+  const SM = entorno({ modulo: false }); SM.ctx.abrirCierreContable('76000000-0');
+  assert.equal(SM.abiertos.length, 0); assert.match(SM.avisos[0], /no está disponible[\s\S]*El reporte no ha sido cerrado\./);
   // Reporte inexistente: avisa y no abre nada
   const F = entorno({ rep: { id: null } }); F.ctx.abrirCierreContable('76000000-0');
   assert.equal(F.abiertos.length, 0); assert.match(F.avisos[0], /No se encontró el reporte/);
