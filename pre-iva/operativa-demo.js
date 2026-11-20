@@ -5,6 +5,7 @@
    Uso:  pre-iva/index.html?demo=1&cliente=1   (1 = afecta con todo · 2 = exenta de IVA · 3 = sin datos ni condición de IVA)
          &sii=al_dia | desactualizado | sin_datos   simula la conexión con el SII activa (por defecto: pendiente de activación)
          &cartapra=1   simula la RPC sii_preiva_periodo (SII-PREIVA-F2b) con compras y ventas del SII para el cliente 1
+         &cob=verde | amarillo | rojo | sin   (con &cartapra=1) simula F29 del año (sii_renta_resumen) y la proyección de renta para «Cobertura de la renta»
    ============================================================ */
 (function(){
   var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
@@ -91,6 +92,7 @@
   var corte=mover(PER,-1)+'-'+z(new Date(+mover(PER,-1).slice(0,4),+mover(PER,-1).slice(5,7),0).getDate());
   var ayer=new Date(hoy.getTime()-864e5).toISOString();
   function out(k,m){return {output_key:k,monto:m,estado_dato:'OK'};}
+  var COB_PAG=118750*(+PER.slice(5,7)-1);   // PPM pagados del año en la demo de «Cobertura de la renta»
   var RENTA={501:{estado:'VIGENTE',corrida:{id:9501,cutoff_date:corte,finalizado_at:ayer},outputs:[out('forecast.idpc',53400000),out('forecast.ppm.imputable',24565821),out('forecast.saldo_abril',28834179),out('sim.ppm_voluntario.cuota_mensual',9611393)]},
     502:{estado:'DESACTUALIZADA',corrida:{id:9502,cutoff_date:mover(PER,-3)+'-30',finalizado_at:mover(PER,-2)+'-05T12:00:00Z'},outputs:[out('forecast.idpc',12000000),out('forecast.ppm.imputable',5000000),out('forecast.saldo_abril',7000000)]}};
 
@@ -132,8 +134,18 @@
     }
     if(tabla==='rcv_resumenes'){var ci=eq(path,'cliente_id'), out2=[];Object.keys(RES).forEach(function(s){RES[s].forEach(function(x){if(String(x.cliente_id)===ci)out2.push(x);});});return resp(200,out2);}
     if(tabla==='rcv_documentos'){var off=+(par(path,'offset')||0);if(off>0)return resp(200,[]);var ids=inL(path,'snapshot_id')||[],o3=[];ids.forEach(function(s){(DOCS[s]||[]).forEach(function(x){o3.push(x);});});return resp(200,o3);}
+    if(tabla==='renta_casos'&&qs.get('cob')&&eq(path,'cliente_id')==='1')return resp(200,[{id:503,anio_comercial:+PER.slice(0,4),anio_tributario:+PER.slice(0,4)+1,regimen:'14D3',estado:'IN_PROGRESS'}]);
     if(tabla==='renta_casos'){var c4=eq(path,'cliente_id');return resp(200,c4==='1'?[{id:501,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'OPEN'}]:c4==='2'?[{id:502,anio_comercial:2026,anio_tributario:2027,regimen:'14D3',estado:'OPEN'}]:[]);}
-    if(tabla==='rpc/renta_e1_proyeccion_vigente'){var a={};try{a=JSON.parse(opts.body||'{}');}catch(e){}return resp(200,RENTA[a.p_caso_id]||{estado:'SIN_PROYECCION'});}
+    if(tabla==='rpc/renta_e1_proyeccion_vigente'){var a={};try{a=JSON.parse(opts.body||'{}');}catch(e){}
+      if(a.p_caso_id===503){var fr={verde:0.95,amarillo:0.75,rojo:0.4}[qs.get('cob')];if(!fr)return resp(200,{estado:'SIN_PROYECCION'});
+        return resp(200,{estado:'VIGENTE',corrida:{id:9503,cutoff_date:corte,finalizado_at:ayer},outputs:[out('forecast.idpc',Math.round(COB_PAG/fr/1000)*1000)]});}return resp(200,RENTA[a.p_caso_id]||{estado:'SIN_PROYECCION'});}
+    if(tabla==='rpc/sii_renta_resumen'){   // 19-11 (demo): F29 del año del cliente 1 (base $9.500.000 · tasa 1,25 %) para «Cobertura de la renta»
+      if(qs.get('cartapra')!=='1')return resp(404,{code:'PGRST202',message:'Could not find the function public.sii_renta_resumen'});
+      var bA={};try{bA=JSON.parse(opts.body||'{}');}catch(e){}
+      if(bA.p_cliente_id!==1)return resp(200,{conexion:{estado:'sin_conexion'},meses:[]});
+      var ac=bA.p_anio_tributario-1, ms=[];for(var g=1;g<=12;g++){var pp=ac+z(g), dec=pp<PER.replace('-','');ms.push({periodo:pp,f29:dec?{folio:9200000000+g,ppm:118750,base_ppm:9500000,tasa_ppm:1.25,montos:true}:null});}
+      return resp(200,{conexion:{estado:'conectada'},anio_comercial:ac,meses:ms});
+    }
     if(tabla==='rpc/sii_preiva_periodo'){   // SII-PREIVA-F2b (demo): solo con &cartapra=1; si no, como si la RPC no estuviera instalada
       if(qs.get('cartapra')!=='1')return resp(404,{code:'PGRST202',message:'Could not find the function public.sii_preiva_periodo'});
       var bS={};try{bS=JSON.parse(opts.body||'{}');}catch(e){}

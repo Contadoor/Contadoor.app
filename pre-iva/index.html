@@ -147,9 +147,11 @@
             <tr class="sd fila-iva"><td class="op">−</td><td><span class="liq-t">Crédito IVA</span><small>IVA de tus compras</small><span class="mini"><i class="bar-fill" id="bar-credito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-cred">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-credito">$0</span><span class="nd-alt">—</span></td></tr>
             <tr class="fila-iva"><td class="op">−</td><td><span class="liq-t">Remanente anterior</span><small>Crédito que quedó del mes pasado</small></td><td class="num" style="color:var(--verde)"><span id="pio-r-rem">$0</span></td><td class="num est pio-solo-curso"><span id="res-remanente">$0</span></td></tr>
             <tr class="tot sd fila-iva"><td class="op">=</td><td><span class="liq-t">IVA a pagar</span><small>Si da negativo, paga $0 y queda remanente</small></td><td class="num"><span id="pio-r-iva">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="pio-liq-iva">$0</span><span class="nd-alt">—</span></td></tr>
-            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small><button type="button" class="btn sec chico pio-ppm-btn" id="btn-editar-ppm" title="Cambia la tasa o el monto del PPM (con motivo). Queda registrado al guardar el Pre-IVA"><span data-g-ic="lapiz"></span>Editar PPM</button></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small><span id="pio-ppm-tasa-sii" hidden></span><button type="button" class="btn sec chico pio-ppm-btn" id="btn-editar-ppm" title="Cambia la tasa o el monto del PPM (con motivo). Queda registrado al guardar el Pre-IVA"><span data-g-ic="lapiz"></span>Editar PPM</button></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
             <tr class="fin sd"><td class="op">=</td><td><span class="liq-t">F29</span></td><td class="num"><span id="pio-r-f29">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-f29">$0</span><span class="nd-alt">—</span></td></tr>
           </tbody></table></div>
+          <!-- 19-11 (Luciano): «Cobertura de la renta» = PPM pagados del año (F29 del SII) ÷ impuesto proyectado de MiRenta (pre-iva/ppm-cobertura.js) -->
+          <div id="pio-ppm-cob" hidden></div>
           <!-- 19-11 (Luciano): PPM editable con motivo. Parte del calculado con datos del SII; se guarda con el Pre-IVA (ppm, tasa_ppm y sii_detalle.ppm_editado) -->
           <div class="pio-ppm-ed" id="pio-ppm-ed" hidden>
             <div class="pio-sub-t"><span data-g-ic="lapiz"></span>Editar PPM <small id="pio-ppm-ed-calc"></small></div>
@@ -294,6 +296,7 @@
 <script src="../assets/utm-aviso.js"></script>
 <script>(function(){function go(){var m=document.querySelector('main.main');if(m&&window.GestoorUtmAviso)window.GestoorUtmAviso.montar(m);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();</script>
 <script src="../assets/equipo.js"></script>
+<script src="ppm-cobertura.js"></script>
 <script>if(window.PIO_DEMO)document.write('<script src="operativa-demo.js"><\/script>');</script>
 <script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
@@ -389,7 +392,7 @@ var PREIVA_COLS='cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,ta
 function perDb(p){p=String(p||'');return /^\d{6}$/.test(p)?p.slice(0,4)+'-'+p.slice(4,6):p;}
 function perUi(p){return String(p||'').replace('-','');}
 function numDe(v){if(typeof v==='number')return v;return parseInt(String(v||'').replace(/[^0-9]/g,''),10)||0;}
-var _remInfo=null, _siiCartapra=null;   // SII-PREIVA-F2b: remanente leído de Contable y datos del SII (Cartapra) del cliente abierto
+var _remInfo=null, _siiCartapra=null, _ppmSii=null;   // _ppmSii: F29 del año (SII) + proyección de renta (pre-iva/ppm-cobertura.js)   // SII-PREIVA-F2b: remanente leído de Contable y datos del SII (Cartapra) del cliente abierto
 var _filaPreiva=null;        // fila guardada del cliente/período abierto (null = no existe; undefined = no se pudo leer)
 var _autoTimer=null, _cargando=false, _sucio=false, _colaGuardado=Promise.resolve(), _ultimoModoFallido=null;
 function mensajeErrorSb(status,j){
@@ -662,6 +665,7 @@ function cargarDatos(){
     calcular();
     pintarHistorial(hist);
     cargarSiiCartapra(c, per, fila);
+    cargarPPMCobertura(c, per);
     if(_filaPreiva!==undefined){setSyncStatus('ok');estadoGuardado(fila?(fila.fecha_envio?'enviado':'ok'):'nuevo');
       if(fila&&!fila.fecha_envio){var el=document.getElementById('estado-guardado');if(el)el.textContent='Guardado en Gestoor ✓ · borrador';}}
   }).catch(function(e){
@@ -693,6 +697,28 @@ function cargarSiiCartapra(c, per, fila){
     box.hidden=false;
     usarSiiCartapra();
   });
+}
+// ── 19-11: tasa del último F29 del SII (por defecto) + «Cobertura de la renta» (pre-iva/ppm-cobertura.js, compartido con Reporte Contable) ──
+// La tasa del último F29 declarado (cód. 115) se pone sola en «Tasa PPM» al abrir: es solo pantalla, se guarda cuando el analista valida o
+// cambia algo (igual que los montos del SII). Sin F29 en el SII, queda la de siempre (Pre-IVA guardado → historial → ficha). «Editar PPM» la cambia.
+function cargarPPMCobertura(c, per){
+  _ppmSii=null;pintarCoberturaPPM(null);
+  var lt=document.getElementById('pio-ppm-tasa-sii');if(lt){lt.hidden=true;lt.textContent='';}
+  if(!window.PreIvaPPMCobertura||!c||!c.id)return Promise.resolve();
+  return PreIvaPPMCobertura.leer(c.id, per).then(function(r){
+    if(_clienteActual!==c||_periodoActual!==per)return;
+    _ppmSii=r;
+    PreIvaPPMCobertura.pintarTasa(lt, r.ultimo);
+    var inp=document.getElementById('inp-tasa-ppm');
+    if(inp&&r.ultimo&&r.ultimo.valida&&parseFloat(inp.value)!==r.ultimo.tasa)inp.value=r.ultimo.tasa;
+    calcular();
+  });
+}
+function pintarCoberturaPPM(R){
+  var box=document.getElementById('pio-ppm-cob');if(!box||!window.PreIvaPPMCobertura)return;
+  if(!_ppmSii||!R){box.hidden=true;box.textContent='';return;}
+  PreIvaPPMCobertura.pintarCobertura(box, PreIvaPPMCobertura.cobertura({meses:_ppmSii.sii.meses,siiEstado:_ppmSii.sii.estado,periodo:_periodoActual,
+    ppmMes:R.ppm,baseMes:R.ppmBase,renta:_ppmSii.renta}));   // el PPM del mes (con la edición, si la hay) va aparte, como proyección
 }
 function usarSiiCartapra(){
   var p=_siiCartapra;if(!p)return;
@@ -735,6 +761,7 @@ function pintarPPM(R){
   var elEd=document.getElementById('res-ppm-editado');
   if(elEd){elEd.textContent=R.ppmEditado?PreIvaF29.etiquetaPPMEditado(R)+(R.ppmMotivo?' · Motivo: '+R.ppmMotivo:''):'';elEd.style.display=R.ppmEditado?'block':'none';}
   _datos.ppm=ppm;_datos.tasaPPM=R.tasa;_datos.ppmBase=base;_datos.ppmAvisos=avisos;_datos.ppmCalculado=R.ppmCalculado;_datos.tasaPPMCalculada=R.tasaCalculada;
+  pintarCoberturaPPM(R);
   return ppm;
 }
 // ── PPM EDITABLE (19-11): tasa o monto con motivo; la regla y la validación son las compartidas de f29-formula.js ──
@@ -1156,6 +1183,7 @@ function limpiarSimulacion(){
   ['desg-ventas','desg-compras'].forEach(function(id){var e=document.getElementById(id);if(e){e.textContent='';e.style.display='none';}});
   document.querySelectorAll('input[type="file"]').forEach(function(f){f.value='';});
   _datos.fuenteMontos=null;_siiCartapra=null;var bxS=document.getElementById('pio-sii-cartapra');if(bxS)bxS.hidden=true;
+  _ppmSii=null;var bxC=document.getElementById('pio-ppm-cob');if(bxC){bxC.hidden=true;bxC.textContent='';}var bxT=document.getElementById('pio-ppm-tasa-sii');if(bxT){bxT.hidden=true;bxT.textContent='';}
   ['kpi-f29','kpi-ppm','kpi-remanente'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='$0';});
   ['kpi-var','kpi-dias'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
   ['res-debito','res-credito','res-remanente','res-ppm','res-f29'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='$0';});
