@@ -107,6 +107,13 @@
   function estadoDe(m) {
     var e = ESTADOS[m.estado] || ESTADOS.sin_datos;
     if (m.estado === 'calza' && m.calce === 'dentro_tolerancia') return { t: 'Calza (±$100)', c: 'ver' };
+    // 20-11: «a_favor» no siempre es plata a favor del cliente. Si el remanente que se arrastra (77) quedó más alto que el
+    // recalculado con el RCV, el cliente declaró de menos y lo absorbió el remanente: es un remanente sobredeclarado a corregir.
+    if (m.estado === 'a_favor' || m.estado === 'revisar_arrastre') {
+      var ds = Number(m.remanente && m.remanente.diferencia_siguiente);
+      if (isFinite(ds) && ds < -100) return { t: 'Remanente sobredeclarado', c: 'amb' };
+      if (m.estado === 'a_favor' && isFinite(ds) && ds > 100) return { t: 'A favor del cliente', c: 'ver' };
+    }
     return e;
   }
   function mensajeError(e) {
