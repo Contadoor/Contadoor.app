@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo · Levantamiento de IVA</title>
+<link rel="stylesheet" href="../assets/gestoor.css">
+<style>body{background:#140B17;color:#F3E9F4;font-family:Inter,sans-serif;padding:24px}</style>
+</head>
+<body class="g-shell g-tema-noche">
+<!-- DEMO LOCAL con datos 100 % FICTICIOS (pruebas/levantamiento-iva-datos.js). sbFetch simulado: no llama a ningún servidor. -->
+<h2>Ficha ficticia</h2>
+<div id="det-liva"></div>
+<script src="../assets/gestoor-menu.js"></script>
+<script src="levantamiento-iva-datos.js"></script>
+<script>
+  window.sbFetch = function (path, o) {
+    var b = JSON.parse(o.body || '{}'), st = 200, j;
+    if (path === 'rpc/sii_levantamiento_iva') j = window.LIVA_DEMO;
+    else if (path === 'rpc/sii_levantamiento_pedir_historial') j = { estado: 'encolado', trabajo_id: 1, lecturas: 9, minutos_estimados: 6 };
+    else { st = 404; j = { code: 'PGRST202' }; }
+    return new Promise(function (r) { setTimeout(function () { r({ ok: st === 200, status: st, text: function () { return Promise.resolve(JSON.stringify(j)); } }); }, 200); });
+  };
+</script>
+<script src="../clientes/levantamiento-iva.js"></script>
+<script>GestoorLevIVA.montar(document.getElementById('det-liva'), { id: 1, razon: 'Empresa Ficticia SpA', rut: '76.000.000-0' }, { esMaster: true });</script>
+</body>
+</html>
