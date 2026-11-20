@@ -7,6 +7,10 @@
      contable asignado; si no → 42501 y se muestra el aviso).
    · Datos externos SIEMPRE con textContent (innerHTML solo para íconos de gIcon). El PDF se arma con texto escapado.
    · Mes sin datos = «Sin datos» (gris), nunca 0. La estimación va siempre marcada «Estimación, verificar».
+   · R2 (22-11-2026): estados provisionales en ámbar (coincidencia provisional, diferencia preliminar, revisar arrastre),
+     meses «condicionados» (remanente desconocido), «F29 sin montos» con el IVA del RCV, totales separados (conocido /
+     provisional / no calculable: nunca se suma lo que falta), medio de declaración (día 20/12) y el PDF con el aviso
+     «Estimación preliminar, no constituye determinación definitiva». Cada PDF queda en la bitácora (RPC registrar_pdf).
    · Al cliente: «nuestros servicios» (nunca otra palabra).
    Uso: GestoorLevIVA.montar(elemento, {id, razon, rut}, sesion)
    ============================================================ */
@@ -15,14 +19,20 @@
   var doc = raiz.document;
   var MORADO = '#924893';
   var ESTADOS = {
-    calza: { t: 'Calza', c: 'ver' }, diferencia: { t: 'Diferencia', c: 'roj' }, no_declarado: { t: 'No declarado', c: 'roj' },
-    a_favor: { t: 'Difiere sin pago', c: 'amb' }, sin_datos: { t: 'Sin datos', c: 'gris' }, en_plazo: { t: 'En plazo', c: 'gris' }
+    calza: { t: 'Calza', c: 'ver' }, diferencia: { t: 'Diferencia', c: 'roj' }, no_declarado: { t: 'Sin declaración encontrada', c: 'roj' },
+    a_favor: { t: 'Difiere sin pago', c: 'amb' }, sin_datos: { t: 'Sin datos', c: 'gris' }, en_plazo: { t: 'En plazo', c: 'gris' },
+    coincidencia_provisional: { t: 'Coincidencia provisional', c: 'amb' }, diferencia_preliminar: { t: 'Diferencia preliminar', c: 'amb' },
+    revisar_arrastre: { t: 'Revisar arrastre', c: 'amb' }, f29_sin_montos: { t: 'F29 sin montos', c: 'gris' }
   };
   var MOTIVOS = {
     sin_rcv: 'Faltan las compras y ventas del SII de este mes (pide el historial a Cartapra).',
-    f29_sin_montos: 'El F29 está declarado pero aún no tenemos sus montos (pide el historial a Cartapra).',
+    no_disponible_cartapra: 'Cartapra no tiene las compras y ventas de este mes (respondió «no disponible»). No significa que no hubo movimiento.',
+    f29_sin_montos: 'El F29 está declarado pero aún no tenemos sus montos (pide el historial a Cartapra). Se muestra el IVA del RCV, sin comparar.',
+    f29_sin_montos_cartapra: 'F29 sin montos en Cartapra: el F29 está declarado, pero Cartapra no entrega sus montos para este mes. Se muestra el IVA del RCV, sin comparar.',
+    sin_declaracion_en_antecedentes: 'No se encontró declaración en los antecedentes disponibles.',
     sin_conexion: 'La empresa no está conectada con el SII.'
   };
+  var CALIDAD = { completa: '', provisional: ' (provisional)', no_calculable: ' (no calculable)' };
   var ALERTAS = {
     notas_credito_emitidas: 'Notas de crédito emitidas: rebajan el débito; revisar que correspondan al mes.',
     notas_credito_recibidas: 'Notas de crédito recibidas: rebajan el crédito.',
@@ -38,11 +48,16 @@
     rectificatoria: 'El período tiene más de una declaración (rectificatoria).',
     f29_observado: 'El F29 tiene una marca del SII para revisar u observada.',
     rcv_parcial: 'La lectura del RCV quedó parcial.',
-    remanente_distinto: 'El remanente que pasa al mes siguiente no es el declarado.',
     cadena_reiniciada: 'Tras un mes sin datos, el remanente parte del declarado (cód. 504).',
-    remanente_inicial_desconocido: 'No se conoce el remanente inicial: se supuso 0.',
-    remanente_sin_reajuste_utm: 'Falta la UTM: el remanente se pasó sin reajustar.',
-    reajuste_sin_utm: 'Falta la UTM del vencimiento: reajuste no calculado.'
+    remanente_inicial_desconocido: 'No se conoce el remanente inicial: el cálculo usa el escenario conservador remanente = 0 (supuesto). Mes condicionado.',
+    remanente_sin_reajuste_utm: 'Falta la UTM para reajustar el remanente: se pasó sin reajustar. Mes condicionado.',
+    depende_de_supuesto: 'Este mes depende de un remanente supuesto o sin reajustar de meses anteriores (condicionado).',
+    remanente_distinto: 'El remanente (cód. 504 o 77) recalculado no es el declarado: revisar el arrastre.',
+    diferencia_por_arrastre: 'Débito y crédito del mes calzan: la diferencia viene del remanente arrastrado.',
+    reajuste_sin_utm: 'Falta la UTM del vencimiento o del mes de pago: reajuste pendiente (el total no se calcula).',
+    intereses_sin_tasa: 'Falta la tasa de interés penal del SII para un semestre: intereses pendientes.',
+    vencimiento_corrido_habil: 'El vencimiento cayó en día inhábil: se corrió al siguiente día hábil.',
+    feriados_no_cargados: 'No hay feriados cargados para ese año: solo se consideraron fines de semana.'
   };
   var NOMBRE_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -73,6 +88,11 @@
         return j;
       });
     });
+  }
+  function estadoDe(m) {
+    var e = ESTADOS[m.estado] || ESTADOS.sin_datos;
+    if (m.estado === 'calza' && m.calce === 'dentro_tolerancia') return { t: 'Calza (±$100)', c: 'ver' };
+    return e;
   }
   function mensajeError(e) {
     var c = e && e.codigo, m = (e && e.mensaje) || '';
@@ -120,6 +140,8 @@
       '.liva-t td.dif{font-weight:800}.liva-t td.dif.roj{color:#FF8A7A}.liva-t td.dif.amb{color:#FFC85A}.liva-t td .al{color:#FFC85A;font-weight:700;margin-left:4px}',
       '.liva-t tr.det td{text-align:left;white-space:normal;background:rgba(12,7,14,.4);color:#E9DCEB;font-size:12px;line-height:1.5}',
       '.liva-t tr.det ul{margin:4px 0 0;padding-left:18px}.liva-t tr.det .cods{color:#C9A8CC;font-size:11px;margin-top:6px}',
+      '.liva-chip.cond{margin-left:4px;background:transparent;border:1px dashed #FFC85A;color:#FFC85A}.liva-t td.prov{color:#FFC85A}',
+      '.liva-ctl select{min-height:38px;border-radius:10px;border:1px solid #4A2B50;background:#140B17;color:#F3E9F4;padding:0 10px;font:inherit;font-size:13px}',
       '.liva-aviso{margin-top:12px;font-size:11.5px;color:#FFC85A;line-height:1.5}',
       '.liva-sup{margin:6px 0 0;padding-left:18px;font-size:11.5px;color:#C9A8CC;line-height:1.5}'
     ].join('\n');
@@ -159,6 +181,9 @@
     function campo(etq, tipo, valor, id) { var l = el('label', null, etq); var i = el('input'); i.type = tipo; i.value = valor; i.id = id; l.appendChild(i); ctl.appendChild(l); return i; }
     var iDesde = campo('Desde', 'month', r.desde, 'liva-desde'), iHasta = campo('Hasta', 'month', r.hasta, 'liva-hasta');
     var hoy = new Date(); var iPago = campo('Fecha estimada de pago', 'date', hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0'), 'liva-pago');
+    var lm = el('label', null, 'Declaración'); var iMedio = el('select'); iMedio.id = 'liva-medio';
+    [['internet', 'Internet, facturador electrónico (día 20)'], ['papel', 'Papel (día 12)']].forEach(function (o) { var op = el('option', null, o[1]); op.value = o[0]; iMedio.appendChild(op); });
+    lm.appendChild(iMedio); ctl.appendChild(lm);
     var lf = el('label', 'chk'); var iFisc = el('input'); iFisc.type = 'checkbox'; iFisc.id = 'liva-fisc'; lf.appendChild(iFisc); lf.appendChild(doc.createTextNode('Detectado en fiscalización')); ctl.appendChild(lf);
     function boton(txt, ico, id, sec) { var b = el('button', 'liva-btn' + (sec ? ' sec' : '')); b.type = 'button'; b.id = id; b.appendChild(icono(ico)); b.appendChild(doc.createTextNode(txt)); ctl.appendChild(b); return b; }
     var bCalc = boton('Calcular', 'grafico', 'liva-calcular');
@@ -170,7 +195,7 @@
 
     vista = { velo: velo, cliente: cliente, datos: null, seq: 0 };
     function aviso(t, c) { msg.className = 'liva-msg' + (c ? ' ' + c : ''); msg.textContent = t; }
-    function opciones() { return { fecha_pago: iPago.value || undefined, fiscalizacion: !!iFisc.checked }; }
+    function opciones() { return { fecha_pago: iPago.value || undefined, medio: iMedio.value || 'internet', fiscalizacion: !!iFisc.checked }; }
 
     bCalc.addEventListener('click', function () {
       var s = ++vista.seq; bCalc.disabled = true; bPdf.disabled = true; aviso('Calculando…'); res.textContent = '';
@@ -187,29 +212,67 @@
       rpc('sii_levantamiento_pedir_historial', { p_cliente_id: Number(cliente.id), p_desde: aAAAAMM(iDesde.value), p_hasta: aAAAAMM(iHasta.value) })
         .then(function (j) {
           bHist.disabled = false;
-          if (j && j.estado === 'encolado') aviso('Listo: se pidieron ' + j.lecturas + ' lecturas a Cartapra. Empiezan en unos 5 minutos y toman cerca de ' + j.minutos_estimados + ' min. Vuelve a Calcular después.', 'ver');
-          else if (j && j.estado === 'ya_pedido') aviso('Ya hay un pedido de historial en curso para esta empresa. Vuelve a Calcular en unos minutos.', 'amb');
-          else aviso('No falta nada que pedir para ese rango: lo que sigue sin datos, Cartapra no lo tiene.', 'amb');
+          var om = j && Number(j.omitidos_no_disponibles) > 0 ? ' (' + j.omitidos_no_disponibles + ' lecturas no se repiten: Cartapra ya respondió que no las tiene)' : '';
+          if (j && j.estado === 'encolado') aviso('Listo: se pidieron ' + j.lecturas + ' lecturas a Cartapra' + om + '. Empiezan en unos 5 minutos y toman cerca de ' + j.minutos_estimados + ' min. Te avisaremos en la campana cuando termine.', 'ver');
+          else if (j && j.estado === 'ya_pedido') aviso('Ya hay un pedido de historial en curso para esta empresa. Te avisaremos en la campana cuando termine.', 'amb');
+          else aviso('No falta nada que pedir para ese rango' + om + ': lo que sigue sin datos, Cartapra no lo tiene.', 'amb');
         })
         .catch(function (e) { bHist.disabled = false; aviso(mensajeError(e), 'roj'); });
     });
-    bPdf.addEventListener('click', function () { if (vista && vista.datos) imprimir(vista.datos, cliente); });
+    // PDF: primero queda en la bitácora (quién y cuándo); si no se puede registrar, no se exporta (fail-closed).
+    bPdf.addEventListener('click', function () {
+      if (!vista || !vista.datos) return;
+      var d = vista.datos; bPdf.disabled = true;
+      rpc('sii_levantamiento_registrar_pdf', { p_cliente_id: Number(cliente.id), p_desde: d.desde, p_hasta: d.hasta })
+        .then(function () { bPdf.disabled = false; imprimir(d, cliente); })
+        .catch(function (e) { bPdf.disabled = false; aviso(mensajeError(e), 'roj'); });
+    });
     velo.addEventListener('click', function (ev) { if (ev.target === velo) cerrar(); });
     doc.addEventListener('keydown', alEsc);
     doc.body.appendChild(velo);
   }
 
   function contar(d, e) { return Number((d && d.totales && d.totales.por_estado && d.totales.por_estado[e]) || 0); }
+  function nm(n) { return n + (Number(n) === 1 ? ' mes' : ' meses'); }
+  function nProv(d) { return contar(d, 'coincidencia_provisional') + contar(d, 'diferencia_preliminar') + contar(d, 'revisar_arrastre'); }
   function textoResumen(d) {
-    var comp = contar(d, 'calza') + contar(d, 'diferencia') + contar(d, 'a_favor');
+    var comp = contar(d, 'calza') + contar(d, 'diferencia') + contar(d, 'a_favor') + nProv(d);
     var t = contar(d, 'calza') + ' de ' + comp + ' meses comparables calzan';
     if (contar(d, 'diferencia') + contar(d, 'no_declarado')) t += ' · ' + (contar(d, 'diferencia') + contar(d, 'no_declarado')) + ' con diferencia a pagar';
+    if (nProv(d)) t += ' · ' + nProv(d) + ' provisionales por revisar';
+    if (d.totales && Number(d.totales.condicionados) > 0) t += ' · ' + d.totales.condicionados + ' condicionados (remanente supuesto)';
+    if (contar(d, 'f29_sin_montos')) t += ' · ' + contar(d, 'f29_sin_montos') + ' con F29 sin montos';
     if (contar(d, 'sin_datos')) t += ' · ' + contar(d, 'sin_datos') + ' sin datos (puedes pedir el historial a Cartapra)';
     if (d.historial && (d.historial.estado === 'pendiente' || d.historial.estado === 'en_curso' || d.historial.estado === 'reintento'))
       t += ' · Pedido a Cartapra en curso: ' + d.historial.pendientes + ' lecturas pendientes';
     return t + '.';
   }
-  function claseResumen(d) { return contar(d, 'diferencia') + contar(d, 'no_declarado') > 0 ? 'roj' : contar(d, 'sin_datos') > 0 ? 'amb' : 'ver'; }
+  function claseResumen(d) { return contar(d, 'diferencia') + contar(d, 'no_declarado') > 0 ? 'roj' : contar(d, 'sin_datos') + contar(d, 'f29_sin_montos') + nProv(d) > 0 ? 'amb' : 'ver'; }
+  /** Totales V2: nunca se fabrica un total con lo que falta. */
+  function totales(e) {
+    var k = e.conocido || {}, p = e.provisional || {}, x = e.no_calculable || {};
+    return {
+      total: e.total == null ? (e.total_no_calculable ? 'No calculable' : (num(e.total_provisional) != null ? pesos(e.total_provisional) + ' (provisional)' : '—')) : pesos(e.total),
+      clase: e.total == null ? 'amb' : num(e.total) > 0 ? 'roj' : 'ver',
+      conocido: pesos(k.total), nConocido: Number(k.meses || 0),
+      provisional: pesos(p.total), nProv: Number(p.meses || 0),
+      nPend: Number(x.meses || 0), pend: (x.componentes_pendientes || []).join(', '), impPend: pesos(x.impuesto)
+    };
+  }
+  function estimadoMes(m) {
+    var es = m.estimacion; if (!es) return { t: '—', c: '' };
+    if (es.total == null) return { t: 'No calculable', c: 'prov' };
+    return { t: pesos(es.total) + (CALIDAD[es.calidad] || ''), c: es.calidad === 'completa' ? '' : 'prov' };
+  }
+  function detalleEstimacion(es) {
+    var t = 'Vence ' + fechaTxt(es.vencimiento) + ' · ' + es.meses_atraso + ' meses de atraso · impuesto ' + pesos(es.impuesto) +
+      ' · reajuste ' + (es.reajuste == null ? 'pendiente (falta UTM)' : pesos(es.reajuste)) +
+      ' · intereses ' + (es.intereses == null ? 'pendientes (falta tasa' + ((es.semestres_sin_tasa || []).length ? ' ' + es.semestres_sin_tasa.join(', ') : '') + ')' : pesos(es.intereses) + (es.intereses_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '')) +
+      ' · multa ' + Math.round(Number(es.multa_pct) * 100) + ' % = ' + pesos(es.multa) + (es.multa_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '');
+    var tr = (es.intereses_tramos || []).map(function (x) { return x.regla === 'mensual' ? x.meses + ' mes(es) al ' + String(x.tasa_pct).replace('.', ',') + ' %' : x.dias + ' días al ' + String(x.tasa_pct).replace('.', ',') + ' % diario'; });
+    if (tr.length) t += ' · tramos: ' + tr.join(' + ');
+    return t + ' · ' + (es.calidad === 'completa' ? 'estimación completa' : es.calidad === 'provisional' ? 'estimación provisional' : 'total no calculable');
+  }
 
   function dato(cont, etq, v, cls) { var b = el('div', 'liva-dato' + (cls ? ' ' + cls : '')); b.appendChild(el('div', 'l', etq)); b.appendChild(el('div', 'v', v)); cont.appendChild(b); }
 
@@ -220,11 +283,14 @@
     dato(g, 'Meses que calzan', contar(d, 'calza') + ' / ' + (d.meses || []).length, 'ver');
     dato(g, 'Con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), contar(d, 'diferencia') + contar(d, 'no_declarado') ? 'roj' : null);
     dato(g, 'Sin datos', String(contar(d, 'sin_datos')), contar(d, 'sin_datos') ? 'amb' : null);
+    if (nProv(d)) dato(g, 'Provisionales', String(nProv(d)), 'amb');
+    if (d.totales && Number(d.totales.condicionados) > 0) dato(g, 'Condicionados', String(d.totales.condicionados), 'amb');
+    var T = totales(e);
     dato(g, 'Diferencia de impuesto', pesos(e.impuesto), num(e.impuesto) > 0 ? 'roj' : null);
-    dato(g, 'Reajuste', e.reajuste_incompleto ? pesos(e.reajuste) + ' (incompleto)' : pesos(e.reajuste));
-    dato(g, 'Intereses', pesos(e.intereses));
-    dato(g, 'Multa', pesos(e.multa));
-    dato(g, 'Total estimado', pesos(e.total), num(e.total) > 0 ? 'roj' : 'ver');
+    dato(g, 'Subtotal conocido (' + nm(T.nConocido) + ')', T.conocido, null);
+    if (T.nProv) dato(g, 'Provisional (' + nm(T.nProv) + ')', T.provisional, 'amb');
+    if (T.nPend) dato(g, 'Sin calcular (' + nm(T.nPend) + ')', 'Falta: ' + (T.pend || '—'), 'amb');
+    dato(g, 'Total estimado', T.total, T.clase);
     if (num(e.posible_a_favor) > 0) dato(g, 'Posible a favor', pesos(e.posible_a_favor), 'amb');
     cont.appendChild(g);
 
@@ -235,31 +301,36 @@
     th.appendChild(tr); t.appendChild(th);
     var tb = el('tbody');
     (d.meses || []).forEach(function (m) {
-      var est = ESTADOS[m.estado] || ESTADOS.sin_datos;
+      var est = estadoDe(m);
       var f = el('tr', 'fila ' + est.c); f.setAttribute('data-periodo', m.periodo); f.setAttribute('data-estado', m.estado);
+      if (m.condicionado) f.setAttribute('data-condicionado', '1');
       var c0 = el('td', null, mesTxt(m.periodo)); if ((m.alertas || []).length) c0.appendChild(el('span', 'al', '!'));
       f.appendChild(c0);
-      var c1 = el('td'); c1.appendChild(el('span', 'liva-chip ' + est.c, est.t)); f.appendChild(c1);
+      var c1 = el('td'); c1.appendChild(el('span', 'liva-chip ' + est.c, est.t));
+      if (m.condicionado) c1.appendChild(el('span', 'liva-chip cond', 'Condicionado'));
+      f.appendChild(c1);
       var deb = m.debito || {}, cre = m.credito || {}, rem = m.remanente || {}, iva = m.iva || {};
       [deb.rcv, deb.declarado, cre.rcv, cre.declarado_documentos].forEach(function (v) { f.appendChild(el('td', null, pesos(v))); });
-      f.appendChild(el('td', null, rem.anterior_recalculado == null ? '—' : pesos(rem.anterior_recalculado) + (rem.anterior_declarado != null && Math.abs(rem.anterior_recalculado - rem.anterior_declarado) > 0 ? ' (decl. ' + pesos(rem.anterior_declarado) + ')' : '')));
+      f.appendChild(el('td', rem.anterior_supuesto != null ? 'prov' : null, rem.anterior_recalculado == null ? (rem.anterior_supuesto != null ? 'Desconocido (supuesto ' + pesos(rem.anterior_supuesto) + ')' : '—') : pesos(rem.anterior_recalculado) + (rem.anterior_declarado != null && Math.abs(rem.anterior_recalculado - rem.anterior_declarado) > 0 ? ' (decl. ' + pesos(rem.anterior_declarado) + ')' : '')));
       f.appendChild(el('td', null, pesos(iva.declarado))); f.appendChild(el('td', null, pesos(iva.recalculado)));
       var cd = el('td', 'dif' + (num(iva.diferencia) > 0 ? ' roj' : num(iva.diferencia) < 0 ? ' amb' : ''), pesos(iva.diferencia)); f.appendChild(cd);
-      f.appendChild(el('td', null, m.estimacion ? pesos(m.estimacion.total) : '—'));
+      var em = estimadoMes(m); f.appendChild(el('td', em.c || null, em.t));
       tb.appendChild(f);
       var det = el('tr', 'det'); det.hidden = true; var dc = el('td'); dc.colSpan = 11; det.appendChild(dc);
       if (m.motivo && MOTIVOS[m.motivo]) dc.appendChild(el('div', null, MOTIVOS[m.motivo]));
       var ul = el('ul'); (m.alertas || []).forEach(function (a) { ul.appendChild(el('li', null, ALERTAS[a] || a)); });
       if (ul.childNodes.length) dc.appendChild(ul);
-      if (m.estimacion) dc.appendChild(el('div', null, 'Vence ' + m.estimacion.vencimiento + ' · ' + m.estimacion.meses_atraso + ' meses de atraso · impuesto ' + pesos(m.estimacion.impuesto) +
-        ' · reajuste ' + pesos(m.estimacion.reajuste) + ' · intereses ' + pesos(m.estimacion.intereses) + ' · multa ' + Math.round(Number(m.estimacion.multa_pct) * 100) + ' % = ' + pesos(m.estimacion.multa)));
+      if (m.calce === 'dentro_tolerancia') dc.appendChild(el('div', null, 'Calza dentro de la tolerancia de $100: diferencia exacta de IVA ' + pesos(iva.diferencia) + '.'));
+      if (m.estimacion) dc.appendChild(el('div', null, detalleEstimacion(m.estimacion)));
       if (m.f29 && m.f29.codigos) dc.appendChild(el('div', 'cods', 'F29 folio ' + m.f29.folio + ' · ' + Object.keys(m.f29.codigos).map(function (k) { return 'cód. ' + k + ': ' + pesos(m.f29.codigos[k]); }).join(' · ')));
       if (!dc.childNodes.length) dc.appendChild(el('div', null, 'Sin observaciones.'));
       tb.appendChild(det);
       f.addEventListener('click', function () { det.hidden = !det.hidden; });
     });
     t.appendChild(tb); tw.appendChild(t); cont.appendChild(tw);
-    cont.appendChild(el('div', 'liva-aviso', (e.aviso || 'Estimación aproximada, verificar.') + ' Haz clic en un mes para ver sus alertas.'));
+    cont.appendChild(el('div', 'liva-aviso', (e.aviso || 'Estimación preliminar, verificar.') + ' Haz clic en un mes para ver sus alertas.'));
+    if (d.totales && d.totales.dentro_tolerancia && Number(d.totales.dentro_tolerancia.meses) > 0)
+      cont.appendChild(el('div', 'liva-aviso', d.totales.dentro_tolerancia.meses + ' meses calzan dentro de la tolerancia de $100 (diferencia acumulada de IVA ' + pesos(d.totales.dentro_tolerancia.iva_acumulado) + ').'));
     var ul = el('ul', 'liva-sup'); (e.supuestos || []).forEach(function (s) { ul.appendChild(el('li', null, s)); }); cont.appendChild(ul);
   }
 
@@ -267,24 +338,28 @@
   function htmlPdf(d, cliente, logoUrl) {
     var e = d.estimacion || {};
     var filas = (d.meses || []).map(function (m) {
-      var est = ESTADOS[m.estado] || ESTADOS.sin_datos, iva = m.iva || {}, deb = m.debito || {}, cre = m.credito || {};
-      return '<tr class="' + est.c + '"><td>' + esc(mesTxt(m.periodo)) + '</td><td><span class="chip ' + est.c + '">' + esc(est.t) + '</span></td><td>' + esc(pesos(deb.rcv)) + '</td><td>' + esc(pesos(deb.declarado)) +
+      var est = estadoDe(m), iva = m.iva || {}, deb = m.debito || {}, cre = m.credito || {};
+      return '<tr class="' + est.c + '"><td>' + esc(mesTxt(m.periodo)) + '</td><td><span class="chip ' + est.c + '">' + esc(est.t) + '</span>' + (m.condicionado ? ' <span class="chip amb">Condicionado</span>' : '') + '</td><td>' + esc(pesos(deb.rcv)) + '</td><td>' + esc(pesos(deb.declarado)) +
         '</td><td>' + esc(pesos(cre.rcv)) + '</td><td>' + esc(pesos(cre.declarado_documentos)) + '</td><td>' + esc(pesos(iva.declarado)) + '</td><td>' + esc(pesos(iva.recalculado)) +
-        '</td><td class="b">' + esc(pesos(iva.diferencia)) + '</td><td class="b">' + esc(m.estimacion ? pesos(m.estimacion.total) : '—') + '</td></tr>';
+        '</td><td class="b">' + esc(pesos(iva.diferencia)) + '</td><td class="b">' + esc(estimadoMes(m).t) + '</td></tr>';
     }).join('');
     var tarjeta = function (l, v, c) { return '<div class="k ' + (c || '') + '"><div class="l">' + esc(l) + '</div><div class="v">' + esc(v) + '</div></div>'; };
     var hoy = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+    var T = totales(e);
     return '<div class="hd"><img src="' + esc(logoUrl) + '" alt="Contadoor"><div><h1>Levantamiento de IVA</h1><p>' + esc(cliente.razon || '') + (cliente.rut ? ' · RUT ' + esc(cliente.rut) : '') + '</p></div></div>' +
-      '<div class="cuerpo"><p class="sub">Período revisado: <b>' + esc(mesTxt(d.desde)) + ' a ' + esc(mesTxt(d.hasta)) + '</b> · Emitido el ' + esc(hoy) + ' · Fuente: Registro de Compras y Ventas y Formularios 29 del SII.</p>' +
+      '<div class="cuerpo"><p class="prel">Estimación preliminar, no constituye determinación definitiva</p><p class="sub">Período revisado: <b>' + esc(mesTxt(d.desde)) + ' a ' + esc(mesTxt(d.hasta)) + '</b> · Emitido el ' + esc(hoy) + ' · Fuente: Registro de Compras y Ventas y Formularios 29 del SII.</p>' +
       '<div class="ks">' + tarjeta('Meses revisados', String((d.meses || []).length)) + tarjeta('Meses que calzan', String(contar(d, 'calza')), 'ver') +
-      tarjeta('Meses con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), 'roj') + tarjeta('Sin datos', String(contar(d, 'sin_datos'))) + '</div>' +
-      '<h2>Estimación si se rectifica</h2><div class="ks">' + tarjeta('Diferencia de impuesto', pesos(e.impuesto)) + tarjeta('Reajuste', pesos(e.reajuste)) + tarjeta('Intereses', pesos(e.intereses)) +
-      tarjeta('Multa', pesos(e.multa)) + tarjeta('Total estimado', pesos(e.total), 'mor') + '</div>' +
-      '<p class="av">ESTIMACIÓN APROXIMADA, VERIFICAR. Montos calculados para un pago el ' + esc(fechaTxt(d.opciones && d.opciones.fecha_pago)) + '; el monto definitivo lo determina el SII/Tesorería al momento del pago y puede variar por reajustes, condonaciones u otros antecedentes. ' +
+      tarjeta('Meses con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), 'roj') + tarjeta('Provisionales', String(nProv(d))) +
+      tarjeta('Sin datos / F29 sin montos', String(contar(d, 'sin_datos') + contar(d, 'f29_sin_montos'))) + '</div>' +
+      '<h2>Estimación si se rectifica</h2><div class="ks">' + tarjeta('Diferencia de impuesto', pesos(e.impuesto)) +
+      tarjeta('Subtotal conocido (' + nm(T.nConocido) + ')', T.conocido) + (T.nProv ? tarjeta('Provisional (' + nm(T.nProv) + ')', T.provisional) : '') +
+      (T.nPend ? tarjeta('Sin calcular (' + nm(T.nPend) + ')', 'Falta: ' + (T.pend || '—')) : '') + tarjeta('Total estimado', T.total, 'mor') + '</div>' +
+      '<p class="av">ESTIMACIÓN PRELIMINAR, VERIFICAR: no constituye determinación definitiva. Montos calculados para un pago el ' + esc(fechaTxt(d.opciones && d.opciones.fecha_pago)) + '; el monto definitivo lo determina el SII/Tesorería al momento del pago y puede variar por reajustes, condonaciones u otros antecedentes. ' +
       'Esta estimación no incluye el costo de nuestros servicios de regularización, que se informa en la propuesta.</p>' +
       '<h2>Detalle mes a mes</h2><table><thead><tr><th>Mes</th><th>Estado</th><th>IVA ventas SII</th><th>Débito declarado</th><th>IVA compras SII</th><th>Crédito declarado</th><th>IVA declarado</th><th>IVA recalculado</th><th>Diferencia</th><th>Estimado</th></tr></thead><tbody>' + filas + '</tbody></table>' +
       '<h2>Supuestos</h2><ul>' + (e.supuestos || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') +
-      '<li>«Sin datos» significa que aún no tenemos la información del SII de ese mes; no se considera cero.</li></ul>' +
+      '<li>«Sin datos» significa que aún no tenemos la información del SII de ese mes; no se considera cero. «Sin declaración encontrada»: no se encontró declaración en los antecedentes disponibles.</li>' +
+      '<li>«Provisional» y «Condicionado»: el mes depende de información incompleta o de un supuesto (por ejemplo, remanente inicial desconocido tomado como 0); su monto no se suma al subtotal conocido.</li></ul>' +
       '<div class="pie">Asesorías Contadoor Ltda. · contadoor.cl</div></div>';
   }
   var CSS_PDF = '@page{size:A4 landscape;margin:8mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}' +
@@ -294,6 +369,7 @@
     '.cuerpo{padding:8px 4px}.sub{color:#5B4560;margin:8px 0 10px}h2{font:800 13px Montserrat,Arial,sans-serif;color:' + MORADO + ';margin:14px 0 6px}' +
     '.ks{display:flex;gap:8px;flex-wrap:wrap}.k{flex:1;min-width:120px;border:1px solid #E7D6EA;border-radius:10px;padding:7px 10px;break-inside:avoid}.k .l{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:#7A6080}' +
     '.k .v{font:800 14px Montserrat,Arial,sans-serif;margin-top:2px}.k.ver .v{color:#28865B}.k.roj .v{color:#D34433}.k.mor{background:#F6ECF6;border-color:' + MORADO + '}.k.mor .v{color:' + MORADO + '}' +
+    '.prel{margin:10px 0 0;padding:8px 12px;border:2px solid #D34433;border-radius:8px;color:#D34433;font:800 12.5px Montserrat,Arial,sans-serif;text-transform:uppercase;letter-spacing:.3px;text-align:center}' +
     '.av{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:#FFF6E0;color:#7A5200;font-size:9.5px;line-height:1.45}' +
     'table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th{background:#F6ECF6;color:#5B4560;font-size:8.5px;text-transform:uppercase;text-align:right;padding:5px 6px}' +
     'td{padding:4px 6px;border-top:1px solid #EFE3F1;text-align:right}th:nth-child(-n+2),td:nth-child(-n+2){text-align:left}tr{break-inside:avoid}td.b{font-weight:700}' +
