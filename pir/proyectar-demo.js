@@ -4,6 +4,8 @@
    Solo lo carga proyectar.html con ?demo=1 Y en localhost / 127.0.0.1 / [::1]. Nunca llama a Supabase ni sube nada.
    ?escena=1…7 deja el cliente de ejemplo en cada paso (para revisar el diseño): 1 sin caso · 2 caso nuevo · 3 F22 leído ·
    4 Diario importado · 5 mapeo por confirmar · 6 listo para proyectar · 7 proyectado. Sin escena: se recorre el flujo a mano.
+   3-nov-2026: el Balance del año es opcional (control). Un nombre "…_0-AAAA.xls" de otro año lo frena la pantalla antes de subir;
+   un nombre con "SINPERIODO" simula un Balance sin año (corrida ERROR con PERIODO_NO_DETECTADO) para ver el mensaje.
    ============================================================ */
 (function(){
   'use strict';
@@ -37,12 +39,15 @@
     {item_key:'opening.sac.sujeto_restitucion.sin_devolucion',estado:'REVIEW',monto:480000,f22_codigo_ref:'1565',provenance:'DECLARED_F22'},
     {item_key:'opening.cpts',estado:'OK',monto:46900000,f22_codigo_ref:'1545',provenance:'DECLARED_F22'}]};
 
-  var ST={};   // estado por caso
+  var ST={}, INC=[];   // estado por caso · incidencias BLOCKING de corridas con error
   function st(caso){return ST[caso]||(ST[caso]={fuentes:[],corridas:[],lecturas:[],apertura:null,cdb:false,cap:false,apc:'A3',snap:null,res:[],sup:null,motor:null});}
   function casoCli(c){return CASOS.filter(function(k){return k.cliente_id===c;})[0];}
   function fuente(caso,tipo,nombre,per){var f={id:nid(),caso_id:caso,tipo_fuente:tipo,origen:tipo==='F22_ANTERIOR'?'SII':'MASCONTABLE',nombre_original:nombre,estado:'REGISTRADA',metadatos:per?{periodo:String(per)}:{},sha256_estado:'VERIFICADO',cargado_at:ahora()};st(caso).fuentes.push(f);return f;}
   function corrida(caso,f){
     var per=f.metadatos.periodo?+f.metadatos.periodo:AC;
+    if(/SINPERIODO/i.test(f.nombre_original)){var e={id:nid(),fuente_id:f.id,caso_id:caso,tipo_fuente:f.tipo_fuente,estado:'ERROR',anio_detectado:null,n_bloqueantes:1,n_revision:0,n_advertencias:1,
+      error_codigo:'BLOQUEANTES',error_mensaje:'1 incidencia(s) BLOCKING',finalizado_at:ahora()};st(caso).corridas.push(e);
+      INC.push({corrida_id:e.id,codigo:'PERIODO_NO_DETECTADO',severidad:'BLOCKING',mensaje:'No se encontró el período ("Período aaaa" o "dd/mm/aaaa al dd/mm/aaaa")'});return e;}
     var c={id:nid(),fuente_id:f.id,caso_id:caso,tipo_fuente:f.tipo_fuente,estado:'PROCESSED',anio_detectado:f.tipo_fuente==='PLAN_CUENTAS'?null:per,n_bloqueantes:0,n_revision:0,n_advertencias:1,finalizado_at:ahora()};
     if(f.tipo_fuente==='LIBRO_DIARIO'){c.n_asientos=412;c.n_lineas=1386;}
     else if(f.tipo_fuente==='BALANCE'){c.n_lineas=per===AC?87:79;c.resultado_tipo='UTILIDAD';c.resultado_monto=per===AC?38450000:28700000;}
@@ -62,7 +67,8 @@
     if(n>=2)CASOS.push(k);
     if(n>=3){var f=fuente(92,'F22_ANTERIOR','F22_AT2026_compacto.pdf');st(92).lecturas.push({id:nid(),fuente_id:f.id,estado:'PROPUESTA',blocking_count:0,resultado:LECTURA,creado_at:ahora()});}
     if(n>=4){st(92).apertura={estado:'OPENING_DECLARED_NOT_FULLY_RECONSTRUCTED',working:{apertura_id:801,version:1},effective:null};corrida(92,fuente(92,'LIBRO_DIARIO','LibroDiario_2026_ene-sep.xls'));}
-    if(n>=5){corrida(92,fuente(92,'BALANCE','Balance8Columnas_2026_sep.xls',AC));corrida(92,fuente(92,'BALANCE','Balance8Columnas_2025.xls',AC-1));st(92).cdb=true;st(92).cap=true;calcularMapeo(92);}
+    if(n>=4){calcularMapeo(92);}   // sin Balance: el mapeo usa el Diario
+    if(n>=5){corrida(92,fuente(92,'BALANCE','Balance8Columnas_76111222-3_0-2026.xls',AC));corrida(92,fuente(92,'BALANCE','Balance8Columnas_76111222-3_0-2025.xls',AC-1));st(92).cdb=true;st(92).cap=true;calcularMapeo(92);}
     if(n>=6){st(92).apc='A2';st(92).res.forEach(function(r){if(r.estado!=='RESOLVED'){r.estado='CONFIRMED';if(!r.categoria)r.categoria='OTHER_EXPENSE';}});calcularMapeo(92);}
     if(n>=7){st(92).sup={id:nid(),version:1,forecast_method:'MANUAL',parameters:{metodo:'LINEAL_PROMEDIO_V1'},estado:'ACTIVE'};proyectar(92,'2026-09-30');}
   }
@@ -111,6 +117,7 @@
         case 'renta_supuestos_forecast':out=st(c).sup?[st(c).sup]:[];break;
         case 'renta_motor_corridas':out=st(c).motor?[st(c).motor]:[];break;
         case 'renta_asientos':out=[{fecha:AC+'-09-30'}];break;
+        case 'renta_incidencias':out=INC.filter(function(x){return path.indexOf('corrida_id=eq.'+x.corrida_id)>=0||new RegExp('[(,]'+x.corrida_id+'[,)]').test(path);});break;
       }
       return demora(out);
     },
@@ -125,6 +132,8 @@
         case 'renta_caso_crear':if(casoCli(a.p_cliente_id))return falla('Ya existe un caso vigente para ese cliente y Año Comercial');
           var k={id:nid(),cliente_id:a.p_cliente_id,anio_comercial:a.p_anio_comercial,anio_tributario:a.p_anio_comercial+1,regimen:a.p_regimen,estado:'DRAFT',version:1};CASOS.push(k);return demora(k,500);
         case 'renta_fuente_registrar':
+          if(s.fuentes.some(function(f){return f.estado==='REGISTRADA'&&f.nombre_original===a.p_nombre_original&&f.id!==a.p_reemplaza_a;}))
+            return falla('renta_fuente_registrar: duplicate key value violates unique constraint "renta_fuentes_uq_archivo_caso"');
           s.fuentes.forEach(function(f){if(f.id===a.p_reemplaza_a){f.estado='REEMPLAZADA';}});
           var f=fuente(a.p_caso_id,a.p_tipo_fuente,a.p_nombre_original,a.p_metadatos&&a.p_metadatos.periodo);return demora({id:f.id},300);
         case 'renta_conciliar_diario_balance':Object.keys(ST).forEach(function(id){if(ST[id].corridas.some(function(c){return c.id===a.p_corrida_diario;}))ST[id].cdb=true;});return demora({resultado:'CUADRA',cuentas:87,diferencias:0},500);
@@ -143,7 +152,9 @@
     invocar:function(fn,body){
       if(fn==='mirenta-f22-leer'){var s=st(body.caso_id);s.lecturas.push({id:nid(),fuente_id:body.fuente_id,estado:'PROPUESTA',blocking_count:0,resultado:LECTURA,creado_at:ahora()});return demora({ok:true,data:{estado:'PROPUESTA'}},1200);}
       if(fn==='mirenta-importar'){var id=Object.keys(ST).filter(function(k){return ST[k].fuentes.some(function(f){return f.id===body.fuente_id;});})[0], f=ST[id].fuentes.filter(function(x){return x.id===body.fuente_id;})[0];
-        var c=corrida(+id,f);return demora({ok:true,data:{corrida_id:c.id,estado:'PROCESSED',lotes:3,incidencias:1}},1500);}
+        var c=corrida(+id,f);
+        if(c.estado==='ERROR')return demora({ok:false,data:{corrida_id:c.id,estado:'ERROR',error:'BLOQUEANTES',mensaje:'1 incidencia(s) BLOCKING'},mensaje:'BLOQUEANTES'},1200);
+        return demora({ok:true,data:{corrida_id:c.id,estado:'PROCESSED',lotes:3,incidencias:1}},1500);}
       return demora({ok:false,mensaje:'Edge no disponible en la demostración'});
     }
   };

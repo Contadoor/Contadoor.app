@@ -12,7 +12,7 @@
   var BLOQUEOS = {
     SIN_DIARIO: 'Falta el Libro Diario del año comercial.',
     DIARIO_AC_NO_COINCIDE: 'El Libro Diario cargado no es del año comercial del caso.',
-    SIN_BALANCE_AC: 'Falta el Balance del año comercial.',
+    SIN_BALANCE_AC: 'Falta el Balance del año comercial (opcional para proyectar; necesario como control para la proyección FINAL).',
     INVARIANTE_VIOLADO: 'Hay dos archivos vigentes del mismo tipo: hay que reemplazar o anular uno.',
     SIN_SNAPSHOT_MAPEO: 'Falta calcular el mapeo de cuentas.',
     SNAPSHOT_MAPEO_DESACTUALIZADO: 'El mapeo de cuentas es de archivos anteriores: hay que recalcularlo.',
@@ -48,12 +48,39 @@
   }
 
   // Tipos de archivo del paso 3 (exportes de Masconta). periodo: 0 = año comercial del caso, -1 = año anterior.
+  // Obligatorio: solo el Libro Diario (decisión 3-nov-2026). El Balance del año es OPCIONAL: si se sube, se concilia con el Diario
+  // como control; si no, la proyección usa los saldos del Diario (alerta SIN_BALANCE_DE_CONTROL) y la FINAL queda pendiente.
+  // nombre(ac): rótulo con el año explícito (evita subir el Balance de un año en la tarjeta del otro).
   var ARCHIVOS = [
-    { clave: 'DIARIO', tipo: 'LIBRO_DIARIO', periodo: 0, titulo: 'Libro Diario', obligatorio: true, ayuda: 'Masconta → Informes → Libro Diario del año, exportado a Excel.' },
-    { clave: 'BALANCE', tipo: 'BALANCE', periodo: 0, titulo: 'Balance 8 columnas', obligatorio: true, ayuda: 'Masconta → Balance 8 columnas del año, al último mes cerrado.' },
-    { clave: 'BALANCE_ANT', tipo: 'BALANCE', periodo: -1, titulo: 'Balance 8 columnas del año anterior', obligatorio: false, ayuda: 'Cierre del año anterior: sirve para conciliar la apertura (recomendado).' },
-    { clave: 'PLAN', tipo: 'PLAN_CUENTAS', periodo: null, titulo: 'Plan de cuentas', obligatorio: false, ayuda: 'Opcional: mejora la clasificación automática de las cuentas.' }
+    { clave: 'DIARIO', tipo: 'LIBRO_DIARIO', periodo: 0, titulo: 'Libro Diario', obligatorio: true, etiqueta: 'Obligatorio', ayuda: 'Masconta → Informes → Libro Diario del año, exportado a Excel.',
+      nombre: function (ac) { return 'Libro Diario ' + ac; } },
+    { clave: 'BALANCE', tipo: 'BALANCE', periodo: 0, titulo: 'Balance 8 columnas', obligatorio: false, etiqueta: 'Opcional (control)', ayuda: 'Masconta → Balance 8 columnas del año, al último mes cerrado (archivo …_0-AAAA.xls). Si lo subes, se cuadra con el Diario.',
+      nombre: function (ac) { return 'Balance ' + ac + ' (este año)'; } },
+    { clave: 'BALANCE_ANT', tipo: 'BALANCE', periodo: -1, titulo: 'Balance 8 columnas del año anterior', obligatorio: false, etiqueta: 'Recomendado', ayuda: 'Cierre del año anterior: sirve para conciliar la apertura.',
+      nombre: function (ac) { return 'Balance ' + (ac - 1) + ' (cierre del año anterior)'; } },
+    { clave: 'PLAN', tipo: 'PLAN_CUENTAS', periodo: null, titulo: 'Plan de cuentas', obligatorio: false, etiqueta: 'Opcional', ayuda: 'Opcional: mejora la clasificación automática de las cuentas.',
+      nombre: function () { return 'Plan de cuentas'; } }
   ];
+
+  // Año que trae el NOMBRE del exporte de Masconta: Balance "…_0-AAAA.xls"; Libro Diario "…_<RUT>_AAAA.xls". null si no lo trae.
+  function anioDeNombre(tipo, nombre) {
+    var n = String(nombre || ''), m;
+    if (tipo === 'BALANCE') m = /_0-(\d{4})(?:\s*\(\d+\))?\.[a-z]{3,4}$/i.exec(n);
+    else if (tipo === 'LIBRO_DIARIO') m = /_\d{7,8}-[\dkK]_(\d{4})(?:\s*\(\d+\))?\.[a-z]{3,4}$/.exec(n);
+    return m ? Number(m[1]) : null;
+  }
+  // Antes de subir: si el año del nombre no es el de la tarjeta, no se sube y se dice cuál es la tarjeta correcta.
+  // Devuelve null (todo bien o el nombre no trae año: no se bloquea) o { anio, esperado, sugerida (clave de ARCHIVOS o null), texto }.
+  function revisarAnioArchivo(clave, ac, nombre) {
+    var def = ARCHIVOS.filter(function (x) { return x.clave === clave; })[0];
+    if (!def || def.periodo == null) return null;
+    var anio = anioDeNombre(def.tipo, nombre), esperado = ac + def.periodo;
+    if (anio == null || anio === esperado) return null;
+    var otra = ARCHIVOS.filter(function (x) { return x.tipo === def.tipo && x.periodo != null && ac + x.periodo === anio; })[0] || null;
+    return { anio: anio, esperado: esperado, sugerida: otra ? otra.clave : null,
+      texto: 'El archivo "' + nombre + '" es del año ' + anio + ' y esta tarjeta es "' + def.nombre(ac) + '". No se subió. '
+        + (otra ? 'Súbelo en la tarjeta "' + otra.nombre(ac) + '".' : 'Este caso es del año comercial ' + ac + ': exporta el ' + (def.tipo === 'BALANCE' ? 'Balance' : 'Libro Diario') + ' del año ' + esperado + '.') };
+  }
 
   function periodoDeFuente(f, corridas) {
     var m = f && f.metadatos && f.metadatos.periodo;
@@ -84,6 +111,10 @@
   // Confirmar en bloque solo las propuestas del sistema que la base acepta sin motivo: INFERRED con categoría y que no sea OTHER_*
   // (renta_mapeo_confirmar exige motivo para OTHER_* y para cualquier cambio). El resto se confirma de a una.
   function confirmableEnBloque(r) { return !!r && r.estado === 'INFERRED' && !!r.categoria && !/^OTHER_/.test(r.categoria); }
+  // Paso 4 automático: tras calcular el mapeo se confirman solas las propuestas seguras (las mismas que "Confirmar en bloque").
+  // Lo que exige motivo (UNKNOWN, OTHER_*, cambios) queda para el analista y es lo único que deja el paso 4 abierto.
+  var MOTIVO_AUTO = 'Confirmación automática del asistente Proyectar (propuesta del sistema, sin cambios)';
+  function autoConfirmables(resultados) { return (resultados || []).filter(confirmableEnBloque); }
   function motivoObligatorio(cat, prop) { return !prop || cat !== prop || /^OTHER_/.test(cat || ''); }
 
   function tiene(lista, prefijo) { return (lista || []).some(function (b) { return String(b).indexOf(prefijo) === 0; }); }
@@ -127,23 +158,29 @@
     var p3 = { n: 3, clave: 'contabilidad', titulo: 'Libro Diario y Balance ' + ac, estado: 'pendiente', detalle: [] };
     p3.archivos = ARCHIVOS.map(function (def) { var a = archivoVigente(def, ac, d.fuentes, d.corridas); a.estado = estadoArchivo(a); return a; });
     var oblig = p3.archivos.filter(function (a) { return a.def.obligatorio; });
+    var aDia = p3.archivos[0], aBal = p3.archivos[1];
+    var conBalance = aBal.estado === 'listo';                 // Balance del año importado sin errores → se concilia como control
+    p3.sinBalance = !aBal.fuente;
     var cdb = ef.conciliaciones && ef.conciliaciones.diario_balance, apc = ef.apertura_contable || {};
     p3.conciliacion = cdb || null; p3.aperturaContable = apc; p3.conciliacionAnterior = (ef.conciliaciones && ef.conciliaciones.apertura) || null;
     if (!casoOk) p3.estado = 'bloqueado';
     else if (oblig.some(function (a) { return a.estado === 'problema'; }) || tiene(bl, 'INVARIANTE_VIOLADO') || tiene(bl, 'DIARIO_AC_NO_COINCIDE')) { p3.estado = 'problema'; p3.detalle.push('Un archivo obligatorio tiene problemas: revisa el detalle de cada uno.'); }
     else if (oblig.some(function (a) { return a.estado === 'en_curso'; })) { p3.estado = 'en_curso'; p3.detalle.push('Importando…'); }
-    else if (oblig.some(function (a) { return a.estado !== 'listo'; })) p3.detalle.push('Sube el Libro Diario y el Balance ' + ac + ' exportados de Masconta.');
-    else if (!cdb) { p3.estado = 'en_curso'; p3.detalle.push('Archivos importados: falta conciliar el Diario con el Balance.'); }
-    else if (cdb.evaluacion !== 'CUADRA') {
+    else if (oblig.some(function (a) { return a.estado !== 'listo'; })) p3.detalle.push('Sube el Libro Diario ' + ac + ' exportado de Masconta (el Balance es opcional).');
+    else if (aBal.estado === 'en_curso') { p3.estado = 'en_curso'; p3.detalle.push('Importando el Balance…'); }
+    else if (conBalance && !cdb) { p3.estado = 'en_curso'; p3.detalle.push('Archivos importados: falta conciliar el Diario con el Balance.'); }
+    else if (conBalance && cdb.evaluacion !== 'CUADRA') {
       p3.estado = 'problema'; p3.detalle.push('El Diario y el Balance no cuadran (' + (cdb.diferencias || 0) + ' cuenta(s) con diferencia). Revisa que ambos sean del mismo período y vuelve a exportar.');
       // Caso típico al actualizar el mes: se reemplazó solo uno de los dos archivos.
-      var fd = oblig[0].fuente, fb = oblig[1].fuente, dd = fd && String(fd.cargado_at || '').slice(0, 10), db = fb && String(fb.cargado_at || '').slice(0, 10);
+      var fd = aDia.fuente, fb = aBal.fuente, dd = fd && String(fd.cargado_at || '').slice(0, 10), db = fb && String(fb.cargado_at || '').slice(0, 10);
       if (dd && db && dd !== db) p3.detalle.push('El ' + (dd > db ? 'Libro Diario' : 'Balance') + ' se subió el ' + fecha(dd > db ? dd : db) + ' y el ' + (dd > db ? 'Balance' : 'Libro Diario') + ' el ' + fecha(dd > db ? db : dd) + ': si estás actualizando el mes, reemplaza también el ' + (dd > db ? 'Balance' : 'Libro Diario') + ' con el mismo corte.');
     }
     else if (apc.estado === 'A0' || !apc.estado) { p3.estado = 'problema'; p3.detalle.push(tiene(bl, 'APERTURA_AMBIGUA') ? 'El Diario tiene más de un asiento de apertura: hay que dejar uno solo.' : 'El Diario no trae el asiento de apertura del año.'); }
     else {
       p3.estado = apc.estado === 'A2' ? 'listo' : 'revisar';
-      p3.detalle.push('El Diario y el Balance cuadran.');
+      if (conBalance) p3.detalle.push('El Diario y el Balance cuadran.');
+      else if (aBal.fuente) { p3.estado = 'revisar'; p3.detalle.push('El Balance ' + ac + ' tiene problemas: puedes reemplazarlo o seguir sin él (la proyección usa los saldos del Libro Diario).'); }
+      else p3.detalle.push('Libro Diario importado. Sin Balance ' + ac + ': la proyección usa los saldos del Diario (el Balance es opcional, solo de control).');
       if (apc.estado !== 'A2') p3.detalle.push('Asiento de apertura N° ' + (apc.asiento_numero || '—') + (apc.estado === 'A3' ? ' detectado: confírmalo para dejar los saldos iniciales aceptados.' : ': falta aceptar sus saldos iniciales.'));
     }
     P.push(p3);
@@ -224,17 +261,41 @@
       [/no es del mismo año que el Diario/, 'El Balance no es del mismo año que el Libro Diario.'],
       [/SNAPSHOT_DESACTUALIZADO/, 'El mapeo cambió mientras confirmabas. Recarga y vuelve a intentarlo.'],
       [/exige un motivo/, 'Para cambiar la clasificación propuesta escribe un motivo.'],
-      [/CORTE_INVALIDO/, 'La fecha de corte no está cubierta por el Balance cargado. Elige un mes anterior.'],
+      [/CORTE_INVALIDO/, 'La fecha de corte no está cubierta por la contabilidad cargada. Elige un mes anterior.'],
+      [/PERIODO_DECLARADO_NO_COINCIDE[^0-9]*(\d{4})[^0-9]+(\d{4})/, function (x) { return 'Ese Balance es del año ' + x[2] + ' y lo subiste en la tarjeta del ' + x[1] + '. Súbelo en la tarjeta "Balance ' + x[2] + '".'; }],
+      [/PERIODO_DECLARADO_NO_COINCIDE/, 'El año del Balance no coincide con el de la tarjeta donde lo subiste. Súbelo en la tarjeta de su año.'],
+      [/PERIODO_INCONSISTENTE|PERIODO_RANGO_INVALIDO/, 'El Balance informa un período que no se entiende (dos años distintos o fechas inválidas). Expórtalo de nuevo desde Masconta para un solo año.'],
+      [/PERIODO_NO_DETECTADO/, 'El sistema no encontró el año dentro del Balance. Expórtalo de nuevo desde Masconta (Balance 8 columnas) sin editarlo; si sigue igual, avisa al Master.'],
+      [/PERIODO_NO_CORRESPONDE/, 'El Balance es de un año que no corresponde al caso (se acepta el año comercial o el anterior).'],
+      [/RUT_NO_COINCIDE/, 'El archivo es de otra empresa (el RUT no coincide con el cliente).'],
+      [/renta_fuentes_uq_archivo_caso|duplicate key|23505/, 'Este mismo archivo ya está cargado en este caso (en otra tarjeta o como versión anterior). Revisa que estés en la tarjeta correcta; si es la correcta y no te deja, avisa al Master.'],
+      [/BALANCE_AUSENTE/, 'Por ahora esta proyección todavía exige el Balance del año (el arreglo que lo deja opcional aún no está instalado). Sube el Balance en su tarjeta e inténtalo de nuevo.'],
+      [/DIARIO_BALANCE_NO_CUADRA/, 'El Libro Diario y el Balance cargados no cuadran: reemplaza el Balance por uno con el mismo corte que el Diario.'],
       [/LAYOUT_AUSENTE|LAYOUT_INVALIDO/, 'Falta el formato F22 vigente del año tributario (lo carga el Master).'],
       [/APERTURA_CONTABLE_INVALIDA/, 'Falta el asiento de apertura del Libro Diario.'],
       [/42501|No autorizado|SIN_ACCESO|Sin acceso|RENTA_SIN_PERMISO/i, 'No tienes permiso para esta acción en este cliente (Master o analista contable asignado).']
     ];
-    for (var i = 0; i < mapa.length; i++) if (mapa[i][0].test(m)) return mapa[i][1];
+    for (var i = 0; i < mapa.length; i++) { var x = mapa[i][0].exec(m); if (x) return typeof mapa[i][1] === 'function' ? mapa[i][1](x) : mapa[i][1]; }
     return 'No se pudo completar la acción. ' + m.replace(/^[A-Z_]+:\s*/, '').slice(0, 220);
   }
 
-  var api = { AC_DEFECTO: AC_DEFECTO, ARCHIVOS: ARCHIVOS, pasos: pasos, pasoActivo: pasoActivo, pasoInicial: pasoInicial, confirmableEnBloque: confirmableEnBloque, motivoObligatorio: motivoObligatorio, textoBloqueo: textoBloqueo, ETIQUETA_ESTADO: ETIQUETA_ESTADO,
-              archivoVigente: archivoVigente, estadoArchivo: estadoArchivo, periodoDeFuente: periodoDeFuente, cortes: cortes, fecha: fecha, rutaFuente: rutaFuente, mensajeError: mensajeError };
+  // Texto de una importación fallida: se explican las incidencias BLOCKING (códigos del parser y del cierre de la corrida).
+  function mensajeCorrida(c, bloqueantes) {
+    var bs = (bloqueantes || []).filter(function (b) { return b && b.severidad === 'BLOCKING'; });
+    if (bs.length) {
+      var vistos = {}, ts = [];
+      bs.forEach(function (b) {
+        var t = mensajeError(b.codigo + ': ' + (b.mensaje || ''));
+        if (/^No se pudo completar la acción/.test(t)) t = b.mensaje || b.codigo;
+        if (!vistos[t]) { vistos[t] = 1; ts.push(t); }
+      });
+      return ts.join(' ');
+    }
+    return c && (c.error_mensaje || c.error_codigo) || 'formato no reconocido';
+  }
+
+  var api = { AC_DEFECTO: AC_DEFECTO, MOTIVO_AUTO: MOTIVO_AUTO, autoConfirmables: autoConfirmables, ARCHIVOS: ARCHIVOS, pasos: pasos, pasoActivo: pasoActivo, pasoInicial: pasoInicial, confirmableEnBloque: confirmableEnBloque, motivoObligatorio: motivoObligatorio, textoBloqueo: textoBloqueo, ETIQUETA_ESTADO: ETIQUETA_ESTADO,
+              archivoVigente: archivoVigente, anioDeNombre: anioDeNombre, revisarAnioArchivo: revisarAnioArchivo, mensajeCorrida: mensajeCorrida, estadoArchivo: estadoArchivo, periodoDeFuente: periodoDeFuente, cortes: cortes, fecha: fecha, rutaFuente: rutaFuente, mensajeError: mensajeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.ProyectarLogica = api;
 })(typeof window !== 'undefined' ? window : globalThis);
