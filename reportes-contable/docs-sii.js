@@ -104,7 +104,8 @@
   function leerResumen(cid, per, f) {
     var k = cid + '|' + per;
     if (!cacheRes[k]) cacheRes[k] = rpc('sii_preiva_periodo', { p_cliente_id: Number(cid), p_periodo: String(per) }, f)
-      .then(function (j) { return { estado: 'ok', r: resumir(j) }; }, function (e) { delete cacheRes[k]; return { estado: clasificarError(e) }; });
+      // raw: lo usa calculo-f29.js (misma consulta, sin pedirla dos veces)
+      .then(function (j) { return { estado: 'ok', r: resumir(j), raw: j }; }, function (e) { delete cacheRes[k]; return { estado: clasificarError(e) }; });
     return cacheRes[k];
   }
   function leerDocumentos(cid, per, libro, f) {

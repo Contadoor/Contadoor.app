@@ -85,6 +85,22 @@ res('estándar de módulo: auth-pending, guardia, supabase.js antes del módulo 
   && H.indexOf('../supabase.js') < H.indexOf('crm.js') && H.lastIndexOf('auth.js') > H.indexOf('crm.js'));
 res('crm.js no usa la clave anon ni sbFetch/sbH propios', !/SB_KEY|sbH\b|function sbFetch|apikey/i.test(crmJs));
 
+// AGENDA-WA (P8): estado WhatsApp de las reuniones que vienen (lógica pura)
+{
+  const ahora = Date.parse('2026-11-19T14:40:00Z');
+  const reus = [
+    { id: 7, inicio: '2026-11-20T14:00:00Z', fin: '2026-11-20T14:30:00Z', estado: 'confirmada' },
+    { id: 7, inicio: '2026-11-20T14:00:00Z', fin: '2026-11-20T14:30:00Z', estado: 'confirmada' },
+    { id: 8, inicio: '2026-11-18T14:00:00Z', fin: '2026-11-18T14:30:00Z', estado: 'confirmada' },
+    { id: 9, inicio: '2026-11-21T14:00:00Z', fin: '2026-11-21T14:30:00Z', estado: 'cancelada' },
+  ];
+  res('WhatsApp: solo se consultan reuniones confirmadas que vienen, sin repetir', JSON.stringify(C.idsWa(reus, ahora)) === '[7]', C.idsWa(reus, ahora));
+  const e = C.etiquetaWa({ estado: 'sin_consentimiento' });
+  res('WhatsApp: sin_consentimiento → «Sin WhatsApp: confirmar a mano» con su explicación', /Sin WhatsApp: confirmar a mano/.test(e?.txt) && /texto anterior/.test(e?.ayuda), e);
+  res('WhatsApp: esperando + leído y estado desconocido sin etiqueta', /Esperando respuesta · leído/.test(C.etiquetaWa({ estado: 'esperando', leido: true })?.txt)
+    && C.etiquetaWa({ estado: 'otro' }) === null && C.etiquetaWa(null) === null);
+}
+
 // ── 2) Pantalla en jsdom ──
 const ahora = Date.now(), iso = (h: number) => new Date(ahora + h * 36e5).toISOString();
 const P = (id: number, etapa: string | null, extra: any = {}) => Object.assign({ id, nombre: 'Persona ' + id, empresa: 'Empresa ' + id + ' SpA', email: 'p' + id + '@ejemplo.test', tel: '+56 9 1234 56' + String(id).padStart(2, '0'),
@@ -94,14 +110,15 @@ function datos(escribe = true) {
     prospectos: [P(1, 'agendado', { reunion: { id: 201, inicio: iso(2), fin: iso(2.5), estado: 'confirmada', teams: 'https://meet.ejemplo.test/x', bitacora: null } }),
       P(2, 'propuesta', { nombre: '<img src=x onerror="window.__xss=1">' }), P(3, 'cliente'), P(4, 'emprendedor_solicitado'), P(5, 'nuevo')] };
 }
-async function pantalla(opts: { escribe?: boolean, falla?: string } = {}) {
+async function pantalla(opts: { escribe?: boolean, falla?: string, wa?: boolean } = {}) {
   const html = H
     .replace('<script src="../supabase.js"></script>', `<script>
-      window._llamadas = []; window._DATOS = ${JSON.stringify(datos(opts.escribe !== false))}; window._FALLA = ${JSON.stringify(opts.falla || '')};
+      window._llamadas = []; window._DATOS = ${JSON.stringify(datos(opts.escribe !== false))}; window._FALLA = ${JSON.stringify(opts.falla || '')}; window._WA = ${opts.wa ? 'true' : 'false'};
       function resp(o, ok){ return Promise.resolve({ ok: ok !== false, status: ok === false ? 400 : 200, json: function(){ return Promise.resolve(o); } }); }
       function sbFetch(path, op){ var fn = path.replace('rpc/', ''), b = JSON.parse((op && op.body) || '{}'); window._llamadas.push({ fn: fn, b: b }); var D = window._DATOS;
         if (fn === 'com_simple_listar') return resp(JSON.parse(JSON.stringify(D)));
         if (fn === 'com_listar_hoy') return resp({ reuniones: [{ reserva_id: 201, inicio: D.prospectos[0].reunion.inicio, fin: D.prospectos[0].reunion.fin, estado: 'confirmada', teams: 'https://meet.ejemplo.test/x', lead: { id: 1, nombre: 'Persona 1', empresa: 'Empresa 1 SpA' } }] });
+        if (fn === 'agenda_wa_estado_reservas') return window._WA ? resp({ '201': { estado: 'sin_consentimiento', at: null, leido: false } }) : resp({ message: 'PGRST202' }, false);
         if (fn === 'detalle_prospecto') return resp({ id: b.p_id, respuestas: { ventas: '5a20', trabajadores: '1a5', contabilidad: 'externo', sociedades: 'no', historicos: 'si', rubro: 'ferretería' } });
         if (fn === 'com_ficha_guardar') { if (window._FALLA) return resp({ message: window._FALLA }, false);
           var q = D.prospectos.filter(function(x){ return x.id === b.p_id; })[0]; return resp(Object.assign({}, q, { etapa: b.p_etapa, motivo_perdida: b.p_motivo_perdida, actualizado: 'nuevo' })); }
@@ -157,8 +174,21 @@ res('Perdido guarda con el motivo', colDe(d, 2) === 'descartado' && w._llamadas.
 res('Ganado ofrece 🚀 Ir a onboarding', /Ir a onboarding/.test(d.querySelector('#crmFicha a[href="onboarding.html?lead=3"]')?.textContent || ''));
 d.querySelector('[data-tab="reuniones"]')!.dispatchEvent(new w.Event('click')); (d.querySelector('[data-tab="reuniones"]') as HTMLElement).click(); await espera(100);
 res('pestaña Reuniones: calendario lun–vie con la reunión agendada en morado', d.querySelectorAll('.crm-cal .hd').length === 6 && !!d.querySelector('.crm-ev.ag[data-id="1"]'));
-const permitidas = ['com_simple_listar', 'com_listar_hoy', 'detalle_prospecto', 'com_ficha_guardar'];
+res('sin respuesta de WhatsApp (RPC falla) el calendario se pinta igual, sin etiqueta', !d.querySelector('.crm-wa'));
+const permitidas = ['com_simple_listar', 'com_listar_hoy', 'detalle_prospecto', 'com_ficha_guardar', 'agenda_wa_estado_reservas'];
 res('solo RPC permitidas', w._llamadas.every((x: any) => permitidas.includes(x.fn)), [...new Set(w._llamadas.map((x: any) => x.fn))]);
+dom.window.close();
+
+// AGENDA-WA (P8): con la RPC respondiendo, la reunión que viene muestra su estado en el calendario y en la ficha
+dom = await pantalla({ wa: true }); w = dom.window; d = w.document;
+const wa1 = w._llamadas.filter((x: any) => x.fn === 'agenda_wa_estado_reservas');
+res('WhatsApp: una consulta con la reserva que viene', wa1.length === 1 && JSON.stringify(wa1[0].b) === '{"p_reservas":[201]}', wa1);
+(d.querySelector('[data-tab="reuniones"]') as HTMLElement).click(); await espera(100);
+const chipCal = d.querySelector('.crm-ev[data-id="1"] .crm-wa');
+res('WhatsApp: calendario muestra «✋ Sin WhatsApp: confirmar a mano» con la explicación', /Sin WhatsApp: confirmar a mano/.test(chipCal?.textContent || '') && /texto anterior/.test(chipCal?.getAttribute('title') || ''), chipCal?.outerHTML);
+(d.querySelector('.crm-ev[data-id="1"]') as HTMLElement).click(); await espera(150);
+res('WhatsApp: la ficha muestra el mismo estado junto a la reunión', /Sin WhatsApp: confirmar a mano/.test(d.querySelector('#crmFicha .crm-wa')?.textContent || ''));
+res('WhatsApp: la etiqueta no muestra teléfonos', Array.from(d.querySelectorAll('.crm-wa')).every((e: any) => !/\d{6}/.test(e.outerHTML)));
 dom.window.close();
 
 // Error al guardar → vuelve a su columna con mensaje

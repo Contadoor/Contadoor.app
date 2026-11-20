@@ -60,3 +60,80 @@ test('leer: RPC no instalada = no_disponible; 42501 = sin_permiso; ok devuelve d
   const r = await S.leer('7', '202610', f);
   assert.strictEqual(r.estado, 'ok'); assert.deepStrictEqual(enviado, ['rpc/sii_preiva_periodo', { p_cliente_id: 7, p_periodo: '202610' }]);
 });
+
+// ── 19-11 (Luciano): remanente del período = SIEMPRE el del mes INMEDIATAMENTE anterior; sin fuente válida → BLOQUEO (nunca $0) ──
+const RA = require('../assets/remanente-anterior.js');
+const SIN_DATO = (motivo, extra) => { const info = RA.resolver({ periodo: '2026-11', lecturaOk: true, info: Object.assign({ estado: 'SIN_DATO', motivo, periodo: '2026-11', periodo_anterior: '2026-10' }, extra || {}) });
+  return { valor: null, fuente: 'sin', info, raw: Object.assign({ estado: 'SIN_DATO', motivo }, extra || {}) }; };
+const NOV = (ra) => Object.assign({}, R, { periodo: '202611', remanente_anterior: ra });
+test('BLOQUEO: octubre no declarado en el SII y Contable sin dato → «Falta», sin $0, con el texto de Luciano y opción a mano', () => {
+  const p = S.aPantalla(NOV({ periodo: '202610', cod77: null, cod504: null, fuente: 'sin_f29' }), SIN_DATO('SIN_MES_ANTERIOR'));
+  const r = S.remanenteDelPeriodo({ periodo: '202611', sii: p, remContable: SIN_DATO('SIN_MES_ANTERIOR') });
+  assert.strictEqual(r.valor, null, 'nunca 0');
+  assert.strictEqual(r.bloqueo.tipo, 'sin_declarar');
+  assert.strictEqual(r.bloqueo.mensaje, '⚠️ Octubre 2026 no está declarado en el SII (o falta su remanente). Primero hay que declararlo: su remanente arrastra el de meses anteriores. Mientras tanto no se puede calcular noviembre 2026.');
+  assert.strictEqual(r.bloqueo.puedeManual, true, 'el reporte de octubre no existe en Gestoor → se puede ingresar a mano');
+  assert.match(p.avisos.join(' '), /Contable tampoco lo tiene/);
+});
+test('NUNCA dos meses atrás: octubre sin F29 y septiembre con cód. 77 > 0 → bloqueado, no usa ese 77', () => {
+  // a) la lectura del SII trae (por error) el F29 de SEPTIEMBRE con cód. 77 = 50.000 para el período noviembre
+  const p = S.aPantalla(NOV({ periodo: '202609', folio: 8, cod77: 50000, cod504: 50100, fuente: 'sii_codigo_77', falta_utm: [] }), SIN_DATO('SIN_MES_ANTERIOR'));
+  assert.strictEqual(p.remanente, null, 'el cód. 77 de septiembre no es el remanente de noviembre');
+  let r = S.remanenteDelPeriodo({ periodo: '2026-11', sii: p, remContable: SIN_DATO('SIN_MES_ANTERIOR') });
+  assert.strictEqual(r.valor, null); assert.strictEqual(r.bloqueo.tipo, 'sin_declarar'); assert.match(r.bloqueo.mensaje, /^⚠️ Octubre 2026 no está declarado/);
+  assert.strictEqual(S.registro(p, 'sii').sii_detalle.remanente.cod77, null, 'tampoco queda registrado el 77 de septiembre');
+  // b) aunque aPantalla no conociera el período, remanenteDelPeriodo rechaza un remanente del SII que no sea del mes anterior
+  const p2 = S.aPantalla(Object.assign({}, R, { remanente_anterior: { periodo: '202609', folio: 8, cod77: 50000, cod504: 50100, fuente: 'sii_codigo_77', falta_utm: [] } }), {});
+  assert.ok(p2.remanente, 'sin período en la respuesta, aPantalla lo muestra…');
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', sii: p2, remContable: SIN_DATO('SIN_MES_ANTERIOR') }).valor, null, '…pero el Pre-IVA no lo usa');
+  // c) Contable respondiendo el cód. 77 de septiembre (periodo_anterior 2026-09) para noviembre → tampoco se usa
+  const infoSep = RA.resolver({ periodo: '2026-11', lecturaOk: true, info: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 50000, cod504: 50000, periodo: '2026-11', periodo_anterior: '2026-09' } });
+  r = S.remanenteDelPeriodo({ periodo: '202611', sii: null, remContable: { valor: 50000, fuente: 'contable', info: infoSep } });
+  assert.strictEqual(r.valor, null); assert.ok(r.bloqueo);
+});
+test('fuentes válidas: SII del mes anterior manda; si no, Contable o el ingresado a mano (con nombre y motivo)', () => {
+  const okSii = S.aPantalla(NOV(Object.assign({}, REM, { periodo: '202610' })), {});
+  assert.deepStrictEqual([S.remanenteDelPeriodo({ periodo: '202611', sii: okSii, remContable: SIN_DATO('SIN_MES_ANTERIOR') }).valor, S.remanenteDelPeriodo({ periodo: '202611', sii: okSii }).origen], [12394, 'sii']);
+  const man = RA.resolver({ periodo: '2026-11', lecturaOk: true, info: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 80000, cod504: 80400, utm_origen: 1, utm_destino: 1, periodo: '2026-11', periodo_anterior: '2026-10',
+    manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 octubre presentado, folio 1' } } });
+  const sinF29 = S.aPantalla(NOV({ periodo: '202610', cod77: null, cod504: null, fuente: 'sin_f29' }), { valor: 80400, fuente: 'manual', info: man });
+  const r = S.remanenteDelPeriodo({ periodo: '202611', sii: sinF29, remContable: { valor: 80400, fuente: 'manual', info: man } });
+  assert.deepStrictEqual([r.valor, r.origen, r.bloqueo], [80400, 'manual', null]);
+  assert.match(r.aviso, /^Remanente ingresado a mano por Analista Ficticia .*· F29 octubre presentado, folio 1/);
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', sii: null, remContable: { valor: 0, fuente: 'contable', info: { periodoAnterior: '2026-10', detalle: 'x' } } }).valor, 0, 'cero confirmado sí vale');
+});
+test('excepciones con texto propio: sin montos en Cartapra, falta UTM, sin conexión (como Contable), conflicto y error de lectura', () => {
+  const sm = S.remanenteDelPeriodo({ periodo: '202611', sii: S.aPantalla(NOV({ periodo: '202610', fuente: 'f29_sin_montos', folio: 3, cod504: null }), {}), remContable: SIN_DATO('SIN_MES_ANTERIOR') });
+  assert.strictEqual(sm.bloqueo.tipo, 'cartapra_sin_montos'); assert.match(sm.bloqueo.mensaje, /esperar la próxima sincronización \(10:00 o 17:00\)\. Mientras tanto no se puede calcular noviembre 2026\.$/);
+  const ut = S.remanenteDelPeriodo({ periodo: '202611', sii: S.aPantalla(NOV(Object.assign({}, REM, { periodo: '202610', cod504: null, utm_destino: null, falta_utm: ['2026-12'] })), {}), remContable: SIN_DATO('SIN_UTM', { falta_utm: ['2026-12'] }) });
+  assert.strictEqual(ut.bloqueo.tipo, 'falta_utm'); assert.match(ut.bloqueo.mensaje, /Falta la UTM de diciembre 2026 en Gestoor: regístrala en Panel de control/); assert.strictEqual(ut.bloqueo.puedeManual, false);
+  const utC = S.remanenteDelPeriodo({ periodo: '202611', sii: null, remContable: SIN_DATO('SIN_UTM', { falta_utm: ['2026-11'] }) });
+  assert.strictEqual(utC.bloqueo.tipo, 'falta_utm', 'sin conexión, la UTM faltante la avisa Contable'); assert.match(utC.bloqueo.mensaje, /UTM de noviembre 2026/);
+  const nc = S.remanenteDelPeriodo({ periodo: '202611', sii: S.aPantalla({ conexion: { estado: 'sin_conexion' } }, {}), remContable: SIN_DATO('SIN_MES_ANTERIOR') });
+  assert.strictEqual(nc.bloqueo.tipo, 'contable'); assert.match(nc.bloqueo.mensaje, /^⚠️ Falta el remanente de octubre 2026: Gestoor no tiene ese reporte/); assert.strictEqual(nc.valor, null);
+  const sv = S.remanenteDelPeriodo({ periodo: '202611', sii: null, remContable: SIN_DATO('MES_ANTERIOR_SIN_VALIDAR') });
+  assert.strictEqual(sv.bloqueo.puedeManual, false, 'el reporte de octubre existe sin validar: se valida, no se ingresa a mano');
+  const cf = RA.resolver({ periodo: '2026-11', lecturaOk: true, info: { estado: 'CONFLICTO', fuente: 'F29_MANUAL', cod77: 1, cod504: 1, mes_anterior_cod77: 2, periodo_anterior: '2026-10', manual: {} } });
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: { valor: null, fuente: 'sin', info: cf } }).bloqueo.tipo, 'conflicto');
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: { valor: null, fuente: 'error' } }).bloqueo.tipo, 'sin_lectura');
+});
+
+test('remanente a mano (helper compartido): valida, busca el reporte del mes, llama a la RPC existente y traduce errores', async () => {
+  assert.match(S.validarRemanenteManual({ cod77: '1,5', motivo: 'F29 octubre folio 1' }).error, /entero en pesos/);
+  assert.match(S.validarRemanenteManual({ cod77: '100', motivo: 'corto' }).error, /mínimo 10 caracteres/);
+  assert.deepStrictEqual(S.validarRemanenteManual({ cod77: '250.000', motivo: '  F29 octubre folio 1 ' }), { cod77: 250000, motivo: 'F29 octubre folio 1' });
+  const MAN = { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 250000, cod504: 251000, utm_origen: 1, utm_destino: 1, periodo: '2026-11', periodo_anterior: '2026-10', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 octubre folio 1' } };
+  const llamadas = [];
+  const ok = async (p, o) => { llamadas.push([p, o && o.body ? JSON.parse(o.body) : null]);
+    return { ok: true, status: 200, text: async () => JSON.stringify(p.indexOf('reportes_mensuales') === 0 ? [{ id: 55 }] : { ok: true, info: MAN }) }; };
+  const r = await S.registrarRemanenteManual({ clienteRut: '1-9', periodo: '202611', cod77: '250.000', motivo: 'F29 octubre folio 1' }, ok);
+  assert.strictEqual(r.ok, true); assert.deepStrictEqual([r.remContable.valor, r.remContable.fuente], [251000, 'manual']);
+  assert.deepStrictEqual(llamadas, [['reportes_mensuales?cliente_rut=eq.1-9&periodo=eq.2026-11&select=id', null],
+    ['rpc/registrar_remanente_anterior_manual', { p_reporte_id: 55, p_cod77: 250000, p_motivo: 'F29 octubre folio 1' }]]);
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: r.remContable }).valor, 251000, 'desbloquea');
+  const err = (code, message) => async () => ({ ok: false, status: 400, text: async () => JSON.stringify({ code, message }) });
+  assert.match((await S.registrarRemanenteManual({ reporteId: 5, periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, err('42501', 'SOLO_ANALISTA_ASIGNADO: x'))).error, /Solo el analista contable asignado/);
+  assert.match((await S.registrarRemanenteManual({ reporteId: 5, periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, err('22023', 'MES_ANTERIOR_EXISTE: x'))).error, /El reporte de octubre 2026 existe en Gestoor/);
+  const sinRep = async () => ({ ok: true, status: 200, text: async () => '[]' });
+  assert.match((await S.registrarRemanenteManual({ clienteRut: '1-9', periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, sinRep)).error, /Aún no existe el reporte de este mes/);
+});

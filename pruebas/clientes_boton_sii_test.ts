@@ -59,10 +59,11 @@ const CARTERA = { ok: true, cartera: { empresas: [{ empresa: { rut: '11.111.111-
   const fr = w.document.querySelector('.sii-velo iframe');
   res('ventana pedida para el cliente 12', llamadas[0].accion === 'ventana' && llamadas[0].cliente_id === 12);
   res('iframe de Cartapra abierto', !!fr && fr.src === 'https://app.cartapra.com/conecta/abc');
-  (w.document.querySelector('.sii-velo .x') as any).click();
+  (w.document.querySelector('.sii-velo .x') as any).click(); await new Promise((r) => setTimeout(r, 30));
+  res('al cerrar: pide «traer» para ese cliente', llamadas.some((x: any) => x.accion === 'traer' && x.cliente_id === 12 && Object.keys(x).length === 2));
   res('al cerrar: modal fuera y lista se refresca', !w.document.querySelector('.sii-velo') && cerro === 1);
   const m2 = montar(() => [403, { ok: false, error: 'SIN_PERMISO', detalle: 'Solo el Master o un usuario autorizado.' }]);
   const b2 = m2.w.document.createElement('button'); m2.w.GestoorSII.conectar(3, b2); await new Promise((r) => setTimeout(r, 30));
   res('rechazo → aviso y botón habilitado', m2.toasts[0] === 'Solo el Master o un usuario autorizado.' && b2.disabled === false && !m2.w.document.querySelector('.sii-velo'));
 }
-console.log(`${total - fallas}/${total} pruebas OK`); if (fallas) Deno.exit(1);
+console.log(`${total - fallas}/${total} pruebas OK`); Deno.exit(fallas ? 1 : 0);   // relojes de revisión vivos (19-11)

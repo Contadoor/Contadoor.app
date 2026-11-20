@@ -259,3 +259,14 @@ test('R4 · validarMonto: vacío y enteros ≥ 0 válidos; texto, negativos, dec
   assert.equal(F.validarMonto('12.5'), 'debe ser un monto en pesos sin decimales');
   assert.equal(F.validarMonto('', { badInput: true }), 'no es un número válido');
 });
+
+// 19-11 (Luciano): remanente desconocido (null) → el F29 NO se calcula con $0: IVA, remanente nuevo y total quedan null; el PPM sí se calcula
+test('calcularF29Completo: remanente null = «Falta completar» (nunca $0); sin el campo sigue siendo 0 como antes', () => {
+  const o = { debitoRegistrado: 1900000, creditoRegistrado: 760000, netoVentas: 10000000, exentoVentas: 0, tasa: 1, horizonte: { esMesActual: false } };
+  const b = F.calcularF29Completo(Object.assign({}, o, { remanente: null }));
+  assert.deepStrictEqual([b.faltaRemanente, b.remanente, b.ivaPagar, b.nuevoRemanente, b.total], [true, null, null, null, null]);
+  assert.strictEqual(b.ppm, 100000, 'el PPM no depende del remanente');
+  const c = F.calcularF29Completo(o);
+  assert.deepStrictEqual([c.faltaRemanente, c.ivaPagar, c.total], [false, 1140000, 1240000]);
+  assert.strictEqual(F.calcularF29Completo(Object.assign({}, o, { remanente: 0 })).total, 1240000, 'cero confirmado');
+});

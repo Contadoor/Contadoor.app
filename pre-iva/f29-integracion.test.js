@@ -36,7 +36,7 @@ function servidor() {
   });
 }
 
-async function abrir(browser, base, { remanente, rem }) {
+async function abrir(browser, base, { remanente, rem, extra }) {
   const ctx = await browser.newContext();
   const cap = { correos: [], guardados: [], dialogos: [] };
   await ctx.addInitScript(() => {
@@ -53,11 +53,13 @@ async function abrir(browser, base, { remanente, rem }) {
       const p = url.pathname.replace('/rest/v1/', '');
       const json = (b) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(b) });
       if (p === 'clientes') return json([CLIENTE]);
+      if (extra) { const r = extra(p, req, json, cap); if (r) return r; }   // 19-11: respuestas extra por prueba (SII, RPC del remanente a mano)
       if (p === 'rpc/remanente_anterior') {
         // REM-ANT-2: la base responde el remanente anterior (cód. 77 → 504). Con remanente: CONOCIDO (UTM 1:1); sin él: SIN_DATO.
         if (rem) return json(rem);
-        return json(remanente ? { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: remanente, cod504: remanente, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' }
-                              : { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-10', periodo_anterior: '2026-09' });
+        // 19-11: remanente 0 = cero confirmado (CONOCIDO). La pantalla abre septiembre → el mes anterior es AGOSTO.
+        return json(remanente != null ? { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: remanente, cod504: remanente, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-09', mes_utm_destino: '2026-10', periodo: '2026-09', periodo_anterior: '2026-08' }
+                                      : { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' });
       }
       if (p === 'preiva_historial') {
         if (req.method() === 'GET') return json([]);
@@ -75,7 +77,9 @@ async function abrir(browser, base, { remanente, rem }) {
   });
   const page = await ctx.newPage();
   page.on('dialog', (d) => { cap.dialogos.push(d.message()); d.accept(); });
-  // Mes pasado (sin proyección): los montos son deterministas.
+  // 19-11: el Pre-IVA es el MES EN CURSO (un período anterior es solo simulación y no se guarda). El reloj queda en el ÚLTIMO día de
+  // septiembre: es el mes en curso y la proyección a fin de mes es ×1 (30 de 30 días), así los montos siguen siendo deterministas.
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0, 0));
   await page.goto(base + '/pre-iva/index.html?periodo=2026-09&cliente=1');
   await page.evaluate(() => document.documentElement.classList.remove('auth-pending'));   // lo haría auth.js (reemplazado)
   await page.waitForFunction(() => document.getElementById('panel-simulacion') && document.getElementById('panel-simulacion').style.display === 'block' && document.getElementById('lbl-remanente').textContent !== 'cargando...', null, { timeout: 15000 });
@@ -192,8 +196,9 @@ test('INTEGRACIÓN · no regresión: carga sin errores, KPIs, remanente, accione
     }));
     assert.equal(num(est.deb), 1900000); assert.equal(num(est.cred), 900000);   // mes pasado: sin proyección
     assert.equal(num(est.rem), 0); assert.equal(num(est.kppm), ppm);
-    assert.deepEqual(est.acciones, ['Adelantar compras del mes siguiente', 'Revisar facturas de proveedores pendientes']);
-    assert.match(est.corte, /Mes distinto al en curso/);
+    // 30-sep: quedan 20 días para el F29 (vence el 20-oct) → también «Diferir facturación» (mes en curso)
+    assert.deepEqual(est.acciones, ['Adelantar compras del mes siguiente', 'Diferir facturación de fin de mes', 'Revisar facturas de proveedores pendientes']);
+    assert.match(est.corte, /Datos al 30 de septiembre/);   // 19-11: el Pre-IVA es el mes en curso (reloj fijo en el 30-sep)
     // Remanente a favor: KPI muestra el nuevo remanente y no lo infla el PPM
     await escribir(page, { 'inp-debito': 500000, 'inp-credito': 800000 });
     assert.equal(num(await page.evaluate(() => document.getElementById('kpi-remanente').textContent)), 300000);
@@ -287,29 +292,81 @@ test('INTEGRACIÓN R4 · montos inválidos: se marcan, "Editar reporte" no los a
   } finally { await browser.close(); srv.close(); }
 });
 
-test('INTEGRACIÓN REM-ANT-2 · sin dato → alerta; cero confirmado y 77→504 reajustado → sin alerta y se muestran ambos códigos', { skip: omitir }, async () => {
+test('INTEGRACIÓN REM-ANT-2 + 19-11 · Pre-IVA sin bloqueo: sin dato → «Falta» solo en el remanente y estimado parcial; cero confirmado y 77→504 reajustado → sin alerta', { skip: omitir }, async () => {
   const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
   const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
   try {
     const leer = (page) => page.evaluate(() => { const a = document.getElementById('pio-aviso-remanente'); return { visible: !!a && !a.hidden, txt: (document.getElementById('pio-aviso-remanente-txt') || {}).textContent || '',
       fuente: document.getElementById('lbl-remanente-fuente').textContent, valor: document.getElementById('lbl-remanente').textContent }; });
-    const sin = await abrir(browser, base, { remanente: 0 });
+    // 19-11 (Luciano, regla definitiva): el Pre-IVA es el ESTIMADO del mes en curso → NO se bloquea. Sin remanente ni forma de estimarlo:
+    // «Falta» en esa línea, el F29 se muestra como «estimado parcial» (sin remanente) y solo «Enviar» al cliente se deshabilita.
+    const sin = await abrir(browser, base, { rem: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' } });
+    await escribir(sin.page, { 'inp-debito': 1900000, 'inp-credito': 760000, 'inp-tasa-ppm': 1 });
     const a1 = await leer(sin.page);
     assert.equal(a1.visible, true, 'sin dato la alerta debe verse');
-    assert.match(a1.txt, /Falta el remanente de septiembre 2026.* Mientras tanto el cálculo usa \$0/);
+    assert.match(a1.txt, /^⚠️ Falta: remanente de agosto 2026 \(agosto 2026 aún sin validar\/declarar y no se pudo estimar: .*\)\. El F29 de abajo es un estimado parcial \(sin remanente\)\.$/);
+    assert.equal(a1.valor, 'Falta');
+    const b1 = await sin.page.evaluate(() => ({ f29: document.getElementById('res-f29').textContent, rem: document.getElementById('res-remanente').textContent, ppm: document.getElementById('res-ppm').textContent,
+      env: document.getElementById('btn-enviar').disabled, vp: document.getElementById('btn-vista-previa').disabled, motivo: document.getElementById('btn-enviar').title,
+      man: !document.getElementById('pio-rem-man').hidden, parcial: document.getElementById('pio-f29-bloq').textContent, hero: document.getElementById('pio-hero-lbl').textContent }));
+    assert.equal(b1.rem, 'Falta'); assert.equal(num(b1.f29), 1900000 - 760000 + num(b1.ppm), 'estimado parcial: IVA sin remanente + PPM (no «Falta completar»)');
+    assert.deepEqual([b1.env, b1.vp, b1.man], [true, false, false], 'Enviar al cliente deshabilitado (parcial); vista previa sí; sin ingreso a mano en el Pre-IVA');
+    assert.match(b1.motivo, /^No se puede enviar al cliente: el estimado es parcial \(falta el remanente de agosto 2026\)/);
+    assert.equal(b1.parcial, 'Estimado parcial: sin remanente de agosto 2026'); assert.match(b1.hero, /estimado parcial/);
+    // Borrador: remanente y F29 null (nunca un $0 inventado como dato)
+    await sin.page.evaluate(() => guardarPreiva('borrador'));
+    const g0 = sin.cap.guardados[sin.cap.guardados.length - 1].cuerpo;
+    assert.deepEqual([g0.remanente, g0.f29], [null, null]);
     await sin.ctx.close();
-    const cero = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 sept. sin remanente' } } });
+    const cero = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-09', periodo_anterior: '2026-08', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 sept. sin remanente' } } });
     const a2 = await leer(cero.page);
-    assert.equal(a2.valor, '$0'); assert.match(a2.fuente, /cód\. 504 · Cód\. 77 de septiembre 2026: \$0/); assert.match(a2.txt, /ingresado a mano por Analista Ficticia/);
+    assert.equal(a2.valor, '$0'); assert.match(a2.fuente, /cód\. 504 · Cód\. 77 de agosto 2026: \$0/); assert.match(a2.txt, /ingresado a mano por Analista Ficticia/);
     await cero.ctx.close();
-    const reaj = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1000000, cod504: 1007246, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' } });
+    const reaj = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1000000, cod504: 1007246, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-09', periodo_anterior: '2026-08' } });
     const a3 = await leer(reaj.page);
     assert.equal(a3.visible, false); assert.equal(a3.valor, '$1.007.246');
-    assert.match(a3.fuente, /Cód\. 77 de septiembre 2026: \$1\.000\.000 × UTM noviembre 2026 \$69\.500 ÷ UTM octubre 2026 \$69\.000 = cód\. 504 \$1\.007\.246/);
+    assert.match(a3.fuente, /Cód\. 77 de agosto 2026: \$1\.000\.000 × UTM noviembre 2026 \$69\.500 ÷ UTM octubre 2026 \$69\.000 = cód\. 504 \$1\.007\.246/);
     await reaj.ctx.close();
-    const conf = await abrir(browser, base, { rem: { estado: 'CONFLICTO', fuente: 'F29_MANUAL', cod77: 1000000, cod504: 1007246, mes_anterior_cod77: 900000, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: {} } });
-    const a4 = await leer(conf.page);
-    assert.equal(a4.visible, true); assert.match(a4.txt, /^Conflicto: el reporte de septiembre 2026 trae cód\. 77 \$900\.000/);
-    await conf.ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
+
+// 19-11 (Luciano): SII conectado sin F29 de agosto + Contable sin dato → el Pre-IVA ESTIMA el remanente con el cálculo de agosto
+// (débito y crédito de agosto del SII + el remanente de agosto, que sale del F29 de julio): nunca salta a julio sin pasar por agosto.
+test('INTEGRACIÓN 19-11 · mes anterior no declarado → remanente ESTIMADO con el cálculo del mes anterior (rotulado), sin bloqueo', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const SEP = { cliente_id: 1, periodo: '202609', conexion: { estado: 'conectada' }, datos_al: '2026-09-30T12:00:00Z', cobertura: {}, avisos: [],
+      ventas: { documentos: 3, neto: 10000000, exento: 0, iva: 1900000, por_tipo: {} }, compras: { registro: { documentos: 2, neto: 4000000, exento: 0, iva: 760000 }, por_tipo: {} },
+      f29_periodo: null, remanente_anterior: { periodo: '202608', cod77: null, cod504: null, fuente: 'sin_f29' } };
+    const AGO = { cliente_id: 1, periodo: '202608', conexion: { estado: 'conectada' }, datos_al: '2026-09-30T12:00:00Z', cobertura: {}, avisos: [],
+      ventas: { documentos: 1, neto: 2631579, exento: 0, iva: 500000, por_tipo: {} }, compras: { registro: { documentos: 2, neto: 4210526, exento: 0, iva: 800000 }, por_tipo: {} },
+      f29_periodo: null, remanente_anterior: { periodo: '202607', folio: 77, cod77: 200000, cod504: 200000, fuente: 'sii_codigo_77', mes_utm_origen: '2026-08', mes_utm_destino: '2026-08', utm_origen: 69000, utm_destino: 69000, falta_utm: [] } };
+    const pedidos = [];
+    const caso = async (ago) => abrir(browser, base, { rem: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' }, extra: (p, req, json) => {
+      if (p === 'rpc/sii_preiva_periodo') { const b = JSON.parse(req.postData() || '{}'); pedidos.push(b.p_periodo); return json(b.p_periodo === '202608' ? ago : SEP); }
+      return null; } });
+    let { ctx, page, cap } = await caso(AGO);
+    await page.waitForFunction(() => /estimado/.test(document.getElementById('lbl-remanente').textContent), null, { timeout: 15000 });
+    const v = await page.evaluate(() => ({ lbl: document.getElementById('lbl-remanente').textContent, fu: document.getElementById('lbl-remanente-fuente').textContent,
+      fila: document.getElementById('pio-rem-bloq').textContent, f29: document.getElementById('res-f29').textContent, ppm: document.getElementById('res-ppm').textContent,
+      env: document.getElementById('btn-enviar').disabled, man: !document.getElementById('pio-rem-man').hidden, av: document.getElementById('pio-aviso-remanente-txt').textContent }));
+    assert.ok(pedidos.includes('202608'), 'lee los datos del SII de agosto para estimar');
+    assert.equal(v.lbl, '$500.000 (estimado)', '200.000 + crédito 800.000 − débito 500.000 = 500.000');
+    assert.equal(v.fila, 'Remanente estimado (agosto 2026 aún sin validar/declarar)');
+    assert.match(v.fu, /Remanente estimado \(agosto 2026 aún sin validar\/declarar\): \$200\.000 \+ crédito \$800\.000 − débito \$500\.000 de agosto 2026 = \$500\.000/);
+    assert.equal(num(v.f29), 1900000 - 760000 - 500000 + num(v.ppm), 'F29 estimado con el remanente estimado');
+    assert.deepEqual([v.env, v.man], [false, false], 'sin bloqueo: se puede enviar el estimado; el ingreso a mano es de Contable');
+    await page.evaluate(() => guardarPreiva('borrador'));
+    const g = cap.guardados[cap.guardados.length - 1].cuerpo;
+    assert.equal(g.remanente, 500000);
+    assert.deepEqual(g.sii_detalle.remanente_estimado, { periodo: '2026-08', debito: 500000, credito: 800000, remanente_anterior: 200000, origen_remanente_anterior: 'sii', valor: 500000 });
+    await ctx.close();
+    // Agosto sin el F29 de julio (ni Contable): NO se usa julio directo ni $0 → «Falta» y estimado parcial
+    ({ ctx, page, cap } = await caso(Object.assign({}, AGO, { remanente_anterior: { periodo: '202607', cod77: null, cod504: null, fuente: 'sin_f29' } })));
+    await page.waitForFunction(() => document.getElementById('lbl-remanente').textContent === 'Falta' && /julio 2026/.test(document.getElementById('lbl-remanente-fuente').textContent), null, { timeout: 15000 });
+    assert.match(await page.textContent('#lbl-remanente-fuente'), /no se pudo estimar: tampoco se conoce el remanente de julio 2026/);
+    assert.equal(await page.evaluate(() => document.getElementById('btn-enviar').disabled), true);
+    await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });
