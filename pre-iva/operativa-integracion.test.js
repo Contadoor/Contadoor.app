@@ -33,7 +33,7 @@ async function abrir(browser, base, url, o = {}) {
       if (p === 'planes') return json([{ codigo: 'asesoria', nombre: 'Contadoor PRO', incluye_preiva: true }]);
       if (p === 'periodos') return json([{ periodo: '2026-10', uf: 39700 }]);
       if (p === 'rpc/sapi_frescura') return o.sii && o.sii !== '404' ? json(o.sii) : json({ code: 'PGRST202', message: 'no existe' }, 404);
-      if (p === 'rpc/remanente_anterior') return json(o.rem || { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR' });   // REM-ANT-2
+      if (p === 'rpc/remanente_anterior') return json(o.rem || { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69000 });   // REM-ANT-2 · 19-11: cero confirmado por defecto (sin dato = bloqueo)
       if (p === 'reportes_mensuales') return json(String(u.searchParams.get('periodo') || '').startsWith('in.') ? (o.rm || []) : []);
       if (p === 'rcv_resumenes') return o.docsError ? json({ message: 'boom' }, 500) : json(o.resumen || []);
       if (p === 'rcv_documentos') return json(u.searchParams.get('offset') !== '0' ? [] : (o.docs || []));

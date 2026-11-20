@@ -46,9 +46,11 @@
     if (debito == null) { if (cob.rcv_ventas === 'completa') debito = 0; else faltas.push('ventas del SII de ' + mesTxt(per) + ' (Cartapra aún no las trae)'); }
     if (credito == null) { if (cob.rcv_compras === 'completa') credito = 0; else faltas.push('compras del SII de ' + mesTxt(per) + ' (Cartapra aún no las trae)'); }
     // Remanente: oficial del SII (cód. 504) → el de Contable (como el Pre-IVA) → Falta
+    // 19-11: misma decisión que el Pre-IVA (PreIvaSii.remanenteDelPeriodo): solo el mes INMEDIATAMENTE anterior, nunca $0 por defecto.
     var ra = raw.remanente_anterior || {}, rc = o.remContable || {}, rem = null, remOrigen = null, remDet = null;
-    if (p.remanente) { rem = p.remanente.valor; remOrigen = 'F29 anterior · SII'; remDet = p.remanente.texto; }
-    else if ((rc.fuente === 'contable' || rc.fuente === 'manual') && num(rc.valor) != null) {
+    var RD = S.remanenteDelPeriodo({ periodo: per, sii: p, remContable: rc });
+    if (RD.origen === 'sii') { rem = RD.valor; remOrigen = 'F29 anterior · SII'; remDet = RD.texto; }
+    else if (RD.origen === 'contable' || RD.origen === 'manual') {
       rem = num(rc.valor); remOrigen = rc.fuente === 'manual' ? 'F29 anterior · ingresado a mano' : 'F29 anterior · Contable';
       remDet = (rc.info && rc.info.detalle) || 'Remanente del F29 de ' + mesTxt(ra.periodo || mesAnt(per)) + ' registrado en Contable';
     } else {

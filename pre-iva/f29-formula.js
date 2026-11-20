@@ -144,7 +144,7 @@
   // ── Cálculo COMPLETO del F29 estimado — COMPARTIDO por Pre-IVA (calcular()) y Reporte Contable (tarjeta «Cálculo del F29») ──
   // Misma secuencia que siempre usó el Pre-IVA: proyección (solo mes en curso) → base PPM → PPM (con edición) → IVA a pagar + PPM.
   // o: { debitoRegistrado, creditoRegistrado, netoVentas (null = desconocido → débito ÷ 0,19), exentoVentas (null = sin dato),
-  //      remanente, tasa, edicionPPM, horizonte: {diasTranscurridos, diasRestantesMes, esMesActual} (de pre-iva/proyeccion.js) }
+  //      remanente (null = desconocido → sin total), tasa, edicionPPM, horizonte: {diasTranscurridos, diasRestantesMes, esMesActual} (de pre-iva/proyeccion.js) }
   // Reporte Contable suma aparte retención de honorarios e impuesto único (totalF29); Pre-IVA no los considera.
   function calcularF29Completo(o) {
     o = o || {}; var hz = o.horizonte || {};
@@ -154,10 +154,14 @@
     var base = proyectarMes({ debitoRegistrado: b.base, creditoRegistrado: 0, diasTranscurridos: hz.diasTranscurridos, diasRestantes: hz.diasRestantesMes, esMesActual: hz.esMesActual }).debito;
     var P = aplicarEdicionPPM(base, o.tasa, o.edicionPPM);
     var r = calcularF29Estimado({ debito: pry.debito, credito: pry.credito, remanente: o.remanente, ppm: P.ppm });
-    return { debito: pry.debito, credito: pry.credito, remanente: Math.max(0, n(o.remanente)), ivaDeterminado: r.ivaDeterminado, ivaPagar: r.ivaPagar,
-             nuevoRemanente: r.nuevoRemanente, ppmBase: base, ppm: P.ppm, ppmCalculado: P.calculado, tasa: P.tasa, tasaCalculada: P.tasaCalculada,
+    // 19-11 (Luciano): remanente null = DESCONOCIDO (el mes anterior no está declarado o falta su remanente). NUNCA se asume $0:
+    // el IVA a pagar, el remanente nuevo y el total quedan null («Falta completar»); el PPM sí se calcula (no depende del remanente).
+    var faltaRem = o.remanente === null;   // solo null explícito (sin el campo = 0, como antes)
+    return { debito: pry.debito, credito: pry.credito, remanente: faltaRem ? null : Math.max(0, n(o.remanente)), faltaRemanente: faltaRem,
+             ivaDeterminado: faltaRem ? null : r.ivaDeterminado, ivaPagar: faltaRem ? null : r.ivaPagar,
+             nuevoRemanente: faltaRem ? null : r.nuevoRemanente, ppmBase: base, ppm: P.ppm, ppmCalculado: P.calculado, tasa: P.tasa, tasaCalculada: P.tasaCalculada,
              ppmEditado: P.editado, ppmModo: P.modo, ppmMotivo: P.motivo, ppmAvisos: n(P.tasa) > 0 && !(P.editado && P.modo === 'monto') ? b.avisos : [],
-             sinTasa: !(n(o.tasa) > 0) && !P.editado, total: r.total };
+             sinTasa: !(n(o.tasa) > 0) && !P.editado, total: faltaRem ? null : r.total };
   }
   // Total a pagar del F29 en Reporte Contable = IVA a pagar + PPM + retención de honorarios + impuesto único (RR. HH.).
   function totalF29(r, retHon, iu) { return n(r && r.ivaPagar) + n(r && r.ppm) + n(retHon) + n(iu); }
