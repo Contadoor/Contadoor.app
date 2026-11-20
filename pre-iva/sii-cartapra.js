@@ -118,6 +118,39 @@
     return { valor: null, origen: null, texto: 'sin remanente de ' + mA, aviso: null,
              bloqueo: { tipo: tipo, mensaje: msg, puedeManual: puedeManual, detalleContable: info.aviso || null, mesAnterior: mA, mes: mP } };
   }
+  // ── Remanente para el ESTIMADO del Pre-IVA (mes en curso) — 19-11 (Luciano): el Pre-IVA NO bloquea ──
+  // El mes anterior normalmente aún no está declarado (el F29 vence el 20). Orden:
+  //   (1) cód. 504 del F29 del mes anterior en el SII · (2) el remanente de Contable (reporte del mes anterior validado o a mano) ·
+  //   (3) ESTIMADO: el remanente siguiente del mes anterior con la misma fórmula (calcularF29Completo del mes anterior con sus datos del SII
+  //       y SU remanente, que a su vez sale del SII o de Contable — nunca se salta a dos meses atrás sin calcular el mes intermedio) ·
+  //   (4) si ni eso se puede, «Falta» solo en esa línea (el total queda «estimado parcial»).
+  // o: { periodo, sii (aPantalla del mes), remContable (del mes), anterior: { raw (sii_preiva_periodo del mes anterior), sii (aPantalla), remContable } }
+  // → { valor, origen: 'sii'|'contable'|'manual'|'estimado'|null, texto, aviso, falta (bool), estimado (bool), mesAnterior, detalleEstimado }
+  function remanenteEstimado(o) {
+    o = o || {};
+    var per = perSin(o.periodo), ant = perAnterior(per), mA = mesTxt(ant);
+    var R = remanenteDelPeriodo({ periodo: per, sii: o.sii || null, remContable: o.remContable || {} });
+    if (!R.bloqueo) return { valor: R.valor, origen: R.origen, texto: R.texto, aviso: R.aviso, falta: false, estimado: false, mesAnterior: mA };
+    var A = o.anterior || {}, pa = A.sii || null, cob = (A.raw && A.raw.cobertura) || {};
+    var motivo = null;
+    if (pa && pa.conectado) {
+      var deb = pa.debito != null ? pa.debito : (cob.rcv_ventas === 'completa' ? 0 : null);
+      var cred = pa.credito != null ? pa.credito : (cob.rcv_compras === 'completa' ? 0 : null);
+      // Remanente del mes anterior (el de dos meses atrás, pero SOLO como dato del cálculo del mes intermedio)
+      var RA = remanenteDelPeriodo({ periodo: ant, sii: pa, remContable: A.remContable || {} });
+      if (deb == null || cred == null) motivo = 'faltan las ventas o compras de ' + mA + ' en el SII';
+      else if (RA.valor == null) motivo = 'tampoco se conoce el remanente de ' + mesTxt(perAnterior(ant));
+      else {
+        var FF = raiz.PreIvaF29 || (typeof require === 'function' ? require('./f29-formula.js') : null);
+        var C = FF.calcularF29Completo({ debitoRegistrado: deb, creditoRegistrado: cred, remanente: RA.valor, tasa: 0, horizonte: { esMesActual: false } });
+        return { valor: C.nuevoRemanente, origen: 'estimado', falta: false, estimado: true, mesAnterior: mA, aviso: null,
+          texto: 'Remanente estimado (' + mA + ' aún sin validar/declarar): ' + fmt(RA.valor) + ' + crédito ' + fmt(cred) + ' − débito ' + fmt(deb) + ' de ' + mA + ' = ' + fmt(C.nuevoRemanente),
+          detalleEstimado: { periodo: ant.replace(/^(\d{4})(\d{2})$/, '$1-$2'), debito: deb, credito: cred, remanente_anterior: RA.valor, origen_remanente_anterior: RA.origen, valor: C.nuevoRemanente } };
+      }
+    } else motivo = 'no hay datos del SII de ' + mA;
+    return { valor: null, origen: null, falta: true, estimado: false, mesAnterior: mA, aviso: null,
+      texto: 'Falta: remanente de ' + mA + ' (' + mA + ' aún sin validar/declarar y no se pudo estimar: ' + motivo + ')' };
+  }
   // ── Remanente ingresado a mano (19-11) — COMPARTIDO: Pre-IVA hoy y el «Validar IVA» de Contable después ──
   // Usa la RPC EXISTENTE public.registrar_remanente_anterior_manual(p_reporte_id, p_cod77, p_motivo) (SECURITY DEFINER):
   // solo Master o analista contable asignado; exige que el reporte del mes anterior NO exista en Gestoor, UTM registrada y motivo ≥ 10.
@@ -193,7 +226,7 @@
       })
       .catch(function (e) { return { estado: noInstalada(e) ? 'no_disponible' : (e && e.code === '42501' ? 'sin_permiso' : 'error'), error: e && e.message }; });
   }
-  var api = { aPantalla: aPantalla, remanenteDelPeriodo: remanenteDelPeriodo, validarRemanenteManual: validarRemanenteManual,
+  var api = { aPantalla: aPantalla, remanenteDelPeriodo: remanenteDelPeriodo, remanenteEstimado: remanenteEstimado, validarRemanenteManual: validarRemanenteManual,
               mensajeErrorRemanenteManual: mensajeErrorRemanenteManual, remContableDesdeInfo: remContableDesdeInfo, registrarRemanenteManual: registrarRemanenteManual,
               registro: registro, leer: leer, fechaChile: fechaChile, TIPOS: TIPOS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

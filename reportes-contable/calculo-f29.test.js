@@ -106,13 +106,40 @@ test('sin conexión al SII / sin datos de compras aún leídos', () => {
   const b = C.armar(base({ raw: raw({ compras: null }) }));
   assert.equal(linea(b, 'credito').valor, 0, 'cobertura completa y sin compras = $0');
 });
-test('validación del Pre-IVA y enlace al Pre-IVA del cliente y período', () => {
-  assert.deepEqual(C.estadoValidacion({ fecha_envio: '2026-11-19T15:00:00Z', enviado_por: 'Analista Prueba' }), { validado: true, texto: 'Pre-IVA validado el 19-11-2026 por Analista Prueba' });
-  assert.equal(C.estadoValidacion(null, 'completado').texto, 'Pre-IVA validado en el Reporte Contable');
+test('19-11: estado del IVA = el del Reporte Contable (estado_contable); un Pre-IVA «enviado» (estimado) NO es una validación', () => {
+  const vi = { fecha_envio: '2026-11-19T15:00:00Z', enviado_por: 'Analista Prueba', sii_detalle: { validacion_iva: { por: 'Analista Prueba', at: '2026-11-19T15:00:00Z', desde: 'contable' } } };
+  assert.deepEqual(C.estadoValidacion(vi, 'completado'), { validado: true, texto: 'IVA validado el 19-11-2026 por Analista Prueba' });
+  assert.equal(C.estadoValidacion(null, 'completado').texto, 'IVA validado en el Reporte Contable');
+  assert.deepEqual(C.estadoValidacion({ fecha_envio: '2026-11-19T15:00:00Z', enviado_por: 'Analista Prueba' }), { validado: false, texto: 'Aún no validado · Pre-IVA (estimado) enviado el 19-11-2026' });
   assert.equal(C.estadoValidacion({ periodo: '2026-10' }).texto, 'Aún no validado · hay un borrador guardado en Pre-IVA');
   assert.equal(C.estadoValidacion(null).texto, 'Aún no validado');
-  assert.equal(C.urlPreIva(77, '2026-10'), '../pre-iva/index.html?periodo=2026-10&cliente=77');
   assert.equal(C.urlPreIva(77, '202610'), '../pre-iva/index.html?periodo=2026-10&cliente=77');
+});
+test('19-11: «Validar IVA» — montos a escribir y bloqueos (remanente de Contable, RR. HH., UTM, mes en curso, descuadre SII ≠ Contable)', () => {
+  // Remanente: SII (cód. 504 101.000) y Contable iguales → se valida con el de Contable
+  const ok = C.armar(base({ remContable: { valor: 101000, fuente: 'contable', info: { periodoAnterior: '2026-09' } } }));
+  assert.deepEqual(ok.bloqueosValidar, []);
+  assert.deepEqual([ok.validar.debito, ok.validar.credito, ok.validar.remanenteAnterior, ok.validar.ppm, ok.validar.retHon, ok.validar.iu, ok.validar.ppmTasa], [1900000, 760000, 101000, 157500, 68750, 45000, 1.5]);
+  // SII ≠ Contable → no se valida (la base exige el remanente de Contable)
+  const des = C.armar(base());   // Contable 90.000 vs SII 101.000
+  assert.equal(des.remValidacion.bloqueo.tipo, 'descuadre');
+  assert.match(des.bloqueosValidar.join(' '), /El remanente de septiembre 2026 no cuadra: el F29 del SII da \$101\.000 y Contable tiene \$90\.000/);
+  // Contable sin remanente (el SII sí lo tiene) → bloqueo con ingreso a mano y el cód. 77 del SII sugerido; nunca $0
+  const sinC = C.armar(base({ remContable: { valor: 0, fuente: 'sin', info: { fuente: 'falta', bloquea: true, aviso: 'Falta el remanente de septiembre 2026', periodoAnterior: '2026-09' } } }));
+  assert.equal(sinC.validar.remanenteAnterior, null);
+  assert.equal(sinC.remValidacion.bloqueo.puedeManual, true); assert.equal(sinC.remValidacion.bloqueo.cod77Sugerido, 100000);
+  assert.match(sinC.bloqueosValidar[0], /^El SII tiene el remanente de septiembre 2026 \(\$101\.000\), pero Gestoor aún no lo tiene registrado: ingrésalo a mano/);
+  // Mes anterior no declarado en ninguna parte → bloqueo (texto compartido con el Pre-IVA, cierre «validar»)
+  const nd = C.armar(base({ raw: raw({ remanente_anterior: { periodo: '2026-09', cod77: null, cod504: null, fuente: 'sin_f29' } }), remContable: { valor: 0, fuente: 'sin', info: { fuente: 'falta', bloquea: true } } }));
+  assert.match(nd.bloqueosValidar[0], /^Septiembre 2026 no está declarado en el SII .* Mientras tanto no se puede validar el IVA de octubre 2026\.$/);
+  // RR. HH. pendiente y UTM faltante bloquean
+  assert.match(C.armar(base({ iuSii: null, remContable: { valor: 101000, fuente: 'contable' } })).bloqueosValidar.join(' '), /Falta: impuesto único de trabajadores/);
+  const utm = C.armar(base({ raw: raw({ remanente_anterior: { periodo: '2026-09', cod77: 100000, cod504: null, fuente: 'sii_codigo_77', falta_utm: ['2026-11'] } }), remContable: { valor: 0, fuente: 'sin', info: { fuente: 'falta', bloquea: true } } }));
+  assert.match(utm.bloqueosValidar.join(' '), /Falta la UTM de noviembre 2026 en Gestoor/);
+  // Mes en curso: no se valida (es el estimado del Pre-IVA)
+  assert.match(C.armar(base({ periodo: '2026-11', remContable: { valor: 101000, fuente: 'contable' } })).bloqueosValidar.join(' '), /aún está en curso: el IVA se valida en Contable al cerrar el período/);
+  // Ya validado
+  assert.deepEqual(C.armar(base({ estadoContable: 'completado', remContable: { valor: 101000, fuente: 'contable' } })).bloqueosValidar, ['El IVA de octubre 2026 ya está validado.']);
 });
 
 // ── PPM editable (f29-formula.js, compartido) ──

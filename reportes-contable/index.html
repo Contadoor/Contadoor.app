@@ -188,7 +188,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
     <div class="stats">
       <div class="stat"><div class="sv" id="st-total" style="color:var(--t1)">0</div><div class="sl">Mis clientes</div></div>
       <div class="stat"><div class="sv" id="st-rrhh-ok" style="color:var(--blue)">0</div><div class="sl">RRHH OK</div></div>
-      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">Pre-IVA validado</div></div>
+      <div class="stat"><div class="sv" id="st-completado" style="color:var(--green)">0</div><div class="sl">IVA validado</div></div>
       <div class="stat"><div class="sv" id="st-enviado" style="color:var(--amber)">0</div><div class="sl">En Panel de Control</div></div>
       <div class="stat"><div class="sv" id="st-atrasado" style="color:var(--red)">0</div><div class="sl">Atrasados</div></div>
     </div>
@@ -212,7 +212,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
       <button class="fb on" onclick="setFiltro('estado','')">Todos</button>
       <button class="fb" onclick="setFiltro('estado','esperando_rrhh')">Esperando RRHH</button>
       <button class="fb" onclick="setFiltro('estado','rrhh_ok')">RRHH OK</button>
-      <button class="fb" onclick="setFiltro('estado','completado')">Pre-IVA validado</button>
+      <button class="fb" onclick="setFiltro('estado','completado')">IVA validado</button>
       <button class="fb" onclick="setFiltro('estado','atrasado')">Atrasados</button>
       <span class="fl" style="margin-left:14px;border-left:1px solid var(--bdr);padding-left:12px">Flujo de pago:</span>
       <button class="fb" onclick="setFiltro('estado','pago_espera')">Esp. transferencia</button>
@@ -254,7 +254,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 <!-- MODAL F29 — Pre-IVA Tributario (sin honorarios comerciales) -->
 <div class="modal-bg" id="modalF29">
   <div class="modal">
-    <h2><span data-g-ic="iva"></span> Pre-IVA · Impuestos tributarios</h2>
+    <h2><span data-g-ic="iva"></span> IVA del período · Impuestos tributarios</h2>
     <div class="modal-sub" id="modal-cliente-nombre">Cliente — Período</div>
     <input type="hidden" id="m-rut"/>
     <input type="hidden" id="m-periodo"/>
@@ -405,7 +405,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 
     <div class="modal-footer">
       <button class="btn-s" onclick="closeModal()">Cancelar</button>
-      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">Validar Pre-IVA</button>
+      <button class="btn-p" id="btn-guardar-f29" onclick="guardarF29()">Validar IVA</button>
     </div>
   </div>
 </div>
@@ -920,7 +920,7 @@ function renderPipelineContable(rep,c,oblig){
   var pasos=[
     {lbl:'RRHH',       done:rrhhOk,            warn:false, err:false},
     {lbl:'Libros',     done:libOk&&rrhhOk,     warn:false, err:false},
-    {lbl:'Pre-IVA',    done:prevOk&&libOk,     warn:false, err:false},
+    {lbl:'IVA',        done:prevOk&&libOk,     warn:false, err:false},   // 19-11: «Validar IVA» del período contable (antes «Pre-IVA»; mismas claves)
     {lbl:'Reporte',    done:repOk&&prevOk,     warn:estOb==='requiere_revision', err:false},
     {lbl:'Transferido',done:!sinOb&&o>=1,      warn:estOb==='parcialmente_conciliada', err:false},
     {lbl:'Procesar pago',done:!sinOb&&o>=2,      warn:false, err:false},
@@ -1054,12 +1054,12 @@ function renderTabla(){
     } else if(false){
       badgeHtml='';
     } else if(estado==='pendiente'){
-      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">'+gIcon('iva')+' Revisar / Validar Pre-IVA</span>';
+      badgeHtml='<span class="estado-badge" style="background:var(--contable-bg);color:var(--contable)">'+gIcon('iva')+' Revisar / Validar IVA</span>';
     } else if(estado==='completado'){
       if(rep.listoPanelControl){
         badgeHtml='<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7">'+gIcon('check')+' Reporte contable OK</span>';
       } else {
-        badgeHtml='<span class="estado-badge eb-completado">'+gIcon('check')+' Pre-IVA validado</span>';
+        badgeHtml='<span class="estado-badge eb-completado">'+gIcon('check')+' IVA validado</span>';
       }
     } else if(estado==='atrasado'){
       badgeHtml='<span class="estado-badge" style="background:#fee2e2;color:#991b1b">'+gIcon('alerta')+' Atrasado</span>';
@@ -1190,7 +1190,7 @@ function renderTabla(){
     if(estado==='pendiente'){
       var libOkDetalle=librosListos(rep,c);
       if(libOkDetalle){
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Revisar / Validar Pre-IVA</button>';
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Revisar / Validar IVA</button>';
       } else {
         html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-IVA">'+gIcon('subir')+' Carga Compras y Ventas</button>';
       }
@@ -1244,7 +1244,7 @@ function renderTabla(){
   document.getElementById('st-completado').textContent=stComp;
   document.getElementById('st-enviado').textContent=stEnv;
   document.getElementById('st-atrasado').textContent=stAtr;
-  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' Pre-IVA validados · '+stRrhhOk+' con RRHH OK';
+  document.getElementById('tabla-meta').textContent=clientes.length+' clientes · '+stComp+' IVA validados · '+stRrhhOk+' con RRHH OK';
   actualizarBannerMasivo();
 }
 
@@ -1267,7 +1267,15 @@ function _cargarSiiDe(rut){
     var frep=getReportes().find(function(r){ return normalizarRutContable(r.rut)===normalizarRutContable(fcli.rut||rut)&&r.periodo===_periodoActual; })||null;
     var remC={valor:0,fuente:'sin'};
     try{ var RI=infoRemanenteAnterior(frep||{rut:fcli.rut||rut},_periodoActual); remC=!RI.bloquea?{valor:RI.monto,fuente:RI.fuente==='manual'?'manual':'contable',info:RI}:{valor:0,fuente:'sin',info:RI}; }catch(e){ remC={valor:0,fuente:'error'}; }
-    ContableCalculoF29.montar(fslot,{clienteId:fcid, rut:fcli.rut||rut, periodo:_periodoActual, cliente:fcli, rep:frep, remContable:remC});
+    // 19-11 (Luciano): el IVA del período contable se VALIDA aquí (ya no en el Pre-IVA, que es el estimado del mes en curso)
+    var frut=fcli.rut||rut;
+    ContableCalculoF29.montar(fslot,{clienteId:fcid, rut:frut, periodo:_periodoActual, cliente:fcli, rep:frep, remContable:remC,
+      siguiente:frep&&frep.listoPanelControl?'Pagos (obligación F29)':'Reporte',
+      acciones:{
+        validar:function(a,btn){ validarIvaDesdeTarjeta(frut,a,btn); },
+        guardarPPM:function(o,a,btn,err){ guardarPPMDesdeTarjeta(frut,o,a,btn,err); },
+        remanenteManual:function(a,btn){ remanenteManualDesdeTarjeta(frut,a,btn); }
+      }});
   }
   // Cartapra R4: situación mensual SII (solo lectura, bajo demanda, un cliente a la vez)
   var slot=det.querySelector('.sii-cartapra-slot[data-cid]');
@@ -2372,6 +2380,35 @@ function fechaYmdLocal(d){
     +String(d.getMonth()+1).padStart(2,'0')+'-'
     +String(d.getDate()).padStart(2,'0');
 }
+// Tras validar (modal o tarjeta «Cálculo del F29»): fila de reportes_mensuales devuelta por la base → memoria de la pantalla.
+function guardarFilaReporteLocal(rut, periodo, fila, remanente){
+    var reportes=getReportes();
+    // Convertir fila Supabase → objeto Gestoor
+    // estadoContable y listoPanelControl vienen reconstruidos por sbRowToReporte
+    // desde las columnas estado_contable y listo_panel_control. No asignar manualmente.
+    var reporteActualizado=sbRowToReporte(fila);
+
+    // Guardar remanente para referencia dentro de la sesión
+    if(remanente>0) setRemanente(rut,periodo,remanente);
+
+    // Actualizar _reportesContables con el objeto persistido
+    var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
+    if(idx>=0){
+      // Preservar libros ANTES del merge: sbRowToReporte no los incluye
+      // (vienen de libros_cabecera, tabla separada de reportes_mensuales)
+      var _librosGuardados=reportes[idx].libros;
+      Object.assign(reportes[idx], reporteActualizado);
+      if(_librosGuardados) reportes[idx].libros=_librosGuardados;
+    }else{
+      var _rutNorm=normalizarRutContable(rut);
+      var _cliL=getClientes().find(function(x){return x.rut===rut;});
+      var _cidL=_cliL&&_cliL.id?String(_cliL.id):'';
+      var _mL=_librosMap[_rutNorm]||(_cidL?_librosMap[_cidL]:null)||{};
+      reporteActualizado.libros={compras:_mL.compras||null,ventas:_mL.ventas||null,honorarios:_mL.honorarios||null};
+      reportes.push(reporteActualizado);
+    }
+    setReportes(reportes);
+}
 function guardarF29(){
   var rut=sv('m-rut'),periodo=sv('m-periodo');
   if(!rut||!periodo){alert('Error: datos incompletos.');return;}
@@ -2441,7 +2478,7 @@ function guardarF29(){
   // Bloquear si no hay reporte con ID — RRHH debe existir primero
   if(!repExistente||!repExistente.id||!/^\d+$/.test(String(repExistente.id))){
     alert('No existe un reporte mensual base para este cliente y período.\n\nRecarga el módulo o completa primero el proceso RRHH.');
-    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar IVA';}
     return;
   }
 
@@ -2459,23 +2496,11 @@ function guardarF29(){
     }
   }
 
-  var patchContable={
-    debito_iva:          deb,
-    credito_iva:         cred,
-    iva_remanente_sig:   remanente,
-    remanente:           remanente,
-    iva_postergado:      postergado?Math.max(0,ivaResult):0,
-    postergar_iva:       postergado,
-    iva_fecha_venc:      fechaVencPostergado,
-    ppm_base:            nv('f-ppm-base'),
-    ppm_tasa:            tasaIngresada,
-    ppm:                 nv('f-ppm-monto'),
-    ret_hon:             nv('f-ret-hon'),
-    otros_imp:           nv('f-otros-imp'),
-    obs_cont:            sv('f-obs')||null,
-    estado_contable:    'completado',
-    listo_panel_control: false
-  };
+  // 19-11: el PATCH lo arma el módulo COMPARTIDO con «✅ Validar IVA» de la tarjeta (pre-iva/iva-validacion.js · patchReporte): mismas columnas.
+  var patchContable=IvaValidacion.patchReporte({
+    debito:deb, credito:cred, remanenteAnterior:rem, postergado:postergado, fechaVencPostergado:fechaVencPostergado,
+    ppmBase:nv('f-ppm-base'), ppmTasa:tasaIngresada, ppm:nv('f-ppm-monto'), retHon:nv('f-ret-hon'), otrosImp:nv('f-otros-imp'), obs:sv('f-obs')||null
+  });
 
   var btnG=document.getElementById('btn-guardar-f29');
   if(btnG){btnG.disabled=true;btnG.textContent='Guardando\u2026';}
@@ -2483,7 +2508,7 @@ function guardarF29(){
   if(mg) mg.className='msg-guardado';
 
   sbPatchReporteDetallado(repExistente.id, patchContable).then(function(resG){
-    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar IVA';}
 
     var fila=resG&&resG.fila;
     if(!fila||typeof fila!=='object'||!fila.id){
@@ -2496,31 +2521,8 @@ function guardarF29(){
     // Convertir fila Supabase → objeto Gestoor
     // estadoContable y listoPanelControl vienen reconstruidos por sbRowToReporte
     // desde las columnas estado_contable y listo_panel_control. No asignar manualmente.
-    var reporteActualizado=sbRowToReporte(fila);
-
-    // Guardar remanente para referencia dentro de la sesión
-    if(remanente>0) setRemanente(rut,periodo,remanente);
-
-    // Actualizar _reportesContables con el objeto persistido
-    var idx=reportes.findIndex(function(x){return x.rut===rut&&x.periodo===periodo;});
-    if(idx>=0){
-      // Preservar libros ANTES del merge: sbRowToReporte no los incluye
-      // (vienen de libros_cabecera, tabla separada de reportes_mensuales)
-      var _librosGuardados=reportes[idx].libros;
-      Object.assign(reportes[idx], reporteActualizado);
-      // Restaurar explícitamente: Object.assign no borra props ausentes en el source,
-      // pero ser explícitos garantiza que un futuro cambio en sbRowToReporte no los pierda
-      if(_librosGuardados) reportes[idx].libros=_librosGuardados;
-    }else{
-      // reporte nuevo: adjuntar libros desde _librosMap antes de push
-      var _rutNorm=normalizarRutContable(rut);
-      var _cliL=getClientes().find(function(x){return x.rut===rut;});
-      var _cidL=_cliL&&_cliL.id?String(_cliL.id):'';
-      var _mL=_librosMap[_rutNorm]||(_cidL?_librosMap[_cidL]:null)||{};
-      reporteActualizado.libros={compras:_mL.compras||null,ventas:_mL.ventas||null,honorarios:_mL.honorarios||null};
-      reportes.push(reporteActualizado);
-    }
-    setReportes(reportes);
+    guardarFilaReporteLocal(rut, periodo, fila, remanente);
+    var reportes=getReportes();
 
     // Actualizar ficha del cliente con la nueva tasa PPM si el analista lo solicitó
     if(actualizarFichaCliente && c && c.id && tasaIngresada!==null && tasaIngresada>=0){
@@ -2574,12 +2576,12 @@ function guardarF29(){
       modulo:'reportes',tipo:'info',prioridad:'media',
       clienteRut:rut,
       clienteNombre:(getClientes().find(function(c){return c.rut===rut;})||{}).razon||rut,
-      mensaje:'Pre-IVA validado y guardado en Supabase',
+      mensaje:'IVA validado y guardado en Gestoor',
       accion:'ver_reporte'
     });
 
   }).catch(function(err){
-    if(btnG){btnG.disabled=false;btnG.textContent='Validar Pre-IVA';}
+    if(btnG){btnG.disabled=false;btnG.textContent='Validar IVA';}
     // Mensaje sanitizado — no mostrar tokens ni datos sensibles
     var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
     alert('Error al persistir Pre-IVA: '+msg+'\n\nLos datos ingresados NO se han perdido.\nRevisa la conexión e inténtalo de nuevo.');
@@ -4279,6 +4281,126 @@ function resolverConflictoRemanente(decision){
     remAplicarRespuesta(rut, periodo, d.info);
   }).catch(function(){ alert('No se pudo registrar la decisión (error de conexión).'); });
 }
+// ══ 19-11 (Luciano) · «✅ Validar IVA de <mes>» desde la tarjeta «Cálculo del F29» ══════════════════════════════════════
+// PERÍODO CONTABLE: aquí se valida el IVA (el Pre-IVA es solo el estimado del mes en curso). Hace EXACTAMENTE las escrituras de siempre:
+//   1) reportes_mensuales: el PATCH de «Validar» (IvaValidacion.patchReporte, el mismo de guardarF29) → estado_contable 'completado'
+//      → el flujo pasa de «IVA» a «Reporte». La base vuelve a revisar el remanente (REMANENTE_*) y lo rechaza si no cuadra.
+//   2) preiva_historial: la misma fila del Pre-IVA (IvaValidacion.filaHistorial) con fecha_envio/enviado_por + sii_detalle.validacion_iva.
+// Mismos bloqueos que el modal: libros, exento, remanente del mes anterior (nunca $0 ni dos meses atrás), RR. HH. pendiente, UTM, tasa PPM.
+function _cf29Ctx(rut){
+  var periodo=_periodoActual, rep=getReportes().find(function(r){return r.rut===rut&&r.periodo===periodo;})||null;
+  var c=getClientes().find(function(x){return x.rut===rut;})||{};
+  return {periodo:periodo, rep:rep, c:c, mes:IvaValidacion.mesTxt(periodo)};
+}
+function _cf29Refrescar(rut){
+  if(window.ContableCalculoF29&&ContableCalculoF29._limpiarCache) ContableCalculoF29._limpiarCache();
+  renderTabla(); restaurarFilaAbierta(rut, true);
+}
+function pendientesValidarIva(rut, a){
+  var x=_cf29Ctx(rut), rep=x.rep||{}, pend=(a&&a.bloqueosValidar||[]).slice(), d=(a&&a.validar)||{};
+  if(!x.rep||!x.rep.id||!/^\d+$/.test(String(x.rep.id))) pend.push('No existe el reporte mensual base de este período (recarga el módulo o completa primero RR. HH.).');
+  if(rep.listoPanelControl===true) pend.push('El reporte ya está marcado OK para el Panel: el Master debe reabrirlo.');
+  var cierre=validarCierrePreF29(rep, x.c); pend=pend.concat(cierre.pendientes);
+  if(String(x.c.iva||'afecto').toLowerCase()==='exento') pend.push('Cliente exento de IVA: valida con «Revisar / Validar IVA» (débito y crédito en 0).');
+  var b=buildBorradorF29(rep, x.c, x.periodo);
+  if(b._remanente&&b._remanente.bloquea) pend.push(b._remanente.aviso);
+  if(d.debito==null||d.credito==null||d.ppm==null||d.remanenteAnterior==null) pend.push('Faltan montos del F29 (débito, crédito, remanente o PPM).');
+  var vistos={}; return pend.filter(function(t){ if(!t||vistos[t]) return false; vistos[t]=1; return true; });
+}
+function validarIvaDesdeTarjeta(rut, a, btn){
+  var x=_cf29Ctx(rut), d=(a&&a.validar)||{};
+  var pend=pendientesValidarIva(rut, a);
+  if(pend.length){ alert('No se puede validar el IVA de '+x.mes+':\n\n• '+pend.join('\n• ')); return Promise.resolve(false); }
+  var b=buildBorradorF29(x.rep, x.c, x.periodo);
+  var patch=IvaValidacion.patchReporte({debito:d.debito, credito:d.credito, remanenteAnterior:d.remanenteAnterior, postergado:false,
+    ppmBase:d.ppmBase, ppmTasa:d.ppmTasa, ppm:d.ppm, retHon:d.retHon, otrosImp:b.otrosImp, obs:((x.rep.f29||{}).obs)||null});
+  var ivaPagar=Math.max(0, d.debito-d.credito-d.remanenteAnterior);
+  if(!confirm('Validar el IVA de '+x.mes+' · '+(x.c.razonSocial||x.c.razon||rut)+'\n\n'
+    +'Débito '+ff(d.debito)+' − crédito '+ff(d.credito)+' − remanente '+ff(d.remanenteAnterior)+' = IVA a pagar '+ff(ivaPagar)
+    +(patch.iva_remanente_sig>0?' (queda remanente '+ff(patch.iva_remanente_sig)+')':'')+'\nPPM '+ff(d.ppm)+' · retención honorarios '+ff(d.retHon)
+    +'\n\nQueda validado con tu nombre y el flujo pasa a «Reporte».')) return Promise.resolve(false);
+  var txt=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Validando…';}
+  var u=getUsuario(), por=u.nombre||u.email||null, ahora=new Date().toISOString();
+  return sbPatchReporteDetallado(x.rep.id, patch).then(function(resG){
+    var fila=resG&&resG.fila;
+    if(!fila||typeof fila!=='object'||!fila.id){
+      if(btn){btn.disabled=false;btn.textContent=txt;}
+      if(resG&&/REMANENTE_/.test(resG.mensaje||'')) alert('No se validó el IVA:\n'+remMensajeError(resG.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(x.periodo))));
+      else alert('No se validó el IVA (error al guardar en Gestoor): '+String((resG&&resG.mensaje)||'').replace(/<[^>]+>/g,'').substring(0,200)+'\nNo se cambió nada; inténtalo de nuevo.');
+      return false;
+    }
+    guardarFilaReporteLocal(rut, x.periodo, fila, patch.remanente);
+    // Misma fila de preiva_historial que guardaba el Pre-IVA, con quién y cuándo validó
+    var ed=d.edicionPPM||null;
+    var filaH=IvaValidacion.filaHistorial({clienteRut:rut, periodo:x.periodo, debito:d.debito, credito:d.credito, remanente:d.remanenteAnterior,
+      f29:ivaPagar+d.ppm, ppm:d.ppm, tasaPpm:ed&&ed.tasa!=null?Number(ed.tasa):d.tasaCalculada,
+      netoVentas:d.netoVentas, netoCompras:d.netoCompras, porTipoVentas:d.porTipoVentas, porTipoCompras:d.porTipoCompras,
+      fuenteMontos:d.fuenteMontos||'sii', sii:d.sii||null, edicionPPM:ed});
+    var pe=IvaValidacion.peticionValidado(filaH, por, ahora);
+    return sbFetch(pe.path, pe.opts).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return true; }).catch(function(e){
+      var m='IVA de '+x.mes+' validado en el reporte, pero no se guardó el detalle en el historial del Pre-IVA ('+((e&&e.message)||e)+').';
+      if(window.crearNotificacion) crearNotificacion({modulo:'reportes',tipo:'warn',prioridad:'media',clienteRut:rut,mensaje:m,accion:'ver_reporte'}); else alert(m);
+      return true;
+    }).then(function(){
+      if(window.crearNotificacion) crearNotificacion({modulo:'reportes',tipo:'info',prioridad:'media',clienteRut:rut,
+        clienteNombre:x.c.razon||x.c.razonSocial||rut, mensaje:'IVA de '+x.mes+' validado · siguiente: Reporte', accion:'ver_reporte'});
+      _cf29Refrescar(rut);
+      return true;
+    });
+  }).catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent=txt;}
+    alert('No se validó el IVA (error de conexión): '+String((e&&e.message)||'').replace(/<[^>]+>/g,'').substring(0,200));
+    return false;
+  });
+}
+// «Editar PPM» (con motivo) desde la tarjeta: guarda IGUAL que antes el Pre-IVA (borrador de preiva_historial: ppm, tasa_ppm y
+// sii_detalle.ppm_editado; nunca pisa un período ya validado). o = null → vuelve al calculado.
+function guardarPPMDesdeTarjeta(rut, o, a, btn, err){
+  var x=_cf29Ctx(rut), d=(a&&a.validar)||{};
+  err=err||function(t){alert(t);};
+  if(x.rep&&x.rep.estadoContable==='completado'){ err('El IVA de '+x.mes+' ya está validado: para cambiar el PPM el Master reabre el reporte.'); return Promise.resolve(false); }
+  if(a&&a.filaLeida===false){ err('No se pudo leer el Pre-IVA guardado: recarga la página.'); return Promise.resolve(false); }
+  var u=getUsuario();
+  var ed=o?PreIvaF29.edicionPPMDesdeForm(Object.assign({},o,{por:u.nombre||u.email||null,at:new Date().toISOString()}),{calculado:d.ppmCalculado||0,tasaCalculada:d.tasaCalculada||0}):null;
+  var P=PreIvaF29.aplicarEdicionPPM(d.ppmBaseRaw!=null?d.ppmBaseRaw:d.ppmBase, d.tasaCalculada||0, ed);
+  var filaH=IvaValidacion.filaHistorial({clienteRut:rut, periodo:x.periodo, debito:d.debito||0, credito:d.credito||0, remanente:d.remanenteAnterior,
+    f29:d.ivaPagar==null?null:d.ivaPagar+P.ppm, ppm:P.ppm, tasaPpm:ed&&ed.tasa!=null?Number(ed.tasa):d.tasaCalculada,
+    netoVentas:d.netoVentas, netoCompras:d.netoCompras, porTipoVentas:d.porTipoVentas, porTipoCompras:d.porTipoCompras,
+    fuenteMontos:d.fuenteMontos||'sii', sii:d.sii||null, edicionPPM:ed});
+  var pb=IvaValidacion.peticionBorrador(filaH);
+  if(btn) btn.disabled=true;
+  function leer(r){ return r.text().then(function(t){ var j=null; try{j=t?JSON.parse(t):null;}catch(e){} if(!r.ok){ var e=new Error((j&&j.message)||('HTTP '+r.status)); e.status=r.status; e.code=j&&j.code; throw e; } return j; }); }
+  return sbFetch(pb.patch.path, pb.patch.opts).then(leer).then(function(rows){
+    if(rows&&rows.length) return rows;
+    if(a&&a.fila&&a.fila.fecha_envio) throw new Error('El Pre-IVA de '+x.mes+' ya fue enviado/validado: el PPM editado no se guardó.');
+    return sbFetch(pb.post.path, pb.post.opts).then(leer);
+  }).then(function(){
+    _cf29Refrescar(rut); return true;
+  }).catch(function(e){
+    if(btn) btn.disabled=false;
+    err(e&&(e.code==='23505'||e.status===409)?'Otra persona guardó este Pre-IVA al mismo tiempo: recarga la página.':e&&e.code==='42501'?'No tienes permiso para guardar el PPM de este cliente.':'No se guardó el PPM: '+String((e&&e.message)||e).substring(0,200));
+    return false;
+  });
+}
+// «Ingresar remanente a mano» desde la tarjeta: la RPC EXISTENTE registrar_remanente_anterior_manual (lógica compartida PreIvaSii).
+function remanenteManualDesdeTarjeta(rut, a, btn){
+  var x=_cf29Ctx(rut), B=(a&&a.remValidacion&&a.remValidacion.bloqueo)||{}, mA=B.mesAnterior||'el mes anterior';
+  if(!x.rep||!x.rep.id){ alert('No existe el reporte de '+x.mes+' para este cliente. Recarga la página.'); return Promise.resolve(false); }
+  var monto=prompt('Código 77 del F29 de '+mA+' ("remanente de crédito fiscal para el período siguiente"), en pesos, sin puntos, TAL CUAL aparece en el F29 presentado.\n\nSi no hubo remanente, escribe 0. Gestoor calcula el cód. 504 reajustado por UTM.'
+    +(B.cod77Sugerido!=null?'\n\nEl F29 del SII trae cód. 77 = '+ff(B.cod77Sugerido)+'.':''), B.cod77Sugerido!=null?String(B.cod77Sugerido):'');
+  if(monto===null) return Promise.resolve(false);
+  var motivo=prompt('¿De dónde sale el monto? (obligatorio, mínimo 10 caracteres; queda en la auditoría)\nEj.: "F29 '+mA+' presentado, cód. 77, folio 123456"');
+  if(motivo===null) return Promise.resolve(false);
+  var o={clienteRut:rut, periodo:x.periodo, reporteId:x.rep.id, cod77:monto, motivo:motivo}, v=PreIvaSii.validarRemanenteManual(o);
+  if(v.error){ alert(v.error); return Promise.resolve(false); }
+  if(btn) btn.disabled=true;
+  return PreIvaSii.registrarRemanenteManual(o).then(function(r){
+    if(btn) btn.disabled=false;
+    if(!r.ok){ alert('No se pudo registrar el remanente:\n'+r.error); return false; }
+    _remanentes.porRut[normalizarRutContable(rut)]=r.info||null;
+    _cf29Refrescar(rut); return true;
+  });
+}
 // PATCH del reporte que conserva el mensaje de la base (el candado del remanente explica por qué no se guardó).
 function sbPatchReporteDetallado(id, data){
   return sbFetch('reportes_mensuales?id=eq.'+id,{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)})
@@ -4534,7 +4656,7 @@ function renderSeccionLibros(rep, c){
   // queda a la vista si la empresa no está conectada (o no hay datos) y plegada como respaldo si sí lo está.
   var conResumenSii = !!c.id && !!window.ContableDocsSii;
   if(conResumenSii) h += '<div class="docsii-slot" data-cid="'+Number(c.id)+'"></div>';
-  // 19-11: debajo del resumen, el cálculo del F29 del período (mismo cálculo del Pre-IVA) + botón a validar en Pre-IVA
+  // 19-11: debajo del resumen, el cálculo del F29 del período (mismo cálculo del Pre-IVA) + «✅ Validar IVA» (aquí se valida, no en el Pre-IVA)
   if(conResumenSii && window.ContableCalculoF29) h += '<div class="cf29-slot" data-cid="'+Number(c.id)+'"></div>';
   h += '<div class="libros-manual" data-cid="'+Number(c.id||0)+'" data-modo="'+(conResumenSii?'pendiente':'visible')+'">';
   h += '<div class="libros-grid">';
@@ -4946,9 +5068,10 @@ function _siiF29MostrarMensaje(tipo, texto){
 <script src="../supabase.js"></script>
 <script src="docs-sii.js?v=20261119b"></script>
 <!-- 19-11 · «Cálculo del F29»: reutiliza la fórmula y la lectura del SII del Pre-IVA (archivos compartidos de pre-iva/) -->
-<script src="../pre-iva/f29-formula.js?v=20261119"></script>
+<script src="../pre-iva/f29-formula.js?v=20261119c"></script>
 <script src="../pre-iva/proyeccion.js?v=20261119"></script>
-<script src="../pre-iva/sii-cartapra.js?v=20261119"></script>
+<script src="../pre-iva/sii-cartapra.js?v=20261119c"></script>
+<script src="../pre-iva/iva-validacion.js?v=20261119c"></script>   <!-- 19-11: «Validar IVA» = mismas escrituras (reportes_mensuales + preiva_historial) -->
 <script src="../pre-iva/ppm-cobertura.js?v=20261119b"></script>
 <script src="calculo-f29.js?v=20261119b"></script>
 <script src="../clientes/sii-cartapra.js"></script>
