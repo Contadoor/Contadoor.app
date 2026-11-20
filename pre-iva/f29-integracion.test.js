@@ -36,7 +36,7 @@ function servidor() {
   });
 }
 
-async function abrir(browser, base, { remanente, rem }) {
+async function abrir(browser, base, { remanente, rem, extra }) {
   const ctx = await browser.newContext();
   const cap = { correos: [], guardados: [], dialogos: [] };
   await ctx.addInitScript(() => {
@@ -53,11 +53,13 @@ async function abrir(browser, base, { remanente, rem }) {
       const p = url.pathname.replace('/rest/v1/', '');
       const json = (b) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(b) });
       if (p === 'clientes') return json([CLIENTE]);
+      if (extra) { const r = extra(p, req, json, cap); if (r) return r; }   // 19-11: respuestas extra por prueba (SII, RPC del remanente a mano)
       if (p === 'rpc/remanente_anterior') {
         // REM-ANT-2: la base responde el remanente anterior (cód. 77 → 504). Con remanente: CONOCIDO (UTM 1:1); sin él: SIN_DATO.
         if (rem) return json(rem);
-        return json(remanente ? { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: remanente, cod504: remanente, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' }
-                              : { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-10', periodo_anterior: '2026-09' });
+        // 19-11: remanente 0 = cero confirmado (CONOCIDO). La pantalla abre septiembre → el mes anterior es AGOSTO.
+        return json(remanente != null ? { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: remanente, cod504: remanente, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-09', mes_utm_destino: '2026-10', periodo: '2026-09', periodo_anterior: '2026-08' }
+                                      : { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' });
       }
       if (p === 'preiva_historial') {
         if (req.method() === 'GET') return json([]);
@@ -293,23 +295,75 @@ test('INTEGRACIÓN REM-ANT-2 · sin dato → alerta; cero confirmado y 77→504 
   try {
     const leer = (page) => page.evaluate(() => { const a = document.getElementById('pio-aviso-remanente'); return { visible: !!a && !a.hidden, txt: (document.getElementById('pio-aviso-remanente-txt') || {}).textContent || '',
       fuente: document.getElementById('lbl-remanente-fuente').textContent, valor: document.getElementById('lbl-remanente').textContent }; });
-    const sin = await abrir(browser, base, { remanente: 0 });
+    // 19-11 (Luciano): sin dato NO se usa $0 → bloqueo: «Falta» en el remanente, F29 «Falta completar», Enviar y Vista previa deshabilitados
+    const sin = await abrir(browser, base, { rem: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' } });
     const a1 = await leer(sin.page);
     assert.equal(a1.visible, true, 'sin dato la alerta debe verse');
-    assert.match(a1.txt, /Falta el remanente de septiembre 2026.* Mientras tanto el cálculo usa \$0/);
+    assert.match(a1.txt, /^⚠️ Falta el remanente de agosto 2026: .* Mientras tanto no se puede calcular septiembre 2026\.$/);
+    assert.equal(a1.valor, 'Falta');
+    const b1 = await sin.page.evaluate(() => ({ f29: document.getElementById('res-f29').textContent, rem: document.getElementById('res-remanente').textContent,
+      env: document.getElementById('btn-enviar').disabled, vp: document.getElementById('btn-vista-previa').disabled, motivo: document.getElementById('btn-enviar').title,
+      man: !document.getElementById('pio-rem-man').hidden && !document.getElementById('btn-rem-manual').hidden, fila: !document.getElementById('pio-f29-bloq').hidden }));
+    assert.deepEqual([b1.f29, b1.rem, b1.env, b1.vp, b1.man, b1.fila], ['Falta completar', 'Falta', true, true, true, true]);
+    assert.match(b1.motivo, /^No se puede enviar: falta el remanente de agosto 2026/);
     await sin.ctx.close();
-    const cero = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 sept. sin remanente' } } });
+    const cero = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-09', periodo_anterior: '2026-08', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 sept. sin remanente' } } });
     const a2 = await leer(cero.page);
-    assert.equal(a2.valor, '$0'); assert.match(a2.fuente, /cód\. 504 · Cód\. 77 de septiembre 2026: \$0/); assert.match(a2.txt, /ingresado a mano por Analista Ficticia/);
+    assert.equal(a2.valor, '$0'); assert.match(a2.fuente, /cód\. 504 · Cód\. 77 de agosto 2026: \$0/); assert.match(a2.txt, /ingresado a mano por Analista Ficticia/);
     await cero.ctx.close();
-    const reaj = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1000000, cod504: 1007246, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09' } });
+    const reaj = await abrir(browser, base, { rem: { estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1000000, cod504: 1007246, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-09', periodo_anterior: '2026-08' } });
     const a3 = await leer(reaj.page);
     assert.equal(a3.visible, false); assert.equal(a3.valor, '$1.007.246');
-    assert.match(a3.fuente, /Cód\. 77 de septiembre 2026: \$1\.000\.000 × UTM noviembre 2026 \$69\.500 ÷ UTM octubre 2026 \$69\.000 = cód\. 504 \$1\.007\.246/);
+    assert.match(a3.fuente, /Cód\. 77 de agosto 2026: \$1\.000\.000 × UTM noviembre 2026 \$69\.500 ÷ UTM octubre 2026 \$69\.000 = cód\. 504 \$1\.007\.246/);
     await reaj.ctx.close();
-    const conf = await abrir(browser, base, { rem: { estado: 'CONFLICTO', fuente: 'F29_MANUAL', cod77: 1000000, cod504: 1007246, mes_anterior_cod77: 900000, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', manual: {} } });
+    const conf = await abrir(browser, base, { rem: { estado: 'CONFLICTO', fuente: 'F29_MANUAL', cod77: 1000000, cod504: 1007246, mes_anterior_cod77: 900000, utm_origen: 69000, utm_destino: 69500, mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', periodo: '2026-09', periodo_anterior: '2026-08', manual: {} } });
     const a4 = await leer(conf.page);
-    assert.equal(a4.visible, true); assert.match(a4.txt, /^Conflicto: el reporte de septiembre 2026 trae cód\. 77 \$900\.000/);
+    assert.equal(a4.visible, true); assert.match(a4.txt, /^⚠️ Conflicto: el reporte de agosto 2026 trae cód\. 77 \$900\.000/);
     await conf.ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
+
+// 19-11 (Luciano): SII conectado sin F29 de agosto + Contable sin dato → bloqueo con el texto de Luciano; «Ingresar remanente a mano»
+// llama a la RPC EXISTENTE registrar_remanente_anterior_manual (reporte del período + cód. 77 + motivo) y al guardar recalcula y desbloquea.
+test('INTEGRACIÓN 19-11 · mes anterior no declarado → bloqueado (nunca $0); remanente a mano con motivo desbloquea y recalcula', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const RAW = { cliente_id: 1, periodo: '202609', conexion: { estado: 'conectada' }, datos_al: '2026-10-05T12:00:00Z', cobertura: {}, avisos: [],
+      ventas: { documentos: 3, neto: 10000000, exento: 0, iva: 1900000, por_tipo: {} }, compras: { registro: { documentos: 2, neto: 4000000, exento: 0, iva: 760000 }, por_tipo: {} },
+      f29_periodo: null, remanente_anterior: { periodo: '202608', cod77: null, cod504: null, fuente: 'sin_f29' } };
+    const MAN = { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 300000, cod504: 300000, utm_origen: 69000, utm_destino: 69000, mes_utm_origen: '2026-09', mes_utm_destino: '2026-10',
+      periodo: '2026-09', periodo_anterior: '2026-08', manual: { usuario_nombre: 'Analista Prueba', registrado_at: '2026-11-19T12:00:00Z', motivo: 'F29 agosto 2026 presentado, folio 999' } };
+    const rpc = [];
+    const { ctx, page, cap } = await abrir(browser, base, { rem: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-09', periodo_anterior: '2026-08' }, extra: (p, req, json) => {
+      if (p === 'rpc/sii_preiva_periodo') return json(RAW);
+      if (p === 'reportes_mensuales') return json([{ id: 4321 }]);
+      if (p === 'rpc/registrar_remanente_anterior_manual') { rpc.push(JSON.parse(req.postData() || '{}')); return json({ ok: true, auditoria_id: 1, manual_id: 2, info: MAN }); }
+      return null; } });
+    await page.waitForFunction(() => /no está declarado/.test(document.getElementById('pio-aviso-remanente-txt').textContent), null, { timeout: 15000 });
+    const v = await page.evaluate(() => ({ txt: document.getElementById('pio-aviso-remanente-txt').textContent, f29: document.getElementById('res-f29').textContent,
+      fila: document.getElementById('pio-rem-bloq').textContent, env: document.getElementById('btn-enviar').disabled, deb: document.getElementById('inp-debito').value }));
+    assert.equal(v.txt, '⚠️ Agosto 2026 no está declarado en el SII (o falta su remanente). Primero hay que declararlo: su remanente arrastra el de meses anteriores. Mientras tanto no se puede calcular septiembre 2026.');
+    assert.equal(v.fila, v.txt, 'el bloqueo también se ve en la fila del remanente');
+    assert.equal(v.f29, 'Falta completar'); assert.equal(v.env, true); assert.equal(v.deb, '1900000', 'débito del SII cargado');
+    // Guardado del borrador con bloqueo: remanente y F29 van null (nunca un $0 inventado)
+    await page.evaluate(() => guardarPreiva('borrador'));
+    const g0 = cap.guardados[cap.guardados.length - 1].cuerpo;
+    assert.deepEqual([g0.remanente, g0.f29], [null, null]);
+    // Validación del formulario: motivo obligatorio
+    await page.click('#btn-rem-manual');
+    await page.fill('#ed-rem-77', '300.000'); await page.fill('#ed-rem-motivo', 'corto');
+    await page.click('#btn-rem-guardar');
+    assert.match(await page.textContent('#ed-rem-err'), /motivo.*mínimo 10 caracteres/); assert.equal(rpc.length, 0);
+    await page.fill('#ed-rem-motivo', 'F29 agosto 2026 presentado, folio 999');
+    await page.click('#btn-rem-guardar');
+    await page.waitForFunction(() => document.getElementById('res-f29').textContent !== 'Falta completar', null, { timeout: 10000 });
+    assert.deepEqual(rpc, [{ p_reporte_id: 4321, p_cod77: 300000, p_motivo: 'F29 agosto 2026 presentado, folio 999' }]);
+    const d = await page.evaluate(() => ({ txt: document.getElementById('pio-aviso-remanente-txt').textContent, rem: document.getElementById('lbl-remanente').textContent,
+      f29: document.getElementById('res-f29').textContent, ppm: document.getElementById('res-ppm').textContent, env: document.getElementById('btn-enviar').disabled, bloq: document.getElementById('pio-rem-bloq').hidden }));
+    assert.match(d.txt, /^✍️ Remanente ingresado a mano por Analista Prueba el 19-11-2026 · F29 agosto 2026 presentado, folio 999$/);
+    assert.equal(d.rem, '$300.000'); assert.equal(d.env, false); assert.equal(d.bloq, true);
+    assert.equal(num(d.f29), 1900000 - 760000 - 300000 + num(d.ppm), 'F29 recalculado con el remanente ingresado');
+    await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });

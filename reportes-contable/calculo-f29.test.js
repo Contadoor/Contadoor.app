@@ -21,12 +21,13 @@ const HIST = [{ periodo: '2026-09', tasa_ppm: 1.5 }];
 function base(o) { return Object.assign({ raw: raw(), remContable: { valor: 90000, fuente: 'contable' }, fila: null, hist: HIST, fichaTasa: null, tieneRrhh: true, iuSii: 45000, iuAt: '2026-11-18T15:00:00Z', periodo: '2026-10', hoy: HOY }, o || {}); }
 const linea = (a, id) => a.lineas.find((x) => x.id === id);
 
-// Lo que haría el Pre-IVA con los mismos datos del SII (misma secuencia de su calcular(): aPantalla → usarSiiCartapra → calcularF29Completo)
+// Lo que haría el Pre-IVA con los mismos datos del SII (misma secuencia de su calcular(): aPantalla → remanenteDelPeriodo → calcularF29Completo)
+// 19-11: en «periodo 2026-11» el F29 del SII es de septiembre (dos meses atrás) → NO se usa; manda el de Contable (octubre).
 function comoPreIva(o) {
   const p = S.aPantalla(o.raw, o.remContable, o.fila);
   const hz = PRY.horizonte({ hoy: o.hoy, periodo: o.periodo });
   return F.calcularF29Completo({ debitoRegistrado: p.debito, creditoRegistrado: p.credito, netoVentas: p.netoVentas || 0, exentoVentas: p.exentoVentas == null ? null : p.exentoVentas,
-    remanente: p.remanente ? p.remanente.valor : o.remContable.valor, tasa: F.tasaPPMDesdeGuardado(o.fila, o.hist, o.fichaTasa).tasa,
+    remanente: S.remanenteDelPeriodo({ periodo: o.periodo, sii: p, remContable: o.remContable }).valor, tasa: F.tasaPPMDesdeGuardado(o.fila, o.hist, o.fichaTasa).tasa,
     edicionPPM: F.edicionPPMGuardada(o.fila && o.fila.sii_detalle), horizonte: { diasTranscurridos: hz.diasTranscurridos, diasRestantesMes: hz.diasRestantesMes, esMesActual: hz.esMesActual } });
 }
 

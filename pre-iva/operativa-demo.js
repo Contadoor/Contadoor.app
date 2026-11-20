@@ -6,12 +6,14 @@
          &sii=al_dia | desactualizado | sin_datos   simula la conexión con el SII activa (por defecto: pendiente de activación)
          &cartapra=1   simula la RPC sii_preiva_periodo (SII-PREIVA-F2b) con compras y ventas del SII para el cliente 1
          &cob=verde | amarillo | rojo | sin   (con &cartapra=1) simula F29 del año (sii_renta_resumen) y la proyección de renta para «Cobertura de la renta»
+         &rem=sin   (19-11) el mes anterior NO está declarado en el SII ni hay remanente en Contable → Pre-IVA bloqueado (nunca $0);
+                    «Ingresar remanente a mano» responde como la RPC registrar_remanente_anterior_manual (solo demo, no guarda nada real)
    ============================================================ */
 (function(){
   var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
   var qs=new URLSearchParams(location.search);
   if(!local||qs.get('demo')!=='1')return;
-  var SII=qs.get('sii');
+  var SII=qs.get('sii'), REM_SIN=qs.get('rem')==='sin', REM_MAN=null;
   function z(n){return (n<10?'0':'')+n;}
   var hoy=new Date(), HOY=hoy.getFullYear()+'-'+z(hoy.getMonth()+1)+'-'+z(hoy.getDate());
   var PER=/^\d{4}-(0[1-9]|1[0-2])$/.test(qs.get('periodo')||'')?qs.get('periodo'):hoy.getFullYear()+'-'+z(hoy.getMonth()+1);
@@ -108,6 +110,7 @@
     if(tabla==='rpc/remanente_anterior'){   // REM-ANT-2 (demo): remanente anterior desde la base, con UTM ficticia 1:1
       var bR={};try{bR=JSON.parse(opts.body||'{}');}catch(e){}
       var cR=cli(function(x){return x.rut===bR.p_cliente_rut;})[0], pa=mover(bR.p_periodo||PER,-1), fR=cR&&(RM[cR.id]||{})[pa];
+      if(REM_SIN&&cR&&cR.id===1)return resp(200,REM_MAN||{estado:'SIN_DATO',motivo:'SIN_MES_ANTERIOR',periodo:bR.p_periodo,periodo_anterior:pa});
       if(!fR)return resp(200,{estado:'SIN_DATO',motivo:'SIN_MES_ANTERIOR',periodo:bR.p_periodo,periodo_anterior:pa});
       var v77=cR.id===1?120000:(fR.iva_remanente_sig||0);
       return resp(200,{estado:'CONOCIDO',fuente:'MES_ANTERIOR',cod77:v77,cod504:v77,utm_origen:68000,utm_destino:68000,mes_utm_origen:bR.p_periodo,mes_utm_destino:mover(bR.p_periodo,1),periodo:bR.p_periodo,periodo_anterior:pa,metodo:'ART27_UTM_V1'});
@@ -115,6 +118,7 @@
     if(tabla==='reportes_mensuales'){
       var rut=eq(path,'cliente_rut'), c=cli(function(x){return x.rut===rut;})[0], ps=inL(path,'periodo');
       if(!c)return resp(200,[]);
+      if(REM_SIN&&par(path,'select')==='id'&&eq(path,'periodo')===PER)return resp(200,[{id:9000+c.id}]);   // reporte del mes (para el remanente a mano)
       if(ps)return resp(200,ps.map(function(p){return (RM[c.id]||{})[p];}).filter(Boolean));
       var pe=eq(path,'periodo'), row=(RM[c.id]||{})[pe];
       if(c.id===1&&pe===mover(PER,-1))return resp(200,[{iva_remanente_sig:120000,remanente:120000}]);
@@ -155,7 +159,14 @@
         cobertura:{rcv_ventas:'completa',rcv_compras:'completa',honorarios:'completa'},
         ventas:{documentos:18,neto:9200000,exento:350000,iva:1748000,total:11298000,por_tipo:{'33':{n:16},'61':{n:1},'34':{n:1}}},
         compras:{registro:{documentos:41,neto:5100000,exento:0,iva:969000,total:6069000},pendiente:{documentos:2,iva:85500,total:535500},reclamado:{documentos:0,iva:0,total:0},no_incluir:{documentos:0,iva:0,total:0},por_tipo:{'33':{n:39},'61':{n:2}}},
-        honorarios:null,f29_periodo:null,remanente_anterior:{periodo:aS,folio:9100000001,cod77:118000,fuente:'sii_codigo_77',metodo:'ART27_UTM_V1',mes_utm_origen:pS.slice(0,4)+'-'+pS.slice(4),mes_utm_destino:mover(pS.slice(0,4)+'-'+pS.slice(4),1),utm_origen:68000,utm_destino:68500,cod504:Math.round(118000*68500/68000),falta_utm:[]},sincronizado_en:new Date(hoy.getTime()-2*36e5).toISOString(),avisos:['compras_pendientes']});
+        honorarios:null,f29_periodo:null,remanente_anterior:REM_SIN?{periodo:aS,cod77:null,cod504:null,fuente:'sin_f29'}:{periodo:aS,folio:9100000001,cod77:118000,fuente:'sii_codigo_77',metodo:'ART27_UTM_V1',mes_utm_origen:pS.slice(0,4)+'-'+pS.slice(4),mes_utm_destino:mover(pS.slice(0,4)+'-'+pS.slice(4),1),utm_origen:68000,utm_destino:68500,cod504:Math.round(118000*68500/68000),falta_utm:[]},sincronizado_en:new Date(hoy.getTime()-2*36e5).toISOString(),avisos:['compras_pendientes']});
+    }
+    if(tabla==='rpc/registrar_remanente_anterior_manual'&&REM_SIN){   // 19-11 (demo): misma respuesta que la RPC real (ok + info de remanente_anterior)
+      var bM={};try{bM=JSON.parse(opts.body||'{}');}catch(e){}
+      if(String(bM.p_motivo||'').trim().length<10)return resp(400,{code:'22023',message:'MOTIVO_OBLIGATORIO: indica de dónde sale el monto'});
+      REM_MAN={estado:'CONOCIDO',fuente:'F29_MANUAL',cod77:bM.p_cod77,cod504:Math.round(bM.p_cod77*68500/68000),utm_origen:68000,utm_destino:68500,mes_utm_origen:PER,mes_utm_destino:mover(PER,1),periodo:PER,periodo_anterior:mover(PER,-1),
+        manual:{usuario_nombre:'Analista Demo A',registrado_at:new Date().toISOString(),motivo:String(bM.p_motivo).trim()}};
+      return resp(200,{ok:true,auditoria_id:1,manual_id:1,info:REM_MAN});
     }
     if(tabla==='rpc/sapi_frescura'){
       if(!SII)return resp(404,{code:'PGRST202',message:'Could not find the function public.sapi_frescura'});

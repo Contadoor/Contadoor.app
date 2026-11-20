@@ -26,6 +26,7 @@ async function abrir(browser, base, periodo) {
     if (url.hostname === 'sb.stub.invalid') {
       const p = url.pathname.replace('/rest/v1/', ''), json = (b) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(b) });
       if (p === 'clientes') return json([CLIENTE]);
+      if (p === 'rpc/remanente_anterior') return json({ estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 0, cod504: 0, utm_origen: 69000, utm_destino: 69000 });   // 19-11: cero confirmado (sin dato = bloqueo, nunca $0)
       if (p === 'preiva_historial' && req.method() !== 'GET') return json([Object.assign({ cliente_rut: CLIENTE.rut }, JSON.parse(req.postData() || '{}'))]);
       return json([]);
     }

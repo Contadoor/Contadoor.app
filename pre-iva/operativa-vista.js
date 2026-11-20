@@ -128,7 +128,10 @@ function pintar(){
 
   // ── IVA a pagar: misma fórmula aprobada, sobre los montos de la pantalla, y solo si cuadra con el F29 mostrado ──
   var iva='No disponible', ivaNum=null;
-  if(window.PreIvaF29){
+  // 19-11 (Luciano): sin remanente del mes anterior el F29 no se calcula (nunca $0): «Falta completar» en IVA, F29 y remanente nuevo.
+  var remFalta=!!datos.remanenteBloqueo, FALTA='Falta completar';   // también en exentas: si el F29 anterior no está declarado, hay que declararlo primero
+  if(remFalta){iva=FALTA;}
+  else if(window.PreIvaF29){
     var rr=window.PreIvaF29.calcularF29Estimado({debito:pesos(txt('res-debito')),credito:pesos(txt('res-credito')),remanente:pesos(txt('res-remanente')),ppm:pesos(txt('res-ppm'))});
     if(rr.total===pesos(txt('res-f29'))){iva=clp(rr.ivaPagar);ivaNum=rr.ivaPagar;}
   }
@@ -145,9 +148,9 @@ function pintar(){
   }
   var cerrado=!!(P&&!P.actual);
   clase(panel,'pio-mes-cerrado',cerrado);
-  function rv(k){return real?clp(real[k]):'No disponible';}
+  function rv(k){return remFalta&&(k==='ivaPagar'||k==='f29'||k==='nuevoRemanente')?FALTA:real?clp(real[k]):'No disponible';}
   pon('pio-real-f29',rv('f29'));pon('pio-real-iva',rv('ivaPagar'));pon('pio-real-ppm',sinTasa?'No disponible':rv('ppm'));pon('pio-real-rem',rv('nuevoRemanente'));
-  pon('pio-r-deb',rv('debito'));pon('pio-r-cred',rv('credito'));pon('pio-r-rem',clp(pesos(txt('res-remanente'))));pon('pio-r-iva',rv('ivaPagar'));pon('pio-r-ppm',rv('ppm'));pon('pio-r-f29',rv('f29'));
+  pon('pio-r-deb',rv('debito'));pon('pio-r-cred',rv('credito'));pon('pio-r-rem',remFalta?'Falta':clp(pesos(txt('res-remanente'))));pon('pio-r-iva',rv('ivaPagar'));pon('pio-r-ppm',rv('ppm'));pon('pio-r-f29',rv('f29'));
   var dTr=parseInt(val('inp-dias-transc'),10)||0, alDia=P&&dTr>0?z(dTr)+'/'+z(P.m):'';
   var etqReal=cerrado?'Mes cerrado · valor registrado':'📍 Así vamos · registrado al '+(alDia||'día de hoy');
   pon('pio-hero-lbl',etqReal+(exenta?' · F29 (solo PPM)':' · F29'));
@@ -156,7 +159,7 @@ function pintar(){
   // Referencia estimada (rango referencial): del MÍNIMO al MÁXIMO entre la proyección lineal corregida y el promedio de los meses
   // CERRADOS y COMPARABLES (registrados por Contable; mínimo 4). Nunca suma ni promedio de los dos métodos. Con menos: solo la lineal.
   var refTxt='', lim=[];
-  if(!cerrado&&!sinDato&&S.D&&S.D.hist){
+  if(!cerrado&&!sinDato&&!remFalta&&S.D&&S.D.hist){
     // Comparable positivo y por indicador: exenta = PPM; afecta = IVA y PPM del mismo mes (F29 = IVA a pagar + PPM)
     var lin=pesos(txt('res-f29')), comp=(S.D.hist.filas||[]).filter(function(f){var k=f.comparable||{};return exenta?k.ppm===true:(k.iva===true&&k.ppm===true);})
       .map(function(f){return exenta?f.ppm:f.iva+f.ppm;}).filter(function(v){return v!=null&&isFinite(v);});
@@ -186,11 +189,11 @@ function pintar(){
 
   // ── Lo que HOY envía el correo (no cambia en este PR): F29 estimado y acciones del sistema anterior ──
   pon('pio-correo-envia',cerrado?'El correo enviará el F29 de este mes: '+txt('res-f29')+'.':'Ojo: el correo de hoy enviará el F29 estimado a fin de mes ('+txt('res-f29')+') y las acciones del sistema anterior. Revísalo en la vista previa.');
-  oculto($('pio-correo-envia'),sinDato);
+  oculto($('pio-correo-envia'),sinDato||remFalta);
   // ── Chips de aviso extra ──
   chip('pio-chip-tasa','ambar','alerta',sinTasa?'Falta la tasa PPM: el F29 estimado aún no incluye PPM':'');
   chip('pio-chip-rem','ambar','alerta',!exenta&&/no se pudo leer/i.test(txt('lbl-remanente-fuente'))?'No se pudo leer el remanente desde Contable: se usó $0':'');
-  var nuevoRem=real?real.nuevoRemanente:0;
+  var nuevoRem=real&&!remFalta?real.nuevoRemanente:0;
   chip('pio-chip-nrem','verde','check',!exenta&&!sinDato&&nuevoRem>0?(cerrado?'Queda un remanente a favor de ':'A la fecha queda un remanente a favor de ')+clp(nuevoRem)+' para el mes siguiente':'');
   chip('pio-chip-exrem','ambar','alerta',exenta&&pesos(txt('res-remanente'))>0?'Empresa exenta: hay un remanente de '+txt('res-remanente')+' desde Contable que se resta del F29; revísalo con Contable.':'');
   chip('pio-chip-exppm','gris','alerta',exenta&&val('inp-debito')===''?'Empresa exenta: sin débito, el neto afecto es $0 y la base del PPM son solo los ingresos exentos.':'');
@@ -207,7 +210,7 @@ function pintar(){
   if(fill&&fill.style.width!==pc+'%')fill.style.width=pc+'%';
 
   // ── Piezas con datos del SII, historial y MiRenta ──
-  var ctx={P:P,exenta:exenta,sinDato:sinDato,ivaNum:ivaNum,tasa:tasa,sinTasa:sinTasa,datos:datos,nuevoRem:nuevoRem,real:real,cerrado:cerrado};
+  var ctx={P:P,exenta:exenta,sinDato:sinDato,ivaNum:ivaNum,tasa:tasa,sinTasa:sinTasa,datos:datos,nuevoRem:nuevoRem,real:real,cerrado:cerrado,remFalta:remFalta};
   pintarSii();pintarManual();pintarRecos(ctx);pintarHistorial(ctx);pintarTendencias(ctx);pintarDocs(ctx);
 }
 
@@ -261,8 +264,8 @@ function ctxRecos(x){
   return {hoy:hoyIso(),periodo:per,mesEnCurso:x.P.actual,exenta:x.exenta,vencF29:x.P.vencIso,finMes:x.P.finIso,
     // real = "Así vamos" (registrado) · est = referencia estimada a fin de mes (proyección lineal corregida que ya muestra la pantalla)
     actual:{sinDato:x.sinDato,tasaPPM:x.tasa,
-      real:x.real?{ivaPagar:x.real.ivaPagar,ppm:x.sinTasa?null:x.real.ppm,f29:x.real.f29,nuevoRemanente:x.real.nuevoRemanente,debito:x.real.debito,credito:x.real.credito,ventasBase:x.real.ventasBase}:{},
-      est:{ivaPagar:x.ivaNum,ppm:x.sinTasa?null:pesos(txt('res-ppm')),f29:pesos(txt('res-f29')),nuevoRemanente:pesos(txt('kpi-remanente')),debito:pesos(txt('res-debito')),credito:pesos(txt('res-credito')),
+      real:x.real?{ivaPagar:x.remFalta?null:x.real.ivaPagar,ppm:x.sinTasa?null:x.real.ppm,f29:x.remFalta?null:x.real.f29,nuevoRemanente:x.remFalta?null:x.real.nuevoRemanente,debito:x.real.debito,credito:x.real.credito,ventasBase:x.real.ventasBase}:{},
+      est:{ivaPagar:x.ivaNum,ppm:x.sinTasa?null:pesos(txt('res-ppm')),f29:x.remFalta?null:pesos(txt('res-f29')),nuevoRemanente:x.remFalta?null:pesos(txt('kpi-remanente')),debito:pesos(txt('res-debito')),credito:pesos(txt('res-credito')),
         ventasBase:isFinite(Number(x.datos.ppmBase))?Number(x.datos.ppmBase):null}},
     historial:(D.hist&&D.hist.filas)||[],
     docs:{disponible:!!docs.disponible,actual:docs.actual||{ventas:[],compras:[]},previos:docs.previos||{},resumenActual:(res[per]||{}).ventas||{},resumenPrevios:rp},
