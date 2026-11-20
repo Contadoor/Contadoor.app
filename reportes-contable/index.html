@@ -525,8 +525,16 @@ function tlMini(pasos){
 }
 
 // ── RENDER TABLA ──────────────────────────────────────────────────────────
+// ── 19-11 (Luciano): empresa CONECTADA a Cartapra → el resumen automático del SII BASTA (sin libros) ──
+// Se sabe con la RPC de solo lectura sii_conexiones_equipo (clientes/sii-cartapra.js · GestoorSII.estadoCliente), una consulta por carga.
+// Conectada: el paso «Libros» del flujo se considera cumplido como «Datos del SII» (solo en pantalla: sin claves ni escrituras nuevas)
+// y el IVA se valida en la tarjeta «Cálculo del F29» comparando con el SII. No conectada: carga manual de libros, igual que siempre.
+function siiConectado(c){
+  return !!(c&&c.id&&window.GestoorSII&&typeof GestoorSII.estadoCliente==='function'&&GestoorSII.estadoCliente(c.id)==='conectada');
+}
 // ── Gate Pre-F29: comprueba que compras y ventas estén validadas ─────────
 function librosListos(rep, c){
+  if(siiConectado(c)) return true;   // 19-11: conectada → «Datos del SII» (la falta de datos del período la bloquea «Validar IVA»)
   var libros=(rep&&rep.libros)||{};
   var ESTADOS_OK=['validado','sin_movimientos'];
   var libVentas=libros.ventas||null;
@@ -919,7 +927,7 @@ function renderPipelineContable(rep,c,oblig){
   var o=estOb?(ordOb[estOb]||0):0;
   var pasos=[
     {lbl:'RRHH',       done:rrhhOk,            warn:false, err:false},
-    {lbl:'Libros',     done:libOk&&rrhhOk,     warn:false, err:false},
+    {lbl:siiConectado(c)?'Datos del SII':'Libros', done:libOk&&rrhhOk, warn:false, err:false},   // 19-11: conectada → datos del SII (sin libros)
     {lbl:'IVA',        done:prevOk&&libOk,     warn:false, err:false},   // 19-11: «Validar IVA» del período contable (antes «Pre-IVA»; mismas claves)
     {lbl:'Reporte',    done:repOk&&prevOk,     warn:estOb==='requiere_revision', err:false},
     {lbl:'Transferido',done:!sinOb&&o>=1,      warn:estOb==='parcialmente_conciliada', err:false},
@@ -1068,6 +1076,7 @@ function renderTabla(){
     // Total tributario (sin honorarios comerciales)
     var borrador=buildBorradorF29(rep,c,_periodoActual);
     var totalTrib=borrador.totalTributario;
+    if(siiConectado(c)&&!borrador._periodoValidado) totalTrib=null;   // 19-11: conectada → el total está en «Cálculo del F29»
 
     var rowBg=estado==='completado'?'background:#f9fefb;':'';
     html+='<div class="cliente-row" id="row-'+c.rut+'" style="'+rowBg+'">';
@@ -1081,7 +1090,7 @@ function renderTabla(){
       +tl
       +'</div>';
     html+='<div onclick="toggleRow(\''+c.rut+'\')">'+badgeHtml+'</div>';
-    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(rrhhOk?ff(totalTrib):(totalTrib?ff(totalTrib):' — '))+'</div>';
+    html+='<div onclick="toggleRow(\''+c.rut+'\')" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--contable)">'+(totalTrib===null?' — ':rrhhOk?ff(totalTrib):(totalTrib?ff(totalTrib):' — '))+'</div>';
 
     // Acción principal
     html+='<div style="display:flex;gap:5px;justify-content:flex-end;">';
@@ -1089,7 +1098,9 @@ function renderTabla(){
       html+='<button class="btn-s" disabled style="opacity:.4;font-size:10.5px;">Bloqueado</button>';
     } else if(estado==='pendiente'){
       var libOk=librosListos(rep,c);
-      if(!libOk){
+      if(siiConectado(c)){   // 19-11: conectada → se valida en «Cálculo del F29» (detalle), sin libros
+        html+='<button class="btn-p" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Abre el Cálculo del F29 con los datos del SII">'+gIcon('iva')+' Validar IVA</button>';
+      } else if(!libOk){
         html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-IVA">'+gIcon('iva')+' Pre-IVA</button>';
       } else {
         html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Pre-IVA</button>';
@@ -1120,7 +1131,10 @@ function renderTabla(){
     // Cartapra R4: "Situación mensual SII" (se llena al abrir el detalle)
     if(c.id) html+='<div class="sii-cartapra-slot" data-cid="'+Number(c.id)+'"></div>';
     // Tarjetas IVA + PPM en vivo desde borrador (sin esperar rep.f29 guardado)
-    if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29||borrador._exentoNoCuadra){
+    var _conSii=siiConectado(c);
+    if(_conSii&&!borrador._periodoValidado){
+      // 19-11: conectada y sin validar → el cálculo es la tarjeta «Cálculo del F29» (datos del SII); no se muestran cifras de libros
+    } else if(borrador.ivaDebito>0||borrador.ivaCredito>0||borrador.ppm>0||borrador.retHon>0||borrador.imp2catValidado||rep.f29||borrador._exentoNoCuadra){
       html+='<div class="det-grid">';
       // ── Tarjeta IVA ──
       html+='<div class="det-card"><div class="det-card-titulo">IVA</div>';
@@ -1189,7 +1203,9 @@ function renderTabla(){
     html+='<div class="acciones" style="margin-top:10px;">';
     if(estado==='pendiente'){
       var libOkDetalle=librosListos(rep,c);
-      if(libOkDetalle){
+      if(_conSii){
+        html+='<span style="font-size:11px;color:var(--tm)">'+gIcon('iva')+' Valida el IVA en «Cálculo del F29» (datos del SII), arriba.</span>';
+      } else if(libOkDetalle){
         html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Revisar / Validar IVA</button>';
       } else {
         html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Compras y Ventas antes del Pre-IVA">'+gIcon('subir')+' Carga Compras y Ventas</button>';
@@ -1271,6 +1287,7 @@ function _cargarSiiDe(rut){
     var frut=fcli.rut||rut;
     ContableCalculoF29.montar(fslot,{clienteId:fcid, rut:frut, periodo:_periodoActual, cliente:fcli, rep:frep, remContable:remC,
       siguiente:frep&&frep.listoPanelControl?'Pagos (obligación F29)':'Reporte',
+      conectada:siiConectado(fcli),   // 19-11: conectada → sin libros; sin datos del período = «Esperando datos del SII»
       acciones:{
         validar:function(a,btn){ validarIvaDesdeTarjeta(frut,a,btn); },
         guardarPPM:function(o,a,btn,err){ guardarPPMDesdeTarjeta(frut,o,a,btn,err); },
@@ -4300,7 +4317,8 @@ function pendientesValidarIva(rut, a){
   var x=_cf29Ctx(rut), rep=x.rep||{}, pend=(a&&a.bloqueosValidar||[]).slice(), d=(a&&a.validar)||{};
   if(!x.rep||!x.rep.id||!/^\d+$/.test(String(x.rep.id))) pend.push('No existe el reporte mensual base de este período (recarga el módulo o completa primero RR. HH.).');
   if(rep.listoPanelControl===true) pend.push('El reporte ya está marcado OK para el Panel: el Master debe reabrirlo.');
-  var cierre=validarCierrePreF29(rep, x.c); pend=pend.concat(cierre.pendientes);
+  // 19-11: conectada → el resumen del SII basta (sin exigir libros). No conectada → mismos controles de libros del modal.
+  if(!siiConectado(x.c)){ var cierre=validarCierrePreF29(rep, x.c); pend=pend.concat(cierre.pendientes); }
   if(String(x.c.iva||'afecto').toLowerCase()==='exento') pend.push('Cliente exento de IVA: valida con «Revisar / Validar IVA» (débito y crédito en 0).');
   var b=buildBorradorF29(rep, x.c, x.periodo);
   if(b._remanente&&b._remanente.bloquea) pend.push(b._remanente.aviso);
@@ -4414,6 +4432,10 @@ function sbPatchReporteDetallado(id, data){
 
 function init(){
   console.info('[Contable:init] Inicio');
+  // 19-11: estado de conexión con el SII (Cartapra) de los clientes visibles → «Datos del SII» en vez de libros para las conectadas
+  if(window.GestoorSII&&typeof GestoorSII.prepararInsignias==='function'){
+    GestoorSII.prepararInsignias().then(function(ok){ if(ok&&_periodoActual){ renderTabla(); if(_rutAbierto) restaurarFilaAbierta(_rutAbierto); } }).catch(function(){});
+  }
   var u=getUsuario();
   document.getElementById('tb-analista-nombre').textContent=u.nombre||'Analista Contable';
   document.getElementById('sb-usuario').textContent=(u.nombre||'Usuario')+' · '+(u.rolLabel||'Contable');
@@ -4658,6 +4680,8 @@ function renderSeccionLibros(rep, c){
   if(conResumenSii) h += '<div class="docsii-slot" data-cid="'+Number(c.id)+'"></div>';
   // 19-11: debajo del resumen, el cálculo del F29 del período (mismo cálculo del Pre-IVA) + «✅ Validar IVA» (aquí se valida, no en el Pre-IVA)
   if(conResumenSii && window.ContableCalculoF29) h += '<div class="cf29-slot" data-cid="'+Number(c.id)+'"></div>';
+  // 19-11 (Luciano): conectada → el resumen del SII BASTA: sin carga manual de libros. No conectada → carga manual (único camino).
+  if(conResumenSii && siiConectado(c)){ h += '</div>'; return h; }
   h += '<div class="libros-manual" data-cid="'+Number(c.id||0)+'" data-modo="'+(conResumenSii?'pendiente':'visible')+'">';
   h += '<div class="libros-grid">';
   h += renderTarjetaLibro('compras',   libros.compras,   c, rep);

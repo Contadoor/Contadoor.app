@@ -643,6 +643,8 @@
     estadoRut: estadoRut,
     insignia: insignia,
     prepararInsignias: prepararInsignias,
+    // 19-11: estado de conexión del cliente (conectada | clave_rechazada | sin_conexion) tras prepararInsignias(); null = no se sabe
+    estadoCliente: function (clienteId) { return equipo && Number(clienteId) > 0 && equipo[Number(clienteId)] ? equipo[Number(clienteId)] : null; },
     conectar: conectarDesdeLista,
     montar: function (cont, clienteId, op) {
       if (!cont || !(Number(clienteId) > 0)) return;

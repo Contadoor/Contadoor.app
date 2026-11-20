@@ -127,11 +127,16 @@
   // a = ContableCalculoF29.armar(...) · rv = remanenteValidacion(...) · o: { estadoContable, listoPanelControl }
   function bloqueosValidar(a, rv, o) {
     o = o || {}; var L = [];
-    if (!a || !a.conectado) { L.push('Esta empresa aún no está conectada al SII: valida desde «Revisar / Validar IVA».'); return L; }
+    var ESPERA = 'Esperando datos del SII (próxima sincronización 10:00/17:00).';
+    if (!a || !a.conectado) { L.push(o.conectada ? ESPERA : 'Esta empresa aún no está conectada al SII: valida desde «Revisar / Validar IVA».'); return L; }
     if (o.estadoContable === 'completado') { L.push('El IVA de ' + mesTxt(a.periodo) + ' ya está validado.'); return L; }
     if (a.esMesActual) L.push('El período ' + mesTxt(a.periodo) + ' aún está en curso: el IVA se valida en Contable al cerrar el período.');
     if (rv && rv.bloqueo) L.push(rv.bloqueo.mensaje.replace(/^⚠️\s*/, ''));
-    (a.faltas || []).forEach(function (f) { if (!/remanente|F29 de |UTM de /.test(f) || !(rv && rv.bloqueo)) L.push('Falta: ' + f); });
+    // 19-11: conectada sin ventas/compras/honorarios del período aún leídos por Cartapra → se espera la próxima sincronización
+    var esperando = (a.faltas || []).some(function (f) { return /Cartapra aún no (las|los) trae/.test(f) && !/montos del F29/.test(f); });
+    if (esperando) L.push(ESPERA);
+    (a.faltas || []).forEach(function (f) { if (esperando && /Cartapra aún no (las|los) trae/.test(f) && !/montos del F29/.test(f)) return;
+      if (!/remanente|F29 de |UTM de /.test(f) || !(rv && rv.bloqueo)) L.push('Falta: ' + f); });
     return L;
   }
 
