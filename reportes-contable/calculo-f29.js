@@ -49,6 +49,7 @@
     // 19-11: misma decisión que el Pre-IVA (PreIvaSii.remanenteDelPeriodo): solo el mes INMEDIATAMENTE anterior, nunca $0 por defecto.
     var ra = raw.remanente_anterior || {}, rc = o.remContable || {}, rem = null, remOrigen = null, remDet = null;
     var RD = S.remanenteDelPeriodo({ periodo: per, sii: p, remContable: rc });
+    out.remanenteBloqueo = RD.bloqueo || null;   // 19-11: mismo bloqueo y texto que el Pre-IVA (nunca $0)
     if (RD.origen === 'sii') { rem = RD.valor; remOrigen = 'F29 anterior · SII'; remDet = RD.texto; }
     else if (RD.origen === 'contable' || RD.origen === 'manual') {
       rem = num(rc.valor); remOrigen = rc.fuente === 'manual' ? 'F29 anterior · ingresado a mano' : 'F29 anterior · Contable';
@@ -68,7 +69,7 @@
     out.esMesActual = hz.esMesActual;
     var R = F.calcularF29Completo({ debitoRegistrado: debito || 0, creditoRegistrado: credito || 0,
       netoVentas: p.debito != null ? (p.netoVentas || 0) : null, exentoVentas: p.debito != null && p.exentoVentas != null ? p.exentoVentas : null,
-      remanente: rem || 0, tasa: T.tasa, edicionPPM: ed, horizonte: hz });
+      remanente: rem, tasa: T.tasa, edicionPPM: ed, horizonte: hz });   // rem null = sin remanente del mes anterior → IVA y total null
     out.calculo = R;
     // Retención de honorarios (boletas recibidas del SII)
     var hon = raw.honorarios && raw.honorarios.honorarios_recibidos, retHon = null;
@@ -85,7 +86,8 @@
     L.push({ id: 'debito', op: '', label: 'Débito fiscal', sub: 'IVA de tus ventas', valor: faltaDeb ? null : R.debito, origen: origenSii, falta: faltaDeb ? 'ventas del SII' : null });
     L.push({ id: 'credito', op: '−', label: 'Crédito fiscal', sub: 'Solo compras registradas (las pendientes no suman)', valor: faltaCred ? null : R.credito, origen: origenSii, falta: faltaCred ? 'compras del SII' : null,
       nota: p.pendientes.n > 0 ? p.pendientes.n + ' factura(s) pendiente(s) en el SII: no suman hasta aceptarlas' : null });
-    L.push({ id: 'remanente', op: '−', label: 'Remanente período anterior', sub: 'Cód. 77 del F29 anterior × UTM (cód. 504)', valor: rem, origen: remOrigen || 'F29 anterior', falta: rem == null ? 'remanente anterior' : null, det: remDet });
+    L.push({ id: 'remanente', op: '−', label: 'Remanente período anterior', sub: 'Cód. 77 del F29 anterior × UTM (cód. 504)', valor: rem, origen: remOrigen || 'F29 anterior', falta: rem == null ? 'remanente anterior' : null, det: remDet,
+      bloqueo: rem == null && RD.bloqueo ? RD.bloqueo.mensaje : null });
     var ivaOk = !faltaDeb && !faltaCred && rem != null;
     if (ivaOk && R.nuevoRemanente > 0) L.push({ id: 'iva', op: '=', label: 'IVA a pagar', sub: 'Queda remanente para el mes siguiente: ' + pesos(R.nuevoRemanente), valor: 0, origen: 'Cálculo', tot: true });
     else L.push({ id: 'iva', op: '=', label: 'IVA a pagar', sub: 'Débito − crédito − remanente (si da negativo, queda remanente)', valor: ivaOk ? R.ivaPagar : null, origen: 'Cálculo', tot: true, falta: ivaOk ? null : 'datos del IVA' });
@@ -154,6 +156,8 @@
       '.cf29-or.ed{border-color:rgba(255,200,90,.6);color:#FFC85A}',
       '.cf29-tabla tr.tot td{background:rgba(146,72,147,.10)}',
       '.cf29-falta{color:#FFC85A;font-weight:600;font-size:11.5px}',
+      '.cf29-tabla .bq{display:block;color:#F5C2BB;font-size:10.5px;margin-top:3px;line-height:1.4;font-weight:600}',
+      '.cf29-bloq{margin:0 0 10px;padding:9px 12px;border-radius:10px;border:1px solid rgba(224,122,110,.5);background:rgba(224,122,110,.10);color:#F5C2BB;font-size:12px;line-height:1.5;font-weight:600}',
       '.cf29-fin td{border-top:2px solid #924893;border-bottom:0;padding-top:10px}.cf29-fin .l{font:800 13px var(--g-titulo,Montserrat,sans-serif)}.cf29-fin td.v{font-size:16px;color:#F3E9F4}',
       '.cf29-faltas{margin:8px 0 0;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,200,90,.45);background:rgba(255,200,90,.10);color:#FFC85A;font-size:11.5px;line-height:1.5}',
       '.cf29-faltas ul{margin:4px 0 0;padding-left:18px}',
@@ -176,6 +180,7 @@
     if (!a) box.appendChild(el('div', 'cf29-nota', 'No se pudieron leer los datos del SII para calcular el F29.'));
     else if (!a.conectado) box.appendChild(el('div', 'cf29-nota', 'Esta empresa aún no está conectada al SII: el cálculo aparece cuando Cartapra traiga sus datos. Mientras tanto, revísalo en el Pre-IVA.'));
     else {
+      if (a.remanenteBloqueo) box.appendChild(el('div', 'cf29-bloq', a.remanenteBloqueo.mensaje));   // 19-11: «⚠️ <mes> no está declarado…»
       var tb = el('table', 'cf29-tabla'), body = el('tbody');
       a.lineas.forEach(function (x) {
         var tr = el('tr', x.tot ? 'tot' : null);
@@ -183,6 +188,7 @@
         var td = el('td'); td.appendChild(el('span', 'l', x.label)); if (x.sub) td.appendChild(el('span', 's', x.sub));
         if (x.det) td.appendChild(el('span', 's', x.det));
         if (x.nota) td.appendChild(el('span', 'n', x.nota));
+        if (x.bloqueo) td.appendChild(el('span', 'bq', x.bloqueo));
         if (x.tasaU && COB) { var ts = el('span'); COB.pintarTasa(ts, x.tasaU); td.appendChild(ts); }   // «Tasa usada en el último F29: X % (mes, según SII)»
         if (x.origen) td.appendChild(el('span', 'cf29-or' + (x.editado ? ' ed' : ''), x.origen));
         tr.appendChild(td);

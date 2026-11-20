@@ -117,3 +117,23 @@ test('excepciones con texto propio: sin montos en Cartapra, falta UTM, sin conex
   assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: { valor: null, fuente: 'sin', info: cf } }).bloqueo.tipo, 'conflicto');
   assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: { valor: null, fuente: 'error' } }).bloqueo.tipo, 'sin_lectura');
 });
+
+test('remanente a mano (helper compartido): valida, busca el reporte del mes, llama a la RPC existente y traduce errores', async () => {
+  assert.match(S.validarRemanenteManual({ cod77: '1,5', motivo: 'F29 octubre folio 1' }).error, /entero en pesos/);
+  assert.match(S.validarRemanenteManual({ cod77: '100', motivo: 'corto' }).error, /mínimo 10 caracteres/);
+  assert.deepStrictEqual(S.validarRemanenteManual({ cod77: '250.000', motivo: '  F29 octubre folio 1 ' }), { cod77: 250000, motivo: 'F29 octubre folio 1' });
+  const MAN = { estado: 'CONOCIDO', fuente: 'F29_MANUAL', cod77: 250000, cod504: 251000, utm_origen: 1, utm_destino: 1, periodo: '2026-11', periodo_anterior: '2026-10', manual: { usuario_nombre: 'Analista Ficticia', motivo: 'F29 octubre folio 1' } };
+  const llamadas = [];
+  const ok = async (p, o) => { llamadas.push([p, o && o.body ? JSON.parse(o.body) : null]);
+    return { ok: true, status: 200, text: async () => JSON.stringify(p.indexOf('reportes_mensuales') === 0 ? [{ id: 55 }] : { ok: true, info: MAN }) }; };
+  const r = await S.registrarRemanenteManual({ clienteRut: '1-9', periodo: '202611', cod77: '250.000', motivo: 'F29 octubre folio 1' }, ok);
+  assert.strictEqual(r.ok, true); assert.deepStrictEqual([r.remContable.valor, r.remContable.fuente], [251000, 'manual']);
+  assert.deepStrictEqual(llamadas, [['reportes_mensuales?cliente_rut=eq.1-9&periodo=eq.2026-11&select=id', null],
+    ['rpc/registrar_remanente_anterior_manual', { p_reporte_id: 55, p_cod77: 250000, p_motivo: 'F29 octubre folio 1' }]]);
+  assert.strictEqual(S.remanenteDelPeriodo({ periodo: '202611', remContable: r.remContable }).valor, 251000, 'desbloquea');
+  const err = (code, message) => async () => ({ ok: false, status: 400, text: async () => JSON.stringify({ code, message }) });
+  assert.match((await S.registrarRemanenteManual({ reporteId: 5, periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, err('42501', 'SOLO_ANALISTA_ASIGNADO: x'))).error, /Solo el analista contable asignado/);
+  assert.match((await S.registrarRemanenteManual({ reporteId: 5, periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, err('22023', 'MES_ANTERIOR_EXISTE: x'))).error, /El reporte de octubre 2026 existe en Gestoor/);
+  const sinRep = async () => ({ ok: true, status: 200, text: async () => '[]' });
+  assert.match((await S.registrarRemanenteManual({ clienteRut: '1-9', periodo: '202611', cod77: 1, motivo: 'F29 octubre folio 1' }, sinRep)).error, /Aún no existe el reporte de este mes/);
+});
