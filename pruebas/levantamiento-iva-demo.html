@@ -18,6 +18,7 @@
     var b = JSON.parse(o.body || '{}'), st = 200, j;
     if (path === 'rpc/sii_levantamiento_iva') j = window.LIVA_DEMO;
     else if (path === 'rpc/sii_levantamiento_pedir_historial') j = { estado: 'encolado', trabajo_id: 1, lecturas: 9, minutos_estimados: 6 };
+    else if (path === 'rpc/sii_levantamiento_registrar_pdf') j = { registrado: true, bitacora_id: 1 };
     else { st = 404; j = { code: 'PGRST202' }; }
     return new Promise(function (r) { setTimeout(function () { r({ ok: st === 200, status: st, text: function () { return Promise.resolve(JSON.stringify(j)); } }); }, 200); });
   };
