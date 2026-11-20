@@ -135,7 +135,7 @@
     var enlace = el('a', null, 'Abrir el avance en Cartapra'); enlace.id = 'hsii-enlace'; enlace.target = '_blank'; enlace.rel = 'noopener noreferrer'; enlace.hidden = true; acc.appendChild(enlace);
     var bCargar = el('button', 'hsii-btn'); bCargar.type = 'button'; bCargar.id = 'hsii-cargar'; bCargar.appendChild(icono('subir')); bCargar.appendChild(doc.createTextNode('Cargar en Gestoor')); bCargar.hidden = true; acc.appendChild(bCargar);
     var res = el('ul', 'hsii-res'); res.id = 'hsii-res'; caja.appendChild(res);
-    caja.appendChild(el('div', 'hsii-nota', 'La Historia trae compras, ventas y honorarios; no trae F29. Cartapra entrega montos de F29 solo de los últimos 6 folios. El enlace es privado y vence en 7 días: no lo reenvíes.'));
+    caja.appendChild(el('div', 'hsii-nota', 'La Historia trae compras, ventas y honorarios; no trae F29 (los montos de todos los F29 llegan con «Pedir historial a Cartapra»). El enlace es privado y vence en 7 días: no lo reenvíes.'));
 
     vista = { velo: velo, cliente: cliente, historiaId: null, timer: null, seq: 0 };
     var v = vista;

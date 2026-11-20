@@ -1092,7 +1092,7 @@ function sincronizarBloqueoModales(){
   document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-bg.on')));
 }
 function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
-function cerrarDetalle() { if (window.GestoorHistoriaSII) GestoorHistoriaSII.cerrar(); if (window.GestoorSII) GestoorSII.desmontar(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarDetalle() { if (window.GestoorHistoriaSII) GestoorHistoriaSII.cerrar(); if (window.GestoorHistorialSII) GestoorHistorialSII.cerrar(); if (window.GestoorLevDetalle) GestoorLevDetalle.cerrarMes(); if (window.GestoorSII) GestoorSII.desmontar(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
@@ -1237,6 +1237,7 @@ function verDetalle(id) {
   h += '<div id="det-onb"></div>';   // ONBOARDING-L2: pasos que faltan (onboarding-ficha.js); vacío si no vino de Onboarding
   h += '<div id="det-liva"></div>';  // LEVANTAMIENTO-IVA: botón «Levantamiento de IVA» (levantamiento-iva.js; Master y equipo contable)
   h += '<div id="det-hist"></div>';  // CARTAPRA-HISTORIA: botón «Historia SII» (historia-sii.js; Master y equipo contable)
+  h += '<div id="det-hcar"></div>';  // LIVA-DETALLE-F29: botón «Historial SII» (historial-sii-cargado.js: qué hay cargado por mes; Master y equipo contable)
   h += '<div id="det-sii"></div>';   // Cartapra F1: tarjeta "Datos del SII" (sii-cartapra.js)
   g('detalleContent').innerHTML = h;
   g('modalDetalle').classList.add('on');
@@ -1244,6 +1245,7 @@ function verDetalle(id) {
   if (window.OnbFicha) OnbFicha.montar(g('det-onb'), c.id);
   if (window.GestoorLevIVA) GestoorLevIVA.montar(g('det-liva'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
   if (window.GestoorHistoriaSII) GestoorHistoriaSII.montar(g('det-hist'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
+  if (window.GestoorHistorialSII) GestoorHistorialSII.montar(g('det-hcar'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
 }
 
 // ─────────────────────────────────────────────────────
@@ -2020,6 +2022,8 @@ function precargarDesdeCotizacion() {
 </script>
 <script src="sii-cartapra.js"></script>
 <script src="levantamiento-iva.js"></script>
+<script src="levantamiento-detalle.js"></script>
+<script src="historial-sii-cargado.js"></script>
 <script src="historia-sii.js"></script>
 <script src="../assets/onboarding-pasos.js"></script>
 <script src="onboarding-ficha.js"></script>
