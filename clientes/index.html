@@ -1598,6 +1598,8 @@ function prepararSiiLista(forzar) {
   if (window._esMasterUI !== true && window._esMasterUI !== false) return; // sesión aún no cargada
   _siiListaPedida = true;
   if (GestoorSII.prepararInsignias) GestoorSII.prepararInsignias().then(function (hay) { if (hay) renderClientes(); });
+  // 19-11 (CARTAPRA-AL-CONECTAR): cuando una empresa recién conectada ya tiene sus datos en Gestoor, se repinta la lista.
+  if (GestoorSII.alListo) GestoorSII.alListo(function () { prepararSiiLista(true); });
   var ses = window._contadoorSesion || {};
   GestoorSII.prepararLista(cs[0].id, ses.esMaster === true || ses.rol === 'master').then(function (r) { if (r && r.puede) renderClientes(); });
 }
