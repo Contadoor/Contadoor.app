@@ -3,7 +3,7 @@
 (function (raiz) {
   function mes(i) { var d = new Date(2023, 10 + i, 1); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0'); }
   var meses = [], tot = {}, imp = 0, K = { meses: 0, impuesto: 0, reajuste: 0, intereses: 0, multa: 0, total: 0 }, P = { meses: 0, impuesto: 0, reajuste: 0, intereses: 0, multa: 0, total: 0 },
-      X = { meses: 0, impuesto: 0, reajuste_calculado: 0, intereses_calculados: 0, multa_calculada: 0, componentes_pendientes: [] }, cond = 0;
+      X = { meses: 0, impuesto: 0, reajuste_calculado: 0, intereses_calculados: 0, multa_calculada: 0, componentes_pendientes: [] }, cond = 0, S = { deb: 0, debd: 0, cre: 0, cred: 0 };
   for (var i = 0; i < 36; i++) {
     var p = mes(i), base = 1000000 + (i % 7) * 85000, deb = Math.round(base * 0.19), cre = Math.round(deb * 0.55);
     var m = { periodo: p, motivo: null, alertas: [], estimacion: null, calce: null, condicionado: false, condiciones: [], rcv_parcial: false,
@@ -44,12 +44,13 @@
         else { X.meses++; X.impuesto += dif; X.componentes_pendientes = ['reajuste', 'intereses', 'multa']; }
       }
     }
+    if (m.estado !== 'sin_datos' && m.estado !== 'f29_sin_montos') { S.deb += m.debito.rcv || 0; S.debd += m.debito.declarado || 0; S.cre += m.credito.rcv || 0; S.cred += m.credito.declarado_documentos || 0; }
     tot[m.estado] = (tot[m.estado] || 0) + 1; meses.push(m);
   }
   raiz.LIVA_DEMO = {
     cliente_id: 1, desde: meses[0].periodo, hasta: meses[35].periodo, fuente: 'cartapra', version: 'LIVA_V2', conexion: { estado: 'conectada' }, historial: null,
     opciones: { fecha_pago: '2026-11-25', tolerancia: 100, medio: 'internet', dia_vencimiento: 20, fiscalizacion: false, utm_pago: 72440 },
-    meses: meses, totales: { meses: 36, por_estado: tot, condicionados: cond, dentro_tolerancia: { meses: 1, iva_acumulado: 60, debito_acumulado: 60, credito_acumulado: 0 } },
+    meses: meses, totales: { meses: 36, por_estado: tot, condicionados: cond, debito_rcv: S.deb, debito_declarado: S.debd, credito_rcv: S.cre, credito_declarado_documentos: S.cred, dentro_tolerancia: { meses: 1, iva_acumulado: 60, debito_acumulado: 60, credito_acumulado: 0 } },
     estimacion: { aviso: 'ESTIMACIÓN PRELIMINAR, VERIFICAR: no constituye determinación definitiva ni reemplaza el cálculo del SII/Tesorería ni la revisión del analista.',
       impuesto: imp, posible_a_favor: 0, conocido: K, provisional: P, no_calculable: X, total: null, total_provisional: null, total_no_calculable: true,
       supuestos: ['Vencimiento: día 20 del mes siguiente (F29 por internet con facturador electrónico); si cae sábado, domingo o festivo se corre al siguiente día hábil.',

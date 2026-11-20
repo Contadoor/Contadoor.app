@@ -63,7 +63,7 @@ const hist = (estado: string, extra: any = {}) => ({ id: 41, estado, porcentaje:
   w.GestoorHistoriaSII.montar(d.getElementById('det-hist'), C, { esMaster: true });
   (d.getElementById('hsii-abrir') as HTMLElement).click();
   res('2.1 diálogo con el nombre como texto (no HTML)', !!d.getElementById('hsii-velo') && d.querySelector('.hsii-cab h3 span')!.textContent!.includes('<b>Empresa</b>'));
-  res('2.2 aviso fijo: F29 solo de los últimos 6 folios', /últimos 6 folios/.test(d.getElementById('hsii-velo')!.textContent!));
+  res('2.2 ya no hay aviso fijo de «6 folios» (Cartapra entrega montos de todos los F29)', !/6 folios/.test(d.getElementById('hsii-velo')!.textContent!) && /todos los F29/.test(d.getElementById('hsii-velo')!.textContent!));
   (d.getElementById('hsii-desde') as HTMLInputElement).value = '2023-01'; (d.getElementById('hsii-hasta') as HTMLInputElement).value = '2026-11';
   (d.getElementById('hsii-pedir') as HTMLElement).click(); await espera();
   res('2.3 llama a la Edge con cliente_id y AAAAMM (sin RUT)', llam[0][0] === 'cartapra-historia' && JSON.stringify(llam[0][1]) === JSON.stringify({ accion: 'pedir', cliente_id: 9001, desde: '202301', hasta: '202611' }), llam[0]);
@@ -100,14 +100,14 @@ const hist = (estado: string, extra: any = {}) => ({ id: 41, estado, porcentaje:
   });
   w.GestoorLevIVA.montar(d.getElementById('det-liva'), C, { esMaster: true });
   (d.getElementById('liva-abrir') as HTMLElement).click();
-  res('4.1 aviso fijo «Cartapra entrega montos de F29 solo de los últimos 6 folios»', /Cartapra entrega montos de F29 solo de los últimos 6 folios/.test(d.getElementById('liva-aviso-f29')!.textContent!));
+  res('4.1 sin el aviso fijo de «6 folios» en el levantamiento', !d.getElementById('liva-aviso-f29') && !/6 folios/.test(d.getElementById('liva-velo')!.textContent!));
   (d.getElementById('liva-desde') as HTMLInputElement).value = '2023-11'; (d.getElementById('liva-hasta') as HTMLInputElement).value = '2026-10';
   (d.getElementById('liva-calcular') as HTMLElement).click(); await espera(40);
   const o = rpcs.find((x) => x[0] === 'rpc/sii_historia_origenes');
   res('4.2 pide los orígenes del mismo rango', !!o && o[1].p_cliente_id === 9001 && o[1].p_desde === w.LIVA_DEMO.desde && o[1].p_hasta === w.LIVA_DEMO.hasta, o);
   const celdas = Array.from(d.querySelectorAll('#liva-tabla tr.fila td.orig')).map((x: any) => x.textContent);
   res('4.3 columna Origen: Historia SII / Mixto / —', celdas[0] === 'Historia SII' && celdas[1] === 'Mixto (Historia SII y diaria)' && celdas[2] === '—', celdas.slice(0, 3));
-  res('4.4 el PDF incluye el aviso de F29', w.GestoorLevIVA.documentoPdf(w.LIVA_DEMO, C, 'x.png').includes('Cartapra entrega montos de F29 solo de los últimos 6 folios'));
+  res('4.4 el PDF ya no incluye el aviso de 6 folios', !w.GestoorLevIVA.documentoPdf(w.LIVA_DEMO, C, 'x.png').includes('6 folios'));
   (d.getElementById('liva-historia-sii') as HTMLElement).click();
   res('4.5 «Historia SII» abre su diálogo encima con el rango del levantamiento', !!d.getElementById('hsii-velo') && (d.getElementById('hsii-desde') as HTMLInputElement).value === '2023-11' && (d.getElementById('hsii-hasta') as HTMLInputElement).value === '2026-10');
 }
