@@ -1,11 +1,11 @@
-// node --test panel-de-control/cierre-reporte.test.js  (datos ficticios) — REPORTE-AUTO B (un solo paso, decisiones 19-11)
+// node --test reportes-contable/cierre-reporte.test.js  (datos ficticios) — REPORTE-AUTO B · R3 (el cierre vive en Contable; flujo 19-11)
 const test = require('node:test'); const assert = require('node:assert');
 const C = require('./cierre-reporte.js');
 const foto = { impuestos: { estado: 'ok', fuente: 'sii', total_f29: 993269, iva_pagar: 829519, ppm: 26250, ret_hon: 137500, iu: 0, iu_pendiente: true, remanente_anterior: 120481,
   remanente_anterior_fuente: 'manual', vence: '2026-11-20' }, rrhh: { estado: 'pendiente' }, servicios: { estado: 'sin_factura' } };
 test('filasFoto: F29 del SII, IU pendiente, sin factura', () => {
   const f = C.filasFoto(foto);
-  assert.deepEqual(f[0], ['Impuestos F29 (datos del SII)', '$993.269']);
+  assert.deepEqual(f[0], ['Impuestos F29 (validado en Contable, datos del SII)', '$993.269']);
   assert.ok(f.some((x) => x[0] === '· Impuesto único' && x[1] === 'Pendiente RR. HH.'));
   assert.ok(f.some((x) => x[0] === '· Remanente anterior (a mano)'));
   assert.ok(f.some((x) => x[0] === '· Vence' && x[1] === '20-11-2026'));
@@ -15,17 +15,11 @@ test('filasFoto: F29 del SII, IU pendiente, sin factura', () => {
   assert.deepEqual(g[0], ['Impuestos F29', 'No aplica']);
   assert.equal(g.find((x) => x[0] === 'Nuestros servicios')[1], '$95.000 · factura N° 16600');
 });
-test('filasFoto: impuestos por pasar desde el SII y cliente sin trabajadores', () => {
-  const f = C.filasFoto({ impuestos: { estado: 'por_aplicar_sii' }, rrhh: { estado: 'no_aplica' }, servicios: { estado: 'sin_factura' } });
-  assert.deepEqual(f[0], ['Impuestos F29', 'Se pasan desde el SII al cerrar']);
+test('R3 · filasFoto: impuestos pendientes = «valida el IVA en Contable» (ya no «se pasan desde el SII») y cliente sin trabajadores', () => {
+  const f = C.filasFoto({ impuestos: { estado: 'pendiente' }, rrhh: { estado: 'no_aplica' }, servicios: { estado: 'sin_factura' } });
+  assert.deepEqual(f[0], ['Impuestos F29', 'Pendiente (valida el IVA en Contable)']);
   assert.deepEqual(f.find((x) => x[0] === 'RR. HH.'), ['RR. HH.', 'No aplica (sin trabajadores con sueldo)']);
-});
-test('filasPuente: vista previa del servidor (reusa el Pre-IVA) y vacío sin previa', () => {
-  const f = C.filasPuente({ previa: { debito: 380000, credito: 190000, remanente_anterior: 301202, iva_pagar: 0, remanente_siguiente: 111202, ppm: 10000, ret_hon: 0, iu: 0, otros_imp: 0, total_f29: 10000 },
-    entrada: { ppm_tasa: 0.5, ppm_tasa_fuente: 'sii' }, remanente: { accion: 'registrar_sii', cod77: 300000 } });
-  assert.deepEqual(f[f.length - 1], ['Total F29', '$10.000']);
-  assert.ok(f.some((x) => x[0] === 'Remanente para el mes siguiente' && x[1] === '$111.202'));
-  assert.deepEqual(C.filasPuente(null), []); assert.deepEqual(C.filasPuente({ previa: null }), []);
+  assert.deepEqual(C.filasFoto({ impuestos: { estado: 'ok', fuente: 'contable', total_f29: 10000 }, rrhh: {}, servicios: {} })[0], ['Impuestos F29 (validado en Contable)', '$10.000']);
 });
 test('textoAviso: lo declarado, lo no declarado, lo observado y avisos internos', () => {
   assert.equal(C.textoAviso({ codigo: 'F29_SIN_DECLARAR', periodos: ['2026-05', '2026-06'] }), 'Hay F29 sin declarar según Cartapra: 2026-05, 2026-06.');
@@ -34,16 +28,11 @@ test('textoAviso: lo declarado, lo no declarado, lo observado y avisos internos'
   assert.match(C.textoAviso({ codigo: 'SII_OBSERVACIONES', cartas: 1, cumple: false, f22: 0 }), /1 carta o notificación.*no cumple/);
   assert.match(C.textoAviso({ codigo: 'FACTURA_NO_EMITIDA' }), /^Interno: .*no bloquea/);
 });
-test('validarManual: igual que el Pre-IVA', () => {
-  assert.equal(C.validarManual('50000', 'F29 septiembre en papel'), null);
-  assert.match(C.validarManual('50.000', 'F29 septiembre en papel'), /sin puntos/);
-  assert.match(C.validarManual('1', '[SII] suplantación del origen'), /\[SII\]/);
-});
-test('mensajeError: permisos, huella y cierre detenido por el puente', () => {
+test('mensajeError: permisos, huella y cierre detenido', () => {
   assert.match(C.mensajeError('SIN_PERMISO: x'), /solo el Master o el analista contable asignado/);
   assert.match(C.mensajeError('DATOS_CAMBIARON: x'), /cambió/);
-  assert.equal(C.mensajeError('CIERRE_DETENIDO: el paso de los datos del SII al reporte se detuvo: REMANENTE_SIN_F29: No hay F29 de 2026-09 en Cartapra: ingresa el remanente'),
-    'El cierre se detuvo: No hay F29 de 2026-09 en Cartapra: ingresa el remanente');
+  assert.equal(C.mensajeError('CIERRE_DETENIDO: el reporte contable no se pudo dejar OK: REMANENTE_NO_CUADRA: el remanente no cuadra'),
+    'El cierre se detuvo: el remanente no cuadra');
 });
 test('R2 · RR. HH.: «no aplica» confirmado por RR. HH., por quien cierra o pendiente de confirmar', () => {
   const g = (rr) => C.filasFoto({ impuestos: { estado: 'ok', total_f29: 1, iu_estado: 'no_aplica', iu: 0 }, rrhh: rr, servicios: {} });
@@ -78,10 +67,32 @@ test('R2 · el cierre ya no crea la obligación desde el navegador; solo informa
   assert.ok(!/crearObligacion\(|crear_obligacion'/.test(src));
   assert.ok(/p_confirma_sin_trabajadores/.test(src));
   assert.equal(C.textoObligacion({ resultado: 'actualizada' }), 'Obligación F29 de Pagos actualizada (no tenía dinero conciliado).');
+  assert.match(C.textoObligacion({ resultado: 'creada' }), /Pagos.*paso siguiente/);
+  assert.equal(C.textoObligacion(null), '');
 });
 test('R2 · mensajeError: obligación con pagos y cierre concurrente en lenguaje simple', () => {
   assert.equal(C.mensajeError('CIERRE_DETENIDO: la obligación F29 de Pagos no se pudo registrar o confirmar: OBLIGACION_F29_CON_PAGOS: La obligación F29 tiene pagos'),
     'El cierre se detuvo: La obligación F29 tiene pagos');
   assert.match(C.mensajeError('REPORTE_YA_CERRADO: x'), /otra persona lo cerró/);
   assert.equal(C.mensajeError('REPORTE_NO_LISTO: RRHH_PENDIENTE (RR. HH. no está listo)'), 'RR. HH. no está listo');
+});
+
+// ── R3 (flujo 19-11): el cierre se hace en Contable, después de validar el IVA ──
+const fs = require('node:fs'), path = require('node:path');
+const SRC = fs.readFileSync(path.join(__dirname, 'cierre-reporte.js'), 'utf8');
+test('R3 · mensajeError: IVA sin validar en Contable y remanente que va en Contable', () => {
+  assert.match(C.mensajeError('CONTABLE_NO_VALIDADO: el IVA de 2026-10 no está validado en Contable'), /valídalo \(«Validar IVA»\) y después cierra/);
+  assert.match(C.mensajeError('REPORTE_NO_LISTO: CONTABLE_NO_VALIDADO (El IVA de 2026-10 no está validado en Contable: valídalo en el Reporte Contable)'), /no está validado en Contable/);
+  assert.match(C.mensajeError('REMANENTE_NO_CORRESPONDE: x'), /se registra en Contable/);
+  assert.match(C.mensajeError('REPORTE_NO_LISTO: LIBROS_PENDIENTES (La empresa no está conectada al SII: faltan los libros de compras de 2026-10)'), /faltan los libros de compras/);
+});
+test('R3 · el cierre ya no pasa datos del SII ni pide remanente: sin puente, sin reporte-sii.js, remanente siempre vacío', () => {
+  assert.equal(C.filasPuente, undefined); assert.equal(C.validarManual, undefined);
+  assert.doesNotMatch(SRC, /PreIvaReporteSii|reporte-sii\.js|reporte_aplicar_preiva_sii|crep-cod77|requiere_remanente_manual/);
+  assert.match(SRC, /p_rem_cod77: null, p_rem_motivo: null/);
+  assert.match(C.textoAviso({ codigo: 'IVA_VALIDADO_CON_SII', mensaje: 'Empresa conectada al SII: sin libros.' }), /^Interno: /);
+});
+test('R3 · el cierre envía lo que espera el servidor (reporte, huella, confirmación) y no llama a crear_obligacion', () => {
+  assert.match(SRC, /rpc\('reporte_cerrar', \{ p_reporte_id: Number\(o\.reporteId\), p_huella: e\.huella/);
+  assert.doesNotMatch(SRC, /crear_obligacion/);
 });

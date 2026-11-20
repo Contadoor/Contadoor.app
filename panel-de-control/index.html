@@ -687,7 +687,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <button class="btn-s" onclick="imprimirReportePdf()" title="Imprime solo el reporte, en páginas A4 completas">🖨️ Imprimir PDF</button>
       <button class="btn-s" onclick="abrirEditRapido()" style="color:var(--p);border-color:var(--p)">📝 Nota analista</button>
       <button class="btn-s" onclick="abrirEnvioManual()" style="color:var(--blue);border-color:var(--blue)" title="Puente 12-nov: PDF + Outlook + registro con evidencia">📤 Registrar envío manual</button>
-      <button class="btn-p" onclick="abrirCierreReporte()" title="Un solo paso: pasa los datos del SII al reporte si falta, guarda la foto, lo marca enviado y lo publica en MiContadoor (REPORTE-AUTO)">🔒 Cerrar reporte</button>
       <button class="btn-p" onclick="enviarEmail()" style="opacity:.55" title="Se activa con el servicio seguro de correos (PR #10B)">✉️ Enviar reporte mensual</button>
       <button class="btn-s" onclick="enviarRecordatorio(_vistaId,'manual')" style="color:var(--amber);border-color:var(--amber)">🔔 Recordatorio</button>
     </div>
@@ -732,8 +731,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <script src="../reporte-email.js"></script>
 <script src="../assets/reporte-pdf.js"></script>
 <script src="envio-manual.js"></script>
-<script src="../pre-iva/reporte-sii.js"></script>
-<script src="cierre-reporte.js"></script>
+<!-- REPORTE-AUTO R3: el cierre se hace en Contable; el Panel solo lee reportes_cierres para mostrar «🔒 Publicado» -->
+<script src="../reportes-contable/cierre-reporte.js"></script>
 <script>
 
 // ═══════════════════════════════════════════════════════════
@@ -1821,18 +1820,8 @@ function abrirEnvioManual(){
   });
 }
 
-// REPORTE-AUTO · «🔒 Cerrar reporte» (un solo paso): el servidor pasa los datos del SII si falta, arma y guarda la foto
-// (panel-de-control/cierre-reporte.js; reusa pre-iva/reporte-sii.js para el remanente a mano y la obligación F29). r.id es el id del REPORTE.
-function abrirCierreReporte(){
-  var r=getReportes().find(function(x){return String(x.id)===String(_vistaId);});
-  if(!r||!/^\d+$/.test(String(r.id))){alert('Reporte no encontrado (recarga el Panel).');return;}
-  if(typeof GestoorCierreReporte==='undefined'){alert('No se cargó el módulo de cierre. Recarga la página.');return;}
-  GestoorCierreReporte.abrir({reporteId:r.id, empresa:r.clienteNombre||r.rut, periodoTxt:formatPer(r.periodo), alTerminar:function(estado,fecha,version){
-    var arr=getReportes(), x=arr.find(function(y){return String(y.id)===String(r.id);});
-    if(x){x.estado=estado;x.fechaEnvio=fecha||null;x.cierreVigente=estado==='enviado'?{version:version||null,cerrado_at:fecha||null}:null;setReportesCache(arr);}
-    if(typeof renderAll==='function')renderAll();
-  }});
-}
+// REPORTE-AUTO R3 (flujo 19-11): «🔒 Cerrar reporte» se movió al Reporte Contable (período contable, después de «Validar IVA»).
+// El Panel ya no cierra ni valida: solo muestra «🔒 Publicado» desde reportes_cierres (GestoorCierreReporte.cierresVigentes).
 function closeVista(){
   document.getElementById('modalVista').classList.remove('on');
   // Resetear estado SII para que fetches tardíos sean ignorados

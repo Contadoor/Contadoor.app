@@ -1,15 +1,15 @@
-/* REPORTE-AUTO B · «🔒 Cerrar reporte» en el Panel de Control (un solo paso, decisiones de Luciano 19-11).
-   El servidor arma la FOTO del reporte (public.reporte_cierre_vista) desde la base, revisa lo que falta y, al confirmar
-   (public.reporte_cerrar con la huella de lo que se vio), la guarda inmutable, marca el reporte «enviado» y lo publica en MiContadoor.
-   Flujo visible: revisar (opcional, en el Pre-IVA) → Cerrar reporte. Si los datos del SII aún no pasaron al reporte, el cierre los
-   pasa por dentro (mismo cálculo del servidor que «Pasar al reporte» del Pre-IVA); si falta el remanente anterior, se pide aquí
-   (cód. 77 + motivo). Si el servidor encuentra un bloqueo, el cierre se detiene y lo explica; no se guarda nada.
-   Reglas: la factura del mes NO bloquea (aviso interno); RR. HH. bloquea solo si el cliente tiene trabajadores con sueldos;
-   cierran SOLO el Master o el analista contable asignado. Reabrir: SOLO el Master, con motivo (public.reporte_reabrir).
-   R2 (dictamen 19-11): la obligación F29 de Pagos la crea / confirma / reutiliza EL SERVIDOR dentro del mismo cierre (AUTO-B01; el
-   navegador ya no llama a crear_obligacion). Si el servidor no sabe si el cliente tuvo trabajadores con sueldo (AUTO-B02), pide que
-   quien cierra lo confirme con una casilla (queda en la bitácora con su nombre); un IU pendiente nunca se salta. reportes_cierres es la
-   fuente oficial del cierre (AUTO-B03): el Panel la lee con cierresVigentes() para marcar «Publicado».
+/* REPORTE-AUTO B · R3 · «🔒 Cerrar reporte» en el módulo CONTABLE (regla de flujo de Luciano 19-11).
+   PRE-IVA = mes en curso, solo estimado: no valida ni pasa nada al reporte. CONTABLE = período contable: ahí se VALIDA el IVA
+   («Validar IVA», pre-iva/iva-validacion.js) y DESPUÉS se cierra aquí. El servidor arma la FOTO del reporte (public.reporte_cierre_vista),
+   revisa lo que falta y, al confirmar (public.reporte_cerrar con la huella de lo que se vio), la guarda inmutable, deja el reporte OK,
+   crea / confirma / reutiliza la obligación F29 de Pagos (paso siguiente) y lo publica en MiContadoor.
+   R3: el cierre exige el IVA validado en Contable (CONTABLE_NO_VALIDADO); ya no hay «puente SII → reporte» dentro del cierre ni se
+   ingresa el remanente aquí (se registra en Contable, «Ingresar remanente a mano», antes de validar). Empresas conectadas al SII no
+   necesitan libros; las no conectadas, libros de ventas y compras validados (LIBROS_PENDIENTES).
+   Reglas que siguen: la factura del mes NO bloquea (aviso interno); RR. HH. bloquea solo si el cliente tiene trabajadores con sueldos
+   (si no se sabe, quien cierra lo confirma con una casilla); cierran SOLO el Master o el analista contable asignado; reabre SOLO el
+   Master, con motivo (public.reporte_reabrir). reportes_cierres es la fuente oficial: cierresVigentes() marca «Publicado» en Contable y
+   en el Panel de Control (que solo lo muestra; ya no cierra).
    Esta pantalla no calcula montos ni marca nada sola: si la RPC no está instalada (404 / PGRST202), lo dice y no hace nada. */
 (function (raiz) {
   'use strict';
@@ -25,13 +25,14 @@
     });
   }
   var MAPA = [[/SIN_PERMISO/, 'Cierra el reporte solo el Master o el analista contable asignado al cliente.'],
-    [/REMANENTE_NO_CORRESPONDE/, 'Los impuestos ya están en el reporte: no hace falta indicar el remanente anterior.'],
+    [/REMANENTE_NO_CORRESPONDE/, 'El remanente anterior se registra en Contable («Ingresar remanente a mano») antes de validar el IVA, no al cerrar.'],
+    [/^CONTABLE_NO_VALIDADO/, 'El IVA del período aún no está validado en Contable: valídalo («Validar IVA») y después cierra el reporte.'],
     [/DATOS_CAMBIARON/, 'El reporte cambió mientras lo revisabas. Vuelve a abrir «Cerrar reporte».'], [/REAPERTURA_SOLO_MASTER/, 'Solo el Master puede reabrir un reporte cerrado.'],
     [/MOTIVO_OBLIGATORIO/, 'El motivo debe tener entre 10 y 500 caracteres.'], [/SIN_SESION/, 'Tu sesión terminó. Vuelve a ingresar a Gestoor.'],
     [/REPORTE_YA_CERRADO/, 'Este reporte ya está cerrado (otra persona lo cerró). Vuelve a abrir «Cerrar reporte».']];
   function mensajeError(m) {
     m = String(m || '').replace(/<[^>]+>/g, ''); for (var i = 0; i < MAPA.length; i++) if (MAPA[i][0].test(m)) return MAPA[i][1];
-    // CIERRE_DETENIDO: el paso SII → reporte se detuvo; se muestra el motivo del servidor, sin los códigos internos.
+    // CIERRE_DETENIDO: la obligación F29 o el OK del reporte se detuvieron; se muestra el motivo del servidor, sin los códigos internos.
     if (/^CIERRE_DETENIDO/.test(m)) return 'El cierre se detuvo: ' + m.replace(/^CIERRE_DETENIDO: [^:]*: /, '').replace(/[A-Z0-9_]{6,}: /g, '').replace(/\b[A-Z][A-Z0-9_]{5,} \(([^()]*)\)/g, '$1').slice(0, 380);
     return m.replace(/^[A-Z0-9_]+: /, '').replace(/\b[A-Z][A-Z0-9_]{5,} \(([^()]*)\)/g, '$1').slice(0, 400) || 'No se pudo completar.';
   }
@@ -53,13 +54,17 @@
       if (a.f22 > 0) p.push(a.f22 + (a.f22 === 1 ? ' observación' : ' observaciones') + ' en el F22');
       return 'Observaciones del SII: ' + (p.join('; ') || 'revisar') + '.';
     }
-    if (a && /^(OBLIGACION_|F29_SII_DIFIERE|CAMBIOS_VS_VERSION_ANTERIOR)/.test(a.codigo)) return 'Interno: ' + (a.mensaje || a.codigo);
+    if (a && /^(OBLIGACION_|F29_SII_DIFIERE|CAMBIOS_VS_VERSION_ANTERIOR|IVA_VALIDADO_CON_SII)/.test(a.codigo)) return 'Interno: ' + (a.mensaje || a.codigo);
     return (AVISOS[a.codigo] || a.mensaje || a.codigo) + (a.periodos && a.periodos.length ? ': ' + a.periodos.join(', ') : '') + '.';
   }
-  // Resultado de la obligación F29 que el SERVIDOR registró al cerrar (no la crea el navegador).
+  // Resultado de la obligación F29 que el SERVIDOR registró al cerrar (no la crea el navegador). Paso siguiente: Pagos.
   function textoObligacion(o) {
-    if (R && R.textoObligacion) return R.textoObligacion(o);
-    return o && o.resultado ? 'Obligación F29: ' + o.resultado + '.' : '';
+    var r = o && o.resultado;
+    if (r === 'creada') return 'Obligación F29 registrada en Pagos (paso siguiente: transferencia del cliente).';
+    if (r === 'reutilizada') return 'La obligación F29 ya estaba en Pagos con el mismo monto (se reutilizó, sin duplicar).';
+    if (r === 'actualizada') return 'Obligación F29 de Pagos actualizada (no tenía dinero conciliado).';
+    if (r === 'sin_obligacion') return 'El F29 no tiene monto a pagar: no hay obligación en Pagos.';
+    return '';
   }
   // Cierres vigentes del período (fuente oficial, AUTO-B03): { reporte_id: {version, cerrado_at} }. Si la tabla no existe aún, {}.
   function cierresVigentes(periodo, f) {
@@ -72,34 +77,16 @@
   }
   // ¿Todos los bloqueos se resuelven con la confirmación «sin trabajadores con sueldo»? (solo RRHH_SITUACION_DESCONOCIDA)
   function soloConfirmable(bl) { return (bl || []).length > 0 && bl.every(function (b) { return b && b.confirmable === true; }); }
-  var R = raiz.PreIvaReporteSii || (typeof require === 'function' ? (function () { try { return require('../pre-iva/reporte-sii.js'); } catch (e) { return null; } })() : null);
-  // Validación del remanente a mano (la misma del Pre-IVA; el servidor la repite).
-  function validarManual(cod77, motivo) {
-    if (R && R.validarManual) return R.validarManual(cod77, motivo);
-    var t = String(cod77 == null ? '' : cod77).trim(), m = String(motivo || '').trim();
-    if (!/^\d+$/.test(t)) return 'El cód. 77 debe ser un monto en pesos, sin puntos ni decimales (0 si no había remanente).';
-    if (m.length < 10 || m.length > 500) return 'Escribe de dónde sale el monto (10 a 500 caracteres).';
-    if (m.slice(0, 5) === '[SII]') return 'El motivo no puede empezar con [SII].';
-    return null;
-  }
-  // Vista previa de los impuestos que el cierre pasará desde el SII (puras, se prueban aparte).
-  function filasPuente(p) {
-    if (!p || !p.previa) return [];
-    var v = { previa: p.previa, entrada: p.entrada || {}, remanente: p.remanente || {}, iu_pendiente: p.iu_pendiente, rrhh: p.rrhh || null };
-    if (R && R.filasResumen) return R.filasResumen(v);
-    return [['Total F29 (datos del SII)', fmt(p.previa.total_f29)]];
-  }
-
   // Filas del resumen de la foto (puras, se prueban aparte)
   function filasFoto(d) {
     var f = [], i = (d && d.impuestos) || {}, r = (d && d.rrhh) || {}, s = (d && d.servicios) || {};
     if (i.estado === 'ok') {
-      f.push(['Impuestos F29 (' + (i.fuente === 'sii' ? 'datos del SII' : 'Contable') + ')', fmt(i.total_f29)]);
+      f.push(['Impuestos F29 (validado en Contable' + (i.fuente === 'sii' ? ', datos del SII' : '') + ')', fmt(i.total_f29)]);
       f.push(['· IVA a pagar', fmt(i.iva_pagar)], ['· PPM', fmt(i.ppm)], ['· Retención honorarios', fmt(i.ret_hon)],
              ['· Impuesto único', i.iu_pendiente ? 'Pendiente RR. HH.' : i.iu_estado === 'no_aplica' ? 'No aplica ($0, sin trabajadores)' : fmt(i.iu)]);
       f.push(['· Remanente anterior (' + ({ sii: 'SII', manual: 'a mano', mes_anterior: 'mes anterior' }[i.remanente_anterior_fuente] || '—') + ')', fmt(i.remanente_anterior)]);
       if (i.vence) f.push(['· Vence', String(i.vence).split('-').reverse().join('-')]);
-    } else f.push(['Impuestos F29', i.estado === 'no_aplica' ? 'No aplica' : i.estado === 'por_aplicar_sii' ? 'Se pasan desde el SII al cerrar' : 'Pendiente']);
+    } else f.push(['Impuestos F29', i.estado === 'no_aplica' ? 'No aplica' : 'Pendiente (valida el IVA en Contable)']);
     f.push(['RR. HH.', r.estado === 'listo' ? fmt(r.cotizaciones) + ' cotizaciones' : r.estado !== 'no_aplica' ? 'Pendiente'
       : r.confirmacion === 'requerida' ? 'Sin confirmar si hubo trabajadores' : r.confirmacion === 'cierre' ? 'No aplica (confirmado al cerrar)' : 'No aplica (sin trabajadores con sueldo)']);
     f.push(['Nuestros servicios', s.estado === 'emitida' ? fmt(s.monto) + ' · factura N° ' + (s.folios || []).join(', ') : 'Sin factura emitida']);
@@ -122,7 +109,7 @@
     + '.rsii-f-ges{background:rgba(200,143,202,.14);color:#d6a5d7;border:1px solid rgba(200,143,202,.45)}';
 
   function abrir(o) {
-    // o = { reporteId, empresa, periodoTxt, alTerminar(estado, fechaEnvio) }
+    // o = { reporteId, empresa, periodoTxt, alTerminar(estado, fechaEnvio, version) } — lo abre el Reporte Contable (R3)
     if (!document.getElementById('crep-css')) { var st = document.createElement('style'); st.id = 'crep-css'; st.textContent = CSS; document.head.appendChild(st); }
     var x = document.getElementById('crep-fondo'); if (x) x.remove();
     var fondo = document.createElement('div'); fondo.id = 'crep-fondo'; fondo.className = 'crep-fondo';
@@ -146,7 +133,7 @@
           if (v.puede_reabrir) h += '<label>Motivo de la reapertura (solo Master, queda registrado)<textarea id="crep-mot" rows="2" maxlength="500"></textarea></label>';
           h += (avisoPost ? '<p class="crep-ok">' + esc(avisoPost) + '</p>' : '') + '<div class="crep-err" id="crep-err" role="alert"></div>'; c.innerHTML = h; avisoPost = '';
           if (v.puede_reabrir) {
-            var br = boton('Reabrir reporte', 'btn-s', function (b) {
+            var br = boton('Reabrir reporte cerrado', 'btn-s', function (b) {
               var m = fondo.querySelector('#crep-mot').value.trim(), er = fondo.querySelector('#crep-err');
               if (m.length < 10) { er.textContent = 'Escribe el motivo (mínimo 10 caracteres).'; return; }
               b.disabled = true;
@@ -159,23 +146,14 @@
           }
           return;
         }
-        var e = v.evaluacion || {}, bl = e.bloqueos || [], pu = e.puente || null, manual = !!(pu && pu.requiere_remanente_manual), conf = soloConfirmable(bl);
-        bl.forEach(function (b) { h += '<p class="crep-bl">⛔ ' + esc(b.mensaje || b.codigo) + (b.origen === 'puente_sii' ? ' (datos del SII)' : '') + '</p>'; });
+        var e = v.evaluacion || {}, bl = e.bloqueos || [], conf = soloConfirmable(bl);
+        h += '<p class="crep-av">ℹ️ ' + esc(e.conectada_sii ? 'Empresa conectada al SII: el IVA se valida en Contable comparando con el SII (no se piden libros).'
+          : 'Empresa no conectada al SII: se exigen los libros de ventas y compras validados en Contable.') + '</p>';
+        bl.forEach(function (b) { h += '<p class="crep-bl">⛔ ' + esc(b.mensaje || b.codigo) + '</p>'; });
         (e.avisos || []).forEach(function (a) { h += '<p class="crep-av">⚠️ ' + esc(textoAviso(a)) + '</p>'; });
         (e.avisos_internos || []).forEach(function (a) { h += '<p class="crep-av">🗂️ ' + esc(textoAviso(a)) + '</p>'; });
         filasFoto(e.datos).forEach(function (f) { h += '<div class="crep-f"><span>' + esc(f[0]) + '</span><b>' + esc(f[1]) + '</b></div>'; });
-        if (pu) {
-          h += '<p style="font-size:12px;margin:4px 0 0"><b>Impuestos que se pasan al reporte al cerrar</b> (los calcula el servidor con los datos del SII; no hace falta validar antes en el Pre-IVA):</p>';
-          filasPuente(pu).forEach(function (f) { h += '<div class="crep-f"><span>' + esc(f[0]) + (R && R.chipFuente ? R.chipFuente(f[2]) : '') + '</span><b>' + esc(f[1]) + '</b></div>'; });
-          (pu.avisos || []).forEach(function (a) { if (a.codigo !== 'F29_SIN_DECLARAR') h += '<p class="crep-av">ℹ️ ' + esc(a.mensaje || a.codigo) + '</p>'; });
-          if (pu.remanente && pu.remanente.aviso) h += '<p class="crep-av">ℹ️ ' + esc(pu.remanente.aviso) + '</p>';
-          if (manual) {
-            h += '<p class="crep-av">✍️ ' + esc((pu.remanente && pu.remanente.mensaje) || 'Ingresa el remanente anterior (cód. 77) a mano, con el motivo.') + '</p>'
-              + '<label>Remanente anterior · cód. 77 del F29 del mes anterior (en pesos)<input id="crep-cod77" inputmode="numeric" placeholder="0" autocomplete="off"></label>'
-              + '<label>Motivo (de dónde sale el monto) · queda registrado con tu nombre<textarea id="crep-mot77" rows="2" maxlength="500" placeholder="Ej.: F29 septiembre 2026 presentado en papel, cód. 77, folio …"></textarea></label>';
-          }
-        }
-        h += '<p style="font-size:11.5px;opacity:.8;margin:0">Al cerrar se guarda esta foto tal cual (no cambia después), el reporte queda «enviado» y el cliente lo ve en MiContadoor con «Validado por Contadoor».</p>'
+        h += '<p style="font-size:11.5px;opacity:.8;margin:0">Al cerrar se guarda esta foto tal cual (no cambia después), el reporte contable queda OK y «enviado», la obligación F29 pasa a Pagos y el cliente lo ve en MiContadoor con «Validado por Contadoor».</p>'
           + '<div class="crep-err" id="crep-err" role="alert"></div>';
         c.innerHTML = h;
         if (!v.puede_cerrar) { c.insertAdjacentHTML('beforeend', '<p class="crep-av">Tu usuario no puede cerrar este reporte (solo el Master o el analista contable asignado).</p>'); return; }
@@ -183,14 +161,10 @@
         if (conf) c.insertAdjacentHTML('beforeend', '<label style="flex-direction:row;align-items:flex-start;gap:8px"><input type="checkbox" id="crep-sintrab" style="width:auto;margin-top:2px">'
           + '<span>Confirmo que el cliente <b>no tuvo trabajadores con sueldo</b> en el período (el impuesto único va en $0). Queda registrado con mi nombre.</span></label>');
         var bc = boton('🔒 Cerrar reporte', 'btn-p', function (b) {
-          var er = fondo.querySelector('#crep-err'), cod = null, mot = null, st = fondo.querySelector('#crep-sintrab');
+          var er = fondo.querySelector('#crep-err'), st = fondo.querySelector('#crep-sintrab');
           if (conf && !(st && st.checked)) { er.textContent = 'Marca la confirmación de que el cliente no tuvo trabajadores con sueldo, o pide a RR. HH. que lo confirme.'; return; }
-          if (manual) {
-            cod = fondo.querySelector('#crep-cod77').value.trim(); mot = fondo.querySelector('#crep-mot77').value.trim();
-            var m = validarManual(cod, mot); if (m) { er.textContent = m; return; }
-          }
           b.disabled = true; b.textContent = 'Cerrando…'; er.textContent = '';
-          rpc('reporte_cerrar', { p_reporte_id: Number(o.reporteId), p_huella: e.huella, p_rem_cod77: cod === null || cod === '' ? null : Number(cod), p_rem_motivo: mot || null,
+          rpc('reporte_cerrar', { p_reporte_id: Number(o.reporteId), p_huella: e.huella, p_rem_cod77: null, p_rem_motivo: null,
                                   p_confirma_sin_trabajadores: !!(conf && st && st.checked) }).then(function (r) {
             if (typeof o.alTerminar === 'function') o.alTerminar('enviado', r.fecha_envio, r.version);
             // La obligación F29 ya quedó en Pagos en el mismo cierre (servidor). Solo se informa.
@@ -202,7 +176,7 @@
     }
     cargar();
   }
-  var api = { abrir: abrir, filasFoto: filasFoto, filasPuente: filasPuente, textoAviso: textoAviso, mensajeError: mensajeError, validarManual: validarManual,
+  var api = { abrir: abrir, filasFoto: filasFoto, textoAviso: textoAviso, mensajeError: mensajeError,
               textoObligacion: textoObligacion, cierresVigentes: cierresVigentes, soloConfirmable: soloConfirmable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.GestoorCierreReporte = api;
