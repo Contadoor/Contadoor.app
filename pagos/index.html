@@ -192,6 +192,7 @@ tr:hover td{background:#f0fdff;}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<link rel="stylesheet" href="../assets/equipo.css">
 </head>
 <body class="g-shell g-tema-noche g-mod-pag">
 <aside class="sidebar" data-gestoor-activo="pagos"></aside>
@@ -274,6 +275,7 @@ tr:hover td{background:#f0fdff;}
 </div>
 
 <script src="../supabase.js"></script>
+<script src="../assets/equipo.js"></script>
 <script src="../assets/comprobantes.js"></script>
 <script>
 // ═══ APR-1 · Aprobaciones conectada a obligaciones_pago ═══════════════════════
@@ -335,7 +337,7 @@ function cargar(){
       :'&estado=not.in.(finalizada,anulada)&order=created_at.asc,id.asc');
   traerTodo(q,seq).then(function(r){
     if(r.obsoleta||seq!==_cargaSeq) return;
-    _parcial=!!r.parcial;_obs=r.filas||[];renderStats();renderTabla();
+    _parcial=!!r.parcial;_obs=r.filas||[];renderStats();renderTabla();cargarUsuarios(_obs.map(function(o){return o.creado_por_usuario_id;}));
   }).catch(function(){
     if(seq!==_cargaSeq) return;
     _obs=[];renderStats();
@@ -371,7 +373,7 @@ function renderTabla(){
   document.getElementById('tabla-meta').textContent=arr.length+' obligación'+(arr.length!==1?'es':'')+(_parcial?' · ⚠️ RESULTADO PARCIAL (*)':'');
   var cont=document.getElementById('tablaBody');
   if(!arr.length){cont.innerHTML='<div style="padding:34px;text-align:center;color:var(--tm);font-size:13px">'+(_vista==='extra'||_vista==='mensual'?'✅ No hay pagos esperando tu aprobación.':_vista==='autorizar'?'✅ No hay pagos con plata de Contadoor esperando tu autorización.':'No hay obligaciones en esta vista.')+'</div>';return;}
-  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Período</th><th>Origen</th><th style="text-align:right">Monto</th><th style="text-align:right">Conciliado</th><th>Estado</th><th>Comprobante</th><th>Acción</th></tr></thead><tbody>'
+  cont.innerHTML='<table><thead><tr><th>Cliente</th><th>Concepto</th><th>Responsable</th><th>Período</th><th>Origen</th><th style="text-align:right">Monto</th><th style="text-align:right">Conciliado</th><th>Estado</th><th>Comprobante</th><th>Acción</th></tr></thead><tbody>'
     +arr.map(function(o){
       var e=ESTADOS[o.estado]||{l:o.estado,c:'eb-gris'},id=Number(o.id);
       var venc=o.vencimiento&&o.vencimiento<hoy&&['finalizada','anulada'].indexOf(o.estado)<0;
@@ -396,6 +398,7 @@ function renderTabla(){
           +(o.beneficiario_nombre?'<div style="font-size:10.5px;color:var(--t2);margin-top:3px">→ '+hesc(o.beneficiario_nombre)+(o.beneficiario_rut?' · '+hesc(o.beneficiario_rut):'')+'</div>':'')
           +(o.origen_fondos==='contadoor'?'<div style="margin-top:3px"><span class="eb eb-aprob" style="font-size:9.5px;padding:2px 8px">Plata de Contadoor</span></div>':'')
           +(venc?'<div class="ob-venc" style="font-size:10.5px">Vencida '+hesc(o.vencimiento.split('-').reverse().join('-'))+'</div>':'')+'</td>'
+        +'<td style="white-space:nowrap">'+respHtml(o)+'</td>'
         +'<td style="white-space:nowrap">'+hesc(periodoLabel(o.periodo))+'</td>'
         +'<td>'+(esMensual(o)?'Proceso mensual':'Extraordinario')+'</td>'
         +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(o.monto_exigible)+'</td>'
@@ -406,6 +409,30 @@ function renderTabla(){
         +'</tr>';
     }).join('')+'</tbody></table>';
 }
+
+// ── 20-11 · Responsable con foto (mismo patrón que Reportes de pagos) ──
+// Responsable = quien creó el pago (creado_por_usuario_id). Nombres leídos con la RLS del usuario; si no se ve, "Usuario #id".
+var _usuarios={};
+function cargarUsuarios(ids){
+  var falta=[];(ids||[]).forEach(function(i){i=+i;if(i&&isFinite(i)&&!(i in _usuarios)&&falta.indexOf(i)<0)falta.push(i);});
+  if(!falta.length)return;falta.forEach(function(i){_usuarios[i]=null;});
+  var poner=function(rows){var c=false;(rows||[]).forEach(function(u){if(u&&u.id!=null&&u.nombre&&_usuarios[+u.id]==null){_usuarios[+u.id]=String(u.nombre);c=true;}});if(c)renderTabla();};
+  // La RLS de usuarios_sistema solo deja leer la ficha PROPIA. El Master usa la RPC existente listar_usuarios_asignables
+  // (solo master, usuarios activos: id, nombre, rol); el resto ve su propio nombre y "Usuario #id" para los demás.
+  var u=getUsuario()||{};
+  var respaldo=function(){ // si equipo_nombres aún no existe (o falla): Master vía listar_usuarios_asignables; el resto, su propia ficha
+    if(u.esMaster||u.rol==='master')
+      sbFetch('rpc/listar_usuarios_asignables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+    sbFetch('usuarios_sistema?select=id,nombre&id=in.('+falta.join(',')+')').then(function(r){return r.ok?r.json():[];}).then(poner).catch(function(){});
+  };
+  // EQUIPO-NOMBRES-1: RPC de solo lectura (id, nombre, activo) para cualquier usuario activo de Gestoor.
+  sbFetch('rpc/equipo_nombres',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(rows){if(!Array.isArray(rows)||!rows.every(function(x){return x&&x.id!=null&&typeof x.nombre==='string';}))throw new Error('formato');poner(rows);})
+    .catch(respaldo); // A-NOM-01: también un 200 con formato inesperado o un error al procesar vuelve al comportamiento anterior
+}
+function respHtml(o){var id=+o.creado_por_usuario_id,n=id?_usuarios[id]:null;
+  if(window.GEquipo&&n)return GEquipo.celda(n);
+  return id?'<span style="color:var(--tm);font-size:11px">Usuario #'+id+'</span>':'<span style="color:var(--tm);font-size:11px">—</span>';}
 
 function rpcPaso(id,acc,obs){
   return sbFetch('rpc/avanzar_estado_obligacion',{method:'POST',body:JSON.stringify({p_obligacion_id:id,p_accion:acc,p_obs:obs||null})})
