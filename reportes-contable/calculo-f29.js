@@ -19,6 +19,7 @@
   var S = raiz.PreIvaSii || (typeof require === 'function' ? require('../pre-iva/sii-cartapra.js') : null);
   var PRY = raiz.PreIvaProyeccion || (typeof require === 'function' ? require('../pre-iva/proyeccion.js') : null);
   var COB = raiz.PreIvaPPMCobertura || (typeof require === 'function' ? require('../pre-iva/ppm-cobertura.js') : null);   // 19-11: tasa del último F29 + cobertura de la renta
+  var V = raiz.IvaValidacion || (typeof require === 'function' ? require('../pre-iva/iva-validacion.js') : null);   // 19-11: «Validar IVA» (escrituras compartidas)
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   function num(v) { if (v === null || v === undefined || v === '') return null; var x = Number(v); return isFinite(x) ? x : null; }
   function pesos(v) { var x = num(v); if (x === null) return '—'; x = Math.round(x); return (x < 0 ? '-' : '') + '$' + Math.abs(x).toLocaleString('es-CL'); }
@@ -95,23 +96,36 @@
     var ppmSub = R.ppmEditado ? F.etiquetaPPMEditado(R) + (R.ppmMotivo ? ' · Motivo: ' + R.ppmMotivo : '')
       : 'Base ' + pesos(R.ppmBase) + ' (neto + exento' + (hz.esMesActual ? ', proyectada al cierre' : '') + ') × tasa ' + tasaTxt(R.tasa) + '% (' + tasaOrigen + ')';
     var faltaPpm = !(T.tasa > 0) && !ed;
-    L.push({ id: 'ppm', op: '+', label: 'PPM', sub: ppmSub, valor: faltaPpm || faltaDeb ? null : R.ppm, origen: R.ppmEditado ? 'Pre-IVA · editado' : origenSii + ' × tasa', falta: faltaPpm ? 'tasa PPM' : faltaDeb ? 'ventas del SII' : null,
+    L.push({ id: 'ppm', op: '+', label: 'PPM', sub: ppmSub, valor: faltaPpm || faltaDeb ? null : R.ppm, origen: R.ppmEditado ? 'Editado con motivo' : origenSii + ' × tasa', falta: faltaPpm ? 'tasa PPM' : faltaDeb ? 'ventas del SII' : null,
       editado: R.ppmEditado, nota: (R.ppmAvisos || []).length ? 'PPM no definitivo: ' + R.ppmAvisos.join(' · ') : null, tasaSii: COB && U ? COB.textoTasa(U) : null, tasaU: U || null });
     if (COB && PP) out.cobertura = COB.cobertura({ meses: PP.sii.meses, siiEstado: PP.sii.estado, periodo: per, ppmMes: faltaPpm || faltaDeb ? 0 : R.ppm, baseMes: R.ppmBase, renta: PP.renta });
     L.push({ id: 'honorarios', op: '+', label: 'Retención de honorarios', sub: 'Boletas de honorarios recibidas', valor: retHon, origen: origenSii, falta: retHon == null ? 'honorarios del SII' : null });
     L.push({ id: 'iu', op: '+', label: 'Impuesto único trabajadores', sub: iuNota || 'Impuesto único de 2ª categoría', valor: iu, origen: iuOrigen, falta: iu == null ? 'RR. HH. pendiente' : null });
     out.total = faltas.length ? null : F.totalF29(R, retHon, iu);
+    // 19-11 (Luciano): lo que escribe «✅ Validar IVA» (pesos enteros, como el F29). El remanente que se escribe es el de Contable
+    // (la base lo revisa contra public.remanente_anterior); el del SII solo se contrasta (IvaValidacion.remanenteValidacion).
+    var RV = V ? V.remanenteValidacion({ periodo: per, sii: p, remContable: rc }) : null;
+    out.remValidacion = RV;
+    out.validar = { debito: faltaDeb ? null : Math.round(R.debito), credito: faltaCred ? null : Math.round(R.credito), remanenteAnterior: RV ? RV.valor : null,
+      ppmBase: Math.round(R.ppmBase || 0), ppmBaseRaw: R.ppmBase || 0, ppmTasa: R.tasa, ppm: faltaPpm || faltaDeb ? null : Math.round(R.ppm || 0), retHon: retHon, iu: iu,
+      edicionPPM: ed, ppmCalculado: R.ppmCalculado, tasaCalculada: R.tasaCalculada, sii: p, fuenteMontos: 'sii',
+      netoVentas: p.netoVentas || 0, netoCompras: p.netoCompras || 0, porTipoVentas: p.porTipoVentas || {}, porTipoCompras: p.porTipoCompras || {},
+      ivaPagar: R.ivaPagar, f29IvaPpm: R.total };
+    out.bloqueosValidar = V ? V.bloqueosValidar(out, RV, { estadoContable: o.estadoContable }) : [];
     if (hz.esMesActual) out.notas.push('Mes en curso: débito, crédito y base del PPM proyectados a fin de mes (igual que el Pre-IVA).');
     if (p.f29) out.notas.push('Este mes ya tiene F29 presentado en el SII (folio ' + p.f29.folio + ').');
     if ((raw.avisos || []).indexOf('cobertura_incompleta') >= 0) out.notas.push('El SII aún no entrega completo este mes en Cartapra: los montos pueden cambiar.');
     return out;
   }
-  // Estado de validación del Pre-IVA con lo que ya se lee (reportes_mensuales.estado_contable y preiva_historial.fecha_envio/enviado_por)
+  // Estado de validación del IVA (19-11): manda reportes_mensuales.estado_contable ('completado' = IVA validado en Contable).
+  // Quién y cuándo: sii_detalle.validacion_iva (lo escribe «Validar IVA») o, si no, fecha_envio/enviado_por del preiva_historial.
+  // Un Pre-IVA «enviado» (estimado del mes en curso) NO es una validación.
   function estadoValidacion(fila, estadoContable) {
-    var f = fila && fila.fecha_envio ? fechaCorta(fila.fecha_envio) : null, por = fila && fila.enviado_por ? String(fila.enviado_por) : null;
-    if (f) return { validado: true, texto: 'Pre-IVA validado el ' + f + (por ? ' por ' + por : '') };
-    if (estadoContable === 'completado') return { validado: true, texto: 'Pre-IVA validado en el Reporte Contable' };
-    return { validado: false, texto: 'Aún no validado' + (fila ? ' · hay un borrador guardado en Pre-IVA' : '') };
+    var vi = fila && fila.sii_detalle && fila.sii_detalle.validacion_iva || null;
+    var f = vi && vi.at ? fechaCorta(vi.at) : fila && fila.fecha_envio ? fechaCorta(fila.fecha_envio) : null;
+    var por = vi && vi.por ? String(vi.por) : fila && fila.enviado_por ? String(fila.enviado_por) : null;
+    if (estadoContable === 'completado') return { validado: true, texto: f ? 'IVA validado el ' + f + (por ? ' por ' + por : '') : 'IVA validado en el Reporte Contable' };
+    return { validado: false, texto: 'Aún no validado' + (fila && fila.fecha_envio ? ' · Pre-IVA (estimado) enviado el ' + fechaCorta(fila.fecha_envio) : fila ? ' · hay un borrador guardado en Pre-IVA' : '') };
   }
   function urlPreIva(clienteId, periodo) { return '../pre-iva/index.html?periodo=' + encodeURIComponent(perGuion(periodo)) + '&cliente=' + encodeURIComponent(String(clienteId)); }
 
@@ -166,7 +180,14 @@
       '.cf29-est{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600}.cf29-est .cf29-ic{width:24px;height:24px;flex-basis:24px}.cf29-est .cf29-ic .g-ic{width:13px;height:13px}',
       '.cf29-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 16px;border-radius:999px;background:#924893;color:#fff;font:700 12.5px Inter,sans-serif;text-decoration:none;border:1px solid #924893}',
       '.cf29-btn:hover{filter:brightness(1.12)}',
-      '@media (max-width:560px){.cf29{padding:12px}.cf29-tabla td{padding:6px 4px}.cf29-pie{flex-direction:column;align-items:stretch}.cf29-btn{justify-content:center}}'
+      '.cf29-btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}.cf29-btn.sec{background:transparent;color:#F3E9F4;border-color:#6B4672}',
+      'button.cf29-btn{cursor:pointer}.cf29-acc{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
+      '.cf29-sig{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;border-radius:999px;border:1px solid rgba(70,214,154,.5);color:#46D69A;font-weight:700;font-size:12px}',
+      '.cf29-nov{margin:10px 0 0;padding:8px 12px;border-radius:10px;border:1px solid rgba(224,122,110,.45);background:rgba(224,122,110,.08);color:#F5C2BB;font-size:11.5px;line-height:1.5}.cf29-nov ul{margin:4px 0 0;padding-left:18px}',
+      '.cf29-ppmed{margin:10px 0 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,200,90,.45);background:rgba(255,200,90,.06);display:grid;gap:8px;font-size:12px}',
+      '.cf29-ppmed label{display:grid;gap:3px}.cf29-ppmed label span{color:#C9A8CC;font-size:11px}.cf29-ppmed input{min-height:34px;border-radius:9px;border:1px solid #6B4672;background:rgba(0,0,0,.25);color:#F3E9F4;padding:0 10px;font:500 13px Inter,sans-serif}',
+      '.cf29-err{color:#F5C2BB;font-weight:600;font-size:11.5px}',
+      '@media (max-width:560px){.cf29{padding:12px}.cf29-tabla td{padding:6px 4px}.cf29-pie{flex-direction:column;align-items:stretch}.cf29-acc{flex-direction:column;align-items:stretch}.cf29-btn{justify-content:center}}'
     ].join('\n');
     doc.head.appendChild(s);
   }
@@ -175,10 +196,10 @@
     var box = el('div', 'cf29'), hd = el('div', 'cf29-hd'), t = el('div', 't');
     hd.appendChild(icono('iva', 'cf29-mor'));
     t.appendChild(el('b', null, 'Cálculo del F29 · ' + mesTxt(op.periodo)));
-    t.appendChild(el('small', null, a && a.datosAlTxt ? 'Datos del SII al ' + a.datosAlTxt + ' (hora de Chile) · mismo cálculo del Pre-IVA' : 'Mismo cálculo del Pre-IVA'));
+    t.appendChild(el('small', null, a && a.datosAlTxt ? 'Datos del SII al ' + a.datosAlTxt + ' (hora de Chile) · período contable: aquí se valida el IVA' : 'Período contable: aquí se valida el IVA'));
     hd.appendChild(t); box.appendChild(hd);
     if (!a) box.appendChild(el('div', 'cf29-nota', 'No se pudieron leer los datos del SII para calcular el F29.'));
-    else if (!a.conectado) box.appendChild(el('div', 'cf29-nota', 'Esta empresa aún no está conectada al SII: el cálculo aparece cuando Cartapra traiga sus datos. Mientras tanto, revísalo en el Pre-IVA.'));
+    else if (!a.conectado) box.appendChild(el('div', 'cf29-nota', 'Esta empresa aún no está conectada al SII: el cálculo aparece cuando Cartapra traiga sus datos. Mientras tanto, valida el IVA con «Revisar / Validar IVA».'));
     else {
       if (a.remanenteBloqueo) box.appendChild(el('div', 'cf29-bloq', a.remanenteBloqueo.mensaje));   // 19-11: «⚠️ <mes> no está declarado…»
       var tb = el('table', 'cf29-tabla'), body = el('tbody');
@@ -210,9 +231,57 @@
     var pie = el('div', 'cf29-pie'), est = el('span', 'cf29-est'), v = val || { validado: false, texto: 'Aún no validado' };
     est.appendChild(icono(v.validado ? 'check' : 'reloj', v.validado ? 'cf29-ver' : 'cf29-ama')); est.appendChild(doc.createTextNode(v.texto));
     pie.appendChild(est);
-    var b = el('a', 'cf29-btn', 'Revisar y validar en Pre-IVA →'); b.href = urlPreIva(op.clienteId, op.periodo);
-    b.title = 'Abre el Pre-IVA de este cliente y período';
-    pie.appendChild(b); box.appendChild(pie); slot.appendChild(box);
+    // 19-11 (Luciano): el IVA del PERÍODO CONTABLE se valida AQUÍ (ya no en el Pre-IVA, que es el estimado del mes en curso).
+    var acc = op.acciones || {}, accBox = el('div', 'cf29-acc');
+    if (v.validado) {
+      accBox.appendChild(el('span', 'cf29-sig', 'Siguiente: ' + (op.siguiente || 'Reporte')));
+    } else if (a && a.conectado) {
+      var bloq = a.bloqueosValidar || [], rv = a.remValidacion || {};
+      if (rv.bloqueo && rv.bloqueo.puedeManual && acc.remanenteManual) {
+        var bm = el('button', 'cf29-btn sec', 'Ingresar remanente a mano'); bm.type = 'button';
+        bm.title = 'Cód. 77 del F29 de ' + rv.bloqueo.mesAnterior + ' + motivo obligatorio (solo el analista contable asignado o el Master)';
+        bm.onclick = function () { acc.remanenteManual(a, bm); }; accBox.appendChild(bm);
+      }
+      var bp = el('button', 'cf29-btn sec', 'Editar PPM'); bp.type = 'button'; bp.setAttribute('data-cf29', 'editar-ppm');
+      bp.disabled = !acc.guardarPPM; bp.title = 'Cambia la tasa o el monto del PPM con motivo (queda registrado)';
+      bp.onclick = function () { abrirEdicionPPM(box, a, acc); }; accBox.appendChild(bp);
+      var bv = el('button', 'cf29-btn', '✅ Validar IVA de ' + mesTxt(op.periodo)); bv.type = 'button'; bv.setAttribute('data-cf29', 'validar');
+      bv.disabled = !!bloq.length || !acc.validar;
+      bv.title = bloq.length ? 'No se puede validar: ' + bloq.join(' · ') : 'Valida el IVA del período, lo pasa al reporte y avanza el flujo';
+      bv.onclick = function () { if (!bv.disabled) acc.validar(a, bv); }; accBox.appendChild(bv);
+    }
+    pie.appendChild(accBox); box.appendChild(pie);
+    if (!v.validado && a && a.conectado && (a.bloqueosValidar || []).length) {
+      var nb = el('div', 'cf29-nov'); nb.appendChild(el('b', null, 'Para validar el IVA falta:'));
+      var ul2 = el('ul'); a.bloqueosValidar.forEach(function (t) { ul2.appendChild(el('li', null, t)); }); nb.appendChild(ul2); box.appendChild(nb);
+    }
+    slot.appendChild(box);
+  }
+  // «Editar PPM» con motivo (misma regla y validación del Pre-IVA, f29-formula.js). Lo guarda Contable (acciones.guardarPPM) en
+  // preiva_historial.sii_detalle.ppm_editado / ppm / tasa_ppm, igual que antes el Pre-IVA.
+  function abrirEdicionPPM(box, a, acc) {
+    var prev = box.querySelector('.cf29-ppmed'); if (prev) { prev.remove(); return; }
+    var e = (a.validar && a.validar.edicionPPM) || {}, f = el('div', 'cf29-ppmed');
+    f.appendChild(el('b', null, 'Editar PPM · calculado ' + pesos(a.validar.ppmCalculado) + ' con tasa ' + tasaTxt(a.validar.tasaCalculada) + '%'));
+    function campo(lbl, id, val, ph) { var l = el('label'); l.appendChild(el('span', null, lbl)); var i = el('input'); i.type = 'text'; i.id = id; i.value = val == null ? '' : String(val); i.placeholder = ph || ''; l.appendChild(i); f.appendChild(l); return i; }
+    var iT = campo('Nueva tasa PPM (%)', 'cf29-ed-tasa', e.tasa != null ? String(e.tasa).replace('.', ',') : '', 'Vacío = la tasa calculada');
+    var iM = campo('o monto del PPM ($)', 'cf29-ed-monto', e.monto, 'Vacío = base × tasa');
+    var iR = campo('Motivo (obligatorio)', 'cf29-ed-motivo', e.motivo || '', 'Ej.: tasa nueva informada por el SII');
+    var er = el('div', 'cf29-err'); er.hidden = true; f.appendChild(er);
+    var fila = el('div', 'cf29-acc'), bg = el('button', 'cf29-btn', 'Guardar PPM'), bc = el('button', 'cf29-btn sec', 'Cancelar');
+    bg.type = bc.type = 'button'; bg.setAttribute('data-cf29', 'guardar-ppm');
+    bg.onclick = function () {
+      var o = { tasa: iT.value, monto: iM.value, motivo: iR.value }, msg = F.validarEdicionPPM(o);
+      if (msg) { er.textContent = msg; er.hidden = false; return; }
+      er.hidden = true; acc.guardarPPM(o, a, bg, function (t) { er.textContent = t; er.hidden = false; });
+    };
+    bc.onclick = function () { f.remove(); };
+    fila.appendChild(bg); fila.appendChild(bc);
+    if (e && (e.tasa != null || e.monto != null)) { var bq = el('button', 'cf29-btn sec', 'Volver al calculado'); bq.type = 'button';
+      bq.onclick = function () { acc.guardarPPM(null, a, bq, function (t) { er.textContent = t; er.hidden = false; }); }; fila.appendChild(bq); }
+    f.appendChild(fila);
+    var pie = box.querySelector('.cf29-pie'); box.insertBefore(f, pie);
+    iT.focus && iT.focus();
   }
 
   var seq = 0;
@@ -227,6 +296,8 @@
       var sii = x[0], pv = x[1], c = op.cliente || {}, rep = op.rep || {};
       var a = sii.estado === 'ok' && sii.raw ? armar({ raw: sii.raw, remContable: op.remContable, fila: pv.fila, hist: pv.hist, fichaTasa: c.ppmTasaDefault,
         tieneRrhh: c.tieneRrhh, iuSii: rep.iuSii, iuAt: rep.iuSiiActualizadoAt, periodo: op.periodo, hoy: new Date(), estadoContable: rep.estadoContable, ppm: x[2] }) : null;
+      if (a) { a.fila = pv.fila; a.filaLeida = pv.estado === 'ok'; a.clienteRut = op.rut; }
+      if (a && pv.estado !== 'ok' && a.bloqueosValidar) a.bloqueosValidar.push('No se pudo leer el Pre-IVA guardado del período (PPM editado): recarga la página.');
       if (a && pv.estado !== 'ok') a.notas.push('No se pudo leer el Pre-IVA guardado: la tasa PPM sale de la ficha del cliente y no se ve si el PPM fue editado.');
       pintar(slot, a, op, estadoValidacion(pv.fila, rep.estadoContable));
     });

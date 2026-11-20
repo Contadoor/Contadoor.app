@@ -97,6 +97,7 @@ function pintar(){
     var e;
     if(fila===undefined){e=['rojo','No se pudo leer'];sub='Recarga la página';}
     else if(!fila){e=['ambar','Pendiente'];sub='Aún no se envía este mes';}
+    else if(fila.sii_detalle&&fila.sii_detalle.validacion_iva){var vi=fila.sii_detalle.validacion_iva;e=['verde','IVA validado en Contable'];sub='El '+fCorta(vi.at||fila.fecha_envio)+(vi.por?' · '+vi.por:'');}   // 19-11: la validación es de Contable
     else if(fila.fecha_envio){e=['verde','Enviado'];sub='El '+fCorta(fila.fecha_envio)+(fila.enviado_por?' · '+fila.enviado_por:'');}
     else{e=['lila','Borrador'];sub='Guardado en Gestoor, sin enviar';}
     cls(est,'estado '+e[0]);pon('pio-estado',e[1]);pon('pio-estado-sub',sub);
@@ -129,7 +130,8 @@ function pintar(){
   // ── IVA a pagar: misma fórmula aprobada, sobre los montos de la pantalla, y solo si cuadra con el F29 mostrado ──
   var iva='No disponible', ivaNum=null;
   // 19-11 (Luciano): sin remanente del mes anterior el F29 no se calcula (nunca $0): «Falta completar» en IVA, F29 y remanente nuevo.
-  var remFalta=!!datos.remanenteBloqueo, FALTA='Falta completar';   // también en exentas: si el F29 anterior no está declarado, hay que declararlo primero
+  var remFalta=!!datos.remanenteBloqueo, FALTA='Falta completar';
+  var parcial=!!datos.remanenteFalta;   // 19-11: Pre-IVA = estimado; sin remanente ni estimado del mes anterior → «estimado parcial» (no se bloquea)   // también en exentas: si el F29 anterior no está declarado, hay que declararlo primero
   if(remFalta){iva=FALTA;}
   else if(window.PreIvaF29){
     var rr=window.PreIvaF29.calcularF29Estimado({debito:pesos(txt('res-debito')),credito:pesos(txt('res-credito')),remanente:pesos(txt('res-remanente')),ppm:pesos(txt('res-ppm'))});
@@ -150,10 +152,10 @@ function pintar(){
   clase(panel,'pio-mes-cerrado',cerrado);
   function rv(k){return remFalta&&(k==='ivaPagar'||k==='f29'||k==='nuevoRemanente')?FALTA:real?clp(real[k]):'No disponible';}
   pon('pio-real-f29',rv('f29'));pon('pio-real-iva',rv('ivaPagar'));pon('pio-real-ppm',sinTasa?'No disponible':rv('ppm'));pon('pio-real-rem',rv('nuevoRemanente'));
-  pon('pio-r-deb',rv('debito'));pon('pio-r-cred',rv('credito'));pon('pio-r-rem',remFalta?'Falta':clp(pesos(txt('res-remanente'))));pon('pio-r-iva',rv('ivaPagar'));pon('pio-r-ppm',rv('ppm'));pon('pio-r-f29',rv('f29'));
+  pon('pio-r-deb',rv('debito'));pon('pio-r-cred',rv('credito'));pon('pio-r-rem',remFalta||parcial?'Falta':clp(pesos(txt('res-remanente'))));pon('pio-r-iva',rv('ivaPagar'));pon('pio-r-ppm',rv('ppm'));pon('pio-r-f29',rv('f29'));
   var dTr=parseInt(val('inp-dias-transc'),10)||0, alDia=P&&dTr>0?z(dTr)+'/'+z(P.m):'';
   var etqReal=cerrado?'Mes cerrado · valor registrado':'📍 Así vamos · registrado al '+(alDia||'día de hoy');
-  pon('pio-hero-lbl',etqReal+(exenta?' · F29 (solo PPM)':' · F29'));
+  pon('pio-hero-lbl',etqReal+(exenta?' · F29 (solo PPM)':' · F29')+(parcial?' · estimado parcial (sin remanente)':''));
   pon('pio-th-real',cerrado?'Mes cerrado · valor registrado':'📍 Así vamos'+(alDia?' · al '+alDia:''));
   pon('pio-liq-sub',cerrado?'Mes cerrado · valor registrado':'Así vamos (registrado al '+(alDia||'día de hoy')+') y referencia estimada a fin de mes');
   // Referencia estimada (rango referencial): del MÍNIMO al MÁXIMO entre la proyección lineal corregida y el promedio de los meses
@@ -189,7 +191,7 @@ function pintar(){
 
   // ── Lo que HOY envía el correo (no cambia en este PR): F29 estimado y acciones del sistema anterior ──
   pon('pio-correo-envia',cerrado?'El correo enviará el F29 de este mes: '+txt('res-f29')+'.':'Ojo: el correo de hoy enviará el F29 estimado a fin de mes ('+txt('res-f29')+') y las acciones del sistema anterior. Revísalo en la vista previa.');
-  oculto($('pio-correo-envia'),sinDato||remFalta);
+  oculto($('pio-correo-envia'),sinDato||remFalta||parcial);
   // ── Chips de aviso extra ──
   chip('pio-chip-tasa','ambar','alerta',sinTasa?'Falta la tasa PPM: el F29 estimado aún no incluye PPM':'');
   chip('pio-chip-rem','ambar','alerta',!exenta&&/no se pudo leer/i.test(txt('lbl-remanente-fuente'))?'No se pudo leer el remanente desde Contable: se usó $0':'');

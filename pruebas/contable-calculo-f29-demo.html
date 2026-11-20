@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Demo local · Cálculo del F29</title>
 <!-- PRUEBA LOCAL: datos FICTICIOS y sbFetch simulado. No se conecta a Supabase.
-     ?caso=completo (por defecto: PPM editado, Pre-IVA validado) | falta (sin F29 anterior, RR. HH. pendiente) | sin_conexion -->
+     ?caso=completo (por defecto: PPM editado, listo para «✅ Validar IVA») | falta (sin F29 anterior, RR. HH. pendiente) | sin_conexion
+     19-11: «Validar IVA» y «Editar PPM» se simulan aquí (no escriben nada); en Gestoor los hace reportes-contable/index.html. -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
 <style>body{padding:24px 16px}.caja{max-width:980px;margin:0 auto}
@@ -30,7 +31,7 @@
     honorarios: { honorarios_recibidos: { documentos: 2, bruto: 450000, retencion: 61875 }, honorarios_emitidos: { documentos: 0 } },
     remanente_anterior: caso === 'falta' ? { periodo: '2026-09', cod77: null, cod504: null, fuente: 'sin_f29' }
       : { periodo: '2026-09', folio: 4417, cod77: 52000, cod504: 52520, fuente: 'sii_codigo_77', mes_utm_origen: '2026-10', mes_utm_destino: '2026-11', utm_origen: 69000, utm_destino: 69690, falta_utm: [] } };
-  var FILA = caso === 'falta' ? [] : [{ periodo: '2026-10', tasa_ppm: 1.25, ppm: 18225, f29: 0, fecha_envio: '2026-11-19T14:32:00Z', enviado_por: 'Analista Ficticia',
+  var FILA = caso === 'falta' ? [] : [{ periodo: '2026-10', tasa_ppm: 1.25, ppm: 18225, f29: 0, fecha_envio: null, enviado_por: null,
     sii_detalle: { debito: 262200, ppm_editado: { tasa: 1.25, monto: null, motivo: 'Tasa nueva informada por el SII', por: 'Analista Ficticia', at: '2026-11-19T14:30:00Z', calculado: 19440, tasa_calculada: 1.2 } } }];
   var HIST = [{ periodo: '2026-09', tasa_ppm: 1.2 }];
   window.sbFetch = function (p, o) {
@@ -45,13 +46,29 @@
 <script src="../pre-iva/f29-formula.js"></script>
 <script src="../pre-iva/proyeccion.js"></script>
 <script src="../pre-iva/sii-cartapra.js"></script>
+<script src="../pre-iva/iva-validacion.js"></script>
 <script src="../reportes-contable/calculo-f29.js"></script>
 <script>
   ContableDocsSii.montar(document.querySelector('.docsii-slot'), { clienteId: 9001, periodo: '2026-10', nombre: 'Empresa Ficticia SpA' });
-  ContableCalculoF29.montar(document.querySelector('.cf29-slot'), { clienteId: 9001, rut: '76000000-0', periodo: '2026-10',
-    cliente: { id: 9001, rut: '76000000-0', ppmTasaDefault: null, tieneRrhh: true },
-    rep: { iuSii: caso === 'falta' ? null : 38500, iuSiiActualizadoAt: '2026-11-18T15:00:00Z', estadoContable: null },
-    remContable: { valor: 0, fuente: 'sin' } });
+  var REP = { iuSii: caso === 'falta' ? null : 38500, iuSiiActualizadoAt: '2026-11-18T15:00:00Z', estadoContable: null };
+  var REM = caso === 'falta' ? { valor: 0, fuente: 'sin', info: { fuente: 'falta', bloquea: true, aviso: 'Falta el remanente de septiembre 2026', periodoAnterior: '2026-09' } }
+    : { valor: 52520, fuente: 'contable', info: { periodoAnterior: '2026-09', detalle: 'Cód. 77 de septiembre 2026: $52.000 × UTM = cód. 504 $52.520' } };
+  function montar() {
+    ContableCalculoF29._limpiarCache();
+    ContableCalculoF29.montar(document.querySelector('.cf29-slot'), { clienteId: 9001, rut: '76000000-0', periodo: '2026-10',
+      cliente: { id: 9001, rut: '76000000-0', ppmTasaDefault: null, tieneRrhh: true }, rep: REP, remContable: REM, siguiente: 'Reporte',
+      acciones: {
+        validar: function () {   // DEMO: simula la respuesta de la base (en Gestoor: reportes_mensuales + preiva_historial)
+          REP.estadoContable = 'completado';
+          FILA[0] = Object.assign({}, FILA[0] || { periodo: '2026-10' }, { fecha_envio: '2026-11-19T22:40:00Z', enviado_por: 'Analista Ficticia',
+            sii_detalle: Object.assign({}, (FILA[0] || {}).sii_detalle, { validacion_iva: { por: 'Analista Ficticia', at: '2026-11-19T22:40:00Z', desde: 'contable' } }) });
+          montar();
+        },
+        guardarPPM: function (o, a) { FILA[0] = Object.assign({}, FILA[0] || { periodo: '2026-10' }, { sii_detalle: { ppm_editado: o ? PreIvaF29.edicionPPMDesdeForm(o, { calculado: a.validar.ppmCalculado, tasaCalculada: a.validar.tasaCalculada }) : null } }); montar(); },
+        remanenteManual: function () { alert('DEMO: aquí se pide el cód. 77 y el motivo (RPC registrar_remanente_anterior_manual).'); }
+      } });
+  }
+  montar();
 </script>
 </body>
 </html>

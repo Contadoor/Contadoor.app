@@ -99,6 +99,9 @@
         </div>
       </section>
 
+      <!-- 19-11 (Luciano): PRE-IVA = MES EN CURSO (estimado). La validación del IVA del período contable se hace en Contable. -->
+      <div class="aviso lila" id="pio-solo-estimado"><span data-g-ic="iva"></span><span><b>Estimado del mes en curso</b> · la validación del IVA se hace en Contable al cerrar el período.</span></div>
+      <div class="aviso ambar" id="pio-periodo-cerrado" hidden><span data-g-ic="alerta"></span><span><span id="pio-periodo-cerrado-txt"></span> <a id="lnk-validar-contable" href="../reportes-contable/index.html" style="color:inherit;font-weight:800">Validar en Contable →</a></span></div>
       <!-- Cifras principales (como los KPI de MiRenta). "No disponible" nunca $0: lo maneja la vista con clases. -->
       <div class="aviso lila pio-exenta-av" id="pio-exenta" hidden><span data-g-ic="alerta"></span><span><b>Empresa exenta de IVA · el F29 corresponde solo al PPM.</b> Base del PPM = ingresos exentos (+ otros computables) × tasa. Débito, crédito, remanente e IVA a pagar no aplican.</span></div>
       <div class="aviso gris" id="pio-iva-sin-dato" hidden><span data-g-ic="alerta"></span><span>La ficha del cliente no indica si es afecto o exento de IVA: se muestra el cálculo normal. Complétalo en la ficha (condición de IVA).</span></div>
@@ -147,14 +150,15 @@
             <tr class="sd fila-iva"><td class="op">−</td><td><span class="liq-t">Crédito IVA</span><small>IVA de tus compras</small><span class="mini"><i class="bar-fill" id="bar-credito" style="width:0%"></i></span></td><td class="num"><span id="pio-r-cred">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-credito">$0</span><span class="nd-alt">—</span></td></tr>
             <tr class="fila-iva"><td class="op">−</td><td><span class="liq-t">Remanente anterior</span><small>Crédito que quedó del mes pasado</small><small class="pio-rem-bloq" id="pio-rem-bloq" hidden></small></td><td class="num" style="color:var(--verde)"><span id="pio-r-rem">$0</span></td><td class="num est pio-solo-curso"><span id="res-remanente">$0</span></td></tr>
             <tr class="tot sd fila-iva"><td class="op">=</td><td><span class="liq-t">IVA a pagar</span><small>Si da negativo, paga $0 y queda remanente</small></td><td class="num"><span id="pio-r-iva">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="pio-liq-iva">$0</span><span class="nd-alt">—</span></td></tr>
-            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small><span id="pio-ppm-tasa-sii" hidden></span><button type="button" class="btn sec chico pio-ppm-btn" id="btn-editar-ppm" title="Cambia la tasa o el monto del PPM (con motivo). Queda registrado al guardar el Pre-IVA"><span data-g-ic="lapiz"></span>Editar PPM</button></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
+            <tr class="sd" id="pio-fila-ppm"><td class="op" id="pio-op-ppm">+</td><td><span class="liq-t">PPM</span><small id="pio-ppm-base">Base: neto afecto + exento × tasa PPM</small><span id="pio-ppm-tasa-sii" hidden></span><button type="button" class="btn sec chico pio-ppm-btn" id="btn-editar-ppm" title="Simula otra tasa o monto del PPM (no se guarda). El PPM editado con motivo se guarda en Contable, en «Cálculo del F29»"><span data-g-ic="lapiz"></span>Editar PPM</button></td><td class="num"><span id="pio-r-ppm">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-ppm">$0</span><span class="nd-alt">—</span></td></tr>
             <tr class="fin sd"><td class="op">=</td><td><span class="liq-t">F29</span><small class="pio-rem-bloq" id="pio-f29-bloq" hidden></small></td><td class="num"><span id="pio-r-f29">$0</span><span class="nd-alt">No disponible</span></td><td class="num est pio-solo-curso"><span id="res-f29">$0</span><span class="nd-alt">—</span></td></tr>
           </tbody></table></div>
           <!-- 19-11 (Luciano): «Cobertura de la renta» = PPM pagados del año (F29 del SII) ÷ impuesto proyectado de MiRenta (pre-iva/ppm-cobertura.js) -->
           <div id="pio-ppm-cob" hidden></div>
           <!-- 19-11 (Luciano): PPM editable con motivo. Parte del calculado con datos del SII; se guarda con el Pre-IVA (ppm, tasa_ppm y sii_detalle.ppm_editado) -->
           <div class="pio-ppm-ed" id="pio-ppm-ed" hidden>
-            <div class="pio-sub-t"><span data-g-ic="lapiz"></span>Editar PPM <small id="pio-ppm-ed-calc"></small></div>
+            <div class="pio-sub-t"><span data-g-ic="lapiz"></span>Editar PPM (simulación) <small id="pio-ppm-ed-calc"></small></div>
+            <small class="pio-ppm-sim-nota">Solo para ver cómo cambia el estimado: no se guarda. Para dejarlo registrado (con motivo) usa «Editar PPM» en Contable, en el Cálculo del F29 del período.</small>
             <div class="pio-campos">
               <label class="pio-campo"><span>Nueva tasa PPM (%)</span><input class="inp-field" type="text" id="ed-ppm-tasa" inputmode="decimal" placeholder="Vacío = la tasa del F29"></label>
               <label class="pio-campo"><span>o monto del PPM ($)</span><input class="inp-field" type="text" id="ed-ppm-monto" inputmode="numeric" placeholder="Vacío = base × tasa"></label>
@@ -316,6 +320,7 @@
 <script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
 <script src="sii-cartapra.js"></script>
+<script src="iva-validacion.js"></script>   <!-- 19-11: fila de preiva_historial compartida con «Validar IVA» de Contable -->
 <script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
@@ -407,6 +412,7 @@ var PREIVA_COLS='cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,ta
 function perDb(p){p=String(p||'');return /^\d{6}$/.test(p)?p.slice(0,4)+'-'+p.slice(4,6):p;}
 function perUi(p){return String(p||'').replace('-','');}
 function numDe(v){if(typeof v==='number')return v;return parseInt(String(v||'').replace(/[^0-9]/g,''),10)||0;}
+var _remAnt=null;   // 19-11: datos del MES ANTERIOR para estimar su remanente siguiente (SII + Contable), cuando aún no está declarado
 var _remInfo=null, _siiCartapra=null, _ppmSii=null, _siiLectura=null;   // _siiLectura: lectura del SII conectada (aunque no traiga ventas ni compras), para el remanente   // _ppmSii: F29 del año (SII) + proyección de renta (pre-iva/ppm-cobertura.js)   // SII-PREIVA-F2b: remanente leído de Contable y datos del SII (Cartapra) del cliente abierto
 var _filaPreiva=null;        // fila guardada del cliente/período abierto (null = no existe; undefined = no se pudo leer)
 var _autoTimer=null, _cargando=false, _sucio=false, _colaGuardado=Promise.resolve(), _ultimoModoFallido=null;
@@ -454,21 +460,21 @@ function getHistorialSupabase(rut){
     .catch(function(e){console.warn('[Pre-IVA] historial:',e.message);return null;});
 }
 function filaDesdePantalla(){
-  var bloq=!!_datos.remanenteBloqueo;   // 19-11: sin remanente del mes anterior → se guarda null (nunca un $0 inventado)
-  var f29=bloq?null:_editOverrides.f29!==null?numDe(_editOverrides.f29):numDe(document.getElementById('res-f29').textContent);
-  var ppm=_editOverrides.ppm!==null?numDe(_editOverrides.ppm):(_datos.ppm||0);
-  var rem=bloq?null:_editOverrides.remanente!==null?numDe(_editOverrides.remanente):(_datos.remanente||0);
-  return {
-    cliente_rut:_clienteActual.rut, periodo:perDb(_periodoActual),
-    debito_iva:nv('inp-debito'), credito_iva:nv('inp-credito'), remanente:rem, f29:f29, ppm:ppm, tasa_ppm:(_datos.ppmEdicion&&_datos.ppmEdicion.tasa!=null)?Number(_datos.ppmEdicion.tasa):nv('inp-tasa-ppm'),
-    neto_ventas:_datos.netoVentas||0, neto_compras:_datos.netoCompras||0,
-    por_tipo_doc_ventas:_datos.porTipoDocVentas||{}, por_tipo_doc_compras:_datos.porTipoDocCompras||{},
-    // SII-PREIVA-F2b: registro de la fuente al guardar/validar (sii · sii_editado · libro · manual) con la fecha de lectura del SII
-    fuente_montos:_datos.fuenteMontos||null,
-    sii_datos_al:window.PreIvaSii?PreIvaSii.registro(_siiCartapra,_datos.fuenteMontos).sii_datos_al:null,
-    // 19-11: el PPM editado (tasa o monto + motivo + lo calculado) viaja en sii_detalle.ppm_editado (columna existente, sin SQL nuevo)
-    sii_detalle:PreIvaF29.detalleConEdicionPPM(window.PreIvaSii?PreIvaSii.registro(_siiCartapra,_datos.fuenteMontos).sii_detalle:null,_datos.ppmEdicion)
-  };
+  // 19-11: la fila la arma el módulo COMPARTIDO con «Validar IVA» de Contable (pre-iva/iva-validacion.js), así ambas escrituras son idénticas.
+  // Remanente: el que se usa en pantalla (SII → Contable → ESTIMADO del mes anterior); si falta, null (nunca un $0 inventado).
+  var faltaRem=!!_datos.remanenteFalta||_datos.remanente==null;
+  var f29=faltaRem?null:_editOverrides.f29!==null?numDe(_editOverrides.f29):numDe(document.getElementById('res-f29').textContent);
+  // PPM editado en el Pre-IVA = SIMULACIÓN (no se guarda): se guarda el PPM con la edición YA guardada (la de Contable), si la hay.
+  var edG=_filaPreiva?PreIvaF29.edicionPPMGuardada(_filaPreiva.sii_detalle):null, tasaInp=nv('inp-tasa-ppm');
+  var Pg=PreIvaF29.aplicarEdicionPPM(_datos.ppmBase||0,tasaInp,edG);
+  var ppm=_editOverrides.ppm!==null?numDe(_editOverrides.ppm):(_datos.ppmSimulado?Pg.ppm:(_datos.ppm||0));
+  var tasa=_datos.ppmSimulado?(edG&&edG.tasa!=null?Number(edG.tasa):tasaInp):((_datos.ppmEdicion&&_datos.ppmEdicion.tasa!=null)?Number(_datos.ppmEdicion.tasa):tasaInp);
+  var rem=faltaRem?null:_editOverrides.remanente!==null?numDe(_editOverrides.remanente):(_datos.remanente||0);
+  return IvaValidacion.filaHistorial({clienteRut:_clienteActual.rut, periodo:_periodoActual,
+    debito:nv('inp-debito'), credito:nv('inp-credito'), remanente:rem, f29:f29, ppm:ppm, tasaPpm:tasa,
+    netoVentas:_datos.netoVentas||0, netoCompras:_datos.netoCompras||0, porTipoVentas:_datos.porTipoDocVentas||{}, porTipoCompras:_datos.porTipoDocCompras||{},
+    fuenteMontos:_datos.fuenteMontos||null, sii:window.PreIvaSii?_siiCartapra:null, edicionPPM:_datos.ppmSimulado?edG:_datos.ppmEdicion,
+    remanenteEstimado:_datos.remanenteEstimado||null});
 }
 function fechaCorta(iso){try{return new Date(iso).toLocaleDateString('es-CL');}catch(e){return '';}}
 function estadoGuardado(tipo,msg){
@@ -499,8 +505,18 @@ function estadoGuardado(tipo,msg){
 }
 // guardarPreiva('borrador' | 'envio'). Toma la foto de la pantalla AHORA y la manda en orden (cola), para que un borrador
 // nunca pise un envío. Devuelve la fila guardada, o null si no correspondía guardar (ya enviado / sin cliente).
+// 19-11: el Pre-IVA es el estimado del MES EN CURSO. Un período anterior se puede mirar (simulación) pero no se guarda ni se envía.
+function periodoCerrado(){var d=new Date(),h=String(d.getFullYear())+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1);return !!_periodoActual&&String(_periodoActual)<h;}
+function pintarPeriodoCerrado(){
+  var c=periodoCerrado(), box=document.getElementById('pio-periodo-cerrado'), t=document.getElementById('pio-periodo-cerrado-txt'), l=document.getElementById('lnk-validar-contable');
+  if(box)box.hidden=!c;
+  if(t)t.textContent=c?formatPeriodo(_periodoActual)+' ya cerró: aquí es solo una simulación (no se guarda ni se envía). El IVA de este período se valida en Contable.':'';
+  if(l)l.href='../reportes-contable/index.html?periodo='+perDb(_periodoActual);
+  ['btn-guardar-ahora','btn-enviar'].forEach(function(id){var b=document.getElementById(id);if(b)b.hidden=c;});
+}
 function guardarPreiva(modo){
   if(!_clienteActual) return Promise.resolve(null);
+  if(periodoCerrado()) return Promise.resolve(null);
   if(_filaPreiva===undefined){return Promise.reject(new Error('No se pudo leer el Pre-IVA guardado; recarga la página.'));}
   if(_autoTimer){clearTimeout(_autoTimer);_autoTimer=null;}
   var fila=filaDesdePantalla(), base=_filaPreiva, u=getUsuario();
@@ -510,16 +526,13 @@ function guardarPreiva(modo){
   if(mismo())estadoGuardado('guardando');
   var paso=_colaGuardado.then(function(){
     if(modo==='envio'){
-      fila.fecha_envio=new Date().toISOString();
-      fila.enviado_por=u.nombre||u.email||null;
-      return sbJson('preiva_historial?on_conflict=cliente_rut,periodo',{method:'POST',
-        headers:{'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(fila)});
+      var pe=IvaValidacion.peticionEnvio(fila,u.nombre||u.email||null,new Date().toISOString());
+      return sbJson(pe.path,pe.opts);
     }
-    // Borrador: nunca convierte en borrador un Pre-IVA ya enviado (por esta u otra persona).
-    var cuerpo=Object.assign({},fila);delete cuerpo.cliente_rut;delete cuerpo.periodo;
+    // Borrador: nunca convierte en borrador un Pre-IVA ya enviado/validado (por esta u otra persona).
+    var pb=IvaValidacion.peticionBorrador(fila);
     var patch=function(){
-      return sbJson('preiva_historial?cliente_rut=eq.'+encodeURIComponent(rut)+'&periodo=eq.'+per+'&fecha_envio=is.null',
-        {method:'PATCH',headers:{'Prefer':'return=representation'},body:JSON.stringify(cuerpo)})
+      return sbJson(pb.patch.path,pb.patch.opts)
         .then(function(rows){
           if(rows&&rows.length) return rows;
           return getFilaPreiva(rut,per).then(function(f){
@@ -529,8 +542,7 @@ function guardarPreiva(modo){
         });
     };
     if(base) return patch();
-    fila.fecha_envio=null;fila.enviado_por=null;
-    return sbJson('preiva_historial',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(fila)})
+    return sbJson(pb.post.path,pb.post.opts)
       .catch(function(e){if(e.code==='23505'||e.status===409) return patch();throw e;});
   }).then(function(rows){
     var g=(rows&&rows[0])||null;
@@ -549,6 +561,7 @@ function guardarPreiva(modo){
 // Guardado automático: 1,5 s después del último cambio hecho por la persona (nunca al abrir un cliente).
 function marcarCambio(){
   if(_cargando||!_clienteActual) return;
+  if(periodoCerrado()) return;   // 19-11: período ya cerrado → solo simulación (la validación es en Contable)
   if(_filaPreiva===undefined) return;   // ya se muestra el error de lectura: no se guarda nada
   if(_filaPreiva&&_filaPreiva.fecha_envio){estadoGuardado('enviadoCambios');return;}
   _sucio=true;estadoGuardado('pendiente');
@@ -623,7 +636,7 @@ function cargarDatos(){
   _cargando=true;
   limpiarSimulacion();            // no arrastrar números del cliente anterior
   _filaPreiva=null;_sucio=false;_ultimoModoFallido=null;
-  _siiLectura=null;_remInfo=null;_datos.remanente=null;_datos.remanenteBloqueo=null;cerrarRemanenteManual();
+  _siiLectura=null;_remInfo=null;_remAnt=null;_datos.remanente=null;_datos.remanenteBloqueo=null;_datos.remanenteFalta=null;_datos.remanenteEstimado=null;_datos.ppmSimulado=false;cerrarRemanenteManual();pintarPeriodoCerrado();
   // Calcular días
   var hoy=new Date();
   var anio=parseInt(per.slice(0,4)), mes=parseInt(per.slice(4,6))-1;
@@ -744,39 +757,52 @@ function usarSiiCartapra(){
   _datos.fuenteMontos='sii';
   calcular();   // solo pantalla: se guarda cuando el analista valida o cambia algo
 }
-// ── Remanente del período (19-11, Luciano) ──
-// Pinta el remanente que manda (SII → Contable/a mano) o el BLOQUEO: «⚠️ <mes anterior> no está declarado en el SII…». Con bloqueo el
-// F29 queda «Falta completar», «Enviar» y «Vista previa» se deshabilitan y se ofrece «Ingresar remanente a mano» si la base lo permite.
+// ── Remanente del período (19-11, Luciano, regla definitiva) ──
+// El Pre-IVA es el ESTIMADO del mes en curso: NO se bloquea. Orden (PreIvaSii.remanenteEstimado): F29 del mes anterior en el SII → Contable →
+// ESTIMADO con el cálculo del mes anterior (rotulado «Remanente estimado (<mes> aún sin validar/declarar)») → «Falta» solo en esa línea y el
+// total queda «estimado parcial». El BLOQUEO (nunca $0, ingreso a mano) es SOLO para «Validar IVA» en Contable.
 function aplicarRemanente(){
-  var R=PreIvaSii.remanenteDelPeriodo({periodo:_periodoActual,sii:_siiLectura,remContable:_remInfo});
-  var B=_remInfo?R.bloqueo:null;   // mientras se lee Contable no se pinta bloqueo
-  _datos.remanenteBloqueo=B;_datos.remanente=R.valor;
+  var E=PreIvaSii.remanenteEstimado({periodo:_periodoActual,sii:_siiLectura,remContable:_remInfo||{},anterior:_remAnt||{}});
+  var cargando=!_remInfo;
+  if(!cargando&&E.falta&&!_remAnt&&_clienteActual)cargarRemanenteAnterior(_clienteActual,_periodoActual);   // intenta estimar (una vez)
+  _datos.remanenteBloqueo=null;
+  _datos.remanenteFalta=!cargando&&E.falta?E:null;
+  _datos.remanente=cargando?null:E.valor;
+  _datos.remanenteEstimado=E.estimado?E.detalleEstimado:null;
   var lbl=document.getElementById('lbl-remanente'), fu=document.getElementById('lbl-remanente-fuente');
-  if(lbl)lbl.textContent=!_remInfo?'cargando...':B?'Falta':ff(R.valor);
-  if(fu)fu.textContent=!_remInfo?'':B?'— sin remanente de '+B.mesAnterior+': no se puede calcular el F29':'— '+R.texto;
+  if(lbl)lbl.textContent=cargando?'cargando...':E.falta?'Falta':ff(E.valor)+(E.estimado?' (estimado)':'');
+  if(fu)fu.textContent=cargando?'':'— '+E.texto;
   var av=document.getElementById('pio-aviso-remanente'), avT=document.getElementById('pio-aviso-remanente-txt');
-  var txtAv=B?B.mensaje+(B.detalleContable&&B.tipo!=='contable'&&B.tipo!=='conflicto'&&!B.puedeManual?' · Contable: '+B.detalleContable:''):(R.aviso?'✍️ '+R.aviso:'');
-  if(av){av.hidden=!txtAv;av.classList.toggle('rojo',!!B);av.classList.toggle('ambar',!B);}
+  var txtAv=cargando?'':E.falta?'⚠️ '+E.texto+'. El F29 de abajo es un estimado parcial (sin remanente).':E.estimado?'🧮 '+E.texto+'. Es un estimado: el oficial sale del F29 de '+E.mesAnterior+'.':(E.aviso?'✍️ '+E.aviso:'');
+  if(av){av.hidden=!txtAv;av.classList.remove('rojo');av.classList.add('ambar');}
   if(avT)avT.textContent=txtAv;
-  ['pio-rem-bloq','pio-f29-bloq'].forEach(function(id){var e=document.getElementById(id);if(e){e.hidden=!B;e.textContent=B?B.mensaje:'';}});
-  // Ingreso a mano (o corrección del ya ingresado a mano)
-  var box=document.getElementById('pio-rem-man'), btn=document.getElementById('btn-rem-manual'), nota=document.getElementById('pio-rem-man-nota');
-  var manual=!!(B&&B.puedeManual)||R.origen==='manual', pideMaster=!!B&&!B.puedeManual&&(B.tipo==='sin_declarar'||B.tipo==='contable');
-  if(box)box.hidden=!(manual||pideMaster);
-  if(btn)btn.hidden=!manual;
-  var bt=document.getElementById('btn-rem-manual-txt');if(bt)bt.textContent=R.origen==='manual'?'Corregir remanente ingresado a mano':'Ingresar remanente a mano';
-  if(nota)nota.textContent=manual?'Cód. 77 del F29 de '+((B&&B.mesAnterior)||PreIvaSii.remanenteDelPeriodo({periodo:_periodoActual}).bloqueo.mesAnterior)+' + motivo obligatorio. Solo el analista contable asignado o el Master.'
-    :pideMaster?'El reporte de '+B.mesAnterior+' existe en Gestoor: el remanente sale de ese reporte. Si falta, pide al Master registrar el remanente manual.':'';
-  var mes=document.getElementById('pio-rem-man-mes');if(mes)mes.textContent=(B&&B.mesAnterior)||'el mes anterior';
-  if(!manual)cerrarRemanenteManual();
+  var rb=document.getElementById('pio-rem-bloq');if(rb){rb.hidden=!(E.estimado||E.falta)||cargando;rb.textContent=E.falta?'Falta: remanente de '+E.mesAnterior:E.estimado?'Remanente estimado ('+E.mesAnterior+' aún sin validar/declarar)':'';}
+  var fb=document.getElementById('pio-f29-bloq');if(fb){fb.hidden=!_datos.remanenteFalta;fb.textContent=_datos.remanenteFalta?'Estimado parcial: sin remanente de '+E.mesAnterior:'';}
+  // El ingreso a mano del remanente es de Contable (al validar el IVA del período), no del estimado.
+  var box=document.getElementById('pio-rem-man');if(box)box.hidden=true;
+  cerrarRemanenteManual();
   pintarBloqueoEnvio();
 }
-function motivoBloqueoEnvio(){var B=_datos.remanenteBloqueo;return B?'No se puede enviar: falta el remanente de '+B.mesAnterior+'. '+B.mensaje.replace(/^⚠️\s*/,''):'';}
+// Lee el MES ANTERIOR (SII + Contable) para estimar su remanente siguiente. Solo lectura (las mismas RPC de siempre).
+function cargarRemanenteAnterior(c, per){
+  _remAnt={cargando:true};
+  var perAnt=getPeriodoAnterior(per);
+  var pS=(window.PreIvaSii&&c.id)?PreIvaSii.leer(c.id, perAnt):Promise.resolve({estado:'no_disponible'});
+  return Promise.all([pS, getRemanenteContable(c.rut, getPeriodoAnterior(perAnt), perAnt)]).then(function(x){
+    if(_clienteActual!==c||_periodoActual!==per)return;
+    var raw=x[0]&&x[0].estado==='ok'?x[0].datos:null;
+    _remAnt={raw:raw, sii:raw?PreIvaSii.aPantalla(raw,x[1],null):null, remContable:x[1]};
+    aplicarRemanente();calcular();
+  });
+}
+// 19-11: «Enviar» solo se deshabilita si el estimado es PARCIAL (falta el remanente): no se manda al cliente un F29 incompleto.
+function motivoBloqueoEnvio(){var B=_datos.remanenteFalta;return B?'No se puede enviar al cliente: el estimado es parcial (falta el remanente de '+B.mesAnterior+').':'';}
 function pintarBloqueoEnvio(){
   var m=motivoBloqueoEnvio();
-  ['btn-enviar','btn-vista-previa'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
+  ['btn-enviar'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
     if(!b.hasAttribute('data-title-orig'))b.setAttribute('data-title-orig',b.getAttribute('title')||'');
     b.disabled=!!m;b.title=m||b.getAttribute('data-title-orig');});
+  var vp=document.getElementById('btn-vista-previa');if(vp)vp.disabled=false;
 }
 function abrirRemanenteManual(){
   var f=document.getElementById('pio-rem-man-form');if(!f)return;
@@ -845,15 +871,17 @@ function aplicarEdicionPPMPantalla(){
   if(err){er.textContent=err;er.style.display='block';return;}
   var u=getUsuario();
   _datos.ppmEdicion=PreIvaF29.edicionPPMDesdeForm(Object.assign(o,{por:u.nombre||u.email||null,at:new Date().toISOString()}),{calculado:_datos.ppmCalculado||0,tasaCalculada:_datos.tasaPPMCalculada||0});
-  cerrarEdicionPPM();calcular();marcarCambio();
+  _datos.ppmSimulado=true;   // 19-11: en el Pre-IVA es SIMULACIÓN (no se guarda). El PPM editado con motivo se guarda en Contable.
+  cerrarEdicionPPM();calcular();
 }
-function volverPPMCalculado(){_datos.ppmEdicion=null;cerrarEdicionPPM();calcular();marcarCambio();}
+function volverPPMCalculado(){_datos.ppmEdicion=null;_datos.ppmSimulado=true;cerrarEdicionPPM();calcular();}
 // ── CÁLCULO ───────────────────────────────────────────────────────────────
 function calcular(){
   revisarEntradas();
   var debReg=nv('inp-debito'), credReg=nv('inp-credito');
-  var bloqRem=_datos.remanenteBloqueo||null;   // 19-11: sin remanente del mes anterior → null (el F29 queda «Falta completar»)
-  var remanente=bloqRem||_datos.remanente==null?null:_datos.remanente;
+  // 19-11: remanente estimado si el mes anterior no está declarado; si ni eso se puede, el total es «estimado parcial» (sin remanente).
+  var parcial=!!_datos.remanenteFalta;
+  var remanente=parcial?0:_datos.remanente==null?null:_datos.remanente;
   // Horizonte (pre-iva/proyeccion.js, hotfix 22-oct): el mes en curso se proyecta hasta el ÚLTIMO DÍA DEL MES
   // (días restantes = días del mes − transcurridos); un mes cerrado no se proyecta. El vencimiento del F29
   // (día 20 del mes siguiente) es un dato aparte: solo "días para actuar" y las acciones sugeridas.
@@ -879,7 +907,7 @@ function calcular(){
   document.getElementById('res-debito').textContent=ff(debProy);
   document.getElementById('res-credito').textContent=ff(credProy);
   var FALTA='Falta completar';
-  document.getElementById('res-remanente').textContent=remanente==null?'Falta':ff(remanente);
+  document.getElementById('res-remanente').textContent=remanente==null||parcial?'Falta':ff(remanente);
   document.getElementById('res-f29').textContent=f29==null?FALTA:ff(f29);
   document.getElementById('res-dias-rest').textContent=diasRest;
   document.getElementById('kpi-f29').textContent=f29==null?FALTA:ff(f29);
