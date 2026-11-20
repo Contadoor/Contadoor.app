@@ -9,6 +9,10 @@
    · Permiso real: Master o analista contable asignado (42501 si no). Datos externos SIEMPRE con textContent; el PDF se arma
      con texto escapado. Mes sin detalle por documento = se dice claramente (nunca se inventa la apertura por tipo).
    · Excel: .xlsx real con ExcelJS 4.4.0 (cdnjs, versión exacta + SRI), cargado solo al exportar.
+   · SI RECTIFICAMOS TODO (25-11-2026): si está levantamiento-rectificar.js, el PDF «Borradores F29» parte con la página resumen
+     del escenario y el Excel del rango suma la hoja «Rectificar todo». Si la RPC del escenario aún no está instalada, se exporta
+     sin esa página (se avisa); cualquier otro error detiene la exportación (fail-closed). «Otros cargos» ingresados a mano van
+     rotulados en el Resumen del Excel y en la página del escenario.
    · Al cliente: «nuestros servicios» (nunca otra palabra).
    Uso: GestoorLevDetalle.abrirMes(ctx, 'AAAAMM') · exportarExcel(ctx, {mes?}) · borradorTodos(ctx) — ctx lo arma levantamiento-iva.js
    ============================================================ */
@@ -309,10 +313,11 @@
     'table.f29 tr.cambia td{background:#FFF4F2}table.f29 tr.cambia td.b{color:#D34433}tr{break-inside:avoid}' +
     '.est{margin-top:8px;padding:7px 10px;border-radius:8px;background:#FFF6E0;color:#7A5200;line-height:1.5;border:1px dashed #C9962A}.nota{color:#5B4560;margin:6px 0;line-height:1.45}' +
     'ul{margin:4px 0;padding-left:16px;line-height:1.5;color:#5B4560}.pie{margin-top:10px;color:#9A8A9C;font-size:8px;text-align:right}';
-  function documentoBorrador(b, lista, cliente, logo, conResumen) {
+  function documentoBorrador(b, lista, cliente, logo, conResumen, esc0, otros) {
+    var LR = raiz.GestoorLevRect, pagEsc = conResumen && esc0 && LR ? LR.paginaPdf(esc0, cliente, logo, otros) : '';
     var titulo = ['Borrador_F29', limpio(cliente.razon) || 'cliente', lista.length === 1 && !conResumen ? lista[0].periodo : b.desde + '-' + b.hasta].join('_');
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>' + esc(titulo) + '</title>' +
-      '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet"><style>' + CSS_B + '</style></head><body>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet"><style>' + CSS_B + (pagEsc ? LR.CSS_PDF : '') + '</style></head><body>' + pagEsc +
       (conResumen ? paginaResumen(b, lista, cliente, logo) : '') + lista.map(function (m) { return paginaMes(m, cliente, logo); }).join('') + '</body></html>';
   }
   function logoUrl() { return new URL('../assets/logo-blanco.png', raiz.location.href).href; }
@@ -361,13 +366,14 @@
   /** Un PDF con resumen + una página por mes con diferencia. Bitácora primero (fail-closed). */
   function borradorTodos(ctx, ui) {
     ui = ui || {}; if (ui.boton) ui.boton.disabled = true; if (ui.aviso) ui.aviso('Preparando los borradores de F29 de los meses con diferencia…');
-    borrador(ctx).then(function (b) {
-      var lista = ((b && b.meses) || []).filter(aRectificar);
+    var LR = raiz.GestoorLevRect;
+    Promise.all([borrador(ctx), LR ? LR.escenarioOpcional(ctx) : null]).then(function (r) {
+      var b = r[0], es = r[1], lista = ((b && b.meses) || []).filter(aRectificar);
       if (!lista.length) { if (ui.boton) ui.boton.disabled = false; if (ui.aviso) ui.aviso('No hay meses con diferencia que rectificar en el rango.', 'ver'); return null; }
       return registrar(ctx, b.desde, b.hasta, 'borrador_pdf_todos').then(function () {
         if (ui.boton) ui.boton.disabled = false;
-        if (ui.aviso) ui.aviso('Borradores listos: ' + lista.length + (lista.length === 1 ? ' mes' : ' meses') + ' a rectificar. ' + AVISO_BORRADOR, 'amb');
-        imprimirHtml(documentoBorrador(b, lista, ctx.cliente, logoUrl(), true));
+        if (ui.aviso) ui.aviso('Borradores listos: ' + lista.length + (lista.length === 1 ? ' mes' : ' meses') + ' a rectificar' + (es ? ', con la página «Si rectificamos todo» al inicio' : LR ? ' (sin la página «Si rectificamos todo»: aún no está instalada en el servidor)' : '') + '. ' + AVISO_BORRADOR, 'amb');
+        imprimirHtml(documentoBorrador(b, lista, ctx.cliente, logoUrl(), true, es, ctx.otros));
       });
     }).catch(function (e) { if (ui.boton) ui.boton.disabled = false; if (ui.aviso) ui.aviso(errorTxt(ctx, e), 'roj'); });
   }
@@ -441,7 +447,8 @@
     var filas = [
       ['Empresa', ctx.cliente.razon || ''], ['RUT', ctx.cliente.rut || ''], ['Rango revisado', mesTxt(desde) + ' a ' + mesTxt(hasta)],
       ['Emitido', new Date().toLocaleDateString('es-CL')], ['Fuente', 'Registro de Compras y Ventas y Formularios 29 del SII (vía Cartapra Conecta)'], [],
-      [desde === d.desde && hasta === d.hasta ? 'Totales estimados' : 'Totales estimados del levantamiento completo (' + mesTxt(d.desde) + ' a ' + mesTxt(d.hasta) + ')', ''], ['A regularizar en el período', raiz.GestoorLevIVA && raiz.GestoorLevIVA.aRegularizar ? raiz.GestoorLevIVA.aRegularizar(d).valor + ' (' + raiz.GestoorLevIVA.aRegularizar(d).meses + ' meses)' : '—'],
+      [desde === d.desde && hasta === d.hasta ? 'Totales estimados' : 'Totales estimados del levantamiento completo (' + mesTxt(d.desde) + ' a ' + mesTxt(d.hasta) + ')', ''], ['A regularizar en el período', raiz.GestoorLevIVA && raiz.GestoorLevIVA.aRegularizar ? raiz.GestoorLevIVA.aRegularizar(d, ctx.otros).valor + ' (' + raiz.GestoorLevIVA.aRegularizar(d, ctx.otros).meses + ' meses)' : '—'],
+      ['Otros cargos / multa adicional (ingresado a mano)', ctx.otros && num(ctx.otros.monto) > 0 ? num(ctx.otros.monto) : null], ['Motivo de otros cargos', ctx.otros && ctx.otros.motivo ? ctx.otros.motivo : '—'],
       ['Diferencia de impuesto', num(e.impuesto)], ['Subtotal conocido', num((e.conocido || {}).total)],
       ['Provisional', num((e.provisional || {}).total)], ['Total estimado', e.total == null ? (T ? T.total : 'No calculable') : num(e.total)],
       ['Posible a favor', num(e.posible_a_favor)], [],
@@ -469,7 +476,7 @@
     ws.getCell(fila + 2, 1).font = { name: FUENTE, size: 9, italic: true, color: { argb: 'FF7A6080' } };
     return ws;
   }
-  function hojaMeses(wb, d, desde, hasta) {
+  function hojaMeses(wb, d, desde, hasta, ctx) {
     var ws = wb.addWorksheet('Mes a mes');
     encabezado(ws, [['Mes', 'mes', 12], ['Estado', 'est', 26], ['IVA ventas RCV', 'a', 16, X.pesos], ['Débito F29', 'b', 16, X.pesos], ['IVA compras RCV', 'c', 16, X.pesos],
       ['Crédito F29', 'd', 16, X.pesos], ['Rem. anterior', 'e', 16, X.pesos], ['IVA declarado', 'f', 16, X.pesos], ['IVA recalculado', 'g', 16, X.pesos], ['Diferencia', 'h', 16, X.pesos],
@@ -499,7 +506,7 @@
       var LVt = raiz.GestoorLevIVA, extra = [];
       if (LVt && LVt.conteoEstados) extra.push('Meses por estado: ' + LVt.conteoEstados(d));
       if (LVt && LVt.desglose) extra = extra.concat(LVt.desglose(d.estimacion || {}));
-      if (LVt && LVt.aRegularizar) extra.push(LVt.aRegularizar(d).texto + ' — estimación preliminar, verificar.');
+      if (LVt && LVt.aRegularizar) extra.push(LVt.aRegularizar(d, ctx.otros).texto + ' — estimación preliminar, verificar.');
       extra.forEach(function (t) { var r = ws.addRow([t]); ws.mergeCells(r.number, 1, r.number, 12); r.getCell(1).font = { name: FUENTE, size: 10, italic: true, color: { argb: X.tinta } }; });
     }
     return ws;
@@ -549,7 +556,8 @@
     var wb = new E.Workbook(); wb.creator = 'Gestoor · Contadoor'; wb.created = new Date();
     var img = opt.logo ? wb.addImage({ base64: opt.logo, extension: 'png' }) : null;
     hojaResumen(wb, ctx, d, opt.borrador, opt.logo, desde, hasta, img);
-    hojaMeses(wb, d, desde, hasta);
+    if (opt.escenario && !opt.mes && raiz.GestoorLevRect) raiz.GestoorLevRect.hojaExcel(wb, opt.escenario, ctx, img);
+    hojaMeses(wb, d, desde, hasta, ctx);
     hojaDocs(wb, 'Ventas', pers, opt.docs || {}, 'venta');
     hojaDocs(wb, 'Compras', pers, opt.docs || {}, 'compra');
     hojaBorradores(wb, opt.borrador, desde, hasta);
@@ -569,14 +577,15 @@
     var conRcv = meses(desde, hasta).filter(function (p) { var m = (d.meses || []).filter(function (x) { return x.periodo === p; })[0]; return !m || m.estado !== 'sin_datos'; });
     return registrar(ctx, desde, hasta, mes ? 'excel_mes' : 'excel_rango').then(function () {
       var pDocs = mes && opt.docsMes ? Promise.resolve((function () { var o = {}; o[mes] = opt.docsMes; return o; })()) : docsRango(ctx, conRcv);
-      return Promise.all([excelJS(), pDocs, borrador(ctx), logoBase64()]);
+      var LR = raiz.GestoorLevRect;
+      return Promise.all([excelJS(), pDocs, borrador(ctx), logoBase64(), !mes && LR ? LR.escenarioOpcional(ctx) : null]);
     }).then(function (r) {
-      var wb = libroExcel(r[0], ctx, { mes: mes, docs: r[1], borrador: r[2], logo: r[3] });
+      var wb = libroExcel(r[0], ctx, { mes: mes, docs: r[1], borrador: r[2], logo: r[3], escenario: r[4] });
       return wb.xlsx.writeBuffer().then(function (buf) {
         var nombre = ['Levantamiento_IVA', limpio(ctx.cliente.razon) || 'cliente', mes || (desde + '-' + hasta)].join('_') + '.xlsx';
         D.alDescargar(nombre, buf, wb);
         if (opt.boton) opt.boton.disabled = false;
-        av('Excel listo: ' + nombre + ' (hojas Resumen, Mes a mes, Ventas, Compras y Borradores F29).', 'ver');
+        av('Excel listo: ' + nombre + ' (hojas Resumen, ' + (r[4] ? 'Rectificar todo, ' : '') + 'Mes a mes, Ventas, Compras y Borradores F29).', 'ver');
         return wb;
       });
     }).catch(function (e) {

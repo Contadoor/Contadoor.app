@@ -17,6 +17,10 @@
    · DETALLE + BORRADOR F29 (24-11-2026, levantamiento-detalle.js): doble clic o lupa en un mes → documentos del RCV por tipo y
      comparación por código; «Exportar Excel» (.xlsx con marca) y «Borradores F29» (PDF de los meses a rectificar). Cartapra ya
      entrega montos de TODOS los F29: se quitó el aviso fijo que limitaba los folios con montos.
+   · SI RECTIFICAMOS TODO (25-11-2026, levantamiento-rectificar.js): botón que abre el escenario de rectificar todo el rango en
+     cadena (RPC public.sii_levantamiento_rectificar_todo). Campo «Otros cargos / multa adicional» (monto + motivo obligatorio,
+     ingresado a mano por el analista): se suma al total del levantamiento y del escenario, rotulado «ingresado a mano», y va en
+     el PDF y el Excel. NO se guarda en la base (solo vista y exportes): no existe hoy una tabla del levantamiento para eso.
    · Al cliente: «nuestros servicios» (nunca otra palabra).
    Uso: GestoorLevIVA.montar(elemento, {id, razon, rut}, sesion)
    ============================================================ */
@@ -228,6 +232,11 @@
       bXls.addEventListener('click', function () { if (vista && vista.datos) LD.exportarExcel(contexto(), { boton: bXls, aviso: aviso }); });
       bBor.addEventListener('click', function () { if (vista && vista.datos) LD.borradorTodos(contexto(), { boton: bBor, aviso: aviso }); });
     }
+    var LR = raiz.GestoorLevRect, bRect = null;
+    if (LR) {   // SI RECTIFICAMOS TODO (levantamiento-rectificar.js)
+      bRect = boton('Si rectificamos todo', 'grafico', 'liva-rectificar-todo'); bRect.disabled = true;
+      bRect.addEventListener('click', function () { if (vista && vista.datos) LR.abrir(contexto()); });
+    }
     if (raiz.GestoorHistoriaSII) {   // CARTAPRA-HISTORIA: varios años de compras y ventas de una vez (abre su propio diálogo encima)
       var bHsii = boton('Historia SII', 'calendario', 'liva-historia-sii', true);
       bHsii.addEventListener('click', function () { raiz.GestoorHistoriaSII.abrir(cliente, { desde: iDesde.value, hasta: iHasta.value }); });
@@ -236,20 +245,21 @@
     var msg = el('div', 'liva-msg', 'Elige el rango y presiona Calcular. Por defecto: los últimos 36 meses cerrados.'); msg.id = 'liva-msg'; caja.appendChild(msg);
     var res = el('div'); res.id = 'liva-res'; caja.appendChild(res);
 
-    vista = { velo: velo, cliente: cliente, datos: null, seq: 0 };
+    vista = { velo: velo, cliente: cliente, datos: null, seq: 0, otros: null };
     function aviso(t, c) { msg.className = 'liva-msg' + (c ? ' ' + c : ''); msg.textContent = t; }
     function opciones() { return { fecha_pago: iPago.value || undefined, medio: iMedio.value || 'internet', fiscalizacion: !!iFisc.checked }; }
     /** Lo que necesita el detalle/borrador: cliente, rango y opciones del ÚLTIMO cálculo (no lo que diga el formulario después). */
-    function contexto() { var d = vista.datos; return { cliente: cliente, desde: d.desde, hasta: d.hasta, opciones: vista.opciones, datos: d, rpc: rpc, mensajeError: mensajeError }; }
+    function contexto() { var d = vista.datos; return { cliente: cliente, desde: d.desde, hasta: d.hasta, opciones: vista.opciones, datos: d, rpc: rpc, mensajeError: mensajeError, otros: vista.otros }; }
+    vista.aviso = aviso;
     vista.contexto = contexto;
 
     bCalc.addEventListener('click', function () {
-      var s = ++vista.seq; bCalc.disabled = true; bPdf.disabled = true; if (bXls) { bXls.disabled = true; bBor.disabled = true; } aviso('Calculando…'); res.textContent = '';
+      var s = ++vista.seq; bCalc.disabled = true; bPdf.disabled = true; if (bXls) { bXls.disabled = true; bBor.disabled = true; } if (bRect) bRect.disabled = true; aviso('Calculando…'); res.textContent = '';
       var op = opciones();
       rpc('sii_levantamiento_iva', { p_cliente_id: Number(cliente.id), p_desde: aAAAAMM(iDesde.value), p_hasta: aAAAAMM(iHasta.value), p_opciones: op })
         .then(function (d) {
           if (!vista || s !== vista.seq) return;
-          vista.datos = d; vista.opciones = op; bCalc.disabled = false; bPdf.disabled = false; if (bXls) { bXls.disabled = false; bBor.disabled = false; }
+          vista.datos = d; vista.opciones = op; bCalc.disabled = false; bPdf.disabled = false; if (bXls) { bXls.disabled = false; bBor.disabled = false; } if (bRect) bRect.disabled = false;
           pintar(res, d); aviso(textoResumen(d), claseResumen(d));
           pintarOrigenes(s, d);
         })
@@ -283,7 +293,7 @@
       if (!vista || !vista.datos) return;
       var d = vista.datos; bPdf.disabled = true;
       rpc('sii_levantamiento_registrar_pdf', { p_cliente_id: Number(cliente.id), p_desde: d.desde, p_hasta: d.hasta })
-        .then(function () { bPdf.disabled = false; imprimir(d, cliente); })
+        .then(function () { bPdf.disabled = false; imprimir(d, cliente, vista && vista.otros); })
         .catch(function (e) { bPdf.disabled = false; aviso(mensajeError(e), 'roj'); });
     });
     velo.addEventListener('click', function (ev) { if (ev.target === velo) cerrar(); });
@@ -318,12 +328,22 @@
       nPend: Number(x.meses || 0), pend: (x.componentes_pendientes || []).join(', '), impPend: pesos(x.impuesto)
     };
   }
-  /** «A regularizar en el período»: el total del servidor (o el provisional rotulado); nunca se fabrica uno. */
-  function aRegularizar(d) {
+  /** «A regularizar en el período»: el total del servidor (o el provisional rotulado); nunca se fabrica uno.
+      otros (opcional) = {monto, motivo} ingresado a mano por el analista: se suma y se rotula «ingresado a mano». */
+  function aRegularizar(d, otros) {
     var e = d.estimacion || {}, k = e.conocido || {}, p = e.provisional || {}, x = e.no_calculable || {};
     var n = Number(k.meses || 0) + Number(p.meses || 0) + Number(x.meses || 0);
-    var v = e.total != null ? pesos(e.total) : e.total_no_calculable ? 'No calculable' : num(e.total_provisional) != null ? pesos(e.total_provisional) + ' (provisional)' : '—';
-    return { valor: v, meses: n, texto: 'A regularizar en el período: ' + v + ' (' + nm(n) + ')' };
+    var om = otros && num(otros.monto) > 0 ? Number(otros.monto) : 0;
+    var v = e.total != null ? pesos(Number(e.total) + om) : e.total_no_calculable ? 'No calculable' + (om ? ' + ' + pesos(om) + ' ingresado a mano' : '') : num(e.total_provisional) != null ? pesos(Number(e.total_provisional) + om) + ' (provisional)' : (om ? pesos(om) + ' (solo ingresado a mano)' : '—');
+    var nota = om ? 'incluye ' + pesos(om) + ' de otros cargos ingresados a mano (' + String(otros.motivo || '') + ')' : '';
+    return { valor: v, meses: n, otros: om, nota: nota, texto: 'A regularizar en el período: ' + v + ' (' + nm(n) + ')' + (nota ? ' · ' + nota : '') };
+  }
+  /** Valida «Otros cargos / multa adicional»: monto entero positivo y motivo obligatorio. Devuelve {monto, motivo} o {error}. */
+  function validarOtros(monto, motivo) {
+    var t = String(monto == null ? '' : monto).replace(/[$.\s]/g, '').replace(',', '.'), n = Number(t), mo = String(motivo || '').trim();
+    if (!t || !isFinite(n) || n <= 0 || Math.round(n) !== n || n > 1e12) return { error: 'Ingresa el monto de otros cargos en pesos (entero mayor que cero).' };
+    if (mo.length < 3) return { error: 'El motivo es obligatorio (por ejemplo: «multa art. 97 N°1 por declaración tardía»).' };
+    return { monto: n, motivo: mo.slice(0, 160) };
   }
   /** Conteo de meses por estado (del servidor: totales.por_estado). */
   function conteoEstados(d) {
@@ -368,9 +388,10 @@
   function pintar(cont, d) {
     cont.textContent = '';
     var e = d.estimacion || {};
-    var AR = aRegularizar(d), reg = el('div', 'liva-reg'); reg.id = 'liva-regularizar';
-    reg.appendChild(el('div', 'l', 'A regularizar en el período')); reg.appendChild(el('div', 'v', AR.valor)); reg.appendChild(el('small', null, nm(AR.meses) + ' · ' + mesTxt(d.desde) + ' a ' + mesTxt(d.hasta) + ' · estimación preliminar, verificar'));
+    var otros = vista && vista.otros, AR = aRegularizar(d, otros), reg = el('div', 'liva-reg'); reg.id = 'liva-regularizar';
+    reg.appendChild(el('div', 'l', 'A regularizar en el período')); reg.appendChild(el('div', 'v', AR.valor)); reg.appendChild(el('small', null, nm(AR.meses) + ' · ' + mesTxt(d.desde) + ' a ' + mesTxt(d.hasta) + ' · estimación preliminar, verificar' + (AR.nota ? ' · ' + AR.nota : '')));
     cont.appendChild(reg);
+    cont.appendChild(campoOtros(cont, d));
     var g = el('div', 'liva-res');
     dato(g, 'Meses que calzan', contar(d, 'calza') + ' / ' + (d.meses || []).length, 'ver');
     dato(g, 'Con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), contar(d, 'diferencia') + contar(d, 'no_declarado') ? 'roj' : null);
@@ -447,8 +468,30 @@
     var ul = el('ul', 'liva-sup'); (e.supuestos || []).forEach(function (s) { ul.appendChild(el('li', null, s)); }); cont.appendChild(ul);
   }
 
+  /** Campo «Otros cargos / multa adicional» (ingresado a mano; no se guarda en la base). */
+  function campoOtros(cont, d) {
+    var w = el('div', 'liva-otros'); w.id = 'liva-otros';
+    var t = el('div', 't', 'Otros cargos / multa adicional '); t.appendChild(el('small', null, '(opcional, ingresado a mano: p. ej. multa art. 97 N°1; se suma al total del levantamiento y del escenario; no se guarda)')); w.appendChild(t);
+    var o = vista && vista.otros;
+    if (o) {
+      w.appendChild(el('div', 'act', 'Ingresado a mano: ' + pesos(o.monto) + ' · ' + o.motivo));
+      var bq = el('button', 'liva-btn sec', 'Quitar'); bq.type = 'button'; bq.id = 'liva-otros-quitar'; w.appendChild(bq);
+      bq.addEventListener('click', function () { vista.otros = null; pintar(cont, d); if (vista.aviso) vista.aviso('Se quitaron los otros cargos ingresados a mano.', 'amb'); });
+      return w;
+    }
+    var l1 = el('label', null, 'Monto ($)'), i1 = el('input'); i1.type = 'text'; i1.inputMode = 'numeric'; i1.id = 'liva-otros-monto'; i1.placeholder = '0'; l1.appendChild(i1); w.appendChild(l1);
+    var l2 = el('label', null, 'Motivo (obligatorio)'), i2 = el('input'); i2.type = 'text'; i2.id = 'liva-otros-motivo'; i2.maxLength = 160; i2.size = 40; i2.placeholder = 'Ej.: multa art. 97 N°1'; l2.appendChild(i2); w.appendChild(l2);
+    var bs = el('button', 'liva-btn sec', 'Sumar al total'); bs.type = 'button'; bs.id = 'liva-otros-sumar'; w.appendChild(bs);
+    bs.addEventListener('click', function () {
+      var v = validarOtros(i1.value, i2.value);
+      if (v.error) { if (vista.aviso) vista.aviso(v.error, 'roj'); return; }
+      vista.otros = v; pintar(cont, d); if (vista.aviso) vista.aviso('Otros cargos ingresados a mano: ' + pesos(v.monto) + ' (' + v.motivo + '). Se suman al total del levantamiento y del escenario; no se guardan en la base.', 'amb');
+    });
+    return w;
+  }
+
   // ── PDF de marca (documento propio en iframe oculto; fondo claro, franja morada con el logo blanco) ──
-  function htmlPdf(d, cliente, logoUrl) {
+  function htmlPdf(d, cliente, logoUrl, otros) {
     var e = d.estimacion || {};
     var filas = (d.meses || []).map(function (m) {
       var est = estadoDe(m), iva = m.iva || {}, deb = m.debito || {}, cre = m.credito || {};
@@ -458,13 +501,13 @@
     }).join('');
     var tarjeta = function (l, v, c) { return '<div class="k ' + (c || '') + '"><div class="l">' + esc(l) + '</div><div class="v">' + esc(v) + '</div></div>'; };
     var hoy = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
-    var T = totales(e), AR = aRegularizar(d), tt = d.totales || {};
+    var T = totales(e), AR = aRegularizar(d, otros), tt = d.totales || {};
     var pie = '<tfoot><tr><td>Totales</td><td>' + esc(nm((d.meses || []).length)) + '</td><td>' + esc(pesos(tt.debito_rcv)) + '</td><td>' + esc(pesos(tt.debito_declarado)) + '</td><td>' + esc(pesos(tt.credito_rcv)) +
       '</td><td>' + esc(pesos(tt.credito_declarado_documentos)) + '</td><td>A favor ' + esc(pesos(e.posible_a_favor)) + '</td><td></td><td class="b">' + esc(pesos(e.impuesto)) + '</td><td class="b">' + esc(AR.valor) + '</td></tr>' +
       '<tr><td colspan="10" class="g">' + esc(conteoEstados(d)) + (desglose(e).length ? ' — ' + esc(desglose(e).join(' · ')) : '') + '</td></tr></tfoot>';
     return '<div class="hd"><img src="' + esc(logoUrl) + '" alt="Contadoor"><div><h1>Levantamiento de IVA</h1><p>' + esc(cliente.razon || '') + (cliente.rut ? ' · RUT ' + esc(cliente.rut) : '') + '</p></div></div>' +
       '<div class="cuerpo"><p class="prel">Estimación preliminar, no constituye determinación definitiva</p><p class="sub">Período revisado: <b>' + esc(mesTxt(d.desde)) + ' a ' + esc(mesTxt(d.hasta)) + '</b> · Emitido el ' + esc(hoy) + ' · Fuente: Registro de Compras y Ventas y Formularios 29 del SII.</p>' +
-      '<div class="reg"><span>A regularizar en el período</span><b>' + esc(AR.valor) + '</b><em>' + esc(nm(AR.meses)) + '</em></div>' +
+      '<div class="reg"><span>A regularizar en el período</span><b>' + esc(AR.valor) + '</b><em>' + esc(nm(AR.meses)) + (AR.nota ? ' · ' + esc(AR.nota) : '') + '</em></div>' +
       '<div class="ks">' + tarjeta('Meses revisados', String((d.meses || []).length)) + tarjeta('Meses que calzan', String(contar(d, 'calza')), 'ver') +
       tarjeta('Meses con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), 'roj') + tarjeta('Provisionales', String(nProv(d))) +
       tarjeta('Sin datos / F29 sin montos', String(contar(d, 'sin_datos') + contar(d, 'f29_sin_montos'))) + '</div>' +
@@ -495,14 +538,14 @@
     'tfoot td{font-weight:800;background:#F6ECF6;border-top:2px solid ' + MORADO + '}tfoot td.g{font-weight:600;text-align:left;font-size:9px}' +
     '.reg{display:flex;align-items:baseline;gap:12px;margin:8px 0;padding:8px 12px;border:2px solid ' + MORADO + ';border-radius:10px;background:#F6ECF6}.reg span{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#5B4560}.reg b{font:800 17px Montserrat,Arial,sans-serif;color:' + MORADO + '}.reg em{font-style:normal;color:#5B4560}' +
     'ul{margin:4px 0;padding-left:16px;line-height:1.5;color:#5B4560}.pie{margin-top:12px;color:#9A8A9C;font-size:9px;text-align:right}';
-  function documentoPdf(d, cliente, logoUrl) {
+  function documentoPdf(d, cliente, logoUrl, otros) {
     var limpio = function (t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 50); };
     var titulo = ['Levantamiento_IVA', limpio(cliente.razon) || 'cliente', d.desde + '-' + d.hasta].join('_');
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>' + esc(titulo) + '</title>' +
       '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet"><style>' + CSS_PDF + '</style></head><body>' +
-      htmlPdf(d, cliente, logoUrl) + '</body></html>';
+      htmlPdf(d, cliente, logoUrl, otros) + '</body></html>';
   }
-  function imprimir(d, cliente) {
+  function imprimir(d, cliente, otros) {
     var previo = doc.getElementById('liva-pdf-frame'); if (previo) previo.remove();
     var f = doc.createElement('iframe'); f.id = 'liva-pdf-frame'; f.setAttribute('aria-hidden', 'true');
     f.style.cssText = 'position:fixed;right:0;bottom:0;width:1100px;height:800px;border:0;opacity:0;pointer-events:none;z-index:-1';
@@ -513,9 +556,9 @@
       Promise.race([Promise.all([esp, dd.fonts && dd.fonts.ready ? dd.fonts.ready : 1]), new Promise(function (r) { setTimeout(r, 4000); })])
         .then(function () { try { w.focus(); w.print(); } catch (e) { /* */ } });
     };
-    f.srcdoc = documentoPdf(d, cliente, new URL('../assets/logo-blanco.png', raiz.location.href).href);
+    f.srcdoc = documentoPdf(d, cliente, new URL('../assets/logo-blanco.png', raiz.location.href).href, otros);
     doc.body.appendChild(f);
   }
 
-  raiz.GestoorLevIVA = { montar: montar, abrir: abrir, cerrar: cerrar, puedeVer: puedeVer, rangoPorDefecto: rangoPorDefecto, documentoPdf: documentoPdf, mensajeError: mensajeError, origenTxt: origenTxt, ESTADOS: ESTADOS, estadoDe: estadoDe, totales: totales, estimadoMes: estimadoMes, aRegularizar: aRegularizar, conteoEstados: conteoEstados, desglose: desglose, estilos: estilos };
+  raiz.GestoorLevIVA = { montar: montar, abrir: abrir, cerrar: cerrar, puedeVer: puedeVer, rangoPorDefecto: rangoPorDefecto, documentoPdf: documentoPdf, mensajeError: mensajeError, origenTxt: origenTxt, ESTADOS: ESTADOS, estadoDe: estadoDe, totales: totales, estimadoMes: estimadoMes, aRegularizar: aRegularizar, validarOtros: validarOtros, conteoEstados: conteoEstados, desglose: desglose, estilos: estilos };
 })(window);
