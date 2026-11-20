@@ -67,7 +67,16 @@
     reajuste_sin_utm: 'Falta la UTM del vencimiento o del mes de pago: reajuste pendiente (el total no se calcula).',
     intereses_sin_tasa: 'Falta la tasa de interés penal del SII para un semestre: intereses pendientes.',
     vencimiento_corrido_habil: 'El vencimiento cayó en día inhábil: se corrió al siguiente día hábil.',
-    feriados_no_cargados: 'No hay feriados cargados para ese año: solo se consideraron fines de semana.'
+    feriados_no_cargados: 'No hay feriados cargados para ese año: solo se consideraron fines de semana.',
+    factura_compra_recibida: 'Facturas de compra recibidas (DTE 46): el IVA retenido por el comprador no va al débito (cód. 515/587; con retención parcial solo la parte no retenida, cód. 517).',
+    factura_compra_emitida: 'Facturas de compra emitidas (agente retenedor): su IVA es crédito (cód. 520) y lo retenido se declara en los cód. 39/554.',
+    nc_nd_factura_compra_inferida: 'Notas de crédito/débito sobre facturas de compra identificadas por su monto (el RCV no trae la referencia): revisar.',
+    retencion_sin_detalle: 'Sin detalle de documentos del Registro de Ventas: no se pudo separar el IVA retenido de facturas de compra.',
+    retencion_cambio_sujeto_distinta: 'La retención de cambio de sujeto declarada (cód. 515/587/517/720 o 39/554) no calza con el RCV: revisar (informativo, no suma al IVA).',
+    debito_incluye_iva_retenido: 'El débito declarado (538) incluye IVA que el comprador retuvo totalmente: posible pago de más.',
+    retencion_no_enterada: 'IVA retenido por cambio de sujeto según el RCV mayor que el declarado (cód. 39 + 554): diferencia a pagar aparte (art. 97 N°11).',
+    prescripcion_3_anos_cumplida: 'Se cumplieron 3 años desde el vencimiento (art. 200 CT). Informativo: revisar con el analista.',
+    prescripcion_3_anos_proxima: 'Se cumplen 3 años desde el vencimiento dentro de 60 días (art. 200 CT). Informativo: revisar con el analista.'
   };
   var ORIGEN = { historia: 'Historia SII', sync: 'Sincronización diaria' };
   /** Texto del origen del RCV de un mes (ventas y compras). */
@@ -356,6 +365,11 @@
     if (Number(k.meses)) out.push('Conocido (' + nm(k.meses) + '): impuesto ' + pesos(k.impuesto) + ' + reajuste ' + pesos(k.reajuste) + ' + intereses ' + pesos(k.intereses) + ' + multa ' + pesos(k.multa) + ' = ' + pesos(k.total));
     if (Number(p.meses)) out.push('Provisional (' + nm(p.meses) + '): impuesto ' + pesos(p.impuesto) + ' + reajuste ' + pesos(p.reajuste) + ' + intereses ' + pesos(p.intereses) + ' + multa ' + pesos(p.multa) + ' = ' + pesos(p.total));
     if (Number(x.meses)) out.push('Sin calcular (' + nm(x.meses) + '): impuesto ' + pesos(x.impuesto) + '; falta ' + ((x.componentes_pendientes || []).join(', ') || '—'));
+    var r = e.retencion_no_enterada || {};
+    if (Number(r.meses)) out.push('Retención no enterada, aparte (' + nm(r.meses) + '): impuesto ' + pesos(r.impuesto) + ' + reajuste ' + pesos(r.reajuste) + ' + intereses ' + pesos(r.intereses) + ' + multa ' + pesos(r.multa) + ' = ' + (r.total == null ? 'no calculable' : pesos(r.total)));
+    var cd = e.condonacion || {};
+    if (Number(cd.meses) && cd.deuda_sin_condonacion != null) out.push('Con condonación (' + (cd.rotulo || 'simulación referencial') + ', tramo ' + String(cd.tramo || '').replace('_', ' a ').replace('mas a 24', 'más de 24') + ' meses): deuda ' + pesos(cd.deuda_sin_condonacion) +
+      ' − intereses ' + pesos(cd.descuento_intereses) + ' − multa ' + pesos(cd.descuento_multa) + (Number(cd.descuento_adicional_pago_total) ? ' − pago total ' + pesos(cd.descuento_adicional_pago_total) : '') + ' = ' + pesos(cd.total_con_condonacion));
     return out;
   }
   function estimadoMes(m) {
@@ -367,7 +381,7 @@
     var t = 'Vence ' + fechaTxt(es.vencimiento) + ' · ' + es.meses_atraso + ' meses de atraso · impuesto ' + pesos(es.impuesto) +
       ' · reajuste ' + (es.reajuste == null ? 'pendiente (falta UTM)' : pesos(es.reajuste)) +
       ' · intereses ' + (es.intereses == null ? 'pendientes (falta tasa' + ((es.semestres_sin_tasa || []).length ? ' ' + es.semestres_sin_tasa.join(', ') : '') + ')' : pesos(es.intereses) + (es.intereses_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '')) +
-      ' · multa ' + Math.round(Number(es.multa_pct) * 100) + ' % = ' + pesos(es.multa) + (es.multa_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '');
+      ' · multa ' + Math.round(Number(es.multa_pct) * 100) + ' %' + (es.multa_detalle ? ' (' + es.multa_detalle.meses_calendario + ' mes(es) calendario' + (es.multa_detalle.tope_alcanzado ? ', tope' : '') + ')' : '') + ' = ' + pesos(es.multa) + (es.multa_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '');
     var tr = (es.intereses_tramos || []).map(function (x) { return x.regla === 'mensual' ? x.meses + ' mes(es) al ' + String(x.tasa_pct).replace('.', ',') + ' %' : x.dias + ' días al ' + String(x.tasa_pct).replace('.', ',') + ' % diario'; });
     if (tr.length) t += ' · tramos: ' + tr.join(' + ');
     return t + ' · ' + (es.calidad === 'completa' ? 'estimación completa' : es.calidad === 'provisional' ? 'estimación provisional' : 'total no calculable');
