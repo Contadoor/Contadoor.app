@@ -17,6 +17,11 @@
      (produccion_habilitada=false) se pueden crear y aprobar borradores, pero "Emitir" queda deshabilitado con su motivo.
    · Detalle con línea de tiempo, folio, PDF/XML, estado en Cobranza y espacio para la futura nota de crédito.
    Las RPC, los permisos y los mensajes de error son los mismos de antes: aquí cambia solo la presentación y el flujo de pantalla.
+
+   F1c-MD "Master directo" (decisión de Luciano 27-oct: "yo también emito directo"): cuando el MASTER creó la factura, desde el
+   borrador puede "Emitir directo": vista previa del documento congelado (RPC factura_adicional_master_directo_vista) → confirma
+   (casilla + total reescrito; si es REAL, también la palabra REAL) → RPC factura_adicional_master_directo (congela y auto-aprueba,
+   evento AUTOAPROBADA_MASTER) → Edge facturacion-emitir de siempre (mismos candados). Lo que crean otros sigue igual.
    ============================================================ */
 (function(){
 'use strict';
@@ -83,7 +88,10 @@ var ERR={
   TOTAL_CONFIRMADO_NO_COINCIDE:'El total que escribiste no coincide con el de la factura.',
   TOTAL_CONFIRMADO_FORMATO:'Escribe el total solo con números, por ejemplo 10000 o 10.000 (sin signo, decimales, comas ni letras).',
   TOTAL_CONFIRMADO_VACIO:'Reescribe el total de la factura para confirmar.',
-  NO_ES_TUYA:'Solo puedes auto-aprobar facturas que creaste tú; esta se aprueba con "Aprobar".',
+  NO_ES_TUYA:'Solo puedes auto-aprobar o emitir directo facturas que creaste tú; esta se aprueba con "Aprobar".',
+  MODO_CONFIRMADO_NO_COINCIDE:'El tipo de la factura cambió (REAL o PRUEBA). Recarga y revísala de nuevo.',
+  EMISOR_NO_COINCIDE:'El emisor del documento no corresponde al tipo de factura. No se aprobó nada; avisa a soporte.',
+  CONFIRMACION_DIRECTA:'Marca la casilla: confirmas que la revisaste y que sale sin revisión de otra persona.',
   CONFIG_DEV_INCOMPLETA:'Falta configurar el ambiente de pruebas en el servidor. Avisa a soporte.',
   // Mensajes propios de la pantalla (no vienen del motor)
   EMISION_DESACTIVADA:'La emisión está desactivada; pide al Master activarla.',
@@ -209,6 +217,7 @@ function palabraRealOk(txt){return String(txt==null?'':txt).trim().toUpperCase()
 // F1c-M (Luciano 23-oct): el Master también crea, edita, envía y emite. La aprobación sigue siendo un paso aparte.
 function esOp(){return esF()||esM();}
 function esMia(x){return CTX.yo!==null&&+x.creado_por===CTX.yo;}
+function esDirecta(x){return (CTX.eventos[x.id]||[]).some(function(e){return e.tipo==='AUTOAPROBADA_MASTER';});}
 function bot(a,id){
   return '<span class="tipw" tabindex="'+(a.ok?'-1':'0')+'" data-tip="'+esc(a.tip||'')+'"><button type="button" class="g-btn sm '+(a.cls||'')+'" data-fa="'+a.act+'" data-id="'+id+'"'+(a.ok&&!CTX.ocupado?'':' disabled')+'>'+I(a.icn,a.icc||'')+esc(a.txt)+'</button></span>';
 }
@@ -216,7 +225,15 @@ function bot(a,id){
 function accionesLista(x){
   var a=[], prod=x.modo==='PRODUCCION';
   function A(act,txt,icn,cls,ok,tip,icc){a.push({act:act,txt:txt,icn:icn,cls:cls,ok:ok,tip:tip,icc:icc});}
-  if(esOp()&&(x.estado==='BORRADOR'||x.estado==='DEVUELTA')){A('editar','Editar','lapiz','',true,'');A('enviar','Enviar a aprobación','enviar','pri',true,'Congela el contenido y lo envía al Master.');}
+  if(esOp()&&(x.estado==='BORRADOR'||x.estado==='DEVUELTA')){
+    A('editar','Editar','lapiz','',true,'');
+    // F1c-MD: el Master que creó la factura la emite directo (sin revisión de otra persona). Mismos candados de emisión.
+    if(esM()&&esMia(x)){
+      var okD=!prod||CTX.prodHabilitada;
+      A('directo',prod?'Emitir directo (factura real)':'Emitir directo (prueba)','enviar',okD?(prod?'pri fa-btn-real':'pri'):'',okD,okD?'La creaste tú: confirmas el total y sale emitida en un paso. Queda registrado y se avisa a Facturación.':ERR.EMISION_DESACTIVADA);
+      A('enviar','Enviar a aprobación','enviar','',true,'Camino normal: congela el contenido y espera una aprobación.');
+    } else A('enviar','Enviar a aprobación','enviar','pri',true,'Congela el contenido y lo envía al Master.');
+  }
   if(esM()&&x.estado==='EN_REVISION'&&esMia(x)){A('autoaprobar','Auto-aprobar (la creaste tú)','escudo','pri',true,'Paso aparte: confirmas y reescribes el total. Queda marcada y se avisa al equipo.');A('devolver','Devolver','devolver','',true,'');}
   else if(esM()&&x.estado==='EN_REVISION'){A('aprobar','Aprobar','aprobar','pri',true,'Apruebas exactamente lo que ves (huella).');A('devolver','Devolver','devolver','',true,'');}
   if(esM()&&x.estado==='APROBADA')A('devolver','Devolver','devolver','',true,'Solo si aún no hubo intento de emisión.');
@@ -236,6 +253,7 @@ function accionPrincipal(x){return accionesLista(x).filter(function(a){return a.
 function accionFila(x){
   var pr=accionPrincipal(x);if(pr)return pr;
   if(x.modo==='PRODUCCION'&&!CTX.prodHabilitada&&esOp()&&(x.estado==='APROBADA'||x.estado==='ERROR'))return accionesLista(x).filter(function(a){return a.act==='emitir';})[0]||null;
+  if(x.modo==='PRODUCCION'&&!CTX.prodHabilitada&&esM()&&esMia(x)&&(x.estado==='BORRADOR'||x.estado==='DEVUELTA'))return accionesLista(x).filter(function(a){return a.act==='directo';})[0]||null;
   return null;
 }
 
@@ -481,7 +499,7 @@ function wizPaso4(w){
   return '<h4 class="fa-wiz-t">3 · Revisa antes de '+(w.edit?'guardar':'crear')+'</h4>'
    +'<div class="fa-rev">'+doc
    +'<aside class="fa-rev-lado"><div class="fa-rev-caja'+(real?' real':' pru')+'">'+(real
-      ?'<b>'+I('factura','ic-roj')+'Esta es una FACTURA REAL</b><p>Después de crear el borrador, sigue el camino de siempre: enviar a aprobación → el Master aprueba → se emite en el SII. Emitirla pedirá otra vez la palabra REAL y el total.'+(CTX.prodHabilitada?'':' <b>Hoy la emisión está desactivada:</b> pide al Master activarla.')+'</p>'
+      ?'<b>'+I('factura','ic-roj')+'Esta es una FACTURA REAL</b><p>'+(esM()?'Como Master, después de crear el borrador puedes <b>emitirla directo</b>: ves el documento final, confirmas el total y la palabra REAL, y sale emitida en el SII (queda registrado y se avisa a Facturación).':'Después de crear el borrador, sigue el camino de siempre: enviar a aprobación → el Master aprueba → se emite en el SII. Emitirla pedirá otra vez la palabra REAL y el total.')+(CTX.prodHabilitada?'':' <b>Hoy la emisión está desactivada:</b> pide al Master activarla.')+'</p>'
        +'<label for="faWizReal">Escribe <b>REAL</b> para confirmar que es una factura real</label><input id="faWizReal" autocomplete="off" spellcheck="false" placeholder="REAL" value="'+esc(w.real)+'">'
       :'<b>'+I('probeta','ic-cel')+'Esta es una PRUEBA</b><p>No va al SII ni tiene validez tributaria. Igual pasa por aprobación del Master antes de emitirse en el ambiente de pruebas.</p>')
    +'</div><div class="fa-rev-mot"><small>Motivo</small><p>'+esc(w.motivo)+'</p></div>'
@@ -527,7 +545,7 @@ function wizCrear(){
   var m=wizValidar(w,4);if(m){wizError(m);var r=$('faWizReal');if(r&&m===ERR.PALABRA_REAL)r.focus();return;}
   var o=wizDatos(w), nuevo=!w.edit;
   if(nuevo){o.cliente_id=+w.cliente;o.modo='PRODUCCION';}   // desde la pantalla, siempre REAL
-  correr(nuevo?rpc('factura_adicional_crear',{p:o}):rpc('factura_adicional_editar',{p_factura:w.edit.id,p:o}),nuevo?'Borrador de factura REAL creado. Siguiente paso: enviarlo a aprobación.':'Cambios guardados.',false,
+  correr(nuevo?rpc('factura_adicional_crear',{p:o}):rpc('factura_adicional_editar',{p_factura:w.edit.id,p:o}),nuevo?(esM()?'Borrador de factura REAL creado. Siguiente paso: "Emitir directo".':'Borrador de factura REAL creado. Siguiente paso: enviarlo a aprobación.'):'Cambios guardados.',false,
     function(r){var id=r&&r.factura_id!=null?+r.factura_id:(w.edit?w.edit.id:null);CTX.wiz=null;if(id!=null&&porId(id))abrirDetalle(id);else irCartera();});
 }
 function abrirNueva(){CTX.wiz=wizNuevo();CTX.vista='nueva';render();var s=document.querySelector('.fa-wiz');if(s&&s.scrollIntoView)s.scrollIntoView({block:'start'});}
@@ -547,7 +565,7 @@ function abrirDetalle(id,sinScroll){
   }).catch(function(){CTX.eventos[id]=[];});
 }
 var EVT={CREADA:['Creada','lapiz','ic-cel'],EDITADA:['Editada','lapiz','ic-cel'],ENVIADA_REVISION:['Enviada a aprobación','enviar','ic-mor'],APROBADA:['Aprobada por el Master','aprobar','ic-ver'],
-  AUTO_APROBADA_MASTER:['Auto-aprobada por el Master (total reescrito)','escudo','ic-amb'],DEVUELTA:['Devuelta con comentario','devolver','ic-amb'],ANULADA:['Anulada','basura','ic-roj'],
+  AUTO_APROBADA_MASTER:['Auto-aprobada por el Master (total reescrito)','escudo','ic-amb'],AUTOAPROBADA_MASTER:['Auto-aprobada por el Master · camino directo (total reescrito)','escudo','ic-amb'],DEVUELTA:['Devuelta con comentario','devolver','ic-amb'],ANULADA:['Anulada','basura','ic-roj'],
   EMISION_RECLAMADA:['Emisión iniciada','enviar','ic-cel'],EMISION_LIBERADA:['Emisión liberada (no se envió)','repetir','ic-amb'],EMISION_INCIERTA_POR_VENCIMIENTO:['Emisión incierta (sin respuesta a tiempo)','alerta','ic-ama'],
   CONCILIACION_INICIADA:['Conciliación iniciada','repetir','ic-ama'],DOCUMENTOS_OBTENIDOS:['PDF y XML guardados','bajar','ic-ver'],DOCUMENTOS_ERROR:['No se pudieron traer PDF/XML','alerta','ic-amb'],
   CORREO_PREPARADO:['Correo preparado','correo','ic-cel'],CORREO_DESTINO_NO_PERMITIDO:['Correo bloqueado: destino no permitido','alerta','ic-amb'],
@@ -562,7 +580,7 @@ function evtTxt(t){
 function ultimoEv(ev,tipos){var r=null;(ev||[]).forEach(function(e){if(tipos.indexOf(e.tipo)>=0||tipos.some(function(t){return t.slice(-1)==='_'&&e.tipo.indexOf(t)===0;}))r=e;});return r;}
 function htmlLinea(x){
   var ev=CTX.eventos[x.id]||null;
-  var eEnv=ultimoEv(ev,['ENVIADA_REVISION']), eApr=ultimoEv(ev,['APROBADA','AUTO_APROBADA_MASTER']), eEmi=ultimoEv(ev,['EMISION_RECLAMADA']);
+  var eEnv=ultimoEv(ev,['ENVIADA_REVISION']), eApr=ultimoEv(ev,['APROBADA','AUTO_APROBADA_MASTER','AUTOAPROBADA_MASTER']), eEmi=ultimoEv(ev,['EMISION_RECLAMADA']);
   var pasos=[
     {t:'Creada',ic:'lapiz',icc:'ic-cel',fecha:x.creado_at,quien:x.creado_por,ok:true},
     {t:'Enviada a aprobación',ic:'enviar',icc:'ic-mor',fecha:x.enviada_at||(eEnv&&eEnv.creado_at),quien:x.enviada_por!=null?x.enviada_por:(eEnv&&eEnv.actor_usuario_id),ok:!!(x.enviada_at||eEnv)&&['BORRADOR','DEVUELTA'].indexOf(x.estado)<0||['EN_REVISION','APROBADA','EMITIENDO','INCIERTO','EMITIDA','ERROR'].indexOf(x.estado)>=0},
@@ -592,7 +610,7 @@ function htmlDetalle(x){
   return '<section class="fa-det'+(prod?' real':' pru')+'" aria-label="Detalle de '+esc(x.codigo)+'">'
    +'<div class="fa-wiz-h"><button type="button" class="g-btn sm" data-fa="cartera" data-id="0">'+I('devolver','ic-cel')+'Volver a la cartera</button><h3>'+esc(x.codigo)+'</h3>'+chipTipo(x.modo,true)+chipEst(x.estado,true)+'</div>'
    +'<div class="fa-det-g"><div class="fa-det-doc">'+docDeFactura(x)+'<div class="fa-rev-mot"><small>Motivo</small><p>'+esc(x.motivo)+'</p></div>'
-   +(x.auto_aprobada_master?'<div class="mot" style="background:rgba(92,200,255,.08)"><b>Auto-aprobada por el Master</b> (la creó y la aprobó él, con confirmación del total). Se avisó al equipo.</div>':'')
+   +(x.auto_aprobada_master?'<div class="mot" style="background:rgba(92,200,255,.08)"><b>Auto-aprobada por el Master</b> (la creó y la aprobó él, con confirmación del total).'+(esDirecta(x)?' Camino directo: sin revisión de otra persona; Facturación recibe el aviso al emitirse.':' Se avisó al equipo.')+'</div>':'')
    +(x.comentario_devolucion&&x.estado==='DEVUELTA'?'<div class="mot" style="background:rgba(224,122,110,.08)"><b>Comentario del Master:</b> '+esc(x.comentario_devolucion)+'</div>':'')
    +(alertas.length?'<div class="mot" style="background:rgba(255,210,77,.08)"><b>Alertas:</b> '+alertas.join(' · ')+'</div>':'')
    +(x.estado==='INCIERTO'?'<div class="mot" style="background:rgba(255,210,77,.1)"><b>No reemitir.</b> OpenFactura no confirmó el resultado. El Master concilia: Gestoor busca el documento con la misma clave (nunca emite dos veces).</div>':'')
@@ -639,6 +657,47 @@ function resumenRevision(x){
    +'<div class="mot"><b>Motivo:</b> '+esc(x.motivo)+'</div>'
    +(s.correo_destino?'<div class="sub">Correo del documento a '+esc(s.correo_destino)+'</div>':'')+'</div>';
 }
+/* ── F1c-MD · "Emitir directo" (solo el Master, solo su factura en borrador/devuelta) ──
+   1) Vista previa: el servidor arma el documento EXACTO que se emitiría y su huella (no escribe nada).
+   2) Confirmación: casilla + total reescrito (+ palabra REAL si es real). Nada se llama si falta algo.
+   3) RPC factura_adicional_master_directo (congela + auto-aprueba con la huella vista; si se repite el clic devuelve "repetido")
+      → Edge facturacion-emitir 'emitir' de siempre (candados de producción, idempotencia, EN_CURSO ante doble clic).
+   Si la emisión falla después de aprobar, la factura queda APROBADA (se ve "Por emitir") y "Reintentar" vuelve a emitir sin duplicar. */
+function emitirDirecto(x){
+  if(CTX.ocupado)return;
+  var prod=x.modo==='PRODUCCION';
+  CTX.ocupado=true;render();
+  rpc('factura_adicional_master_directo_vista',{p_factura:x.id}).then(function(v){
+    CTX.ocupado=false;render();
+    var y=Object.assign({},x,{snapshot:v.snapshot});
+    var bloqueo=!v.emision_habilitada?ERR.EMISION_DESACTIVADA:(!v.fecha_emision_ok?ERR.FECHA_EMISION_FUERA_DE_RANGO:'');
+    var al=(v.alertas||[]).some(function(a){return a.codigo==='POSIBLE_DUPLICADO';});
+    if(prod)CTX.franjaModal='PRODUCCION';
+    modal({t:prod?'Emitir directo · FACTURA REAL':'Emitir directo · prueba',ic:prod?'factura':'probeta',icc:prod?'ic-roj':'ic-cel',
+      b:(prod?'<div class="fa-modal-real">'+I('alerta','ic-roj')+'<div><b>Atención: esta factura se emite en el SII</b> a nombre de '+esc(EMISOR_NOMBRE)+'. No se puede deshacer (solo con nota de crédito).</div></div>'
+              :'<div class="fa-modal-prueba">'+I('probeta','ic-cel')+'<div><b>Prueba · sin validez tributaria.</b> Se emite en el ambiente de pruebas de OpenFactura: no va al SII.</div></div>')
+       +'<p style="color:var(--amb)"><b>La creaste tú y sale sin revisión de otra persona.</b> Quedará registrado que la creaste, la auto-aprobaste y la emitiste; Facturación recibe el aviso al emitirse.</p>'
+       +(al?'<div class="mot" style="background:rgba(255,210,77,.1)"><b>Posible duplicado:</b> hay otra factura vigente del mismo cliente y monto en los últimos 30 días.</div>':'')
+       +(bloqueo?'<div class="fa-aviso-off">'+I('candado','ic-amb')+'<span><b>'+esc(bloqueo)+'</b></span></div>':'')
+       +resumenRevision(y)
+       +'<label style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin-top:10px"><input type="checkbox" id="faDirConf" style="width:18px;height:18px;flex:none;margin:0"> Confirmo que revisé la factura y la emito sin revisión de otra persona</label>'
+       +'<div class="fa-confirma-real">'+(prod?'<label for="faDirPal">Escribe <b>REAL</b> para confirmar</label><input id="faDirPal" autocomplete="off" spellcheck="false" placeholder="REAL">':'')
+       +'<label for="faDirTot">Reescribe el total exento (ej.: 10000 o 10.000)</label><input id="faDirTot" inputmode="numeric" placeholder="Ej.: 10.000" autocomplete="off"></div>',
+      ok:prod?'Sí, emitir factura real':'Emitir prueba',cls:prod?'pri fa-btn-real':'pri',cb:function(){
+        if(bloqueo){modal.error(bloqueo);return false;}
+        if(!$('faDirConf').checked){modal.error(ERR.CONFIRMACION_DIRECTA);return false;}
+        if(prod&&!palabraRealOk($('faDirPal').value)){modal.error(ERR.PALABRA_REAL);$('faDirPal').focus();return false;}
+        var tc=totalConfirmadoDesdeTexto($('faDirTot').value);
+        if(!tc.ok){modal.error(tc.motivo==='VACIO'?ERR.TOTAL_CONFIRMADO_VACIO:ERR.TOTAL_CONFIRMADO_FORMATO);$('faDirTot').focus();return false;}
+        if(tc.valor!==Number(v.total)||tc.valor!==Number(x.total)){modal.error(ERR.TOTAL_CONFIRMADO_NO_COINCIDE);$('faDirTot').focus();return false;}
+        correr(rpc('factura_adicional_master_directo',{p_factura:x.id,p_huella:v.huella,p_total_confirmado:tc.valor,p_modo_confirmado:x.modo,p_confirmo:true})
+            .then(function(){return edge('emitir',x.id);})
+            .catch(function(e){return recargar().then(function(){throw e;});}),   // si falló tras aprobar, la cartera muestra el estado real (p. ej. "Por emitir")
+          resultadoEmision,true);
+        return false;}});
+    anchoModal();pintarFranja();
+  }).catch(function(e){CTX.ocupado=false;render();toast(I('alerta','ic-amb')+' '+esc(msg(e)));});
+}
 function anchoModal(){var mm=$('modal');if(mm){mm.classList.add('fa-ancho');mm.style.width='min(760px, calc(100% - 32px))';}}
 function accion(act,id){
   var x=porId(id);
@@ -666,6 +725,7 @@ function accion(act,id){
         correr(rpc('factura_adicional_autoaprobar',{p_factura:x.id,p_huella:x.snapshot_hash,p_total_confirmado:t,p_confirmo:true}),function(r){return 'Auto-aprobada. Se avisó a '+(r&&r.avisos||0)+' persona(s). Ahora puedes emitirla en un paso aparte.';},true);return false;}});anchoModal();return;}
   if(act==='devolver')return modal({t:'Devolver al facturador',ic:'devolver',icc:'ic-amb',b:'<label>¿Qué hay que corregir?<textarea id="faCom" rows="3" maxlength="2000"></textarea></label>',ok:'Devolver',cls:'',cb:function(){var t=$('faCom').value.trim();if(t.length<5){modal.error(ERR.COMENTARIO_OBLIGATORIO);return false;}correr(rpc('factura_adicional_devolver',{p_factura:x.id,p_comentario:t}),'Devuelta al facturador.',true);return false;}});
   if(act==='anular')return modal({t:'Anular factura',ic:'basura',icc:'ic-roj',b:'<label>Motivo de la anulación (mínimo 10 caracteres)<textarea id="faAnu" rows="3" maxlength="1000"></textarea></label>',ok:'Anular',cls:'',cb:function(){var t=$('faAnu').value.trim();if(t.length<10){modal.error(ERR.MOTIVO_ANULACION);return false;}correr(rpc('factura_adicional_anular',{p_factura:x.id,p_motivo:t}),'Anulada.',true);return false;}});
+  if(act==='directo')return emitirDirecto(x);
   if(act==='emitir'){
     var prod=x.modo==='PRODUCCION';
     if(prod){
