@@ -74,7 +74,11 @@ var COND={CONTADO:'Contado',CINCUENTA:'50/50 (inicio y al terminar)',CUOTAS:'Cuo
 var MEDIO={CORREO:'Correo',WHATSAPP:'WhatsApp',PRESENCIAL:'Presencial'};
 var EV={CREADA:'Borrador creado',EDITADA:'Borrador editado',ENVIADA_A_APROBACION:'Enviada a aprobación del Master',AUTOAPROBADA_MASTER:'Autoaprobada por el Master',APROBADA_CATALOGO:'Lista (catálogo sin cambios)',
   APROBADA_POR_MASTER:'Aprobada por el Master',DEVUELTA:'Devuelta por el Master',ENVIADA:'Marcada como enviada al cliente',RESPALDO_SUBIDO:'Respaldo de aceptación subido',ACEPTADA:'Aceptada por el cliente',
-  RECHAZADA:'El cliente respondió «No por ahora»',VENCIDA:'Venció sin respuesta',ANULADA:'Anulada',NUEVA_VERSION:'Versión nueva (volver a cotizar)',RECOTIZADA:'Se volvió a cotizar'};
+  RECHAZADA:'El cliente respondió «No por ahora»',VENCIDA:'Venció sin respuesta',ANULADA:'Anulada',NUEVA_VERSION:'Versión nueva (volver a cotizar)',RECOTIZADA:'Se volvió a cotizar',
+  /* SEG-1 · seguimiento del asistente (seg.js) */
+  SEG_PROGRAMADO:'🤖 Pase al asistente (seguimiento programado)',SEG_ENVIADO:'🤖 El asistente escribió por WhatsApp',SEG_INCIERTO:'🤖 Mensaje del asistente sin confirmación de entrega',
+  SEG_RESPONDIO:'💬 El prospecto respondió al asistente',SEG_CLASIFICADO:'💬 Nueva señal en la conversación con el asistente',SEG_SIN_RESPUESTA:'📵 No contestó al asistente',
+  SEG_PAUSADO:'⏸️ Seguimiento del asistente en pausa',SEG_REANUDADO:'▶️ Seguimiento del asistente reanudado',SEG_TOMADO:'🤝 Retomaste el seguimiento',SEG_DETENIDO:'⛔ Seguimiento del asistente detenido'};
 
 var S={yo:null,filas:[],tab:'TODAS',estado:'',resp:'',buscar:'',hoy:G.hoyCL(),cat:null};
 function uf(n){return G.esNum(n)?Number(n).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})+' UF':'<span class="nd">Por definir</span>';}
@@ -184,7 +188,7 @@ function tablaHtml(lista){
 var FICHA=null;
 function abrirFicha(id){
   G.abrirDet('<div class="aviso lila"><span class="gc-spin"></span>Cargando la cotización…</div>');
-  D.ficha(id).then(function(f){FICHA=f;$('gcDetCuerpo').innerHTML=fichaHtml(f);})
+  D.ficha(id).then(function(f){FICHA=f;$('gcDetCuerpo').innerHTML=fichaHtml(f);if(window.COT_SEG&&$('segBox'))window.COT_SEG.montar(f,D.rpc,mErr);})
    .catch(function(e){$('gcDetCuerpo').innerHTML='<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>'+esc(mErr(e))+'</span></div>';});
 }
 function nom(f,id){return id==null?'':(f.nombres&&f.nombres[String(id)])||('Usuario N.º '+id);}
@@ -227,6 +231,8 @@ function fichaHtml(f){
   // Versiones
   if((f.versiones||[]).length>1)h+='<section><h4>🗂️ Versiones</h4>'+f.versiones.map(function(v){return '<div class="cl"><span>'+(String(v.id)===String(c.id)?'<b>':'<button type="button" class="link" data-act="ficha" data-id="'+esc(v.id)+'">')+'Versión '+esc(v.version)+(String(v.id)===String(c.id)?' (esta)</b>':'</button>')+' · '+chip(v.estado)+'</span><b>'+monto(v.monto,c.moneda,c.periodicidad)+'</b></div>';}).join('')+'</section>';
   h+='<section><h4>👥 Personas</h4><p class="t2">Responsable: <span class="cot-av">'+av(nom(f,c.responsable_usuario_id))+esc(nom(f,c.responsable_usuario_id))+'</span> · creó: '+esc(nom(f,c.creado_por))+(c.aprobado_por?' · aprobó: '+esc(nom(f,c.aprobado_por)):'')+'</p></section>';
+  // SEG-1 · seguimiento del asistente: prospectos (no clientes de la cartera) con la cotización enviada o ya respondida.
+  if(window.COT_SEG&&(c.lead_id||!c.cliente_id)&&['ENVIADA','ACEPTADA','RECHAZADA','VENCIDA','ANULADA'].indexOf(ev)>=0&&c.enviado_at)h+=window.COT_SEG.html();
   h+='<section><h4>🧭 Bitácora</h4><ul class="gc-tl">'+(f.eventos||[]).slice().reverse().map(function(e){return '<li><b>'+esc(EV[e.tipo]||e.tipo)+'</b><small>'+G.fHora(e.at)+(e.actor?' · '+esc(e.actor):' · sistema')+(e.detalle&&e.detalle.comentario?' · «'+esc(e.detalle.comentario)+'»':'')+(e.detalle&&e.detalle.motivo?' · «'+esc(e.detalle.motivo)+'»':'')+'</small></li>';}).join('')+'</ul></section>';
   return h;
 }
