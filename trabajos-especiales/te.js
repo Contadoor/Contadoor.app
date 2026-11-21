@@ -8,6 +8,9 @@
        te_cotizacion_devolver · te_cotizacion_enviar · te_cotizacion_renovar · te_cotizacion_registrar_aceptacion · te_cotizacion_registrar_rechazo ·
        te_documento_registrar · te_factura_preparar · te_factura_aprobar · te_factura_devolver · te_trabajo_autorizar_inicio · te_trabajo_iniciar ·
        te_paso_marcar · te_paso_saltar · te_trabajo_terminar · te_trabajo_faltantes_cierre · te_trabajo_cerrar · te_trabajo_cerrar_sin_completar
+     T1-TXT (MC-5 R2, decisión de Luciano 10-11: el texto para el cliente lo escribe el RESPONSABLE en Gestoor):
+       te_paso_texto_cliente_fijar (responsable con el módulo o Master; trabajo abierto) · te_plantilla_publicar (ya existía; SOLO el Master,
+       versión nueva) · lectura te_plantillas / te_plantilla_pasos. Documentos: p_visible_cliente (ya existía en te_documento_registrar).
      Storage: bucket privado 'trabajos-especiales' (<trabajo>/<paso-N|aceptacion|otros>/<archivo>). Suben el responsable o el Master;
        Pagos y Facturación ven, no suben. Sin borrar ni sobrescribir: un documento se reemplaza subiendo otro.
    Los pagos de las cuotas los registra SIEMPRE Cobranza (Leandro); aquí solo se ve su estado, que Cobranza sincroniza con T1.
@@ -50,7 +53,12 @@ var ERR={
   YA_FACTURADO:'El trabajo ya tiene su factura emitida.',FACTURA_EN_CURSO_T1:'La instrucción de factura está en curso por otro camino; resuélvela antes.',SIN_INSTRUCCION:'El trabajo aún no tiene instrucción de facturación.',
   FACTURA_DE_TRABAJO_ESPECIAL:'El total, el cliente y el modo vienen del trabajo: anula la factura y créala de nuevo.',SIN_VINCULO:'La factura no está vinculada a un trabajo.',FA_NO_EMITIDA:'La factura adicional aún no está emitida.'
 };
+// T1-TXT: texto para el cliente (MiContadoor y avisos)
+ERR.TEXTO_HONORARIOS='No uses «honorarios» en el texto para el cliente: di «nuestros servicios».';ERR.TEXTO_LARGO='El texto para el cliente va de 5 a 500 caracteres.';
+ERR.PASO_QUITADO='El paso fue quitado.';ERR.PASO_NO_EXISTE='El paso no existe.';ERR.PASOS_INVALIDOS='La plantilla no es válida.';ERR.CAMBIO_OBLIGATORIO='Describe qué cambia en esta versión.';
 function mErr(e){return G.msgError(e,ERR);}
+/* Regla del texto para el cliente (la misma del servidor): vacío = no se muestra; si hay texto, 5–500 caracteres y nunca «honorario». */
+function validarTextoCliente(v){if(!v)return null;if(/honorario/i.test(v))throw new Error(ERR.TEXTO_HONORARIOS);if(v.length<5||v.length>500)throw new Error(ERR.TEXTO_LARGO);return v;}
 
 /* ── Datos ── */
 var A=G.API;
@@ -73,8 +81,8 @@ var REAL={
       A.get('te_trabajos?id=eq.'+i+'&select=id,codigo,cliente_id,prospecto_nombre,servicio_id,servicio_solicitado,descripcion_que,descripcion_alcance,descripcion_antecedentes,condicion_pago,n_cuotas,valor_catalogo,valor_base,descuento_pct,valor,responsable_usuario_id,etapa,etapa_desde,estatus,estatus_motivo,huella_revision,devolucion_comentario,vigencia_hasta,enviado_at,aceptado_at,aceptacion_medio,iniciado_at,inicio_autorizado_motivo,retener_entrega,entrega_estado,terminado_at,cerrado_at,cierre_tipo,cierre_motivo,cierre_detalle,rechazo_motivo,creado_at'),
       A.get('te_cuotas?trabajo_id=eq.'+i+'&select=id,n,cuotas_total,es_inicio,monto,fecha_vencimiento,estado,pagada_fecha,pago_referencia&order=n.asc'),
       A.get('te_facturas?trabajo_id=eq.'+i+'&select=id,modo,tipo_dte,estado,total,snapshot_hash,of_folio,fecha_emision_dte,devolucion,creado_at&order=id.desc'),
-      A.get('te_pasos?trabajo_id=eq.'+i+'&select=id,orden,origen,nombre,plazo_dias,requiere_documento,tipo_documento,obligatorio,es_entrega,avisa_cliente,estado,hecho_at,saltado_motivo&estado=neq.QUITADO&order=orden.asc'),
-      A.get('te_documentos?trabajo_id=eq.'+i+'&select=id,paso_id,tipo,storage_path,nombre,mime,bytes,vigente,subido_at&order=subido_at.desc'),
+      A.get('te_pasos?trabajo_id=eq.'+i+'&select=id,orden,origen,nombre,plazo_dias,requiere_documento,tipo_documento,obligatorio,es_entrega,avisa_cliente,texto_cliente,estado,hecho_at,saltado_motivo&estado=neq.QUITADO&order=orden.asc'),
+      A.get('te_documentos?trabajo_id=eq.'+i+'&select=id,paso_id,tipo,storage_path,nombre,mime,bytes,vigente,visible_cliente,subido_at&order=subido_at.desc'),
       A.get('te_eventos?trabajo_id=eq.'+i+'&select=id,tipo,actor,creado_at&order=creado_at.desc&limit=40'),
       A.get('te_tareas?trabajo_id=eq.'+i+'&estado=eq.ABIERTA&select=id,tipo,creada_at'),
       // TE-F1C: factura adicional vinculada (si la función aún no está instalada, se muestra la vista anterior de T1)
@@ -83,6 +91,14 @@ var REAL={
       A.get('te_trabajos?id=eq.'+i+'&select=cotizacion_origen_id').then(function(x){var oid=x&&x[0]&&x[0].cotizacion_origen_id;if(!oid)return null;
         return A.get('cot_cotizaciones?id=eq.'+q(oid)+'&select=id,codigo,version').then(function(c){return c&&c[0]||{id:oid};}).catch(function(){return {id:oid};});}).catch(function(){return null;})
     ]).then(function(r){return {t:r[0][0]||null,cuotas:r[1],facturas:r[2],pasos:r[3],docs:r[4],eventos:r[5],tareas:r[6],fa:r[7]||null,origen:r[8]||null};});
+  },
+  // T1-TXT: última versión publicada de la plantilla de un servicio (RLS te_puede_leer_modulo).
+  plantilla:function(servicioId){
+    return A.get('te_plantillas?servicio_id=eq.'+q(servicioId)+'&select=id,version,publicada_at&order=version.desc&limit=1').then(function(p){
+      if(!p||!p[0])return {plantilla:null,pasos:[]};
+      return A.get('te_plantilla_pasos?plantilla_id=eq.'+q(p[0].id)+'&select=orden,nombre,plazo_dias,requiere_documento,tipo_documento,obligatorio,es_entrega,avisa_cliente,texto_cliente,nota&order=orden.asc')
+        .then(function(ps){return {plantilla:p[0],pasos:ps||[]};});
+    });
   },
   servicios:function(){return A.get('servicios_adicionales?select=id,nombre,descripcion,precio,precio_hasta,moneda,tipo&activo=eq.true&moneda=eq.CLP&tipo=in.(puntual,por_propuesta)&order=nombre.asc');},
   clientes:function(){return A.get('clientes?select=id,razon_social&order=razon_social.asc&limit=3000').catch(function(){return [];});},
@@ -109,11 +125,11 @@ var EV={BORRADOR_CREADO:'Borrador creado',BORRADOR_EDITADO:'Borrador editado',EN
   COTIZACION_ENVIADA:'Enviada al cliente (aviso en cola)',COTIZACION_RENOVADA:'Renovada',COTIZACION_ACEPTADA:'Aceptada',COTIZACION_RECHAZADA:'Rechazada por el cliente',FACTURA_PREPARADA:'Factura preparada',
   FACTURA_APROBADA:'Factura aprobada',FACTURA_EMITIDA:'Factura emitida',CUOTA_PAGADA:'Cuota pagada (Cobranza)',CUOTA_PAGO_REVERTIDO:'Pago de cuota revertido (Cobranza)',TRABAJO_INICIADO:'Trabajo iniciado',
   INICIO_AUTORIZADO_SIN_PAGO:'Inicio autorizado sin pago (Master)',PASO_HECHO:'Paso hecho',PASO_SALTADO:'Paso saltado',DOCUMENTO_SUBIDO:'Documento subido',DOCUMENTO_REEMPLAZADO:'Documento reemplazado',
-  TRABAJO_TERMINADO:'Trabajo terminado',FACTURA_ADICIONAL_CREADA:'Factura adicional creada (Facturación)',FACTURA_ADICIONAL_TOTAL_DIFIERE:'Factura emitida con total distinto',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado',ORIGEN_COTIZACION:'Nació de una cotización aceptada'};
+  TRABAJO_TERMINADO:'Trabajo terminado',FACTURA_ADICIONAL_CREADA:'Factura adicional creada (Facturación)',FACTURA_ADICIONAL_TOTAL_DIFIERE:'Factura emitida con total distinto',TRABAJO_CERRADO:'Trabajo cerrado',TRABAJO_CERRADO_SIN_COMPLETAR:'Cerrado sin completar',SERVICIO_ASIGNADO:'Servicio asignado',ORIGEN_COTIZACION:'Nació de una cotización aceptada',PASO_TEXTO_CLIENTE:'Texto para el cliente actualizado'};
 var FAC={PENDIENTE:{t:'Instrucción pendiente',c:'ambar'},LISTA:{t:'Lista · espera aprobación del Master',c:'cel'},APROBADA:{t:'Aprobada · por emitir',c:'lila'},EMITIENDO:{t:'Emitiendo',c:'cel'},
   INCIERTO:{t:'Incierto · por conciliar',c:'naranja'},EMITIDA:{t:'Emitida',c:'verde'},ERROR:{t:'Error',c:'rojo'},ANULADA:{t:'Anulada',c:'gris'}};
 
-var S={yo:null,trab:[],par:null,usuarios:{},vista:'tablero',buscar:'',soloMios:false,hoy:G.hoyCL()};
+var S={yo:null,trab:[],par:null,usuarios:{},vista:'tablero',buscar:'',soloMios:false,hoy:G.hoyCL(),pl:{servicios:null,servicio:'',datos:null,cargando:false,err:null}};
 function esEditor(t){return S.yo&&(S.yo.es_master||(S.yo.responsable&&String(t.responsable_usuario_id)===String(S.yo.usuario_id)));}
 function respNombre(id){if(S.yo&&String(id)===String(S.yo.usuario_id))return 'Tú';return S.usuarios[id]||('Responsable N.º '+id);}
 
@@ -147,8 +163,37 @@ function render(){
   var lista=abiertos.filter(filtra);
   if(S.vista==='tablero')h+=tableroHtml(lista);
   else if(S.vista==='tabla')h+=tablaHtml(lista,false);
+  else if(S.vista==='plantillas'&&S.yo.es_master)h+=plantillasHtml();
   else h+=tablaHtml(S.trab.filter(function(t){return t.cerrado_at;}).filter(filtra),true);
   app.innerHTML=h;
+}
+/* ── T1-TXT · Plantillas: textos para el cliente (solo el Master; cada publicación es una versión nueva e inmutable) ── */
+function plantillasHtml(){
+  var P=S.pl,h='<section class="card"><h3>Textos para el cliente en las plantillas de checklist</h3>'
+    +'<p class="nota">Lo que escribas aquí se copia a los trabajos que se inicien <b>desde ahora</b>; los trabajos en curso se ajustan en su ficha (botón «Texto cliente» en cada paso). Publicar crea una versión nueva: las anteriores no cambian.</p>';
+  if(!P.servicios){if(!P.cargando){P.cargando=true;D.servicios().then(function(l){P.servicios=l||[];P.cargando=false;render();}).catch(function(e){P.err=mErr(e);P.cargando=false;render();});}
+    return h+'<p class="t3">Cargando servicios…</p></section>';}
+  h+='<label class="campo"><span>Servicio</span><select id="tePlServ"><option value="">Elige un servicio…</option>'+P.servicios.map(function(s){return '<option value="'+esc(s.id)+'"'+(s.id===P.servicio?' selected':'')+'>'+esc(s.nombre)+'</option>';}).join('')+'</select></label>';
+  if(P.err)h+='<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>'+esc(P.err)+'</span></div>';
+  if(!P.servicio)return h+'</section>';
+  if(P.cargando||!P.datos)return h+'<p class="t3">Cargando plantilla…</p></section>';
+  if(!P.datos.plantilla)return h+'<p class="t3">Este servicio aún no tiene una plantilla de checklist publicada. Crear la primera plantilla (pasos, plazos y documentos) no es parte de esta pantalla.</p></section>';
+  h+='<p class="t3">Versión vigente: '+esc(P.datos.plantilla.version)+' · publicada el '+G.fHora(P.datos.plantilla.publicada_at)+'</p><ol class="te-pl">';
+  P.datos.pasos.forEach(function(p,i){h+='<li><b>'+esc(p.nombre)+(p.es_entrega?' 📦':'')+'</b><small class="t3"> · '+(p.obligatorio?'obligatorio':'opcional')+' · plazo '+esc(p.plazo_dias)+' d</small>'
+    +'<label class="campo"><span>Texto para el cliente (vacío = no se muestra ni avisa)</span><textarea data-pl-txt="'+i+'" maxlength="500" rows="2">'+esc(p.texto_cliente||'')+'</textarea></label></li>';});
+  return h+'</ol><div class="acciones"><button type="button" class="btn" data-act="pl-publicar">Publicar versión nueva</button></div></section>';
+}
+function cargarPlantilla(id){var P=S.pl;P.servicio=id;P.datos=null;P.err=null;if(!id){render();return;}P.cargando=true;render();
+  D.plantilla(id).then(function(d){if(S.pl.servicio!==id)return;P.datos=d;P.cargando=false;render();}).catch(function(e){P.err=mErr(e);P.cargando=false;render();});}
+function publicarPlantilla(){
+  var P=S.pl;if(!P.datos||!P.datos.plantilla)return;
+  var pasos;try{pasos=P.datos.pasos.map(function(p,i){var el=document.querySelector('[data-pl-txt="'+i+'"]');var v=validarTextoCliente(el?el.value.trim():(p.texto_cliente||''));
+    return {nombre:p.nombre,plazo_dias:p.plazo_dias,requiere_documento:p.requiere_documento,tipo_documento:p.tipo_documento,obligatorio:p.obligatorio,es_entrega:p.es_entrega,avisa_cliente:!!v,texto_cliente:v,nota:p.nota};});}
+  catch(e){G.toast(e.message,true);return;}
+  G.modal({titulo:'Publicar versión nueva',ok:'Publicar',html:'<p>Se publica la versión '+(Number(P.datos.plantilla.version)+1)+' con los mismos pasos y los textos para el cliente que escribiste.</p>'
+    +'<label class="campo"><span>Qué cambia (mínimo 3 caracteres)</span><input id="tePlCambio" maxlength="500" value="Textos para el cliente"></label>',
+    alAceptar:function(m){var c=m.querySelector('#tePlCambio').value.trim();if(c.length<3)throw new Error(ERR.CAMBIO_OBLIGATORIO);
+      return D.rpc('te_plantilla_publicar',{p_servicio_id:P.servicio,p_pasos:pasos,p_cambio:c}).then(function(r){G.toast('Plantilla publicada · versión '+(r&&r.version||''));cargarPlantilla(P.servicio);return true;}).catch(function(e){throw new Error(mErr(e));});}});
 }
 function filtra(t){
   if(S.soloMios&&String(t.responsable_usuario_id)!==String(S.yo.usuario_id))return false;
@@ -187,6 +232,7 @@ function barraHtml(ab){
     +'<button type="button" class="sn'+(S.vista==='tablero'?' on':'')+'" data-act="vista" data-v="tablero">'+I('columnas')+'Tablero</button>'
     +'<button type="button" class="sn'+(S.vista==='tabla'?' on':'')+'" data-act="vista" data-v="tabla">'+I('tabla')+'Tabla <span class="cnt">'+ab.length+'</span></button>'
     +'<button type="button" class="sn'+(S.vista==='historial'?' on':'')+'" data-act="vista" data-v="historial">'+I('historial')+'Historial <span class="cnt">'+nH+'</span></button>'
+    +(S.yo.es_master?'<button type="button" class="sn'+(S.vista==='plantillas'?' on':'')+'" data-act="vista" data-v="plantillas" title="Textos para el cliente en las plantillas de checklist (solo el Master publica)">'+I('tabla')+'Plantillas</button>':'')
     +'<input type="search" class="gc-buscar" id="teBuscar" placeholder="Buscar cliente, código o servicio…" value="'+esc(S.buscar)+'" aria-label="Buscar">'
     +(!(S.yo.es_master||(S.yo.responsable&&S.par&&S.par.responsable_ve_todos))?'':'<label class="chk" style="margin:0"><input type="checkbox" id="teMios"'+(S.soloMios?' checked':'')+'> Solo los míos</label>')
     +(puede?'<a class="btn" href="../cotizaciones/index.html?nueva=te" style="margin-left:auto" title="Las cotizaciones (propuestas) se hacen en Comercial → Cotizaciones; al aceptarse, nace aquí el trabajo especial">'+I('plus')+'Nueva cotización (en Cotizaciones)</a>':'')
@@ -280,9 +326,11 @@ function fichaHtml(f){
         ac+='<button type="button" class="btn chico verde" data-act="marcar" data-paso="'+esc(p.id)+'"'+(p.requiere_documento&&!doc?' disabled title="Sube primero el documento"':'')+'>Hecho</button>';
         if(t.etapa==='EN_EJECUCION'&&!p.es_entrega&&(yo.es_master||!p.obligatorio))ac+='<button type="button" class="btn chico peligro" data-act="saltar" data-paso="'+esc(p.id)+'">Saltar</button>';
       }
+      if(ed&&!cerr)ac+='<button type="button" class="btn chico sec" data-act="texto-cli" data-paso="'+esc(p.id)+'" title="Lo que ve el cliente en MiContadoor y en el aviso">Texto cliente</button>';
       h+='<li class="'+(p.estado==='HECHO'?'hecho':p.estado==='SALTADO'?'saltado':'')+'"><span class="mk">'+(p.estado==='HECHO'?G.svg('check'):'')+'</span><div class="tx"><b>'+esc(p.nombre)+(p.es_entrega?' 📦':'')+'</b>'
         +'<small>'+(p.obligatorio?'Obligatorio':'Opcional')+' · plazo '+p.plazo_dias+' d'+(p.requiere_documento?' · documento: '+esc(p.tipo_documento):'')+(p.avisa_cliente?' · avisa al cliente (en cola)':'')+(p.estado==='SALTADO'?' · saltado: '+esc(p.saltado_motivo):'')+'</small>'
-        +(doc?'<small>📎 <button type="button" class="link" data-act="ver-doc" data-ruta="'+esc(doc.storage_path)+'">'+esc(doc.nombre)+'</button></small>':'')+'</div><div class="ac">'+ac+'</div></li>';
+        +(p.texto_cliente?'<small>👤 El cliente ve: «'+esc(p.texto_cliente)+'»</small>':'<small class="t3">👤 Sin texto para el cliente: este paso no se muestra en MiContadoor</small>')
+        +(doc?'<small>📎 <button type="button" class="link" data-act="ver-doc" data-ruta="'+esc(doc.storage_path)+'">'+esc(doc.nombre)+'</button>'+(doc.visible_cliente?' · visible para el cliente':'')+'</small>':'')+'</div><div class="ac">'+ac+'</div></li>';
     });
     h+='</ul></section>';
   }
@@ -290,7 +338,7 @@ function fichaHtml(f){
   var otros=f.docs.filter(function(d){return d.tipo!=='PASO';});
   h+='<section><h4>📎 Documentos</h4>';
   if(!f.docs.length)h+='<p class="t3">Sin documentos.</p>';
-  h+=otros.map(function(d){return '<div class="te-doc">'+I('archivo','ic-mor')+'<span class="nm">'+esc(d.nombre)+'<br><small class="t3">'+(d.tipo==='ACEPTACION'?'Respaldo de aceptación':'Otro')+' · '+G.fHora(d.subido_at)+(d.vigente?'':' · reemplazado')+'</small></span><button type="button" class="btn chico sec" data-act="ver-doc" data-ruta="'+esc(d.storage_path)+'">Ver</button></div>';}).join('');
+  h+=otros.map(function(d){return '<div class="te-doc">'+I('archivo','ic-mor')+'<span class="nm">'+esc(d.nombre)+'<br><small class="t3">'+(d.tipo==='ACEPTACION'?'Respaldo de aceptación':'Otro')+' · '+G.fHora(d.subido_at)+(d.vigente?'':' · reemplazado')+(d.visible_cliente?' · visible para el cliente':'')+'</small></span><button type="button" class="btn chico sec" data-act="ver-doc" data-ruta="'+esc(d.storage_path)+'">Ver</button></div>';}).join('');
   if(ed&&!cerr)h+='<div class="acciones"><button type="button" class="btn chico sec" data-act="subir-otro">'+I('subir')+'Subir otro documento</button></div>';
   else if(!cerr)h+='<p class="nota">Pagos y Facturación ven los documentos; los sube el responsable o el Master.</p>';
   h+='</section>';
@@ -350,14 +398,17 @@ function validarArchivo(file){
   if(file.size<1||file.size>20971520)throw new Error('El archivo debe pesar menos de 20 MB.');
 }
 /* Sube al bucket y registra el documento. tipo: PASO | ACEPTACION | OTRO */
-function subirYRegistrar(t,tipo,pasoId,file){
+function subirYRegistrar(t,tipo,pasoId,file,visible){
   validarArchivo(file);
   var carpeta=tipo==='PASO'?'paso-'+pasoId:tipo==='ACEPTACION'?'aceptacion':'otros', ruta=t.id+'/'+carpeta+'/'+nombreArchivo(file.name);
   return sha256(file).then(function(h){return D.subir(ruta,file).then(function(){
-    return D.rpc('te_documento_registrar',{p_trabajo:Number(t.id),p_paso:pasoId?Number(pasoId):null,p_tipo:tipo,p_storage_path:ruta,p_nombre:String(file.name).slice(0,200),p_mime:file.type,p_bytes:file.size,p_sha256:h,p_visible_cliente:false});
+    return D.rpc('te_documento_registrar',{p_trabajo:Number(t.id),p_paso:pasoId?Number(pasoId):null,p_tipo:tipo,p_storage_path:ruta,p_nombre:String(file.name).slice(0,200),p_mime:file.type,p_bytes:file.size,p_sha256:h,p_visible_cliente:visible===true});
   });});
 }
 var campoArchivo='<label class="campo"><span>Archivo (PDF, imagen, DOCX o XLSX · máx. 20 MB)</span><input type="file" id="teArch" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx"></label>';
+// MC-5: el cliente ve en MiContadoor solo los documentos marcados aquí (con la entrega retenida, solo la aceptación hasta el pago final).
+var campoVisible='<label class="chk"><input type="checkbox" id="teVisCli"> Visible para el cliente en MiContadoor</label>';
+function visCli(m){var c=m.querySelector('#teVisCli');return !!(c&&c.checked);}
 
 function accion(a,el){
   var f=FICHA, t=f&&f.t;
@@ -381,9 +432,15 @@ function accion(a,el){
   else if(a==='marcar'){var p=f.pasos.find(function(x){return String(x.id)===el.getAttribute('data-paso');});confirmar('Marcar paso hecho','«'+esc(p.nombre)+'»'+(p.avisa_cliente?' · el aviso al cliente queda en cola.':''),'te_paso_marcar',{p_paso:Number(p.id)},'Paso marcado.','verde');}
   else if(a==='saltar'){var ps=el.getAttribute('data-paso');conMotivo('Saltar paso (Master)','El paso queda saltado con tu motivo en la bitácora.',10,'te_paso_saltar',function(v){return {p_paso:Number(ps),p_motivo:v};},'Paso saltado.','peligro');}
   else if(a==='subir-paso'){var pid=el.getAttribute('data-paso'),pp=f.pasos.find(function(x){return String(x.id)===pid;});
-    G.modal({titulo:'Subir documento del paso',ok:'Subir',html:'<p>«'+esc(pp.nombre)+'» · '+esc(pp.tipo_documento||'')+'</p>'+campoArchivo+'<p class="nota">No se borra ni se sobrescribe: si ya había uno, queda como reemplazado.</p>',
-      alAceptar:function(m){var file=m.querySelector('#teArch').files[0];validarArchivo(file);return subirYRegistrar(t,'PASO',pid,file).then(function(){recargar('Documento subido.',t.id);return true;}).catch(function(e){throw new Error(mErr(e));});}});}
-  else if(a==='subir-otro')G.modal({titulo:'Subir otro documento',ok:'Subir',html:campoArchivo,alAceptar:function(m){var file=m.querySelector('#teArch').files[0];validarArchivo(file);return subirYRegistrar(t,'OTRO',null,file).then(function(){recargar('Documento subido.',t.id);return true;}).catch(function(e){throw new Error(mErr(e));});}});
+    G.modal({titulo:'Subir documento del paso',ok:'Subir',html:'<p>«'+esc(pp.nombre)+'» · '+esc(pp.tipo_documento||'')+'</p>'+campoArchivo+campoVisible+'<p class="nota">No se borra ni se sobrescribe: si ya había uno, queda como reemplazado.</p>',
+      alAceptar:function(m){var file=m.querySelector('#teArch').files[0];validarArchivo(file);return subirYRegistrar(t,'PASO',pid,file,visCli(m)).then(function(){recargar('Documento subido.',t.id);return true;}).catch(function(e){throw new Error(mErr(e));});}});}
+  else if(a==='subir-otro')G.modal({titulo:'Subir otro documento',ok:'Subir',html:campoArchivo+campoVisible,alAceptar:function(m){var file=m.querySelector('#teArch').files[0];validarArchivo(file);return subirYRegistrar(t,'OTRO',null,file,visCli(m)).then(function(){recargar('Documento subido.',t.id);return true;}).catch(function(e){throw new Error(mErr(e));});}});
+  else if(a==='texto-cli'){var tp=f.pasos.find(function(x){return String(x.id)===el.getAttribute('data-paso');});
+    G.modal({titulo:'Texto para el cliente',ok:'Guardar',html:'<p>Paso interno: «'+esc(tp.nombre)+'»</p>'
+      +'<label class="campo"><span>Lo que ve el cliente (MiContadoor y aviso «Avance de tu trabajo»)</span><textarea id="teTxt" maxlength="500" rows="3">'+esc(tp.texto_cliente||'')+'</textarea></label>'
+      +'<p class="nota">Escríbelo como lo diría el cliente, p. ej. «Firma en notaría». De 5 a 500 caracteres; nunca «honorarios» (di «nuestros servicios»). Déjalo vacío para que este paso no se muestre ni avise al cliente. Si el paso ya está hecho, cambiar el texto no reenvía el aviso.</p>',
+      alAceptar:function(m){var v=validarTextoCliente(m.querySelector('#teTxt').value.trim());
+        return ejecutar('te_paso_texto_cliente_fijar',{p_paso:Number(tp.id),p_texto:v},v?'Texto para el cliente guardado.':'El paso ya no se muestra al cliente.');}});}
   else if(a==='ver-doc'){var ruta=el.getAttribute('data-ruta');var w=window.open('about:blank','_blank');D.urlFirmada(ruta).then(function(u){if(w){w.opener=null;w.location.href=u;}else location.href=u;}).catch(function(e){if(w)w.close();G.toast(mErr(e),true);});}
 }
 function facVig(f){return f.facturas.find(function(x){return x.estado!=='ANULADA';});}
@@ -514,11 +571,12 @@ document.addEventListener('click',function(ev){
   else if(a==='ficha')abrirFicha(b.getAttribute('data-id'));
   else if(a==='nueva')abrirNueva();
   else if(a==='recargar'){S.err=null;cargar();}
+  else if(a==='pl-publicar')publicarPlantilla();
   else if(FICHA)accion(a,b);
 });
 document.addEventListener('keydown',function(ev){if((ev.key==='Enter'||ev.key===' ')&&ev.target.tagName==='TR'&&ev.target.getAttribute('data-act')==='ficha'){ev.preventDefault();abrirFicha(ev.target.getAttribute('data-id'));}});
 document.addEventListener('input',function(ev){if(ev.target.id==='teBuscar'){S.buscar=ev.target.value.trim();var pos=ev.target.selectionStart;render();var i=$('teBuscar');if(i){i.focus();try{i.setSelectionRange(pos,pos);}catch(e){}}}});
-document.addEventListener('change',function(ev){if(ev.target.id==='teMios'){S.soloMios=ev.target.checked;render();}});
+document.addEventListener('change',function(ev){if(ev.target.id==='teMios'){S.soloMios=ev.target.checked;render();}else if(ev.target.id==='tePlServ')cargarPlantilla(ev.target.value);});
 
 function iniciar(){
   pintar();
