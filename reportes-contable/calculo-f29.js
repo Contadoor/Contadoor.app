@@ -127,7 +127,7 @@
     if (estadoContable === 'completado') return { validado: true, texto: f ? 'IVA validado el ' + f + (por ? ' por ' + por : '') : 'IVA validado en el Reporte Contable' };
     return { validado: false, texto: 'Aún no validado' + (fila && fila.fecha_envio ? ' · Pre-IVA (estimado) enviado el ' + fechaCorta(fila.fecha_envio) : fila ? ' · hay un borrador guardado en Pre-IVA' : '') };
   }
-  function urlPreIva(clienteId, periodo) { return '../pre-iva/index.html?periodo=' + encodeURIComponent(perGuion(periodo)) + '&cliente=' + encodeURIComponent(String(clienteId)); }
+  // R3: Contable NO enlaza al Pre-IVA (el IVA del período se revisa y valida aquí). Se quitó urlPreIva.
 
   // ── Datos (solo SELECT con el JWT del usuario) ───────────────────────────────────────────────────
   function getJson(path, f) {
@@ -305,7 +305,7 @@
     });
   }
 
-  var api = { armar: armar, estadoValidacion: estadoValidacion, urlPreIva: urlPreIva, leerPreiva: leerPreiva, montar: montar, pesos: pesos,
+  var api = { armar: armar, estadoValidacion: estadoValidacion, leerPreiva: leerPreiva, montar: montar, pesos: pesos,
     _limpiarCache: function () { cacheHist = {}; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.ContableCalculoF29 = api;
