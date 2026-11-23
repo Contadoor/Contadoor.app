@@ -3,6 +3,8 @@
 // La REGLA vive en la base: public.remanente_anterior(rut, periodo) → {estado: CONOCIDO | SIN_DATO | CONFLICTO, fuente, cod77, cod504, ...}.
 //   · cód. 77 = remanente del F29 del período anterior (dato fuente, tal cual).
 //   · cód. 504 = 77 reajustado por UTM (art. 27 DL 825): 77 × UTM(mes de presentación del período) ÷ UTM(mes de presentación del anterior).
+//   · fuente: F29_MANUAL (ingresado a mano) | MES_ANTERIOR (reporte validado en Gestoor) | F29_SII (23-11: F29 vigente del mes anterior en el
+//     SII, vía Cartapra, cuando Gestoor no tiene ese mes validado). 'aviso_sii' = el SII trae otro cód. 77 que el usado (informa, no bloquea).
 // Aquí solo se traduce esa respuesta a pantalla. Fail-closed: todo lo que no sea CONOCIDO bloquea y NUNCA se usa 0 en silencio
 // ("cero confirmado" = CONOCIDO con 77 = 0; "sin dato" = SIN_DATO).
 (function (raiz) {
@@ -20,6 +22,7 @@
     return m ? MESES[Number(m[2]) - 1] + ' ' + m[1] : String(periodo || '');
   }
   function pesos(n) { return '$' + Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function textoSii(mesAnt, folio) { return 'Remanente del F29 de ' + mesAnt + ' en el SII' + (folio != null && folio !== '' ? ' (folio ' + folio + ')' : ''); }
   function entero(x) { var v = Number(x); return (x !== null && x !== undefined && x !== '' && isFinite(v) && v >= 0 && v === Math.floor(v)) ? v : null; }
 
   var MOTIVOS = {
@@ -35,7 +38,8 @@
     o = o || {};
     var i = o.info || null;
     var perAnt = (i && typeof i === 'object' && /^\d{4}-\d{2}$/.test(i.periodo_anterior || '')) ? i.periodo_anterior : periodoAnterior(o.periodo), mesAnt = nombreMes(perAnt);   // manda lo que respondió la base
-    var base = { monto: 0, cod77: null, cod504: null, fuente: null, estado: 'SIN_DATO', bloquea: true, periodoAnterior: perAnt, manual: null, detalle: '', aviso: '', conflicto: null };
+    var base = { monto: 0, cod77: null, cod504: null, fuente: null, estado: 'SIN_DATO', bloquea: true, periodoAnterior: perAnt, manual: null, detalle: '', aviso: '', conflicto: null,
+                 sii: null, avisoSii: '' };
     if (o.lecturaOk === false || (!i && o.lecturaOk !== true)) {
       base.fuente = 'sin_lectura';
       base.aviso = 'No se pudo leer el remanente anterior: recarga la página antes de validar (no se puede asumir $0).';
@@ -55,6 +59,12 @@
     if (i.fuente === 'F29_MANUAL') {
       base.manual = i.manual || {};
     }
+    // 23-11: el SII trae otro cód. 77 que el usado (Gestoor o manual) → solo se informa
+    var av = i.aviso_sii;
+    if (av && typeof av === 'object' && av.motivo === 'F29_SII_DISTINTO' && entero(av.cod77_sii) !== null) {
+      base.avisoSii = 'Ojo: el F29 de ' + mesAnt + ' en el SII' + (av.folio ? ' (folio ' + av.folio + ')' : '') + ' trae cód. 77 ' + pesos(av.cod77_sii) +
+        ' y Gestoor usa ' + pesos(av.cod77_usado) + '. Revisa si el F29 se rectificó.';
+    }
     if (i.estado === 'CONOCIDO' && c77 !== null && c504 !== null) {
       base.monto = c504; base.bloquea = false;
       if (i.fuente === 'F29_MANUAL') {
@@ -63,6 +73,12 @@
         base.aviso = 'Remanente ingresado a mano' + (m.usuario_nombre ? ' por ' + m.usuario_nombre : '') +
           (m.registrado_at ? ' el ' + String(m.registrado_at).slice(0, 10).split('-').reverse().join('-') : '') + (m.motivo ? ' · ' + m.motivo : '') +
           (m.conflicto_decision === 'MANTENER_MANUAL' ? ' · el Master decidió mantenerlo frente al reporte de ' + mesAnt : '');
+      } else if (i.fuente === 'F29_SII') {
+        // 23-11: Gestoor no tiene ese mes validado → manda el F29 vigente del SII (sin ingresarlo a mano)
+        base.fuente = 'sii_f29';
+        var fs = (i.f29_sii && typeof i.f29_sii === 'object') ? i.f29_sii : {};
+        base.sii = { folio: i.folio != null ? i.folio : (fs.folio != null ? fs.folio : null), periodo: fs.periodo || perAnt, sinCod77: fs.fuente_77 === 'sii_sin_codigo_77' };
+        base.aviso = textoSii(mesAnt, base.sii.folio) + (base.sii.sinCod77 ? ' · sin cód. 77 = sin remanente' : '');
       } else {
         base.fuente = 'mes_anterior';
       }
@@ -80,6 +96,6 @@
     return base;
   }
 
-  var api = { resolver: resolver, periodoAnterior: periodoAnterior, nombreMes: nombreMes, pesos: pesos };
+  var api = { resolver: resolver, periodoAnterior: periodoAnterior, nombreMes: nombreMes, pesos: pesos, textoSii: textoSii };
   if (typeof module === 'object' && module.exports) module.exports = api; else raiz.RemanenteAnterior = api;
 })(typeof window !== 'undefined' ? window : this);

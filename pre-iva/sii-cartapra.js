@@ -98,7 +98,7 @@
       return { valor: num(p.remanente.valor), origen: 'sii', texto: p.remanente.texto, aviso: null, bloqueo: null };
     var antC = info.periodoAnterior ? perSin(info.periodoAnterior) : null;
     if ((rc.fuente === 'contable' || rc.fuente === 'manual') && num(rc.valor) != null && (!antC || !ant || antC === ant))
-      return { valor: num(rc.valor), origen: rc.fuente, texto: (rc.fuente === 'manual' ? 'cód. 504 · ' : 'cód. 504 desde Contable · ') + (info.detalle || ''),
+      return { valor: num(rc.valor), origen: rc.fuente, texto: (rc.fuente === 'manual' ? 'cód. 504 · ' : info.fuente === 'sii_f29' ? 'cód. 504 · ' + (info.aviso || 'F29 del SII') + ' · ' : 'cód. 504 desde Contable · ') + (info.detalle || ''),
                aviso: rc.fuente === 'manual' ? (info.aviso || 'Remanente ingresado a mano') : null, bloqueo: null };
     // Ingreso a mano (RPC registrar_remanente_anterior_manual): solo si el reporte del mes anterior NO existe en Gestoor (la base lo vuelve a exigir)
     var puedeManual = info.fuente === 'falta' || info.fuente === 'manual';
