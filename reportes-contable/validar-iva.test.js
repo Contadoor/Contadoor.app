@@ -242,3 +242,32 @@ test('19-11 · empresa CONECTADA: el resumen del SII basta (sin libros); sin dat
   assert.match(extraer('renderPipelineContable'), /lbl:siiConectado\(c\)\?'Datos del SII':'Libros'/);
   assert.match(extraer('renderSeccionLibros'), /if\(conResumenSii && siiConectado\(c\)\)\{ h \+= '<\/div>'; return h; \}/);
 });
+
+// ── 23-11 · REMANENTE-SII-AUTOMATICO (caso real 22-11, datos ficticios): septiembre NO existe en Gestoor, pero el F29 de septiembre está en el
+// SII sin cód. 77. La base (remanente_anterior) responde CONOCIDO · F29_SII · 0 → «Validar IVA» ya no pide ingresarlo a mano.
+test('F29_SII: valida octubre con el remanente del F29 del SII (sin ingreso a mano) y lo rotula así', async () => {
+  const RAW0 = Object.assign({}, RAW, { remanente_anterior: { periodo: '202609', folio: 555, cod77: 0, cod504: 0, fuente: 'sii_sin_codigo_77', mes_utm_origen: '2026-10',
+    mes_utm_destino: '2026-11', utm_origen: 69000, utm_destino: 69690, falta_utm: [] } });
+  const INFO_SII = { estado: 'CONOCIDO', fuente: 'F29_SII', cod77: 0, cod504: 0, folio: 555, utm_origen: 69000, utm_destino: 69690, mes_utm_origen: '2026-10',
+    mes_utm_destino: '2026-11', periodo: '2026-10', periodo_anterior: '2026-09', f29_sii: { periodo: '2026-09', folio: 555, fuente_77: 'sii_sin_codigo_77' } };
+  const E = entorno({ info: INFO_SII });
+  const a = tarjeta(E.ctx, { raw: RAW0 });
+  assert.equal(a.remValidacion.bloqueo, null, 'no bloquea');
+  assert.equal(a.remValidacion.origen, 'sii_f29');
+  assert.equal(a.remValidacion.texto, 'Remanente del F29 de septiembre 2026 en el SII (folio 555) · sin cód. 77 = sin remanente');
+  assert.equal(a.validar.remanenteAnterior, 0, 'remanente 0 CONFIRMADO por el SII (no un 0 por defecto)');
+  assert.deepEqual(a.bloqueosValidar, []);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), true);
+  assert.equal(E.peticiones[0].path, 'reportes_mensuales?id=eq.555');
+  assert.equal(E.peticiones[0].body.iva_remanente_sig, 0); assert.equal(E.peticiones[0].body.estado_contable, 'completado');
+  assert.ok(!E.peticiones.some((p) => /registrar_remanente_anterior_manual/.test(p.path)), 'no se registra nada a mano');
+  // Antes del cambio (la base respondía SIN_MES_ANTERIOR) se bloqueaba y pedía ingresarlo a mano
+  const E2 = entorno({ info: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-10', periodo_anterior: '2026-09' } });
+  const a2 = tarjeta(E2.ctx, { raw: RAW0 });
+  assert.equal(a2.remValidacion.bloqueo.puedeManual, true);
+  // Y si la base trae aviso_sii (Gestoor manda, el SII difiere) se informa sin bloquear
+  const E3 = entorno({ info: Object.assign({}, INFO_OK, { aviso_sii: { motivo: 'F29_SII_DISTINTO', cod77_sii: 90000, folio: 123, cod77_usado: 100000 } }) });
+  const a3 = tarjeta(E3.ctx);
+  assert.equal(a3.remValidacion.bloqueo, null);
+  assert.match(a3.remValidacion.aviso, /el F29 de septiembre 2026 en el SII \(folio 123\) trae cód\. 77 \$90\.000 y Gestoor usa \$100\.000/);
+});

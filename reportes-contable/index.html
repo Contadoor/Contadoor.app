@@ -4214,7 +4214,7 @@ function pintarAvisoRemanente(borrador){
   var info=borrador._remanente||{};
   var nomAnt=window.RemanenteAnterior.nombreMes(info.periodoAnterior);
   if(fte) fte.textContent = info.bloquea ? (info.fuente==='conflicto'?'En conflicto':'Sin confirmar')+' ('+nomAnt+')'
-    : 'Cód. 504 · '+(info.fuente==='manual'?'ingresado a mano':'desde '+nomAnt);
+    : 'Cód. 504 · '+(info.fuente==='manual'?'ingresado a mano':info.fuente==='sii_f29'?'F29 de '+nomAnt+' en el SII'+(info.sii&&info.sii.folio!=null?' (folio '+info.sii.folio+')':''):'desde '+nomAnt);
   if(det){ det.style.display=info.detalle?'block':'none'; det.textContent=info.detalle||''; }
   // Ingreso a mano: solo si el mes anterior NO existe y el Pre-IVA está abierto (la base lo vuelve a exigir).
   var puedeManual=!borrador._periodoValidado && (info.fuente==='falta'||info.fuente==='manual');
@@ -4222,12 +4222,14 @@ function pintarAvisoRemanente(borrador){
   var conflictoMaster=info.fuente==='conflicto'&&remEsMaster();
   if(bM) bM.style.display=conflictoMaster?'inline-block':'none';
   if(bU) bU.style.display=conflictoMaster&&!borrador._periodoValidado?'inline-block':'none';
-  var mostrar=!!info.aviso&&(!borrador._periodoValidado||info.fuente==='conflicto');
+  // 23-11: avisoSii = el F29 del SII trae otro cód. 77 que el usado (informa, no bloquea); fuente sii_f29 = tomado del F29 del SII.
+  var avisoTxt=[info.aviso||'',info.avisoSii||''].filter(Boolean).join(' · ');
+  var mostrar=!!avisoTxt&&(!borrador._periodoValidado||info.fuente==='conflicto');
   if(!mostrar){ box.style.display='none'; return; }
   box.style.display='block';
   box.style.background=info.bloquea?'#fee2e2':'#fff4dc';
   box.style.color=info.bloquea?'#991b1b':'#7a4b00';
-  txt.textContent=(info.bloquea?'⚠️ ':'✍️ ')+info.aviso;
+  txt.textContent=(info.bloquea||info.avisoSii?'⚠️ ':info.fuente==='sii_f29'?'✅ ':'✍️ ')+avisoTxt;
 }
 function remMensajeError(m, nomAnt){
   m=String(m||'Error desconocido');

@@ -92,7 +92,8 @@
 
   // ── Remanente para VALIDAR en Contable (bloqueo) ───────────────────────────────────────────────
   // o: { periodo, sii (aPantalla o null), remContable {valor, fuente, info (RemanenteAnterior.resolver), raw} }
-  // Manda el de Contable (public.remanente_anterior: reporte del mes anterior validado o cód. 77 ingresado a mano): es el que la base usa
+  // Manda el de Contable (public.remanente_anterior: reporte del mes anterior validado, cód. 77 ingresado a mano o — 23-11 — el F29 vigente
+  // del mes anterior en el SII cuando Gestoor no tiene ese mes validado, fuente F29_SII): es el que la base usa
   // para revisar el remanente siguiente. El del SII se usa para CONTRASTAR: si no coinciden, no se valida. Sin el de Contable → BLOQUEO
   // (con «Ingresar remanente a mano» si la base lo permite, sugiriendo el cód. 77 del SII). Nunca $0, nunca dos meses atrás.
   function remanenteValidacion(o) {
@@ -120,7 +121,10 @@
       return { valor: null, origen: null, bloqueo: { tipo: 'descuadre', puedeManual: false, mesAnterior: mA, mes: mP, cod77Sugerido: cod77Sii,
         mensaje: '⚠️ El remanente de ' + mA + ' no cuadra: el F29 del SII da ' + fmt(RD.valor) + ' y Contable tiene ' + fmt(rc.valor) +
           (rc.fuente === 'manual' ? ' (ingresado a mano)' : '') + '. Revisa el reporte de ' + mA + ' antes de validar.' } };
-    return { valor: num(rc.valor), origen: rc.fuente, texto: RD.origen === 'sii' ? RD.texto : ((info.detalle) || 'Remanente de ' + mA + ' registrado en Contable'), bloqueo: null };
+    // 23-11: si la base lo tomó del F29 del SII (fuente F29_SII), se dice así y no se pide ingreso a mano.
+    var deSii = info.fuente === 'sii_f29';
+    var tx = deSii ? (info.aviso || ('Remanente del F29 de ' + mA + ' en el SII')) : (RD.origen === 'sii' ? RD.texto : ((info.detalle) || 'Remanente de ' + mA + ' registrado en Contable'));
+    return { valor: num(rc.valor), origen: deSii ? 'sii_f29' : rc.fuente, texto: tx, aviso: info.avisoSii || null, bloqueo: null };
   }
 
   // ── Todo lo que impide «Validar IVA» desde la tarjeta (además de lo que revisa el Reporte Contable: libros, exento, etc.) ──

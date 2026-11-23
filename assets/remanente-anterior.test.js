@@ -60,3 +60,31 @@ test('CONOCIDO con montos corruptos (negativo / texto / nulo) no se acepta', () 
     assert.equal(r.bloquea, true, String(v));
   }
 });
+
+// ── 23-11 · REMANENTE-SII-AUTOMATICO: la base toma el F29 vigente del SII cuando Gestoor no tiene el mes anterior validado ──
+test('F29_SII: CONOCIDO sin pedir ingreso a mano; texto «Remanente del F29 de {mes} en el SII (folio …)»', () => {
+  const r = R.resolver({ periodo: '2026-10', lecturaOk: true, info: Object.assign({ estado: 'CONOCIDO', fuente: 'F29_SII', cod77: 12345, cod504: 12394, folio: 1001,
+    f29_sii: { periodo: '2026-09', folio: 1001, fuente_77: 'sii_codigo_77', hay_f29: true, montos_leidos: true } }, UTM) });
+  assert.deepEqual([r.bloquea, r.fuente, r.monto, r.cod77], [false, 'sii_f29', 12394, 12345]);
+  assert.deepEqual(r.sii, { folio: 1001, periodo: '2026-09', sinCod77: false });
+  assert.equal(r.aviso, 'Remanente del F29 de septiembre 2026 en el SII (folio 1001)');
+  assert.match(r.detalle, /^Cód\. 77 de septiembre 2026: \$12\.345 × UTM/);
+});
+test('F29_SII sin cód. 77 (caso real): remanente $0 confirmado por el SII, no bloquea', () => {
+  const r = R.resolver({ periodo: '2026-10', lecturaOk: true, info: Object.assign({ estado: 'CONOCIDO', fuente: 'F29_SII', cod77: 0, cod504: 0, folio: 555,
+    f29_sii: { periodo: '2026-09', folio: 555, fuente_77: 'sii_sin_codigo_77' } }, UTM) });
+  assert.deepEqual([r.bloquea, r.fuente, r.monto], [false, 'sii_f29', 0]);
+  assert.equal(r.aviso, 'Remanente del F29 de septiembre 2026 en el SII (folio 555) · sin cód. 77 = sin remanente');
+});
+test('F29_SII sin UTM: sigue bloqueando por la UTM (no por falta de remanente) y no ofrece ingreso a mano', () => {
+  const r = R.resolver({ periodo: '2026-12', lecturaOk: true, info: { estado: 'SIN_DATO', motivo: 'SIN_UTM', fuente: 'F29_SII', cod77: 8000, falta_utm: ['2027-01'], periodo: '2026-12', periodo_anterior: '2026-11' } });
+  assert.deepEqual([r.bloquea, r.fuente], [true, 'sin_dato']);
+  assert.match(r.aviso, /Falta la UTM oficial de enero 2027/);
+});
+test('aviso_sii: Gestoor manda pero se avisa que el SII trae otro cód. 77 (no bloquea)', () => {
+  const r = R.resolver({ periodo: '2026-10', lecturaOk: true, info: Object.assign({ estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 60000, cod504: 60432,
+    aviso_sii: { motivo: 'F29_SII_DISTINTO', cod77_sii: 999, folio: 1009, cod77_usado: 60000 } }, UTM) });
+  assert.deepEqual([r.bloquea, r.fuente, r.monto], [false, 'mes_anterior', 60432]);
+  assert.equal(r.avisoSii, 'Ojo: el F29 de septiembre 2026 en el SII (folio 1009) trae cód. 77 $999 y Gestoor usa $60.000. Revisa si el F29 se rectificó.');
+  assert.equal(R.resolver({ periodo: '2026-10', lecturaOk: true, info: Object.assign({ estado: 'CONOCIDO', fuente: 'MES_ANTERIOR', cod77: 1, cod504: 1 }, UTM) }).avisoSii, '');
+});

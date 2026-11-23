@@ -53,7 +53,7 @@
     out.remanenteBloqueo = RD.bloqueo || null;   // 19-11: mismo bloqueo y texto que el Pre-IVA (nunca $0)
     if (RD.origen === 'sii') { rem = RD.valor; remOrigen = 'F29 anterior · SII'; remDet = RD.texto; }
     else if (RD.origen === 'contable' || RD.origen === 'manual') {
-      rem = num(rc.valor); remOrigen = rc.fuente === 'manual' ? 'F29 anterior · ingresado a mano' : 'F29 anterior · Contable';
+      rem = num(rc.valor); remOrigen = rc.fuente === 'manual' ? 'F29 anterior · ingresado a mano' : (rc.info && rc.info.fuente === 'sii_f29') ? 'F29 anterior · SII' : 'F29 anterior · Contable';
       remDet = (rc.info && rc.info.detalle) || 'Remanente del F29 de ' + mesTxt(ra.periodo || mesAnt(per)) + ' registrado en Contable';
     } else {
       var m = mesTxt(ra.periodo || mesAnt(per));
