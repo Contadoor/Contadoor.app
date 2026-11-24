@@ -140,7 +140,7 @@
     var eq = d.equipo || {};
     var secciones = [{ id: 'resumen', areas: areas }];
     if (cli) {
-      secciones.push({ id: 'f29', datos: d.f29 || null });
+      secciones.push({ id: 'f29', datos: d.f29 || null, inicio: !!(d.inicio_actividades && d.f29 && String(d.inicio_actividades).slice(0, 7).replace('-', '') === d.f29.desde) });
       secciones.push({ id: 'iva', datos: L, estado: L ? 'ok' : (d.actor && d.actor.puede_levantamiento === false ? 'sin_permiso' : (extra.estadoLiva || 'sin_datos')) });
       secciones.push({ id: 'f22', datos: d.f22 || null });
       secciones.push({ id: 'sii', cumplimiento: d.cumplimiento || null, cartas: d.cartas || null });
@@ -234,6 +234,7 @@
     var ks = Object.keys(anios).sort().reverse();
     h += '<div class="cifras"><div class="cifra"><b>' + t.declarados + '</b><span>declarados</span></div><div class="cifra"><b>' + t.no_declarados + '</b><span>sin declarar (atrasados)</span></div>'
       + '<div class="cifra"><b>' + ((t.observados || 0) + (t.en_revision || 0)) + '</b><span>observados o en revisión</span></div><div class="cifra"><b>' + t.rectificados + '</b><span>rectificados</span></div></div>';
+    if (f.desde && /^\d{6}$/.test(f.desde)) h += '<p>Revisamos desde ' + esc(mesLargo(f.desde)) + (s.inicio ? ', mes de inicio de actividades,' : '') + ' hasta ' + esc(mesLargo(f.hasta)) + '.</p>';
     h += '<table class="grilla"><thead><tr><th>Año</th>' + MES3.map(function (x) { return '<th>' + x + '</th>'; }).join('') + '<th class="num">Total declarado a pagar</th></tr></thead><tbody>';
     ks.forEach(function (a) {
       h += '<tr><td><b>' + a + '</b></td>';

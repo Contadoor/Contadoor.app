@@ -60,6 +60,8 @@
       S = { datos: d, liva: null, historial: null, estadoLiva: 'sin_datos', estadoHist: 'sin_datos', ajustes: {}, emitido: null };
       if (d.tipo !== 'cliente') return;
       var r = rango60(), tareas = [];
+      // Parte en el inicio de actividades del SII si es posterior a la ventana de 60 meses (DIAG-INICIO-1).
+      if (d.inicio_actividades && /^\d{4}-\d{2}/.test(d.inicio_actividades)) { var ip = d.inicio_actividades.slice(0, 4) + d.inicio_actividades.slice(5, 7); if (ip > r.desde) r.desde = ip; }
       if (d.actor && d.actor.puede_levantamiento && d.conexion && d.conexion.estado !== 'sin_conexion')
         tareas.push(rpc('sii_levantamiento_iva', { p_cliente_id: cli, p_desde: r.desde, p_hasta: r.hasta, p_opciones: { medio: 'internet' } })
           .then(function (x) { S.liva = x; S.estadoLiva = 'ok'; }, function () { S.estadoLiva = 'error'; }));
