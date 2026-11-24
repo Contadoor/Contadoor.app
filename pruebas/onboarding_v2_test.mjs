@@ -51,6 +51,7 @@ t(d.pasos[8].estado === 'listo', 'demo: diagnóstico emitido con enlace https');
 for (const p of [2, 6, 7]) d = await rpc('onb_paso_marcar_v2', { p_caso_id: 5, p_paso: p, p_estado: 'listo', p_version: null });
 d = await rpc('onb_paso_marcar_v2', { p_caso_id: 5, p_paso: 5, p_estado: 'listo', p_version: d.pasos[4].marca.actualizado });
 t(d.pasos[4].estado === 'listo', 'demo: pasar de «esperando al cliente» a «listo» con la versión de la marca');
+t(await rpc('onb_paso_marcar_v2', { p_caso_id: 4, p_paso: 5, p_estado: 'no_aplica', p_motivo: 'no', p_version: null }) === 'ERR:MOTIVO_OBLIGATORIO', 'demo: balances «no aplica» exige motivo');
 d = await rpc('onb_paso_marcar_v2', { p_caso_id: 5, p_paso: 8, p_estado: 'no_aplica', p_motivo: 'El cliente no quiere portal por ahora', p_version: null });
 d = await rpc('onb_paso_marcar_v2', { p_caso_id: 5, p_paso: 10, p_estado: 'listo', p_version: null, p_fecha: hoy });
 t(d.listo_para_activar === true && d.tramos[1].estado === 'cumplido', 'demo: reunión de entrega realizada → listo para activar');

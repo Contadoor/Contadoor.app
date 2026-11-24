@@ -60,7 +60,7 @@ var CAT2=[ // paso, clave, título, tramo, responsable(s), texto, plazo, tipo, m
   [2,'bienvenida','Carta de bienvenida con plan de trabajo, solicitud de información y factura de activación',1,['comercial'],'Comercial',0,'corridos',1,0,null],
   [3,'reunion_agendada','Reunión de entrega del diagnóstico agendada',1,['comercial'],'Comercial',0,'corridos',1,0,'fecha'],
   [4,'pago','Pago recibido (conciliado)',1,['pagos'],'Pagos',1,'corridos',0,0,null],
-  [5,'claves_balances','Claves de acceso y balances anteriores recibidos',1,['comercial'],'Comercial',1,'corridos',1,0,null],
+  [5,'claves_balances','Claves de acceso y balances anteriores recibidos',1,['comercial'],'Comercial',1,'corridos',1,1,null],
   [6,'cliente_creado','Cliente creado: ficha, carpeta de respaldo y analistas asignados',1,['comercial','master'],'Comercial + Master',1,'corridos',1,0,null],
   [7,'cartapra_obs','Conectado a Cartapra y observaciones del SII revisadas (aviso al analista o propuesta de regularización)',1,['comercial'],'Comercial',2,'corridos',1,0,null],
   [8,'micontadoor','Acceso a MiContadoor creado con el cliente',1,['comercial'],'Comercial',3,'corridos',0,1,null],
