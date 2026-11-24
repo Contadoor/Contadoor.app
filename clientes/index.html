@@ -1038,8 +1038,36 @@ function completarConSii() {
     var n = document.createElement('div'); n.style.cssText = 'margin-top:8px;opacity:.75'; n.textContent = 'Nada se guarda hasta que presiones «Guardar». Fuente: SII vía Cartapra.'; res.appendChild(n);
   }).catch(function (e) {
     if (!vigente()) return;
+    if (alta && e && e.error === 'NO_CONECTADA') { siiAltaNoConectada(res); return; }
     res.style.display = ''; res.textContent = (e && e.detalle) || (e && e.status === 403 ? (alta ? 'Traer datos del SII al crear un cliente lo pueden hacer el Master y quienes conectan empresas.' : 'Los datos del SII de este cliente los ve el Master y el analista contable asignado.') : 'No se pudo consultar el SII ahora. Intenta de nuevo en unos minutos.');
   }).then(function () { btn.disabled = false; btn.textContent = alta ? 'Traer datos del SII' : 'Completar con datos del SII'; });
+}
+
+// 24-11 (Luciano): la empresa aún no está en Cartapra → «Guardar y conectar con el SII»: guarda lo mínimo (sin exigir socios:
+// llegan del SII), deja la ficha abierta en edición y abre la ventana de Cartapra (la clave se escribe ALLÍ, nunca en Gestoor).
+// Al cerrar la ventana, Cartapra lee el SII (unos minutos) y luego «Completar con datos del SII» llena el resto.
+function siiAltaNoConectada(res) {
+  res.style.display = ''; res.textContent = '';
+  var t = document.createElement('div'); t.style.fontWeight = '700'; t.textContent = 'Esta empresa todavía no está conectada a Cartapra.'; res.appendChild(t);
+  var p = document.createElement('div'); p.style.marginTop = '4px';
+  p.textContent = 'Escribe la razón social y el plan, y presiona el botón: se guarda el cliente y se abre la ventana de Cartapra para ingresar la clave del SII (la clave queda en Cartapra, no en Gestoor). Los socios no se exigen ahora: llegan del SII.';
+  res.appendChild(p);
+  var b = document.createElement('button'); b.type = 'button'; b.id = 'btnGuardarConectar'; b.className = 'btn-p'; b.style.cssText = 'margin-top:8px;font-size:12.5px;padding:0 16px;min-height:34px';
+  b.textContent = 'Guardar y conectar con el SII';
+  b.onclick = function () {
+    if (!siiTxt(gv('f-razon'))) { alert('Escribe la razón social (o la que tengas por ahora; luego se corrige con el SII).'); return; }
+    if (!gv('f-plan')) { alert('Elige el plan.'); return; }
+    b.disabled = true;
+    guardarCliente({ sinSocios: true, despues: function (id) {
+      abrirEditar(id);
+      var r = g('siiCompletarRes'); r.style.display = ''; r.textContent = 'Cliente guardado. Ingresa la clave en la ventana de Cartapra; cuando termine, espera unos minutos y presiona «Completar con datos del SII».';
+      if (window.GestoorSII && GestoorSII.conectar) GestoorSII.conectar(id, null, function () {
+        var r2 = g('siiCompletarRes'); if (_editId === id && r2) { r2.style.display = ''; r2.textContent = '✅ Conexión enviada. Cartapra está leyendo el SII: en unos minutos presiona «Completar con datos del SII» y luego «Guardar».'; }
+      });
+    } });
+    setTimeout(function () { b.disabled = false; }, 4000);
+  };
+  res.appendChild(b);
 }
 
 function abrirEditar(id) {
@@ -1113,7 +1141,8 @@ function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.rem
 // ─────────────────────────────────────────────────────
 // GUARDAR
 // ─────────────────────────────────────────────────────
-function guardarCliente() {
+function guardarCliente(op) {
+  op = op || {};   // 24-11 «Guardar y conectar con el SII»: { sinSocios: true, despues: function (idNuevo) {} }
   // Respaldo si el navegador aún tiene en caché un supabase.js anterior (sin estas funciones)
   var gestoorNormalizarRut = window.gestoorNormalizarRut || function(r){ var x=String(r||'').replace(/[^0-9kK]/g,'').toUpperCase(); return x.length<2?x:x.slice(0,-1)+'-'+x.slice(-1); };
   var gestoorRutValido = window.gestoorRutValido || function(){ return true; };
@@ -1141,7 +1170,7 @@ function guardarCliente() {
 
   // Socios obligatorios al CREAR un cliente empresa (Luciano, 26-oct): al menos uno, con nombre, RUT y % que sumen 100.
   // Persona natural (RUT bajo 50.000.000) no lo exige. En la edición de clientes existentes no se exige (se completa de a poco).
-  if (!esEdicion) {
+  if (!esEdicion && !op.sinSocios) {   // «Guardar y conectar con el SII»: los socios llegan del SII al conectar
     var _rutNum = parseInt(String(rut || '').replace(/[^0-9kK]/g, '').slice(0, -1), 10) || 0;
     if (_rutNum >= 50000000) {
       var _soc = getSocios();
@@ -1204,6 +1233,10 @@ function guardarCliente() {
       // RPC confirmó éxito → recargar desde DB y actualizar UI
       return cargarSupabase().then(function(){
         renderClientes();
+        if (typeof op.despues === 'function' && !esEdicion) {
+          var nuevo = getClientes().find(function(x){ return gestoorNormalizarRut(x.rut) === rut; });
+          if (nuevo) { toast('Cliente guardado'); op.despues(Number(nuevo.id)); return; }
+        }
         cerrarForm();
         toast(esEdicion ? 'Cliente actualizado' : 'Cliente guardado');
       });
