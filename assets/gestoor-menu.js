@@ -72,9 +72,10 @@
     // Cotizaciones (K1, 27-oct): la PROPUESTA antes de que el cliente acepte (plan mensual o trabajo especial). Trabajos especiales (Gestión interna)
     // es la EJECUCIÓN del trabajo ya aceptado.
     // CRM (19-11): embudo arrastrable + calendario de reuniones (prospectos/crm.html), primera opción de Comercial.
+    // VENTAS-CONTROL (23-11): «Tablero de ventas» (prospectos/ventas.html, solo lectura) bajo el CRM.
     // 19-11 (Luciano): solo el CRM en el menú; «Reuniones de venta» y «Prospectos» se abren desde el CRM (no se borran).
     // Comercial (Luciano, 26-oct): todo lo de venta junto. Las reuniones con clientes activos irán aparte ("Asesorías").
-    ['Comercial',[['grafico','CRM','prospectos','crm.html'],['check','Onboarding','prospectos','onboarding.html'],['chat','Asistente IA','asistente'],
+    ['Comercial',[['grafico','CRM','prospectos','crm.html'],['objetivo','Tablero de ventas','prospectos','ventas.html'],['check','Onboarding','prospectos','onboarding.html'],['chat','Asistente IA','asistente'],
       ['lista','Cotizaciones','cotizaciones'],['campana','Campañas',null]]],
     ['Gestión interna',[['planes','Planes y Servicios','planes'],['banco','Conciliación','conciliacion'],['cobranza','Cobranza','cobranza','cartera.html'],['maletin','Trabajos especiales','trabajos-especiales'],
       ['factura','Facturación','facturacion'],['correo','Comunicaciones',null],['grafico','Performance',null]]],
