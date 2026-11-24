@@ -1,6 +1,6 @@
 // MiRenta · Asistente "Proyectar" · reglas de la pantalla, SIN acceso a red ni al DOM (se prueban aparte con node).
 // La base es la autoridad: esta capa solo traduce lo que ya responden las RPC instaladas (renta_e1_entrada, renta_apertura_vigente,
-// renta_fuentes, renta_corridas, renta_f22_lecturas, renta_mapeo_snapshots, renta_motor_corridas) a 5 pasos con estado:
+// renta_fuentes, renta_corridas, renta_f22_lecturas, renta_f22_desde_sii (F22 del SII vía Cartapra), renta_mapeo_snapshots, renta_motor_corridas) a 5 pasos con estado:
 //   pendiente · en curso · listo · revisar (se puede seguir) · problema (bloquea el paso siguiente).
 // Nunca calcula impuestos ni decide por el analista.
 (function (raiz) {
@@ -108,19 +108,38 @@
     P.push(p1);
     var casoOk = p1.estado === 'listo';
 
-    // 2 · F22 del año anterior → apertura tributaria
+    // 2 · F22 del año anterior → apertura tributaria. Se trae SOLO del SII (Cartapra, RPC renta_f22_desde_sii); el PDF es el plan B.
     var p2 = { n: 2, clave: 'f22', titulo: 'F22 del año anterior', estado: 'pendiente', detalle: [], recomendado: true };
     var f22 = (d.fuentes || []).filter(function (f) { return f.tipo_fuente === 'F22_ANTERIOR' && f.estado === 'REGISTRADA'; }).pop() || null;
     var lec = f22 ? (d.lecturas || []).filter(function (l) { return l.fuente_id === f22.id; }).sort(function (a, b) { return b.id - a.id; })[0] || null : null;
-    var av2 = d.aperturaVigente || {};
-    p2.f22 = f22; p2.lectura = lec;
+    var av2 = d.aperturaVigente || {}, sii = d.sii || null;
+    p2.f22 = f22; p2.lectura = lec; p2.desdeSii = esF22Sii(f22); p2.sii = sii;
+    p2.siiInfo = (sii && sii.sii) || (p2.desdeSii ? siiDeFuente(f22) : null);
+    p2.siiCambio = !!(sii && sii.accion === 'SII_CAMBIO_CON_APERTURA');
+    p2.siiSinF22 = !!(sii && sii.error && SII_SIN_F22.test(sii.error));
+    p2.unClic = puedeConfirmarEnUnClic(lec, av2);
+    var apAct = av2.working || av2.effective, apVieja = !!(apAct && f22 && apAct.fuente_f22 && apAct.fuente_f22.id !== f22.id);
+    p2.aperturaVieja = apVieja;
     if (!casoOk) p2.estado = 'bloqueado';
+    else if (apVieja && lec && lec.estado === 'PROPUESTA') { p2.estado = 'revisar'; p2.detalle.push('El F22 cambió (rectificatoria): confirma los saldos de la versión nueva.'); }
     else if (av2.effective && !av2.working) { p2.estado = 'listo'; p2.detalle.push('Apertura tributaria verificada.'); }
-    else if (av2.working || av2.effective) { p2.estado = 'listo'; p2.detalle.push('Apertura declarada. Falta que otra persona Master la verifique (necesario solo para la proyección FINAL).'); }
-    else if (!f22) p2.detalle.push('Sube el PDF del F22 (Compacto del SII) del AT ' + ac + '. Sin él la proyección sale igual, pero los registros RAI, SAC y CPTS quedan "No disponible".');
+    else if (av2.working || av2.effective) { p2.estado = 'listo'; p2.detalle.push('Saldos confirmados. Falta que otra persona Master los verifique (necesario solo para la proyección FINAL).'); }
+    else if (!f22 && sii && sii.error) {
+      p2.detalle.push(p2.siiSinF22 ? 'El SII (Cartapra) no tiene el F22 del AT ' + ac + ' de este cliente. Sube el PDF del Compacto; sin él la proyección sale igual, pero RAI, SAC y CPTS quedan "No disponible".'
+                                   : 'No se pudo traer el F22 desde el SII (' + mensajeError(sii.error) + '). Puedes subir el PDF del Compacto.');
+    }
+    else if (!f22) { p2.estado = 'en_curso'; p2.detalle.push('Buscando el F22 del AT ' + ac + ' en el SII…'); }
     else if (!lec || lec.estado === 'EN_PROCESO') { p2.estado = lec ? 'en_curso' : 'sin_leer'; p2.detalle.push(lec ? 'Leyendo el F22…' : 'F22 subido: falta leerlo.'); }
-    else if (lec.estado === 'PROPUESTA') { p2.estado = 'revisar'; p2.detalle.push('El sistema leyó el F22 y propone los saldos. Revísalos y confírmalos.'); }
-    else { p2.estado = 'problema'; p2.detalle.push('La lectura del F22 no se pudo completar (' + (lec.error_codigo || lec.estado) + '). Revisa que sea el Compacto del AT correcto.'); }
+    else if (lec.estado === 'PROPUESTA') { p2.estado = 'revisar'; p2.detalle.push(p2.desdeSii ? 'F22 traído del SII. Revisa los saldos y confírmalos.' : 'El sistema leyó el F22 y propone los saldos. Revísalos y confírmalos.'); }
+    else {
+      p2.estado = 'problema';
+      var b0 = lec.resultado && lec.resultado.blocking_findings && lec.resultado.blocking_findings[0];
+      p2.detalle.push(p2.desdeSii ? 'El F22 del SII tiene un punto que el sistema no puede resolver solo' + (b0 ? ': ' + b0.mensaje : '.') + ' Revísalo con el Master o sube el PDF del Compacto.'
+                                  : 'La lectura del F22 no se pudo completar (' + (lec.error_codigo || lec.estado) + '). Revisa que sea el Compacto del AT correcto.');
+    }
+    // Plan B (PDF): solo si el SII no tiene el F22, si falló, si el F22 vigente ya es un PDF o si la lectura del SII quedó bloqueada.
+    p2.planB = casoOk && (!apAct || apVieja) && (
+      (!f22 && !!(sii && sii.error)) || (f22 && !p2.desdeSii && (!lec || lec.estado !== 'PROPUESTA')) || (p2.desdeSii && !!lec && lec.estado === 'BLOQUEADO'));
     P.push(p2);
 
     // 3 · Contabilidad del año (Diario + Balance) e importación/conciliación
@@ -178,6 +197,41 @@
     return P;
   }
 
+  // ── F22 desde el SII (Cartapra) ────────────────────────────────────────────
+  var SII_SIN_F22 = /F22_SII_NO_DISPONIBLE|F22_SII_SIN_LINEAS/;
+  function esF22Sii(f) { return !!(f && f.metadatos && f.metadatos.via === 'CARTAPRA'); }
+  function siiDeFuente(f) { var m = (f && f.metadatos) || {}; return { folio: m.folio, fecha_ingreso: m.fecha_ingreso, estado_sii: m.estado_sii, versiones: m.versiones_sii, anio_tributario: m.anio_tributario }; }
+  // La pantalla pide el F22 al SII al abrir el caso (la base lo hace idempotente). No se llama si el caso no admite cambios
+  // ni si el F22 vigente es un PDF subido a mano (ese manda). Con F22 del SII se vuelve a llamar para notar rectificatorias.
+  function debeTraerF22Sii(d) {
+    var k = d && d.caso;
+    if (!k || k.regimen !== '14D3' || ['DRAFT', 'IN_PROGRESS'].indexOf(k.estado) < 0 || !d.rc || d.rc.estado !== 'OPERATIONAL') return false;
+    var f22 = (d.fuentes || []).filter(function (f) { return f.tipo_fuente === 'F22_ANTERIOR' && f.estado === 'REGISTRADA'; }).pop();
+    return !f22 || esF22Sii(f22);
+  }
+  // Confirmar en un clic: solo una lectura PROPUESTA sin bloqueos y sin apertura ya declarada. Es una decisión humana (dinero):
+  // la base vuelve a exigir que cada monto sea exactamente el que atestó la lectura.
+  function puedeConfirmarEnUnClic(lec, av) {
+    av = av || {};
+    var ap = av.working || av.effective;   // ya hay saldos confirmados: solo se reconfirma si son de OTRO F22 (rectificatoria)
+    return !!lec && lec.estado === 'PROPUESTA' && Number(lec.blocking_count || 0) === 0 && (!ap || !!(ap.fuente_f22 && ap.fuente_f22.id !== lec.fuente_id))
+      && !!(lec.resultado && lec.resultado.propuesta && lec.resultado.propuesta.length === 13);
+  }
+  function itemsParaDeclarar(lec) {
+    return ((lec && lec.resultado && lec.resultado.propuesta) || []).map(function (x) {
+      return { item_key: x.item_key, monto: x.monto == null ? null : x.monto, estado: x.estado, provenance: x.provenance,
+               evidencia_fuente_id: x.evidencia_fuente_id == null ? null : x.evidencia_fuente_id, f22_codigo_ref: x.f22_codigo_ref == null ? null : x.f22_codigo_ref,
+               nota: x.nota == null ? null : x.nota };
+    });
+  }
+  function textoSii(s) {
+    if (!s) return '';
+    return 'Folio ' + (s.folio || '—') + (s.fecha_ingreso ? ' · presentado el ' + fecha(s.fecha_ingreso) : '') + (s.estado_sii ? ' · ' + s.estado_sii : '');
+  }
+  function motivoUnClic(s) {
+    return 'Saldos de apertura tomados del F22' + (s && s.anio_tributario ? ' AT ' + s.anio_tributario : '') + (s && s.folio ? ' (folio ' + s.folio + ', SII vía Cartapra)' : '') + ', confirmados sin cambios.';
+  }
+
   // Paso que conviene mostrar abierto: el primero (desde "desde") que no está listo ni esperando al anterior.
   function pasoActivo(P, desde) {
     for (var i = 0; i < P.length; i++) if (P[i].n >= (desde || 1) && P[i].estado !== 'listo' && P[i].estado !== 'bloqueado') return P[i].n;
@@ -215,6 +269,10 @@
   function mensajeError(msg) {
     var m = String(msg || '');
     var mapa = [
+      [/F22_SII_NO_DISPONIBLE|F22_SII_SIN_LINEAS/, 'El SII (Cartapra) no tiene el F22 de este cliente: sube el PDF del Compacto.'],
+      [/F22_SII_AMBIGUO/, 'Cartapra informa más de una declaración vigente para ese año: sube el PDF del Compacto o revisa la conexión.'],
+      [/CASO_NO_EDITABLE/, 'El caso ya no está abierto para cambios.'],
+      [/LECTURA_F22_DATO_NO_COINCIDE|LECTURA_F22_INVALIDA/, 'Los saldos no coinciden con la lectura del F22: recarga la página y vuelve a intentarlo.'],
       [/F22_VIGENTE_EXISTE|DIARIO_VIGENTE_EXISTE|BALANCE_PERIODO_VIGENTE_EXISTE/, 'Ya hay un archivo vigente de ese tipo. Usa "Reemplazar" sobre el archivo cargado.'],
       [/PERIODO_FUERA_DE_RANGO|REEMPLAZO_PERIODO_DISTINTO/, 'El período del Balance no corresponde al caso.'],
       [/Ya existe un caso vigente/, 'Este cliente ya tiene un caso para ese año: recarga la página.'],
@@ -234,7 +292,7 @@
   }
 
   var api = { AC_DEFECTO: AC_DEFECTO, ARCHIVOS: ARCHIVOS, pasos: pasos, pasoActivo: pasoActivo, pasoInicial: pasoInicial, confirmableEnBloque: confirmableEnBloque, motivoObligatorio: motivoObligatorio, textoBloqueo: textoBloqueo, ETIQUETA_ESTADO: ETIQUETA_ESTADO,
-              archivoVigente: archivoVigente, estadoArchivo: estadoArchivo, periodoDeFuente: periodoDeFuente, cortes: cortes, fecha: fecha, rutaFuente: rutaFuente, mensajeError: mensajeError };
+              archivoVigente: archivoVigente, esF22Sii: esF22Sii, debeTraerF22Sii: debeTraerF22Sii, puedeConfirmarEnUnClic: puedeConfirmarEnUnClic, itemsParaDeclarar: itemsParaDeclarar, textoSii: textoSii, motivoUnClic: motivoUnClic, estadoArchivo: estadoArchivo, periodoDeFuente: periodoDeFuente, cortes: cortes, fecha: fecha, rutaFuente: rutaFuente, mensajeError: mensajeError };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.ProyectarLogica = api;
 })(typeof window !== 'undefined' ? window : globalThis);
