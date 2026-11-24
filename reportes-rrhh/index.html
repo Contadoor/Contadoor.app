@@ -33,6 +33,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;text-align:center;}
 .stat .sv{font-size:22px;font-weight:700;font-family:monospace;}
 .stat .sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
+.rr-buscar{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--sur2);border:1px solid var(--bdr);border-radius:999px;padding:5px 12px;min-width:240px;transition:border-color .15s ease}
+.rr-buscar:focus-within{border-color:var(--p);box-shadow:0 0 0 3px var(--pp)}
+.rr-buscar input{border:0;background:transparent;outline:none;font-family:var(--sans);font-size:12.5px;color:var(--t1);width:100%}
+@media (max-width:640px){.rr-buscar{margin-left:0;width:100%;min-width:0}}
 .filtros{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .fl{font-size:9.5px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.7px;}
 .fb{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--sur);color:var(--t2);transition:.15s;}
@@ -225,6 +229,7 @@ tr[data-rut]{cursor:pointer}
       <button class="fb" onclick="setFiltro('estado','completado')">Completados</button>
       <button class="fb" onclick="setFiltro('estado','enviado')">Enviados</button>
       <button class="fb" onclick="setFiltro('estado','atrasado')">Atrasados</button>
+      <div class="rr-buscar"><span aria-hidden="true">🔍</span><input type="search" id="rrBuscar" placeholder="Buscar cliente o RUT…" autocomplete="off" oninput="buscarRrhh(this.value)"/></div>
     </div>
     <div class="bulk-bar" id="bulkBar">
       <span id="bulkCount" style="font-size:12px;font-weight:600"></span>
@@ -392,7 +397,7 @@ tr[data-rut]{cursor:pointer}
 // ═══════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════
-var _remuData=null,_reporteActual=null,_filtros={prioridad:'',estado:''};
+var _remuData=null,_reporteActual=null,_filtros={prioridad:'',estado:'',q:''};
 var _iuDebeSincronizar=false;
 // Logo embebido — compatible con todos los clientes de correo (base64 inline)
 // Para migrar a CDN: cambiar solo esta línea
@@ -806,6 +811,7 @@ function renderTabla(periodo){
     var estado=getEstadoRrhh(r);
     if(_filtros.prioridad&&prio!==_filtros.prioridad) return false;
     if(_filtros.estado&&estado!==_filtros.estado) return false;
+    if(_filtros.q&&!coincideBusquedaRrhh(r,_filtros.q)) return false;
     return true;
   });
   // Ordenar por prioridad
@@ -830,6 +836,10 @@ function renderTabla(periodo){
   document.getElementById('st-enviado').textContent=env;
   document.getElementById('st-atrasado').textContent=atr;
   document.getElementById('tabla-meta').textContent=filtrados.length+' clientes RRHH · '+comp+' completados · '+pend+' pendientes';
+  if(!filtrados.length&&_filtros.q&&reportes.length){
+    document.getElementById('tablaBody').innerHTML='<div style="text-align:center;padding:40px;color:#9a849b"><div style="font-size:14px;font-weight:600">Ningún cliente coincide con «'+hesc(_filtros.q)+'»</div><div style="font-size:12px;margin-top:4px">Prueba con otra parte del nombre o con el RUT</div></div>';
+    return;
+  }
   if(!filtrados.length){
     document.getElementById('tablaBody').innerHTML='<div style="text-align:center;padding:40px;color:#9a849b"><div class="g-vacio-ic">'+gIcon('rrhh')+'</div><div style="font-size:14px;font-weight:600">Sin clientes RRHH asignados</div><div style="font-size:12px;margin-top:4px">Verifica que el período esté abierto y tengas clientes asignados</div></div>';
     return;
@@ -997,6 +1007,20 @@ function getCumplimientoLabel(est){
 // ═══════════════════════════════════════════════════
 // FILTROS
 // ═══════════════════════════════════════════════════
+// Buscador (24-11): por nombre (sin importar tildes ni mayúsculas) o por RUT (con o sin puntos y guion).
+function _normRrhh(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function coincideBusquedaRrhh(r,q){
+  var n=_normRrhh(q); if(!n) return true;
+  var nombre=_normRrhh((r.clienteNombre||'')+' '+(r.razonSocial||'')+' '+(r.preparado||''));
+  if(n.split(/\s+/).every(function(p){return nombre.indexOf(p)>=0;})) return true;
+  var qr=n.replace(/[^0-9k]/g,''), rut=String(r.rut||'').toLowerCase().replace(/[^0-9k]/g,'');
+  return qr.length>=3&&rut.indexOf(qr)>=0;
+}
+var _buscarRrhhT=null;
+function buscarRrhh(v){
+  clearTimeout(_buscarRrhhT);
+  _buscarRrhhT=setTimeout(function(){_filtros.q=v||'';var periodo=sv('selectPeriodo');if(periodo) renderTabla(periodo);},120);
+}
 function setFiltro(tipo,valor){
   _filtros[tipo]=valor;
   // Actualizar botones activos
