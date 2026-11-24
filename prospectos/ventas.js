@@ -29,6 +29,21 @@ function cargar(){
   return D.rpc('com_tablero_ventas',{p_lunes:LUNES}).then(function(t){T=t;LUNES=t.lunes;pintar();})
     .catch(function(e){app.innerHTML='<div class="aviso rojo">'+esc((root.ComVentas?root.ComVentas.mensaje(e):D.mensaje(e)))+'</div>';});
 }
+// «Calidad de los datos»: cuántos registros quedan fuera o dudosos y por qué; cada número despliega la lista para corregirla en el CRM.
+var CAL=[['sin_utm','Sin origen / campaña (UTM)','No se puede saber qué campaña los trajo (últimos 90 días).'],
+  ['reunion_sin_resultado','Reuniones pasadas sin resultado','Ni «realizada» ni «no asistió»: no cuentan en la asistencia.'],
+  ['propuesta_sin_fecha','Propuestas sin fecha de envío','En propuesta o seguimiento sin registro de cuándo se envió: no entran en aceptación ni días al cierre.'],
+  ['ganado_sin_fecha','Ganados sin fecha','Sin registro de cuándo aceptaron: no entran en días al cierre.'],
+  ['perdido_incompleto','Perdidos sin motivo o sin fecha','No cuentan en «Motivos de pérdida».']];
+function calidadHtml(c){
+  if(!c||!c.grupos)return '';var g=c.grupos,tot=CAL.reduce(function(a,x){return a+Number((g[x[0]]||{}).n||0);},0);
+  return '<section class="card acc c-azu tv-cal"><div class="h">'+ic('ver','c-azu')+'<h2>Calidad de los datos</h2><small>'+(tot?tot+' registros por revisar':'todo en orden')
+    +(c.historial_desde?' · historial confiable desde el '+esc(fechaCorta(c.historial_desde)):'')+'</small></div>'
+    +CAL.map(function(x){var d=g[x[0]]||{n:0,items:[]},n=Number(d.n||0);
+      return '<details class="tv-cal-g'+(n?' hay':'')+'"'+(n?'':' aria-disabled="true"')+'><summary><b class="tv-cal-n">'+n+'</b><span><b>'+esc(x[1])+'</b><br><span class="t2">'+esc(x[2])+'</span></span></summary>'
+        +(n?'<ul>'+(d.items||[]).map(function(i){return '<li><a href="crm.html?id='+Number(i.lead_id)+dm+'">'+esc(i.nombre||'Prospecto')+'</a> <span class="t2">· '+esc(i.empresa||'Empresa no informada')+' · '+esc(i.detalle||'')+'</span></li>';}).join('')
+          +(n>(d.items||[]).length?'<li class="t3">… y '+(n-(d.items||[]).length)+' más</li>':'')+'</ul>':'<p class="nd">Nada por corregir.</p>')+'</details>';}).join('')+'</section>';
+}
 function fechaCorta(y){var p=String(y).split('-');return Number(p[2])+'-'+p[1];}
 function pintar(){
   var t=T,s=t.semana||{},ta=t.tasas||{},hoySem=D.hoy()>=t.lunes&&D.hoy()<=t.domingo;
@@ -46,10 +61,11 @@ function pintar(){
       +'<div class="s">'+esc(x[5])+'</div><div class="tv-barra" aria-hidden="true"><i style="width:'+ancho(s[x[1]],mx)+'%"></i></div></div>';}).join('')+'</div>';
   // Tasas
   h+='<div class="tv-tasas">'
-    +'<div class="tv-tasa"><b>'+pct(ta.asistencia)+'</b><span>Asistencia de la semana (asistieron / asistieron + no asistieron)</span></div>'
-    +'<div class="tv-tasa"><b>'+pct(ta.aceptacion_90d)+'</b><span>Aceptación últimos 90 días ('+Number(ta.propuestas_90d||0)+' propuestas)</span></div>'
-    +'<div class="tv-tasa"><b>'+num(ta.dias_cierre_desde_llegada)+' d</b><span>Días promedio al cierre, desde que llegó ('+Number(ta.ganados_90d||0)+' ganados en 90 días)</span></div>'
-    +'<div class="tv-tasa"><b>'+num(ta.dias_cierre_desde_propuesta)+' d</b><span>Días promedio desde la propuesta hasta que aceptó</span></div></div>';
+    +'<div class="tv-tasa"><b>'+pct(ta.asistencia)+'</b><span>Asistencia de la semana (asistieron / asistieron + no asistieron)</span><em>n = '+Number(ta.n_asistencia||0)+' reuniones</em></div>'
+    +'<div class="tv-tasa"><b>'+pct(ta.aceptacion_90d)+'</b><span>Aceptación últimos 90 días (hoy clientes / recibieron propuesta)</span><em>n = '+Number(ta.propuestas_90d||0)+' propuestas</em></div>'
+    +'<div class="tv-tasa"><b>'+num(ta.dias_cierre_desde_llegada)+' d</b><span>Días promedio al cierre, desde que llegó</span><em>n = '+Number(ta.ganados_90d||0)+' ganados en 90 días</em></div>'
+    +'<div class="tv-tasa"><b>'+num(ta.dias_cierre_desde_propuesta)+' d</b><span>Días promedio desde la propuesta hasta que aceptó</span><em>n = '+Number(ta.n_cierre_propuesta||0)+' ganados con propuesta registrada</em></div></div>';
+  h+=calidadHtml(t.calidad);
   // Pendientes vencidos (rojo) + motivos
   var grupos=agrupar(t.pendientes), tot=(t.pendientes||[]).length, ts=t.tareas_semana||{};
   h+='<div class="tv-grid"><section class="card acc c-roj"><div class="h">'+ic('alerta','c-roj')+'<h2>Pendientes vencidos y sin próxima acción</h2><small>'+tot+' prospecto'+(tot===1?'':'s')+'</small></div>'
@@ -80,7 +96,7 @@ function pintar(){
       +og.map(function(o){return '<tr><td>'+esc(o.origen)+(o.fuente||o.campana?'<br><span class="t2">'+esc([o.fuente,o.campana].filter(Boolean).join(' · '))+'</span>':'')+'</td><td class="n">'+Number(o.llegaron||0)+(o.semana?' <span class="t2">(+'+Number(o.semana)+')</span>':'')+'</td>'
         +'<td class="n">'+Number(o.asistieron||0)+'</td><td class="n">'+Number(o.propuestas||0)+'</td><td class="n">'+Number(o.clientes||0)+'</td></tr>';}).join('')+'</tbody></table></div>'
      :'<div class="nd">Sin prospectos nuevos en 90 días.</div>')+'</section></div>';
-  h+='<p class="crm-nota">Las propuestas y los ganados se cuentan desde los cambios de etapa registrados en Gestoor (desde el 26-oct). Solo lectura: para actuar, abre el prospecto en el CRM.</p>';
+  h+='<p class="crm-nota">Las propuestas y los ganados se cuentan desde los cambios de etapa registrados en Gestoor'+(t.calidad&&t.calidad.historial_desde?' (historial confiable desde el '+esc(fechaCorta(t.calidad.historial_desde))+')':'')+'. Solo lectura: para actuar, abre el prospecto en el CRM.</p>';
   app.innerHTML=h;
   app.querySelectorAll('[data-sem]').forEach(function(b){b.onclick=function(){var v=Number(b.getAttribute('data-sem'));LUNES=v===0?null:D.sumarDias(T.lunes,v);
     try{var u=new URLSearchParams(location.search);if(LUNES)u.set('semana',LUNES);else u.delete('semana');history.replaceState(null,'',location.pathname+(u.toString()?'?'+u.toString():''));}catch(e){}

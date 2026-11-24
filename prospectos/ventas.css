@@ -59,6 +59,14 @@
 .g-mod-com .tv-tasa{border:1px solid var(--borde);border-radius:16px;padding:12px 14px;background:rgba(255,255,255,.03);min-width:0}
 .g-mod-com .tv-tasa b{display:block;font:800 22px var(--tit);color:var(--t1)}
 .g-mod-com .tv-tasa span{font-size:12px;color:var(--t2)}
+.g-mod-com .tv-tasa em{display:block;font-style:normal;font-size:11px;color:var(--t3);margin-top:4px}
+.g-mod-com .tv-cal-g{border:1px solid var(--borde);border-radius:12px;margin:8px 0;background:rgba(255,255,255,.02)}
+.g-mod-com .tv-cal-g summary{display:flex;gap:12px;align-items:center;padding:10px 12px;cursor:pointer;font-size:12.5px;color:var(--t1);list-style:none}
+.g-mod-com .tv-cal-g summary::-webkit-details-marker{display:none}
+.g-mod-com .tv-cal-n{min-width:42px;text-align:center;font:800 18px var(--tit);color:var(--verde)}
+.g-mod-com .tv-cal-g.hay .tv-cal-n{color:var(--ambar)}
+.g-mod-com .tv-cal-g ul{margin:0;padding:0 14px 10px 66px;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+.g-mod-com .tv-cal-g a{color:var(--lila2)}
 .g-mod-com .tv-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
 .g-mod-com .tv-tabla{width:100%;border-collapse:collapse;font-size:12.5px}
 .g-mod-com .tv-tabla th{text-align:left;color:var(--t2);font:700 10.5px var(--txt);letter-spacing:.8px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--borde)}

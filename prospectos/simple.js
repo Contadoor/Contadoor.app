@@ -24,7 +24,7 @@ var PLANES=[['cumplimiento','Cumplimiento'],['pro','PRO'],['estrategico','Estrat
 var MSJ={RESERVA_FUTURA:'Esa reunión todavía no ocurre.',RESERVA_NO_TERMINADA:'Esa reunión todavía no termina: ciérrala cuando acabe.',
   FALTA_VERSION:'Faltan los datos de la ficha. Recargué la lista: vuelve a guardar.',SIN_IDENTIDAD:'Tu usuario no está activo en Gestoor. Pídele al Master que lo revise.',RESERVA_YA_CERRADA:'Esa reunión ya estaba cerrada con otro resultado. Recargué la lista.',
   RESERVA_NO_VIGENTE:'Esa reserva fue cancelada.',RESULTADO_INVALIDO:'Resultado no válido.',PLAN_INVALIDO:'Elige un plan de la lista.',
-  MOTIVO_INVALIDO:'Elige un motivo de la lista.',SITUACION_MUY_LARGA:'La situación supera los 4.000 caracteres.',ETAPA_INVALIDA:'Estado no válido.',
+  MOTIVO_INVALIDO:'Elige un motivo de la lista.',FALTA_MOTIVO_PERDIDA:'Para marcar Perdido elige el motivo (obligatorio).',SITUACION_MUY_LARGA:'La situación supera los 4.000 caracteres.',ETAPA_INVALIDA:'Estado no válido.',
   VERSION_CONFLICTO:'Otra persona guardó esta ficha recién. Recargué sus datos: revisa y vuelve a guardar.',
   CLAVE_PROHIBIDA:'No escribas claves ni contraseñas aquí: bórrala para poder guardar.',
   FECHA_INVALIDA:'El próximo contacto debe ser de hoy en adelante (máximo un año).',
@@ -117,7 +117,7 @@ function fichaHtml(p){
   h+='<span class="cs-l">¿En qué está?</span><div class="cs-estados" role="group" aria-label="Estado">'+ESTADOS.map(function(e){
       return '<button type="button" class="cs-chip'+(p.etapa===e[0]?' on':'')+'" data-et="'+e[0]+'" aria-pressed="'+(p.etapa===e[0])+'"'+dis+'>'+esc(e[1])+'</button>';}).join('')+'</div>';
   if(OTRAS[p.etapa]||!p.etapa)h+='<p class="cs-nota">Hoy: '+chip(p.etapa)+' · elige uno de arriba para cambiarlo.</p>';
-  if(p.etapa==='descartado')h+='<label class="cs-l" for="csMot">Motivo (opcional)</label><select id="csMot"'+dis+'><option value="">— elegir —</option>'
+  if(p.etapa==='descartado'||PIDE_MOT===Number(p.id))h+='<label class="cs-l" for="csMot">Motivo (obligatorio)</label><select id="csMot"'+dis+'><option value="">— elegir —</option>'
     +MOTIVOS.map(function(m){return '<option value="'+m[0]+'"'+(p.motivo_perdida===m[0]?' selected':'')+'>'+esc(m[1])+'</option>';}).join('')+'</select>';
   h+='<label class="cs-l" for="csSit">Situación · lo que le pasa y lo que busca</label><textarea id="csSit" maxlength="4000" placeholder="Escríbelo en tus palabras, general."'+dis+'>'+esc(p.situacion||'')+'</textarea>'
     +(p.dolor?'<p class="cs-dolor"><b>En la agenda escribió:</b> '+esc(p.dolor)+'</p>':'');
@@ -163,11 +163,15 @@ function valores(p,etapa){
   var g=function(i){var e=document.getElementById(i);return e?e.value:'';};
   return {etapa:etapa||p.etapa,situacion:g('csSit'),plan:g('csPlan'),motivo:g('csMot')||(etapa==='descartado'?p.motivo_perdida:''),proxima:g('csProx')};
 }
-var ocupado=false, SUCIO=false;   // SUCIO: hay texto sin guardar en la ficha (el refresco automático no la pisa)
+var ocupado=false, SUCIO=false, PIDE_MOT=null;   // PIDE_MOT (VENTAS-CONTROL): Perdido pide motivo antes de guardar   // SUCIO: hay texto sin guardar en la ficha (el refresco automático no la pisa)
 function guardar(etapa){
   var p=prospecto(SEL);if(!p||ocupado)return;
   var msg=document.getElementById('csMsg');
   if(!p.actualizado){if(msg){msg.className='cs-msg err';msg.textContent=MSJ.FALTA_VERSION;}cargar();return;}   // R2 H1: la versión viaja siempre
+  // VENTAS-CONTROL (Luciano 23-11): Perdido exige motivo también aquí (la base lo rechaza con FALTA_MOTIVO_PERDIDA). Se pide antes de guardar.
+  if((etapa||p.etapa)==='descartado'&&!valores(p,etapa).motivo){PIDE_MOT=Number(p.id);pintar();var mm=document.getElementById('csMsg');
+    if(mm){mm.className='cs-msg err';mm.textContent=MSJ.FALTA_MOTIVO_PERDIDA;}var sm=document.getElementById('csMot');if(sm)sm.focus();return;}
+  PIDE_MOT=null;
   ocupado=true;
   app.querySelectorAll('#csFicha button,#csFicha select,#csFicha textarea,#csFicha input').forEach(function(x){x.disabled=true;});
   if(msg){msg.className='cs-msg';msg.textContent='Guardando…';}
