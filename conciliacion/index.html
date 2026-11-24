@@ -241,7 +241,7 @@ tr:hover td{background:#f0fdff;}
       </div>
       <div id="tablaBody"></div>
     </div>
-    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente y con las facturas de nuestros servicios abiertas en Cobranza; si lo pagó otra empresa, usa ↺ para cambiar el cliente; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
+    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente y con las facturas de nuestros servicios abiertas en Cobranza; si lo pagó otra empresa, usa ↺ para cambiar el cliente; si lo pagó alguien que no está en la cartera (p. ej. un servicio adicional), usa 🌐 Cliente externo; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
   </div>
 </main>
 </div>
@@ -296,6 +296,16 @@ tr:hover td{background:#f0fdff;}
   <div class="modal-footer"><button class="btn-s" onclick="cerrar('mDesc')">Cancelar</button><button class="btn-purple" id="dBtn" onclick="descartar()">Descartar ingreso</button></div>
 </div></div>
 
+<!-- CONC-EXT-1 (24-11): MODAL CLIENTE EXTERNO -->
+<div class="modal-bg" id="mExt"><div class="modal ob-form">
+  <h2>Conciliar como cliente externo</h2>
+  <div class="modal-sub" id="eSub"></div>
+  <div class="info-box" style="margin-top:4px">🌐 Para un pago de alguien que <strong>no está en la cartera activa</strong> (por ejemplo, un servicio adicional). El ingreso queda <strong>conciliado por el total</strong> y cuenta como ingreso; quién pagó (nombre y RUT) se toma de la cartola. Se puede desconciliar después.</div>
+  <label for="eCon">Concepto (obligatorio)</label><input id="eCon" maxlength="200" placeholder="Ej: Servicio adicional · declaración de renta">
+  <div class="ob-err" id="eErr"></div>
+  <div class="modal-footer"><button class="btn-s" onclick="cerrar('mExt')">Cancelar</button><button class="btn-purple" id="eBtn" onclick="conciliarExterno()">Conciliar como cliente externo</button></div>
+</div></div>
+
 <!-- MODAL ASIGNAR CLIENTE -->
 <div class="modal-bg" id="mAsig"><div class="modal ob-form">
   <h2 id="aTit">Asignar cliente al ingreso</h2>
@@ -321,6 +331,7 @@ var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _docs=[], _co
 var _filasCarga=null, _archivo=null, _sha=null;
 var _mov=null, _cands=[], _criterio='manual', _clave=null, _claveCob=null, _movDesc=null, _movAsig=null;
 var _manuales=[], _manualActivo=false, _claveMan=null; // CONC-UX: imputaciones manuales (requiere SQL CONC-MAN-1)
+var _ext=[], _extOk=false, _movExt=null, _claveExt=null; // CONC-EXT-1: ingresos de clientes externos (imputación manual externo=true)
 var _det=null, _detSeq=0, _congelado=false; // R2: detalle FRESCO del ingreso abierto + bloqueo mientras se aplica
 var _obsTipo={}; // id de obligación → tipo (f29/cotizaciones/servicio_contadoor/otro) para el gráfico
 var EST={por_conciliar:['Por conciliar','eb-pend'],parcial:['Parcial','eb-parcial'],conciliado:['Conciliado','eb-ok'],descartado:['Descartado','eb-gris']};
@@ -356,10 +367,13 @@ function cargar(listo){
     // CONC-A (13-11, Conciliación unificada): facturas de nuestros servicios abiertas en Cobranza y pagos de Cobranza
     // hechos desde un ingreso. RLS cob_lectura (Master, rol pagos o módulo Cobranza).
     todo('cobranza_documentos?select=id,cliente_id,folio,periodo,concepto,origen,fecha_emision,fecha_vencimiento,saldo,estado&estado=in.(PENDIENTE,CASTIGADO)&saldo=gt.0&order=fecha_vencimiento.asc,id.asc',seq),
-    todo('cobranza_pagos?select=id,cliente_id,movimiento_id,monto,aplicaciones_norm,estado,registrado_at&movimiento_id=not.is.null&estado=eq.VIGENTE&order=registrado_at.desc,id.desc',seq)
+    todo('cobranza_pagos?select=id,cliente_id,movimiento_id,monto,aplicaciones_norm,estado,registrado_at&movimiento_id=not.is.null&estado=eq.VIGENTE&order=registrado_at.desc,id.desc',seq),
+    // CONC-EXT-1: si la columna aún no existe (SQL sin instalar) o no hay permiso, la opción queda oculta (false) sin romper la carga.
+    todo('concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,externo_nombre,externo_rut,created_at&externo=eq.true&anulada=eq.false&order=id.desc',seq).catch(function(){return false;})
   ]).then(function(r){
     // R2.1: el aviso «listo» llega DESPUÉS de tener los datos frescos (antes llegaba con los anteriores); listo(false) = no refrescó.
     if(seq!==_seq||r.indexOf(null)>=0){if(typeof listo==='function')listo(false);return;}
+    if(r[7]===false){_extOk=false;_ext=[];}else{_extOk=true;_ext=r[7];}
     _movs=r[0];_ops=r[1];_cargas=r[2];_obs=r[3];_mem=r[4];_docs=r[5];_cobPagos=r[6];_cacheSug={};
     _obs.forEach(function(o){_obsTipo[o.id]=o.tipo_obligacion;});stats();render();
     if(typeof listo==='function')listo(true);
@@ -389,7 +403,7 @@ function stats(){
   document.getElementById('st-ob').textContent=_obs.length+_docs.length; // obligaciones + facturas de Cobranza abiertas
 }
 function setVista(v){_vista=v;document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===v);});render();}
-function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo).toLowerCase().indexOf(q)>=0;}
+function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo+extDe(m.id).map(function(x){return ' cliente externo '+x.concepto;}).join('')).toLowerCase().indexOf(q)>=0;}
 function render(){
   var q=sv('searchQ').toLowerCase(), cont=document.getElementById('tablaBody'), h='';
   var T={obl:'Obligaciones y facturas abiertas (lo que los clientes nos deben transferir)',pend:'Ingresos por conciliar',conc:'Ingresos conciliados',desc:'Ingresos descartados',cargas:'Cartolas cargadas',mem:'RUT recordados (quién transfiere por cada cliente)'};
@@ -416,10 +430,13 @@ function render(){
   arr.forEach(function(m){
     var e=EST[m.estado]||[m.estado,'eb-gris'], acc='';
     if(_vista==='pend'){
-      if(!m.cliente_rut) acc+='<button class="btn-amber" onclick="abrirAsignar('+m.id+')">Asignar cliente</button> ';
+      if(!m.cliente_rut) acc+='<button class="btn-amber" onclick="abrirAsignar('+m.id+')">Asignar cliente</button> '+(_extOk&&esTesoreria()&&m.estado==='por_conciliar'&&Number(m.monto_aplicado)===0?'<button class="btn-s" onclick="abrirExterno('+m.id+')" title="Pago de alguien que no está en la cartera activa (p. ej. servicio adicional)">🌐 Cliente externo</button> ':'');
       else acc+='<button class="btn-purple" onclick="abrirConciliar('+m.id+')">Conciliar</button> '+(puedeCambiarCliente(m)?'<button class="btn-s" onclick="abrirAsignar('+m.id+',true)" title="Cambiar cliente (p. ej. lo pagó otra empresa)">↺</button> ':'');
       if(m.estado==='por_conciliar') acc+='<button class="btn-s" onclick="abrirDescartar('+m.id+')">No corresponde</button>';
     } else if(_vista==='conc'){
+      extDe(m.id).forEach(function(x){ // CONC-EXT-1
+        acc+='<div style="font-size:10.5px;color:var(--tm)">🌐 '+hesc(x.concepto)+' '+ff(x.monto)+(esTesoreria()?' <a href="#" onclick="desExterno('+x.id+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
+      });
       _ops.filter(function(o){return o.movimiento_id===m.id&&!o.anulada;}).forEach(function(o){
         acc+='<div style="font-size:10.5px;color:var(--tm)">'+o.aplicaciones.map(function(a){var ob=_obsTodas[a.obligacion_id];return hesc(ob?ob:'Obligación #'+a.obligacion_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'op\','+o.id+','+(o.aplicaciones||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
       });
@@ -429,7 +446,7 @@ function render(){
     } else acc='<button class="btn-s" onclick="revertir('+m.id+')">Revertir</button>';
     h+='<tr><td style="white-space:nowrap">'+hesc(fecha(m.fecha_hora))+'</td>'
       +'<td><div class="cli-nombre" style="font-size:12px">'+hesc(m.nombre_origen||'—')+'</div><div class="cli-rut">'+hesc(m.rut_origen)+' · '+hesc(m.banco_origen||'')+'</div></td>'
-      +'<td>'+(m.cliente_rut?hesc(cliNombre(m.cliente_rut))+(m.cliente_por_memoria?' <span title="Asignado por RUT recordado">🧠</span>':m.cliente_asignado_manual?' <span title="'+hesc(m.motivo_asignacion)+'">✋</span>':'')
+      +'<td>'+(!m.cliente_rut&&extDe(m.id).length?'<span style="color:#0e7490;font-weight:700">🌐 Cliente externo</span><div style="font-size:10px;color:var(--tm)">'+hesc(extDe(m.id)[0].concepto)+'</div>':m.cliente_rut?hesc(cliNombre(m.cliente_rut))+(m.cliente_por_memoria?' <span title="Asignado por RUT recordado">🧠</span>':m.cliente_asignado_manual?' <span title="'+hesc(m.motivo_asignacion)+'">✋</span>':'')
         :'<span style="color:var(--red);font-weight:700">⚠️ sin cliente</span>'+(_mem.some(function(x){return x.rut_origen===m.rut_origen;})?'<div style="font-size:10px;color:var(--amber)">🧠 hay sugerencias</div>':''))+(_vista==='pend'?marcaExtra(m.cliente_rut):'')+'</td>'
       +'<td style="text-align:right;font-family:monospace;font-weight:700">'+ff(m.monto)+'</td>'
       +'<td style="text-align:right;font-family:monospace">'+(_vista==='desc'?hesc(CAT[m.categoria_descarte]||'')+'<div style="font-size:10px;color:var(--tm)">'+hesc(m.motivo_descarte||'')+'</div>':ff(m.saldo)+(m.estado==='parcial'?'<span class="conc-mini" title="'+Math.round(Number(m.monto_aplicado)*100/Math.max(1,Number(m.monto)))+'% conciliado"><span style="width:'+Math.round(Number(m.monto_aplicado)*100/Math.max(1,Number(m.monto)))+'%"></span></span>':''))+'</td>'
@@ -990,6 +1007,31 @@ function desconciliar(f,id){
   rpc(fn,args).then(function(){_ocupado=false;_reabrir=mid;cargar();}).catch(function(e){_ocupado=false;
     var t=String(e&&e.message||'');
     alert(/permiso|No autorizado|Solo master|42501/i.test(t)&&f==='op'?'No tienes autorización para desconciliar. Pueden hacerlo Master, admin y Pagos con usuario activo, según el estado de cada operación.':(e.claro?(f==='cob'?cobMsg(e):t):'No sabemos si se desconcilió (sin respuesta). Actualiza y revisa antes de reintentar.'));_reabrir=mid;cargar();});
+}
+// ── CONC-EXT-1 (24-11): cliente externo ─────────────────────────────────
+// Ingreso SIN cliente de alguien que no está en la cartera activa (p. ej. servicio adicional): se concilia por el total con
+// la RPC concil_imputar_externo (Tesorería). Quién pagó lo toma el servidor de la cartola. Se desconcilia con la RPC de
+// siempre (concil_imputacion_manual_anular) y el ingreso vuelve a «por conciliar».
+function extDe(mid){return _ext.filter(function(x){return x.movimiento_id===mid;});}
+function abrirExterno(id){if(_ocupado)return;_movExt=_movs.find(function(m){return m.id===id;});if(!_movExt)return;_claveExt=nuevaClave();
+  document.getElementById('eSub').textContent=fecha(_movExt.fecha_hora)+' · '+(_movExt.nombre_origen||'—')+' · '+_movExt.rut_origen+' · '+ff(_movExt.monto);
+  document.getElementById('eCon').value='';err('eErr','');var b=document.getElementById('eBtn');b.disabled=false;b.textContent='Conciliar como cliente externo';abrir('mExt');}
+function conciliarExterno(){
+  if(_ocupado||!_movExt)return;var con=sv('eCon');if(con.length<3){err('eErr','Escribe a qué corresponde el pago (mínimo 3 caracteres).');return;}
+  _ocupado=true;var b=document.getElementById('eBtn');b.disabled=true;b.textContent='Conciliando…';
+  rpc('concil_imputar_externo',{p_movimiento_id:_movExt.id,p_concepto:con,p_clave_idem:_claveExt}).then(function(r){
+    _ocupado=false;var x=(r||[])[0]||{};
+    if(x.resultado==='existente_anulada'){b.disabled=false;b.textContent='Conciliar como cliente externo';_claveExt=nuevaClave();err('eErr','Esa conciliación ya había sido desconciliada. Revisa y vuelve a confirmar si corresponde.');cargar();return;}
+    document.getElementById('mExt').classList.remove('on');cargar();})
+  .catch(function(e){_ocupado=false;b.disabled=false;b.textContent='Conciliar como cliente externo';
+    // Sin respuesta: se mantiene la MISMA clave, así reintentar no duplica (el servidor devuelve lo ya hecho).
+    err('eErr',e.claro?e.message:'No sabemos si se concilió (sin respuesta). Vuelve a presionar: no se duplica.');cargar();});
+}
+function desExterno(id){
+  if(_ocupado||_congelado)return;var x=_ext.find(function(e){return e.id===id;});if(!x)return;
+  if(!confirm('Se desconciliará el pago de cliente externo:\n· '+x.concepto+' '+ff(x.monto)+'\n\nEl ingreso vuelve a «por conciliar». ¿Continuar?'))return;
+  var mot=prompt('¿Por qué se desconcilia? (mínimo 10 caracteres)');if(!mot||mot.trim().length<10){if(mot)alert('El motivo debe tener al menos 10 caracteres.');return;}
+  accion('concil_imputacion_manual_anular',{p_id:id,p_motivo:mot.trim()});
 }
 // ── Descartar / revertir / asignar / anular ─────────────────────────────
 function abrirDescartar(id){_movDesc=_movs.find(function(m){return m.id===id;});if(!_movDesc)return;document.getElementById('dSub').textContent=fecha(_movDesc.fecha_hora)+' · '+_movDesc.rut_origen+' · '+ff(_movDesc.monto);document.getElementById('dMot').value='';err('dErr','');abrir('mDesc');}
