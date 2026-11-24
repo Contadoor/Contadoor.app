@@ -9,6 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* AVISOS-CAMPANA (24-11): la vista antigua de prospectos ya no es el destino de los avisos. Un enlace antiguo «index.html?id=N»
+   (campana, push o marcador) abre DIRECTO la ficha del CRM, igual que simple.html. Sin ?id la vista sigue funcionando como antes. */
+(function(){try{var q=new URLSearchParams(location.search).get('id');if(q&&/^\d{1,18}$/.test(q))location.replace('crm.html?lead='+q);}catch(e){}})();
+</script>
 <style>
 /* Prospectos · control comercial (tema Todo oscuro; piezas comunes en gestoor.css) */
 /* Estructura base (como los demás módulos: comercial.css, pre-iva/cartera.css). Sin esto el menú lateral

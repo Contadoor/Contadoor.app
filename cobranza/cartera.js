@@ -174,11 +174,15 @@ function armarFilas(){
 }
 
 /* ── Carga ── */
+// AVISOS-CAMPANA (24-11): los avisos de Cobranza abren el REGISTRO: cartera.html?cliente=<id> abre la ficha de ese cliente una vez,
+// cuando la cartera ya cargó (si el usuario no tiene acceso, no se abre nada). Solo dígitos; cualquier otra cosa se ignora.
+var CLIENTE_PEDIDO=(function(){try{var v=new URLSearchParams(location.search).get('cliente');return v&&/^[0-9]{1,18}$/.test(v)?v:null;}catch(e){return null;}})();
+function abrirPedido(){if(!CLIENTE_PEDIDO||!S.yo||!S.yo.puede_leer)return;var id=CLIENTE_PEDIDO;CLIENTE_PEDIDO=null;abrirFicha(id);}
 function cargar(){
   return D.yo().then(function(yo){
     S.yo=yo;
     if(!yo||!yo.puede_leer){render();return;}
-    return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();render();});
+    return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();render();abrirPedido();});
   }).catch(function(e){S.err=mErr(e);render();});
 }
 function recargar(msg){

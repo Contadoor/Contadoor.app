@@ -11,6 +11,10 @@
 // · Enlaces normalizados a rutas absolutas /modulo/… (H7); cualquier otra cosa (http:, javascript:, //) se descarta.
 // · V1 (localStorage) retirada: crearNotificacion() ahora solo muestra un aviso breve (toast) a quien hizo la acción.
 // · Botón "Activar avisos en este celular" dentro del panel, para cualquier usuario (usa avisos-push.js).
+// · AVISOS-CAMPANA (24-11): vista «Por tipo» (agrupa los pendientes por evento, ordenados por prioridad, con contador y acciones
+//   por grupo: «Marcar leídas» para los informativos y «Marcar ejecutadas» —con confirmación— para los de acción). La insignia usa el
+//   total real de mis_alertas_resumen() (no solo los 200 cargados). Marcar en grupo = RPC alerta_marcar_lote (mismas reglas que
+//   alerta_marcar); si aún no está instalada, se marca uno por uno. La elección de vista se recuerda en este dispositivo.
 // ═══════════════════════════════════════════════════════════
 (function(){
 if(window.__gestoorCampana) return;          // idempotente: la página y el menú pueden cargarla los dos
@@ -22,6 +26,7 @@ var BASE=(function(){                         // carpeta raíz del sitio, según
 })();
 
 var _cache=[];        // filas de mis_alertas
+var _resumen=null;    // filas de mis_alertas_resumen (null = no disponible)
 var _cargando=false;
 var _yaCargo=false;
 
@@ -55,7 +60,7 @@ function normEnlace(u){
 // ── Mapeo fila → UI ─────────────────────────────────────────
 function mapRow(row){
   return {
-    id:row.id, modulo:row.modulo||'sistema', tipo:row.tipo||'info', prioridad:row.prioridad||'media',
+    id:row.id, evento:row.evento||'', modulo:row.modulo||'sistema', tipo:row.tipo||'info', prioridad:row.prioridad||'media',
     clienteRut:row.cliente_rut||'', periodo:row.periodo||'', titulo:row.titulo||'', mensaje:row.descripcion||'',
     url:normEnlace(row.accion_url), pendiente:(row.estado||'pendiente')==='pendiente', leida:!!row.leida_at,
     accionRequerida:row.tipo==='accion_requerida'||row.tipo==='reapertura',
@@ -68,10 +73,13 @@ function mapRow(row){
 function cargarAlertas(){
   if(typeof sbFetch!=='function'||_cargando) return;
   _cargando=true;
-  rpc('mis_alertas',{p_limite:100}).then(function(rows){
+  rpc('mis_alertas',{p_limite:200}).then(function(rows){
     _cargando=false; _yaCargo=true;
     _cache=(Array.isArray(rows)?rows:[]).map(mapRow);
     renderBadge(); if(panelAbierto()) renderPanel();
+    // Resumen agrupado (best-effort: si la RPC aún no existe o falla, la campana sigue con lo cargado)
+    rpc('mis_alertas_resumen',{}).then(function(r){_resumen=Array.isArray(r)?r:null;renderBadge();if(panelAbierto())renderPanel();})
+      .catch(function(){_resumen=null;});
   }).catch(function(e){
     _cargando=false;
     if(!e||e.message!=='GESTOOR_NO_SESSION') console.warn('[Campana] No se pudieron cargar las alertas:',e&&e.message||e);
@@ -127,6 +135,7 @@ function renderBadge(){
   var badge=document.getElementById('notBadge');
   if(!badge) return;
   var count=pendientes().length;
+  if(_resumen){var tot=_resumen.reduce(function(s,x){return s+(Number(x.pendientes)||0);},0);if(tot>count)count=tot;}   // total real (más de 200)
   badge.textContent=count>99?'99+':count;
   badge.style.display=count>0?'flex':'none';
   var btn=document.getElementById('notBtn');
@@ -228,6 +237,79 @@ function grupoFecha(ts){
   var t=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(), h0=hoy.getTime();
   if(t>=h0) return 'Hoy'; if(t>=h0-86400000) return 'Ayer'; return 'Anteriores';
 }
+// ── Vista «Por tipo» (AVISOS-CAMPANA) ──────────────────────
+var EVENTO_LABEL={
+  'com.sin_proximo_paso':'Prospectos sin próximo paso','com.nuevo_sin_responsable':'Prospectos nuevos sin responsable','com.reunion_manana':'Reuniones de mañana',
+  'com.reunion_15min':'Reuniones en 15 minutos','com.bitacora_sin_cerrar':'Bitácoras sin cerrar','com.no_asistio':'No asistió · reagendar','com.accion_vencida':'Acciones vencidas',
+  'com.onboarding_nuevo':'Clientes nuevos por iniciar','sii.carta_nueva':'Cartas nuevas del SII','sii.historial_listo':'Historial SII listo','sii.historia_cargada':'Historia SII cargada',
+  'renta.prep_respondida':'Preparemos tu Renta · respuestas','renta.prep_por_aprobar':'Preparemos tu Renta · por aprobar','renta.prep_resuelta':'Preparemos tu Renta · resueltas',
+  'fa.enviada':'Facturas por aprobar','fa.aprobada':'Facturas aprobadas','fa.emitida':'Facturas emitidas','fa.incierta':'Facturas inciertas','fa.rechazada':'Facturas rechazadas',
+  'fa.devuelta':'Facturas devueltas','fa.auto_aprobada':'Facturas auto-aprobadas (control)','cont.reapertura':'Reportes reabiertos','cont.remanente_conflicto':'Remanente en conflicto',
+  'pagos.obligacion_revision':'Obligaciones F29 en revisión','rrhh.iu_cambio':'Cambios de IU desde RRHH','cred.masivo':'Seguridad · muchas claves vistas',
+  'cob.compromiso_incumplido':'Compromisos de pago incumplidos','cob.factura_diferencia':'Facturas que no entraron a Cobranza','cob.sincronizacion_detenida':'Sincronización de Cobranza',
+  'mc.alta':'MiContadoor · accesos nuevos','mc.revocacion':'MiContadoor · accesos revocados','sistema.utm_falta':'Falta la UTM del mes',
+  'cot.por_vencer':'Cotizaciones por vencer','cot.vencida':'Cotizaciones vencidas','te.cuota_vencida':'Trabajos especiales · cuotas vencidas',
+  'te.aceptado_sin_facturar':'Trabajos especiales · aceptados sin factura'
+};
+var PRIO_RANGO={alta:0,media:1,baja:2};
+var CLAVE_VISTA='gestoor.campana.vista';
+function leerVista(){try{return localStorage.getItem(CLAVE_VISTA)==='tipo'?'tipo':'fecha';}catch(e){return 'fecha';}}
+function guardarVista(v){try{localStorage.setItem(CLAVE_VISTA,v);}catch(e){}}
+var _vista=leerVista();
+var _abiertos={};
+function claveGrupo(n){return n.evento||('mod:'+modKey(n.modulo)+':'+n.tipo);}
+function etiquetaGrupo(k,items){
+  if(EVENTO_LABEL[k]) return EVENTO_LABEL[k];
+  var t=(items[0]&&items[0].titulo)||'Avisos'; return t.replace(/\s*·.*$/,'');
+}
+function totalResumen(k){
+  if(!_resumen) return null; var s=0;
+  _resumen.forEach(function(x){ if((x.evento||'')===k) s+=Number(x.pendientes)||0; }); return s||null;
+}
+function gruposPorTipo(pend){
+  var m={},orden=[];
+  pend.forEach(function(n){var k=claveGrupo(n);if(!m[k]){m[k]=[];orden.push(k);}m[k].push(n);});
+  return orden.map(function(k){var it=m[k];
+    var pr=it.reduce(function(a,n){return Math.min(a,PRIO_RANGO[n.prioridad]!=null?PRIO_RANGO[n.prioridad]:1);},2);
+    return {k:k,items:it,prio:pr,label:etiquetaGrupo(k,it),noLeidas:it.filter(function(n){return !n.leida;}).length,
+            info:it.filter(function(n){return !n.accionRequerida;}).length,accion:it.filter(function(n){return n.accionRequerida;}).length,total:totalResumen(k)};
+  }).sort(function(a,b){return (a.prio-b.prio)||(b.items.length-a.items.length)||a.label.localeCompare(b.label);});
+}
+function grupoHtml(g){
+  var m=modCfg(g.items[0].modulo), abierto=!!_abiertos[g.k], gid=JSON.stringify(g.k).replace(/"/g,'&quot;');
+  var h='<div class="not-grupo" data-grupo="'+hesc(g.k)+'" style="border-left:3px solid '+m.color+'">';
+  h+='<div class="not-grupo-cab">'+icono(modKey(g.items[0].modulo),28)+'<div style="flex:1;min-width:0">';
+  h+='<div class="not-tit" style="margin:0">'+hesc(g.label)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:3px">';
+  h+='<span class="not-cnt" style="background:'+m.color+';font-size:10px">'+g.items.length+(g.total&&g.total>g.items.length?' de '+g.total:'')+'</span>';
+  if(g.prio===0) h+='<span style="font-size:9px;font-weight:700;background:#fee2e2;color:#C0392B;border-radius:20px;padding:1px 7px">● Alta</span>';
+  if(g.noLeidas) h+='<span style="font-size:10px;color:#9a849b">'+g.noLeidas+' sin leer</span>';
+  h+='<span style="font-size:10px;color:#9a849b">'+hesc(m.label)+' · último '+timeAgo(g.items[0].ts)+'</span></div></div></div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
+  h+='<button type="button" class="not-b" onclick="notGrupoVer('+gid+')" aria-expanded="'+abierto+'">'+(abierto?'Ocultar':'Ver '+g.items.length)+'</button>';
+  if(g.info) h+='<button type="button" class="not-b" onclick="notGrupoMarcar('+gid+',\'leida\')">✓ Marcar '+g.info+' leída'+(g.info!==1?'s':'')+'</button>';
+  if(g.accion) h+='<button type="button" class="not-b" onclick="notGrupoMarcar('+gid+',\'ejecutada\')">✅ Marcar '+g.accion+' ejecutada'+(g.accion!==1?'s':'')+'</button>';
+  h+='</div>';
+  if(abierto){ h+='<div style="margin-top:8px">'+g.items.slice(0,30).map(tarjeta).join('')+(g.items.length>30?'<div class="not-vacio" style="padding:8px">… y '+(g.items.length-30)+' más</div>':'')+'</div>'; }
+  return h+'</div>';
+}
+window.notGrupoVer=function(k){_abiertos[k]=!_abiertos[k];renderPanel();};
+window.notSetVista=function(v){_vista=v==='tipo'?'tipo':'fecha';guardarVista(_vista);renderPanel();};
+// Marca un grupo: informativos → 'leida'; acción requerida → 'ejecutada' (pide confirmación: no reemplaza hacer la tarea).
+window.notGrupoMarcar=function(k,accion){
+  var it=pendientes(null).filter(function(n){return claveGrupo(n)===k&&(accion==='ejecutada'?n.accionRequerida:!n.accionRequerida);});
+  if(!it.length) return Promise.resolve();
+  if(accion==='ejecutada'&&typeof window.confirm==='function'&&!window.confirm('¿Marcar '+it.length+' aviso(s) como ejecutados? Hazlo solo si ya están resueltos.')) return Promise.resolve();
+  var ids=it.map(function(n){return n.id;}).slice(0,200);
+  return rpc('alerta_marcar_lote',{p_ids:ids,p_accion:accion}).then(function(r){
+    (r&&r.alertas||[]).forEach(function(x){aplicar(x.id,x);});
+  }).catch(function(e){
+    if(/alerta_marcar_lote|PGRST202|Could not find/i.test(e&&e.message||'')){   // RPC aún no instalada → uno por uno
+      return Promise.all(ids.map(function(id){return rpc('alerta_marcar',{p_id:id,p_accion:accion}).then(function(x){aplicar(id,x);}).catch(function(){});}));
+    }
+    notToast('⚠️ No se pudieron marcar los avisos: '+(e&&e.message||e));
+  }).then(function(){renderBadge();if(panelAbierto())renderPanel();cargarAlertas();});
+};
+
 var _modPagina=moduloDePagina();
 var _verTodos=false;                 // en la página de un módulo: el usuario pidió "Ver todos"
 var CLAVE_TAB='gestoor.campana.modulo';
@@ -256,6 +338,9 @@ function renderPanel(){
       +'<i class="not-dot" style="background:'+cfg.color+'"></i>'+cfg.label+(cnt>0?' <span class="not-cnt" style="background:'+cfg.color+'">'+cnt+'</span>':'')+'</button>';
   });
   html+='</div>';
+  html+='<div class="not-vista" role="group" aria-label="Agrupar avisos">'
+    +'<button type="button" class="not-seg'+(_vista==='fecha'?' on':'')+'" aria-pressed="'+(_vista==='fecha')+'" onclick="notSetVista(\'fecha\')">🗓️ Por fecha</button>'
+    +'<button type="button" class="not-seg'+(_vista==='tipo'?' on':'')+'" aria-pressed="'+(_vista==='tipo')+'" onclick="notSetVista(\'tipo\')">🗂️ Por tipo</button></div>';
 
   var lista=_cache.filter(function(n){return tab==='todos'||modKey(n.modulo)===tab;});
   var pend=lista.filter(function(n){return n.pendiente;}).sort(function(a,b){return b.ts-a.ts;});
@@ -272,12 +357,16 @@ function renderPanel(){
   }else if(pend.length===0&&hechas.length===0){
     html+='<div class="not-vacio"><div aria-hidden="true" style="font-size:28px;margin-bottom:8px">🔕</div>Sin notificaciones</div>';
   }
-  var grupoActual=null;
-  pend.forEach(function(n){
-    var g=grupoFecha(n.ts);
-    if(g!==grupoActual){grupoActual=g;html+='<div class="not-fecha">'+g+'</div>';}
-    html+=tarjeta(n);
-  });
+  if(_vista==='tipo'){
+    gruposPorTipo(pend).forEach(function(g){html+=grupoHtml(g);});
+  }else{
+    var grupoActual=null;
+    pend.forEach(function(n){
+      var g=grupoFecha(n.ts);
+      if(g!==grupoActual){grupoActual=g;html+='<div class="not-fecha">'+g+'</div>';}
+      html+=tarjeta(n);
+    });
+  }
   if(hechas.length>0){
     html+='<div class="not-sec" style="margin:12px 0 8px;color:#9a849b">Historial reciente</div>';
     hechas.forEach(function(n){
@@ -366,6 +455,11 @@ function injectNotUI(){
       +'.not-fecha{font-size:10.5px;font-weight:700;color:#9a849b;text-transform:uppercase;letter-spacing:.7px;margin:10px 0 6px}'
       +'.not-filtro{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#faf5fa;border:1px solid #efe3ef;border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#5c4a5d}'
       +'.not-cnt{color:#fff;border-radius:10px;padding:1px 6px;font-size:9px}'
+      +'.not-vista{display:flex;gap:6px;margin:-4px 0 12px}'
+      +'.not-seg{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;border:1px solid #e8dde8;background:#fff;color:#5c4a5d;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}'
+      +'.not-seg.on{border-color:#924893;background:rgba(146,72,147,.1);color:#924893}'
+      +'.not-grupo{background:#fff;border:1px solid #e8dde8;border-radius:10px;padding:10px 12px;margin-bottom:8px}'
+      +'.not-grupo-cab{display:flex;align-items:flex-start;gap:10px}'
       +'.not-card{background:#fff;border:1px solid #e8dde8;border-radius:10px;padding:12px 14px;margin-bottom:8px}'
       +'.not-tit{font-size:13px;font-weight:600;color:#1a0a1b;line-height:1.4;margin-bottom:2px;overflow-wrap:anywhere}'
       +'.not-msg{font-size:12px;color:#5c4a5d;line-height:1.5;margin-bottom:4px;overflow-wrap:anywhere}'
