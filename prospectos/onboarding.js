@@ -87,7 +87,8 @@ function ficha(c){
   h+='<div class="onb-lead"><span class="cs-l" style="margin-top:0">Lo que sabemos del prospecto</span>'
     +'<p><b>'+esc(l.nombre||'—')+'</b>'+(l.empresa?' · '+esc(l.empresa):'')+'</p>'
     +'<p class="nd">'+[l.email,l.tel,l.rut?('RUT '+rutFmt(l.rut)):null,l.n_trabajadores?(l.n_trabajadores+' trabajador(es)'):null].filter(Boolean).map(esc).join(' · ')+'</p>'
-    +(l.situacion?'<p class="onb-sit">«'+esc(l.situacion)+'»</p>':'')+'</div>';
+    +(l.situacion?'<p class="onb-sit">«'+esc(l.situacion)+'»</p>':'')
+    +(c.lead_id?'<p><a class="btn sm" href="crm.html?lead='+Number(c.lead_id)+(D.DEMO?'&demo=1':'')+'">📝 Ficha del prospecto</a></p>':'')+'</div>';
   if(c.estado==='cliente_creado'){
     h+='<div class="onb-ok"><b>✅ Cliente creado en Gestoor</b><p>Sigue los pasos de abajo: casi todos se marcan solos. En su ficha: <b>🔌 conectar el SII</b> (Cartapra) y luego <b>«Completar con datos del SII»</b>.</p>'
       +'<a class="btn p" href="../clientes/index.html?abrir='+Number(c.cliente_id)+'">Abrir ficha del cliente</a></div>'

@@ -8,6 +8,8 @@
    Datos: SOLO RPC existentes con el JWT (ComDatos.rpc): com_simple_listar, com_listar_hoy, detalle_prospecto y, para mover,
    com_ficha_guardar con los MISMOS argumentos de simple.js (ComSimple.argsFicha, con p_actualizado). La base decide qué ve y
    qué edita cada uno. Todo texto de la base pasa por esc().
+   VENTAS-CONTROL (23-11): mover usa com_etapa_cambiar (Perdido con motivo obligatorio, próxima acción obligatoria en abiertas, tareas del
+   camino fijo) y la ficha trae el bloque «Seguimiento» de ventas-control.js.
    ============================================================ */
 (function(root){
 'use strict';
@@ -161,10 +163,12 @@ if(typeof document==='undefined'||!root.ComDatos||!document.getElementById('crmA
 var D=root.ComDatos, esc=D.esc, app=document.getElementById('crmApp'), dm=D.DEMO?'&demo=1':'';
 var DATA=null, AGENDA=[], REUS=[], WA={}, TAB='embudo', SEL=null, TXT='', OFF=0, DET={}, OCUPADO=false, ARRASTRANDO=false;
 
-if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dmo=document.getElementById('cmDemo');if(dmo)dmo.hidden=false;}
-try{var q=new URLSearchParams(location.search),qi=q.get('id');if(qi&&/^\d{1,18}$/.test(qi))SEL=Number(qi);if(q.get('vista')==='reuniones')TAB='reuniones';}catch(e){}
+if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dmo=document.getElementById('cmDemo');if(dmo)dmo.hidden=false;var tbv=document.getElementById('crmTablero');if(tbv)tbv.href='ventas.html?demo=1';}
+// Enlace profundo (23-11, Luciano: «Abrir ficha» debe llevar a la ficha): crm.html?lead=<id> (o ?id=) abre la ficha de ese prospecto al cargar.
+var ABRIR=null;
+try{var q=new URLSearchParams(location.search),qi=q.get('lead')||q.get('id');if(qi&&/^\d{1,18}$/.test(qi)){SEL=Number(qi);ABRIR=SEL;}if(q.get('vista')==='reuniones')TAB='reuniones';}catch(e){}
 
-function mensaje(e){var m=String(e&&e.message||e||''),M=S.MSJ||{};for(var k in M)if(m.indexOf(k)>=0)return M[k];return D.mensaje(e);}
+function mensaje(e){var m=String(e&&e.message||e||''),V=(root.ComVentas&&root.ComVentas.MSJ)||{},M=S.MSJ||{};for(var j in V)if(m.indexOf(j)>=0)return V[j];for(var k in M)if(m.indexOf(k)>=0)return M[k];return D.mensaje(e);}
 function yo(){return (DATA&&DATA.yo)||{};}
 function prospecto(id){return ((DATA&&DATA.prospectos)||[]).filter(function(p){return Number(p.id)===Number(id);})[0]||null;}
 function reemplazar(p){if(!p)return;var l=DATA.prospectos;for(var i=0;i<l.length;i++)if(Number(l[i].id)===Number(p.id)){l[i]=p;return;}l.unshift(p);}
@@ -176,8 +180,9 @@ function cargar(){
   return Promise.all([D.rpc('com_simple_listar',{}),D.rpc('com_listar_hoy',{p_dias:90}).catch(function(){return {reuniones:[]};})]).then(function(r){
     DATA=r[0]||{};DATA.prospectos=DATA.prospectos||[];DATA.pendientes=DATA.pendientes||[];AGENDA=(r[1]&&r[1].reuniones)||[];
     REUS=unirReuniones(AGENDA,DATA.prospectos);
-    if(SEL&&!prospecto(SEL))SEL=null;
+    if(SEL&&!prospecto(SEL)){if(ABRIR)D.toast('No encontramos ese prospecto (o no está a tu cargo).');SEL=null;}
     pintar();cargarWa();
+    if(ABRIR&&SEL){ABRIR=null;irAFicha();}
   }).catch(function(e){app.innerHTML='<div class="aviso rojo">'+esc(mensaje(e))+'</div>';});
 }
 
@@ -289,6 +294,8 @@ function fichaHtml(p){
     h+=fila('Reunión',esc(diaCorto(ymdDe(r.inicio))+' '+MESES[+ymdDe(r.inicio).slice(5,7)-1].slice(0,3)+' · '+horaDe(r.inicio)+' · '+e[1])
       +(vig&&r.teams?' <a class="btn sm" href="'+esc(r.teams)+'" target="_blank" rel="noopener">🎥 Unirme</a>':'')+(vig?' '+chipWa(r):''));}
   h+=fila('Responsable',D.avatarResp(p.responsable)+(p.responsable?esc(p.responsable.nombre):'<span class="nd">Sin asignar</span>'))+'</div>';
+  // VENTAS-CONTROL: próxima acción obligatoria, registrar contacto, tareas del camino fijo y línea de tiempo única (ventas-control.js).
+  if(root.ComVentas&&root.ComVentas.montar)h+='<div class="crm-bloq vc" id="vcBloque"></div>';
   // Mover a… (alternativa accesible al arrastre: teclado y celular)
   var ops=todas().filter(function(c){return esDestino(c.id)&&c.id!==p.etapa;});
   h+='<div class="crm-bloq"><h4>🔀 Mover a…</h4><div class="crm-mover"><label class="sr" for="crmMover">Mover a otra etapa</label><select id="crmMover"'+(Y.escribe?'':' disabled')+'>'
@@ -298,7 +305,6 @@ function fichaHtml(p){
   var g=S.guionUrl?S.guionUrl(p,D.DEMO):null;
   h+='<div class="crm-acc">'
     +(p.etapa==='cliente'?'<a class="btn v" href="onboarding.html?lead='+Number(p.id)+dm+'">🚀 Ir a onboarding</a>':'')
-    +'<a class="btn" href="simple.html?id='+Number(p.id)+dm+'">📝 Abrir ficha</a>'
     +(g?'<a class="btn" href="'+esc(g)+'">📋 Guion de la reunión</a>':(Y.escribe?'<button type="button" class="btn" id="crmGuion">📋 Guion de la reunión</button>':''))
     +(root.ProsWA?ProsWA.boton(p,{aviso:true}):'')
     +(['reunion_realizada','propuesta','seguimiento'].indexOf(p.etapa)>=0?'<a class="btn" href="../cotizaciones/index.html'+(D.DEMO?'?demo=1':'')+'">📄 Crear cotización</a>':'')
@@ -311,7 +317,22 @@ function cargarDetalle(id){
   D.rpc('detalle_prospecto',{p_id:Number(id)}).then(function(x){DET[id]=x||{};}).catch(function(){DET[id]=null;})
     .then(function(){if(Number(id)===SEL)pintarFicha();});
 }
-function pintarFicha(){var f=document.getElementById('crmFicha');if(!f)return;f.innerHTML=fichaHtml(prospecto(SEL));enlazarFicha();}
+// Lleva la vista a la ficha abierta (en celular la ficha va debajo del embudo) y le da el foco al nombre.
+function irAFicha(){
+  var f=document.getElementById('crmFicha');if(!f)return;
+  var c=app.querySelector('.crm-card.sel');if(c&&c.scrollIntoView)try{c.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}
+  if(f.scrollIntoView)f.scrollIntoView({behavior:'smooth',block:'start'});
+  var t=f.querySelector('h2');if(t){t.setAttribute('tabindex','-1');try{t.focus({preventScroll:true});}catch(e){}}
+}
+function pintarFicha(){var f=document.getElementById('crmFicha');if(!f)return;f.innerHTML=fichaHtml(prospecto(SEL));enlazarFicha();montarVentas(false);}
+// VENTAS-CONTROL: monta el bloque de seguimiento de la ficha abierta. Tras guardar, la base devuelve el prospecto con su versión nueva.
+function montarVentas(refrescar){
+  var p=prospecto(SEL);if(!p||!root.ComVentas||!document.getElementById('vcBloque'))return;
+  root.ComVentas.montar({p:p,yo:yo(),cont:'vcBloque',refrescar:!!refrescar,
+    alGuardar:function(n){reemplazar(n);REUS=unirReuniones(AGENDA,DATA.prospectos);pintar();},
+    recargar:function(){root.ComVentas.olvidar(SEL);cargar();},
+    moverPerdido:function(m){var x=prospecto(SEL);if(x)pedirMotivo(x,function(v){hacerMover(x,'descartado',v);},m);}});
+}
 function seleccionar(id,desplazar){
   SEL=Number(id);guardarUrl();
   app.querySelectorAll('.crm-card,.crm-ev').forEach(function(c){var on=Number(c.getAttribute('data-id'))===SEL;c.classList.toggle('sel',on);if(c.classList.contains('crm-card'))c.setAttribute('aria-pressed',String(on));});
@@ -327,18 +348,26 @@ function mover(id,etapa){
   if(etapa==='descartado'){pedirMotivo(p,function(m){hacerMover(p,etapa,m);});return;}
   hacerMover(p,etapa);
 }
-function hacerMover(p,etapa,motivo){
+// VENTAS-CONTROL: se mueve con com_etapa_cambiar (camino fijo: Perdido con motivo, abiertas con próxima acción; al pasar a «Propuesta enviada»
+// la base crea las tareas del día 1, 3, 7 y 14). Si falta la próxima acción, la pide y reintenta.
+function argsEtapa(p,etapa,motivo,acc,fecha){
+  if(!esDestino(etapa))throw new Error('ETAPA_INVALIDA');
+  return {p_id:Number(p.id),p_etapa:etapa,p_actualizado:p.actualizado,p_motivo_perdida:etapa==='descartado'?(motivo||null):null,p_proxima_accion:acc||null,p_proxima_fecha:fecha||null};
+}
+function hacerMover(p,etapa,motivo,acc,fecha){
   var antes=p.etapa, args;
-  try{args=argsMover(p,etapa,motivo);}catch(e){D.toast(mensaje(e));return;}
+  try{args=argsEtapa(p,etapa,motivo,acc,fecha);}catch(e){D.toast(mensaje(e));return;}
   OCUPADO=true;p.etapa=etapa;SEL=Number(p.id);guardarUrl();pintar();   // la tarjeta ya se ve en su nueva columna mientras guarda
   var msg=document.getElementById('crmMsg');if(msg){msg.className='crm-msg';msg.textContent='Guardando…';}
-  D.rpc('com_ficha_guardar',args).then(function(n){
-    OCUPADO=false;reemplazar(n);REUS=unirReuniones(AGENDA,DATA.prospectos);
+  D.rpc('com_etapa_cambiar',args).then(function(r){
+    var n=r&&r.prospecto;OCUPADO=false;reemplazar(n);REUS=unirReuniones(AGENDA,DATA.prospectos);if(root.ComVentas&&n)root.ComVentas.olvidar(n.id);
     if(n&&n.reunion)DATA.pendientes=DATA.pendientes.filter(function(x){return !(Number(x.reserva_id)===Number(n.reunion.id)&&n.reunion.estado!=='confirmada');});
     pintar();cargarDetalle(SEL);
     D.toast(n&&n.etapa==='cliente'?'🎉 '+(n.nombre||'')+' ganado · sigue con «🚀 Ir a onboarding»':(n&&n.nombre||'')+' → '+nombreEtapa(n&&n.etapa)+' (queda en su historial)');
   }).catch(function(e){
     OCUPADO=false;p.etapa=antes;var t=mensaje(e);   // vuelve a su columna
+    if(/FALTA_PROXIMA_ACCION/.test(String(e&&e.message))&&root.ComVentas){pintar();
+      root.ComVentas.pedirProxima(p,nombreEtapa(etapa),function(a,f){hacerMover(p,etapa,motivo,a,f);},function(){D.toast('No se movió: falta la próxima acción.');});return;}
     if(/VERSION_CONFLICTO|FALTA_VERSION|NO_EXISTE/.test(String(e&&e.message))){cargar().then(function(){D.toast(t);});return;}
     pintar();D.toast(t+' No se movió.');var m=document.getElementById('crmMsg');if(m){m.className='crm-msg err';m.textContent=t+' No se movió.';}
   });
@@ -352,15 +381,17 @@ function modal(html,alAbrir){
   document.body.appendChild(velo);document.body.appendChild(m);velo.onclick=cerrar;document.addEventListener('keydown',tecla,true);
   alAbrir(m,cerrar);return m;
 }
-// Perdido: motivo opcional de la misma lista que simple.js (MOTIVOS = ck_leads_motivo_perdida).
-function pedirMotivo(p,ok){
-  modal('<h2 id="crmMTit">Marcar como Perdido</h2><p>'+esc(p.nombre||'')+' · '+esc(p.empresa||'Empresa no informada')+'. Queda en su historial.</p>'
-    +'<label class="lbl" for="crmMot">Motivo (opcional)</label><select class="inp" id="crmMot"><option value="">— elegir —</option>'
-    +(S.MOTIVOS||[]).map(function(m){return '<option value="'+m[0]+'"'+(p.motivo_perdida===m[0]?' selected':'')+'>'+esc(m[1])+'</option>';}).join('')+'</select>'
+// Perdido: motivo OBLIGATORIO (VENTAS-CONTROL): precio · ya tiene contador · no responde · no califica · otro (valores de ck_leads_motivo_perdida).
+function pedirMotivo(p,ok,pre){
+  var M=(root.ComVentas&&root.ComVentas.MOTIVOS)||S.MOTIVOS||[], sel=pre||p.motivo_perdida;
+  modal('<h2 id="crmMTit">Marcar como Perdido</h2><p>'+esc(p.nombre||'')+' · '+esc(p.empresa||'Empresa no informada')+'. Queda en su historial y en el tablero de ventas.</p>'
+    +'<label class="lbl" for="crmMot">Motivo (obligatorio)</label><select class="inp" id="crmMot" required><option value="">— elegir —</option>'
+    +M.map(function(m){return '<option value="'+m[0]+'"'+(sel===m[0]?' selected':'')+'>'+esc(m[1])+'</option>';}).join('')+'</select>'
+    +'<div class="msg err" id="crmMotMsg" role="status"></div>'
     +'<div class="crm-macc"><button type="button" class="btn" id="crmMNo">Cancelar</button><button type="button" class="btn p" id="crmMSi">Marcar Perdido</button></div>',
   function(m,cerrar){
     m.querySelector('#crmMNo').onclick=function(){cerrar();pintar();};
-    m.querySelector('#crmMSi').onclick=function(){var v=m.querySelector('#crmMot').value||null;cerrar();ok(v);};
+    m.querySelector('#crmMSi').onclick=function(){var v=m.querySelector('#crmMot').value||null;if(!v){m.querySelector('#crmMotMsg').textContent='Elige el motivo de pérdida.';return;}cerrar();ok(v);};
     m.querySelector('#crmMot').focus();
   });
 }
@@ -419,6 +450,7 @@ function enlazar(){
   app.querySelectorAll('.crm-ev').forEach(function(e){e.onclick=function(){seleccionar(e.getAttribute('data-id'),true);};});
   enlazarFicha();
   if(SEL)cargarDetalle(SEL);
+  montarVentas(false);
 }
 
 // ✏️ Corregir teléfono (telefono.js): tras guardar se recarga para que WhatsApp use el número nuevo.

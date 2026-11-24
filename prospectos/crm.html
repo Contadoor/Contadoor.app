@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../assets/equipo.css">
 <link rel="stylesheet" href="comercial.css">
 <link rel="stylesheet" href="crm.css">
+<link rel="stylesheet" href="ventas.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 <script>
 /* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1] (igual que reuniones.html).
@@ -35,6 +36,7 @@
     <div class="g-espacio"></div>
     <button type="button" class="g-btn sm" id="as-avisos" hidden data-etiqueta="🔔 Activar avisos en este dispositivo"
             data-ayuda="Recibe en este celular o computador el aviso de reunión en 15 minutos (los demás avisos llegan a la campana)">🔔 Activar avisos en este dispositivo</button>
+    <a class="g-btn sm" href="ventas.html" id="crmTablero">Tablero de ventas</a>
     <span class="cm-demo" id="cmDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
     <span class="tb-analista" id="tb-analista-nombre"></span>
   </div>
@@ -51,6 +53,7 @@
 <script src="whatsapp.js"></script>
 <script src="telefono.js"></script>
 <script src="simple.js"></script>
+<script src="ventas-control.js"></script>
 <script src="crm.js"></script>
 <script>if(!window.COM_DEMO)document.write('<script src="../avisos-push.js"><\/script><script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
 </body>

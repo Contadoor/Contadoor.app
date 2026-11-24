@@ -45,6 +45,10 @@ function normEnlace(u){
   if(u.indexOf('./')===0) u=u.slice(2);
   if(u.charAt(0)!=='/') u='/'+u;
   if(!/^\/[a-z0-9-]+\/[A-Za-z0-9._~\/?&=%#-]*$/.test(u)||u.indexOf('..')>=0||u.indexOf('//')>=0) return null;
+  // 23-11 (Luciano: «Abrir ficha» debe llevar a la ficha): avisos antiguos de Comercial que apuntaban al listado de prospectos
+  // (/prospectos/index.html?id=N o /prospectos/simple.html?id=N) abren DIRECTO la ficha del CRM.
+  var m=/^\/prospectos\/(?:index|simple)\.html\?id=(\d{1,18})$/.exec(u);
+  if(m) u='/prospectos/crm.html?lead='+m[1];
   return u;
 }
 
