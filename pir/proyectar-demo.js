@@ -38,6 +38,30 @@
     {item_key:'opening.cpts',estado:'OK',monto:46900000,f22_codigo_ref:'1545',provenance:'DECLARED_F22'}]};
 
   var ST={};   // estado por caso
+  // F22 del SII (Cartapra) ficticio: misma forma que devuelve renta_f22_desde_sii (13 claves). Solo el cliente 6001 lo "tiene" en el SII.
+  function prop(k,m,cod,der){return {item_key:k,monto:m,estado:'OK',provenance:'DECLARED_F22',evidencia_fuente_id:null,f22_codigo_ref:cod,derivacion:der||'F22_CODE'};}
+  var LECTURA_SII={parser:'cartapra_sii',parser_version:'1.0.0',document:{origen:'SII_CARTAPRA',anio_tributario:AC,folio:'900000101',fecha_ingreso:AC+'-04-28',estado_sii:'Vigente',versiones:2},
+    blocking_findings:[],warnings:[{codigo:'F22_SII_RECTIFICADO',mensaje:'El F22 del AT '+AC+' tiene 2 versiones en el SII: se usa la vigente (folio 900000101).'}],
+    raw_opening_codes:{'1484':18450000,'1545':46900000,'1563':2210000},
+    propuesta:[prop('opening.previous_year_tax_loss',0,'1440','ABSENT_AS_ZERO_SII_CARTAPRA'),prop('opening.cpts',46900000,'1545'),prop('opening.cpts_negative',0,'1546','ABSENT_AS_ZERO_SII_CARTAPRA'),
+      prop('opening.rai',18450000,'1484'),prop('opening.rex',0,'1486+1487','ABSENT_AS_ZERO_SII_CARTAPRA'),prop('opening.sac.no_sujeto_restitucion.sin_devolucion',2210000,'1563'),
+      prop('opening.sac.no_sujeto_restitucion.con_devolucion',0,'1564','ABSENT_AS_ZERO_SII_CARTAPRA'),prop('opening.sac.sujeto_restitucion.sin_devolucion',0,'1565','ABSENT_AS_ZERO_SII_CARTAPRA'),
+      prop('opening.sac.sujeto_restitucion.con_devolucion',0,'1566','ABSENT_AS_ZERO_SII_CARTAPRA'),prop('opening.sac.ipe',0,'1567','ABSENT_AS_ZERO_SII_CARTAPRA'),
+      prop('opening.capital_aportado_historico',10000000,'1494'),
+      {item_key:'opening.ppm_to_recover',monto:null,estado:'PENDING',provenance:'DECLARED_F22',evidencia_fuente_id:null,f22_codigo_ref:null,derivacion:'PENDING_NOT_IN_F22',nota:'Confirmar con la cuenta de Tesorería.'},
+      {item_key:'opening.deferred_income_pending',monto:null,estado:'PENDING',provenance:'DECLARED_F22',evidencia_fuente_id:null,f22_codigo_ref:null,derivacion:'PENDING_NOT_IN_F22',nota:'Ingreso diferido: pendiente de confirmar.'}]};
+  var SII_INFO={folio:'900000101',fecha_ingreso:AC+'-04-28',estado_sii:'Vigente',versiones:2,anio_tributario:AC};
+  function f22Sii(caso){
+    var s=st(caso), f=s.fuentes.filter(function(x){return x.tipo_fuente==='F22_ANTERIOR'&&x.estado==='REGISTRADA';})[0];
+    if(f&&!(f.metadatos&&f.metadatos.via==='CARTAPRA'))return {accion:'PDF_VIGENTE',fuente_id:f.id,sii:SII_INFO};
+    if(f){var l0=s.lecturas.filter(function(l){return l.fuente_id===f.id;}).pop();return Object.assign({accion:'SIN_CAMBIO',fuente_id:f.id,lectura_id:l0.id,estado:l0.estado,sii:SII_INFO},l0.resultado);}
+    f={id:nid(),caso_id:caso,tipo_fuente:'F22_ANTERIOR',origen:'SII',nombre_original:'F22 AT '+AC+' · folio 900000101 (SII vía Cartapra)',estado:'REGISTRADA',
+       metadatos:{via:'CARTAPRA',folio:'900000101',fecha_ingreso:AC+'-04-28',estado_sii:'Vigente',versiones_sii:2,anio_tributario:AC},sha256_estado:'VERIFICADO',cargado_at:ahora()};
+    s.fuentes.push(f);
+    var res=JSON.parse(JSON.stringify(LECTURA_SII));res.propuesta.forEach(function(x){x.evidencia_fuente_id=f.id;});
+    var l={id:nid(),fuente_id:f.id,estado:'PROPUESTA',blocking_count:0,resultado:res,creado_at:ahora()};s.lecturas.push(l);
+    return Object.assign({accion:'CREADA',fuente_id:f.id,lectura_id:l.id,estado:'PROPUESTA',sii:SII_INFO},res);
+  }
   function st(caso){return ST[caso]||(ST[caso]={fuentes:[],corridas:[],lecturas:[],apertura:null,cdb:false,cap:false,apc:'A3',snap:null,res:[],sup:null,motor:null});}
   function casoCli(c){return CASOS.filter(function(k){return k.cliente_id===c;})[0];}
   function fuente(caso,tipo,nombre,per){var f={id:nid(),caso_id:caso,tipo_fuente:tipo,origen:tipo==='F22_ANTERIOR'?'SII':'MASCONTABLE',nombre_original:nombre,estado:'REGISTRADA',metadatos:per?{periodo:String(per)}:{},sha256_estado:'VERIFICADO',cargado_at:ahora()};st(caso).fuentes.push(f);return f;}
@@ -60,8 +84,8 @@
   function escena(n){
     var k={id:92,cliente_id:6001,anio_comercial:AC,anio_tributario:AC+1,regimen:'14D3',estado:'IN_PROGRESS',version:1};
     if(n>=2)CASOS.push(k);
-    if(n>=3){var f=fuente(92,'F22_ANTERIOR','F22_AT2026_compacto.pdf');st(92).lecturas.push({id:nid(),fuente_id:f.id,estado:'PROPUESTA',blocking_count:0,resultado:LECTURA,creado_at:ahora()});}
-    if(n>=4){st(92).apertura={estado:'OPENING_DECLARED_NOT_FULLY_RECONSTRUCTED',working:{apertura_id:801,version:1},effective:null};corrida(92,fuente(92,'LIBRO_DIARIO','LibroDiario_2026_ene-sep.xls'));}
+    if(n>=3)f22Sii(92);   // el F22 llega solo desde el SII (Cartapra)
+    if(n>=4){st(92).apertura={estado:'OPENING_DECLARED_NOT_FULLY_RECONSTRUCTED',working:{apertura_id:801,version:1,fuente_f22:{id:st(92).fuentes[0].id,estado:'REGISTRADA'}},effective:null};corrida(92,fuente(92,'LIBRO_DIARIO','LibroDiario_2026_ene-sep.xls'));}
     if(n>=5){corrida(92,fuente(92,'BALANCE','Balance8Columnas_2026_sep.xls',AC));corrida(92,fuente(92,'BALANCE','Balance8Columnas_2025.xls',AC-1));st(92).cdb=true;st(92).cap=true;calcularMapeo(92);}
     if(n>=6){st(92).apc='A2';st(92).res.forEach(function(r){if(r.estado!=='RESOLVED'){r.estado='CONFIRMED';if(!r.categoria)r.categoria='OTHER_EXPENSE';}});calcularMapeo(92);}
     if(n>=7){st(92).sup={id:nid(),version:1,forecast_method:'MANUAL',parameters:{metodo:'LINEAL_PROMEDIO_V1'},estado:'ACTIVE'};proyectar(92,'2026-09-30');}
@@ -135,6 +159,11 @@
         case 'renta_apertura_contable_aceptar':s.apc='A2';return demora({aceptacion_id:nid()});
         case 'renta_supuesto_forecast_crear':s.sup={id:nid(),version:1,forecast_method:'MANUAL',parameters:a.p_parametros,estado:'DRAFT'};return demora({id:s.sup.id});
         case 'renta_supuesto_forecast_activar':Object.keys(ST).forEach(function(id){if(ST[id].sup&&ST[id].sup.id===a.p_supuesto_id)ST[id].sup.estado='ACTIVE';});return demora({ok:true});
+        case 'renta_f22_desde_sii':{var kc=CASOS.filter(function(x){return x.id===a.p_caso_id;})[0];
+          if(!kc||kc.cliente_id!==6001)return falla('F22_SII_NO_DISPONIBLE: Cartapra no tiene el F22 del AT '+AC+' de este cliente; sube el PDF del Compacto');
+          return demora(f22Sii(a.p_caso_id),900);}
+        case 'renta_apertura_declarar':{var ff=s.fuentes.filter(function(x){return x.id===a.p_fuente_f22_id;})[0];
+          s.apertura={estado:'OPENING_DECLARED_NOT_FULLY_RECONSTRUCTED',working:{apertura_id:nid(),version:1,fuente_f22:{id:ff.id,estado:'REGISTRADA'}},effective:null};return demora({id:s.apertura.working.apertura_id,estado:s.apertura.estado},600);}
         case 'renta_e1_proyectar':return demora(proyectar(a.p_caso_id,a.p_corte),1400);
       }
       return falla('Función no disponible en la demostración: '+fn);

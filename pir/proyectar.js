@@ -1,9 +1,9 @@
 /* ============================================================
    pir/proyectar.js — MiRenta · Asistente "Proyectar" (5 pasos)
-   1 Cliente y caso → 2 F22 del año anterior (apertura tributaria) → 3 Libro Diario y Balance (importación y conciliación)
+   1 Cliente y caso → 2 F22 del año anterior (se trae solo del SII vía Cartapra; PDF como plan B) → 3 Libro Diario y Balance (importación y conciliación)
    → 4 Mapeo de cuentas → 5 Ejecutar proyección → Pantalla de proyección.
    Solo orquesta lo que YA está instalado en producción (nada nuevo en la base):
-     RPC  renta_yo · renta_cliente_habilitar · renta_cliente_resolver · renta_caso_crear · renta_fuente_registrar ·
+     RPC  renta_f22_desde_sii (F22 del SII) · renta_apertura_declarar (confirmar saldos en un clic) · renta_yo · renta_cliente_habilitar · renta_cliente_resolver · renta_caso_crear · renta_fuente_registrar ·
           renta_apertura_vigente · renta_e1_entrada · renta_conciliar_diario_balance · renta_conciliar_apertura ·
           renta_asiento_confirmar_clase · renta_apertura_contable_aceptar · renta_mapeo_calcular · renta_mapeo_confirmar ·
           renta_supuesto_forecast_crear · renta_supuesto_forecast_activar · renta_e1_proyectar
@@ -59,7 +59,7 @@ function espera(ms){return new Promise(function(ok){setTimeout(ok,ms);});}
 function sha256(buf){return crypto.subtle.digest('SHA-256',buf).then(function(h){return Array.prototype.map.call(new Uint8Array(h),function(b){return b.toString(16).padStart(2,'0');}).join('');});}
 
 /* ── Estado ── */
-var S={yo:null,clientes:[],casosTodos:[],rcTodos:[],q:'',cliente:null,rc:null,caso:null,d:null,P:null,abierto:null,ocupado:null,aviso:null,cat:null,verTodas:false,corte:null,mesHasta:null,cargando:true,error:null};
+var S={siiCaso:null,siiRes:null,yo:null,clientes:[],casosTodos:[],rcTodos:[],q:'',cliente:null,rc:null,caso:null,d:null,P:null,abierto:null,ocupado:null,aviso:null,cat:null,verTodas:false,corte:null,mesHasta:null,cargando:true,error:null};
 
 /* ── Carga ── */
 function iniciar(){
@@ -131,7 +131,8 @@ function recargar(){
       else {S.mesHasta=null;S.corte=null;}
       return Promise.all(extras).then(function(){return d;});
     });
-  }).then(function(d){
+  }).then(traerF22Sii).then(function(d){
+    if(!d)return;   // traerF22Sii ya recargó (y pintó) con el F22 recién traído del SII
     S.d=d;S.P=L.pasos(d);S.cargando=false;
     var actual=S.abierto&&S.P[S.abierto-1];
     if(!S.abierto){
@@ -144,6 +145,17 @@ function recargar(){
   }).catch(function(e){S.cargando=false;S.error=e;render();});
 }
 
+// F22 del año anterior desde el SII (Cartapra): se pide solo, una vez por caso y por carga de página. La base es idempotente
+// (si nada cambió no escribe). Si trajo algo nuevo, se recarga para ver la fuente y la lectura; si falla, el paso 2 ofrece el PDF.
+function traerF22Sii(d){
+  var k=d&&d.caso;
+  if(!k||!L.debeTraerF22Sii(d)){d.sii=k&&S.siiCaso===k.id?S.siiRes:null;return d;}
+  if(S.siiCaso===k.id){d.sii=S.siiRes;return d;}
+  S.siiCaso=k.id;S.siiRes=null;
+  return API.rpc('renta_f22_desde_sii',{p_caso_id:k.id}).then(function(r){S.siiRes=r||{};},function(e){S.siiRes={error:String(e&&e.message||e)};})
+    .then(function(){var a=S.siiRes.accion;if(a==='CREADA'||a==='ACTUALIZADA'||a==='RELEIDA')return recargar().then(function(){return null;});d.sii=S.siiRes;return d;});
+}
+
 /* ── Render ── */
 function app(h){$('mrApp').innerHTML=h;pintarIconos($('mrApp'));}
 function chipEstado(e){var x=L.ETIQUETA_ESTADO[e]||['gris',e];var icn={verde:I('check'),rojo:I('alerta'),ambar:I('alerta'),lila:'<span class="mrp-spin"></span>'}[x[0]]||'';return '<span class="estado '+x[0]+'">'+icn+esc(x[1])+'</span>';}
@@ -154,7 +166,7 @@ function render(){
   if(S.error){app('<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>No se pudo cargar MiRenta: '+esc(S.error.message||S.error)+'</span><button type="button" class="btn sec chico" data-act="recargar">Reintentar</button></div>');return;}
   if(S.cargando&&!S.d&&!S.clientes.length){app('<div class="aviso lila"><span class="mrp-spin"></span>Cargando…</div>');return;}
   var h='<section class="pry-intro"><h2 class="mrp-titulo">Proyectar la renta <span>AT '+(L.AC_DEFECTO+1)+'</span></h2>'
-    +'<p class="mrp-lead">Carga el <b>F22 del año anterior</b> y la <b>contabilidad '+L.AC_DEFECTO+'</b> (Libro Diario y Balance de Masconta). El sistema los lee, los cuadra y calcula la proyección.</p></section>';
+    +'<p class="mrp-lead">El <b>F22 del año anterior</b> llega solo desde el SII. Tú cargas la <b>contabilidad '+L.AC_DEFECTO+'</b> (Libro Diario y Balance de Masconta) y el sistema calcula la proyección.</p></section>';
   if(!S.cliente){app(h+selectorCliente());return;}
   h+=cabecera()+avisoHtml();
   if(S.cargando&&!S.P){app(h+'<div class="aviso lila"><span class="mrp-spin"></span>Cargando el caso…</div>');return;}
@@ -219,19 +231,27 @@ var CUERPO={
   },
   f22:function(p){
     var h=detalles(p,1), lec=p.lectura, k=S.caso;
-    var vig=S.d.aperturaVigente||{}, tiene=vig.effective||vig.working;
+    var vig=S.d.aperturaVigente||{}, tiene=(vig.effective||vig.working)&&!p.aperturaVieja;
+    if(p.desdeSii)h+=tarjetaSii(p,lec);
+    if(p.siiCambio)h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>El SII tiene una versión más nueva de este F22 ('+esc(L.textoSii(p.siiInfo))+'). Los saldos confirmados son de la versión anterior.</span>'
+      +'<button type="button" class="btn sec chico" data-act="sii-actualizar"'+(S.ocupado?' disabled':'')+'>'+(ocup('siiact','Trayendo…')||'Usar la versión nueva')+'</button></div>';
     if(lec&&lec.estado==='PROPUESTA'||tiene)h+=saldosPropuestos(lec);
-    if(!tiene&&lec&&lec.estado==='PROPUESTA')
-      h+='<div class="mrp-acciones"><a class="btn" href="index.html?caso='+k.id+'&volver=proyectar">'+I('lupa')+'Revisar y confirmar los saldos</a><button type="button" class="btn sec" data-paso="3">Seguir con la contabilidad '+I('flecha-der')+'</button></div>'
-        +'<p class="nota">La revisión se hace en la pantalla de Apertura tributaria (cada saldo con su respaldo y un motivo). Al terminar, vuelves aquí con “Volver a Proyectar”.</p>';
+    if(p.unClic)
+      h+='<div class="mrp-acciones"><button type="button" class="btn" data-act="f22-confirmar"'+(S.ocupado?' disabled':'')+'>'+(ocup('f22c','Confirmando…')||I('check')+'Confirmar saldos')+'</button>'
+        +'<a class="btn sec" href="index.html?caso='+k.id+'&volver=proyectar">'+I('lupa')+'Revisar en detalle</a></div>'
+        +'<p class="nota">Al confirmar, los saldos quedan tal como vienen del F22 (queda en la bitácora con tu nombre). Si alguno no corresponde, usa «Revisar en detalle». El Master los verifica después.</p>';
+    else if(!tiene&&lec&&lec.estado==='PROPUESTA')
+      h+='<div class="mrp-acciones"><a class="btn" href="index.html?caso='+k.id+'&volver=proyectar">'+I('lupa')+'Revisar y confirmar los saldos</a><button type="button" class="btn sec" data-paso="3">Seguir con la contabilidad '+I('flecha-der')+'</button></div>';
     if(tiene)h+='<div class="mrp-acciones"><a class="btn sec" href="index.html?caso='+k.id+'&volver=proyectar">'+I('ver')+'Ver la apertura tributaria</a><button type="button" class="btn" data-paso="3">Continuar '+I('flecha-der')+'</button></div>';
-    if(!tiene&&(!lec||lec.estado!=='PROPUESTA')){
-      var f=p.f22;
-      h+='<div class="pry-archivo acc-RAI"><div class="pry-arch-t">'+I('archivo','ic-amb')+'<div><b>F22 AT '+k.anio_comercial+' (Compacto del SII, en PDF)</b><small>SII → Servicios online → Renta → Consulta y seguimiento → “Compacto” del año tributario '+k.anio_comercial+'.</small></div></div>'
+    if(p.estado==='en_curso'&&!p.f22)h+='<div class="aviso lila"><span class="mrp-spin"></span><span>Buscando el F22 en el SII…</span></div>';
+    if(p.planB){
+      var f=p.desdeSii?null:p.f22, otroError=p.sii&&p.sii.error&&!p.siiSinF22;
+      h+='<div class="pry-archivo acc-RAI"><div class="pry-arch-t">'+I('archivo','ic-amb')+'<div><b>'+(p.desdeSii||p.sii&&p.sii.error?'¿No aparece? Sube el PDF del Compacto':'F22 AT '+k.anio_comercial+' (Compacto del SII, en PDF)')+'</b><small>SII → Servicios online → Renta → Consulta y seguimiento → “Compacto” del año tributario '+k.anio_comercial+'.</small></div></div>'
         +(f?'<p class="pry-arch-f">'+I('check','ic-ver')+esc(f.nombre_original)+' <span class="t3">· subido el '+L.fecha(f.cargado_at)+'</span></p>':'')
         +'<div class="pry-subir"><input type="file" id="pryF22" accept="application/pdf,.pdf" aria-label="Elegir el PDF del F22">'
-        +'<button type="button" class="btn" data-act="subir-f22"'+(S.ocupado?' disabled':'')+'>'+(ocup('f22','Subiendo y leyendo…')||I('subir')+(f?'Reemplazar y leer':'Subir y leer'))+'</button>'
-        +(f&&(!lec||lec.estado!=='EN_PROCESO')?'<button type="button" class="btn sec" data-act="leer-f22" data-id="'+f.id+'"'+(S.ocupado?' disabled':'')+'>'+(ocup('leer','Leyendo…')||'Volver a leer')+'</button>':'')+'</div></div>'
+        +'<button type="button" class="btn" data-act="subir-f22"'+(S.ocupado?' disabled':'')+'>'+(ocup('f22','Subiendo y leyendo…')||I('subir')+(p.f22?'Reemplazar y leer':'Subir y leer'))+'</button>'
+        +(f&&(!lec||lec.estado!=='EN_PROCESO')?'<button type="button" class="btn sec" data-act="leer-f22" data-id="'+f.id+'"'+(S.ocupado?' disabled':'')+'>'+(ocup('leer','Leyendo…')||'Volver a leer')+'</button>':'')
+        +(otroError?'<button type="button" class="btn sec" data-act="sii-reintentar"'+(S.ocupado?' disabled':'')+'>Volver a buscar en el SII</button>':'')+'</div></div>'
         +'<div class="mrp-acciones"><button type="button" class="btn sec" data-paso="3">Seguir sin F22 por ahora '+I('flecha-der')+'</button></div>';
     }
     return h;
@@ -288,6 +308,12 @@ var CUERPO={
     return h;
   }
 };
+// Datos de la declaración tal como están en el SII (folio, fecha, estado) + avisos (rectificatorias, observaciones).
+function tarjetaSii(p,lec){
+  var s=p.siiInfo||{}, w=(lec&&lec.resultado&&lec.resultado.warnings)||[];
+  var avisos=w.filter(function(x){return /^F22_SII_/.test(x.codigo);}).map(function(x){return '<p class="pry-arch-f">'+I('info','ic-cel')+esc(x.mensaje)+'</p>';}).join('');
+  return '<div class="pry-archivo acc-RAI ok"><div class="pry-arch-t">'+I('check','ic-ver')+'<div><b>F22 AT '+esc(s.anio_tributario||(S.caso.anio_tributario-1))+' · traído del SII</b><small>'+esc(L.textoSii(s))+'</small></div></div>'+avisos+'</div>';
+}
 function saldosPropuestos(lec){
   var props=(lec&&lec.resultado&&lec.resultado.propuesta)||[];
   var grupos=[['RAI','acc-RAI',function(k){return k==='opening.rai';}],['SAC','acc-SAC',function(k){return k.indexOf('opening.sac.')===0;}],['CPTS','acc-CPTS',function(k){return k==='opening.cpts'||k==='opening.cpts_negative';}]];
@@ -365,7 +391,7 @@ function accActivar(){
 }
 function accCrearCaso(){
   S.ocupado='crear';render();
-  rpc('renta_caso_crear',{p_cliente_id:S.cliente.id,p_anio_comercial:L.AC_DEFECTO,p_regimen:'14D3'}).then(function(){S.abierto=2;return hecho('verde','Caso '+L.AC_DEFECTO+' creado. Ahora sube el F22 del año anterior.');}).catch(fallo);
+  rpc('renta_caso_crear',{p_cliente_id:S.cliente.id,p_anio_comercial:L.AC_DEFECTO,p_regimen:'14D3'}).then(function(){S.abierto=2;return hecho('verde','Caso '+L.AC_DEFECTO+' creado. Buscando el F22 del año anterior en el SII…');}).catch(fallo);
 }
 // Sube un archivo al bucket privado y lo registra como fuente del caso (reintenta si Storage aún no informa el tamaño).
 function subirFuente(archivo,tipo,origen,reemplazaA,metadatos){
@@ -398,6 +424,20 @@ function accSubirF22(){
   var prev=AL.reemplazoF22(S.d.fuentes);
   subirFuente(f,'F22_ANTERIOR','SII',prev).then(function(r){return leerF22(r.id);})
     .then(function(){return hecho('verde','F22 leído. Revisa los saldos propuestos (RAI, SAC y CPTS).');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(L.mensajeError(e.message))};return recargar();});
+}
+function accConfirmarF22(){
+  var p=S.P&&S.P[1], lec=p&&p.lectura;
+  if(!p||!L.puedeConfirmarEnUnClic(lec,S.d.aperturaVigente))return;
+  S.ocupado='f22c';S.aviso=null;render();
+  rpc('renta_apertura_declarar',{p_caso_id:S.caso.id,p_fuente_f22_id:lec.fuente_id,p_anio_tributario_origen:S.caso.anio_tributario-1,
+    p_items:L.itemsParaDeclarar(lec),p_motivo:L.motivoUnClic(p.siiInfo||{anio_tributario:S.caso.anio_tributario-1}),p_lectura_id:lec.id})
+    .then(function(){return hecho('verde','Saldos del F22 confirmados. Sigue con la contabilidad del año.');}).catch(fallo);
+}
+function accSii(actualizar){
+  S.ocupado=actualizar?'siiact':'siire';S.aviso=null;render();
+  rpc('renta_f22_desde_sii',{p_caso_id:S.caso.id,p_actualizar:!!actualizar}).then(function(r){S.siiCaso=S.caso.id;S.siiRes=r||{};
+    return hecho('verde',actualizar?'Se usa la versión nueva del F22 ('+esc(L.textoSii(r&&r.sii))+'). Confirma los saldos otra vez.':'F22 traído del SII.');})
+    .catch(function(e){S.siiCaso=S.caso.id;S.siiRes={error:String(e&&e.message||e)};S.ocupado=null;return recargar();});
 }
 function accLeerF22(id){S.ocupado='leer';render();leerF22(+id).then(function(){return hecho('verde','F22 leído.');}).catch(function(e){S.ocupado=null;S.aviso={tipo:'rojo',texto:esc(e.message)};return recargar();});}
 
@@ -498,6 +538,9 @@ document.addEventListener('click',function(e){
   else if(act==='crear-caso')accCrearCaso();
   else if(act==='subir-f22')accSubirF22();
   else if(act==='leer-f22')accLeerF22(a.getAttribute('data-id'));
+  else if(act==='f22-confirmar')accConfirmarF22();
+  else if(act==='sii-actualizar')accSii(true);
+  else if(act==='sii-reintentar')accSii(false);
   else if(act==='subir-arch')accSubirArchivo(a.getAttribute('data-clave'));
   else if(act==='importar')accImportar(a.getAttribute('data-id'));
   else if(act==='apertura-contable')accAperturaContable();
