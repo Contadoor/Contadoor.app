@@ -62,7 +62,7 @@ function enVista(g){
 function botonBitacora(x,grande){
   var b=x.bitacora, puede=DATA.yo&&DATA.yo.escribe, dm=D.DEMO?'&demo=1':'', lid=x.lead&&x.lead.id;
   var url='bitacora.html?reserva='+Number(x.reserva_id)+dm;
-  var ficha=lid?'<a class="btn p'+(grande?' xl':' sm')+'" href="simple.html?id='+Number(lid)+dm+'">📝 Abrir ficha</a>':'';
+  var ficha=lid?'<a class="btn p'+(grande?' xl':' sm')+'" href="crm.html?lead='+Number(lid)+dm+'">📝 Abrir ficha</a>':'';   // 23-11: directo a la ficha (CRM)
   var guion='';
   if(b&&b.estado!=='abierta')guion='<a class="btn sm" href="bitacora.html?id='+Number(b.id)+dm+'" title="Bitácora con guion (cerrada)">📄 Guion</a>';
   else if(b)guion='<a class="btn sm" href="'+url+'" title="Seguir la bitácora con guion">📋 Guion</a>';
