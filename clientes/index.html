@@ -944,6 +944,7 @@ function abrirNuevo() {
   resetForm();
   poblarPlanesSelect();
   g('modalTitle').textContent = 'Nuevo cliente';
+  siiCompletarUI(true, 'Traer datos del SII');   // 24-11: escribe el RUT y trae la ficha desde Cartapra; tú completas lo que falta
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
   sincronizarBloqueoModales();
@@ -956,13 +957,22 @@ function siiTxt(v) { return String(v == null ? '' : v).trim(); }
 function siiNorm(v) { return siiTxt(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' '); }
 function siiIgual(a, b) { return siiNorm(a) === siiNorm(b); }
 function siiRut(v) { return siiTxt(v).replace(/[.\s]/g, '').toUpperCase(); }
-function siiCompletarUI(on) { var b = g('btnCompletarSii'), r = g('siiCompletarRes'); if (b) b.style.display = on ? '' : 'none'; if (r) { r.style.display = 'none'; r.textContent = ''; } }
+function siiCompletarUI(on, texto) { var b = g('btnCompletarSii'), r = g('siiCompletarRes'); if (b) { b.style.display = on ? '' : 'none'; b.disabled = false; b.textContent = texto || 'Completar con datos del SII'; } if (r) { r.style.display = 'none'; r.textContent = ''; } }
 function completarConSii() {
   var id = _editId, btn = g('btnCompletarSii'), res = g('siiCompletarRes');
-  if (!id || !window.GestoorSII || !GestoorSII.fichaParaFormulario) return;
+  if (!window.GestoorSII || !GestoorSII.fichaParaFormulario) return;
+  // 24-11: en «Nuevo cliente» (sin id) se consulta por el RUT escrito; el servidor exige Master/conector y que el RUT no sea cliente.
+  var alta = !id, rutAlta = alta ? String(gv('f-rut') || '').replace(/[.\s]/g, '').toUpperCase() : '';
+  if (alta && (!GestoorSII.fichaParaAlta || !/^\d{7,8}-?[\dK]$/.test(rutAlta))) {
+    res.style.display = ''; res.textContent = 'Escribe primero el RUT de la empresa (con guion y dígito verificador).'; g('f-rut').focus(); return;
+  }
+  var vigente = function () { return alta ? (!_editId && g('modalForm').classList.contains('on') && String(gv('f-rut') || '').replace(/[.\s]/g, '').toUpperCase() === rutAlta) : _editId === id; };
   btn.disabled = true; btn.textContent = 'Consultando el SII…';
-  GestoorSII.fichaParaFormulario(id).then(function (fi) {
-    if (_editId !== id) return;
+  (alta ? GestoorSII.fichaParaAlta(rutAlta).then(function (x) {
+      if (vigente() && x.razon_social && !siiTxt(gv('f-razon'))) sv('f-razon', x.razon_social);
+      return x.formulario; })
+    : GestoorSII.fichaParaFormulario(id)).then(function (fi) {
+    if (!vigente()) return;
     var ETQ_REG = { '14D3': 'PYME General 14D N°3', '14D8': 'Transparente 14D N°8', presunta: 'Renta Presunta' };
     var ETQ_IVA = { afecto: 'Afecto', exento: 'Exento', mixto: 'Mixto' };
     var reg = GestoorSII.regimenCodigo(fi.regimen);
@@ -1027,9 +1037,9 @@ function completarConSii() {
     if (socDif) fila('• Socios: el SII informa ' + socTxt, ponerSocios);
     var n = document.createElement('div'); n.style.cssText = 'margin-top:8px;opacity:.75'; n.textContent = 'Nada se guarda hasta que presiones «Guardar». Fuente: SII vía Cartapra.'; res.appendChild(n);
   }).catch(function (e) {
-    if (_editId !== id) return;
-    res.style.display = ''; res.textContent = (e && e.detalle) || (e && e.status === 403 ? 'Los datos del SII de este cliente los ve el Master y el analista contable asignado.' : 'No se pudo consultar el SII ahora. Intenta de nuevo en unos minutos.');
-  }).then(function () { btn.disabled = false; btn.textContent = 'Completar con datos del SII'; });
+    if (!vigente()) return;
+    res.style.display = ''; res.textContent = (e && e.detalle) || (e && e.status === 403 ? (alta ? 'Traer datos del SII al crear un cliente lo pueden hacer el Master y quienes conectan empresas.' : 'Los datos del SII de este cliente los ve el Master y el analista contable asignado.') : 'No se pudo consultar el SII ahora. Intenta de nuevo en unos minutos.');
+  }).then(function () { btn.disabled = false; btn.textContent = alta ? 'Traer datos del SII' : 'Completar con datos del SII'; });
 }
 
 function abrirEditar(id) {
