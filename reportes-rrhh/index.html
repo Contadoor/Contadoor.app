@@ -1649,10 +1649,12 @@ function abrirModal(id,enviar,limpiar){
   if(r.nTrab) setV('m-ntrab',r.nTrab);
   if(r.totalImponible) setV('m-timponible',r.totalImponible);
   if(r.liquidoPagar) setV('m-liquido',r.liquidoPagar);
+  if(r.totalNoImponible) setV('m-tnoimponible',r.totalNoImponible);
   if(r.afp){
     setV('m-afp',r.afp);setV('m-salud',r.salud||0);setV('m-apv',r.apv||0);
     setV('m-ces-trab',r.cesTrab||0);setV('m-iu',r.iu||0);
     setV('m-total-desc',r.totalDesc||0);
+    setV('m-otros-desc',r.otrosDesc||0);
     setV('m-sis',r.sis||0);setV('m-mutual',r.mutual||0);setV('m-ces-emp',r.cesEmp||0);
     setV('m-cap-ind',r.capInd||0);setV('m-exp-vida',r.expVida||0);setV('m-rent-prot',r.rentProt||0);
     // Asignación familiar: la guardada; si no viene, la diferencia entre el bruto y el total guardado (nunca negativa).
