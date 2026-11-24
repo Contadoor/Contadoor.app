@@ -21,11 +21,14 @@ const ENC_D = ['PERIODO','RUT','APELLIDO PATERNO','APELLIDO MATERNO','NOMBRES','
 const filaD = (x: any) => ['10-2026', x.rut, 'APELLIDO', 'FICTICIO', 'PERSONA', m(500000), 'INDEFINIDO', '', 30, '00:00', 0, 0, 'FONASA', '7 %', 'HABITAT', '11.27 %', m(x.imp - x.bono), 0, m(x.bono), 0, m(x.imp),
   m(x.cfam), m((x.noimp - x.cfam - x.viat) / 2), m((x.noimp - x.cfam - x.viat) / 2), m(x.viat), m(x.noimp), m(x.afp), 0, 0, m(x.sal), m(x.ces), m(x.iu), m(tdesc(x)), m(x.ant), m(x.ant), m(liq(x)),
   m(x.sis), m(x.mut), m(x.cese), m(x.cap), m(x.exp), m(x.ren), m(x.imp - x.afp - x.sal - x.ces)];
-const totalesD = ENC_D.map((_, i) => (i === 0 ? '' : '0'));
+// Fila de TOTALES como la exporta Mas Remuneraciones: suma de cada columna numérica; textos vacíos.
+const num = (x: any) => typeof x === 'number' ? x : /^-?[\d.]+$/.test(String(x)) ? Number(String(x).replace(/\./g, '')) : null;
+const totales = (filas: any[][], desde: number) => filas[0].map((_, i) => (i < desde || filas.some((f) => num(f[i]) === null) ? '' : m(filas.reduce((a, f) => a + (num(f[i]) as number), 0))));
+const totalesD = totales([filaD(A), filaD(B)], 16);
 const ENC_C = ['Rut','Nombre','DT','S.Mensual','Grati','O.Haberes','T.Impo','C.Familiar','NoImpo','T.Haberes','AFP','Salud','Seg.C','Impuestos','O.Desc','T.Desc','Liquido','Aporte'];
 const filaC = (x: any) => [x.rut, 'APELLIDO FICTICIO PERSONA', 30, m(x.imp - x.bono), 0, m(x.bono), m(x.imp), m(x.cfam), m(x.noimp - x.cfam), m(x.imp + x.noimp), m(x.afp), m(x.sal), m(x.ces), m(x.iu), m(x.ant), m(tdesc(x) + x.ant), m(liq(x)), m(ap(x))];
 const D = await w.parsearLibro(archivo([...ENC_D, ...filaD(A), ...filaD(B), ...totalesD].map(td).join('')));
-const C = await w.parsearLibro(archivo([...ENC_C, ...filaC(A), ...filaC(B), '', ...ENC_C.slice(1).map(() => '999')].map(td).join('')));
+const C = await w.parsearLibro(archivo([...ENC_C, ...filaC(A), ...filaC(B), ...totales([filaC(A), filaC(B)], 3)].map(td).join('')));
 res('detalle: 2 trabajadores (todo en una fila; la fila de totales no cuenta) y período del título', D.nTrab === 2 && D.periodo === '10-2026' && D.formato === 'detalle');
 res('compacto: 2 trabajadores (la fila de totales no cuenta)', C.nTrab === 2 && C.formato === 'compacto');
 for (const k of ['totalImponible', 'totalNoImponible', 'dctoAfp', 'dctoSalud', 'cesTrab', 'iu', 'totalDescuentos', 'otrosDescuentos', 'liquidoPagar', 'totalAportesPatronales', 'totalCotizaciones', 'costoLaboral'])
@@ -37,4 +40,14 @@ res('detalle: bonos y viático identificados por trabajador', JSON.stringify(D.t
 res('compacto: no imponible incluye la asignación familiar; T.Desc separa los otros descuentos', C.trabajadores[1].totalNoImponible === B.noimp && C.trabajadores[0].totalDescuentos === tdesc(A));
 let err = ''; try { await w.parsearLibro(archivo([...ENC_C.filter((x) => x !== 'Aporte'), ...filaC(A).slice(0, 17)].map(td).join(''))); } catch (e) { err = String((e as Error).message); }
 res('falta una columna indispensable → se detiene y dice cuál', /Aporte/.test(err), err);
+// ── Controles estrictos (24-11): nada se carga si algo no cuadra ──
+const falla = async (cuerpo: string[]) => { try { await w.parsearLibro(archivo(cuerpo.map(td).join(''))); return ''; } catch (e) { return String((e as Error).message); } };
+const totMal = [...totalesD]; totMal[ENC_D.indexOf('TOTAL IMPONIBLE')] = m(1);
+let e1 = await falla([...ENC_D, ...filaD(A), ...filaD(B), ...totMal]);
+res('fila de TOTALES distinta a la suma de trabajadores → rechaza y dice la columna', /no cuadran con la fila de TOTALES/.test(e1) && /TOTAL IMPONIBLE/.test(e1), e1);
+e1 = await falla([...ENC_D, ...filaD(A), ...filaD(B)]);
+res('sin fila de TOTALES (archivo cortado) → rechaza', /no trae la fila de TOTALES/.test(e1), e1);
+const Amal = filaD(A); Amal[ENC_D.indexOf('LIQUIDO A PAGAR')] = m(liq(A) + 5000);
+e1 = await falla([...ENC_D, ...Amal, ...filaD(B), ...totales([Amal, filaD(B)], 16)]);
+res('un trabajador que no cuadra (líquido distinto) → rechaza y lo nombra', /no cuadran \(imponible/.test(e1) && /11111111-1/.test(e1), e1);
 console.log(`${total - fallas}/${total} pruebas OK`); if (fallas) Deno.exit(1);

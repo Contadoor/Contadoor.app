@@ -1057,10 +1057,10 @@ function parsearLibro(file){
         // Haberes que no tienen casilla propia en Gestoor (bonos, viático…): se informan en el detalle de cada trabajador.
         var usados={};Object.keys(IDX).forEach(function(k){if(IDX[k]>=0)usados[IDX[k]]=true;});
         var gIni=compacto?IDX.totalImponible:(IDX.gratificacion>=0?IDX.gratificacion:IDX.sueldoMensual), nImpIni=IDX.totalImponible, nImpFin=compacto?IDX.totalImponible:IDX.totalNoImponible;
-        var trabajadores=[];
+        var trabajadores=[], filaTotales=null;
         for(var ini=hFin;ini+N<=todas.length;ini+=N){
           var c=todas.slice(ini,ini+N);
-          if(IDX.periodo>=0?!/^\d{2}-\d{4}$/.test(c[IDX.periodo]||''):!esRutCelda(c[IDX.rut]))break;   // fila de Totales u otra cosa: fin
+          if(IDX.periodo>=0?!/^\d{2}-\d{4}$/.test(c[IDX.periodo]||''):!esRutCelda(c[IDX.rut])){filaTotales=c;break;}   // fila de Totales: fin
           if(!/\d{7,8}-[\dkK]/.test((c[IDX.rut]||'').replace(/\./g,'')))continue;
           var extrasImp=[],extrasNoImp=[];
           for(var q2=gIni+1;q2<nImpIni;q2++){if(!usados[q2]&&montoCLP(c[q2]))extrasImp.push({nombre:todas[h0+q2],monto:montoCLP(c[q2])});}
@@ -1143,6 +1143,26 @@ function parsearLibro(file){
           reject(new Error('No se encontraron trabajadores.\n\nDiagnóstico (consola F12):\n'+debugRows.slice(0,3).join('\n')));
           return;
         }
+        // ── 24-11 CONTROLES ESTRICTOS (Luciano: «que no vaya a ser que se equivoque en la información que se sube al reporte») ──
+        // (1) La fila de TOTALES del propio libro debe coincidir con la suma de los trabajadores en cada columna de montos.
+        //     Si no coincide, el archivo se leyó mal o viene incompleto → se rechaza (no se llena nada).
+        var MONTOS=['totalImponible','totalNoImponible','dctoAfp','apv1','apv2','dctoSalud','cesTrab','iu','totalDescuentos','otrosDescuentos','liquido',
+                    'sis','mutual','cesEmp','capInd','expVida','rentProt','aportePatronal','totalDescuentosConOtros','cFamiliar'];
+        var difTot=[];
+        if(!filaTotales||!MONTOS.some(function(k){return IDX[k]>=0&&montoCLP(filaTotales[IDX[k]])!==0;})){
+          reject(new Error('El libro no trae la fila de TOTALES al final, o viene incompleto. Vuelve a exportarlo desde Mas Remuneraciones (sin modificarlo).'));return;
+        }
+        var filasTrab=[];for(var ini2=hFin;ini2+N<=todas.length;ini2+=N){var c2=todas.slice(ini2,ini2+N);
+          if(IDX.periodo>=0?!/^\d{2}-\d{4}$/.test(c2[IDX.periodo]||''):!esRutCelda(c2[IDX.rut]))break;filasTrab.push(c2);}
+        MONTOS.forEach(function(k){
+          if(IDX[k]<0)return;
+          var suma=filasTrab.reduce(function(a,f){return a+montoCLP(f[IDX[k]]);},0), libro=montoCLP(filaTotales[IDX[k]]);
+          if(Math.abs(suma-libro)>1)difTot.push(ENC[IDX[k]]+': trabajadores '+ff(suma)+' vs totales del libro '+ff(libro));
+        });
+        if(difTot.length){reject(new Error('Los montos de los trabajadores no cuadran con la fila de TOTALES del libro:\n· '+difTot.join('\n· ')+'\n\nNo se cargó nada. Revisa el archivo.'));return;}
+        // (2) Cada trabajador debe cuadrar: imponible + no imponible − descuentos − otros descuentos = líquido.
+        var malos=trabajadores.filter(function(t){return Math.abs(t.totalImponible+t.totalNoImponible-t.totalDescuentos-t.otrosDescuentos-t.liquido)>1;});
+        if(malos.length){reject(new Error('Estos trabajadores no cuadran (imponible + no imponible − descuentos ≠ líquido):\n· '+malos.map(function(t){return t.rut+' '+t.nombre;}).join('\n· ')+'\n\nNo se cargó nada.'));return;}
         // ── Totales consolidados ──────────────────────────────────
         function sum(campo){return trabajadores.reduce(function(s,t){return s+(t[campo]||0);},0);}
         var nomina           = sum('liquido');
@@ -1341,6 +1361,16 @@ function setupUpload(){
     if(zone)zone.querySelector('div').textContent='Procesando...';
     // Usar nuevo parser async con DOMParser + ISO-8859-1
     parsearLibro(file).then(function(data){
+      // 24-11 ESTÁNDAR: el reporte se arma con el LIBRO DETALLE (trae el desglose de aportes y AFP/salud que muestra el reporte).
+      if(data.formato!=='detalle') throw new Error('Este es el libro COMPACTO. Para el reporte sube el «Libro de Remuneraciones · Detalle» (LRemu_Detalle…): trae el desglose de aportes que ve el cliente.');
+      if(_reporteActual){
+        // El RUT de la empresa en el nombre del archivo (LRemu_Detalle<RUT>_<MM-AAAA>) debe ser el del cliente del reporte.
+        var mRut=/(\d{7,8}-[\dkK])/.exec(file.name||''), rutRep=String(_reporteActual.rut||'').replace(/\./g,'').toUpperCase();
+        if(mRut&&mRut[1].toUpperCase()!==rutRep) throw new Error('El archivo es de la empresa '+mRut[1]+', pero el reporte es de '+rutRep+'. Carga el libro de este cliente.');
+        if(!mRut) throw new Error('El nombre del archivo no trae el RUT de la empresa. Súbelo tal como lo exporta Mas Remuneraciones (LRemu_Detalle<RUT>_<MM-AAAA>.xls), sin cambiarle el nombre.');
+        var perRep=String(_reporteActual.periodo||''), perLib=data.periodo?normalizarPeriodoLibro(data.periodo):'';
+        if(perLib&&perRep&&perLib!==perRep) throw new Error('El libro es del período '+data.periodo+', pero el reporte es de '+formatPeriodo(perRep)+'. Carga el libro del mes correcto.');
+      }
       _remuData=data;
       // Contexto de seguridad: asociar procesamiento al reporte actual
       // Usado en guardarRrhh para evitar cruce de datos entre clientes
