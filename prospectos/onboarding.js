@@ -6,6 +6,8 @@
    · Todo texto de la base pasa por esc(); el formulario arma el HTML con valores escapados.
    · L2 (19-11): con el cliente creado, la ficha muestra los 15 pasos (assets/onboarding-pasos.js: onb_pasos / onb_paso_marcar /
      onb_activar) y la lista muestra el avance de cada uno (onb_tablero). Filtro «En marcha» = creados que aún no están activos.
+   · V2 (23-11): los casos nuevos (lista 2) empiezan el onboarding al ACEPTAR la propuesta: aparecen en «En marcha» desde el día 0 (aunque el
+     cliente aún no esté creado) con sus dos tramos (Activación 3 días · Diagnóstico 7 días hábiles); los casos antiguos (lista 1) siguen igual.
    ============================================================ */
 (function(){
 'use strict';
@@ -39,11 +41,14 @@ function cargar(seleccion){
     pintar();
   }).catch(function(e){app().innerHTML='<div class="aviso rojo">'+esc(msg(e))+'</div>';});
 }
-function enMarcha(c){var t=S.tab[Number(c.id)];return c.estado==='cliente_creado'&&!!t&&!t.activado_at;}
+function esV2(c){var t=S.tab[Number(c.id)];return !!t&&Number(t.lista_version)===2;}
+function enMarcha(c){var t=S.tab[Number(c.id)];return !!t&&!t.activado_at&&(c.estado==='cliente_creado'||(esV2(c)&&c.estado==='por_iniciar'));}
+function tramoTxt(t){var x=(t.tramos||[]).filter(function(y){return y.estado!=='cumplido';})[0];if(!x)return '';
+  if(x.estado==='vencido')return ' · '+x.nombre+' vencida';if(x.tramo===2&&x.habiles_restantes!=null)return ' · '+x.nombre+': '+Number(x.habiles_restantes)+' d háb.';return ' · '+x.nombre+': '+Number(x.dias_restantes)+' d';}
 function chipEst(c){
   var t=S.tab[Number(c.id)];
   if(c.estado==='cliente_creado'&&t&&t.activado_at)return '<span class="estado verde">✅ Activo</span>';
-  if(c.estado==='cliente_creado'&&t)return '<span class="estado '+(t.resumen&&t.resumen.vencidos>0?'ambar':'cel')+'">🚀 '+Number(t.resumen.listos)+'/15'+(t.resumen.vencidos>0?' · ⏰':'')+'</span>';
+  if((c.estado==='cliente_creado'||esV2(c)&&c.estado==='por_iniciar')&&t)return '<span class="estado '+(t.resumen&&t.resumen.vencidos>0?'ambar':'cel')+'">🚀 '+Number(t.resumen.listos)+'/'+Number(t.resumen.total||15)+esc(tramoTxt(t))+(t.resumen.vencidos>0?' · ⏰':'')+'</span>';
   if(c.estado==='cliente_creado')return '<span class="estado verde">✅ Cliente creado</span>';
   if(c.estado==='descartado')return '<span class="estado gris">Descartado</span>';
   return c.faltan&&c.faltan.length?'<span class="estado ambar">Faltan '+c.faltan.length+'</span>':'<span class="estado cel">Listo ✓</span>';
@@ -56,7 +61,7 @@ function pintar(){
   h+='<div class="cs-chips"><button type="button" class="cs-chip'+(S.filtro==='por_iniciar'?' on':'')+'" data-f="por_iniciar">Por iniciar<i>'+por.length+'</i></button>'
     +'<button type="button" class="cs-chip'+(S.filtro==='en_marcha'?' on':'')+'" data-f="en_marcha">En marcha<i>'+mar.length+'</i></button>'
     +'<button type="button" class="cs-chip'+(S.filtro==='todos'?' on':'')+'" data-f="todos">Todos<i>'+S.casos.length+'</i></button></div>';
-  if(!vis.length&&S.filtro==='en_marcha')h+='<div class="cs-lista"><div class="onb-vacio">No hay clientes en onboarding.<small>Al crear un cliente desde aquí, sus 15 pasos aparecen en «En marcha».</small></div></div>';
+  if(!vis.length&&S.filtro==='en_marcha')h+='<div class="cs-lista"><div class="onb-vacio">No hay clientes en onboarding.<small>Cuando un cliente acepta la propuesta, su onboarding aparece aquí con sus dos tramos.</small></div></div>';
   else if(!vis.length)h+='<div class="cs-lista"><div class="onb-vacio">🎉 No hay clientes por iniciar.<small>Cuando marques un prospecto como <b>Ganado</b>, aparece aquí solo.</small></div></div>';
   else h+='<div class="cs-lista">'+vis.map(function(c){var l=c.lead||{};
     return '<button type="button" class="cs-row onb-row'+(c.id===S.sel?' sel':'')+'" data-id="'+Number(c.id)+'"><span><b>'+esc(c.razon_social||l.empresa||l.nombre||('Prospecto #'+c.lead_id))+'</b><small>'+esc(l.nombre||'')+(c.responsable?' · ganado con '+esc(c.responsable.split(' ')[0]):'')+'</small></span>'
@@ -68,7 +73,7 @@ function pintar(){
   app().querySelectorAll('.onb-row').forEach(function(b){b.onclick=function(){S.sel=Number(b.getAttribute('data-id'));pintar();
     if(window.innerWidth<=980){var f=document.getElementById('onbFicha');if(f)f.scrollIntoView({block:'start'});}};});
   enlazar();
-  var cs=caso(S.sel);if(cs&&cs.estado==='cliente_creado')cargarPasos(cs.id);
+  var cs=caso(S.sel);if(cs&&(cs.estado==='cliente_creado'||esV2(cs)&&cs.estado==='por_iniciar'))cargarPasos(cs.id);
 }
 function cargarPasos(id){
   var box=document.getElementById('onbPasos');if(!box||!window.OnbPasos)return;
@@ -115,6 +120,7 @@ function ficha(c){
       +'<button type="button" class="btn onb-desc" id="oDesc">Descartar</button></div>';
   }
   h+='<div class="cs-msg" id="oMsg" role="status"></div>';
+  if(c.estado==='por_iniciar'&&esV2(c))h+='<div id="onbPasos"><p class="nd">Cargando los pasos…</p></div>';
   return h;
 }
 function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
