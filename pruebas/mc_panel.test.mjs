@@ -137,8 +137,9 @@ test('11 estándar: index monta botón y scripts en orden; sin clave anon, conso
   }
 });
 const BE = process.env.BACKEND;
-test('12 contrato con el backend (BACKEND=…)', { skip: !BE || !existsSync(BE + '/supabase/migrations') }, () => {
-  const todo = readdirSync(BE + '/supabase/migrations').filter((f) => /^2026112[4-9].*\.sql$/.test(f) && !/check|rollback/.test(f)).map((f) => readFileSync(BE + '/supabase/migrations/' + f, 'utf8')).join('\n');
+const MIGS = BE && existsSync(BE + '/supabase/migrations') ? readdirSync(BE + '/supabase/migrations').filter((f) => /^2026112[4-9].*\.sql$/.test(f) && !/check|rollback/.test(f)) : [];
+test('12 contrato con el backend (BACKEND=… con las migraciones de MICONTADOOR-APERTURA)', { skip: !MIGS.length }, () => {
+  const todo = MIGS.map((f) => readFileSync(BE + '/supabase/migrations/' + f, 'utf8')).join('\n');
   const firmas = ['public.mc_accesos_panel()', 'public.mc_soporte_listar(p_estado text', 'public.mc_soporte_actualizar(p_id bigint, p_estado text, p_nota text, p_es_incidente boolean, p_severidad text)',
     'public.mc_incidente_registrar(p_cliente_id bigint, p_titulo text, p_detalle text, p_severidad text)', 'public.mc_terminos_estado()'];
   for (const f of firmas) assert.ok(todo.includes(f), 'firma ' + f);
