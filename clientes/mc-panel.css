@@ -20,7 +20,7 @@
 .mcp-tab.on{color:#fff;border-bottom-color:#924893}
 .mcp-cuerpo{padding-top:12px;min-width:0}
 .mcp-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-.mcp-kpi{display:flex;flex-direction:column;gap:2px;padding:12px;border:1px solid #4A2B50;border-radius:14px;background:rgba(146,72,147,.08);min-width:0}
+.mcp-kpi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px;border:1px solid #4A2B50;border-radius:14px;background:rgba(146,72,147,.08);min-width:0}
 .mcp-kpi b{font:800 22px var(--g-titulo,Montserrat,system-ui,sans-serif)}
 .mcp-kpi span{font-size:11.5px;color:var(--t2,#C9A8CC)}
 .mcp-filtros{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 10px;align-items:center}
