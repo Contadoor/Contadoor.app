@@ -5,7 +5,7 @@ const html = Deno.readTextFileSync(new URL('../clientes/index.html', import.meta
 const sii = Deno.readTextFileSync(new URL('../clientes/sii-cartapra.js', import.meta.url));
 const script = html.slice(html.indexOf('<script>', html.indexOf('supabase.js')) + 8, html.indexOf('</script>', html.indexOf('<script>', html.indexOf('supabase.js'))));
 const fn = (n: string) => { const i = script.indexOf('function ' + n + '('); if (i < 0) throw new Error(n); let d = 0, j = script.indexOf('{', i); for (; j < script.length; j++) { if (script[j] === '{') d++; else if (script[j] === '}' && --d === 0) break; } return script.slice(i, j + 1); };
-const codigo = ['g', 'gv', 'sv', 'addSocio', 'getSocios', 'siiTxt', 'siiNorm', 'siiIgual', 'siiRut', 'siiCompletarUI', 'completarConSii'].map(fn).join('\n');
+const codigo = ['g', 'gv', 'sv', 'addSocio', 'getSocios', 'siiTxt', 'siiNorm', 'siiIgual', 'siiRut', 'siiCompletarUI', 'completarConSii', 'siiAltaNoConectada'].map(fn).join('\n');
 let total = 0, fallas = 0; const res = (n: string, ok: boolean, d = '') => { total++; console.log((ok ? 'OK   ' : 'MAL  ') + n + (ok ? '' : ' · ' + d)); if (!ok) fallas++; };
 const espera = () => new Promise((r) => setTimeout(r, 40));
 const FICHA = { regimen: 'Régimen Pro Pyme General (14 D N°3)', giro: 'ASESORIAS CONTABLES', afecta_iva: true, iva_mixto: false,
@@ -104,6 +104,9 @@ const OK = (fi: any, extra: any = {}) => [200, { ok: true, conexion: { estado: '
   res('alta: razón social escrita NO se pisa', b.w.gv('f-razon') === 'Mi Nombre SpA');
   const c = nuevo([200, { ok: true, conexion: { estado: 'no_conectada' }, formulario: null }]); c.w.sv('f-rut', '77166269-2'); c.w.completarConSii(); await espera();
   res('alta no conectada: explica guardar y conectar', /todavía no está conectada a Cartapra/.test(c.d.getElementById('siiCompletarRes').textContent));
+  res('alta no conectada: ofrece «Guardar y conectar con el SII» y aclara que la clave queda en Cartapra', !!c.d.getElementById('btnGuardarConectar') && /la clave queda en Cartapra/.test(c.d.getElementById('siiCompletarRes').textContent));
+  const c2 = nuevo([403, { ok: false, error: 'SIN_PERMISO' }]); c2.w.sv('f-rut', '77166269-2'); c2.w.completarConSii(); await espera();
+  res('sin permiso: NO ofrece guardar y conectar', !c2.d.getElementById('btnGuardarConectar'));
   const e = nuevo([409, { ok: false, error: 'CLIENTE_EXISTE', detalle: 'Ya hay un cliente con ese RUT: ábrelo y usa «Completar con datos del SII».' }]); e.w.sv('f-rut', '77166269-2'); e.w.completarConSii(); await espera();
   res('alta RUT existente: mensaje del servidor', /Ya hay un cliente con ese RUT/.test(e.d.getElementById('siiCompletarRes').textContent));
   const f = nuevo([403, { ok: false, error: 'SIN_PERMISO' }]); f.w.sv('f-rut', '77166269-2'); f.w.completarConSii(); await espera();
