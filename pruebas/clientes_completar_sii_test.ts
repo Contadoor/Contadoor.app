@@ -88,6 +88,29 @@ const OK = (fi: any, extra: any = {}) => [200, { ok: true, conexion: { estado: '
   const { w, d } = montar(OK({ ...FICHA, giro: '<img src=x onerror=alert(1)>' })); w.sv('f-giro', 'Otro'); w.completarConSii(); await espera();
   res('HTML del SII no se interpreta', !d.querySelector('#siiCompletarRes img'));
 }
+{ // 24-11 NUEVO cliente: «Traer datos del SII» por el RUT escrito (formulario_alta)
+  const ALTA = (fi: any, extra: any = {}) => [200, { ok: true, conexion: { estado: 'conectada', cargaInicialLista: true }, formulario: fi, razon_social: 'EMPRESA FICTICIA SPA', ...extra }] as [number, any];
+  const nuevo = (resp: [number, any]) => { const m = montar(resp); m.w.__set(null); m.d.getElementById('modalForm').classList.add('on'); m.w.siiCompletarUI(true, 'Traer datos del SII'); return m; };
+  const a = nuevo(ALTA(FICHA));
+  res('alta: botón visible con «Traer datos del SII»', a.d.getElementById('btnCompletarSii').style.display === '' && a.d.getElementById('btnCompletarSii').textContent === 'Traer datos del SII');
+  a.w.completarConSii(); await espera();
+  res('alta sin RUT: pide escribirlo y no llama', a.llamadas.length === 0 && /Escribe primero el RUT/.test(a.d.getElementById('siiCompletarRes').textContent));
+  a.w.sv('f-rut', '77.166.269-2'); a.w.completarConSii(); await espera();
+  res('alta: pide formulario_alta SOLO con accion y rut (sin puntos)', JSON.stringify(a.llamadas[0]) === JSON.stringify({ accion: 'formulario_alta', rut: '77166269-2' }));
+  res('alta: razón social vacía se llena con la del SII', a.w.gv('f-razon') === 'EMPRESA FICTICIA SPA');
+  res('alta: giro, régimen y socios', a.w.gv('f-giro') === 'ASESORIAS CONTABLES' && a.w.gv('f-reg') === '14D3' && a.w.getSocios().length === 2);
+  res('alta: el botón vuelve a «Traer datos del SII»', a.d.getElementById('btnCompletarSii').textContent === 'Traer datos del SII');
+  const b = nuevo(ALTA(FICHA)); b.w.sv('f-razon', 'Mi Nombre SpA'); b.w.sv('f-rut', '77166269-2'); b.w.completarConSii(); await espera();
+  res('alta: razón social escrita NO se pisa', b.w.gv('f-razon') === 'Mi Nombre SpA');
+  const c = nuevo([200, { ok: true, conexion: { estado: 'no_conectada' }, formulario: null }]); c.w.sv('f-rut', '77166269-2'); c.w.completarConSii(); await espera();
+  res('alta no conectada: explica guardar y conectar', /todavía no está conectada a Cartapra/.test(c.d.getElementById('siiCompletarRes').textContent));
+  const e = nuevo([409, { ok: false, error: 'CLIENTE_EXISTE', detalle: 'Ya hay un cliente con ese RUT: ábrelo y usa «Completar con datos del SII».' }]); e.w.sv('f-rut', '77166269-2'); e.w.completarConSii(); await espera();
+  res('alta RUT existente: mensaje del servidor', /Ya hay un cliente con ese RUT/.test(e.d.getElementById('siiCompletarRes').textContent));
+  const f = nuevo([403, { ok: false, error: 'SIN_PERMISO' }]); f.w.sv('f-rut', '77166269-2'); f.w.completarConSii(); await espera();
+  res('alta 403: Master y quienes conectan empresas', /quienes conectan empresas/.test(f.d.getElementById('siiCompletarRes').textContent));
+  const g2 = nuevo(ALTA(FICHA)); g2.w.sv('f-rut', '77166269-2'); g2.w.completarConSii(); g2.w.sv('f-rut', '76000000-0'); await espera();
+  res('alta: si cambió el RUT mientras consultaba, no escribe', g2.w.gv('f-giro') === '');
+}
 { // nuevo cliente: botón oculto
   const { w, d } = montar(OK(FICHA)); w.siiCompletarUI(false); res('botón oculto en cliente nuevo', d.getElementById('btnCompletarSii').style.display === 'none');
 }

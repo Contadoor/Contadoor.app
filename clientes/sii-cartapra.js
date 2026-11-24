@@ -51,7 +51,8 @@
   }
   function llamar(accion, clienteId) {
     var f = typeof window.edgeFetch === 'function' ? window.edgeFetch : edgeSesion;
-    var cuerpo = accion === 'cartera' ? { accion: accion } : { accion: accion, cliente_id: Number(clienteId) };
+    // 24-11 «formulario_alta»: el único pedido con RUT (cliente aún no creado); el servidor valida permisos y que no exista.
+    var cuerpo = accion === 'cartera' ? { accion: accion } : accion === 'formulario_alta' ? { accion: accion, rut: String(clienteId) } : { accion: accion, cliente_id: Number(clienteId) };
     return f('cartapra', cuerpo).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (!r.ok || !j || j.ok !== true) throw { status: r.status, error: (j && j.error) || 'ERROR', detalle: j && j.detalle, reintentarEn: j && j.reintentarEn };
@@ -721,6 +722,16 @@
       return j.formulario;
     });
   }
+  // 24-11 (Luciano): «al crear, que venga el botón para cargar la info con Cartapra y yo solo completar lo que falta».
+  // Devuelve { formulario, razon_social } de una empresa que aún NO es cliente. Solo Master o conector (lo decide el servidor).
+  function fichaParaAlta(rut) {
+    return llamar('formulario_alta', rut).then(function (j) {
+      var c = j.conexion || {};
+      if (c.estado !== 'conectada') throw { status: 409, error: 'NO_CONECTADA', detalle: 'Esta empresa todavía no está conectada a Cartapra. Completa lo mínimo, guarda el cliente y conéctalo con el SII desde la lista; después usa «Completar con datos del SII».' };
+      if (!j.formulario) throw { status: 409, error: 'SIN_FICHA', detalle: c.cargaInicialLista ? 'Cartapra todavía no entrega la ficha de esta empresa.' : 'Cartapra está leyendo el SII por primera vez. Intenta en unos minutos.' };
+      return { formulario: j.formulario, razon_social: j.razon_social || null };
+    });
+  }
   function regimenCodigo(t) {
     t = String(t || '').toLowerCase();
     if (/presunt/.test(t)) return 'presunta';
@@ -731,6 +742,7 @@
 
   window.GestoorSII = {
     fichaParaFormulario: fichaParaFormulario,
+    fichaParaAlta: fichaParaAlta,
     regimenCodigo: regimenCodigo,
     prepararLista: prepararLista,
     lista: function () { return lista; },
