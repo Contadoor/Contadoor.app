@@ -103,13 +103,12 @@ test('errores de la base se traducen (candado del remanente)', () => {
   assert.match(ctx.remMensajeError('SIN_UTM: falta la UTM oficial de 2026-11 (el Master la registra desde sii.cl)'), /^falta la UTM oficial de 2026-11/);
 });
 
-test('Validar Pre-IVA y marcar OK: bloqueo previo en pantalla + mensaje de la base si igual se rechaza', () => {
+test('Validar IVA: bloqueo previo en pantalla + mensaje de la base si igual se rechaza (R4: RPC; «Marcar reporte OK» eliminado)', () => {
   const g = extraer('guardarF29');
   assert.match(g, /borradorCierre\._remanente&&borradorCierre\._remanente\.bloquea\)\{\s*cierre\.pendientes\.push\(borradorCierre\._remanente\.aviso\);\s*cierre\.ok=false;/);
-  assert.match(g, /sbPatchReporteDetallado\(repExistente\.id, patchContable\)/);
-  const k = extraer('marcarListoParaConsolidar');
-  assert.match(k, /_remOk\.bloquea\)\{ alert\('No se puede marcar OK para el Panel/);
-  assert.match(k, /sbPatchReporteDetallado\(rep\.id,\{/);
+  assert.match(g, /validarIvaServidor\(cuerpoVal\)/);
+  assert.match(g, /ivaMensajeError\(resG\.mensaje/);
+  assert.equal(HTML.indexOf('function marcarListoParaConsolidar('), -1, 'R4 · RA-H3: «Marcar reporte OK» ya no existe');
 });
 
 test('la presentación se carga antes que supabase.js y la carga usa la RPC remanentes_anteriores', () => {

@@ -773,7 +773,7 @@ window.avanzarObligacionContable = function(rut, accion, confirmMsg){
 
 
 // ── B18.1: helper idempotente para crear/actualizar obligación F29 ────
-// Puede llamarse desde marcarListoParaConsolidar y desde el botón retry.
+// R4: «Marcar reporte OK» ya no existe (la obligación la crea reporte_cerrar); queda solo el botón retry de reportes OK antiguos.
 // No hace PATCH a listo_panel_control. No crea obligación local.
 function crearActualizarObligacionF29(rep, c){
   if(!rep||!rep.id||!/^\d+$/.test(String(rep.id))) return;
@@ -886,6 +886,52 @@ function cargarObligacionesPeriodo(periodo){
       console.info('[Contable] obligaciones cargadas:',rows.length);
       renderTabla();
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTE-AUTO R3 — «🔒 Cerrar reporte» en CONTABLE (regla de flujo de Luciano 19-11)
+//   Pre-IVA = mes en curso, solo estimado (no valida ni pasa al reporte). Contable = período contable: se VALIDA el IVA
+//   («Validar IVA») y después se CIERRA aquí → foto en MiContadoor + obligación F29 en Pagos (la crea el servidor en el mismo cierre).
+//   El servidor exige estado_contable = 'completado' (CONTABLE_NO_VALIDADO); conectadas al SII sin libros; no conectadas con libros.
+//   Módulo: reportes-contable/cierre-reporte.js (GestoorCierreReporte). R4: sin el módulo NO hay respaldo («Marcar reporte OK» eliminado):
+//   se muestra MSG_CIERRE_NO_DISPONIBLE y el reporte no se cierra (la base además rechaza listo_panel_control = true fuera de reporte_cerrar).
+// ═══════════════════════════════════════════════════════════════════
+var MSG_CIERRE_NO_DISPONIBLE='El módulo de cierre del reporte no está disponible. Recarga la página o contacta al administrador. El reporte no ha sido cerrado.';
+var _cierresVigentes={};   // { String(reporte_id): {version, cerrado_at} } — reportes_cierres VIGENTE del período
+function cargarCierresPeriodo(periodo){
+  if(!window.GestoorCierreReporte||typeof GestoorCierreReporte.cierresVigentes!=='function') return;
+  var per=String(periodo||'');
+  GestoorCierreReporte.cierresVigentes(per).then(function(m){
+    if(per!==String(_periodoActual||'')) return;   // cambió el período mientras se leía
+    _cierresVigentes=m||{}; renderTabla(); if(_rutAbierto) restaurarFilaAbierta(_rutAbierto);
+  }).catch(function(){ _cierresVigentes={}; });
+}
+function cierreVigenteDe(rep){ return rep&&rep.id!=null&&_cierresVigentes[String(rep.id)]||null; }
+function htmlAccionCierre(rep,c,enFila){
+  var stop=enFila?'event.stopPropagation();':'';
+  var k=cierreVigenteDe(rep);
+  if(k) return '<span class="estado-badge" style="background:#ecfdf5;color:#064e3b;border:1px solid #6ee7b7" title="Cerrado y publicado en MiContadoor">🔒 Publicado v'+String(Number(k.version)||1)+'</span>'
+    +'<button class="btn-s" onclick="'+stop+'abrirCierreContable(\''+c.rut+'\')" title="Ver la foto publicada (el Master puede reabrirla)">'+gIcon('ver')+' Ver cierre</button>';
+  if(rep.estadoContable!=='completado') return '';
+  if(!window.GestoorCierreReporte){   // R4 (RA-H3/D3): sin respaldo «Marcar reporte OK». Sin el módulo, NO se cierra de otra forma.
+    return '<span class="estado-badge" data-cierre-no-disponible="1" style="background:#fef2f2;color:#7f1d1d;border:1px solid #fca5a5;white-space:normal">'+hesc(MSG_CIERRE_NO_DISPONIBLE)+'</span>';
+  }
+  return '<button class="btn-p" data-cierre-reporte="1" onclick="'+stop+'abrirCierreContable(\''+c.rut+'\')" style="font-size:10.5px" title="IVA validado: cierra el reporte, lo publica en MiContadoor y deja la obligación F29 en Pagos">🔒 Cerrar reporte</button>';
+}
+function abrirCierreContable(rut){
+  var reportes=getReportes();
+  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
+  if(!rep||!rep.id||!/^\d+$/.test(String(rep.id))){ alert('No se encontró el reporte de '+_periodoActual+' (recarga la página).'); return; }
+  if(!window.GestoorCierreReporte){ alert(MSG_CIERRE_NO_DISPONIBLE); return; }
+  var c=getClientes().find(function(x){return x.rut===rut;})||{};
+  GestoorCierreReporte.abrir({reporteId:rep.id, empresa:c.razon||rut, periodoTxt:_periodoActual, alTerminar:function(estado,fecha,version){
+    var arr=getReportes(), x=arr.find(function(y){return String(y.id)===String(rep.id);});
+    if(estado==='enviado'){ _cierresVigentes[String(rep.id)]={version:version||1,cerrado_at:fecha||null}; if(x) x.listoPanelControl=true; }
+    else delete _cierresVigentes[String(rep.id)];
+    if(x) setReportes(arr);
+    renderTabla(); if(_rutAbierto) restaurarFilaAbierta(_rutAbierto);
+    if(estado==='enviado') cargarObligacionesPeriodo(_periodoActual);   // la obligación F29 la registró el servidor en el cierre
+  }});
 }
 
 function getEstadoContable(rep,c,oblig){
@@ -1101,18 +1147,19 @@ function renderTabla(){
       if(siiConectado(c)){   // 19-11: conectada → se valida en «Cálculo del F29» (detalle), sin libros
         html+='<button class="btn-p" onclick="event.stopPropagation();toggleRow(\''+c.rut+'\')" title="Abre el Cálculo del F29 con los datos del SII">'+gIcon('iva')+' Validar IVA</button>';
       } else if(!libOk){
-        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes del Pre-IVA">'+gIcon('iva')+' Pre-IVA</button>';
+        html+='<button class="btn-s" disabled style="opacity:.5;font-size:10.5px" title="Carga Libros de Compras y Ventas antes de validar el IVA">'+gIcon('iva')+' Validar IVA</button>';
       } else {
-        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('iva')+' Pre-IVA</button>';
+        // R3: «Revisar / Validar IVA» se queda en Contable (abre el modal de aquí; nunca lleva al Pre-IVA)
+        html+='<button class="btn-p" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')" title="Revisa y valida el IVA del período aquí, en Contable">'+gIcon('iva')+' Revisar / Validar IVA</button>';
       }
     } else if(estado==='completado'){
-      if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="event.stopPropagation();marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
-      }
-      // Reporte OK: el Pre-IVA ya no se edita (la base lo rechaza); el Master usa "Reabrir reporte"
-      if(!rep.listoPanelControl) html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
-      // CONT-REAP-1: solo el Master puede reabrir un reporte marcado OK (motivo obligatorio; nunca mueve dinero)
-      if(rep.listoPanelControl&&u.esMaster){
+      // REPORTE-AUTO R3: IVA validado → «🔒 Cerrar reporte» (aquí, en Contable). Cerrado → «🔒 Publicado vN» + «Ver cierre».
+      html+=htmlAccionCierre(rep,c,true);
+      // Reporte OK: el IVA ya no se edita (la base lo rechaza); el Master usa "Reabrir reporte"
+      if(!rep.listoPanelControl&&!cierreVigenteDe(rep)) html+='<button class="btn-s" onclick="event.stopPropagation();abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar</button>';
+      // CONT-REAP-1: solo el Master puede reabrir un reporte marcado OK (motivo obligatorio; nunca mueve dinero).
+      // R3: con el cierre vigente, primero se reabre el cierre («Ver cierre» → «Reabrir reporte cerrado»).
+      if(rep.listoPanelControl&&u.esMaster&&!cierreVigenteDe(rep)){
         var _obR=_obligacionesF29Map[String(rep.id||'')]||_obligacionesF29Map[c.rut+'_'+_periodoActual]||null;
         var _concR=!!_obR&&(_obR.estado==='conciliada'||Number(_obR.monto_conciliado||0)>0);
         html+='<button class="btn-s g-warn" onclick="event.stopPropagation();reabrirReporteContable(\''+c.rut+'\')" title="'+(_concR?'Reabrir reporte con obligación conciliada (los fondos no se modifican)':'Reabrir reporte para corregir libros')+'">'+gIcon('repetir')+' Reabrir</button>';
@@ -1212,12 +1259,10 @@ function renderTabla(){
       }
     }
     if(estado==='completado'){
-      if(!rep.listoPanelControl){
-        html+='<button class="btn-p" onclick="marcarListoParaConsolidar(\''+c.rut+'\')" style="font-size:10.5px">'+gIcon('check')+' Marcar reporte OK</button>';
-      } else {
-        html+='<span style="font-size:11px;color:#064e3b;font-weight:600">'+gIcon('check')+' Reporte contable OK</span>';
-      }
-      if(!rep.listoPanelControl) html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar Pre-IVA</button>';
+      // REPORTE-AUTO R3: el cierre del reporte va aquí (después de validar el IVA) → MiContadoor + Pagos (obligación F29)
+      html+=htmlAccionCierre(rep,c,false);
+      if(rep.listoPanelControl&&!cierreVigenteDe(rep)) html+='<span style="font-size:11px;color:#064e3b;font-weight:600">'+gIcon('check')+' Reporte contable OK</span>';
+      if(!rep.listoPanelControl&&!cierreVigenteDe(rep)) html+='<button class="btn-s" onclick="abrirF29(\''+c.rut+'\')">'+gIcon('lapiz')+' Editar IVA</button>';
     }
     // ── B19: Acciones financieras (RPC exclusivo, no PATCH directo) ────────
     if(oblig&&rep.listoPanelControl){
@@ -2524,13 +2569,18 @@ function guardarF29(){
   var mg=document.getElementById('msg-guardado');
   if(mg) mg.className='msg-guardado';
 
-  sbPatchReporteDetallado(repExistente.id, patchContable).then(function(resG){
+  // R4 (RA-H2): la validación la hace el SERVIDOR (reporte_validar_iva); patchContable es solo la vista previa de lo que guardará.
+  var cuerpoVal=IvaValidacion.cuerpoValidar(repExistente.id,{
+    debito:deb, credito:cred, postergado:postergado, ppmBase:nv('f-ppm-base'), ppmTasa:tasaIngresada, ppm:nv('f-ppm-monto'), retHon:nv('f-ret-hon'), otrosImp:nv('f-otros-imp'), obs:sv('f-obs')||null
+  });
+  validarIvaServidor(cuerpoVal).then(function(resG){
     if(btnG){btnG.disabled=false;btnG.textContent='Validar IVA';}
 
     var fila=resG&&resG.fila;
     if(!fila||typeof fila!=='object'||!fila.id){
       // REM-ANT-2: la base rechaza validar sin remanente confirmado o con el remanente siguiente descuadrado.
-      if(resG&&/REMANENTE_/.test(resG.mensaje||'')){ alert('No se validó el Pre-IVA:\n'+remMensajeError(resG.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(periodo)))); return; }
+      if(resG&&resG.cancelado) return;
+      if(resG&&resG.mensaje){ alert('No se validó el IVA:\n'+ivaMensajeError(resG.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(periodo)))+'\nLos datos ingresados se conservan.'); return; }
       alert('Error al guardar en Supabase. Revisa la conexión e inténtalo de nuevo.\nLos datos ingresados se conservan.');
       return;
     }
@@ -3853,7 +3903,7 @@ function reabrirReporteContable(rut){
   })}).then(function(r){return r.json();}).then(function(d){
     if(!d||d.ok!==true){
       var m=String((d&&(d.message||d.error))||'Error desconocido');
-      var mapa=[[/SOLO_MASTER/,'Solo el Master puede reabrir un reporte.'],[/REPORTE_NO_CERRADO/,'El reporte ya está abierto (otra persona pudo haberlo reabierto). Recarga la página.'],
+      var mapa=[[/SOLO_MASTER/,'Solo el Master puede reabrir un reporte.'],[/REPORTE_PUBLICADO/,'El reporte está cerrado y publicado en MiContadoor: primero «Ver cierre» → «Reabrir reporte cerrado», y después reabre la parte contable.'],[/REPORTE_NO_CERRADO/,'El reporte ya está abierto (otra persona pudo haberlo reabierto). Recarga la página.'],
         [/REAPERTURA_NO_PERMITIDA/,m.replace(/^REAPERTURA_NO_PERMITIDA:\s*/,'No se puede reabrir: ')],[/CONFIRMACION_REQUERIDA/,'La obligación tiene fondos conciliados: recarga la página y confirma de nuevo.'],
         [/MOTIVO_OBLIGATORIO/,'El motivo debe tener al menos 10 caracteres.']];
       for(var i=0;i<mapa.length;i++){ if(mapa[i][0].test(m)){ m=mapa[i][1]; break; } }
@@ -3865,60 +3915,12 @@ function reabrirReporteContable(rut){
     setReportes(reportes);
     if(ob&&d.obligacion){ ob.estado=d.obligacion.estado_despues; }
     renderTabla(); restaurarFilaAbierta(rut, true);
-    alert('Reporte de '+_periodoActual+' reabierto.'+(d.obligacion?'\nLa obligación F29 quedó "'+d.obligacion.estado_despues+'" con '+_reapMonto(d.obligacion.monto_conciliado)+' conciliados (sin cambios).':'')+'\nAhora puedes corregir los libros, validar el Pre-IVA y marcar el reporte OK.');
+    alert('Reporte de '+_periodoActual+' reabierto.'+(d.obligacion?'\nLa obligación F29 quedó "'+d.obligacion.estado_despues+'" con '+_reapMonto(d.obligacion.monto_conciliado)+' conciliados (sin cambios).':'')+'\nAhora puedes corregir los libros, validar de nuevo el IVA y cerrar el reporte.');
   }).catch(function(){ alert('No se pudo reabrir el reporte (error de conexión). No se hizo ningún cambio si no viste confirmación.'); });
 }
 
-function marcarListoParaConsolidar(rut){
-  var reportes=getReportes();
-  var rep=reportes.find(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-  if(!rep||rep.estadoContable!=='completado'){
-    alert('El Pre-IVA debe estar validado antes de marcar como listo para consolidar.');
-    return;
-  }
-  if(!rep.id||!/^\d+$/.test(String(rep.id))){
-    alert('No se puede actualizar: el reporte no tiene un ID válido de Supabase.');
-    return;
-  }
-  if(rep.listoPanelControl){
-    // Ya marcado — no hacer nada
-    return;
-  }
-  // REM-ANT-2: sin remanente anterior confirmado no se marca OK (la base también lo exige).
-  var _remOk=infoRemanenteAnterior(rep,_periodoActual);
-  if(_remOk.bloquea){ alert('No se puede marcar OK para el Panel:\n'+_remOk.aviso); return; }
-  sbPatchReporteDetallado(rep.id,{
-    listo_panel_control: true
-  }).then(function(resK){
-    var fila=resK&&resK.fila;
-    if(!fila||typeof fila!=='object'){
-      alert(resK&&/REMANENTE_/.test(resK.mensaje||'')?'No se marcó OK para el Panel:\n'+remMensajeError(resK.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(_periodoActual))):'Error al actualizar en Supabase. Intenta nuevamente.');
-      return;
-    }
-    // Actualizar memoria SOLO después de éxito confirmado.
-    // Usar sbRowToReporte para reconstruir el objeto completo desde la fila
-    // devuelta, igual que en guardarF29. Así f29, estadoContable y
-    // listoPanelControl quedan sincronizados con Supabase.
-    var reporteActualizado=sbRowToReporte(fila);
-    var idx=reportes.findIndex(function(r){return r.rut===rut&&r.periodo===_periodoActual;});
-    if(idx>=0){
-      var _librosGuardadosLPC=reportes[idx].libros;
-      Object.assign(reportes[idx], reporteActualizado);
-      if(_librosGuardadosLPC) reportes[idx].libros=_librosGuardadosLPC;
-    }
-    setReportes(reportes);
-    // Reporte OK = trabajo del cliente terminado: su detalle se cierra (queda solo la línea del flujo)
-    if(_rutAbierto===rut) _rutAbierto=null;
-    renderTabla();
-        // ── B18: crear / actualizar obligación F29 (helper idempotente) ──
-    // Solo DESPUÉS del PATCH exitoso. No revertir listo_panel_control si la RPC falla.
-    crearActualizarObligacionF29(rep, getClientes().find(function(x){return x.rut===rut;})||{});
-    // B18: notificación V1 eliminada — Reporte OK queda reflejado en UI/pipeline.
-  }).catch(function(err){
-    var msg=(err&&err.message)?String(err.message).replace(/<[^>]+>/g,'').substring(0,200):'Error de conexión';
-    alert('Error al marcar listo para consolidar: '+msg+'\nLos datos en Supabase no fueron modificados.');
-  });
-}
+// R4 (RA-H3/D3): «Marcar reporte OK» (marcarListoParaConsolidar: PATCH listo_panel_control = true + crear_obligacion desde el navegador) se
+// ELIMINÓ. El reporte queda OK solo al cerrarlo (reporte_cerrar, que crea/confirma la obligación F29 en la misma transacción).
 // ── INICIALIZACIÓN ────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════
 // HELPERS DE INICIALIZACIÓN
@@ -4192,6 +4194,7 @@ function cargarReportesPeriodo(periodo, cb){
       // Siempre llegar aquí y llamar cb
       // ── B18: lanzar carga de obligaciones F29 en paralelo ─────────
       cargarObligacionesPeriodo(periodo);
+      cargarCierresPeriodo(periodo);   // REPORTE-AUTO R3: cierres vigentes (fuente oficial reportes_cierres) → «🔒 Publicado»
       finalizarCargaReportes(null);
     });
   });
@@ -4341,12 +4344,15 @@ function validarIvaDesdeTarjeta(rut, a, btn){
     +'\n\nQueda validado con tu nombre y el flujo pasa a «Reporte».')) return Promise.resolve(false);
   var txt=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Validando…';}
   var u=getUsuario(), por=u.nombre||u.email||null, ahora=new Date().toISOString();
-  return sbPatchReporteDetallado(x.rep.id, patch).then(function(resG){
+  // R4 (RA-H2): valida el SERVIDOR (reporte_validar_iva); «patch» es solo la vista previa mostrada arriba.
+  var cuerpoVal=IvaValidacion.cuerpoValidar(x.rep.id,{debito:d.debito, credito:d.credito, postergado:false, ppmBase:d.ppmBase, ppmTasa:d.ppmTasa, ppm:d.ppm, retHon:d.retHon,
+    otrosImp:b.otrosImp, obs:((x.rep.f29||{}).obs)||null});
+  return validarIvaServidor(cuerpoVal).then(function(resG){
     var fila=resG&&resG.fila;
     if(!fila||typeof fila!=='object'||!fila.id){
       if(btn){btn.disabled=false;btn.textContent=txt;}
-      if(resG&&/REMANENTE_/.test(resG.mensaje||'')) alert('No se validó el IVA:\n'+remMensajeError(resG.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(x.periodo))));
-      else alert('No se validó el IVA (error al guardar en Gestoor): '+String((resG&&resG.mensaje)||'').replace(/<[^>]+>/g,'').substring(0,200)+'\nNo se cambió nada; inténtalo de nuevo.');
+      if(resG&&resG.cancelado) return false;
+      alert('No se validó el IVA:\n'+ivaMensajeError(resG&&resG.mensaje, window.RemanenteAnterior.nombreMes(periodoAnterior(x.periodo)))+'\nNo se cambió nada.');
       return false;
     }
     guardarFilaReporteLocal(rut, x.periodo, fila, patch.remanente);
@@ -4422,6 +4428,38 @@ function remanenteManualDesdeTarjeta(rut, a, btn){
   });
 }
 // PATCH del reporte que conserva el mensaje de la base (el candado del remanente explica por qué no se guardó).
+// ── R4 (dictamen R3, RA-H2/D2) · «Validar IVA» en el SERVIDOR ─────────────────────────────────────────────────────────────
+// POST rpc/reporte_validar_iva (la base ya no acepta estado_contable = 'completado' por PATCH). Devuelve {fila, validacion} o {fila:null, mensaje}
+// (misma forma que sbPatchReporteDetallado). Si los montos difieren del SII o del PPM calculado, pide el motivo y reintenta UNA vez.
+function validarIvaServidor(cuerpo){
+  var llamar=function(b){
+    return sbFetch('rpc/reporte_validar_iva',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})
+      .then(function(r){ return r.json().catch(function(){return null;}).then(function(dd){
+        return (r.ok&&dd&&dd.ok===true&&dd.reporte)?{fila:dd.reporte, validacion:dd}:{fila:null, mensaje:(dd&&(dd.message||dd.error))||('HTTP '+r.status)}; }); })
+      .catch(function(e){ return {fila:null, mensaje:(e&&e.message)||'error de conexión'}; });
+  };
+  return llamar(cuerpo).then(function(res){
+    if(res.fila||!/DIFERENCIA_SIN_MOTIVO/.test(res.mensaje||'')||cuerpo.p_motivo_diferencia) return res;
+    var det=String(res.mensaje).replace(/^[\s\S]*DIFERENCIA_SIN_MOTIVO:\s*/,'').replace(/;\s*escribe el motivo[\s\S]*$/,'');
+    var m=prompt('Los montos que validas difieren de lo calculado:\n'+det+'\n\nEscribe el motivo de la diferencia (10 a 500 caracteres; queda en la evidencia con tu nombre):');
+    if(m===null) return {fila:null, cancelado:true};
+    m=String(m).trim();
+    if(m.length<10||m.length>500) return {fila:null, mensaje:'MOTIVO_INVALIDO: el motivo debe tener entre 10 y 500 caracteres'};
+    return llamar(Object.assign({}, cuerpo, {p_motivo_diferencia:m}));
+  });
+}
+// Errores de reporte_validar_iva (y de los triggers del remanente) en palabras simples.
+function ivaMensajeError(m, nomAnt){
+  m=String(m||'Error desconocido');
+  if(/REMANENTE_(DESCONOCIDO|SIN_VERIFICAR|NO_CUADRA)|SIN_UTM/.test(m)) return remMensajeError(m, nomAnt);
+  var mapa=[[/SIN_PERMISO/,'Valida el IVA solo el Master o el analista contable asignado a este cliente.'],[/SIN_SESION/,'Tu sesión no es válida: vuelve a ingresar.'],
+    [/REMANENTE_NO_CONOCIDO/,'El remanente de '+(nomAnt||'el mes anterior')+' no está confirmado: regístralo con «Ingresar remanente a mano» (con motivo) y vuelve a validar.'],
+    [/REPORTE_PUBLICADO/,'El reporte ya está cerrado y publicado: el Master debe reabrirlo («Ver cierre» → «Reabrir reporte cerrado»).'],
+    [/REPORTE_OK_SIN_CIERRE/,'El reporte quedó OK con el flujo anterior: el Master debe reabrir la parte contable y después se valida de nuevo.'],
+    [/MOTIVO_INVALIDO/,'El motivo de la diferencia debe tener entre 10 y 500 caracteres.']];
+  for(var i=0;i<mapa.length;i++){ if(mapa[i][0].test(m)) return mapa[i][1]; }
+  return m.replace(/<[^>]+>/g,'').replace(/^\s*[A-Z_]+:\s*/,'').substring(0,300);
+}
 function sbPatchReporteDetallado(id, data){
   return sbFetch('reportes_mensuales?id=eq.'+id,{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)})
     .then(function(r){ return r.json().catch(function(){return null;}).then(function(b){ return r.ok?{fila:Array.isArray(b)?b[0]:b}:{fila:null, mensaje:(b&&(b.message||b.error))||('HTTP '+r.status)}; }); })
@@ -5097,11 +5135,26 @@ function _siiF29MostrarMensaje(tipo, texto){
 <script src="../pre-iva/f29-formula.js?v=20261119c"></script>
 <script src="../pre-iva/proyeccion.js?v=20261119"></script>
 <script src="../pre-iva/sii-cartapra.js?v=20261119c"></script>
-<script src="../pre-iva/iva-validacion.js?v=20261119c"></script>   <!-- 19-11: «Validar IVA» = mismas escrituras (reportes_mensuales + preiva_historial) -->
+<script src="../pre-iva/iva-validacion.js?v=20261120r4"></script>   <!-- R4: «Validar IVA» = RPC reporte_validar_iva (+ preiva_historial) -->
 <script src="../pre-iva/ppm-cobertura.js?v=20261119b"></script>
-<script src="calculo-f29.js?v=20261119b"></script>
+<script src="calculo-f29.js?v=20261120"></script>
+<script src="cierre-reporte.js?v=2026112004"></script>   <!-- REPORTE-AUTO R4: «🔒 Cerrar reporte» en Contable (después de «Validar IVA») -->
 <script src="../clientes/sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
+<script src="../assets/enlace-directo.js?v=20261124"></script>
+<script>
+// MARCHA-BLANCA 24-11: enlace directo desde la campana (?reporte=<id>). El cliente se resuelve por el RUT del reporte.
+GestoorEnlace.alCargar('reporte', function(id){
+  if(typeof getReportes!=='function'||!_periodoActual) return false;
+  var rep=getReportes().find(function(r){return String(r.id)===String(id);});
+  if(!rep) return false;
+  if(rep.periodo!==_periodoActual){ alert('Ese reporte es del período '+rep.periodo+': elígelo en el selector de período para verlo.'); return true; }
+  if(!document.getElementById('row-'+rep.rut)) return false;
+  _abrirSolo(rep.rut); _cargarSiiDe(rep.rut);
+  var row=document.getElementById('row-'+rep.rut); if(row) row.scrollIntoView({block:'start',behavior:'smooth'});
+  return true;
+});
+</script>
 <script>
 window.GESTOOR_MODULO = 'reportes-contable';
 </script>

@@ -130,6 +130,7 @@ function fichaHtml(p){
     +'<p class="cs-nota">Luciano y el equipo Comercial ven y editan todo.</p>';
   h+='<div class="cs-acc">'+(Y.escribe?'<button type="button" class="btn p" id="csGuardar">Guardar</button>':'')
     +(p.etapa==='reunion_realizada'||p.etapa==='propuesta'?'<a class="btn" href="../cotizaciones/index.html'+(D.DEMO?'?demo=1':'')+'">📄 Enviar propuesta</a>':'')
+    +(Y.escribe?'<a class="btn" id="csDiag" href="../clientes/diagnostico.html?lead='+Number(p.id)+'">🧭 Diagnóstico y propuesta</a>':'')
     +(p.etapa==='cliente'?'<a class="btn cs-onb" href="onboarding.html?lead='+Number(p.id)+(D.DEMO?'&demo=1':'')+'">🚀 Ir a onboarding</a>':'')
     +(url?'<a class="btn" href="'+esc(url)+'">📋 Ver guion (opcional)</a>':(Y.escribe?'<button type="button" class="btn" id="csGuion">📋 Ver guion (opcional)</button>':''))+'</div>'
     +'<div class="cs-msg" id="csMsg" role="status"></div>';

@@ -108,8 +108,8 @@ async function campana(o: { vista?: string; sinLote?: boolean; sinResumen?: bool
 // 5. Cobranza: ?cliente=<id> abre la ficha una sola vez y solo con dígitos
 {
   const js = leer('cobranza/cartera.js');
-  res('5.1 cartera.js lee ?cliente= (solo dígitos) y abre la ficha tras cargar', /get\('cliente'\);return v&&\/\^\[0-9\]\{1,18\}\$\/\.test\(v\)/.test(js) && /render\(\);abrirPedido\(\);/.test(js)
-    && /CLIENTE_PEDIDO=null;abrirFicha\(id\)/.test(js));
+  res('5.1 cartera.js lee ?cliente= (solo dígitos) y abre la ficha tras cargar (una vez, si el cliente está en la cartera)', /cliente=\(\\d\{1,18\}\)/.test(js) && /render\(\);abrirDesdeEnlace\(\)/.test(js)
+    && /abrirFicha\(m\[1\]\)/.test(js));
 }
 // 6. Avisos al celular del equipo (solo Master)
 async function pagina(url: string, ses: any) {

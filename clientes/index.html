@@ -110,6 +110,8 @@ body.modal-open{overflow:hidden;}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="mc-accesos.css">
+<link rel="stylesheet" href="mc-panel.css">
 <style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
 </head>
 <body class="g-shell g-tema-noche">
@@ -162,6 +164,7 @@ body.modal-open{overflow:hidden;}
         <option value="media">Prioridad media</option>
         <option value="baja">Prioridad baja</option>
       </select>
+      <div id="mcPanelBoton" hidden></div><!-- MICONTADOOR-APERTURA: botón «Accesos MiContadoor» (mc-panel.js; solo si mc_yo.puede_dar_alta) -->
       <button class="btn-p" id="btn-nuevo" style="display:none">+ Nuevo cliente</button>
     </div>
 
@@ -477,6 +480,8 @@ body.modal-open{overflow:hidden;}
 <div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
 
 <script src="../supabase.js"></script>
+<script src="mc-accesos.js"></script>
+<script src="mc-panel.js"></script>
 <script>
 console.info('[Clientes] versión 2026-08-05-vFinal');
 // ─────────────────────────────────────────────────────
@@ -1092,7 +1097,7 @@ function sincronizarBloqueoModales(){
   document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-bg.on')));
 }
 function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
-function cerrarDetalle() { if (window.GestoorHistoriaSII) GestoorHistoriaSII.cerrar(); if (window.GestoorHistorialSII) GestoorHistorialSII.cerrar(); if (window.GestoorLevDetalle) GestoorLevDetalle.cerrarMes(); if (window.GestoorSII) GestoorSII.desmontar(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarDetalle() { if (window.GestoorHistoriaSII) GestoorHistoriaSII.cerrar(); if (window.GestoorHistorialSII) GestoorHistorialSII.cerrar(); if (window.GestoorLevDetalle) GestoorLevDetalle.cerrarMes(); if (window.GestoorSII) GestoorSII.desmontar(); if (window.MCAccesos) MCAccesos.cerrarDialogo(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
@@ -1235,10 +1240,14 @@ function verDetalle(id) {
   h += '</div>';
   if (c.obs) h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:8px"><b>Obs:</b> '+esc(c.obs)+'</div>';
   h += '<div id="det-onb"></div>';   // ONBOARDING-L2: pasos que faltan (onboarding-ficha.js); vacío si no vino de Onboarding
+  // DIAGNÓSTICO «AQUÍ PARTIMOS» (24-11): informe contable de inicio + propuesta. Lo ve quien ve la ficha; la base re-verifica (diag_datos_cliente).
+  h += '<div id="det-diag" style="margin-top:10px"><a id="det-diag-btn" href="diagnostico.html?cliente='+Number(c.id)+'" style="display:inline-block;background:linear-gradient(135deg,#A4599C,#924893 55%,#803889);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;font-size:13px;text-decoration:none">Generar diagnóstico «Aquí partimos»</a>'
+     + '<small style="display:block;margin-top:4px;opacity:.8">Informe de inicio con el SII y la propuesta de trabajo, para imprimir o guardar en PDF.</small></div>';
   h += '<div id="det-liva"></div>';  // LEVANTAMIENTO-IVA: botón «Levantamiento de IVA» (levantamiento-iva.js; Master y equipo contable)
   h += '<div id="det-hist"></div>';  // CARTAPRA-HISTORIA: botón «Historia SII» (historia-sii.js; Master y equipo contable)
   h += '<div id="det-hcar"></div>';  // LIVA-DETALLE-F29: botón «Historial SII» (historial-sii-cargado.js: qué hay cargado por mes; Master y equipo contable)
   h += '<div id="det-sii"></div>';   // Cartapra F1: tarjeta "Datos del SII" (sii-cartapra.js)
+  h += '<div id="det-mc"></div>';    // MICONTADOOR-APERTURA: accesos del cliente al portal (mc-accesos.js; solo si el servidor lo permite: mc_yo → puede_dar_alta)
   g('detalleContent').innerHTML = h;
   g('modalDetalle').classList.add('on');
   if (window.GestoorSII) GestoorSII.montar(g('det-sii'), c.id, { esMaster: !!(window._contadoorSesion && window._contadoorSesion.esMaster === true) });
@@ -1246,6 +1255,7 @@ function verDetalle(id) {
   if (window.GestoorLevIVA) GestoorLevIVA.montar(g('det-liva'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
   if (window.GestoorHistoriaSII) GestoorHistoriaSII.montar(g('det-hist'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
   if (window.GestoorHistorialSII) GestoorHistorialSII.montar(g('det-hcar'), { id: c.id, razon: c.razon, rut: c.rut }, window._contadoorSesion);
+  if (window.MCAccesos) window.MCAccesos.montar(g('det-mc'), { id: c.id, razon: c.razon });
 }
 
 // ─────────────────────────────────────────────────────

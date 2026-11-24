@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marcha blanca · demo</title>
+<!-- MARCHA-BLANCA (24-11-2026) · DEMO con datos 100 % ficticios y servidor simulado (no llama a Supabase).
+     Muestra: (1) «Preparar obligaciones» del Panel (simular → crear), con el módulo real panel-de-control/obligaciones-periodo.js;
+     (2) cómo se ven en la campana los avisos nuevos de la Conciliación, con su enlace directo. -->
+<style>
+:root{--p:#924893;--deep:#1a0b2e;--sur:#fff;--bdr:#e8dde8;--t1:#1a0a1b;--tm:#9a849b;--verde:#28865B;--rojo:#D34433;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,-apple-system,'Segoe UI',Arial,sans-serif;background:#f3eef6;color:var(--t1);padding:20px}
+h1{font:800 18px Montserrat,Inter,sans-serif;color:var(--deep);margin-bottom:4px}
+.sub{font-size:12px;color:var(--tm);margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.g-card{background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:16px}
+.g-sec-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.g-sec-h h2{font:800 14px Montserrat,Inter,sans-serif}
+.g-btn,.btn-s,.btn-p{border:1px solid var(--bdr);background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+.btn-p{background:var(--p);color:#fff;border-color:var(--p)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-bg.on{display:flex}
+.modal{background:#fff;border-radius:14px;padding:20px;max-width:640px;width:96%;max-height:92vh;overflow:auto}
+.modal-header h2{font:800 16px Montserrat,Inter,sans-serif;margin-bottom:4px}.modal-header p{font-size:12px;color:var(--tm);margin-bottom:12px}
+.card-hd{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--p);margin:10px 0 4px}
+.fgroup label{display:block;font-size:11px;color:var(--tm);margin-bottom:3px}.fgroup input{border:1px solid var(--bdr);border-radius:8px;padding:6px}
+table td,table th{padding:3px 4px;border-bottom:1px solid #f1e9f1}
+.al{display:flex;gap:10px;padding:10px;border-bottom:1px solid #f1e9f1;font-size:12.5px}
+.al b{display:block;font-size:13px}.al small{color:var(--tm)}.al a{color:var(--p);font-weight:700;text-decoration:none;white-space:nowrap;margin-left:auto}
+.tag{display:inline-block;font-size:10px;border-radius:999px;padding:1px 7px;background:#f5eaf5;color:var(--p);margin-top:3px}
+</style>
+</head>
+<body>
+<h1>Marcha blanca de reportes · demo</h1>
+<div class="sub">Datos ficticios · servidor simulado · nada se guarda</div>
+<div class="grid">
+  <section class="g-card g-nomina">
+    <div class="g-sec-h"><h2>Nómina del período</h2><small>Octubre 2026</small></div>
+    <div style="font-size:12px;color:var(--tm)">El botón «💼 Preparar obligaciones» solo aparece para el Master.</div>
+  </section>
+  <section class="g-card">
+    <div class="g-sec-h"><h2>Campana · avisos nuevos</h2></div>
+    <div id="campana"></div>
+  </section>
+</div>
+<script>
+// Simulación del servidor (forma exacta de la RPC obligaciones_preparar_periodo).
+var DEMO_ESTADO={aplicado:false};
+function getUsuario(){return {nombre:'Master Demo',esMaster:true};}
+function getPeriodoActivo(){return {periodo:'2026-10'};}
+function sbFetch(path,opts){
+  var b=JSON.parse(opts.body);DEMO_ESTADO.aplicado=DEMO_ESTADO.aplicado||b.p_aplicar;
+  var res=b.p_aplicar
+    ?{periodo:'2026-10',aplicado:true,vence_f29:'2026-11-20',vence_cotizaciones:'2026-11-13',cotizaciones:{creada:3,'pendiente:RRHH_NO_LISTO':105,no_aplica:83},f29:{nace_al_cerrar:191},
+      detalle:[{cliente:'Empresa A Ficticia SpA',cotizaciones:'creada',f29:'nace_al_cerrar'},{cliente:'Empresa B Ficticia Ltda',cotizaciones:'creada',f29:'nace_al_cerrar'},{cliente:'Empresa C Ficticia SpA',cotizaciones:'creada',f29:'nace_al_cerrar'}]}
+    :{periodo:'2026-10',aplicado:false,vence_f29:'2026-11-20',vence_cotizaciones:'2026-11-13',cotizaciones:{se_crearia:3,'pendiente:RRHH_NO_LISTO':105,no_aplica:83},f29:{nace_al_cerrar:191},
+      detalle:[{cliente:'Empresa A Ficticia SpA',cotizaciones:'se_crearia',f29:'nace_al_cerrar'},{cliente:'Empresa B Ficticia Ltda',cotizaciones:'se_crearia',f29:'nace_al_cerrar'},{cliente:'Empresa C Ficticia SpA',cotizaciones:'se_crearia',f29:'nace_al_cerrar'}]};
+  return Promise.resolve({ok:true,status:200,text:function(){return Promise.resolve(JSON.stringify(res));}});
+}
+var AVISOS=[
+  ['💰','Pago recibido · Empresa A Ficticia SpA','Ingreso de $210.000 del 24-11-2026: Cotizaciones 2026/10 $150.000 · F29 2026/10 $60.000','/conciliacion/index.html?mov=106','Pagos · info'],
+  ['⚖️','Pagó de menos · Empresa B Ficticia Ltda','Faltan $100.000 de cotizaciones 2026/10. Avisar al cliente; lo impago pasa al reporte siguiente.','/conciliacion/index.html?mov=107','Pagos · acción requerida'],
+  ['⚖️','Pagó de más · Empresa B Ficticia Ltda','Sobran $150.000 del ingreso del 24-11-2026 y el cliente no tiene obligaciones ni facturas abiertas: imputar como saldo a favor o devolver por Pagos.','/conciliacion/index.html?mov=108','Pagos · acción requerida'],
+  ['❓','Ingreso sin identificar · $55.000','Transferencia del 23-11-2026 de PAGADOR FICTICIO sin cliente hace más de 24 h: asígnale el cliente o descártala con motivo.','/conciliacion/index.html?mov=110','Pagos · acción requerida'],
+  ['🔓','Cliente reactivado · Empresa D Ficticia SpA','Sale de «suspendido». Se retoma el servicio: revisar pendientes del período y el reporte.','/cobranza/cartera.html?cliente=620','Cobranza · info'],
+  ['⚠️','Cotizaciones sin obligación · Empresa F Ficticia SpA','El reporte 2026-10 se cerró, pero las cotizaciones no quedaron en Pagos: OBLIGACION_COTIZ_AJENA…','/reportes-rrhh/index.html?reporte=312','RR. HH. · acción requerida']];
+document.getElementById('campana').innerHTML=AVISOS.map(function(a){
+  return '<div class="al"><div style="font-size:18px">'+a[0]+'</div><div><b>'+a[1]+'</b><small>'+a[2]+'</small><div class="tag">'+a[4]+'</div></div><a href="#" title="'+a[3]+'">Ver →</a></div>';}).join('');
+</script>
+<script src="../panel-de-control/obligaciones-periodo.js?v=20261124"></script>
+</body>
+</html>

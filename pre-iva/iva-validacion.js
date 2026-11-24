@@ -6,7 +6,8 @@
        «Cálculo del F29»); si está bien se cierra y el flujo pasa al paso siguiente (Reporte → Pagos / obligación F29).
    Este archivo NO inventa escrituras ni SQL: arma EXACTAMENTE las mismas peticiones que ya existían:
      · preiva_historial (borrador del Pre-IVA y «envío» con fecha_envio/enviado_por) — antes armadas dentro de pre-iva/index.html;
-     · reportes_mensuales (PATCH de «Validar Pre-IVA» del Reporte Contable, estado_contable = 'completado') — antes dentro de guardarF29().
+     · reportes_mensuales: R4 → ya NO es un PATCH: «Validar IVA» llama a la RPC reporte_validar_iva (cuerpoValidar); patchReporte queda
+       solo como vista previa de los montos que la RPC guardará (remanente siguiente, postergado).
    Ambas pantallas llaman a estas funciones, así la fila y el PATCH son idénticos vengan de donde vengan (pruebas: iva-validacion.test.js).
    Además: remanenteValidacion() = el BLOQUEO del remanente SOLO para validar en Contable (nunca $0, nunca dos meses atrás;
    el que manda es el de Contable — public.remanente_anterior — porque la base exige iva_remanente_sig = cód. 504 − (débito − crédito)).
@@ -63,7 +64,20 @@
     return peticionEnvio(f, por, at);
   }
 
-  // ── reportes_mensuales: el PATCH de «Validar» del Reporte Contable (estado_contable → 'completado') ─────────
+  // ── R4 (dictamen R3, RA-H2/D2): «Validar IVA» = RPC del servidor public.reporte_validar_iva ─────────────────────────────────
+  // El navegador YA NO escribe estado_contable ni listo_panel_control (la base lo rechaza: VALIDACION_SOLO_POR_RPC / CIERRE_SOLO_POR_RPC).
+  // La RPC revisa actor, período, antecedentes (SII si está conectada; libros si no), remanente del mes inmediatamente anterior y montos;
+  // calcula ella el remanente siguiente y lo postergado, guarda la evidencia y deja estado_contable = 'completado'.
+  // o: { debito, credito, postergado, ppmBase, ppmTasa, ppm, retHon, otrosImp, obs, motivoDiferencia }
+  function cuerpoValidar(reporteId, o) {
+    o = o || {};
+    return {
+      p_reporte_id: Number(reporteId), p_debito: Number(o.debito) || 0, p_credito: Number(o.credito) || 0, p_postergar: !!o.postergado,
+      p_ppm_base: Number(o.ppmBase) || 0, p_ppm_tasa: o.ppmTasa == null ? null : Number(o.ppmTasa), p_ppm: Number(o.ppm) || 0,
+      p_ret_hon: Number(o.retHon) || 0, p_otros_imp: Number(o.otrosImp) || 0, p_obs: o.obs || null, p_motivo_diferencia: o.motivoDiferencia || null
+    };
+  }
+  // ── Vista previa (solo pantalla) de lo que quedará en reportes_mensuales al validar. NO se envía: lo escribe la RPC. ─────────
   // o: { debito, credito, remanenteAnterior, postergado, ppmBase, ppmTasa, ppm, retHon, otrosImp, obs, fechaVencPostergado }
   // Igual que guardarF29(): remanente siguiente = |débito − crédito − remanente anterior| si es negativo, si no 0.
   function patchReporte(o) {
@@ -145,7 +159,7 @@
   }
 
   var api = { filaHistorial: filaHistorial, peticionBorrador: peticionBorrador, peticionEnvio: peticionEnvio, peticionValidado: peticionValidado,
-              patchReporte: patchReporte, remanenteValidacion: remanenteValidacion, bloqueosValidar: bloqueosValidar, mesTxt: mesTxt, perGuion: perGuion };
+              patchReporte: patchReporte, cuerpoValidar: cuerpoValidar, remanenteValidacion: remanenteValidacion, bloqueosValidar: bloqueosValidar, mesTxt: mesTxt, perGuion: perGuion };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   raiz.IvaValidacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);
