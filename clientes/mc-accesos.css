@@ -1,0 +1,96 @@
+/* clientes/mc-accesos.css — sección «MiContadoor» de la ficha del cliente (tema oscuro de Gestoor; morado #924893).
+   Usa los tokens de body.g-tema-noche (assets/gestoor.css). Íconos con color propio en <i class="ic ic-…">. */
+.mca{--mca-cel:#5CC8FF;--mca-amb:#FFC85A;--mca-ver:#5FCF9C;--mca-ama:#FFD24D;--mca-mor:#E39BE5;--mca-roj:#E07A6E;--mca-borde:var(--bdr,#4A2B50);
+  margin-top:18px;padding:16px;border:1px solid var(--mca-borde);border-radius:18px;background:linear-gradient(180deg,rgba(146,72,147,.10),rgba(146,72,147,.03));min-width:0}
+.mca[hidden]{display:none!important}
+.mca *,.mca-modal,.mca-modal *{box-sizing:border-box}
+.mca .ic,.mca-modal .ic{display:inline-flex;align-items:center;justify-content:center;font-style:normal;line-height:0;flex:none}
+.mca .ic .g-ic,.mca-modal .ic .g-ic{width:16px;height:16px}
+.mca .ic-cel,.mca-modal .ic-cel{color:#5CC8FF}.mca .ic-amb,.mca-modal .ic-amb{color:#FFC85A}.mca .ic-ver,.mca-modal .ic-ver{color:#5FCF9C}
+.mca .ic-ama,.mca-modal .ic-ama{color:#FFD24D}.mca .ic-mor,.mca-modal .ic-mor{color:#E39BE5}.mca .ic-roj,.mca-modal .ic-roj{color:#E07A6E}
+.mca-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mca-tit{display:flex;align-items:center;gap:10px;min-width:0}
+.mca-tit h3{margin:0;font:800 16px/1.2 var(--g-titulo,Montserrat,system-ui,sans-serif);color:var(--t1,#F3E9F4)}
+.mca-tit p{margin:2px 0 0;font-size:12px;color:var(--t2,#C9A8CC)}
+.mca .mca-placa{width:34px;height:34px;border-radius:10px;background:rgba(92,200,255,.16)}
+.mca .mca-placa .g-ic{width:18px;height:18px}
+.mca-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:7px 12px;border-radius:10px;border:1px solid var(--mca-borde,#4A2B50);background:rgba(255,255,255,.04);
+  color:var(--t1,#F3E9F4);font:600 12.5px var(--g-texto,Inter,system-ui,sans-serif);cursor:pointer;transition:background .15s,border-color .15s}
+.mca-btn:hover{background:rgba(255,255,255,.09)}
+.mca-btn:focus-visible{outline:2px solid #C77BC9;outline-offset:2px}
+.mca-btn[disabled]{opacity:.5;cursor:not-allowed}
+.mca-btn.mca-prim{background:linear-gradient(135deg,#924893,#803889);border-color:transparent;color:#fff}
+.mca-btn.mca-prim:hover{background:linear-gradient(135deg,#A4599C,#924893)}
+.mca-btn.mca-peligro{border-color:rgba(224,122,110,.45);color:#F4B3AA}
+.mca-btn.mca-peligro-prim{background:#B83A2E;border-color:transparent;color:#fff}
+.mca-btn.mca-peligro-prim:hover{background:#C9473A}
+.mca-banner{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 12px;border-radius:12px;font-size:12.5px;line-height:1.45;color:var(--t1,#F3E9F4)}
+.mca-banner-exito{background:rgba(95,207,156,.12);border:1px solid rgba(95,207,156,.4)}
+.mca-banner-aviso{background:rgba(255,200,90,.10);border:1px solid rgba(255,200,90,.4)}
+.mca-banner-error{background:rgba(224,122,110,.12);border:1px solid rgba(224,122,110,.45)}
+.mca-vacio{margin:14px 0 2px;font-size:12.5px;color:var(--t2,#C9A8CC)}
+.mca-vacio.mca-err{color:#F4B3AA}
+.mca-lista{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.mca-sub{margin:8px 0 0;font:700 10.5px var(--g-texto,Inter,sans-serif);letter-spacing:1.2px;text-transform:uppercase;color:var(--tm,#8F6F94)}
+.mca-fila{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:12px 14px;border-radius:14px;border:1px solid var(--mca-borde,#4A2B50);background:rgba(12,7,14,.35)}
+.mca-fila.mca-revocado{opacity:.78}
+.mca-quien{display:flex;align-items:center;gap:10px;min-width:0}
+.mca-quien>div{min-width:0}
+.mca-quien b{display:block;font-size:13.5px;color:var(--t1,#F3E9F4);overflow-wrap:anywhere}
+.mca-quien span{display:block;font-size:12px;color:var(--t2,#C9A8CC);overflow-wrap:anywhere}
+.mca-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start}
+.mca-rol,.mca-est{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font:700 10.5px var(--g-texto,Inter,sans-serif);white-space:nowrap}
+.mca-rol-titular{background:rgba(227,155,229,.16);color:#E39BE5}
+.mca-rol-consulta{background:rgba(92,200,255,.14);color:#8FD8FF}
+.mca-est-invitado{background:rgba(255,200,90,.16);color:#FFC85A}
+.mca-est-activo{background:rgba(95,207,156,.16);color:#5FCF9C}
+.mca-est-suspendido{background:rgba(255,210,77,.14);color:#FFD24D}
+.mca-est-revocado{background:rgba(224,122,110,.14);color:#F4B3AA}
+.mca-est-desconocido{background:rgba(255,255,255,.08);color:var(--t2,#C9A8CC)}
+.mca-perm{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.mca-perm span{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:8px;font-size:11.5px;background:rgba(255,255,255,.05)}
+.mca-perm .si{color:var(--t1,#F3E9F4)}.mca-perm .no{color:var(--tm,#8F6F94);text-decoration:line-through}
+.mca-fechas{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2,#C9A8CC)}
+.mca-nota{grid-column:1/-1;display:flex;align-items:flex-start;gap:6px;margin:0;font-size:11.5px;line-height:1.4;color:var(--t2,#C9A8CC)}
+.mca-acc{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+/* Diálogo */
+.mca-velo{position:fixed;inset:0;z-index:300;background:rgba(12,7,14,.72);backdrop-filter:blur(3px)}
+.mca-modal{position:fixed;z-index:301;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;
+  padding:20px;border-radius:20px;border:1px solid #4A2B50;background:linear-gradient(180deg,#221027,#170A1B);color:#F3E9F4;box-shadow:0 30px 80px rgba(0,0,0,.6);
+  font:400 13px/1.5 var(--g-texto,Inter,system-ui,sans-serif)}
+.mca-modal h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:800 18px var(--g-titulo,Montserrat,system-ui,sans-serif)}
+.mca-modal .ic .g-ic{width:18px;height:18px}
+.mca-intro{margin:0 0 12px;color:#E7D6E9}
+.mca-campo{display:flex;flex-direction:column;gap:5px;margin:0 0 12px;padding:0;border:0;min-width:0}
+.mca-campo>span,.mca-campo legend{font:600 12px var(--g-texto,Inter,sans-serif);color:#C9A8CC;padding:0}
+.mca-campo small{font-weight:400;color:#8F6F94}
+.mca-campo input[type=email],.mca-campo input[type=text],.mca-campo textarea{width:100%;min-height:42px;padding:9px 12px;border-radius:10px;border:1px solid #4A2B50;background:#231029;color:#F3E9F4;
+  font:400 16px/1.35 var(--g-texto,Inter,sans-serif);outline:none;resize:vertical}
+.mca-campo input:focus,.mca-campo textarea:focus{border-color:#C77BC9;box-shadow:0 0 0 3px rgba(199,123,201,.2)}
+.mca-campo-err{font-style:normal;font-size:11.5px;color:#F4B3AA;min-height:0}
+.mca-campo-err:empty{display:none}
+.mca-op{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;margin-top:6px;border:1px solid #4A2B50;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.03)}
+.mca-op input{margin-top:3px;accent-color:#C77BC9;width:16px;height:16px;flex:none}
+.mca-op b{display:block;font-size:13px}.mca-op small{display:block;font-size:11.5px;color:#C9A8CC}
+.mca-resumen{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0 0 12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid #4A2B50}
+.mca-resumen dt{color:#C9A8CC;font-size:12px}.mca-resumen dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.mca-resumen .t-si{color:#5FCF9C}.mca-resumen .t-no{color:#F4B3AA}
+.mca-aviso{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,200,90,.08);border:1px solid rgba(255,200,90,.3);font-size:12px;line-height:1.45;color:#F3E9F4}
+.mca-merr{margin:0 0 8px;font-size:12.5px;color:#F4B3AA}
+.mca-merr:empty{display:none}
+.mca-macc{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.mca-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:mca-gira .8s linear infinite}
+@keyframes mca-gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.mca-spin{animation:none}.mca-btn{transition:none}}
+@media (max-width:560px){
+  .mca{padding:14px 12px}
+  .mca-cab .mca-prim{width:100%;justify-content:center}
+  .mca-fila{grid-template-columns:minmax(0,1fr)}
+  .mca-chips{justify-content:flex-start}
+  .mca-acc .mca-btn{flex:1 1 auto;justify-content:center}
+  .mca-modal{top:auto;bottom:0;left:0;transform:none;width:100%;max-height:92vh;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .mca-macc .mca-btn{flex:1 1 auto;justify-content:center}
+}
+/* MICONTADOOR-APERTURA: estado de términos por acceso */
+.mca-term{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t2,#C9A8CC)}
+.mca-term-no{color:#FFD9A0}
