@@ -367,7 +367,11 @@ function cargar(listo){
     if(_reabrir){var x=_reabrir;_reabrir=null;if(_movs.some(function(m){return m.id===x&&m.cliente_rut;}))abrirConciliar(x);}
     // 17-11: llegada desde Pagos extraordinarios (?mov=id): abre ese ingreso UNA vez (conciliar o asignar cliente). Nada se aplica solo.
     if(!_movUrlUsado){_movUrlUsado=true;var mu=Number(new URLSearchParams(location.search).get('mov'));var mm=mu&&_movs.find(function(m){return m.id===mu&&(m.estado==='por_conciliar'||m.estado==='parcial');});
-      if(mm){if(mm.cliente_rut)abrirConciliar(mm.id);else abrirAsignar(mm.id);}}
+      if(mm){if(mm.cliente_rut)abrirConciliar(mm.id);else abrirAsignar(mm.id);}
+      // MARCHA-BLANCA 24-11: los avisos de la campana (pago recibido / diferencia) abren ingresos ya conciliados o descartados:
+      // se muestra ESE ingreso en su pestaña (búsqueda por su código); nada se aplica solo.
+      else if(mu){var mc=_movs.find(function(m){return m.id===mu;});
+        if(mc){var iq=document.getElementById('searchQ');if(iq)iq.value=mc.codigo;setVista(mc.estado==='descartado'?'desc':'conc');}}}
   }).catch(function(){
     if(typeof listo==='function')listo(false);
     if(seq!==_seq)return;

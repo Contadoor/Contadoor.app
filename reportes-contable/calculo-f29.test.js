@@ -113,7 +113,7 @@ test('19-11: estado del IVA = el del Reporte Contable (estado_contable); un Pre-
   assert.deepEqual(C.estadoValidacion({ fecha_envio: '2026-11-19T15:00:00Z', enviado_por: 'Analista Prueba' }), { validado: false, texto: 'Aún no validado · Pre-IVA (estimado) enviado el 19-11-2026' });
   assert.equal(C.estadoValidacion({ periodo: '2026-10' }).texto, 'Aún no validado · hay un borrador guardado en Pre-IVA');
   assert.equal(C.estadoValidacion(null).texto, 'Aún no validado');
-  assert.equal(C.urlPreIva(77, '202610'), '../pre-iva/index.html?periodo=2026-10&cliente=77');
+  assert.equal(C.urlPreIva, undefined, 'R3: Contable no enlaza al Pre-IVA');
 });
 test('19-11: «Validar IVA» — montos a escribir y bloqueos (remanente de Contable, RR. HH., UTM, mes en curso, descuadre SII ≠ Contable)', () => {
   // Remanente: SII (cód. 504 101.000) y Contable iguales → se valida con el de Contable

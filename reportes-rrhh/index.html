@@ -2581,39 +2581,32 @@ function marcarEnPreviredRrhh(id){
           function(e){avisarErrorEstadoRrhh('Ingresado en Previred',e);});
 }
 // ── P1-A (A-RRHH-02 / B-OBL-01) · OBLIGACIÓN DE PAGO DE COTIZACIONES ─────────
-// Se retiró la escritura a la tabla legada `pagos` (cerrada: RLS sin GRANT → siempre fallaba)
-// y su respaldo en localStorage `pagos_bd` (dejaba una "obligación" que solo existía en el navegador).
-// El reemplazo es la RPC instalada crear_obligacion(area 'rrhh', tipo 'cotizaciones', ref_reporte_id).
-// Queda APAGADO: el dictamen exige paquete SQL (monto Previred calculado en la base, vencimiento,
-// momento del registro) y pruebas de integración antes de activarlo. Mientras tanto se avisa claro.
-var RRHH_OBLIGACION_COTIZ_ACTIVA=false;
+// MARCHA-BLANCA (24-11, MB-3): la obligación la calcula y registra la BASE con la RPC reporte_obligacion_cotizaciones(p_reporte_id):
+// monto = total de cotizaciones guardado en el reporte, vencimiento = día 13 del mes siguiente (inhábil → hábil anterior), área RR. HH.,
+// idempotente (no duplica) y nunca cambia una obligación con dinero conciliado. El navegador NO manda montos ni fechas.
+// Si la RPC aún no está instalada, se avisa claro y el pago se coordina por el procedimiento manual (nada queda solo en el navegador).
+var RRHH_OBLIGACION_COTIZ_ACTIVA=true;
 var RRHH_MSG_OBLIGACION_PENDIENTE='Registro de obligaci\u00f3n pendiente de activaci\u00f3n: las cotizaciones de este reporte '
   +'NO quedan como obligaci\u00f3n de pago en Gestoor (Pagos / Conciliaci\u00f3n) hasta que se active con su paquete SQL. '
   +'Coordina el pago por el procedimiento manual.';
+var RRHH_MSG_COTIZ={
+  RRHH_NO_LISTO:'RR. HH. a\u00fan no deja lista su parte del reporte.',SIN_TOTAL_COTIZACIONES:'El reporte no tiene total de cotizaciones en la base.',
+  MONTO_CON_DECIMALES:'El total de cotizaciones tiene decimales: corr\u00edgelo antes (el pago es en pesos enteros).',
+  SIN_SERVICIO_RRHH:'El cliente no tiene servicio de RR. HH.',PAGA_EL_CLIENTE:'Las cotizaciones las paga el cliente directamente (no pasan por la Conciliaci\u00f3n).'
+};
 function registrarObligacionCotizRrhh(id){
   if(!RRHH_OBLIGACION_COTIZ_ACTIVA) return Promise.resolve({resultado:'pendiente_activacion', mensaje:RRHH_MSG_OBLIGACION_PENDIENTE});
   if(!id||!/^\d+$/.test(String(id))) return Promise.reject(new Error('Reporte sin ID real.'));
-  // Monto desde la BASE (no desde la caché del navegador).
-  return sbFetch('reportes_mensuales?id=eq.'+encodeURIComponent(id)+'&select=id,cliente_rut,periodo,total_cot',{method:'GET'})
-    .then(function(res){if(!res.ok) return rrhhLeerError(res);return res.json();})
-    .then(function(filas){
-      var f=filas&&filas[0];
-      if(!f) throw new Error('No se pudo leer el reporte en la base.');
-      var monto=Math.round(Number(f.total_cot)||0);
-      if(!(monto>0)) throw new Error('El reporte no tiene total de cotizaciones en la base.');
-      return sbFetch('rpc/crear_obligacion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        p_cliente_rut:f.cliente_rut, p_periodo:f.periodo, p_area_origen:'rrhh', p_tipo_obligacion:'cotizaciones',
-        p_concepto:'Cotizaciones '+formatPeriodo(f.periodo),
-        p_monto_total:monto, p_monto_exigible:monto, p_monto_postergado:0,
-        p_vencimiento:null,            // pendiente: lo debe resolver la base (paquete SQL)
-        p_iva_fecha_venc:null, p_ref_reporte_id:Number(f.id), p_ref_factura_id:null
-      })});
-    })
-    .then(function(res){if(!res.ok) return rrhhLeerError(res);return res.json();})
-    .then(function(rows){
-      var row=rows&&rows[0];
-      if(!row) throw new Error('crear_obligacion no devolvi\u00f3 respuesta.');
-      return row;
+  return sbFetch('rpc/reporte_obligacion_cotizaciones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_reporte_id:Number(id)})})
+    .then(function(res){
+      if(res.status===404) return {resultado:'pendiente_activacion', mensaje:RRHH_MSG_OBLIGACION_PENDIENTE};
+      if(!res.ok) return rrhhLeerError(res);
+      return res.json().then(function(o){
+        if(!o||!o.resultado) throw new Error('La base no devolvi\u00f3 respuesta.');
+        if(o.resultado==='pendiente'||o.resultado==='no_aplica') o.mensaje=RRHH_MSG_COTIZ[o.motivo]||o.motivo||'';
+        else if(o.vencimiento) o.mensaje='Vence el '+String(o.vencimiento).split('-').reverse().join('-')+(o.monto?' \u00b7 $'+Math.round(Number(o.monto)).toLocaleString('es-CL'):'');
+        return o;
+      });
     });
 }
 function enviarAprobacionRrhh(id){
@@ -2627,7 +2620,7 @@ function enviarAprobacionRrhh(id){
         if(o.resultado==='pendiente_activacion'){
           alert('⏳ Enviado a aprobación (guardado y verificado en Gestoor).\n\n⚠️ '+o.mensaje);
         }else if(o.resultado==='creada'||o.resultado==='sin_cambio'||o.resultado==='actualizada'||o.resultado==='existente'){
-          toast('⏳ Enviado a aprobación · obligación '+o.resultado);
+          toast('⏳ Enviado a aprobación · obligación de cotizaciones '+o.resultado+(o.mensaje?' · '+o.mensaje:''));
         }else{
           alert('⏳ Enviado a aprobación.\n\n⚠️ Obligación de cotizaciones: '+(o.resultado||'?')+' — '+(o.mensaje||''));
         }
@@ -2975,6 +2968,18 @@ if(document.readyState==='loading'){
 }else{init();}
 </script>
 <script src="../notifications.js"></script>
+<script src="../assets/enlace-directo.js?v=20261124"></script>
+<script>
+// MARCHA-BLANCA 24-11: enlace directo desde la campana (?reporte=<id>) → abre ese reporte de RR. HH.
+GestoorEnlace.alCargar('reporte', function(id){
+  if(typeof getReportes!=='function') return false;
+  var r=getReportes().find(function(x){return String(x.id)===String(id);});
+  if(!r||!document.querySelector('tr[data-rut]')) return false;
+  var sel=document.getElementById('selectPeriodo');
+  if(sel&&sel.value&&sel.value!==r.periodo){ alert('Ese reporte es del per\u00edodo '+r.periodo+': el\u00edgelo en el selector para verlo.'); return true; }
+  abrirModal(r.id); return true;
+});
+</script>
 <script src="../auth.js"></script>
 </body>
 </html>

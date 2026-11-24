@@ -2,7 +2,8 @@
 // 19-11 (Luciano, regla definitiva): el IVA del PERÍODO CONTABLE se valida en Contable («✅ Validar IVA de <mes>» de la tarjeta
 // «Cálculo del F29»), no en el Pre-IVA (estimado del mes en curso). Estas pruebas corren las funciones REALES de reportes-contable/index.html
 // (extraídas del HTML a un vm) y comprueban que escriben EXACTAMENTE lo mismo que antes:
-//   · reportes_mensuales = el PATCH de siempre de guardarF29 (estado_contable 'completado'), armado con IvaValidacion.patchReporte;
+//   · reportes_mensuales: R4 (dictamen R3, RA-H2) → ya NO es un PATCH: la RPC del servidor reporte_validar_iva (IvaValidacion.cuerpoValidar);
+//     el navegador no envía estado_contable ni listo_panel_control;
 //   · preiva_historial  = la fila que guardaba el Pre-IVA (filaDesdePantalla) + fecha_envio/enviado_por (como su «envío») + validacion_iva.
 'use strict';
 const test = require('node:test');
@@ -66,7 +67,8 @@ function entorno(o = {}) {
     sbFetch: (p, opts) => {
       peticiones.push({ path: p, method: (opts && opts.method) || 'GET', body: opts && opts.body ? JSON.parse(opts.body) : null, headers: opts && opts.headers });
       const r = Object.keys(respuestas).find((k) => p.indexOf(k) === 0);
-      const def = r ? respuestas[r](p, opts) : (/^reportes_mensuales\?id=eq\./.test(p) && opts.method === 'PATCH' ? { status: 200, body: [Object.assign({ id: 555 }, JSON.parse(opts.body))] } : { status: 200, body: [{ ok: 1 }] });
+      const def = r ? respuestas[r](p, opts) : (p === 'rpc/reporte_validar_iva' ? { status: 200, body: { ok: true, validacion_id: 1, metodo: 'sii',
+          reporte: { id: 555, estado_contable: 'completado', listo_panel_control: false } } } : { status: 200, body: [{ ok: 1 }] });
       return Promise.resolve({ ok: def.status < 400, status: def.status, json: () => Promise.resolve(def.body), text: () => Promise.resolve(JSON.stringify(def.body)) });
     }
   };
@@ -74,7 +76,7 @@ function entorno(o = {}) {
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'assets', 'remanente-anterior.js'), 'utf8'), ctx);
   for (const f of ['f29-formula.js', 'sii-cartapra.js', 'iva-validacion.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'pre-iva', f), 'utf8'), ctx);
-  vm.runInContext(['ff', 'siiConectado', 'librosListos', 'periodoAnterior', 'normalizarRutContable', 'buildBorradorF29', 'infoRemanenteAnterior', 'remMensajeError', 'validarCierrePreF29', 'sbPatchReporteDetallado',
+  vm.runInContext(['ff', 'siiConectado', 'librosListos', 'periodoAnterior', 'normalizarRutContable', 'buildBorradorF29', 'infoRemanenteAnterior', 'remMensajeError', 'ivaMensajeError', 'validarIvaServidor', 'validarCierrePreF29', 'sbPatchReporteDetallado',
     'guardarFilaReporteLocal', '_cf29Ctx', '_cf29Refrescar', 'pendientesValidarIva', 'validarIvaDesdeTarjeta', 'guardarPPMDesdeTarjeta', 'remanenteManualDesdeTarjeta'].map(extraer).join('\n'), ctx);
   return { ctx, peticiones, dialogos, notifs };
 }
@@ -90,18 +92,23 @@ function tarjeta(ctx, o = {}) {
 }
 const esperar = () => new Promise((r) => setTimeout(r, 20));
 
-test('Validar IVA desde Contable = mismo PATCH de reportes_mensuales que guardarF29 y misma fila de preiva_historial que el Pre-IVA', async () => {
+test('R4 · Validar IVA desde Contable = RPC reporte_validar_iva (sin PATCH de estado_contable) y misma fila de preiva_historial que el Pre-IVA', async () => {
   const { ctx, peticiones, notifs } = entorno();
   const a = tarjeta(ctx);
   assert.deepEqual(a.bloqueosValidar, []);
   const ok = await ctx.validarIvaDesdeTarjeta(RUT, a, null);
   assert.equal(ok, true);
   assert.equal(peticiones.length, 2, 'dos escrituras: reporte y preiva_historial');
-  // 1) reportes_mensuales: lo mismo que escribía «Validar Pre-IVA» del modal con esos montos
+  // 1) R4: la RPC del servidor con los montos revisados (el remanente siguiente y lo postergado los calcula el servidor)
   const p1 = peticiones[0];
-  assert.equal(p1.path, 'reportes_mensuales?id=eq.555'); assert.equal(p1.method, 'PATCH');
-  assert.deepEqual(p1.body, patchAntesGuardarF29({ deb: 1900000, cred: 760000, rem: 101000, postergado: false, fechaVencPostergado: null, ppmBase: 10500000, tasa: 1.5, ppm: 157500, retHon: 68750, otrosImp: 0, obs: null }));
-  assert.equal(p1.body.estado_contable, 'completado'); assert.equal(p1.body.iva_remanente_sig, 0);
+  assert.equal(p1.path, 'rpc/reporte_validar_iva'); assert.equal(p1.method, 'POST');
+  assert.deepEqual(p1.body, { p_reporte_id: 555, p_debito: 1900000, p_credito: 760000, p_postergar: false, p_ppm_base: 10500000, p_ppm_tasa: 1.5, p_ppm: 157500,
+    p_ret_hon: 68750, p_otros_imp: 0, p_obs: null, p_motivo_diferencia: null });
+  assert.equal(p1.body.estado_contable, undefined); assert.equal(p1.body.listo_panel_control, undefined);
+  assert.ok(!peticiones.some((p) => /^reportes_mensuales/.test(p.path)), 'el navegador no hace PATCH a reportes_mensuales');
+  // La vista previa (patchReporte) sigue cuadrando con lo que hacía guardarF29 (solo pantalla)
+  assert.deepEqual(V.patchReporte({ debito: 1900000, credito: 760000, remanenteAnterior: 101000, ppmBase: 10500000, ppmTasa: 1.5, ppm: 157500, retHon: 68750 }),
+    patchAntesGuardarF29({ deb: 1900000, cred: 760000, rem: 101000, postergado: false, fechaVencPostergado: null, ppmBase: 10500000, tasa: 1.5, ppm: 157500, retHon: 68750, otrosImp: 0, obs: null }));
   // 2) preiva_historial: la fila del Pre-IVA + «envío» (fecha_envio/enviado_por) + validacion_iva
   const p2 = peticiones[1], b = p2.body;
   assert.equal(p2.path, 'preiva_historial?on_conflict=cliente_rut,periodo'); assert.equal(p2.method, 'POST');
@@ -127,7 +134,7 @@ test('Validar IVA con PPM editado (guardado) → mismo PPM/tasa/sii_detalle.ppm_
   const fila = { periodo: '2026-10', tasa_ppm: 1.25, ppm: 131250, sii_detalle: { ppm_editado: ED } };
   const a = tarjeta(ctx, { fila });
   await ctx.validarIvaDesdeTarjeta(RUT, a, null);
-  assert.equal(peticiones[0].body.ppm, 131250); assert.equal(peticiones[0].body.ppm_tasa, 1.25);
+  assert.equal(peticiones[0].body.p_ppm, 131250); assert.equal(peticiones[0].body.p_ppm_tasa, 1.25);
   const b = peticiones[1].body;
   assert.deepEqual([b.ppm, b.tasa_ppm, b.f29], [131250, 1.25, 1039000 + 131250]);
   assert.deepEqual(b.sii_detalle.ppm_editado, ED);
@@ -161,7 +168,7 @@ test('bloqueos: remanente faltante (nunca $0), descuadre SII ≠ Contable, RR. H
 });
 
 test('la base rechaza el remanente (REMANENTE_NO_CUADRA) → no se escribe preiva_historial y se explica', async () => {
-  const E = entorno({ respuestas: { 'reportes_mensuales?id=eq.': () => ({ status: 400, body: { message: 'REMANENTE_NO_CUADRA: el remanente para el mes siguiente guardado (0) no corresponde' } }) } });
+  const E = entorno({ respuestas: { 'rpc/reporte_validar_iva': () => ({ status: 400, body: { message: 'REMANENTE_NO_CUADRA: el remanente para el mes siguiente guardado (0) no corresponde' } }) } });
   const a = tarjeta(E.ctx);
   assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), false);
   assert.equal(E.peticiones.length, 1); assert.match(E.dialogos.join('\n'), /No se validó el IVA:\nEl remanente para el mes siguiente no cuadra/);
@@ -223,7 +230,7 @@ test('19-11 · empresa CONECTADA: el resumen del SII basta (sin libros); sin dat
   let a = tarjeta(E.ctx);
   assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), true);
   assert.equal(E.peticiones.length, 2); assert.doesNotMatch(E.dialogos.join('\n'), /Libro de/);
-  assert.equal(E.peticiones[0].body.estado_contable, 'completado');
+  assert.equal(E.peticiones[0].path, 'rpc/reporte_validar_iva');
   // No conectada y sin libros: sigue exigiendo la carga manual
   E = entorno({ conectada: false, rep: { libros: {} } });
   assert.equal(E.ctx.librosListos(E.ctx._reportes[0], { id: 9001 }), false);
@@ -258,8 +265,11 @@ test('F29_SII: valida octubre con el remanente del F29 del SII (sin ingreso a ma
   assert.equal(a.validar.remanenteAnterior, 0, 'remanente 0 CONFIRMADO por el SII (no un 0 por defecto)');
   assert.deepEqual(a.bloqueosValidar, []);
   assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, a, null), true);
-  assert.equal(E.peticiones[0].path, 'reportes_mensuales?id=eq.555');
-  assert.equal(E.peticiones[0].body.iva_remanente_sig, 0); assert.equal(E.peticiones[0].body.estado_contable, 'completado');
+  // MARCHA-BLANCA (rebase R4 sobre el 23-11): con R4 «Validar IVA» es la RPC reporte_validar_iva (el remanente siguiente lo calcula el servidor
+  // con remanente_anterior bfcdae8b → F29_SII); el navegador ya no hace PATCH de estado_contable.
+  assert.equal(E.peticiones[0].path, 'rpc/reporte_validar_iva');
+  assert.equal(E.peticiones[0].body.p_reporte_id, 555); assert.equal(E.peticiones[0].body.estado_contable, undefined);
+  assert.ok(!E.peticiones.some((p) => /^reportes_mensuales/.test(p.path)), 'sin PATCH a reportes_mensuales');
   assert.ok(!E.peticiones.some((p) => /registrar_remanente_anterior_manual/.test(p.path)), 'no se registra nada a mano');
   // Antes del cambio (la base respondía SIN_MES_ANTERIOR) se bloqueaba y pedía ingresarlo a mano
   const E2 = entorno({ info: { estado: 'SIN_DATO', motivo: 'SIN_MES_ANTERIOR', periodo: '2026-10', periodo_anterior: '2026-09' } });
@@ -270,4 +280,36 @@ test('F29_SII: valida octubre con el remanente del F29 del SII (sin ingreso a ma
   const a3 = tarjeta(E3.ctx);
   assert.equal(a3.remValidacion.bloqueo, null);
   assert.match(a3.remValidacion.aviso, /el F29 de septiembre 2026 en el SII \(folio 123\) trae cód\. 77 \$90\.000 y Gestoor usa \$100\.000/);
+});
+
+test('R4 · diferencia con el SII / PPM: la RPC pide motivo → se pregunta y se reintenta UNA vez con el motivo; cancelar no valida', async () => {
+  let n = 0;
+  const resp = (p, opts) => { n++; const b = JSON.parse(opts.body); return b.p_motivo_diferencia ? { status: 200, body: { ok: true, reporte: { id: 555, estado_contable: 'completado', listo_panel_control: false } } }
+    : { status: 400, body: { message: 'DIFERENCIA_SIN_MOTIVO: débito: SII $1900000, validado $1901000; escribe el motivo de la diferencia (10 a 500 caracteres) para validar' } }; };
+  let E = entorno({ respuestas: { 'rpc/reporte_validar_iva': resp } });
+  const preguntas = []; E.ctx.prompt = (t) => { preguntas.push(t); return 'Nota de débito del 31-10 aún no visible en el SII'; }; vm.runInContext('prompt=this.prompt', E.ctx);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, tarjeta(E.ctx), null), true);
+  assert.equal(n, 2); assert.match(preguntas[0], /débito: SII \$1900000, validado \$1901000/);
+  assert.equal(E.peticiones.filter((p) => p.path === 'rpc/reporte_validar_iva')[1].body.p_motivo_diferencia, 'Nota de débito del 31-10 aún no visible en el SII');
+  n = 0; E = entorno({ respuestas: { 'rpc/reporte_validar_iva': resp } }); E.ctx.prompt = () => null; vm.runInContext('prompt=this.prompt', E.ctx);
+  assert.equal(await E.ctx.validarIvaDesdeTarjeta(RUT, tarjeta(E.ctx), null), false); assert.equal(n, 1);
+  assert.equal(E.ctx._reportes[0].estadoContable, 'pendiente');
+});
+
+test('R4 · RA-H2: ningún archivo del front escribe estado_contable «completado» ni listo_panel_control true (solo bajan a pendiente/false)', () => {
+  const RAIZ = path.join(__dirname, '..');
+  const archivos = [];
+  (function rec(d) { for (const x of fs.readdirSync(d, { withFileTypes: true })) { if (x.name === 'node_modules' || x.name.startsWith('.')) continue;
+    const p = path.join(d, x.name); if (x.isDirectory()) rec(p); else if (/\.(js|html)$/.test(x.name) && !/\.test\.js$|demo/.test(x.name)) archivos.push(p); } })(RAIZ);   // *demo* = datos ficticios de lectura
+  const malos = [];
+  for (const p of archivos) {
+    const t = fs.readFileSync(p, 'utf8');
+    if (/estado_contable\s*:\s*['"]completado['"]/.test(t.replace(/function patchReporte[\s\S]*?\n  }\n/, ''))) malos.push(path.relative(RAIZ, p) + ' (estado_contable completado)');
+    if (/listo_panel_control\s*:\s*true/.test(t)) malos.push(path.relative(RAIZ, p) + ' (listo_panel_control true)');
+  }
+  assert.deepEqual(malos, []);
+  // patchReporte (vista previa) ya no se envía: sus usos son solo para pantalla
+  assert.doesNotMatch(HTML, /sbPatchReporteDetallado\([^)]*patch(Contable)?\)/);
+  assert.match(extraer('guardarF29'), /validarIvaServidor\(cuerpoVal\)/);
+  assert.match(extraer('validarIvaDesdeTarjeta'), /validarIvaServidor\(cuerpoVal\)/);
 });
