@@ -166,16 +166,21 @@
     if(!c.tomada_por)return null;
     return c.tomada_por===S.yo?'Tú':'Otra persona del equipo';
   }
+  // 24-11 (Luciano): nombre y empresa desde Prospectos (por el teléfono), si la IA no los reunió en la ficha.
+  function pros(c){return c&&c.prospecto&&typeof c.prospecto==='object'?c.prospecto:null;}
   function nombreConv(c,det){
-    var n=(det&&det.ficha&&typeof det.ficha.nombre==='string'&&det.ficha.nombre.trim())||S.nombres[c.id]||'';
+    var p=pros(det)||pros(c);
+    var n=(det&&det.ficha&&typeof det.ficha.nombre==='string'&&det.ficha.nombre.trim())||(p&&p.nombre)||S.nombres[c.id]||'';
+    var emp=(det&&det.ficha&&det.ficha.empresa)||(p&&p.empresa)||'';
     if(c.sellada)return 'Datos borrados';
-    if(n)return n+(det&&det.ficha&&det.ficha.empresa?' · '+det.ficha.empresa:'');
+    if(n)return n+(emp?' · '+emp:'');
+    if(emp)return emp;
     if(c.telefono_mascara)return 'WhatsApp '+c.telefono_mascara;
     return 'Número sin identificar';
   }
   function avatarConv(c){
     if(c.sellada)return ic('basura','rojo');
-    var n=S.nombres[c.id];
+    var n=S.nombres[c.id]||(pros(c)&&pros(c).nombre);
     return n?esc(iniciales(n)):ic('chat','celeste');
   }
 
@@ -187,6 +192,7 @@
     ['baja','Posible baja',function(c){return !!c.opt_out_posible;}],
     ['duda','En duda',function(c){return !!c.en_duda;}],
     ['cli','Clientes',function(c){return c.modo==='cliente';}],
+    ['reu','Con reunión',function(c){var r=pros(c)&&pros(c).reunion;return !!(r&&r.estado==='confirmada'&&new Date(r.inicio).getTime()>=Date.now()-36e5);}],
     ['cerr','Cerradas',function(c){return c.estado==='cerrada';}]
   ];
   function filtroFn(k){for(var i=0;i<FILTROS.length;i++)if(FILTROS[i][0]===k)return FILTROS[i][2];return FILTROS[0][2];}
@@ -229,6 +235,13 @@
     if(c.en_duda)t.push('<span class="t t-duda">Mensaje en duda</span>');
     if(c.modo==='cliente')t.push('<span class="t t-cli">Cliente'+(c.plan_cliente?' · '+esc(PLAN[c.plan_cliente]||c.plan_cliente):'')+'</span>');
     if(c.etapa)t.push('<span class="t t-neutro">'+esc(humanizar(c.etapa))+'</span>');
+    var r=pros(c)&&pros(c).reunion;   // 24-11: reunión agendada (lo que más diferencia a un prospecto)
+    if(r&&r.inicio){
+      if(r.estado==='confirmada'&&new Date(r.inicio).getTime()>=Date.now()-36e5)t.push('<span class="t t-reu">📅 Reunión '+esc(fechaHora(r.inicio))+'</span>');
+      else if(r.estado==='realizada')t.push('<span class="t t-tu">✔ Reunión realizada</span>');
+      else if(r.estado==='no_asistio')t.push('<span class="t t-baja">No asistió a la reunión</span>');
+    }
+    if(c.mensaje_inicial_at)t.push('<span class="t t-neutro" title="Mensaje inicial de agradecimiento enviado">✉️ Mensaje inicial</span>');
     return t.join('');
   }
   function pintarLista(){
@@ -240,7 +253,8 @@
       if(!f(c))return false;
       if(!q)return true;
       var p=previa(c).t;
-      return [p,c.telefono_mascara,S.nombres[c.id],c.etapa].join(' ').toLowerCase().indexOf(q)>=0;
+      var pr=pros(c)||{};
+      return [p,c.telefono_mascara,S.nombres[c.id],c.etapa,pr.nombre,pr.empresa].join(' ').toLowerCase().indexOf(q)>=0;
     });
     // 17-11 (Luciano): como WhatsApp, arriba la conversación con el mensaje más reciente (entrante o saliente).
     l.sort(function(a,b){var ta=momentoConv(a),tb=momentoConv(b);return ta<tb?1:ta>tb?-1:0;});
@@ -517,6 +531,29 @@
       if(!cuerpo)h+='<p class="as-nota">La IA todavía no ha reunido datos de esta persona.</p>';
     }
     h+='</div>';
+    // 24-11 (Luciano): datos de contacto y del prospecto (Prospectos, por el teléfono) + reunión agendada.
+    if(!c.sellada){
+      var p=pros(c);
+      h+='<div class="as-sec"><h3>'+ic('persona','verde',true)+' Prospecto</h3>';
+      if(p){
+        var EST_R={confirmada:'Agendada',realizada:'Realizada',no_asistio:'No asistió',cancelada:'Cancelada'};
+        var r=p.reunion;
+        h+='<dl class="as-dl">'
+          +(p.nombre?'<dt>Nombre</dt><dd>'+esc(p.nombre)+'</dd>':'')
+          +(p.empresa?'<dt>Empresa</dt><dd>'+esc(p.empresa)+'</dd>':'')
+          +(p.email?'<dt>Correo</dt><dd>'+esc(p.email)+'</dd>':'')
+          +(p.telefono?'<dt>Teléfono</dt><dd>'+esc(p.telefono)+'</dd>':'')
+          +(p.etapa?'<dt>Etapa</dt><dd>'+esc(humanizar(p.etapa))+'</dd>':'')
+          +(p.plan_interes?'<dt>Plan de interés</dt><dd>'+esc(PLAN[p.plan_interes]||p.plan_interes)+'</dd>':'')
+          +(p.n_trabajadores!=null?'<dt>Trabajadores</dt><dd>'+esc(Number(p.n_trabajadores).toLocaleString('es-CL'))+'</dd>':'')
+          +(p.origen?'<dt>Origen</dt><dd>'+esc(humanizar(p.origen))+'</dd>':'')
+          +(p.proxima_accion?'<dt>Próxima acción</dt><dd>'+esc(p.proxima_accion)+(p.proxima_fecha?' · '+esc(p.proxima_fecha):'')+'</dd>':'')
+          +'<dt>Reunión</dt><dd>'+(r&&r.inicio?esc(fechaHora(r.inicio))+' · '+esc(EST_R[r.estado]||r.estado):'Sin reunión agendada')+'</dd>'
+          +'</dl>'
+          +(Number(p.lead_id)>0?'<p style="margin:8px 0 0"><a class="as-lnk" href="../prospectos/crm.html?lead='+Number(p.lead_id)+'">Abrir ficha del prospecto →</a></p>':'');
+      }else h+='<p class="as-nota" style="margin:0">'+(c.extra_error?'No se pudo consultar Prospectos ahora.':'Este número no está en Prospectos.')+'</p>';
+      h+='<dl class="as-dl" style="margin-top:8px"><dt>Mensaje inicial</dt><dd>'+(c.mensaje_inicial_at?'✉️ Enviado '+esc(fechaHora(c.mensaje_inicial_at)):'No enviado')+'</dd></dl></div>';
+    }
     h+='<div class="as-sec"><h3>'+ic('transferir','celeste',true)+' Origen y material</h3>';
     var orig=c.sellada?'':dl(c.origen,ETQ_ORIGEN,Object.keys(ETQ_ORIGEN));
     h+='<dl class="as-dl">'+orig+'<dt>Consultas técnicas</dt><dd>'+esc(Number(c.consultas_tecnicas_detectadas||0))+' detectadas</dd></dl></div>';
