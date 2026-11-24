@@ -189,7 +189,8 @@ body.modal-open{overflow:hidden;}
     <div class="modal-body" id="modalBody">
 
       <div class="card-hd" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span data-g-ic="edificio"></span> Empresa
-        <button type="button" id="btnCompletarSii" class="btn-s" style="margin-left:auto;display:none;font-size:12.5px;padding:0 14px;min-height:34px" onclick="completarConSii()">Completar con datos del SII</button></div>
+        <button type="button" id="btnConectarAlta" class="btn-p" style="margin-left:auto;display:none;font-size:12.5px;padding:0 14px;min-height:34px" onclick="conectarAltaSii()">Conectar con Cartapra</button>
+        <button type="button" id="btnCompletarSii" class="btn-s" style="display:none;font-size:12.5px;padding:0 14px;min-height:34px" onclick="completarConSii()">Completar con datos del SII</button></div>
       <div id="siiCompletarRes" style="display:none;margin:-4px 0 12px;padding:10px 12px;border-radius:10px;border:1px solid #4A2B50;font-size:12.5px;line-height:1.5"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fgroup" style="grid-column:1/3"><label>Razón Social *</label><input type="text" id="f-razon" placeholder="Transportes del Sur SpA"></div>
@@ -957,7 +958,7 @@ function siiTxt(v) { return String(v == null ? '' : v).trim(); }
 function siiNorm(v) { return siiTxt(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' '); }
 function siiIgual(a, b) { return siiNorm(a) === siiNorm(b); }
 function siiRut(v) { return siiTxt(v).replace(/[.\s]/g, '').toUpperCase(); }
-function siiCompletarUI(on, texto) { var b = g('btnCompletarSii'), r = g('siiCompletarRes'); if (b) { b.style.display = on ? '' : 'none'; b.disabled = false; b.textContent = texto || 'Completar con datos del SII'; } if (r) { r.style.display = 'none'; r.textContent = ''; } }
+function siiCompletarUI(on, texto) { var ca = g('btnConectarAlta'); if (ca) ca.style.display = on && texto === 'Traer datos del SII' ? '' : 'none'; _siiEspera++; var b = g('btnCompletarSii'), r = g('siiCompletarRes'); if (b) { b.style.marginLeft = on && texto === 'Traer datos del SII' ? '' : 'auto'; b.style.display = on ? '' : 'none'; b.disabled = false; b.textContent = texto || 'Completar con datos del SII'; } if (r) { r.style.display = 'none'; r.textContent = ''; } }
 function completarConSii() {
   var id = _editId, btn = g('btnCompletarSii'), res = g('siiCompletarRes');
   if (!window.GestoorSII || !GestoorSII.fichaParaFormulario) return;
@@ -1046,6 +1047,54 @@ function completarConSii() {
 // 24-11 (Luciano): la empresa aún no está en Cartapra → «Guardar y conectar con el SII»: guarda lo mínimo (sin exigir socios:
 // llegan del SII), deja la ficha abierta en edición y abre la ventana de Cartapra (la clave se escribe ALLÍ, nunca en Gestoor).
 // Al cerrar la ventana, Cartapra lee el SII (unos minutos) y luego «Completar con datos del SII» llena el resto.
+// 24-11: tras crear el cliente → ficha abierta en edición + «Conectar con Cartapra» (abrirYa: abre la ventana sin otro clic).
+// 24-11 (Luciano: «crear un cliente ingresando y conectando a Cartapra; ahí yo ingreso la información complementaria»):
+// en «Nuevo cliente», con el RUT escrito, abre la ventana de Cartapra SIN crear el cliente. Al cerrarla, Gestoor consulta
+// «Traer datos del SII» cada 20 s (hasta 6 min) y llena el formulario solo cuando Cartapra termina la primera lectura.
+var _siiEspera = 0;
+function conectarAltaSii() {
+  var rut = String(gv('f-rut') || '').replace(/[.\s]/g, '').toUpperCase(), res = g('siiCompletarRes'), b = g('btnConectarAlta');
+  if (_editId || !window.GestoorSII || !GestoorSII.conectarAlta) return;
+  if (!/^\d{7,8}-?[\dK]$/.test(rut)) { res.style.display = ''; res.textContent = 'Escribe primero el RUT de la empresa (con guion y dígito verificador).'; g('f-rut').focus(); return; }
+  var mio = ++_siiEspera;
+  GestoorSII.conectarAlta(rut, gv('f-razon'), b, function () {
+    if (mio !== _siiEspera || _editId) return;
+    res.style.display = ''; res.textContent = '⏳ Cartapra está leyendo el SII. El formulario se llenará solo en unos minutos (no lo cierres); mientras, completa el plan, los analistas y el contacto.';
+    var intentos = 0;
+    (function mirar() {
+      if (mio !== _siiEspera || _editId || !g('modalForm').classList.contains('on')) return;
+      if (String(gv('f-rut') || '').replace(/[.\s]/g, '').toUpperCase() !== rut) return;
+      GestoorSII.fichaParaAlta(rut).then(function () {
+        if (mio !== _siiEspera || _editId) return;
+        completarConSii();
+      }, function (e) {
+        if (mio !== _siiEspera || _editId) return;
+        if (++intentos >= 18 || (e && e.status && e.status !== 409)) { res.textContent = 'Cartapra aún no termina de leer el SII. Presiona «Traer datos del SII» en unos minutos, o guarda el cliente y usa «Completar con datos del SII» después.'; return; }
+        setTimeout(mirar, 20000);
+      });
+    })();
+  });
+}
+
+function siiOfrecerConectar(id, abrirYa) {
+  abrirEditar(id);
+  var r = g('siiCompletarRes'); if (!r) return;
+  r.style.display = ''; r.textContent = '';
+  var t = document.createElement('div'); t.style.fontWeight = '700'; t.textContent = '✅ Cliente creado. Conéctalo ahora con el SII:'; r.appendChild(t);
+  var p = document.createElement('div'); p.style.marginTop = '4px';
+  p.textContent = 'Se abre la ventana de Cartapra para ingresar la clave del SII (queda en Cartapra, no en Gestoor). En unos minutos presiona «Completar con datos del SII» y luego «Guardar».';
+  r.appendChild(p);
+  var b = document.createElement('button'); b.type = 'button'; b.id = 'btnConectarCartapra'; b.className = 'btn-p'; b.style.cssText = 'margin-top:8px;font-size:12.5px;padding:0 16px;min-height:34px';
+  b.textContent = 'Conectar con Cartapra';
+  var conectar = function () {
+    GestoorSII.conectar(id, b, function () {
+      var r2 = g('siiCompletarRes'); if (_editId === id && r2) { r2.style.display = ''; r2.textContent = '✅ Conexión enviada. Cartapra está leyendo el SII: en unos minutos presiona «Completar con datos del SII» y luego «Guardar».'; }
+    });
+  };
+  b.onclick = conectar; r.appendChild(b);
+  if (abrirYa) conectar();
+}
+
 function siiAltaNoConectada(res) {
   res.style.display = ''; res.textContent = '';
   var t = document.createElement('div'); t.style.fontWeight = '700'; t.textContent = 'Esta empresa todavía no está conectada a Cartapra.'; res.appendChild(t);
@@ -1170,13 +1219,18 @@ function guardarCliente(op) {
 
   // Socios obligatorios al CREAR un cliente empresa (Luciano, 26-oct): al menos uno, con nombre, RUT y % que sumen 100.
   // Persona natural (RUT bajo 50.000.000) no lo exige. En la edición de clientes existentes no se exige (se completa de a poco).
-  if (!esEdicion && !op.sinSocios) {   // «Guardar y conectar con el SII»: los socios llegan del SII al conectar
+  if (!esEdicion) {   // «Guardar y conectar con el SII» (op.sinSocios): los socios llegan del SII al conectar
     var _rutNum = parseInt(String(rut || '').replace(/[^0-9kK]/g, '').slice(0, -1), 10) || 0;
-    if (_rutNum >= 50000000) {
+    if (_rutNum >= 50000000 && !op.sinSocios) {
       var _soc = getSocios();
       var _incompleto = _soc.some(function (x) { return !String(x.rut || '').trim() || !(x.pct > 0); });
       var _suma = Math.round(_soc.reduce(function (t, x) { return t + (x.pct || 0); }, 0) * 100) / 100;
-      if (!_soc.length) { alert('Agrega los socios de la empresa (sección "Socios / Propietarios") con su RUT y % de participación.'); return; }
+      // 24-11 (Luciano): sin socios se puede crear y conectar a Cartapra al tiro; los socios llegan del SII.
+      if (!_soc.length && window.GestoorSII && GestoorSII.conectar) {
+        if (!confirm('Esta empresa no tiene socios cargados.\n\n¿Guardarla y conectarla ahora con Cartapra? Los socios, el giro y el régimen llegan del SII (la clave se ingresa en la ventana de Cartapra).')) return;
+        op.sinSocios = true; op.conectarYa = true;
+      }
+      else if (!_soc.length) { alert('Agrega los socios de la empresa (sección "Socios / Propietarios") con su RUT y % de participación.'); return; }
       if (_incompleto) { alert('Cada socio debe tener nombre, RUT y % de participación.'); return; }
       if (Math.abs(_suma - 100) > 0.01) { alert('Los % de participación de los socios deben sumar 100 (hoy suman ' + _suma + ').'); return; }
     }
@@ -1233,9 +1287,11 @@ function guardarCliente(op) {
       // RPC confirmó éxito → recargar desde DB y actualizar UI
       return cargarSupabase().then(function(){
         renderClientes();
-        if (typeof op.despues === 'function' && !esEdicion) {
+        if (!esEdicion) {
           var nuevo = getClientes().find(function(x){ return gestoorNormalizarRut(x.rut) === rut; });
-          if (nuevo) { toast('Cliente guardado'); op.despues(Number(nuevo.id)); return; }
+          if (nuevo && typeof op.despues === 'function') { toast('Cliente guardado'); op.despues(Number(nuevo.id)); return; }
+          // 24-11 (Luciano): al CREAR, que aparezca al tiro «Conectar con Cartapra» (la ficha queda abierta en edición).
+          if (nuevo && window.GestoorSII && GestoorSII.conectar) { toast('Cliente guardado'); siiOfrecerConectar(Number(nuevo.id), !!op.conectarYa); return; }
         }
         cerrarForm();
         toast(esEdicion ? 'Cliente actualizado' : 'Cliente guardado');

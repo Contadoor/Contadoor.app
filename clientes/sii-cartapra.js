@@ -52,7 +52,9 @@
   function llamar(accion, clienteId) {
     var f = typeof window.edgeFetch === 'function' ? window.edgeFetch : edgeSesion;
     // 24-11 «formulario_alta»: el único pedido con RUT (cliente aún no creado); el servidor valida permisos y que no exista.
-    var cuerpo = accion === 'cartera' ? { accion: accion } : accion === 'formulario_alta' ? { accion: accion, rut: String(clienteId) } : { accion: accion, cliente_id: Number(clienteId) };
+    var cuerpo = accion === 'cartera' ? { accion: accion } : accion === 'formulario_alta' ? { accion: accion, rut: String(clienteId) }
+      : accion === 'ventana_alta' ? { accion: accion, rut: String(clienteId.rut), nombre: String(clienteId.nombre || '').slice(0, 200) }
+      : { accion: accion, cliente_id: Number(clienteId) };
     return f('cartapra', cuerpo).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (!r.ok || !j || j.ok !== true) throw { status: r.status, error: (j && j.error) || 'ERROR', detalle: j && j.detalle, reintentarEn: j && j.reintentarEn };
@@ -711,6 +713,20 @@
     });
   }
 
+  // 24-11 (Luciano: «la idea es que sea antes»): conectar con Cartapra una empresa que AÚN no es cliente, solo con su RUT.
+  function conectarAlta(rut, nombre, btn, alTerminar) {
+    if (btn) btn.disabled = true;
+    llamar('ventana_alta', { rut: rut, nombre: nombre }).then(function (j) {
+      if (btn) btn.disabled = false;
+      ventanaCb = function () { lista = null; equipo = null; if (alTerminar) alTerminar(); };
+      estilos(); abrirVentana(j.widget && j.widget.url, null);
+    }).catch(function (e) {
+      if (btn) btn.disabled = false;
+      var msg = (e && e.detalle) || (e && e.status === 403 ? 'Conectar empresas lo pueden hacer el Master y quienes están autorizados.' : e && e.status === 429 ? 'Cartapra pide esperar un momento.' : 'No se pudo abrir la ventana de Cartapra.');
+      if (window.toast) window.toast(msg); else alert(msg);
+    });
+  }
+
   // ── Formulario del cliente (18-11, Luciano): «Completar con datos del SII» ──
   // Pide "resumen" (Master y analista contable asignado) y devuelve solo la ficha. Nada se guarda aquí:
   // el formulario se llena en pantalla y el usuario decide con «Guardar».
@@ -752,6 +768,7 @@
     // 19-11: estado de conexión del cliente (conectada | clave_rechazada | sin_conexion) tras prepararInsignias(); null = no se sabe
     estadoCliente: function (clienteId) { return equipo && Number(clienteId) > 0 && equipo[Number(clienteId)] ? equipo[Number(clienteId)] : null; },
     conectar: conectarDesdeLista,
+    conectarAlta: conectarAlta,
     traer: traerAhora,
     trayendo: function (clienteId) { return !!trayendo[Number(clienteId)]; },
     /** fn(listos: clienteId[]) cuando una empresa «trayendo» ya quedó conectada en Gestoor (p. ej. para repintar la lista). */
