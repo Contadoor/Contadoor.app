@@ -5,7 +5,7 @@ const html = Deno.readTextFileSync(new URL('../clientes/index.html', import.meta
 const sii = Deno.readTextFileSync(new URL('../clientes/sii-cartapra.js', import.meta.url));
 const script = html.slice(html.indexOf('<script>', html.indexOf('supabase.js')) + 8, html.indexOf('</script>', html.indexOf('<script>', html.indexOf('supabase.js'))));
 const fn = (n: string) => { const i = script.indexOf('function ' + n + '('); if (i < 0) throw new Error(n); let d = 0, j = script.indexOf('{', i); for (; j < script.length; j++) { if (script[j] === '{') d++; else if (script[j] === '}' && --d === 0) break; } return script.slice(i, j + 1); };
-const codigo = ['g', 'gv', 'sv', 'addSocio', 'getSocios', 'siiTxt', 'siiNorm', 'siiIgual', 'siiRut', 'siiCompletarUI', 'completarConSii', 'siiAltaNoConectada'].map(fn).join('\n');
+const codigo = ['g', 'gv', 'sv', 'addSocio', 'getSocios', 'siiTxt', 'siiNorm', 'siiIgual', 'siiRut', 'siiCompletarUI', 'completarConSii', 'siiAltaNoConectada', 'conectarAltaSii'].map(fn).join('\n');
 let total = 0, fallas = 0; const res = (n: string, ok: boolean, d = '') => { total++; console.log((ok ? 'OK   ' : 'MAL  ') + n + (ok ? '' : ' · ' + d)); if (!ok) fallas++; };
 const espera = () => new Promise((r) => setTimeout(r, 40));
 const FICHA = { regimen: 'Régimen Pro Pyme General (14 D N°3)', giro: 'ASESORIAS CONTABLES', afecta_iva: true, iva_mixto: false,
@@ -15,7 +15,7 @@ function montar(resp: [number, any]) {
   const dom = new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g, ''), { runScripts: 'outside-only', url: 'https://gestoor.contadoor.cl/clientes/' });
   const w: any = dom.window; const llamadas: any[] = [];
   w.edgeFetch = (_f: string, b: any) => { llamadas.push(b); return Promise.resolve({ ok: resp[0] === 200, status: resp[0], json: () => Promise.resolve(resp[1]) }); };
-  w.eval(sii); w.eval('var _editId = 42, _socioCount = 0; function updatePct(){} function calcPreview(){}\n' + codigo + '\nwindow.__set=function(v){_editId=v};');
+  w.eval(sii); w.eval('var _editId = 42, _socioCount = 0, _siiEspera = 0; function updatePct(){} function calcPreview(){}\n' + codigo + '\nwindow.__set=function(v){_editId=v};');
   return { w, llamadas, d: w.document };
 }
 const OK = (fi: any, extra: any = {}) => [200, { ok: true, conexion: { estado: 'conectada', cargaInicialLista: true }, formulario: fi, ...extra }] as [number, any];
@@ -113,6 +113,17 @@ const OK = (fi: any, extra: any = {}) => [200, { ok: true, conexion: { estado: '
   res('alta 403: Master y quienes conectan empresas', /quienes conectan empresas/.test(f.d.getElementById('siiCompletarRes').textContent));
   const g2 = nuevo(ALTA(FICHA)); g2.w.sv('f-rut', '77166269-2'); g2.w.completarConSii(); g2.w.sv('f-rut', '76000000-0'); await espera();
   res('alta: si cambió el RUT mientras consultaba, no escribe', g2.w.gv('f-giro') === '');
+}
+{ // 24-11 «Conectar con Cartapra» ANTES de crear el cliente (ventana_alta)
+  const W = [200, { ok: true, widget: { url: 'https://app.cartapra.com/conecta/widget?t=x', expiraEn: null } }] as [number, any];
+  const m = montar(W); m.w.__set(null); m.d.getElementById('modalForm').classList.add('on'); m.w.siiCompletarUI(true, 'Traer datos del SII');
+  res('alta: «Conectar con Cartapra» visible', m.d.getElementById('btnConectarAlta').style.display === '');
+  m.w.conectarAltaSii(); await espera();
+  res('alta: sin RUT no llama y pide el RUT', m.llamadas.length === 0 && /Escribe primero el RUT/.test(m.d.getElementById('siiCompletarRes').textContent));
+  m.w.sv('f-rut', '77.166.269-2'); m.w.sv('f-razon', 'Empresa Nueva SpA'); m.w.conectarAltaSii(); await espera();
+  res('alta: pide ventana_alta con rut y nombre (sin cliente_id)', JSON.stringify(m.llamadas[0]) === JSON.stringify({ accion: 'ventana_alta', rut: '77166269-2', nombre: 'Empresa Nueva SpA' }));
+  res('alta: abre la ventana de Cartapra', !!m.d.querySelector('iframe[src^="https://app.cartapra.com/"]'));
+  const e = montar(W); e.w.siiCompletarUI(true); res('edición: «Conectar con Cartapra» oculto', e.d.getElementById('btnConectarAlta').style.display === 'none');
 }
 { // nuevo cliente: botón oculto
   const { w, d } = montar(OK(FICHA)); w.siiCompletarUI(false); res('botón oculto en cliente nuevo', d.getElementById('btnCompletarSii').style.display === 'none');
