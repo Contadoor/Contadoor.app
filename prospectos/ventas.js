@@ -41,7 +41,7 @@ function calidadHtml(c){
     +(c.historial_desde?' · historial confiable desde el '+esc(fechaCorta(c.historial_desde)):'')+'</small></div>'
     +CAL.map(function(x){var d=g[x[0]]||{n:0,items:[]},n=Number(d.n||0);
       return '<details class="tv-cal-g'+(n?' hay':'')+'"'+(n?'':' aria-disabled="true"')+'><summary><b class="tv-cal-n">'+n+'</b><span><b>'+esc(x[1])+'</b><br><span class="t2">'+esc(x[2])+'</span></span></summary>'
-        +(n?'<ul>'+(d.items||[]).map(function(i){return '<li><a href="crm.html?id='+Number(i.lead_id)+dm+'">'+esc(i.nombre||'Prospecto')+'</a> <span class="t2">· '+esc(i.empresa||'Empresa no informada')+' · '+esc(i.detalle||'')+'</span></li>';}).join('')
+        +(n?'<ul>'+(d.items||[]).map(function(i){return '<li><a href="crm.html?lead='+Number(i.lead_id)+dm+'">'+esc(i.nombre||'Prospecto')+'</a> <span class="t2">· '+esc(i.empresa||'Empresa no informada')+' · '+esc(i.detalle||'')+'</span></li>';}).join('')
           +(n>(d.items||[]).length?'<li class="t3">… y '+(n-(d.items||[]).length)+' más</li>':'')+'</ul>':'<p class="nd">Nada por corregir.</p>')+'</details>';}).join('')+'</section>';
 }
 function fechaCorta(y){var p=String(y).split('-');return Number(p[2])+'-'+p[1];}
@@ -73,7 +73,7 @@ function pintar(){
   if(!tot)h+='<div class="aviso verde">✅ Todo al día: ningún prospecto abierto con la acción vencida ni sin próxima acción.</div>';
   grupos.forEach(function(g){
     h+='<div class="tv-grupo">'+D.avatarResp({nombre:g.nombre==='Sin asignar'?'':g.nombre})+esc(g.nombre)+'<span class="cnt">'+g.items.length+'</span></div><div class="tv-scroll"><table class="tv-tabla"><thead><tr><th>Prospecto</th><th>Etapa</th><th>Qué falta</th><th class="n">Atraso</th></tr></thead><tbody>'
-      +g.items.map(function(p){return '<tr class="rojo"><td><a href="crm.html?id='+Number(p.lead_id)+dm+'">'+esc(p.nombre||'Prospecto')+'</a><br><span class="t2">'+esc(p.empresa||'Empresa no informada')+'</span></td>'
+      +g.items.map(function(p){return '<tr class="rojo"><td><a href="crm.html?lead='+Number(p.lead_id)+dm+'">'+esc(p.nombre||'Prospecto')+'</a><br><span class="t2">'+esc(p.empresa||'Empresa no informada')+'</span></td>'
         +'<td>'+esc(ETAPA[p.etapa]||p.etapa||'Nuevo')+'</td><td>'+(p.sin_proxima&&!p.fecha?'<b>Sin próxima acción</b>':esc(p.accion||'Contactar')+'<br><span class="t2">era para el '+esc(fechaCorta(p.fecha))+'</span>')+'</td>'
         +'<td class="n">'+(p.fecha&&p.dias_atraso>0?Number(p.dias_atraso)+' d':'—')+'</td></tr>';}).join('')+'</tbody></table></div>';
   });

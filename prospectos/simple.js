@@ -57,6 +57,8 @@ var D=root.ComDatos, esc=D.esc, app=document.getElementById('csApp');
 var DATA=null, FILTRO='todos', SEL=null, TXT='', HIST={};
 
 if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dm=document.getElementById('cmDemo');if(dm)dm.hidden=false;}
+// 23-11 (Luciano): la ficha del prospecto es la del CRM. Un enlace antiguo simple.html?id=<id> abre DIRECTO esa ficha.
+try{var q0=new URLSearchParams(location.search).get('id');if(q0&&/^\d{1,18}$/.test(q0)){location.replace('crm.html?lead='+q0+(D.DEMO?'&demo=1':''));return;}}catch(e){}
 try{var q=new URLSearchParams(location.search),qi=q.get('id');if(qi&&/^\d{1,18}$/.test(qi))SEL=Number(qi);
   var qf=q.get('f');if(FILTROS.some(function(x){return x[0]===qf;}))FILTRO=qf;}catch(e){}
 

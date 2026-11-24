@@ -164,7 +164,9 @@ var D=root.ComDatos, esc=D.esc, app=document.getElementById('crmApp'), dm=D.DEMO
 var DATA=null, AGENDA=[], REUS=[], WA={}, TAB='embudo', SEL=null, TXT='', OFF=0, DET={}, OCUPADO=false, ARRASTRANDO=false;
 
 if(D.DEMO){document.documentElement.classList.remove('auth-pending');var dmo=document.getElementById('cmDemo');if(dmo)dmo.hidden=false;var tbv=document.getElementById('crmTablero');if(tbv)tbv.href='ventas.html?demo=1';}
-try{var q=new URLSearchParams(location.search),qi=q.get('id');if(qi&&/^\d{1,18}$/.test(qi))SEL=Number(qi);if(q.get('vista')==='reuniones')TAB='reuniones';}catch(e){}
+// Enlace profundo (23-11, Luciano: «Abrir ficha» debe llevar a la ficha): crm.html?lead=<id> (o ?id=) abre la ficha de ese prospecto al cargar.
+var ABRIR=null;
+try{var q=new URLSearchParams(location.search),qi=q.get('lead')||q.get('id');if(qi&&/^\d{1,18}$/.test(qi)){SEL=Number(qi);ABRIR=SEL;}if(q.get('vista')==='reuniones')TAB='reuniones';}catch(e){}
 
 function mensaje(e){var m=String(e&&e.message||e||''),V=(root.ComVentas&&root.ComVentas.MSJ)||{},M=S.MSJ||{};for(var j in V)if(m.indexOf(j)>=0)return V[j];for(var k in M)if(m.indexOf(k)>=0)return M[k];return D.mensaje(e);}
 function yo(){return (DATA&&DATA.yo)||{};}
@@ -178,8 +180,9 @@ function cargar(){
   return Promise.all([D.rpc('com_simple_listar',{}),D.rpc('com_listar_hoy',{p_dias:90}).catch(function(){return {reuniones:[]};})]).then(function(r){
     DATA=r[0]||{};DATA.prospectos=DATA.prospectos||[];DATA.pendientes=DATA.pendientes||[];AGENDA=(r[1]&&r[1].reuniones)||[];
     REUS=unirReuniones(AGENDA,DATA.prospectos);
-    if(SEL&&!prospecto(SEL))SEL=null;
+    if(SEL&&!prospecto(SEL)){if(ABRIR)D.toast('No encontramos ese prospecto (o no está a tu cargo).');SEL=null;}
     pintar();cargarWa();
+    if(ABRIR&&SEL){ABRIR=null;irAFicha();}
   }).catch(function(e){app.innerHTML='<div class="aviso rojo">'+esc(mensaje(e))+'</div>';});
 }
 
@@ -302,7 +305,6 @@ function fichaHtml(p){
   var g=S.guionUrl?S.guionUrl(p,D.DEMO):null;
   h+='<div class="crm-acc">'
     +(p.etapa==='cliente'?'<a class="btn v" href="onboarding.html?lead='+Number(p.id)+dm+'">🚀 Ir a onboarding</a>':'')
-    +'<a class="btn" href="simple.html?id='+Number(p.id)+dm+'">📝 Abrir ficha</a>'
     +(g?'<a class="btn" href="'+esc(g)+'">📋 Guion de la reunión</a>':(Y.escribe?'<button type="button" class="btn" id="crmGuion">📋 Guion de la reunión</button>':''))
     +(root.ProsWA?ProsWA.boton(p,{aviso:true}):'')
     +(['reunion_realizada','propuesta','seguimiento'].indexOf(p.etapa)>=0?'<a class="btn" href="../cotizaciones/index.html'+(D.DEMO?'?demo=1':'')+'">📄 Crear cotización</a>':'')
@@ -314,6 +316,13 @@ function cargarDetalle(id){
   if(DET[id]!==undefined)return;
   D.rpc('detalle_prospecto',{p_id:Number(id)}).then(function(x){DET[id]=x||{};}).catch(function(){DET[id]=null;})
     .then(function(){if(Number(id)===SEL)pintarFicha();});
+}
+// Lleva la vista a la ficha abierta (en celular la ficha va debajo del embudo) y le da el foco al nombre.
+function irAFicha(){
+  var f=document.getElementById('crmFicha');if(!f)return;
+  var c=app.querySelector('.crm-card.sel');if(c&&c.scrollIntoView)try{c.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}
+  if(f.scrollIntoView)f.scrollIntoView({behavior:'smooth',block:'start'});
+  var t=f.querySelector('h2');if(t){t.setAttribute('tabindex','-1');try{t.focus({preventScroll:true});}catch(e){}}
 }
 function pintarFicha(){var f=document.getElementById('crmFicha');if(!f)return;f.innerHTML=fichaHtml(prospecto(SEL));enlazarFicha();montarVentas(false);}
 // VENTAS-CONTROL: monta el bloque de seguimiento de la ficha abierta. Tras guardar, la base devuelve el prospecto con su versión nueva.

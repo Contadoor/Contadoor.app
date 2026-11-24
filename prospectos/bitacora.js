@@ -40,7 +40,9 @@ function abrir(){
   }).catch(function(e){app.innerHTML='<div class="aviso rojo">'+esc(D.mensaje(e))+' <a class="link" href="reuniones.html'+(D.DEMO?'?demo=1':'')+'">Volver a Reuniones</a></div>';});
 }
 function cargarBitacora(b){
-  B=b;VER=b.version;S=JSON.parse(JSON.stringify(b.campos||{}));N=JSON.parse(JSON.stringify(b.notas||{}));
+  B=b;VER=b.version;S=JSON.parse(JSON.stringify(b.campos||{}));
+  // 23-11: volver lleva a la FICHA del prospecto en el CRM (no al listado de reuniones).
+  var vf=document.getElementById('cmVolver');if(vf&&b.lead&&b.lead.id){vf.href='crm.html?lead='+Number(b.lead.id)+(D.DEMO?'&demo=1':'');vf.textContent='← Ficha del prospecto';}N=JSON.parse(JSON.stringify(b.notas||{}));
   EDIT=!!b.puede_editar;reloj.base=b.reloj_seg||0;reloj.seg=reloj.base;
   if(b.guion_version&&b.guion_version!==G.GUION_VERSION&&EDIT)D.toast('Esta bitácora usa el guion '+b.guion_version+': se muestra con el guion vigente y lo que ya no se pregunta queda en «Del guion anterior».');
   // Precarga desde el formulario de la agenda (solo campos vacíos; queda marcada "de la agenda").
