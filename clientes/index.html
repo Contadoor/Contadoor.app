@@ -1240,6 +1240,9 @@ function verDetalle(id) {
   h += '</div>';
   if (c.obs) h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:8px"><b>Obs:</b> '+esc(c.obs)+'</div>';
   h += '<div id="det-onb"></div>';   // ONBOARDING-L2: pasos que faltan (onboarding-ficha.js); vacío si no vino de Onboarding
+  // DIAGNÓSTICO «AQUÍ PARTIMOS» (24-11): informe contable de inicio + propuesta. Lo ve quien ve la ficha; la base re-verifica (diag_datos_cliente).
+  h += '<div id="det-diag" style="margin-top:10px"><a id="det-diag-btn" href="diagnostico.html?cliente='+Number(c.id)+'" style="display:inline-block;background:linear-gradient(135deg,#A4599C,#924893 55%,#803889);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;font-size:13px;text-decoration:none">Generar diagnóstico «Aquí partimos»</a>'
+     + '<small style="display:block;margin-top:4px;opacity:.8">Informe de inicio con el SII y la propuesta de trabajo, para imprimir o guardar en PDF.</small></div>';
   h += '<div id="det-liva"></div>';  // LEVANTAMIENTO-IVA: botón «Levantamiento de IVA» (levantamiento-iva.js; Master y equipo contable)
   h += '<div id="det-hist"></div>';  // CARTAPRA-HISTORIA: botón «Historia SII» (historia-sii.js; Master y equipo contable)
   h += '<div id="det-hcar"></div>';  // LIVA-DETALLE-F29: botón «Historial SII» (historial-sii-cargado.js: qué hay cargado por mes; Master y equipo contable)

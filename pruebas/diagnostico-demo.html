@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demo · Diagnóstico «Aquí partimos»</title></head>
+<body>
+<!-- DEMO LOCAL con datos 100 % FICTICIOS («Empresa Ficticia SpA»). Muestra el documento tal como se imprime (Cmd+P → Guardar como PDF).
+     ?prospecto=1 → versión para un prospecto (propuesta / presupuesto). Sin servidor: no llama a ninguna RPC.
+     La pantalla completa (ajustes + emitir) se prueba con ../clientes/diagnostico.html?cliente=9001&demo=1 en localhost. -->
+<script src="diagnostico-datos.js"></script>
+<script src="levantamiento-iva-datos.js"></script>
+<script src="../clientes/diagnostico-doc.js"></script>
+<script>
+  (function () {
+    var D = window.GestoorDiagDoc, pros = /prospecto=1/.test(location.search), d = pros ? window.DIAG_DEMO_PROSPECTO : window.DIAG_DEMO_CLIENTE;
+    var aj = pros ? { cita: 'Quiero saber cuánto me cuesta ponerme al día.' } : { cita: 'Quiero ordenar mis impuestos y saber cuánto debo.',
+      notas: 'Lo primero es declarar los F29 atrasados para dejar de acumular multas. En paralelo revisamos la observación de la Renta 2026.' };
+    var m = D.modelo(d, { liva: pros ? null : window.LIVA_DEMO, historial: pros ? null : window.DIAG_DEMO_HIST, estadoLiva: 'ok', estadoHist: 'ok', ajustes: aj, hoy: '2026-11-24T12:00:00' });
+    var html = D.documento(m, { logoBlanco: new URL('../assets/contadoor-lockup-white.png', location.href).href, logoColor: new URL('../assets/contadoor-lockup-glossy.png', location.href).href });
+    document.open(); document.write(html); document.close();
+  })();
+</script>
+</body>
+</html>
