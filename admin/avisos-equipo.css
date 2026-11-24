@@ -1,0 +1,31 @@
+/* admin/avisos-equipo.css — Avisos al celular del equipo (solo Master). Tema TODO OSCURO; acotado a body.g-mod-ave. */
+body.g-mod-ave{--borde:#4A2B50;--t1:#F3E9F4;--t2:#C9A8CC;--t3:#8F6F94;--verde:#5FCF9C;--ambar:#FFC85A;--rojo:#E07A6E;--lila:#C77BC9;
+  --tit:"Montserrat",system-ui,sans-serif;--txt:"Inter",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.layout{display:flex;min-height:100vh}
+.sidebar{display:flex;flex-direction:column;position:fixed;height:100vh;z-index:20;top:0;left:0}
+.main{flex:1;min-height:100vh;min-width:0}
+.topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.content{padding:18px 28px 70px}
+.g-mod-ave .topbar>.tb-title{font:900 22px/1 var(--tit);color:#fff;margin:0;white-space:nowrap}.g-mod-ave .topbar>.tb-title span{color:var(--lila)}
+.g-mod-ave .ave-sub{margin:0;font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.g-mod-ave .ave-demo{padding:6px 12px;border-radius:999px;border:1px dashed var(--borde);color:#5CC8FF;font:800 11px var(--txt)}
+.g-mod-ave .ave-app{display:flex;flex-direction:column;gap:16px;max-width:1080px;min-width:0}
+.g-mod-ave .ave-volver{color:var(--t2);font-size:12.5px;text-decoration:none;align-self:flex-start}
+.g-mod-ave #aveMain{display:flex;flex-direction:column;gap:16px}.g-mod-ave #aveMain[hidden]{display:none}
+.g-mod-ave .aviso{border-radius:14px;padding:12px 14px;font-size:13px;border:1px solid var(--borde);color:var(--t1)}
+.g-mod-ave .aviso.lila{background:rgba(199,123,201,.10)}.g-mod-ave .aviso.rojo{background:rgba(224,122,110,.12);border-color:rgba(224,122,110,.4)}
+.g-mod-ave .ave-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g-mod-ave .ave-kpi{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid var(--borde);border-radius:18px;padding:14px 16px}
+.g-mod-ave .ave-kpi b{display:block;font:900 26px var(--tit);color:var(--t1)}.g-mod-ave .ave-kpi span{font:700 10px var(--txt);letter-spacing:1.1px;text-transform:uppercase;color:var(--t2)}
+.g-mod-ave .ave-kpi.mal b{color:var(--rojo)}.g-mod-ave .ave-kpi.bien b{color:var(--verde)}
+.g-mod-ave .ave-card{background:linear-gradient(180deg,rgba(34,16,39,.94),rgba(26,14,31,.94));border:1px solid var(--borde);border-radius:20px;padding:16px 18px;color:var(--t1)}
+.g-mod-ave .ave-card h2{font:800 15px var(--tit);margin:0 0 6px}
+.g-mod-ave .t2{color:var(--t2);font-size:12.5px;margin:0 0 10px}.g-mod-ave .t3{color:var(--t3);font-size:12px}
+.g-mod-ave .ave-tabla-box{overflow-x:auto}
+.g-mod-ave .ave-tabla{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+.g-mod-ave .ave-tabla th{text-align:left;font:700 10.5px var(--txt);letter-spacing:.8px;text-transform:uppercase;color:var(--t3);padding:8px;border-bottom:1px solid var(--borde)}
+.g-mod-ave .ave-tabla td{padding:9px 8px;border-bottom:1px solid rgba(74,43,80,.5)}
+.g-mod-ave .ave-si{color:var(--verde);font-weight:700}.g-mod-ave .ave-no{color:var(--rojo);font-weight:700}.g-mod-ave .ave-sin{color:var(--ambar)}
+.g-mod-ave .ave-pasos{margin:0 0 10px 18px;padding:0;font-size:13px;line-height:1.6;color:var(--t1)}
+.g-mod-ave .ave-btn{background:#924893;color:#fff;border:0;border-radius:10px;padding:8px 14px;font:700 12px var(--txt);cursor:pointer}
+@media (max-width:700px){.content{padding:14px 16px 60px}.g-mod-ave .ave-kpis{grid-template-columns:1fr}.g-mod-ave .ave-sub{display:none}}

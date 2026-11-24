@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://ulxoxqbuxiuylaolaqxj.supabase.co; connect-src https://ulxoxqbuxiuylaolaqxj.supabase.co wss://ulxoxqbuxiuylaolaqxj.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Admin · Avisos al celular del equipo · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="avisos-equipo.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración: SOLO ?demo=1 y SOLO en localhost (datos ficticios, sin Supabase). En gestoor.contadoor.cl exige sesión de Master. */
+(function(){ var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.AVE_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1)); })();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-ave">
+<!-- AVISOS-CAMPANA (24-11): quién del equipo tiene los avisos al celular activos. Solo Master (el servidor lo vuelve a exigir:
+     RPC push_estado_equipo, 42501 para cualquier otro). Solo conteos y fechas: nunca muestra endpoints ni claves del dispositivo. -->
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="admin"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar">
+    <h1 class="tb-title">Avisos al <span>celular</span></h1>
+    <p class="ave-sub">Solo Master · quién del equipo recibe los avisos urgentes en su teléfono</p>
+    <div class="g-espacio"></div>
+    <span class="ave-demo" id="aveDemo" hidden>DEMO LOCAL · DATOS FICTICIOS</span>
+  </div>
+  <div class="content">
+    <div class="ave-app">
+      <a class="ave-volver" href="index.html">← Volver a Admin</a>
+      <div class="aviso lila" id="aveCargando">Revisando tu sesión y el equipo…</div>
+      <div class="aviso rojo" id="aveNoMaster" hidden><b>Solo el Master puede ver esta pantalla.</b> Si crees que es un error, pide al Master que revise tu usuario.</div>
+      <div class="aviso rojo" id="aveError" hidden></div>
+      <div id="aveMain" hidden>
+        <div class="ave-kpis" id="aveKpis"></div>
+        <section class="ave-card">
+          <h2>Equipo</h2>
+          <p class="t2">Ordenado: primero quienes <b>no</b> tienen avisos activos. «Avisos pendientes» = lo que tiene sin resolver en la campana.</p>
+          <div class="ave-tabla-box"><table class="ave-tabla" id="aveTabla">
+            <thead><tr><th>Persona</th><th>Cargo</th><th>Avisos al celular</th><th>Último aviso recibido</th><th>Pendientes en la campana</th></tr></thead>
+            <tbody></tbody></table></div>
+        </section>
+        <section class="ave-card">
+          <h2>Cómo se activa (1 minuto por persona)</h2>
+          <ol class="ave-pasos">
+            <li><b>iPhone:</b> abrir <b>gestoor.contadoor.cl</b> en Safari → botón Compartir → <b>«Agregar a inicio»</b>. Abrir Gestoor <b>desde ese ícono</b> (no desde Safari).</li>
+            <li><b>Android:</b> abrir gestoor.contadoor.cl en Chrome → menú ⋮ → <b>«Instalar aplicación»</b> (o «Agregar a pantalla principal»).</li>
+            <li>Entrar con su usuario → tocar la <b>campana 🔔</b> → <b>«Activar avisos en este celular»</b> → <b>Permitir</b>.</li>
+            <li>Llega un aviso de prueba. Si no llega: Ajustes → Notificaciones → Gestoor → permitir; en iPhone, sacar el modo «No molestar».</li>
+            <li>Volver a esta pantalla y tocar <b>Actualizar</b>: la persona debe aparecer con ✅.</li>
+          </ol>
+          <p class="t3">Los avisos al celular salen de lunes a viernes de 09:00 a 18:00; fuera de ese horario quedan en cola y la campana los muestra al tiro.</p>
+          <button type="button" class="ave-btn" id="aveActualizar">↻ Actualizar</button>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+<script>if(!window.AVE_DEMO)document.write('<script src="../supabase.js"><\/script>');</script>
+<script src="avisos-equipo.js"></script>
+<script>if(!window.AVE_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>

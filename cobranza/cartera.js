@@ -174,6 +174,8 @@ function armarFilas(){
 }
 
 /* ── Carga ── */
+// AVISOS-CAMPANA (24-11): los avisos de Cobranza abren el REGISTRO: cartera.html?cliente=<id> abre la ficha de ese cliente una vez,
+// cuando la cartera ya cargó (si el usuario no tiene acceso, no se abre nada). Solo dígitos; cualquier otra cosa se ignora.
 function cargar(){
   return D.yo().then(function(yo){
     S.yo=yo;

@@ -74,7 +74,7 @@ async function montar(o: { falla?: boolean; avisos?: boolean; dos?: boolean } = 
   return { dom, w, d, llamadas };
 }
 let { dom, w, d, llamadas } = await montar({ avisos: true });
-res('2.1 al cargar pide rpc/mis_alertas (límite 100)', llamadas[0]?.fn === 'mis_alertas' && llamadas[0].body.p_limite === 100, llamadas);
+res('2.1 al cargar pide rpc/mis_alertas (límite 200 desde AVISOS-CAMPANA)', llamadas[0]?.fn === 'mis_alertas' && llamadas[0].body.p_limite === 200, llamadas);
 res('2.2 insignia = 4 pendientes de TODOS los módulos (facturación, contable, seguridad y uno desconocido); la V1 de localStorage no cuenta', d.getElementById('notBadge').textContent === '4', d.getElementById('notBadge').textContent);
 d.getElementById('notBtn').click(); await espera(30);
 const panel = d.getElementById('notPanel');
