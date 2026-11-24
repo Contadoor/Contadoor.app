@@ -108,6 +108,33 @@ tr[data-rut]{cursor:pointer}
 .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .file-ok{display:none;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;margin-top:10px;}
 .file-ok.show{display:flex;}
+/* 24-11 Panel del libro · estilo Contadoor */
+.upload-zone{border-color:#d9c2da;background:linear-gradient(180deg,#fbf6fb,#f6eef7);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--p);background:var(--pp);}
+.uz-t{font-size:13px;font-weight:700;color:var(--pd);margin-bottom:3px}
+.uz-s{font-size:11px;color:var(--tm)}
+.lb-quitar{margin-left:auto;background:#fff;color:var(--red);border:1px solid #f1c9c4;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer}
+.lb-quitar:hover{background:#fdecea}
+.lb{margin-top:12px;display:flex;flex-direction:column;gap:12px}
+.lb-hero{background:linear-gradient(135deg,#6D2E6E,#904891 60%,#A4599C);color:#fff;border-radius:14px;padding:16px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.lb-hero .k{font-size:10px;text-transform:uppercase;letter-spacing:.6px;opacity:.8}
+.lb-hero .v{font-size:20px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.lb-hero .s{font-size:10px;opacity:.75;margin-top:1px}
+.lb-card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:12px 14px}
+.lb-card h4{font-size:10px;font-weight:700;color:var(--p);text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.lb-fila{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dashed #efe4ef;font-size:12.5px;color:var(--t2)}
+.lb-fila:last-child{border-bottom:0}
+.lb-fila b{color:var(--t1);font-variant-numeric:tabular-nums;font-weight:700}
+.lb-fila.tot{border-top:1px solid var(--bdr);border-bottom:0;margin-top:2px;padding-top:8px;color:var(--t1);font-weight:700}
+.lb-fila.menos{color:var(--amber)} .lb-fila.menos b{color:var(--amber)}
+.lb-fila.pagar{background:#eaf6f0;border:1px solid #cfe9dc;border-radius:10px;padding:10px 12px;margin-top:6px;font-size:14px;color:#1f6f50;font-weight:700}
+.lb-fila.pagar b{color:#1f6f50;font-size:18px}
+.lb-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lb-chip{display:inline-block;background:#fdf3e1;color:#8a5a12;border:1px solid #f3dcb0;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:600;margin:2px 4px 0 0}
+.lb-alerta{background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;font-size:11.5px;color:#78350f}
+@media (max-width:640px){.lb-hero{grid-template-columns:1fr 1fr}.lb-2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.lb>*{animation:lbIn .32s cubic-bezier(.23,1,.32,1) both}.lb>*:nth-child(2){animation-delay:.05s}.lb>*:nth-child(3){animation-delay:.1s}.lb>*:nth-child(4){animation-delay:.15s}}
+@keyframes lbIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 .fgroup{display:flex;flex-direction:column;gap:4px;}
@@ -234,8 +261,8 @@ tr[data-rut]{cursor:pointer}
       <div class="upload-zone" id="uzLibro">
         <input type="file" id="fileLibro" accept=".xls,.xlsx"/>
         <div class="g-up-ic"><span data-g-ic="subir"></span></div>
-        <div style="font-size:13px;font-weight:600;margin-bottom:3px">Cargar libro .xls</div>
-        <div style="font-size:11px;color:var(--tm)">Arrastra o haz clic · Mas Remuneraciones · Mastecno</div>
+        <div class="uz-t">Cargar el Libro de Remuneraciones · Detalle</div>
+        <div class="uz-s">Arrastra el archivo o haz clic · LRemu_Detalle&lt;RUT&gt;_&lt;MM-AAAA&gt;.xls, tal como sale de Mas Remuneraciones</div>
       </div>
       <div class="file-ok" id="libroOk">
         <span class="g-ok-ic"><span data-g-ic="check"></span></span>
@@ -243,9 +270,9 @@ tr[data-rut]{cursor:pointer}
           <div style="font-size:13px;font-weight:600" id="libroFileName"></div>
           <div style="font-size:11px;color:var(--tm)" id="libroMeta"></div>
         </div>
-        <div id="kpi-libro-panel" style="display:none;margin-top:4px"></div>
-        <button onclick="limpiarLibro()" style="margin-left:auto;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">✕ Quitar</button>
+        <button onclick="limpiarLibro()" class="lb-quitar">✕ Quitar</button>
       </div>
+      <div id="kpi-libro-panel" style="display:none"></div>
       <div id="selectPeriodoLibroWrap" style="display:none;margin-top:10px">
         <div class="fgroup">
           <label>Período a procesar</label>
@@ -283,7 +310,9 @@ tr[data-rut]{cursor:pointer}
           <div class="fgroup"><label>Expectativa de vida (reforma)</label><input type="number" id="m-exp-vida" oninput="calcTotalesModal()"/></div>
           <div class="fgroup"><label>Rent. protegida (reforma)</label><input type="number" id="m-rent-prot" oninput="calcTotalesModal()"/></div>
           <div class="fgroup"><label>Total aportes patronales</label><input type="number" id="m-total-aportes" class="readonly-field" readonly/></div>
-          <div class="fgroup"><label>TOTAL COTIZACIONES PREVIRED</label><input type="number" id="m-total-cot" class="readonly-field" readonly style="color:var(--green);font-weight:700;font-size:14px"/></div>
+          <div class="fgroup"><label>Total cotizaciones (bruto)</label><input type="number" id="m-cot-bruto" class="readonly-field" readonly/></div>
+          <div class="fgroup"><label>− Asignación familiar</label><input type="number" id="m-asig-fam" oninput="calcTotalesModal()" style="border-color:var(--amber)"/><span class="hint" style="color:var(--amber)">Se descuenta de lo que se paga en Previred</span></div>
+          <div class="fgroup"><label>TOTAL A PAGAR PREVIRED</label><input type="number" id="m-total-cot" class="readonly-field" readonly style="color:var(--green);font-weight:700;font-size:14px"/></div>
         </div>
       </div>
       <div class="fgroup" style="margin-bottom:12px">
@@ -1185,7 +1214,10 @@ function parsearLibro(file){
         // Total Previred (SIN IU que es tributario SII)
         // Aporte del empleador: en el compacto viene en una sola columna; en el detalle, por concepto (son iguales en total).
         var totalAportesPatronales = sum('aportePatronal');
-        var totalCotizaciones = dctoAfp+apv+dctoSalud+cesTrab+totalAportesPatronales;
+        var totalCotizacionesBruto = dctoAfp+apv+dctoSalud+cesTrab+totalAportesPatronales;
+        // 24-11 ASIGNACIÓN FAMILIAR: el empleador la paga al trabajador y la DESCUENTA de lo que entera en Previred.
+        var asignacionFamiliar = sum('cFamiliar');
+        var totalCotizaciones = totalCotizacionesBruto-asignacionFamiliar;   // monto a pagar en Previred
         // Validación de cuadratura
         var liquidoCalculado = totalImponible+totalNoImponible-totalDescuentos-otrosDescuentos;
         var alertas=[];
@@ -1231,8 +1263,8 @@ function parsearLibro(file){
           totalAportes: totalAportesPatronales,  // alias principal
           totalAportesPatronales,                 // legacy
           sis, mutual, cesEmp, capInd, expVida, rentProt,
-          // Cotizaciones Previred (SIN IU)
-          totalCotizaciones,
+          // Cotizaciones Previred (SIN IU): bruto − asignación familiar = a pagar
+          totalCotizacionesBruto, asignacionFamiliar, totalCotizaciones,
           // Costo laboral
           costoLaboral,
           // Tributario
@@ -1268,6 +1300,7 @@ function llenarCamposDesdeLibro(data){
   }
   setV('m-total-desc',data.totalDescuentos);
   setV('m-otros-desc',data.otrosDescuentos||0);
+  setV('m-asig-fam',data.asignacionFamiliar||0);
   // Grupo 7: líquido
   setV('m-liquido',data.nomina);
   // Grupo 8: aportes patronales
@@ -1291,52 +1324,37 @@ function llenarCamposDesdeLibro(data){
 function mostrarKpisLibro(data){
   var el=document.getElementById('kpi-libro-panel');
   if(!el) return;
-  var nActivos=data.nTrabActivos||data.nTrab;
-  var nLic=data.nLicencia||0;
-  // Validación cuadratura
-  var alertaHtml='';
-  if(data.alertas&&data.alertas.length){
-    alertaHtml='<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:11px;color:#78350f;margin-bottom:10px">⚠️ '+hesc(data.alertas[0])+'</div>';
+  var nActivos=data.nTrabActivos||data.nTrab, nLic=data.nLicencia||0;
+  var F=function(l,v,cls){return '<div class="lb-fila'+(cls?' '+cls:'')+'"><span>'+l+'</span><b>'+v+'</b></div>';};
+  var h='<div class="lb">';
+  if(data.alertas&&data.alertas.length) h+='<div class="lb-alerta">⚠️ '+hesc(data.alertas[0])+'</div>';
+  // Resumen principal
+  h+='<div class="lb-hero">'
+    +'<div><div class="k">Trabajadores</div><div class="v">'+nActivos+'</div><div class="s">'+(nLic?nLic+' con licencia completa':'en el período')+'</div></div>'
+    +'<div><div class="k">Líquido a pagar</div><div class="v">'+ff(data.nomina)+'</div><div class="s">a los trabajadores</div></div>'
+    +'<div><div class="k">A pagar en Previred</div><div class="v">'+ff(data.totalCotizaciones)+'</div><div class="s">'+(data.asignacionFamiliar>0?'ya descontada la asig. familiar':'cotizaciones + aportes')+'</div></div>'
+    +'</div>';
+  // Haberes y descuentos
+  h+='<div class="lb-2"><div class="lb-card"><h4>Haberes</h4>'
+    +F('Imponibles',ff(data.totalImponible))+F('No imponibles',ff(data.totalNoImponible))
+    +(data.asignacionFamiliar>0?F('&nbsp;&nbsp;de ellos, asignación familiar',ff(data.asignacionFamiliar)):'')
+    +'</div><div class="lb-card"><h4>Descuentos del trabajador</h4>'
+    +F('AFP',ff(data.dctoAfp))+F('Salud',ff(data.dctoSalud))+F('Seg. cesantía',ff(data.cesTrab))
+    +(data.apv>0?F('APV',ff(data.apv)):'')+(data.iu>0?F('Impuesto único → F29',ff(data.iu),'menos'):'')
+    +'</div></div>';
+  // Cascada Previred
+  var cotTrab=(data.dctoAfp||0)+(data.dctoSalud||0)+(data.cesTrab||0)+(data.apv||0);
+  h+='<div class="lb-card"><h4>🏦 Pago en Previred</h4>'
+    +F('Cotizaciones del trabajador',ff(cotTrab))
+    +F('Aportes del empleador'+(data.sis||data.mutual||data.cesEmp?' <span style="color:var(--tm);font-weight:400">(SIS '+ff(data.sis||0)+' · Mutual '+ff(data.mutual||0)+' · Cesantía '+ff(data.cesEmp||0)+((data.capInd||0)+(data.expVida||0)+(data.rentProt||0)>0?' · Reforma '+ff((data.capInd||0)+(data.expVida||0)+(data.rentProt||0)):'')+')</span>':''),ff(data.totalAportesPatronales))
+    +F('Total cotizaciones',ff(data.totalCotizacionesBruto!=null?data.totalCotizacionesBruto:data.totalCotizaciones),'tot');
+  if(data.asignacionFamiliar>0){
+    var conAF=(data.trabajadores||[]).filter(function(t){return (t.cFamiliar||0)>0;});
+    h+=F('− Asignación familiar (la paga la empresa y se descuenta)','−'+ff(data.asignacionFamiliar),'menos');
+    if(conAF.length) h+='<div style="margin:4px 0 2px">'+conAF.map(function(t){return '<span class="lb-chip">'+hesc(((t.nombre||t.rut||'')+'').split(' ').slice(0,2).join(' '))+' · '+ff(t.cFamiliar)+'</span>';}).join('')+'</div>';
   }
-  var h=alertaHtml;
-  // Fila 1: dotación
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">';
-  h+=_kpiBox('👥 Trabajadores',nActivos+(nLic?' ('+nLic+' lic)':''),'procesados en período','var(--p)');
-  h+=_kpiBox('📅 Días trabajados',data.trabajadores[0]&&data.trabajadores[0].diasTrabajados||0,'promedio período','var(--t2)');
-  h+=_kpiBox('💰 Total imponible',ff(data.totalImponible),'base previsional','var(--p)');
+  h+=F('Total a pagar en Previred',ff(data.totalCotizaciones),'pagar')+'</div>';
   h+='</div>';
-  // Fila 2: haberes
-  h+='<div style="font-size:10px;font-weight:600;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Haberes</div>';
-  h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">';
-  h+=_kpiBox('Imponibles',ff(data.totalImponible),'AFP, Salud, ces.','var(--blue)');
-  h+=_kpiBox('No imponibles',ff(data.totalNoImponible),'Colación, movilización','var(--blue)');
-  h+='</div>';
-  // Fila 3: descuentos trabajador
-  h+='<div style="font-size:10px;font-weight:600;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Descuentos trabajador</div>';
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">';
-  h+=_kpiBox('AFP',ff(data.dctoAfp),'','var(--t2)');
-  h+=_kpiBox('Salud',ff(data.dctoSalud),'','var(--t2)');
-  h+=_kpiBox('Cesantía trab.',ff(data.cesTrab),'','var(--t2)');
-  if(data.apv>0) h+=_kpiBox('APV',ff(data.apv),'','var(--t2)');
-  if(data.iu>0)  h+=_kpiBox('IU (tributario→SII)',ff(data.iu),'F29','var(--amber)');
-  h+='</div>';
-  // Líquido
-  h+='<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">';
-  h+='<span style="font-size:13px;font-weight:600;color:var(--t1)">💵 Líquido a pagar trabajadores</span>';
-  h+='<span style="font-size:17px;font-weight:700;color:var(--green)">'+ff(data.nomina)+'</span></div>';
-  // Aportes patronales
-  h+='<div style="font-size:10px;font-weight:600;color:var(--p);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Aportes empleador (Previred)</div>';
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">';
-  h+=_kpiBox('SIS',ff(data.sis),'','var(--teal)');
-  h+=_kpiBox('Mutual',ff(data.mutual),'','var(--teal)');
-  h+=_kpiBox('Ces. empleador',ff(data.cesEmp),'','var(--teal)');
-  if(data.capInd>0)  h+=_kpiBox('Cap. individual',ff(data.capInd),'reforma prev.','var(--teal)');
-  if(data.expVida>0) h+=_kpiBox('Exp. de vida',ff(data.expVida),'reforma prev.','var(--teal)');
-  if(data.rentProt>0)h+=_kpiBox('Rent. protegida',ff(data.rentProt),'reforma prev.','var(--teal)');
-  h+='</div>';
-  h+='<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">';
-  h+='<span style="font-size:13px;font-weight:600;color:var(--t1)">🏦 Total cotizaciones Previred</span>';
-  h+='<span style="font-size:17px;font-weight:700;color:var(--p)">'+ff(data.totalCotizaciones)+'</span></div>';
   el.innerHTML=h;
   el.style.display='block';
 }
@@ -1466,8 +1484,9 @@ function calcTotalesModal(){
   var totalAportes = aportesPatronalesModal();
   setV('m-total-aportes', Math.round(totalAportes));
   // ── Total cotizaciones Previred (SIN IU, SIN otros descuentos) ──
-  var totalCot = descPrev + totalAportes;
-  setV('m-total-cot', Math.round(totalCot));
+  var totalBruto = descPrev + totalAportes, asigFam = gv('m-asig-fam');
+  setV('m-cot-bruto', Math.round(totalBruto));
+  setV('m-total-cot', Math.round(totalBruto - asigFam));   // a pagar en Previred (descontada la asignación familiar)
   actualizarPreviewRpt();
 }
 // ═══════════════════════════════════════════════════
@@ -1513,8 +1532,9 @@ function actualizarPreviewRpt(){
   // Aportes empleador (reforma previsional incluida)
   var totalAport = sis+mutual+cesEmp+capInd+expVida+rentProt;
   // Total cotizaciones Previred (SIN IU)
-  var totalCot = descPrev + totalAport;
-  if(totalCot===0 && iu===0){document.getElementById('previewRptParcial').style.display='none';return;}
+  var totalBrutoP = descPrev + totalAport, asigFamP = gv('m-asig-fam');
+  var totalCot = totalBrutoP - asigFamP;
+  if(totalBrutoP===0 && iu===0){document.getElementById('previewRptParcial').style.display='none';return;}
   document.getElementById('previewRptParcial').style.display='block';
   var nombre=_reporteActual?_reporteActual.clienteNombre:'Cliente';
   var periodo=_reporteActual?formatPeriodo(_reporteActual.periodo):' - ';
@@ -1537,7 +1557,11 @@ function actualizarPreviewRpt(){
   if(expVida) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Expectativa de vida (reforma)</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid #e8dde8">'+ff(expVida)+'</td></tr>';
   if(rentProt) rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Rent. protegida (reforma)</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid #e8dde8">'+ff(rentProt)+'</td></tr>';
   rows+='<tr class="subtotal"><td style="padding:6px 12px;font-weight:600;color:#2D9B6F">Subtotal aportes empresa</td><td class="num" style="padding:6px 12px;font-weight:600;color:#2D9B6F">'+ff(totalAport)+'</td></tr>';
-  rows+='<tr class="total"><td style="padding:8px 12px;font-weight:700;font-size:13px;color:#2D9B6F">TOTAL COTIZACIONES PREVIRED</td><td class="num" style="padding:8px 12px;font-weight:700;font-size:13px;color:#2D9B6F">'+ff(totalCot)+'</td></tr>';
+  if(asigFamP){
+    rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid #e8dde8;color:#5c4a5d">Total cotizaciones</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid #e8dde8">'+ff(totalBrutoP)+'</td></tr>';
+    rows+='<tr><td style="padding:5px 12px;border-bottom:0.5px solid #e8dde8;color:#C07A1A">− Asignación familiar (la paga la empresa y se descuenta)</td><td class="num" style="padding:5px 12px;border-bottom:0.5px solid #e8dde8;color:#C07A1A">−'+ff(asigFamP)+'</td></tr>';
+  }
+  rows+='<tr class="total"><td style="padding:8px 12px;font-weight:700;font-size:13px;color:#2D9B6F">TOTAL A PAGAR PREVIRED</td><td class="num" style="padding:8px 12px;font-weight:700;font-size:13px;color:#2D9B6F">'+ff(totalCot)+'</td></tr>';
   document.getElementById('rpt-tabla-body').innerHTML=rows;
   var periodos=getPeriodos();
   var pd=periodos.find(function(p){return p.periodo===(_reporteActual&&_reporteActual.periodo);});
@@ -1606,6 +1630,11 @@ function abrirModal(id,enviar,limpiar){
     setV('m-ces-trab',r.cesTrab||0);setV('m-iu',r.iu||0);
     setV('m-total-desc',r.totalDesc||0);
     setV('m-sis',r.sis||0);setV('m-mutual',r.mutual||0);setV('m-ces-emp',r.cesEmp||0);
+    setV('m-cap-ind',r.capInd||0);setV('m-exp-vida',r.expVida||0);setV('m-rent-prot',r.rentProt||0);
+    // Asignación familiar: la guardada; si no viene, la diferencia entre el bruto y el total guardado (nunca negativa).
+    var _bru=(r.afp||0)+(r.salud||0)+(r.apv||0)+(r.cesTrab||0)+(r.sis||0)+(r.mutual||0)+(r.cesEmp||0)+(r.capInd||0)+(r.expVida||0)+(r.rentProt||0);
+    var _tc=r.totalCotizaciones||r.totalCot||0;
+    setV('m-asig-fam', r.asignacionFamiliar!=null ? r.asignacionFamiliar : (_tc>0&&_bru>_tc ? _bru-_tc : 0));
     calcTotalesModal();
     document.getElementById('datosLibroWrap').style.display='block';
     document.getElementById('modoManualWrap').style.display='none';
@@ -1626,7 +1655,7 @@ function _limpiarFormularioReproceso(){
     'm-afp','m-salud','m-apv','m-ces-trab','m-iu',
     'm-total-desc','m-otros-desc',
     'm-sis','m-mutual','m-ces-emp','m-cap-ind','m-exp-vida','m-rent-prot',
-    'm-total-aportes','m-total-cot','m-obs'];
+    'm-total-aportes','m-cot-bruto','m-asig-fam','m-total-cot','m-obs'];
   // Campos modo manual
   var camposManual=['m-ntrab-m','m-cot-m','m-iu-m','m-obs-m'];
   camposLibro.concat(camposManual).forEach(function(id){
@@ -1787,7 +1816,7 @@ function guardarRrhh(accion){
   var iu = usaArchivo ? gv('m-iu') : gv('m-iu-m');
   // totalCotizaciones oficial (sin IU, sin otros descuentos)
   var totalCotizaciones = usaArchivo
-    ? (gv('m-afp')+gv('m-salud')+gv('m-apv')+gv('m-ces-trab')+aportesPatronalesModal())
+    ? (gv('m-afp')+gv('m-salud')+gv('m-apv')+gv('m-ces-trab')+aportesPatronalesModal()-gv('m-asig-fam'))
     : gv('m-cot-m');
   var totalAportes = usaArchivo ? aportesPatronalesModal() : 0;
   var totalImponible   = gv('m-timponible');
@@ -1821,6 +1850,7 @@ function guardarRrhh(accion){
     rentProt:         usaArchivo ? gv('m-rent-prot') : 0,
     iuTributario:     usaArchivo ? iu : 0,
     totalCotizaciones,
+    asignacionFamiliar: usaArchivo ? gv('m-asig-fam') : 0,
     totalAportes,
     costoLaboral,
     totalCot:         totalCotizaciones, // legacy compat
@@ -2076,7 +2106,7 @@ function buildPreReporteRrhhHTML(r,data){
   +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8dde8">'
   +'<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Trab. activos</div><div style="font-size:22px;font-weight:700;color:#1a0a1b">'+nTrab+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">'+nActivos+' activos'+(nLic?' · '+nLic+' licencia':'')+'</div></div>'
   +'<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nómina líquida</div><div style="font-size:22px;font-weight:700;color:#2D9B6F">'+ff(nomina)+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Total a pagar trabajadores</div></div>'
-  +'<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total cotizaciones</div><div style="font-size:22px;font-weight:700;color:#904891">'+ff(totalCot)+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Incluye aportes empleador</div></div>'
+  +'<div style="background:#fff;padding:14px 16px"><div style="font-size:10px;color:#9a849b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total a pagar Previred</div><div style="font-size:22px;font-weight:700;color:#904891">'+ff(totalCot)+'</div><div style="font-size:10px;color:#9a849b;margin-top:2px">Incluye aportes empleador'+(r.asignacionFamiliar>0?' · descontada asignación familiar '+ff(r.asignacionFamiliar):'')+'</div></div>'
   +'</div>'
   // Tabla
   +'<div style="padding:16px 24px;border-bottom:1px solid #f0ebf0">'
