@@ -1002,82 +1002,69 @@ function parsearLibro(file){
         var titulo=doc.body.textContent||'';
         var mPer=titulo.match(/LIBRO DE REMUNERACIONES\s*(\d{2})-(\d{4})/i);
         var periodo=mPer?(mPer[1]+'-'+mPer[2]):null;
-        // Buscar tabla con más columnas
+        // 24-11 (Luciano): el libro de Mas Remuneraciones cambia de columnas según los haberes de cada empresa (bonos, viático,
+        // anticipo…) y puede traer a todos los trabajadores en UNA sola fila de la tabla. Por eso: (1) se toman TODAS las celdas de la
+        // tabla en orden, (2) los encabezados van desde «PERIODO» hasta la primera celda MM-AAAA, (3) cada trabajador = un bloque
+        // de N celdas, y (4) cada dato se lee por el NOMBRE de su columna (nunca por su posición). Las columnas repetidas se
+        // distinguen por orden: 1ª «AFP» = institución, 2ª = descuento; 1ª «S. CESANTIA» = trabajador, 2ª = empleador.
         var tables=doc.querySelectorAll('table');
-        var tabla=null;
+        var tabla=null, celdasTabla=[];
         for(var i=0;i<tables.length;i++){
-          var rs=tables[i].querySelectorAll('tr');
-          if(rs.length>1&&rs[1].querySelectorAll('td').length>=20){tabla=tables[i];break;}
+          var cs=tables[i].querySelectorAll('td,th');
+          if(cs.length>celdasTabla.length){tabla=tables[i];celdasTabla=cs;}
         }
-        if(!tabla){reject(new Error('No se encontró tabla de datos.'));return;}
-        // IDX base 0 — 42 cols A:AP — LRemu Mas Remuneraciones (actualizado jun-2026)
-        var IDX={
-          periodo:0,
-          rut:1,
-          apPat:2,
-          apMat:3,
-          nombres:4,
-
-          sueldoBase:5,
-          contrato:6,
-          centroCosto:7,
-
-          dias:8,
-          atraso:9,
-          vacaciones:10,
-          licencia:11,
-
-          saludNombre:12,
-          plan:13,
-          afpNombre:14,
-          pctAfp:15,
-
-          sueldoMensual:16,
-          gratificacion:17,
-          ajusteSueldoBase:18,
-          bonoResponsabilidad:19,
-          totalImponible:20,
-
-          cFamiliar:21,
-          colacion:22,
-          movilizacion:23,
-          asignacionResponsabilidad:24,
-          totalNoImponible:25,
-
-          dctoAfp:26,
-          apv1:27,
-          apv2:28,
-          dctoSalud:29,
-          cesTrab:30,
-          iu:31,
-
-          totalDescuentos:32,
-          otrosDescuentos:33,
-          liquido:34,
-
-          sis:35,
-          mutual:36,
-          cesEmp:37,
-          capInd:38,
-          expVida:39,
-          rentProt:40,
-
-          tributable:41
+        if(!tabla||celdasTabla.length<20){reject(new Error('No se encontró tabla de datos.'));return;}
+        var todas=[];for(var k=0;k<celdasTabla.length;k++)todas.push(celdasTabla[k].textContent.replace(/\s+/g,' ').trim());
+        var norm=function(x){return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();};
+        // Dos formatos: DETALLE (parte en «PERIODO», 42+ columnas) y COMPACTO (parte en «Rut», 18 columnas fijas, sin período por fila).
+        var h0=-1;for(var k2=0;k2<todas.length;k2++){var nk=norm(todas[k2]);if(nk==='PERIODO'||nk==='RUT'){h0=k2;break;}}
+        if(h0<0){reject(new Error('No se encontraron los encabezados del libro (PERIODO o RUT).'));return;}
+        var esRutCelda=function(x){return /^\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]$/.test(String(x||'').trim());};
+        var hFin=h0+1;while(hFin<todas.length&&!/^\d{2}-\d{4}$/.test(todas[hFin])&&!esRutCelda(todas[hFin]))hFin++;
+        var ENC=todas.slice(h0,hFin).map(norm), N=ENC.length;
+        var compacto=ENC.indexOf('T.IMPO')>=0;
+        function col(nombre,vez){var n=0;for(var q=0;q<ENC.length;q++){if(ENC[q]===nombre&&++n===(vez||1))return q;}return -1;}
+        function colEmpieza(pref){for(var q=0;q<ENC.length;q++){if(ENC[q].indexOf(pref)===0)return q;}return -1;}
+        var IDX=compacto?{
+          // COMPACTO (Mas Remuneraciones): T.Desc INCLUYE O.Desc; «Aporte» = todos los aportes del empleador juntos.
+          periodo:-1, rut:col('RUT'), nombreCompleto:col('NOMBRE'), dias:col('DT'), sueldoMensual:col('S.MENSUAL'), gratificacion:col('GRATI'),
+          otrosHaberes:col('O.HABERES'), totalImponible:col('T.IMPO'), cFamiliar:col('C.FAMILIAR'), totalNoImponible:col('NOIMPO'),
+          totalHaberes:col('T.HABERES'), dctoAfp:col('AFP'), dctoSalud:col('SALUD'), cesTrab:col('SEG.C'), iu:col('IMPUESTOS'),
+          otrosDescuentos:col('O.DESC'), totalDescuentosConOtros:col('T.DESC'), liquido:col('LIQUIDO'), aportePatronal:col('APORTE'),
+          apPat:-1, apMat:-1, nombres:-1, sueldoBase:-1, contrato:-1, centroCosto:-1, atraso:-1, vacaciones:-1, licencia:-1, saludNombre:-1, plan:-1,
+          afpNombre:-1, pctAfp:-1, ajusteSueldoBase:-1, bonoResponsabilidad:-1, colacion:-1, movilizacion:-1, asignacionResponsabilidad:-1,
+          apv1:-1, apv2:-1, totalDescuentos:-1, sis:-1, mutual:-1, cesEmp:-1, capInd:-1, expVida:-1, rentProt:-1, tributable:-1
+        }:{
+          periodo:col('PERIODO'), rut:col('RUT'), apPat:col('APELLIDO PATERNO'), apMat:col('APELLIDO MATERNO'), nombres:col('NOMBRES'),
+          sueldoBase:col('SUELDO BASE'), contrato:col('CONTRATO'), centroCosto:col('CENTRO DE COSTO'),
+          dias:col('DIAS TRABAJADOS'), atraso:col('ATRASO'), vacaciones:col('VACACIONES'), licencia:col('DIAS LICENCIA'),
+          saludNombre:col('ISAPRE/FONASA'), plan:col('PLAN'), afpNombre:col('AFP',1), pctAfp:col('%AFP'),
+          sueldoMensual:col('SUELDO MENSUAL'), gratificacion:col('GRATIFICACION'), ajusteSueldoBase:colEmpieza('AJUSTE SUELDO'),
+          bonoResponsabilidad:colEmpieza('BONO DE RESPONSABILIDAD'), totalImponible:col('TOTAL IMPONIBLE'),
+          cFamiliar:col('C. FAMILIAR'), colacion:colEmpieza('ASIGNACION DE COLACION'), movilizacion:colEmpieza('ASIGNACION MOVILIZACION'),
+          asignacionResponsabilidad:colEmpieza('ASIGNACION DE RESPONSABILIDAD'), totalNoImponible:col('TOTAL NO IMPONIBLE'),
+          dctoAfp:col('AFP',2), apv1:col('APV1'), apv2:col('APV2'), dctoSalud:col('SALUD'), cesTrab:col('S. CESANTIA',1), iu:col('I.U.'),
+          totalDescuentos:col('TOTAL DESCUENTOS'), otrosDescuentos:col('TOTAL O. DESCUENTOS'), liquido:col('LIQUIDO A PAGAR'),
+          sis:col('SIS'), mutual:col('MUTUAL'), cesEmp:col('S. CESANTIA',2), capInd:col('CAP. INDIVIDUAL'), expVida:col('EXPECTATIVA DE VIDA'),
+          rentProt:col('RENTABILIDAD PROTEGIDA'), tributable:col('TRIBUTABLE')
         };
-        var filas=tabla.querySelectorAll('tr');
+        // Columnas imprescindibles: si falta alguna, se detiene (nunca se adivina una casilla).
+        var faltan=(compacto?['rut','totalImponible','totalNoImponible','dctoAfp','dctoSalud','cesTrab','iu','otrosDescuentos','totalDescuentosConOtros','liquido','aportePatronal']
+          :['rut','totalImponible','totalNoImponible','dctoAfp','dctoSalud','cesTrab','iu','totalDescuentos','liquido','sis','mutual','cesEmp'])
+          .filter(function(k){return IDX[k]<0;});
+        var ETQ_COL={rut:'Rut',totalImponible:'Total imponible',totalNoImponible:'Total no imponible',dctoAfp:'AFP',dctoSalud:'Salud',cesTrab:'Seguro de cesantía',iu:'Impuesto único',totalDescuentos:'Total descuentos',otrosDescuentos:'Otros descuentos',totalDescuentosConOtros:'T.Desc',liquido:'Líquido a pagar',sis:'SIS',mutual:'Mutual',cesEmp:'Cesantía empleador',aportePatronal:'Aporte'};
+        if(faltan.length){reject(new Error('El libro no trae estas columnas: '+faltan.map(function(k){return ETQ_COL[k]||k;}).join(', ')+'. Revisa que sea el «Libro de Remuneraciones · Detalle» de Mas Remuneraciones.'));return;}
+        // Haberes que no tienen casilla propia en Gestoor (bonos, viático…): se informan en el detalle de cada trabajador.
+        var usados={};Object.keys(IDX).forEach(function(k){if(IDX[k]>=0)usados[IDX[k]]=true;});
+        var gIni=compacto?IDX.totalImponible:(IDX.gratificacion>=0?IDX.gratificacion:IDX.sueldoMensual), nImpIni=IDX.totalImponible, nImpFin=compacto?IDX.totalImponible:IDX.totalNoImponible;
         var trabajadores=[];
-        for(var fi=0;fi<filas.length;fi++){
-          var celdas=filas[fi].querySelectorAll('td');
-          if(celdas.length<20) continue;
-          var c=[];
-          for(var ci=0;ci<celdas.length;ci++) c.push(celdas[ci].textContent.trim());
-          // Ignorar fila de totales (cualquier columna que diga Totales)
-          if(/totales?/i.test(c[IDX.pctAfp]||'')) break;
-          // Filtro principal: columna PERIODO debe tener formato MM-YYYY (ej: 06-2026)
-          // Fallback: columna RUT tiene dígitos con guión
-          var periodoValido=/^\d{2}-\d{4}$/.test(c[0]);
-          var rutValido=/\d{7,8}-[\dkK]/i.test((c[IDX.rut]||'').replace(/\./g,''));
-          if(!periodoValido && !rutValido) continue;
+        for(var ini=hFin;ini+N<=todas.length;ini+=N){
+          var c=todas.slice(ini,ini+N);
+          if(IDX.periodo>=0?!/^\d{2}-\d{4}$/.test(c[IDX.periodo]||''):!esRutCelda(c[IDX.rut]))break;   // fila de Totales u otra cosa: fin
+          if(!/\d{7,8}-[\dkK]/.test((c[IDX.rut]||'').replace(/\./g,'')))continue;
+          var extrasImp=[],extrasNoImp=[];
+          for(var q2=gIni+1;q2<nImpIni;q2++){if(!usados[q2]&&montoCLP(c[q2]))extrasImp.push({nombre:todas[h0+q2],monto:montoCLP(c[q2])});}
+          for(var q3=nImpIni+1;q3<nImpFin;q3++){if(!usados[q3]&&montoCLP(c[q3]))extrasNoImp.push({nombre:todas[h0+q3],monto:montoCLP(c[q3])});}
           var diasT=parseInt(c[IDX.dias])||0;
           var diasL=parseInt(c[IDX.licencia])||0;
           trabajadores.push({
@@ -1087,7 +1074,7 @@ function parsearLibro(file){
             apellidoMaterno: (c[IDX.apMat]||'').trim(),
             nombres:         (c[IDX.nombres]||'').trim(),
             // Legacy: nombre combinado (usado en emails y vistas actuales)
-            nombre:          (c[IDX.nombres]+' '+c[IDX.apPat]+' '+c[IDX.apMat]).trim(),
+            nombre:          compacto?(c[IDX.nombreCompleto]||'').trim():(c[IDX.nombres]+' '+c[IDX.apPat]+' '+c[IDX.apMat]).trim(),
             // ── Clasificación ────────────────────────────────
             centroCosto:     (c[IDX.centroCosto]||'').trim(),
             // ── Previsional ──────────────────────────────────
@@ -1109,7 +1096,8 @@ function parsearLibro(file){
             cFamiliar:       montoCLP(c[IDX.cFamiliar]),
             colacion:        montoCLP(c[IDX.colacion]),
             movilizacion:    montoCLP(c[IDX.movilizacion]),
-            totalNoImponible:montoCLP(c[IDX.totalNoImponible]),
+            // Compacto: «NoImpo» NO incluye la asignación familiar (viene aparte en «C.Familiar»); el detalle sí la incluye.
+            totalNoImponible:montoCLP(c[IDX.totalNoImponible])+(compacto?montoCLP(c[IDX.cFamiliar]):0),
             // ── Descuentos trabajador ────────────────────────
             dctoAfp:         montoCLP(c[IDX.dctoAfp]),
             apv1:            montoCLP(c[IDX.apv1]),
@@ -1119,7 +1107,8 @@ function parsearLibro(file){
             dctoSalud:       montoCLP(c[IDX.dctoSalud]),
             cesTrab:         montoCLP(c[IDX.cesTrab]),
             iu:              montoCLP(c[IDX.iu]),
-            totalDescuentos: montoCLP(c[IDX.totalDescuentos]),
+            // Compacto: T.Desc trae los otros descuentos sumados → se separan para que valga lo mismo que en el detalle.
+            totalDescuentos: compacto?montoCLP(c[IDX.totalDescuentosConOtros])-montoCLP(c[IDX.otrosDescuentos]):montoCLP(c[IDX.totalDescuentos]),
             otrosDescuentos: montoCLP(c[IDX.otrosDescuentos]),
             // ── Resultado ────────────────────────────────────
             liquido:         montoCLP(c[IDX.liquido]),
@@ -1131,7 +1120,13 @@ function parsearLibro(file){
             expVida:         montoCLP(c[IDX.expVida]),
             rentProt:        montoCLP(c[IDX.rentProt]),
             // ── Tributario ───────────────────────────────────
-            tributable:      montoCLP(c[IDX.tributable])
+            tributable:      montoCLP(c[IDX.tributable]),
+            // ── 24-11: haberes sin casilla propia (bonos, viático…) ───
+            otrosHaberesImponibles:   extrasImp,
+            otrosHaberesNoImponibles: extrasNoImp,
+            // Aporte total del empleador (compacto: columna «Aporte»; detalle: suma de sus seis columnas)
+            aportePatronal:  compacto?montoCLP(c[IDX.aportePatronal]):(montoCLP(c[IDX.sis])+montoCLP(c[IDX.mutual])+montoCLP(c[IDX.cesEmp])+montoCLP(c[IDX.capInd])+montoCLP(c[IDX.expVida])+montoCLP(c[IDX.rentProt])),
+            otrosHaberesCompacto: compacto?montoCLP(c[IDX.otrosHaberes]):0
           });
         }
         if(!trabajadores.length){
@@ -1168,8 +1163,9 @@ function parsearLibro(file){
         var rentProt         = sum('rentProt');
         var tributable       = sum('tributable');
         // Total Previred (SIN IU que es tributario SII)
-        var totalCotizaciones = dctoAfp+apv+dctoSalud+cesTrab+sis+mutual+cesEmp+capInd+expVida+rentProt;
-        var totalAportesPatronales = sis+mutual+cesEmp+capInd+expVida+rentProt;
+        // Aporte del empleador: en el compacto viene en una sola columna; en el detalle, por concepto (son iguales en total).
+        var totalAportesPatronales = sum('aportePatronal');
+        var totalCotizaciones = dctoAfp+apv+dctoSalud+cesTrab+totalAportesPatronales;
         // Validación de cuadratura
         var liquidoCalculado = totalImponible+totalNoImponible-totalDescuentos-otrosDescuentos;
         var alertas=[];
@@ -1188,7 +1184,7 @@ function parsearLibro(file){
         // ── Costos consolidados ──────────────────────────────────────
         var costoLaboral = totalImponible + totalNoImponible + totalAportesPatronales;
         resolve({
-          periodo, trabajadores,
+          periodo, trabajadores, formato: compacto?'compacto':'detalle',
           // Dotación
           nTrab:              trabajadores.length,
           nTrabActivos:       trabajadores.filter(function(t){return t.diasTrabajados>0;}).length,
@@ -1261,6 +1257,7 @@ function llenarCamposDesdeLibro(data){
   setV('m-cap-ind',data.capInd||0);
   setV('m-exp-vida',data.expVida||0);
   setV('m-rent-prot',data.rentProt||0);
+  _aporteLibroTotal = data.formato==='compacto' ? (data.totalAportesPatronales||0) : null;   // 24-11: libro compacto
   // Totales calculados
   calcTotalesModal();
   // Mostrar sección libro
@@ -1407,6 +1404,7 @@ function procesarPeriodo(){
 }
 function limpiarLibro(){
   _remuData=null;
+  _aporteLibroTotal=null;
   document.getElementById('libroOk').classList.remove('show');
   document.getElementById('uzLibro').style.display='block';
   document.getElementById('selectPeriodoLibroWrap').style.display='none';
@@ -1415,6 +1413,13 @@ function limpiarLibro(){
   if(document.getElementById('fileLibro')) document.getElementById('fileLibro').value='';
   document.getElementById('previewRptParcial').style.display='none';
   _iuDebeSincronizar=false;
+}
+// 24-11: el libro COMPACTO trae los aportes del empleador en UNA columna («Aporte»), sin SIS/Mutual/Cesantía por separado.
+// Si el desglose está en cero y el libro compacto trae el aporte total, se usa ese total (nunca se inventa un desglose).
+var _aporteLibroTotal=null;
+function aportesPatronalesModal(){
+  var desglose=gv('m-sis')+gv('m-mutual')+gv('m-ces-emp')+gv('m-cap-ind')+gv('m-exp-vida')+gv('m-rent-prot');
+  return desglose===0&&_aporteLibroTotal>0?_aporteLibroTotal:desglose;
 }
 function calcTotalesModal(){
   // ── Descuentos previsionales del trabajador ────────────────
@@ -1428,7 +1433,7 @@ function calcTotalesModal(){
   // ── Aportes patronales ─────────────────────────────────────
   var sis=gv('m-sis'),mutual=gv('m-mutual'),cesEmp=gv('m-ces-emp');
   var capInd=gv('m-cap-ind'),expVida=gv('m-exp-vida'),rentProt=gv('m-rent-prot');
-  var totalAportes = sis+mutual+cesEmp+capInd+expVida+rentProt;
+  var totalAportes = aportesPatronalesModal();
   setV('m-total-aportes', Math.round(totalAportes));
   // ── Total cotizaciones Previred (SIN IU, SIN otros descuentos) ──
   var totalCot = descPrev + totalAportes;
@@ -1752,14 +1757,9 @@ function guardarRrhh(accion){
   var iu = usaArchivo ? gv('m-iu') : gv('m-iu-m');
   // totalCotizaciones oficial (sin IU, sin otros descuentos)
   var totalCotizaciones = usaArchivo
-    ? (gv('m-afp')+gv('m-salud')+gv('m-apv')+gv('m-ces-trab')
-       +gv('m-sis')+gv('m-mutual')+gv('m-ces-emp')
-       +gv('m-cap-ind')+gv('m-exp-vida')+gv('m-rent-prot'))
+    ? (gv('m-afp')+gv('m-salud')+gv('m-apv')+gv('m-ces-trab')+aportesPatronalesModal())
     : gv('m-cot-m');
-  var totalAportes = usaArchivo
-    ? (gv('m-sis')+gv('m-mutual')+gv('m-ces-emp')
-       +gv('m-cap-ind')+gv('m-exp-vida')+gv('m-rent-prot'))
-    : 0;
+  var totalAportes = usaArchivo ? aportesPatronalesModal() : 0;
   var totalImponible   = gv('m-timponible');
   var totalNoImponible = gv('m-tnoimponible')||0;
   var costoLaboral     = totalImponible + totalNoImponible + totalAportes;
