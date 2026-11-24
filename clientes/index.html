@@ -365,8 +365,9 @@ body.modal-open{overflow:hidden;}
            hasta implementar módulo seguro de credenciales (FIX2). -->
       <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:11.5px;color:#3730a3;line-height:1.5">
         🔒 <strong>Credenciales protegidas.</strong>
-        Las credenciales están protegidas. Su administración estará disponible desde el módulo seguro de credenciales.
-        Los usuarios/RUT de acceso pueden editarse normalmente.
+        Las claves se guardan cifradas en la bóveda y nunca vuelven a mostrarse aquí.
+        <span id="credAyudaMaster" style="display:none">Como Master, escribe la clave en su fila: se guarda al presionar <strong>Guardar cliente</strong> (deja vacía la que no cambie).</span>
+        <span id="credAyudaOtros">Los usuarios/RUT de acceso pueden editarse normalmente; las claves las ingresa el Master.</span>
       </div>
       <table class="cred-table" style="margin-bottom:0">
         <thead>
@@ -376,27 +377,27 @@ body.modal-open{overflow:hidden;}
           <tr>
             <td class="sys">SII Empresa</td>
             <td><input class="cred-inp" type="text" id="f-sii-u" placeholder="RUT empresa sin puntos"></td>
-            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
+            <td style="padding:6px 10px"><span class="cred-prot" style="font-size:11px;color:var(--tm)">Credencial protegida</span><input class="cred-inp cred-clave" type="password" autocomplete="new-password" spellcheck="false" maxlength="1000" style="display:none" data-slug="sii_empresa" data-tipo="sii" data-label="SII Empresa" data-u="f-sii-u" placeholder="Escribe la clave" aria-label="Clave SII Empresa"></td>
           </tr>
           <tr>
             <td class="sys">SII Rep. Legal</td>
             <td><input class="cred-inp" type="text" id="f-prev-u" placeholder="RUT representante legal"></td>
-            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
+            <td style="padding:6px 10px"><span class="cred-prot" style="font-size:11px;color:var(--tm)">Credencial protegida</span><input class="cred-inp cred-clave" type="password" autocomplete="new-password" spellcheck="false" maxlength="1000" style="display:none" data-slug="sii_rep_legal" data-tipo="extra" data-label="SII Rep. Legal" data-u="f-prev-u" placeholder="Escribe la clave" aria-label="Clave SII Rep. Legal"></td>
           </tr>
           <tr>
             <td class="sys">Clave Única</td>
             <td><input class="cred-inp" type="text" id="f-cu-u" placeholder="RUT titular"></td>
-            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
+            <td style="padding:6px 10px"><span class="cred-prot" style="font-size:11px;color:var(--tm)">Credencial protegida</span><input class="cred-inp cred-clave" type="password" autocomplete="new-password" spellcheck="false" maxlength="1000" style="display:none" data-slug="clave_unica" data-tipo="cu" data-label="Clave Única" data-u="f-cu-u" placeholder="Escribe la clave" aria-label="Clave Clave Única"></td>
           </tr>
           <tr>
             <td class="sys">Facturación</td>
             <td><input class="cred-inp" type="text" id="f-fact-u" placeholder="Usuario plataforma"></td>
-            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
+            <td style="padding:6px 10px"><span class="cred-prot" style="font-size:11px;color:var(--tm)">Credencial protegida</span><input class="cred-inp cred-clave" type="password" autocomplete="new-password" spellcheck="false" maxlength="1000" style="display:none" data-slug="facturacion" data-tipo="fact" data-label="Facturación" data-u="f-fact-u" placeholder="Escribe la clave" aria-label="Clave Facturación"></td>
           </tr>
           <tr>
             <td class="sys">Portal Licencias</td>
             <td><input class="cred-inp" type="text" id="f-lic-u" placeholder="Usuario portal"></td>
-            <td style="font-size:11px;color:var(--tm);padding:8px 10px">Credencial protegida</td>
+            <td style="padding:6px 10px"><span class="cred-prot" style="font-size:11px;color:var(--tm)">Credencial protegida</span><input class="cred-inp cred-clave" type="password" autocomplete="new-password" spellcheck="false" maxlength="1000" style="display:none" data-slug="portal_licencias" data-tipo="lic" data-label="Portal Licencias" data-u="f-lic-u" placeholder="Escribe la clave" aria-label="Clave Portal Licencias"></td>
           </tr>
         </tbody>
       </table>
@@ -945,6 +946,7 @@ function abrirNuevo() {
   resetForm();
   poblarPlanesSelect();
   g('modalTitle').textContent = 'Nuevo cliente';
+  credUI(!!(window._contadoorSesion && window._contadoorSesion.esMaster), null);   // 24-11: claves a mano (solo Master)
   siiCompletarUI(true, 'Traer datos del SII');   // 24-11: escribe el RUT y trae la ficha desde Cartapra; tú completas lo que falta
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
@@ -1177,19 +1179,61 @@ function abrirEditar(id) {
   g('modalForm').classList.add('on');
   g('modalBody').scrollTop = 0;
   siiCompletarUI(true);
+  credUI(!!(window._contadoorSesion && window._contadoorSesion.esMaster), Number(id));   // 24-11: claves a mano (solo Master)
   sincronizarBloqueoModales();
 }
 
 function sincronizarBloqueoModales(){
   document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-bg.on')));
 }
-function cerrarForm()    { g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }
+function cerrarForm()    { document.querySelectorAll('.cred-clave').forEach(function (i) { i.value = ''; }); g('modalForm').classList.remove('on'); sincronizarBloqueoModales(); }   // 24-11: nunca queda una clave escrita
 function cerrarDetalle() { if (window.GestoorHistoriaSII) GestoorHistoriaSII.cerrar(); if (window.GestoorHistorialSII) GestoorHistorialSII.cerrar(); if (window.GestoorLevDetalle) GestoorLevDetalle.cerrarMes(); if (window.GestoorSII) GestoorSII.desmontar(); if (window.MCAccesos) MCAccesos.cerrarDialogo(); g('modalDetalle').classList.remove('on'); sincronizarBloqueoModales(); }
 function cerrarClaves()  { _limpiarClavesState(); g('modalClaves').classList.remove('on'); sincronizarBloqueoModales(); }
 
 // ─────────────────────────────────────────────────────
 // GUARDAR
 // ─────────────────────────────────────────────────────
+// 24-11 (Luciano: «además de la planilla, poder ingresar las claves manualmente, en la ficha del cliente»).
+// Solo Master (el servidor lo exige: guardar-credencial valida es_master y audita). Mismos nombres internos (slug) que la carga
+// masiva, así nunca se duplica un tipo. Las claves se leen del formulario SOLO al guardar, se envían una por una y se borran
+// del formulario al terminar. Nunca se guardan en el navegador ni se escriben en la consola.
+function credUI(esMaster, clienteId) {
+  document.querySelectorAll('.cred-clave').forEach(function (i) { i.value = ''; i.style.display = esMaster ? '' : 'none'; i.placeholder = 'Escribe la clave'; });
+  document.querySelectorAll('.cred-prot').forEach(function (x) { x.style.display = esMaster ? 'none' : ''; });
+  var am = g('credAyudaMaster'), ao = g('credAyudaOtros'); if (am) am.style.display = esMaster ? '' : 'none'; if (ao) ao.style.display = esMaster ? 'none' : '';
+  if (!esMaster || !clienteId) return;
+  var seq = ++_credSeq;
+  edgeFetch('listar-credenciales', { clienteId: Number(clienteId) }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (seq !== _credSeq || !d || !Array.isArray(d.credenciales)) return;
+    var hay = {}; d.credenciales.forEach(function (c) { if (c && c.slug) hay[c.slug] = true; });
+    document.querySelectorAll('.cred-clave').forEach(function (i) { if (hay[i.getAttribute('data-slug')]) i.placeholder = '•••••• registrada · escribe para cambiarla'; });
+  }).catch(function () {});
+}
+var _credSeq = 0;
+function credPendientes() {
+  var out = [];
+  document.querySelectorAll('.cred-clave').forEach(function (i) {
+    if (i.style.display === 'none' || !i.value) return;
+    var u = g(i.getAttribute('data-u')); var usr = u ? String(u.value || '').trim() : '';
+    out.push({ el: i, slug: i.getAttribute('data-slug'), tipo: i.getAttribute('data-tipo'), label: i.getAttribute('data-label'), usuario: usr || null });
+  });
+  return out;
+}
+function credGuardar(clienteId, pend) {
+  var ok = [], mal = [];
+  return pend.reduce(function (p, x) {
+    return p.then(function () {
+      return edgeFetch('guardar-credencial', { clienteId: Number(clienteId), slug: x.slug, tipo: x.tipo, label: x.label, usuario: x.usuario, clave: x.el.value })
+        .then(function (r) { if (r.ok) { ok.push(x.label); x.el.value = ''; } else mal.push(x.label + (r.status === 403 ? ' (solo Master)' : '')); },
+              function () { mal.push(x.label + ' (sin respuesta: revisa en «Ver claves» antes de repetir)'); });
+    });
+  }, Promise.resolve()).then(function () {
+    pend.forEach(function (x) { x.el.value = ''; });   // nunca queda una clave escrita en el formulario
+    if (ok.length) toast('🔐 Claves guardadas: ' + ok.join(', '));
+    if (mal.length) alert('No se guardaron estas claves: ' + mal.join(', ') + '.\nVuelve a escribirlas en la ficha del cliente.');
+  });
+}
+
 function guardarCliente(op) {
   op = op || {};   // 24-11 «Guardar y conectar con el SII»: { sinSocios: true, despues: function (idNuevo) {} }
   // Respaldo si el navegador aún tiene en caché un supabase.js anterior (sin estas funciones)
@@ -1282,10 +1326,16 @@ function guardarCliente(op) {
 
   // SEC1-FIX1B.5-R1: DB-first — NO modificar caché local antes de confirmar RPC.
   // setClientes/cerrarForm/renderClientes/toast se ejecutan SOLO tras éxito confirmado.
+  var _credPend = credPendientes();   // 24-11: claves escritas a mano (solo Master); se guardan tras confirmar el cliente
   guardarSupabase(c, esEdicion)
     .then(function(result){
       // RPC confirmó éxito → recargar desde DB y actualizar UI
       return cargarSupabase().then(function(){
+        if (!_credPend.length) return;
+        var idCred = esEdicion ? Number(_editId) : Number((getClientes().find(function(x){ return gestoorNormalizarRut(x.rut) === rut; }) || {}).id);
+        if (!idCred) { _credPend.forEach(function (x) { x.el.value = ''; }); alert('El cliente se guardó, pero no pude ubicarlo para guardar las claves. Ábrelo y escríbelas de nuevo.'); return; }
+        return credGuardar(idCred, _credPend);
+      }).then(function(){
         renderClientes();
         if (!esEdicion) {
           var nuevo = getClientes().find(function(x){ return gestoorNormalizarRut(x.rut) === rut; });
