@@ -178,8 +178,15 @@ function cargar(){
   return D.yo().then(function(yo){
     S.yo=yo;
     if(!yo||!yo.puede_leer){render();return;}
-    return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();render();});
+    return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();render();abrirDesdeEnlace();});
   }).catch(function(e){S.err=mErr(e);render();});
+}
+/* MARCHA-BLANCA 24-11: enlace directo desde la campana (?cliente=<id de cliente>, p. ej. «Cliente reactivado») → abre su ficha UNA vez. */
+var _enlaceUsado=false;
+function abrirDesdeEnlace(){
+  if(_enlaceUsado)return;_enlaceUsado=true;
+  var m=/(?:^|[?&])cliente=(\d{1,18})(?:&|$)/.exec(location.search.slice(1));
+  if(m&&S.filas&&S.filas.some(function(x){return String(x.id)===m[1];}))abrirFicha(m[1]);
 }
 function recargar(msg){
   return D.cartera(S.yo).then(function(d){S.datos=d;armarFilas();S.mov=null;S.avisos=null;render();if(msg)G.toast(msg);});

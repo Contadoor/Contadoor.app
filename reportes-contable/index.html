@@ -5141,6 +5141,20 @@ function _siiF29MostrarMensaje(tipo, texto){
 <script src="cierre-reporte.js?v=2026112004"></script>   <!-- REPORTE-AUTO R4: «🔒 Cerrar reporte» en Contable (después de «Validar IVA») -->
 <script src="../clientes/sii-cartapra.js"></script>
 <script src="../notifications.js"></script>
+<script src="../assets/enlace-directo.js?v=20261124"></script>
+<script>
+// MARCHA-BLANCA 24-11: enlace directo desde la campana (?reporte=<id>). El cliente se resuelve por el RUT del reporte.
+GestoorEnlace.alCargar('reporte', function(id){
+  if(typeof getReportes!=='function'||!_periodoActual) return false;
+  var rep=getReportes().find(function(r){return String(r.id)===String(id);});
+  if(!rep) return false;
+  if(rep.periodo!==_periodoActual){ alert('Ese reporte es del período '+rep.periodo+': elígelo en el selector de período para verlo.'); return true; }
+  if(!document.getElementById('row-'+rep.rut)) return false;
+  _abrirSolo(rep.rut); _cargarSiiDe(rep.rut);
+  var row=document.getElementById('row-'+rep.rut); if(row) row.scrollIntoView({block:'start',behavior:'smooth'});
+  return true;
+});
+</script>
 <script>
 window.GESTOOR_MODULO = 'reportes-contable';
 </script>
