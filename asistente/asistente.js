@@ -193,6 +193,7 @@
   var FILTROS=[
     ['todas','Todas',function(c){return c.estado!=='cerrada';}],
     ['nec','Te necesitan',function(c){return c.estado==='esperando_humano';}],
+    ['sin','Sin contestar',function(c){return sinContestar(c);}],
     ['mias','Mías',function(c){return c.estado==='humano'&&!!S.yo&&c.tomada_por===S.yo;}],
     ['baja','Posible baja',function(c){return !!c.opt_out_posible;}],
     ['duda','En duda',function(c){return !!c.en_duda;}],
@@ -236,6 +237,7 @@
     else if(c.estado==='humano')t.push(c.tomada_por===S.yo?'<span class="t t-tu">Tomada por ti</span>':'<span class="t t-otro">Tomada por otra persona</span>');
     else if(c.estado==='ia')t.push('<span class="t t-ia">IA atendiendo</span>');
     else if(c.estado==='cerrada')t.push('<span class="t t-cerr">Cerrada</span>');
+    if(sinContestar(c))t.push('<span class="t t-sin">💬 Te respondió · sin contestar</span>');
     if(c.opt_out_posible)t.push('<span class="t t-baja">Posible baja · revisar</span>');
     if(c.en_duda)t.push('<span class="t t-duda">Mensaje en duda</span>');
     if(c.modo==='cliente')t.push('<span class="t t-cli">Cliente'+(c.plan_cliente?' · '+esc(PLAN[c.plan_cliente]||c.plan_cliente):'')+'</span>');
@@ -311,6 +313,18 @@
   }
 
   // ── Columna 2 · conversación ───────────────────────────────────────────────
+  /* @ventana-inicio · 25-11: WhatsApp solo deja enviar texto libre dentro de las 24 h desde el último mensaje de la persona. */
+  var VENTANA_MS=24*36e5,AVISO_MS=3*36e5;
+  function ventanaWA(msgs,ahora){
+    var ult=0;(msgs||[]).forEach(function(m){if(m&&m.direccion==='entrante'){var n=Date.parse(m.created_at);if(!isNaN(n)&&n>ult)ult=n;}});
+    if(!ult)return {estado:'cerrada',vence:null,restante:0};
+    var vence=ult+VENTANA_MS,rest=vence-(ahora==null?Date.now():ahora);
+    if(rest<=0)return {estado:'cerrada',vence:vence,restante:0};
+    return {estado:rest<AVISO_MS?'por_vencer':'abierta',vence:vence,restante:rest};
+  }
+  function textoRestante(ms){var min=Math.max(1,Math.floor(ms/6e4));var h=Math.floor(min/60),m=min%60;return (h?h+' h ':'')+m+' min';}
+  function sinContestar(c){var u=c&&c.ultimo;return !!(c&&(c.estado==='humano'||c.estado==='esperando_humano')&&!c.sellada&&!c.opt_out&&u&&(u.direccion==='entrante'||u.autor==='persona'));}
+  /* @ventana-fin */
   function puedeEscribir(c){
     return c.estado==='humano'&&!c.sellada&&!c.opt_out&&(c.tomada_por===S.yo||esMaster());
   }
@@ -336,6 +350,7 @@
     var e=m.envio,st=e&&e.estado;
     if(st==='programado')return '<span class="e-prog">'+gIcon('reloj')+' En cola de envío</span>';
     if(st==='enviando')return '<span class="e-prog">'+gIcon('reloj')+' Enviando…</span>';
+    if(st==='cancelado'&&e.motivo==='fuera_ventana_24h')return '<span class="e-mal">'+gIcon('alerta')+' No enviado: pasaron 24 h desde el último mensaje del cliente</span>';
     if(st==='cancelado')return '<span class="e-mal">No enviado (cancelado)</span>';
     if(st==='fallido'||m.estado_entrega==='fallido')return '<span class="e-mal">'+gIcon('alerta')+' No enviado</span>';
     if(st==='incierto'||m.estado_entrega==='incierto')return '<span class="e-duda">'+gIcon('alerta')+' Sin confirmación de entrega</span>';
@@ -418,6 +433,10 @@
       +'<div class="as-ctit"><h2>'+esc(nombreConv(c,c))+'</h2><p>'+esc(sub.join(' · '))+'</p></div>'
       +'<div class="as-acc">'+botonesEstado(c).filter(function(x){return x[0]!=='confirmar_baja'&&x[0]!=='descartar_baja'&&x[0]!=='reactivar';}).map(htmlBoton).join('')+'</div></div>';
     h+=htmlBanners(c);
+    var vw=ventanaWA(msgs);
+    var escribe=c.estado==='humano'&&!c.sellada&&!c.opt_out;
+    if(escribe&&vw.estado==='cerrada')h+='<div class="as-banner cerr">'+ic('alerta','rojo')+'<span class="txt"><b>Pasaron más de 24 h desde el último mensaje de esta persona.</b> WhatsApp no deja enviarle texto libre: los mensajes no saldrán. Pídele por otro medio que escriba al número del asistente y se reabre el plazo.</span></div>';
+    else if(escribe&&vw.estado==='por_vencer')h+='<div class="as-banner baja">'+ic('reloj','ambar')+'<span class="txt"><b>Quedan '+esc(textoRestante(vw.restante))+' para responder por WhatsApp</b> (vence a las '+esc(hora(new Date(vw.vence).toISOString()))+').</span></div>';
     // Línea de tiempo: mensajes + eventos conocidos, por hora.
     var items=msgs.map(function(m){return {t:m.created_at,m:m};});
     evs.forEach(function(ev){var e=etiquetaEvento(ev);if(e)items.push({t:ev.created_at,e:e});});
@@ -440,10 +459,11 @@
     var ta=$('as-texto');
     if(c.estado==='humano'&&!c.sellada&&!c.opt_out){
       comp.hidden=false;
-      var ok=puedeEscribir(c)&&!c.opt_out_posible;
+      var fuera=vw.estado==='cerrada';
+      var ok=puedeEscribir(c)&&!c.opt_out_posible&&!fuera;
       ta.disabled=!ok;$('as-enviar').disabled=!ok||S.ocupado;$('as-adjuntar').disabled=!ok||S.ocupado;$('as-grabar').disabled=!ok||S.ocupado||!formatoGrabacion();
       var nombre=c.ficha&&typeof c.ficha.nombre==='string'?c.ficha.nombre.trim().split(/\s+/)[0]:'';
-      ta.placeholder=c.opt_out_posible?'Resuelve la posible baja antes de escribir':!puedeEscribir(c)?'La atiende otra persona del equipo':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
+      ta.placeholder=fuera?'Fuera del plazo de 24 h de WhatsApp':c.opt_out_posible?'Resuelve la posible baja antes de escribir':!puedeEscribir(c)?'La atiende otra persona del equipo':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
       if(ta.getAttribute('data-conv')!==c.id){ta.setAttribute('data-conv',c.id);ta.value=S.borradores[c.id]||'';}
       if(!ok){quitarAdjunto(c.id);if(S.grab&&S.grab.conv===c.id)detenerGrab(false);}   // si ya no puede escribir, se descarta lo elegido
       pintarAdjunto();
