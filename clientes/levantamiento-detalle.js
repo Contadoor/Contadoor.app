@@ -574,7 +574,7 @@
     function av(t, c) { if (opt.aviso) opt.aviso(t, c); }
     if (opt.boton) opt.boton.disabled = true;
     av('Preparando el Excel' + (mes ? ' de ' + mesTxt(mes) : ' del levantamiento') + '…');
-    var conRcv = meses(desde, hasta).filter(function (p) { var m = (d.meses || []).filter(function (x) { return x.periodo === p; })[0]; return !m || m.estado !== 'sin_datos'; });
+    var conRcv = meses(desde, hasta).filter(function (p) { var m = (d.meses || []).filter(function (x) { return x.periodo === p; })[0]; return !m || ['sin_datos', 'solo_f29', 'no_declarado_sin_rcv'].indexOf(m.estado) < 0; });
     return registrar(ctx, desde, hasta, mes ? 'excel_mes' : 'excel_rango').then(function () {
       var pDocs = mes && opt.docsMes ? Promise.resolve((function () { var o = {}; o[mes] = opt.docsMes; return o; })()) : docsRango(ctx, conRcv);
       var LR = raiz.GestoorLevRect;

@@ -42,10 +42,10 @@
   function resumenLiva(l) {
     if (!l || !l.totales) return null;
     var pe = l.totales.por_estado || {}, est = l.estimacion || {}, K = est.conocido || {}, P = est.provisional || {}, X = est.no_calculable || {};
-    var dif = (pe.diferencia || 0) + (pe.diferencia_preliminar || 0) + (pe.no_declarado || 0);
+    var dif = (pe.diferencia || 0) + (pe.diferencia_preliminar || 0) + (pe.no_declarado || 0) + (pe.no_declarado_sin_rcv || 0);
     return { desde: l.desde, hasta: l.hasta, meses: l.totales.meses || 0, con_diferencia: dif, calzan: pe.calza || 0,
       provisionales: (pe.coincidencia_provisional || 0) + (pe.diferencia_preliminar || 0) + (Number(l.totales.condicionados) || 0),
-      sin_datos: (pe.sin_datos || 0) + (pe.f29_sin_montos || 0),
+      sin_datos: (pe.sin_datos || 0) + (pe.f29_sin_montos || 0) + (pe.solo_f29 || 0),
       impuesto: num(est.impuesto), reajuste: (num(K.reajuste) || 0) + (num(P.reajuste) || 0), intereses: (num(K.intereses) || 0) + (num(P.intereses) || 0),
       multa: (num(K.multa) || 0) + (num(P.multa) || 0), total: (num(K.total) || 0) + (num(P.total) || 0), meses_no_calculables: X.meses || 0 };
   }
