@@ -17,7 +17,11 @@
   var MAX_LEYENDA=1000;                                  // leyenda de un archivo adjunto (contrato de E4)
   var MAX_ARCHIVO=5*1024*1024;                           // 5 MB del archivo original
   var MAX_NOMBRE=120;
-  var MIMES={'application/pdf':'PDF','image/jpeg':'JPG','image/png':'PNG'};
+  var MIMES={'application/pdf':'PDF','image/jpeg':'JPG','image/png':'PNG','audio/ogg':'Nota de voz','audio/mp4':'Nota de voz'};
+  var MAX_GRABACION_S=120;                               // BANDEJA-MEDIOS: nota de voz de hasta 2 minutos
+  // URL firmada que entrega E4 (Storage de Supabase, 5 min). Cualquier otra cosa no se usa como fuente de imagen/audio.
+  var URL_MEDIO=/^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/sign\/asistente-materiales\/adjuntos\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|ogg|m4a|mp3|aac|amr|pdf)\?token=[A-Za-z0-9._-]+$/;
+  var SVG_MIC='<svg class="g-ic" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
   var EXT_MIME={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
   // No hay ícono de clip en gestoor-menu.js: se dibuja aquí con el mismo estilo de línea (Lucide).
   var SVG_CLIP='<svg class="g-ic" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
@@ -29,7 +33,8 @@
     sel:null,det:null,firmaSel:'',cargandoDet:false,
     yo:null,ocupado:false,
     borradores:{},nombres:{},                           // solo en memoria de esta pestaña
-    adjuntos:{}                                         // archivo elegido por conversación: {archivo,nombre,mime,tam} (solo en memoria)
+    adjuntos:{},                                        // archivo elegido por conversación: {archivo,nombre,mime,tam} (solo en memoria)
+    grab:null                                           // grabación de nota de voz en curso: {conv,rec,stream,partes,t0,timer}
   };
 
   // ── Utilidades ─────────────────────────────────────────────────────────────
@@ -211,7 +216,7 @@
 
   // ── Columna 1 · lista ──────────────────────────────────────────────────────
   // Archivo enviado por el equipo desde la bandeja: saliente, autor humano, tipo documento (PDF) o imagen (JPG/PNG).
-  function esAdjuntoEquipo(m){return !!m&&m.direccion==='saliente'&&m.autor==='humano'&&(m.tipo==='documento'||m.tipo==='imagen');}
+  function esAdjuntoEquipo(m){return !!m&&m.direccion==='saliente'&&m.autor==='humano'&&(m.tipo==='documento'||m.tipo==='imagen'||m.tipo==='audio');}
   function momentoConv(c){var u=c&&c.ultimo,t=(u&&u.created_at)||c.last_activity_at||'';var n=Date.parse(t);return isNaN(n)?0:n;}
   function previa(c){
     var u=c.ultimo;
@@ -219,7 +224,7 @@
     if(u.suprimido)return {t:'Contenido borrado',vacia:true};
     if(u.no_descifra)return {t:'No se pudo leer el mensaje',vacia:true};
     var pre=u.autor==='ia'?'IA: ':u.autor==='humano'?'Equipo: ':u.autor==='sistema'?'Sistema: ':'';
-    if(esAdjuntoEquipo(u))return {t:pre+'📎 Archivo adjunto'+(u.previa?' · '+u.previa:''),vacia:false};
+    if(esAdjuntoEquipo(u))return {t:pre+(u.tipo==='audio'?'🎙️ Nota de voz':'📎 Archivo adjunto'+(u.previa?' · '+u.previa:'')),vacia:false};
     if(u.previa==null)return {t:pre+(TIPO_ADJ[u.tipo]||'Mensaje sin texto'),vacia:true};
     return {t:pre+u.previa,vacia:false};
   }
@@ -350,12 +355,12 @@
     if(m.suprimido)cuerpo='<span class="nota">Contenido borrado</span>';
     else if(esAdjuntoEquipo(m)){
       // El detalle no trae el nombre del archivo: solo se indica que hubo adjunto, más la leyenda si existe.
-      cuerpo='<span class="adj">📎 Archivo adjunto</span>';
+      cuerpo=htmlMedio(m)||'<span class="adj">'+(m.tipo==='audio'?'🎙️ Nota de voz':'📎 Archivo adjunto')+'</span>';
       if(m.no_descifra)cuerpo+='<span class="leyenda nota">No se pudo leer la leyenda</span>';
       else if(m.texto)cuerpo+='<span class="leyenda">'+esc(m.texto)+'</span>';
     }
     else if(m.no_descifra)cuerpo='<span class="nota">No se pudo leer este mensaje</span>';
-    else if(m.texto==null||m.texto==='')cuerpo='<span class="nota">'+esc(TIPO_ADJ[m.tipo]||'Mensaje sin texto')+'</span>';
+    else if(m.texto==null||m.texto==='')cuerpo=htmlMedio(m)||'<span class="nota">'+esc(TIPO_ADJ[m.tipo]||'Mensaje sin texto')+(m.medio&&m.medio.estado==='pendiente'?' · cargando…':m.medio&&m.medio.estado==='fallido'?' · no se pudo descargar':'')+'</span>';
     else cuerpo=esc(m.texto);                              // texto de terceros: SIEMPRE escapado
     var autor=m.autor==='ia'?'Asistente':m.autor==='humano'?'Equipo':m.autor==='sistema'?'Sistema':'';
     var meta=[autor,hora(m.created_at)].filter(Boolean).map(esc).join(' · ');
@@ -366,6 +371,17 @@
         +' <button type="button" class="as-btn sm" data-acc="dar_por_fallido" data-envio="'+esc(m.envio.id)+'">Dar por no enviado</button></div>';
     }
     return h;
+  }
+  // BANDEJA-MEDIOS: foto (miniatura que se abre en grande), audio (reproductor) o PDF (enlace), solo con URL firmada válida.
+  // data-mid + data-u permiten conservar el mismo elemento entre refrescos (no corta un audio que se está escuchando).
+  function htmlMedio(m){
+    var x=m&&m.medio;
+    if(!x||x.estado!=='listo'||typeof x.url!=='string'||!URL_MEDIO.test(x.url))return '';
+    var u=esc(x.url),k=' data-mid="'+esc(m.id)+'" data-u="'+u+'"',mime=String(x.mime||'');
+    if(mime.indexOf('image/')===0)return '<button type="button" class="as-med as-med-img"'+k+' data-ver="1" aria-label="Ver imagen en grande"><img src="'+u+'" alt="Imagen recibida" loading="lazy"></button>';
+    if(mime.indexOf('audio/')===0)return '<audio class="as-med as-med-aud"'+k+' controls preload="metadata" src="'+u+'"></audio>';
+    if(mime==='application/pdf')return '<a class="as-med as-med-doc"'+k+' href="'+u+'" target="_blank" rel="noopener noreferrer">📄 Abrir documento</a>';
+    return '';
   }
   function htmlBanners(c){
     var h='';
@@ -415,18 +431,21 @@
     });
     if(!items.length)lin+='<div class="as-vacio">Sin mensajes.</div>';
     h+='<div class="as-msgs" data-id="'+esc(c.id)+'">'+lin+'</div>';
+    // Fotos/audios ya cargados con la MISMA URL se conservan (un audio que suena no se corta en el refresco de 60 s).
+    var previos={};cuerpo.querySelectorAll('.as-med[data-mid]').forEach(function(n){if(!n.classList.contains('vencido'))previos[n.getAttribute('data-mid')+'|'+n.getAttribute('data-u')]=n;});
     cuerpo.innerHTML=h;
+    cuerpo.querySelectorAll('.as-med[data-mid]').forEach(function(n){var v=previos[n.getAttribute('data-mid')+'|'+n.getAttribute('data-u')];if(v)n.parentNode.replaceChild(v,n);});
     var nm=cuerpo.querySelector('.as-msgs');nm.scrollTop=abajo?nm.scrollHeight:top;
     // Caja de respuesta: solo con la conversación tomada. No se redibuja (no pisa lo escrito).
     var ta=$('as-texto');
     if(c.estado==='humano'&&!c.sellada&&!c.opt_out){
       comp.hidden=false;
       var ok=puedeEscribir(c)&&!c.opt_out_posible;
-      ta.disabled=!ok;$('as-enviar').disabled=!ok||S.ocupado;$('as-adjuntar').disabled=!ok||S.ocupado;
+      ta.disabled=!ok;$('as-enviar').disabled=!ok||S.ocupado;$('as-adjuntar').disabled=!ok||S.ocupado;$('as-grabar').disabled=!ok||S.ocupado||!formatoGrabacion();
       var nombre=c.ficha&&typeof c.ficha.nombre==='string'?c.ficha.nombre.trim().split(/\s+/)[0]:'';
       ta.placeholder=c.opt_out_posible?'Resuelve la posible baja antes de escribir':!puedeEscribir(c)?'La atiende otra persona del equipo':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
       if(ta.getAttribute('data-conv')!==c.id){ta.setAttribute('data-conv',c.id);ta.value=S.borradores[c.id]||'';}
-      if(!ok)delete S.adjuntos[c.id];                     // si ya no puede escribir, el archivo elegido se descarta
+      if(!ok){quitarAdjunto(c.id);if(S.grab&&S.grab.conv===c.id)detenerGrab(false);}   // si ya no puede escribir, se descarta lo elegido
       pintarAdjunto();
     }else{
       comp.hidden=true;
@@ -442,9 +461,19 @@
   function adjuntoActual(){var id=$('as-texto').getAttribute('data-conv');return id&&id===S.sel?S.adjuntos[id]||null:null;}
   function pintarAdjunto(){
     var a=adjuntoActual(),chip=$('as-chip'),ta=$('as-texto');
+    if(S.grab&&S.grab.conv===S.sel){pintarGrabando();return;}
     // Mostrar u ocultar el chip cambia el alto del chat: si estaba al final, se mantiene al final.
     var ms=document.querySelector('#as-chat-cuerpo .as-msgs'),pegado=ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<60;
+    var mismo=a&&a.audio&&chip.getAttribute('data-u')===a.url&&!chip.hidden;   // no reiniciar la escucha previa en cada refresco
+    chip.setAttribute('data-u',a&&a.audio?a.url:'');
     if(!a){chip.hidden=true;chip.innerHTML='';}
+    else if(mismo){var qb=$('as-quitar');if(qb)qb.disabled=!!S.ocupado;}
+    else if(a.audio){
+      chip.innerHTML='<i class="ic ic-morado">'+SVG_MIC+'</i><span class="nom">Nota de voz · '+esc(duracion(a.seg))+'</span>'
+        +'<audio controls preload="metadata" src="'+esc(a.url)+'"></audio>'
+        +'<button type="button" id="as-quitar" aria-label="Descartar nota de voz" title="Descartar nota de voz"'+(S.ocupado?' disabled':'')+'>✕</button>';
+      chip.hidden=false;
+    }
     else{
       chip.innerHTML='<i class="ic ic-celeste">'+SVG_CLIP+'</i><span class="nom" title="'+esc(a.nombre)+'">'+esc(a.nombre)+'</span>'
         +'<small>'+esc(MIMES[a.mime])+' · '+esc(tamano(a.tam))+'</small>'
@@ -453,11 +482,64 @@
     }
     if(!ta.disabled){
       var c=S.det&&S.det.conversacion,nombre=c&&c.ficha&&typeof c.ficha.nombre==='string'?c.ficha.nombre.trim().split(/\s+/)[0]:'';
-      ta.placeholder=a?'Leyenda opcional para el archivo…':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
+      ta.placeholder=a&&a.audio?'La nota de voz va sin texto · Enter para enviar':a?'Leyenda opcional para el archivo…':'Escribe tu respuesta'+(nombre?' a '+nombre:'')+'…';
     }
     ta.maxLength=a?MAX_LEYENDA:MAX_TEXTO;
     contarTexto();
     if(pegado)ms.scrollTop=ms.scrollHeight;
+  }
+  // ── Nota de voz (BANDEJA-MEDIOS) ──────────────────────────────────────────
+  // Chrome/Edge graban WebM/Opus → se reempaqueta a OGG/Opus (opus-ogg.js, sin recodificar). Firefox graba OGG directo.
+  // Safari graba MP4/AAC (WhatsApp lo acepta como audio/mp4). Máximo 2 minutos.
+  function duracion(seg){seg=Math.max(0,Math.round(seg||0));return Math.floor(seg/60)+':'+String(seg%60).padStart(2,'0');}
+  function formatoGrabacion(){
+    var MR=window.MediaRecorder;if(!MR||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return null;
+    var t=function(x){try{return MR.isTypeSupported(x);}catch(e){return false;}};
+    if(t('audio/ogg;codecs=opus'))return {pedir:'audio/ogg;codecs=opus',mime:'audio/ogg',ext:'ogg'};
+    if(t('audio/webm;codecs=opus')&&window.GestoorOpusOgg)return {pedir:'audio/webm;codecs=opus',mime:'audio/ogg',ext:'ogg',remux:true};
+    if(t('audio/mp4'))return {pedir:'audio/mp4',mime:'audio/mp4',ext:'m4a'};
+    return null;
+  }
+  function pintarGrabando(){
+    var g=S.grab,chip=$('as-chip'),b=$('as-grabar');
+    b.classList.toggle('on',!!g);b.setAttribute('aria-label',g?'Detener grabación':'Grabar nota de voz');b.title=g?'Detener grabación':'Grabar nota de voz';
+    if(!g)return;
+    chip.innerHTML='<span class="as-rec" aria-hidden="true"></span><span class="nom">Grabando · '+esc(duracion((Date.now()-g.t0)/1000))+' / '+duracion(MAX_GRABACION_S)+'</span>'
+      +'<button type="button" class="as-btn sm" id="as-detener">Detener</button><button type="button" id="as-cancelar-grab" aria-label="Cancelar grabación" title="Cancelar grabación">✕</button>';
+    chip.hidden=false;
+  }
+  function soltarGrab(g){if(g.timer)clearInterval(g.timer);try{g.stream.getTracks().forEach(function(x){x.stop();});}catch(e){}}
+  function grabar(){
+    var c=S.det&&S.det.conversacion;
+    if(S.grab){detenerGrab(true);return;}
+    if(!c||!puedeEscribir(c)||c.opt_out_posible||S.ocupado)return;
+    var f=formatoGrabacion();
+    if(!f){aviso('Este navegador no permite grabar notas de voz. Usa Chrome, Edge, Firefox o Safari actualizados.',true);return;}
+    var conv=c.id;
+    navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}}).then(function(stream){
+      if(S.sel!==conv){stream.getTracks().forEach(function(x){x.stop();});return;}
+      var rec;try{rec=new MediaRecorder(stream,{mimeType:f.pedir,audioBitsPerSecond:32000});}catch(e){stream.getTracks().forEach(function(x){x.stop();});aviso('No se pudo iniciar la grabación.',true);return;}
+      var g={conv:conv,rec:rec,stream:stream,partes:[],t0:Date.now(),f:f,cancelar:false};
+      rec.ondataavailable=function(ev){if(ev.data&&ev.data.size)g.partes.push(ev.data);};
+      rec.onstop=function(){soltarGrab(g);if(S.grab===g)S.grab=null;pintarGrabando();if(!g.cancelar)terminarGrab(g);else pintarAdjunto();};
+      g.timer=setInterval(function(){if((Date.now()-g.t0)/1000>=MAX_GRABACION_S)detenerGrab(true);else pintarGrabando();},500);
+      S.grab=g;rec.start(1000);pintarGrabando();
+    },function(){aviso('No hay permiso para usar el micrófono. Actívalo en el candado de la barra de direcciones.',true);});
+  }
+  function detenerGrab(guardar){var g=S.grab;if(!g)return;g.cancelar=!guardar;try{g.rec.stop();}catch(e){soltarGrab(g);S.grab=null;pintarGrabando();pintarAdjunto();}}
+  function terminarGrab(g){
+    var seg=(Date.now()-g.t0)/1000;
+    if(seg<1||!g.partes.length){aviso('La grabación quedó vacía.',true);pintarAdjunto();return;}
+    var crudo=new Blob(g.partes,{type:g.f.pedir.split(';')[0]});
+    var listo=g.f.remux
+      ?crudo.arrayBuffer().then(function(ab){var r=window.GestoorOpusOgg.webmAOgg(ab);seg=r.segundos||seg;return new Blob([r.bytes],{type:'audio/ogg'});})
+      :Promise.resolve(new Blob([crudo],{type:g.f.mime}));
+    listo.then(function(blob){
+      if(blob.size>MAX_ARCHIVO){aviso('La nota de voz pesa más de 5 MB: graba una más corta.',true);pintarAdjunto();return;}
+      var prev=S.adjuntos[g.conv];if(prev&&prev.url)try{URL.revokeObjectURL(prev.url);}catch(e){}
+      S.adjuntos[g.conv]={archivo:blob,nombre:'Nota de voz.'+g.f.ext,mime:g.f.mime,tam:blob.size,audio:true,seg:seg,url:URL.createObjectURL(blob)};
+      pintarAdjunto();
+    }).catch(function(){aviso('No se pudo preparar la nota de voz. Intenta grabarla de nuevo.',true);pintarAdjunto();});
   }
   // Recorta el nombre a 120 caracteres sin perder la extensión.
   function nombreSeguro(n){
@@ -466,6 +548,7 @@
     var p=n.lastIndexOf('.'),ext=p>0&&n.length-p<=6?n.slice(p):'';
     return n.slice(0,MAX_NOMBRE-ext.length)+ext;
   }
+  function quitarAdjunto(id){var a=S.adjuntos[id];if(a&&a.url)try{URL.revokeObjectURL(a.url);}catch(e){}delete S.adjuntos[id];}
   function elegirArchivo(f){
     var c=S.det&&S.det.conversacion;
     if(!f||!c||!puedeEscribir(c)||c.opt_out_posible)return;
@@ -476,7 +559,7 @@
     if(f.size>MAX_ARCHIVO){aviso('El archivo pesa '+tamano(f.size)+': el máximo es 5 MB.',true);return;}
     var nombre=nombreSeguro(f.name);
     if(!nombre){aviso('El archivo no tiene un nombre válido.',true);return;}
-    S.adjuntos[c.id]={archivo:f,nombre:nombre,mime:mime,tam:f.size};
+    quitarAdjunto(c.id);S.adjuntos[c.id]={archivo:f,nombre:nombre,mime:mime,tam:f.size};
     pintarAdjunto();
     if($('as-texto').value.trim().length>MAX_LEYENDA)aviso('Con archivo, el texto es la leyenda y no puede superar los 1.000 caracteres.',true);
   }
@@ -579,7 +662,7 @@
   function pintarTodo(){pintarResumen();pintarBloqueos();pintarLista();pintarChat();pintarFicha();bloquearBotones(S.ocupado);}
   function bloquearBotones(on){
     document.querySelectorAll('[data-acc]').forEach(function(b){b.disabled=!!on;});
-    var env=$('as-enviar');if(on){env.disabled=true;$('as-adjuntar').disabled=true;}
+    var env=$('as-enviar');if(on){env.disabled=true;$('as-adjuntar').disabled=true;$('as-grabar').disabled=true;}
     var q=$('as-quitar');if(q)q.disabled=!!on;
   }
 
@@ -707,6 +790,7 @@
       // Con archivo: responder_adjunto; el texto de la caja es la leyenda (opcional).
       if(t.length>MAX_LEYENDA){aviso('La leyenda supera los 1.000 caracteres.',true);return;}
       if(!MIMES[adj.mime]||adj.tam>MAX_ARCHIVO){aviso('Solo PDF, JPG o PNG de hasta 5 MB.',true);return;}
+      if(adj.audio&&t){aviso('La nota de voz se envía sin texto (WhatsApp no lo permite): borra el texto o envíalo aparte.',true);return;}
     }else{
       if(!t){aviso('Escribe un mensaje o adjunta un archivo antes de enviar.',true);return;}
       if(t.length>MAX_TEXTO){aviso('El mensaje supera los 2.000 caracteres.',true);return;}
@@ -724,7 +808,7 @@
     envio.then(function(){
       if(ta.getAttribute('data-conv')===id){ta.value='';}
       delete S.borradores[id];
-      if(adj&&S.adjuntos[id]===adj)delete S.adjuntos[id];
+      if(adj&&S.adjuntos[id]===adj)quitarAdjunto(id);
       $('as-archivo').value='';
       S.alFondo=id;
       aviso(adj?'Archivo en cola de envío.':'Mensaje en cola de envío.');
@@ -760,9 +844,31 @@
     $('as-archivo').addEventListener('change',function(){var f=this.files&&this.files[0];this.value='';elegirArchivo(f);});
     $('as-chip').addEventListener('click',function(e){
       if(!e.target.closest('#as-quitar')||S.ocupado)return;
-      var id=$('as-texto').getAttribute('data-conv');if(id)delete S.adjuntos[id];
+      var id=$('as-texto').getAttribute('data-conv');if(id)quitarAdjunto(id);
       pintarAdjunto();$('as-texto').focus();
     });
+    // BANDEJA-MEDIOS · nota de voz, visor de imágenes y URL firmada vencida (5 min) → se vuelve a pedir el detalle.
+    $('as-grabar').innerHTML=SVG_MIC;
+    $('as-grabar').addEventListener('click',function(){if(!this.disabled||S.grab)grabar();});
+    $('as-chip').addEventListener('click',function(e){
+      if(e.target.closest('#as-detener'))detenerGrab(true);
+      else if(e.target.closest('#as-cancelar-grab'))detenerGrab(false);
+    });
+    document.addEventListener('click',function(e){
+      var v=e.target.closest('[data-ver]');if(!v)return;
+      var img=v.querySelector('img');if(!img)return;
+      var w=$('as-visor');w.querySelector('img').src=img.src;w.hidden=false;w.querySelector('button').focus();
+    });
+    $('as-visor').addEventListener('click',function(e){if(e.target===this||e.target.closest('button')){this.hidden=true;this.querySelector('img').removeAttribute('src');}});
+    document.addEventListener('keydown',function(e){var w=$('as-visor');if(e.key==='Escape'&&!w.hidden){w.hidden=true;w.querySelector('img').removeAttribute('src');}});
+    var _renov=0;
+    document.addEventListener('error',function(e){
+      var n=e.target&&e.target.closest&&e.target.closest('.as-med[data-mid]');if(!n||!S.sel)return;
+      n.classList.add('vencido');
+      if(Date.now()-_renov<30000)return;                  // como máximo una relectura cada 30 s
+      _renov=Date.now();var id=S.sel;
+      cargarDetalle(id).then(function(){if(S.sel===id)pintarChat();});
+    },true);
     document.addEventListener('visibilitychange',function(){if(!document.hidden&&S.iniciado)refrescar(false);});
   }
 
