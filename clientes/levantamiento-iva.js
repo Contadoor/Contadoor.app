@@ -32,7 +32,8 @@
     calza: { t: 'Calza', c: 'ver' }, diferencia: { t: 'Diferencia', c: 'roj' }, no_declarado: { t: 'Sin declaración encontrada', c: 'roj' },
     a_favor: { t: 'Difiere sin pago', c: 'amb' }, sin_datos: { t: 'Sin datos', c: 'gris' }, en_plazo: { t: 'En plazo', c: 'gris' },
     coincidencia_provisional: { t: 'Coincidencia provisional', c: 'amb' }, diferencia_preliminar: { t: 'Diferencia preliminar', c: 'amb' },
-    revisar_arrastre: { t: 'Revisar arrastre', c: 'amb' }, f29_sin_montos: { t: 'F29 sin montos', c: 'gris' }
+    revisar_arrastre: { t: 'Revisar arrastre', c: 'amb' }, f29_sin_montos: { t: 'F29 sin montos', c: 'gris' },
+    solo_f29: { t: 'Solo F29 · falta RCV', c: 'amb' }, no_declarado_sin_rcv: { t: 'Sin F29 ni RCV', c: 'roj' }
   };
   var MOTIVOS = {
     sin_rcv: 'Faltan las compras y ventas del SII de este mes (pide el historial a Cartapra).',
@@ -40,7 +41,10 @@
     f29_sin_montos: 'El F29 está declarado pero aún no tenemos sus montos (pide el historial a Cartapra). Se muestra el IVA del RCV, sin comparar.',
     f29_sin_montos_cartapra: 'F29 sin montos en Cartapra: el F29 está declarado, pero Cartapra no entrega sus montos para este mes. Se muestra el IVA del RCV, sin comparar.',
     sin_declaracion_en_antecedentes: 'No se encontró declaración en los antecedentes disponibles.',
-    sin_conexion: 'La empresa no está conectada con el SII.'
+    sin_conexion: 'La empresa no está conectada con el SII.',
+    solo_f29: 'Faltan las compras y ventas del SII de este mes: se recalculó con lo declarado en el F29 (cód. 538 y 537) y el remanente encadenado. Solo puede cambiar el arrastre.',
+    solo_f29_cartapra: 'Cartapra no tiene las compras y ventas de este mes: se recalculó con lo declarado en el F29 (cód. 538 y 537) y el remanente encadenado. Solo puede cambiar el arrastre.',
+    sin_f29_ni_rcv: 'No hay F29 presentado ni compras y ventas del SII de este mes, y la empresa tenía F29 antes y después: F29 no presentado. El remanente pasa con el supuesto «sin movimiento».'
   };
   var CALIDAD = { completa: '', provisional: ' (provisional)', no_calculable: ' (no calculable)' };
   var ALERTAS = {
@@ -76,6 +80,8 @@
     debito_incluye_iva_retenido: 'El débito declarado (538) incluye IVA que el comprador retuvo totalmente: posible pago de más.',
     retencion_no_enterada: 'IVA retenido por cambio de sujeto según el RCV mayor que el declarado (cód. 39 + 554): diferencia a pagar aparte (art. 97 N°11).',
     prescripcion_3_anos_cumplida: 'Se cumplieron 3 años desde el vencimiento (art. 200 CT). Informativo: revisar con el analista.',
+    mes_sin_datos_supuesto_sin_movimiento: 'Mes sin datos: el remanente pasa al mes siguiente con el supuesto «sin movimiento» (condiciona los meses siguientes).',
+    multa_omision_97_1: 'F29 no presentado: multa art. 97 N°1 (de 1 UTM a 1 UTA). Se estima el mínimo, 1 UTM del mes de pago.',
     prescripcion_3_anos_proxima: 'Se cumplen 3 años desde el vencimiento dentro de 60 días (art. 200 CT). Informativo: revisar con el analista.'
   };
   var ORIGEN = { historia: 'Historia SII', sync: 'Sincronización diaria' };
@@ -122,6 +128,13 @@
     if (m.estado === 'calza' && m.calce === 'dentro_tolerancia') return { t: 'Calza (±$100)', c: 'ver' };
     // 20-11: «a_favor» no siempre es plata a favor del cliente. Si el remanente que se arrastra (77) quedó más alto que el
     // recalculado con el RCV, el cliente declaró de menos y lo absorbió el remanente: es un remanente sobredeclarado a corregir.
+    if (m.estado === 'solo_f29') {
+      var di = Number(m.iva && m.iva.diferencia), dr = Number(m.remanente && m.remanente.diferencia_siguiente);
+      if (isFinite(di) && di > 100) return { t: 'Solo F29 · diferencia', c: 'roj' };
+      if (isFinite(di) && di < -100) return { t: 'Solo F29 · a favor', c: 'ver' };
+      if (isFinite(dr) && Math.abs(dr) > 100) return { t: 'Solo F29 · revisar arrastre', c: 'amb' };
+      return { t: 'Solo F29 · calza', c: 'ver' };
+    }
     if (m.estado === 'a_favor' || m.estado === 'revisar_arrastre') {
       var ds = Number(m.remanente && m.remanente.diferencia_siguiente);
       if (isFinite(ds) && ds < -100) return { t: 'Remanente sobredeclarado', c: 'amb' };
@@ -313,10 +326,12 @@
   function contar(d, e) { return Number((d && d.totales && d.totales.por_estado && d.totales.por_estado[e]) || 0); }
   function nm(n) { return n + (Number(n) === 1 ? ' mes' : ' meses'); }
   function nProv(d) { return contar(d, 'coincidencia_provisional') + contar(d, 'diferencia_preliminar') + contar(d, 'revisar_arrastre'); }
+  function nNoDecl(d) { return contar(d, 'no_declarado') + contar(d, 'no_declarado_sin_rcv'); }
   function textoResumen(d) {
     var comp = contar(d, 'calza') + contar(d, 'diferencia') + contar(d, 'a_favor') + nProv(d);
     var t = contar(d, 'calza') + ' de ' + comp + ' meses comparables calzan';
-    if (contar(d, 'diferencia') + contar(d, 'no_declarado')) t += ' · ' + (contar(d, 'diferencia') + contar(d, 'no_declarado')) + ' con diferencia a pagar';
+    if (contar(d, 'diferencia') + nNoDecl(d)) t += ' · ' + (contar(d, 'diferencia') + nNoDecl(d)) + ' con diferencia o sin declarar';
+    if (contar(d, 'solo_f29')) t += ' · ' + contar(d, 'solo_f29') + ' solo con F29 (faltan compras y ventas)';
     if (nProv(d)) t += ' · ' + nProv(d) + ' provisionales por revisar';
     if (d.totales && Number(d.totales.condicionados) > 0) t += ' · ' + d.totales.condicionados + ' condicionados (remanente supuesto)';
     if (contar(d, 'f29_sin_montos')) t += ' · ' + contar(d, 'f29_sin_montos') + ' con F29 sin montos';
@@ -325,7 +340,7 @@
       t += ' · Pedido a Cartapra en curso: ' + d.historial.pendientes + ' lecturas pendientes';
     return t + '.';
   }
-  function claseResumen(d) { return contar(d, 'diferencia') + contar(d, 'no_declarado') > 0 ? 'roj' : contar(d, 'sin_datos') + contar(d, 'f29_sin_montos') + nProv(d) > 0 ? 'amb' : 'ver'; }
+  function claseResumen(d) { return contar(d, 'diferencia') + nNoDecl(d) > 0 ? 'roj' : contar(d, 'sin_datos') + contar(d, 'f29_sin_montos') + nProv(d) > 0 ? 'amb' : 'ver'; }
   /** Totales V2: nunca se fabrica un total con lo que falta. */
   function totales(e) {
     var k = e.conocido || {}, p = e.provisional || {}, x = e.no_calculable || {};
@@ -365,6 +380,8 @@
     if (Number(k.meses)) out.push('Conocido (' + nm(k.meses) + '): impuesto ' + pesos(k.impuesto) + ' + reajuste ' + pesos(k.reajuste) + ' + intereses ' + pesos(k.intereses) + ' + multa ' + pesos(k.multa) + ' = ' + pesos(k.total));
     if (Number(p.meses)) out.push('Provisional (' + nm(p.meses) + '): impuesto ' + pesos(p.impuesto) + ' + reajuste ' + pesos(p.reajuste) + ' + intereses ' + pesos(p.intereses) + ' + multa ' + pesos(p.multa) + ' = ' + pesos(p.total));
     if (Number(x.meses)) out.push('Sin calcular (' + nm(x.meses) + '): impuesto ' + pesos(x.impuesto) + '; falta ' + ((x.componentes_pendientes || []).join(', ') || '—'));
+    var om = e.omision_declaracion || {};
+    if (Number(om.meses)) out.push('Incluye multas por F29 no presentado (art. 97 N°1, mínimo 1 UTM, ' + nm(om.meses) + '): ' + pesos(om.multa));
     var r = e.retencion_no_enterada || {};
     if (Number(r.meses)) out.push('Retención no enterada, aparte (' + nm(r.meses) + '): impuesto ' + pesos(r.impuesto) + ' + reajuste ' + pesos(r.reajuste) + ' + intereses ' + pesos(r.intereses) + ' + multa ' + pesos(r.multa) + ' = ' + (r.total == null ? 'no calculable' : pesos(r.total)));
     var cd = e.condonacion || {};
@@ -378,6 +395,8 @@
     return { t: pesos(es.total) + (CALIDAD[es.calidad] || ''), c: es.calidad === 'completa' ? '' : 'prov' };
   }
   function detalleEstimacion(es) {
+    if (es.tipo === 'omision_97_1') return 'Vence ' + fechaTxt(es.vencimiento) + ' · ' + es.meses_atraso + ' meses de atraso · F29 no presentado · multa art. 97 N°1 ' +
+      (es.multa == null ? 'pendiente (falta la UTM del mes de pago)' : pesos(es.multa) + ' (mínimo: 1 UTM; rango legal 1 UTM a 1 UTA)') + ' · estimación provisional' + (es.nota && /no se sabe/.test(es.nota) ? ' · sin compras y ventas del SII no se sabe si además hubo IVA a pagar' : '');
     var t = 'Vence ' + fechaTxt(es.vencimiento) + ' · ' + es.meses_atraso + ' meses de atraso · impuesto ' + pesos(es.impuesto) +
       ' · reajuste ' + (es.reajuste == null ? 'pendiente (falta UTM)' : pesos(es.reajuste)) +
       ' · intereses ' + (es.intereses == null ? 'pendientes (falta tasa' + ((es.semestres_sin_tasa || []).length ? ' ' + es.semestres_sin_tasa.join(', ') : '') + ')' : pesos(es.intereses) + (es.intereses_estado === 'provisional_sin_reajuste' ? ' (provisional)' : '')) +
@@ -408,7 +427,8 @@
     cont.appendChild(campoOtros(cont, d));
     var g = el('div', 'liva-res');
     dato(g, 'Meses que calzan', contar(d, 'calza') + ' / ' + (d.meses || []).length, 'ver');
-    dato(g, 'Con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), contar(d, 'diferencia') + contar(d, 'no_declarado') ? 'roj' : null);
+    dato(g, 'Con diferencia o sin declarar', String(contar(d, 'diferencia') + nNoDecl(d)), contar(d, 'diferencia') + nNoDecl(d) ? 'roj' : null);
+    if (contar(d, 'solo_f29')) dato(g, 'Solo F29 (falta RCV)', String(contar(d, 'solo_f29')), 'amb');
     dato(g, 'Sin datos', String(contar(d, 'sin_datos')), contar(d, 'sin_datos') ? 'amb' : null);
     if (nProv(d)) dato(g, 'Provisionales', String(nProv(d)), 'amb');
     if (d.totales && Number(d.totales.condicionados) > 0) dato(g, 'Condicionados', String(d.totales.condicionados), 'amb');
@@ -523,7 +543,7 @@
       '<div class="cuerpo"><p class="prel">Estimación preliminar, no constituye determinación definitiva</p><p class="sub">Período revisado: <b>' + esc(mesTxt(d.desde)) + ' a ' + esc(mesTxt(d.hasta)) + '</b> · Emitido el ' + esc(hoy) + ' · Fuente: Registro de Compras y Ventas y Formularios 29 del SII.</p>' +
       '<div class="reg"><span>A regularizar en el período</span><b>' + esc(AR.valor) + '</b><em>' + esc(nm(AR.meses)) + (AR.nota ? ' · ' + esc(AR.nota) : '') + '</em></div>' +
       '<div class="ks">' + tarjeta('Meses revisados', String((d.meses || []).length)) + tarjeta('Meses que calzan', String(contar(d, 'calza')), 'ver') +
-      tarjeta('Meses con diferencia', String(contar(d, 'diferencia') + contar(d, 'no_declarado')), 'roj') + tarjeta('Provisionales', String(nProv(d))) +
+      tarjeta('Meses con diferencia', String(contar(d, 'diferencia') + nNoDecl(d)), 'roj') + tarjeta('Provisionales', String(nProv(d))) +
       tarjeta('Sin datos / F29 sin montos', String(contar(d, 'sin_datos') + contar(d, 'f29_sin_montos'))) + '</div>' +
       '<h2>Estimación si se rectifica</h2><div class="ks">' + tarjeta('Diferencia de impuesto', pesos(e.impuesto)) +
       tarjeta('Subtotal conocido (' + nm(T.nConocido) + ')', T.conocido) + (T.nProv ? tarjeta('Provisional (' + nm(T.nProv) + ')', T.provisional) : '') +

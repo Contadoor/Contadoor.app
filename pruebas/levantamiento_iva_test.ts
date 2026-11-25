@@ -140,6 +140,16 @@ function pagina(resp: (path: string, body: any) => [number, unknown]) {
   res('4.12 si la bitácora falla (42501) no se exporta (fail-closed) y se avisa', !d.getElementById('liva-pdf-frame') && /analista contable asignado/.test(d.getElementById('liva-msg')!.textContent!));
   (d.getElementById('liva-historial') as HTMLElement).click(); await espera();
   res('4.13 historial: informa lo que no se repite y que avisará en la campana', /4 lecturas no se repiten/.test(d.getElementById('liva-msg')!.textContent!) && /campana/.test(d.getElementById('liva-msg')!.textContent!));
+  // LIVA-SOLO-F29 (25-11): meses sin RCV con F29, sin F29 ni RCV y multa art. 97 N°1 (datos ficticios)
+  const L = w.GestoorLevIVA;
+  res('5.1 solo F29: a favor / diferencia / revisar arrastre / calza',
+    L.estadoDe({ estado: 'solo_f29', iva: { diferencia: -5000 }, remanente: {} }).t === 'Solo F29 · a favor' &&
+    L.estadoDe({ estado: 'solo_f29', iva: { diferencia: 5000 }, remanente: {} }).c === 'roj' &&
+    L.estadoDe({ estado: 'solo_f29', iva: { diferencia: 0 }, remanente: { diferencia_siguiente: 9000 } }).t === 'Solo F29 · revisar arrastre' &&
+    L.estadoDe({ estado: 'solo_f29', iva: { diferencia: 0 }, remanente: { diferencia_siguiente: 0 } }).t === 'Solo F29 · calza');
+  res('5.2 sin F29 ni RCV = rojo «Sin F29 ni RCV»', L.estadoDe({ estado: 'no_declarado_sin_rcv' }).t === 'Sin F29 ni RCV' && L.estadoDe({ estado: 'no_declarado_sin_rcv' }).c === 'roj');
+  const dg = L.desglose({ provisional: { meses: 2, impuesto: 0, reajuste: 0, intereses: 0, multa: 140000, total: 140000 }, omision_declaracion: { meses: 2, multa: 140000 } });
+  res('5.3 el desglose informa las multas art. 97 N°1 por F29 no presentado', dg.some((x: string) => /art\. 97 N°1/.test(x) && /\$140\.000/.test(x)), dg);
 }
 
 console.log(`\n${ok} OK · ${mal} MAL`);
