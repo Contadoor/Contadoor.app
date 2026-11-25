@@ -748,7 +748,12 @@
     });
     var ta=$('as-texto');
     ta.addEventListener('input',function(){var id=ta.getAttribute('data-conv');if(id)S.borradores[id]=ta.value;contarTexto();});
-    ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();$('as-comp').requestSubmit();}});
+    // 25-11: Enter envía; Shift+Enter hace salto de línea. En celular (pantalla táctil) Enter sigue siendo salto de línea.
+    var tactil=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);
+    ta.addEventListener('keydown',function(e){
+      if(e.key!=='Enter'||e.isComposing||e.keyCode===229)return;
+      if(e.metaKey||e.ctrlKey||(!e.shiftKey&&!e.altKey&&!tactil)){e.preventDefault();if(!$('as-enviar').disabled)$('as-comp').requestSubmit();}
+    });
     $('as-comp').addEventListener('submit',enviarRespuesta);
     $('as-adjuntar').innerHTML=SVG_CLIP;
     $('as-adjuntar').addEventListener('click',function(){if(!this.disabled&&!S.ocupado)$('as-archivo').click();});

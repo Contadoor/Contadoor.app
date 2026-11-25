@@ -175,6 +175,7 @@ body{min-height:100vh}
 .as-chip button:disabled{opacity:.45;cursor:not-allowed}
 .as-m .adj{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--a-ink)}
 .as-m .leyenda{display:block;margin-top:4px}
+@media (pointer: coarse){.as-tecla{visibility:hidden}}
 .as-placeholder{flex:1;display:grid;place-items:center;text-align:center;color:var(--a-dim2);padding:30px;font-size:13.5px}
 
 /* Columna 3 · ficha */
@@ -281,7 +282,7 @@ body{min-height:100vh}
           <div class="as-chip" id="as-chip" hidden></div>
           <div style="flex:1;min-width:0">
             <textarea id="as-texto" maxlength="2000" rows="1" placeholder="Escribe tu respuesta…" aria-label="Respuesta"></textarea>
-            <div class="cuenta" id="as-cuenta">0 / 2000</div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span class="cuenta as-tecla">Enter envía · Shift + Enter, nueva línea</span><div class="cuenta" id="as-cuenta">0 / 2000</div></div>
           </div>
           <input type="file" id="as-archivo" accept="application/pdf,image/jpeg,image/png" hidden aria-hidden="true" tabindex="-1">
           <button class="as-btn as-clip" type="button" id="as-adjuntar" aria-label="Adjuntar archivo (PDF, JPG o PNG, hasta 5 MB)" title="Adjuntar archivo (PDF, JPG o PNG, hasta 5 MB)"></button>
