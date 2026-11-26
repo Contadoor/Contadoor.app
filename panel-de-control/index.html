@@ -153,7 +153,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .modal{background:var(--sur);border-radius:14px;padding:24px;max-width:780px;width:96%;max-height:92vh;overflow-y:auto;}
 .modal h2{font-size:16px;font-weight:700;margin-bottom:4px;color:var(--p);}
 .modal-sub{font-size:12px;color:var(--tm);margin-bottom:18px;}
-.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--bdr);}
+.modal-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--bdr);}
+/* Botón ✕ fijo arriba a la derecha (vista del reporte): siempre visible aunque el contenido o los botones no quepan */
+.modal-x{position:sticky;top:0;float:right;z-index:2;width:34px;height:34px;margin:-10px -10px 0 8px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur2);color:var(--t1);font-size:16px;line-height:1;cursor:pointer;}
+.modal-x:hover{border-color:var(--p);color:var(--p);}
 
 /* ATRASO */
 .atraso-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--sur);border:1px solid var(--bdr);border-radius:7px;}
@@ -681,6 +684,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 <!-- MODAL VISTA REPORTE AL CLIENTE -->
 <div class="modal-bg" id="modalVista">
   <div class="modal" style="max-width:860px">
+    <button class="modal-x no-print" onclick="closeVista()" title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
     <div id="vistaContent"></div>
     <div class="modal-footer no-print">
       <button class="btn-s" onclick="closeVista()">Cerrar</button>
@@ -1822,6 +1826,8 @@ function abrirEnvioManual(){
 
 // REPORTE-AUTO R3 (flujo 19-11): «🔒 Cerrar reporte» se movió al Reporte Contable (período contable, después de «Validar IVA»).
 // El Panel ya no cierra ni valida: solo muestra «🔒 Publicado» desde reportes_cierres (GestoorCierreReporte.cierresVigentes).
+// Esc cierra la vista del reporte (si no hay otro modal encima abierto)
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('modalVista')?.classList.contains('on')&&document.querySelectorAll('.modal-bg.on').length===1)closeVista();});
 function closeVista(){
   document.getElementById('modalVista').classList.remove('on');
   // Resetear estado SII para que fetches tardíos sean ignorados
