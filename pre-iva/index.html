@@ -95,6 +95,7 @@
             <button class="btn sec" id="btn-editar-reporte" type="button"><span data-g-ic="lapiz"></span>Editar reporte</button>
             <button class="btn sec" id="btn-vista-previa" type="button"><span data-g-ic="ver"></span>Vista previa del correo</button>
             <button class="btn sec" id="btn-marcar-enviado" type="button" title="Si ya enviaste este Pre-IVA al cliente por Outlook, márcalo aquí como enviado"><span data-g-ic="check"></span>Marcar como enviado</button>
+            <button class="btn pri" id="btn-enviar-correo" type="button" hidden title="Gestoor envía el correo desde reportes@contadoor.cl con las cifras guardadas y lo deja registrado">✉️ Enviar por correo</button>
             <button class="btn pri" id="btn-enviar" type="button" title="Descarga el Pre-IVA en PDF para enviarlo al cliente por Outlook">📄 Descargar PDF para enviar</button>
           </div>
         </div>
@@ -321,16 +322,16 @@
 <script src="../assets/remanente-anterior.js"></script>
 <script src="f29-formula.js"></script>
 <script src="sii-cartapra.js"></script>
-<script src="iva-validacion.js"></script>   <!-- 19-11: fila de preiva_historial compartida con «Validar IVA» de Contable -->
+<script src="iva-validacion.js"></script>
+<script src="correo-edge.js"></script>   <!-- 26-11 CORREO-PREIVA-1: envío por correo desde Gestoor (Edge gestoor-correo-enviar) -->   <!-- 19-11: fila de preiva_historial compartida con «Validar IVA» de Contable -->
 <script src="proyeccion.js"></script>
 <script>
 // ── CONSTANTES SUPABASE ───────────────────────────────────────────────────
-var PROXY='https://contafunnel-v2.vercel.app';   // RETIRADO (404 verificado el 08-11-2026): no se usa mientras PREIVA_ENVIO_CORREO_ACTIVO=false
-// P1-A (A-PIVA-01): el envío por correo del Pre-IVA queda DESACTIVADO hasta que el transporte nuevo
-// (Edge gestoor-correo-enviar, tipo preiva, con registro en el servidor) tenga su GO. Mientras tanto
-// "Enviar" NO llama a Vercel ni marca el Pre-IVA como enviado: ofrece la vista previa para el puente PDF/Outlook.
-var PREIVA_ENVIO_CORREO_ACTIVO=false;
+// Correo del Pre-IVA (CORREO-PREIVA-1, 26-11): ya NO existe el proxy de Vercel. El botón «✉️ Enviar por correo» aparece solo cuando
+// la Edge gestoor-correo-enviar responde y el Master tiene el envío habilitado (correos_parametros); si no, queda el PDF para Outlook.
 var PREIVA_MSG_ENVIO_PREPARACION='El envío automático por correo aún no está disponible: descarga el PDF y envíalo por Outlook; luego márcalo como enviado.';
+var PREIVA_MSG_PDF_RESPALDO='El PDF es el respaldo: si lo enviaste por Outlook, márcalo como enviado. Para que Gestoor lo envíe y lo registre, usa «✉️ Enviar por correo».';
+var _correoEdge=null;   // {clave:'<cliente>|<período>', estado:<PreIvaCorreo.consultar>} del cliente/período abierto
 // Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
 // Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
 var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
@@ -513,6 +514,7 @@ function pintarPeriodoCerrado(){
   if(t)t.textContent=c?formatPeriodo(_periodoActual)+' ya cerró: aquí es solo una simulación (no se guarda ni se envía). El IVA de este período se valida en Contable.':'';
   if(l)l.href='../reportes-contable/index.html?periodo='+perDb(_periodoActual);
   ['btn-guardar-ahora','btn-enviar','btn-marcar-enviado'].forEach(function(id){var b=document.getElementById(id);if(b)b.hidden=c;});
+  pintarCorreoEdge();
 }
 function guardarPreiva(modo){
   if(!_clienteActual) return Promise.resolve(null);
@@ -663,6 +665,7 @@ function cargarDatos(){
     }else{
       _filaPreiva=fila;
     }
+    try{consultarCorreoEdge().catch(function(){});}catch(e){}   // nunca interrumpe la carga: sin servicio queda el PDF
     // Remanente (19-11, Luciano): SIEMPRE el del mes INMEDIATAMENTE anterior — SII (cód. 504) → Contable → BLOQUEO (nunca $0 ni lo
     // guardado en este Pre-IVA). La decisión es la compartida con el Reporte Contable (PreIvaSii.remanenteDelPeriodo).
     aplicarRemanente();
@@ -799,7 +802,7 @@ function cargarRemanenteAnterior(c, per){
 function motivoBloqueoEnvio(){var B=_datos.remanenteFalta;return B?'No se puede enviar al cliente: el estimado es parcial (falta el remanente de '+B.mesAnterior+').':'';}
 function pintarBloqueoEnvio(){
   var m=motivoBloqueoEnvio();
-  ['btn-enviar','btn-marcar-enviado'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
+  ['btn-enviar','btn-marcar-enviado','btn-enviar-correo'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
     if(!b.hasAttribute('data-title-orig'))b.setAttribute('data-title-orig',b.getAttribute('title')||'');
     b.disabled=!!m;b.title=m||b.getAttribute('data-title-orig');});
   var vp=document.getElementById('btn-vista-previa');if(vp)vp.disabled=false;
@@ -1061,41 +1064,57 @@ function prepararCorreoPreIVA(){
     htmlReporte:minHTML(htmlReporte)
   }};
 }
-function enviarPreIVA(){
-  if(!PREIVA_ENVIO_CORREO_ACTIVO){descargarPdfPreIVA();return;}   // 26-11: sin transporte de correo → PDF para Outlook
-  var prep=prepararCorreoPreIVA();
-  if(!prep) return;
-  var c=prep.cliente;
-  if(!PREIVA_ENVIO_CORREO_ACTIVO){
-    // Sin transporte vigente: aviso honesto + puente PDF. No hay fetch ni guardado como "enviado".
-    descargarPdfPreIVA();
-    return;
+function enviarPreIVA(){ descargarPdfPreIVA(); }   // «📄 Descargar PDF para enviar» (respaldo siempre disponible)
+
+// ── ENVIAR POR CORREO desde Gestoor (CORREO-PREIVA-1) ───────────────────────────────────────────────────────────
+// El servidor arma el correo con el Pre-IVA GUARDADO, decide destinatario/asunto/responder-a y, si sale en modo REAL,
+// lo marca ENVIADO en la misma operación. Aquí: guardar lo pendiente → consultar → confirmar con el destinatario real → enviar.
+function envCorreo(){return {url:(typeof SB_URL!=='undefined'?SB_URL:''),key:(typeof SB_KEY!=='undefined'?SB_KEY:''),token:(typeof _gestoorAccessToken!=='undefined'&&_gestoorAccessToken)||null,fetch:window.fetch.bind(window)};}
+function claveCorreo(){return _clienteActual?(_clienteActual.id+'|'+_periodoActual):'';}
+function pintarCorreoEdge(){
+  var b=document.getElementById('btn-enviar-correo');if(!b)return;
+  var ok=!!(_correoEdge&&_correoEdge.clave===claveCorreo()&&_correoEdge.estado&&_correoEdge.estado.disponible);
+  b.hidden=!ok||periodoCerrado();
+  var pdf=document.getElementById('btn-enviar');if(pdf)pdf.className=ok&&!periodoCerrado()?'btn sec':'btn pri';   // con correo, el PDF queda de respaldo
+}
+function consultarCorreoEdge(){
+  _correoEdge=null;pintarCorreoEdge();
+  if(window.PIO_DEMO||!window.PreIvaCorreo||!_clienteActual||!_clienteActual.id||periodoCerrado())return Promise.resolve(null);
+  var k=claveCorreo();
+  return PreIvaCorreo.consultar(envCorreo(),_clienteActual.id,_periodoActual).then(function(e){
+    if(k!==claveCorreo())return null;   // cambió de cliente o período mientras consultaba
+    _correoEdge={clave:k,estado:e};pintarCorreoEdge();return e;
+  });
+}
+function enviarPorCorreo(){
+  if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
+  if(periodoCerrado()){alert('Este período ya cerró: el Pre-IVA solo se envía para el mes en curso.');return;}
+  if(motivoBloqueoEnvio()){alert(motivoBloqueoEnvio());return;}
+  var errEnt=revisarEntradas();
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
+  if(_filaPreiva&&_filaPreiva.fecha_envio&&(_sucio||_autoTimer)){
+    alert('Este Pre-IVA ya figura enviado y tiene cambios sin guardar. El correo usa lo guardado en Gestoor, así que no se puede mandar con los cambios.\n\nDescarga el PDF con las cifras nuevas y luego usa «Marcar como enviado».');return;
   }
-  if(!confirm('¿Enviar proyección IVA de '+prep.periodo+' a '+prep.nombre+'?\n\n'+prep.resumen))return;
-  var btn=document.getElementById('btn-enviar');
-  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
-  fetch(PROXY+'/api/enviar-preiva',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(prep.payload)
-  })
-  .then(function(r){return r.json();})
-  .then(function(data){
-    if(data.ok||data.id){
-      // El email ya salió: ahora queda registrado en Gestoor (si falla, se avisa claro y se puede reintentar).
-      return guardarPreiva('envio').then(function(){
-        mostrarToast('✅ Email enviado a '+c.email+' y guardado en Gestoor');
-        renderHistorial();
-        renderNomina();
-      },function(e){
-        alert('El email SÍ se envió a '+c.email+', pero NO quedó guardado en Gestoor:\n\n'+e.message+'\n\nUsa el botón "Reintentar" junto al estado (arriba del Pre-IVA) para guardarlo.');
-      });
-    }else{
-      alert('Error al enviar: '+(data.error||'Error desconocido'));
-    }
-  })
-  .catch(function(err){alert('Error de conexión: '+err.message);})
-  .finally(function(){if(btn){btn.disabled=false;btn.textContent='✉️ Enviar Pre-IVA';}});
+  var c=_clienteActual,per=_periodoActual,k=claveCorreo(),btn=document.getElementById('btn-enviar-correo');
+  var guardar=(_sucio||_autoTimer||!_filaPreiva)?guardarPreiva('borrador'):Promise.resolve(_filaPreiva);
+  if(btn){btn.disabled=true;btn.textContent='Preparando…';}
+  var fin=function(){if(btn){btn.textContent='✉️ Enviar por correo';pintarBloqueoEnvio();}};
+  guardar.then(function(){return PreIvaCorreo.consultar(envCorreo(),c.id,per);}).then(function(e){
+    if(k!==claveCorreo())return;
+    _correoEdge={clave:k,estado:e};pintarCorreoEdge();
+    if(!e.disponible){alert(PreIvaCorreo.resultado({status:409,j:{codigo:e.motivo,mensaje:e.mensaje}}).texto);return;}
+    if(!confirm(PreIvaCorreo.textoConfirmar(e,c.razonSocial||c.rut,formatPeriodo(per))))return;
+    if(btn)btn.textContent='Enviando…';
+    return PreIvaCorreo.enviar(envCorreo(),c.id,per,!!e.yaEnviado).then(function(r){
+      if(r.ok&&!r.incierto&&r.texto.indexOf('NO quedó')<0)mostrarToast(r.texto);else alert(r.texto);
+      // Releer la fila: si salió en REAL, el servidor ya la dejó ENVIADA (fecha y quién).
+      return getFilaPreiva(c.rut,per).then(function(f){
+        if(k!==claveCorreo())return;
+        _filaPreiva=f;estadoGuardado(f&&f.fecha_envio?'enviado':'ok');renderHistorial();if(typeof renderNomina==='function')try{renderNomina();}catch(x){}
+        consultarCorreoEdge();
+      },function(){});
+    });
+  },function(e){alert('No se pudo guardar el Pre-IVA antes de enviarlo:\n\n'+e.message);}).then(fin,fin);
 }
 function mostrarToast(msg){
   var t=document.createElement('div');
@@ -1225,7 +1244,8 @@ function textoConfirmarEnviado(){
   var pregunta=(f&&f.fecha_envio)
     ?'Este Pre-IVA ya figura enviado el '+fechaCorta(f.fecha_envio)+(f.enviado_por?' por '+f.enviado_por:'')+'.\n\n¿Volver a marcarlo como enviado con los montos de ahora?'
     :'¿Ya enviaste este Pre-IVA al cliente (por Outlook)?\n\nSi aceptas, quedará marcado como ENVIADO en Gestoor.';
-  return pregunta+'\n\n'+resumen+'\n\n('+PREIVA_MSG_ENVIO_PREPARACION+')';
+  var correoOk=!!(_correoEdge&&_correoEdge.clave===claveCorreo()&&_correoEdge.estado&&_correoEdge.estado.disponible);
+  return pregunta+'\n\n'+resumen+'\n\n('+(correoOk?PREIVA_MSG_PDF_RESPALDO:PREIVA_MSG_ENVIO_PREPARACION)+')';
 }
 function marcarPreIVAEnviado(){
   if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
@@ -1714,6 +1734,7 @@ function subirLocales(){
   var btnEditar=document.getElementById('btn-editar-reporte');if(btnEditar)btnEditar.onclick=abrirModalEdicion;
   var btnVista=document.getElementById('btn-vista-previa');if(btnVista)btnVista.onclick=generarReporte;
   var btnEnviar=document.getElementById('btn-enviar');if(btnEnviar)btnEnviar.onclick=enviarPreIVA;
+  var btnCorreo=document.getElementById('btn-enviar-correo');if(btnCorreo)btnCorreo.onclick=enviarPorCorreo;
   var btnMarcar=document.getElementById('btn-marcar-enviado');if(btnMarcar)btnMarcar.onclick=marcarPreIVAEnviado;
   var bRM=document.getElementById('btn-rem-manual');if(bRM)bRM.onclick=abrirRemanenteManual;   // 19-11: remanente a mano con motivo
   var bRG=document.getElementById('btn-rem-guardar');if(bRG)bRG.onclick=guardarRemanenteManual;
