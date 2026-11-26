@@ -94,7 +94,8 @@
             <button class="btn sec" id="btn-nueva-sim" type="button"><span data-g-ic="repetir"></span>Nueva simulación</button>
             <button class="btn sec" id="btn-editar-reporte" type="button"><span data-g-ic="lapiz"></span>Editar reporte</button>
             <button class="btn sec" id="btn-vista-previa" type="button"><span data-g-ic="ver"></span>Vista previa del correo</button>
-            <button class="btn pri" id="btn-enviar" type="button" title="Envío por correo en preparación: abre la vista previa para el puente PDF/Outlook">✉️ Enviar Pre-IVA (PDF)</button>
+            <button class="btn sec" id="btn-marcar-enviado" type="button" title="Si ya enviaste este Pre-IVA al cliente por Outlook, márcalo aquí como enviado"><span data-g-ic="check"></span>Marcar como enviado</button>
+            <button class="btn pri" id="btn-enviar" type="button" title="Descarga el Pre-IVA en PDF para enviarlo al cliente por Outlook">📄 Descargar PDF para enviar</button>
           </div>
         </div>
       </section>
@@ -329,8 +330,7 @@ var PROXY='https://contafunnel-v2.vercel.app';   // RETIRADO (404 verificado el 
 // (Edge gestoor-correo-enviar, tipo preiva, con registro en el servidor) tenga su GO. Mientras tanto
 // "Enviar" NO llama a Vercel ni marca el Pre-IVA como enviado: ofrece la vista previa para el puente PDF/Outlook.
 var PREIVA_ENVIO_CORREO_ACTIVO=false;
-var PREIVA_MSG_ENVIO_PREPARACION='Envío por correo en preparación; usa el puente PDF/Outlook.\n\n'
-  +'Gestoor todavía no envía este Pre-IVA ni lo registra como enviado (queda como borrador guardado).';
+var PREIVA_MSG_ENVIO_PREPARACION='El envío automático por correo aún no está disponible: descarga el PDF y envíalo por Outlook; luego márcalo como enviado.';
 // Alcance del F29 estimado (pantalla, confirmación y correo): no es el total definitivo.
 // Campos tributarios editables: un valor inválido (texto, negativo o con decimales) se marca en rojo y BLOQUEA el envío.
 var CAMPOS_TRIB=[['inp-debito','Débito IVA registrado'],['inp-credito','Crédito IVA registrado'],['inp-exento-ventas','Ventas exentas (neto)']];
@@ -512,7 +512,7 @@ function pintarPeriodoCerrado(){
   if(box)box.hidden=!c;
   if(t)t.textContent=c?formatPeriodo(_periodoActual)+' ya cerró: aquí es solo una simulación (no se guarda ni se envía). El IVA de este período se valida en Contable.':'';
   if(l)l.href='../reportes-contable/index.html?periodo='+perDb(_periodoActual);
-  ['btn-guardar-ahora','btn-enviar'].forEach(function(id){var b=document.getElementById(id);if(b)b.hidden=c;});
+  ['btn-guardar-ahora','btn-enviar','btn-marcar-enviado'].forEach(function(id){var b=document.getElementById(id);if(b)b.hidden=c;});
 }
 function guardarPreiva(modo){
   if(!_clienteActual) return Promise.resolve(null);
@@ -799,7 +799,7 @@ function cargarRemanenteAnterior(c, per){
 function motivoBloqueoEnvio(){var B=_datos.remanenteFalta;return B?'No se puede enviar al cliente: el estimado es parcial (falta el remanente de '+B.mesAnterior+').':'';}
 function pintarBloqueoEnvio(){
   var m=motivoBloqueoEnvio();
-  ['btn-enviar'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
+  ['btn-enviar','btn-marcar-enviado'].forEach(function(id){var b=document.getElementById(id);if(!b)return;
     if(!b.hasAttribute('data-title-orig'))b.setAttribute('data-title-orig',b.getAttribute('title')||'');
     b.disabled=!!m;b.title=m||b.getAttribute('data-title-orig');});
   var vp=document.getElementById('btn-vista-previa');if(vp)vp.disabled=false;
@@ -1062,12 +1062,13 @@ function prepararCorreoPreIVA(){
   }};
 }
 function enviarPreIVA(){
+  if(!PREIVA_ENVIO_CORREO_ACTIVO){descargarPdfPreIVA();return;}   // 26-11: sin transporte de correo → PDF para Outlook
   var prep=prepararCorreoPreIVA();
   if(!prep) return;
   var c=prep.cliente;
   if(!PREIVA_ENVIO_CORREO_ACTIVO){
     // Sin transporte vigente: aviso honesto + puente PDF. No hay fetch ni guardado como "enviado".
-    if(confirm(PREIVA_MSG_ENVIO_PREPARACION+'\n\nPre-IVA de '+prep.periodo+' · '+prep.nombre+'\n'+prep.resumen+'\n\n¿Abrir la vista previa para guardarla en PDF y enviarla por Outlook?')) generarReporte();
+    descargarPdfPreIVA();
     return;
   }
   if(!confirm('¿Enviar proyección IVA de '+prep.periodo+' a '+prep.nombre+'?\n\n'+prep.resumen))return;
@@ -1176,10 +1177,10 @@ function buildReporteHTML(){
   }
   return html;
 }
-function generarReporte(){
-  if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
-  if(motivoBloqueoEnvio()){alert(motivoBloqueoEnvio());return;}
-  var html=buildReporteHTML();if(!html)return;
+function htmlVistaPrevia(paraPdf){
+  if(!_clienteActual){alert('Selecciona un cliente primero.');return null;}
+  if(motivoBloqueoEnvio()){alert(motivoBloqueoEnvio());return null;}
+  var html=buildReporteHTML();if(!html)return null;
   var c=_clienteActual,u=getUsuario(),periodo=formatPeriodo(_periodoActual);
   var waNum='56'+(u.wa||'979881891').replace(/\D/g,'');
   var waMsg=encodeURIComponent('Hola, vi mi proyección IVA de '+periodo+' y tengo una consulta.');
@@ -1188,8 +1189,11 @@ function generarReporte(){
   // Vista previa (solo pantalla, no se envía): marco de la plantilla de correo aprobada (cabecera oscura, franja del cliente,
   // saludo y pie). El detalle del medio es EXACTAMENTE buildReporteHTML(), el mismo HTML que va en el correo.
   var logo=new URL('../assets/logo-blanco.png',location.href).href, perMin=periodo.toLowerCase();
-  var full='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vista previa · Proyección IVA '+periodo+'</title><style>*{box-sizing:border-box}body{margin:0;padding:16px 8px;background:#EFE8F0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif}</style></head><body>'
-    +'<div style="max-width:600px;margin:0 auto 10px;font-size:11.5px;color:#6E6075;text-align:center">Vista previa interna · los montos y el detalle son los mismos que se enviarán al cliente</div>'
+  var full='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+hesc(paraPdf?tituloPdfPreIVA():'Vista previa · Proyección IVA '+periodo)+'</title><style>*{box-sizing:border-box}body{margin:0;padding:16px 8px;background:#EFE8F0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'@page{size:A4;margin:10mm}@media print{body{background:#fff;padding:0}.no-imprimir{display:none!important}}'
+    +'.barra-pdf{max-width:600px;margin:0 auto 10px;display:flex;justify-content:center}.barra-pdf button{font:700 14px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:#924893;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer}</style></head><body>'
+    +(paraPdf?'':'<div class="barra-pdf no-imprimir"><button type="button" onclick="window.print()">📄 Guardar como PDF</button></div>')
+    +(paraPdf?'':'<div class="no-imprimir" style="max-width:600px;margin:0 auto 10px;font-size:11.5px;color:#6E6075;text-align:center">Vista previa interna · los montos y el detalle son los mismos del PDF para el cliente</div>')
     +'<div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #E8DDE8;border-radius:18px;overflow:hidden">'
     +'<div style="background:#17091A;background-image:radial-gradient(120% 90% at 85% 0%,#4A1E52 0%,#17091A 60%)"><div style="height:6px;background:linear-gradient(135deg,#803889 0%,#A4599C 100%)"></div><div style="padding:22px 28px 24px"><img src="'+logo+'" style="height:28px;display:block;margin-bottom:18px" alt="Contadoor"><div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:#E3B5E5;text-transform:uppercase;margin-bottom:6px">📊 Proyección de IVA</div><div style="font-size:24px;font-weight:800;color:#fff;line-height:1.25">Tu F29 de <span style="color:#C77BC9">'+perMin+'</span> estimado</div></div></div>'
     +'<div style="padding:12px 28px;background:#FAF7FA;border-bottom:1px solid #EEE4EF;font-size:12.5px;color:#5C4A5D"><strong style="color:#1A0A1B">🏢 '+hesc(c.razonSocial||c.rut)+'</strong> · RUT '+hesc(c.rut)+' · 📅 '+perMin+'</div>'
@@ -1198,9 +1202,76 @@ function generarReporte(){
     +'<div style="padding:16px 28px;background:#FAF7FA;border-top:1px solid #EEE4EF"><div style="font-size:15px;font-weight:700;color:#1A0A1B">'+hesc(u.nombre||'Contadoor')+'</div><div style="font-size:12.5px;color:#5C4A5D;margin-top:2px">Tu analista en Contadoor</div></div>'
     +'<div style="padding:14px 28px;background:#17091A;color:#E3CFE5;font-size:11px;line-height:1.6"><strong style="color:#fff">Asesorías Contadoor Ltda.</strong> · contadoor.cl<br>Esta proyección es informativa y puede variar al cierre del período.</div>'
     +'</div></body></html>';
+  return full;
+}
+function generarReporte(){
+  var full=htmlVistaPrevia(false);if(!full)return;
+  var c=_clienteActual;
   var w=window.open('','_blank');
   if(w){w.document.write(full);w.document.close();}
-  else{var blob=new Blob([full],{type:'text/html'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pre-iva-'+c.rut+'-'+_periodoActual+'.html';a.click();}
+  else descargarPdfPreIVA();   // ventana bloqueada por el navegador: se va directo al PDF (sin bajar un .html)
+}
+// 26-11: puente PDF/Outlook. Sin ventana emergente: el PDF se imprime desde un iframe oculto y, al cerrar el diálogo,
+// se pregunta si ya se envió. Solo con confirmación explícita queda marcado como ENVIADO (guardarPreiva('envio')).
+function tituloPdfPreIVA(){
+  var c=_clienteActual||{};
+  return ('Pre-IVA '+(c.razonSocial||c.rut||'')+' '+formatPeriodo(_periodoActual)).replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function textoConfirmarEnviado(){
+  var f=_filaPreiva, c=_clienteActual||{};
+  var f29=(document.getElementById('res-f29')||{}).textContent||'';
+  var resumen='Pre-IVA de '+formatPeriodo(_periodoActual)+' · '+(c.razonSocial||c.rut||'')+(c.email?'\nCorreo del cliente: '+c.email:'')
+    +'\nF29 proyectado: '+f29+'\n'+F29_ALCANCE+(ppmAvisoReporte()?'\n\n⚠ PPM no definitivo: '+ppmAvisoReporte()+'. El PDF lo muestra como estimado.':'');
+  var pregunta=(f&&f.fecha_envio)
+    ?'Este Pre-IVA ya figura enviado el '+fechaCorta(f.fecha_envio)+(f.enviado_por?' por '+f.enviado_por:'')+'.\n\n¿Volver a marcarlo como enviado con los montos de ahora?'
+    :'¿Ya enviaste este Pre-IVA al cliente (por Outlook)?\n\nSi aceptas, quedará marcado como ENVIADO en Gestoor.';
+  return pregunta+'\n\n'+resumen+'\n\n('+PREIVA_MSG_ENVIO_PREPARACION+')';
+}
+function marcarPreIVAEnviado(){
+  if(!_clienteActual){alert('Selecciona un cliente primero.');return;}
+  if(periodoCerrado()){alert('Este período ya cerró: no se puede marcar como enviado.');return;}
+  if(motivoBloqueoEnvio()){alert(motivoBloqueoEnvio());return;}
+  var errEnt=revisarEntradas();
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
+  if(!confirm(textoConfirmarEnviado()))return;
+  guardarPreiva('envio').then(function(g){
+    if(g){mostrarToast('✅ Pre-IVA marcado como enviado');renderHistorial();if(typeof renderNomina==='function')try{renderNomina();}catch(e){}}
+  },function(e){alert('No quedó marcado como enviado:\n\n'+e.message);});
+}
+function descargarPdfPreIVA(){
+  var errEnt=_clienteActual?revisarEntradas():[];
+  if(errEnt.length){alert('No se puede enviar: hay montos inválidos.\n\n'+errEnt.join('\n')+'\n\nCorrígelos y vuelve a intentar.');return;}
+  var full=htmlVistaPrevia(true);if(!full)return;
+  var viejo=document.getElementById('pio-pdf-frame');if(viejo)viejo.remove();
+  var fr=document.createElement('iframe');
+  fr.id='pio-pdf-frame';fr.setAttribute('aria-hidden','true');fr.tabIndex=-1;
+  fr.style.cssText='position:fixed;right:0;bottom:0;width:820px;height:1100px;border:0;opacity:0;pointer-events:none;z-index:-1';
+  var tituloOrig=document.title, preguntado=false;
+  function preguntar(){
+    if(preguntado)return;preguntado=true;
+    document.title=tituloOrig;
+    setTimeout(marcarPreIVAEnviadoTrasPdf,300);
+  }
+  fr.onload=function(){
+    var w=fr.contentWindow,d=fr.contentDocument;
+    var imgs=[].slice.call(d.images||[]);
+    var listas=imgs.map(function(im){return im.complete?Promise.resolve():new Promise(function(r){im.onload=im.onerror=r;});});
+    Promise.race([Promise.all(listas),new Promise(function(r){setTimeout(r,2500);})]).then(function(){
+      document.title=tituloPdfPreIVA();          // Chrome/Safari toman el nombre del PDF del título
+      try{w.addEventListener('afterprint',preguntar);}catch(e){}
+      try{w.focus();w.print();}catch(e){document.title=tituloOrig;alert('No se pudo abrir la impresión. Usa "Vista previa del correo" → "Guardar como PDF".');return;}
+      setTimeout(preguntar,1500);                 // respaldo: algunos navegadores no avisan afterprint (print() bloquea hasta cerrar)
+    });
+  };
+  fr.srcdoc=full;
+  document.body.appendChild(fr);
+}
+function marcarPreIVAEnviadoTrasPdf(){
+  if(!_clienteActual||periodoCerrado())return;
+  if(!confirm(textoConfirmarEnviado()))return;
+  guardarPreiva('envio').then(function(g){
+    if(g){mostrarToast('✅ Pre-IVA marcado como enviado');renderHistorial();if(typeof renderNomina==='function')try{renderNomina();}catch(e){}}
+  },function(e){alert('No quedó marcado como enviado:\n\n'+e.message);});
 }
 // ── NÓMINA PRE-IVA ────────────────────────────────────────────────────────
 function renderNomina(filtro){
@@ -1643,6 +1714,7 @@ function subirLocales(){
   var btnEditar=document.getElementById('btn-editar-reporte');if(btnEditar)btnEditar.onclick=abrirModalEdicion;
   var btnVista=document.getElementById('btn-vista-previa');if(btnVista)btnVista.onclick=generarReporte;
   var btnEnviar=document.getElementById('btn-enviar');if(btnEnviar)btnEnviar.onclick=enviarPreIVA;
+  var btnMarcar=document.getElementById('btn-marcar-enviado');if(btnMarcar)btnMarcar.onclick=marcarPreIVAEnviado;
   var bRM=document.getElementById('btn-rem-manual');if(bRM)bRM.onclick=abrirRemanenteManual;   // 19-11: remanente a mano con motivo
   var bRG=document.getElementById('btn-rem-guardar');if(bRG)bRG.onclick=guardarRemanenteManual;
   var bRC=document.getElementById('btn-rem-cancelar');if(bRC)bRC.onclick=cerrarRemanenteManual;
