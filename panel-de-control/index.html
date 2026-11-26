@@ -157,6 +157,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 /* Botón ✕ fijo arriba a la derecha (vista del reporte): siempre visible aunque el contenido o los botones no quepan */
 .modal-x{position:sticky;top:0;float:right;z-index:2;width:34px;height:34px;margin:-10px -10px 0 8px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur2);color:var(--t1);font-size:16px;line-height:1;cursor:pointer;}
 .modal-x:hover{border-color:var(--p);color:var(--p);}
+/* VER-MES: selector de mes y franja de solo consulta */
+#pc-ver-mes{margin-left:8px;background:var(--sur2);border:1px solid var(--bdr);color:var(--t1);border-radius:999px;padding:6px 12px;font-size:13px;font-family:inherit;cursor:pointer}
+#pc-solo-consulta{margin-left:8px;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(245,158,11,.15);color:var(--amber,#f59e0b);font-weight:700;font-size:13px}
+#pc-solo-consulta button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit}
 
 /* ATRASO */
 .atraso-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--sur);border:1px solid var(--bdr);border-radius:7px;}
@@ -237,6 +241,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
   <div class="topbar">
     <h1 class="tb-title">Panel de <span>Control</span></h1>
     <span id="per-pill" class="g-chip-per" style="display:none"></span>
+    <select id="pc-ver-mes" class="no-print" style="display:none" title="Ver un mes anterior (solo consulta)" aria-label="Mes que estás viendo" onchange="pcCambiarMes(this.value)"></select>
+    <span id="pc-solo-consulta" class="no-print" style="display:none"></span>
     <span id="per-uf" style="display:none"></span><span id="per-utm" style="display:none"></span>
     <div class="g-espacio"></div>
     <details class="g-mas no-print">
@@ -817,13 +823,84 @@ function getPeriodos(){
     return arr.sort(function(a,b){return a.periodo>b.periodo?-1:1;});
   }catch(e){return[];}
 }
-function getPeriodoActivo(){
+function _pcPeriodoActivoReal(){
   try{
     var obj=JSON.parse(localStorage.getItem('apertura_periodos')||'{}');
     var activo=null;
     Object.values(obj).forEach(function(p){if(p&&p.estado==='activo')activo=p;});
     return activo;
   }catch(e){return null;}
+}
+// ═══ VER-MES (26-11): consultar un mes anterior en SOLO CONSULTA ═══
+// El mes elegido vive solo en esta pestaña (sessionStorage). Mientras se mira otro mes, todo lo que
+// escribe en la base o envía algo (POST/PATCH/DELETE a /rest/v1 y /functions/v1) se bloquea, salvo 3 lecturas por RPC.
+var PC_VER_MES_KEY='pc_ver_mes';
+function _pcVerMes(){
+  var v=null;try{v=sessionStorage.getItem(PC_VER_MES_KEY);}catch(e){}
+  if(!/^\d{4}-\d{2}$/.test(v||''))return null;
+  var real=_pcPeriodoActivoReal();
+  return (real&&String(real.periodo)===v)?null:v;
+}
+function getPeriodoActivo(){
+  var v=_pcVerMes();
+  if(!v)return _pcPeriodoActivoReal();
+  var rows=[];try{rows=JSON.parse(localStorage.getItem('rpt_periodos')||'[]');}catch(e){}
+  var r=rows.find(function(x){return x&&String(x.periodo)===v;})||{};
+  return {periodo:v,estado:'consulta',uf:Number(r.uf)||0,utm:Number(r.utm)||0,soloConsulta:true};
+}
+function pcCambiarMes(v){
+  var real=_pcPeriodoActivoReal();
+  try{
+    if(!v||(real&&String(real.periodo)===v))sessionStorage.removeItem(PC_VER_MES_KEY);
+    else sessionStorage.setItem(PC_VER_MES_KEY,v);
+  }catch(e){}
+  location.reload();
+}
+var _pcAvisoAt=0;
+function _pcAvisoSoloConsulta(){
+  var v=_pcVerMes();
+  if(Date.now()-_pcAvisoAt<8000)return;   // un solo aviso aunque se bloqueen varias escrituras seguidas
+  _pcAvisoAt=Date.now();
+  alert('Estás viendo '+(v?formatPer(v):'un mes anterior')+' en modo solo consulta.\n\nPara guardar, enviar o cambiar algo, vuelve al mes abierto con el selector de arriba.');
+}
+(function(){
+  var f0=window.fetch;
+  var LECTURAS=['rpc/remanente_anterior','rpc/remanentes_anteriores','rpc/reporte_envio_manual_disponible'];
+  window.fetch=function(u,o){
+    try{
+      if(_pcVerMes()){
+        var m=String((o&&o.method)||(u&&u.method)||'GET').toUpperCase();
+        var url=String((u&&u.url)||u);
+        var base=(typeof SB_URL!=='undefined')?SB_URL:'';
+        var aSupabase=base&&url.indexOf(base)===0&&(url.indexOf('/rest/v1/')>=0||url.indexOf('/functions/v1/')>=0);
+        var esLectura=LECTURAS.some(function(p){return url.indexOf('/rest/v1/'+p)>=0;});
+        if(m!=='GET'&&m!=='HEAD'&&aSupabase&&!esLectura){
+          _pcAvisoSoloConsulta();
+          return Promise.reject(new Error('SOLO_CONSULTA'));
+        }
+      }
+    }catch(e){}
+    return f0.apply(this,arguments);
+  };
+})();
+function pcPoblarVerMes(){
+  var sel=document.getElementById('pc-ver-mes');if(!sel||typeof sbGetPeriodos!=='function')return;
+  sbGetPeriodos(function(rows){
+    var real=_pcPeriodoActivoReal();var v=_pcVerMes();
+    var pers=(rows||[]).map(function(r){return String(r.periodo||'');}).filter(function(p){return /^\d{4}-\d{2}$/.test(p);});
+    if(real&&pers.indexOf(String(real.periodo))<0)pers.push(String(real.periodo));
+    pers=pers.filter(function(p,i,a){return a.indexOf(p)===i;}).sort().reverse();
+    if(pers.length<2){sel.style.display='none';return;}
+    var actual=v||(real?String(real.periodo):'');
+    sel.innerHTML=pers.map(function(p){
+      var esAbierto=real&&String(real.periodo)===p;
+      return '<option value="'+hesc(p)+'"'+(p===actual?' selected':'')+'>'+hesc(formatPer(p))+(esAbierto?' · abierto':' · consulta')+'</option>';
+    }).join('');
+    sel.style.display='';
+  });
+  var b=document.getElementById('pc-solo-consulta');
+  if(b){var v2=_pcVerMes();b.style.display=v2?'':'none';
+    if(v2)b.innerHTML='👁 Solo consulta · '+hesc(formatPer(v2))+' <button type="button" onclick="pcCambiarMes(\'\')">Volver al mes abierto</button>';}
 }
 function getRecordatorios(){try{return JSON.parse(localStorage.getItem('recordatorios_enviados')||'{}');}catch(e){return{};}}
 function setRecordatorios(obj){localStorage.setItem('recordatorios_enviados',JSON.stringify(obj));}
@@ -2002,11 +2079,13 @@ function _esperarGestoorToken(timeoutMs){
     renderAll();
     setPeriodoActual();
     popularMpPeriodo();
-    setTimeout(verificarRecordatoriosAutomaticos,3000);
+    pcPoblarVerMes();
+    if(!_pcVerMes())setTimeout(verificarRecordatoriosAutomaticos,3000);   // VER-MES: nunca recordatorios automáticos mirando otro mes
   }).catch(function(){
     renderAll();
     setPeriodoActual();
     popularMpPeriodo();
+    pcPoblarVerMes();
   });
 })();
 
