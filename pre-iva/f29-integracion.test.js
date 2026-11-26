@@ -1,8 +1,8 @@
 // Prueba de INTEGRACIÓN del Pre-IVA (pantalla real en un navegador local, datos 100 % ficticios).
 // Verifica que el F29 mostrado en pantalla = el del reporte = el del correo preparado (prepararCorreoPreIVA().payload)
 // = el que se guarda en preiva_historial.f29, también tras "Editar reporte" (manual y recálculo con F29 en 0).
-// P1-A (A-PIVA-01): el envío por correo está DESACTIVADO (Vercel retirado, 404). "Enviar" debe mostrar el aviso
-// "Envío por correo en preparación", NO llamar a Vercel y NO guardar el Pre-IVA como enviado (sin fecha_envio).
+// P1-A (A-PIVA-01): el envío por correo está DESACTIVADO (Vercel retirado, 404). 26-11: el botón descarga el PDF (iframe oculto)
+// y pregunta «¿Ya enviaste…?»; solo si se acepta queda con fecha_envio. Nunca llama a Vercel.
 // NADA sale a internet: Supabase, el proxy de correo y todo dominio externo se interceptan; auth.js se reemplaza.
 // Ejecutar:  PW_CORE=/ruta/a/node_modules/playwright-core node --test pre-iva/f29-integracion.test.js
 //   (usa el Chrome instalado; se omite sola si no hay playwright-core o Chrome).
@@ -76,7 +76,8 @@ async function abrir(browser, base, { remanente, rem, extra }) {
     return route.abort();   // fuentes, imágenes y cualquier otro dominio: nada sale
   });
   const page = await ctx.newPage();
-  page.on('dialog', (d) => { cap.dialogos.push(d.message()); d.accept(); });
+  // 26-11: la pregunta «¿Ya enviaste…?» se RECHAZA salvo que la prueba pida aceptarla (cap.aceptarEnviado).
+  page.on('dialog', (d) => { cap.dialogos.push(d.message()); if (/Ya enviaste este Pre-IVA|ya figura enviado/.test(d.message()) && !cap.aceptarEnviado) d.dismiss(); else d.accept(); });
   // 19-11: el Pre-IVA es el MES EN CURSO (un período anterior es solo simulación y no se guarda). El reloj queda en el ÚLTIMO día de
   // septiembre: es el mes en curso y la proyección a fin de mes es ×1 (30 de 30 días), así los montos siguen siendo deterministas.
   await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0, 0));
@@ -101,11 +102,16 @@ function f29DeReporte(html) { const m = String(html).match(/F29 estimado a pagar
 // Correo preparado (sin enviar) y comprobación de que "Enviar" no envía ni marca como enviado.
 async function correoPreparado(page) { return page.evaluate(() => prepararCorreoPreIVA().payload); }
 async function enviarYComprobarDesactivado(page, cap) {
+  // 26-11: «Descargar PDF para enviar» imprime desde un iframe oculto y luego pregunta si ya se envió (aquí se rechaza).
   await page.click('#btn-enviar');
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => document.getElementById('pio-pdf-frame'), null, { timeout: 5000 });
+  await page.waitForTimeout(2500);
   assert.equal(cap.correos.length, 0, 'no se llama al endpoint retirado de Vercel');
-  assert.equal(cap.guardados.filter((g) => g.cuerpo.fecha_envio).length, 0, 'no queda guardado como enviado');
-  assert.match(cap.dialogos.join('\n'), /Envío por correo en preparación; usa el puente PDF\/Outlook/);
+  assert.equal(cap.guardados.filter((g) => g.cuerpo.fecha_envio).length, 0, 'no queda guardado como enviado sin confirmación');
+  assert.match(cap.dialogos.join('\n'), /Ya enviaste este Pre-IVA al cliente/);
+  assert.match(cap.dialogos.join('\n'), /envío automático por correo aún no está disponible/);
+  const fr = await page.evaluate(() => { const f = document.getElementById('pio-pdf-frame'); const d = f.contentDocument; return { titulo: d.title, rotulo: /Vista previa interna/.test(d.body.innerHTML), barra: !!d.querySelector('.barra-pdf') }; });
+  assert.match(fr.titulo, /^Pre-IVA .+ /); assert.equal(fr.rotulo, false); assert.equal(fr.barra, false);
 }
 // Guarda el borrador y devuelve lo último que se mandó a preiva_historial.
 async function guardarBorrador(page, cap) {
@@ -367,6 +373,33 @@ test('INTEGRACIÓN 19-11 · mes anterior no declarado → remanente ESTIMADO con
     await page.waitForFunction(() => document.getElementById('lbl-remanente').textContent === 'Falta' && /julio 2026/.test(document.getElementById('lbl-remanente-fuente').textContent), null, { timeout: 15000 });
     assert.match(await page.textContent('#lbl-remanente-fuente'), /no se pudo estimar: tampoco se conoce el remanente de julio 2026/);
     assert.equal(await page.evaluate(() => document.getElementById('btn-enviar').disabled), true);
+    await ctx.close();
+  } finally { await browser.close(); srv.close(); }
+});
+
+test('INTEGRACIÓN 26-11 · PDF para Outlook: al aceptar «¿Ya enviaste…?» queda ENVIADO; «Marcar como enviado» pide confirmación', { skip: omitir }, async () => {
+  const srv = await servidor(), base = 'http://127.0.0.1:' + srv.address().port;
+  const browser = await pw.chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome', headless: true });
+  try {
+    const { ctx, page, cap } = await abrir(browser, base, { remanente: 300000 });
+    await escribir(page, { 'inp-debito': 1900000, 'inp-credito': 900000, 'inp-exento-ventas': 0, 'inp-tasa-ppm': 1.5 });
+    const txt = await page.evaluate(() => ({ b: document.getElementById('btn-enviar').textContent, m: document.getElementById('btn-marcar-enviado').textContent }));
+    assert.match(txt.b, /Descargar PDF para enviar/); assert.match(txt.m, /Marcar como enviado/);
+    // a) «Marcar como enviado» rechazado → nada guardado como enviado
+    await page.click('#btn-marcar-enviado'); await page.waitForTimeout(400);
+    assert.equal(cap.guardados.filter((g) => g.cuerpo.fecha_envio).length, 0);
+    assert.match(cap.dialogos.join('\n'), /Ya enviaste este Pre-IVA/);
+    // b) PDF + aceptar → queda guardado con fecha_envio, sin llamar a Vercel
+    cap.aceptarEnviado = true;
+    await page.click('#btn-enviar');
+    await page.waitForFunction(() => document.getElementById('pio-pdf-frame'), null, { timeout: 5000 });
+    await page.waitForTimeout(2800);
+    const env = cap.guardados.filter((g) => g.cuerpo.fecha_envio);
+    assert.equal(env.length, 1, 'quedó marcado como enviado una vez'); assert.equal(env[0].cuerpo.f29, 850000);
+    assert.equal(cap.correos.length, 0);
+    // c) La vista previa (no PDF) trae la barra «Guardar como PDF» y el rótulo interno
+    const vp = await page.evaluate(() => { const h = htmlVistaPrevia(false); return { barra: /Guardar como PDF/.test(h), rot: /Vista previa interna/.test(h) }; });
+    assert.equal(vp.barra, true); assert.equal(vp.rot, true);
     await ctx.close();
   } finally { await browser.close(); srv.close(); }
 });

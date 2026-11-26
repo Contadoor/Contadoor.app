@@ -190,7 +190,7 @@ function pintar(){
     if(f29Ant>0){var v=txt('kpi-var').trim();pon('pio-var-ic',/^\+0%$|^0%$/.test(v)?'=':v.charAt(0)==='-'?'↘':'↗');pon('pio-f29-ant',clp(f29Ant));}}
 
   // ── Lo que HOY envía el correo (no cambia en este PR): F29 estimado y acciones del sistema anterior ──
-  pon('pio-correo-envia',cerrado?'El correo enviará el F29 de este mes: '+txt('res-f29')+'.':'Ojo: el correo de hoy enviará el F29 estimado a fin de mes ('+txt('res-f29')+') y las acciones del sistema anterior. Revísalo en la vista previa.');
+  pon('pio-correo-envia',(cerrado?'El PDF lleva el F29 de este mes: '+txt('res-f29')+'.':'El PDF lleva el F29 estimado a fin de mes ('+txt('res-f29')+') y las acciones del sistema anterior. Revísalo en la vista previa.')+' El envío automático por correo aún no está disponible: descarga el PDF y envíalo por Outlook; luego márcalo como enviado.');
   oculto($('pio-correo-envia'),sinDato||remFalta||parcial);
   // ── Chips de aviso extra ──
   chip('pio-chip-tasa','ambar','alerta',sinTasa?'Falta la tasa PPM: el F29 estimado aún no incluye PPM':'');
