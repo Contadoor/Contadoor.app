@@ -46,6 +46,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);display:flex;m
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;}
 .stat{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;}
+/* 27-11 (Luciano): indicador de la última cartola cargada — fecha, hora y antigüedad, con semáforo. */
+.ult-cart{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sur);border:1px solid var(--bdr);border-left:4px solid var(--tm);border-radius:10px;padding:9px 14px;margin-bottom:10px;font-size:12px;color:var(--t2,var(--tm));}
+.ult-cart .uc-dot{width:10px;height:10px;border-radius:50%;background:var(--tm);flex:0 0 auto;}
+.ult-cart .uc-tit{font-weight:800;color:var(--t1);font-size:13px;}
+.ult-cart .uc-rel{font-weight:800;}
+.ult-cart .uc-det{color:var(--tm);}
+.ult-cart .uc-btn{margin-left:auto;background:none;border:1px solid var(--bdr);color:var(--t1);border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;}
+.ult-cart.ok{border-left-color:var(--green);}.ult-cart.ok .uc-dot{background:var(--green);}.ult-cart.ok .uc-rel{color:var(--green);}
+.ult-cart.med{border-left-color:var(--amber);}.ult-cart.med .uc-dot{background:var(--amber);}.ult-cart.med .uc-rel{color:var(--amber);}
+.ult-cart.mal{border-left-color:var(--red);}.ult-cart.mal .uc-dot{background:var(--red);}.ult-cart.mal .uc-rel{color:var(--red);}
 .sv{font-size:20px;font-weight:700;font-family:monospace;}
 .sl{font-size:9.5px;color:var(--tm);text-transform:uppercase;letter-spacing:.6px;margin-top:3px;}
 
@@ -224,6 +234,7 @@ tr:hover td{background:#f0fdff;}
   </div>
 
   <div class="content">
+    <div class="ult-cart" id="ultCart" title="Verde: cargada en las últimas 24 h · Amarillo: hace 1 a 3 días · Rojo: hace más de 3 días"><span class="uc-dot"></span><span class="uc-tit">🏦 Última cartola cargada:</span><span id="ultCartTxt">Cargando…</span></div>
     <div class="stats">
       <div class="stat"><div class="sv" id="st-pc" style="color:var(--amber)">0</div><div class="sl">Ingresos por conciliar</div></div>
       <div class="stat"><div class="sv" id="st-pcm" style="color:var(--t1)">$0</div><div class="sl">Monto por conciliar</div></div>
@@ -419,7 +430,25 @@ function stats(){
   document.getElementById('st-co').textContent=_movs.filter(function(m){return m.estado==='conciliado';}).length;
   document.getElementById('st-de').textContent=_movs.filter(function(m){return m.estado==='descartado';}).length;
   document.getElementById('st-ob').textContent=_obs.length+_docs.length; // obligaciones + facturas de Cobranza abiertas
+  ultimaCartola();
 }
+// 27-11 (Luciano): indicador de la última carga de cartola. _cargas viene ordenada por created_at desc.
+// Semáforo por antigüedad: ≤24 h verde · ≤72 h amarillo · más rojo. Se refresca solo cada minuto (el «hace…»).
+function haceTxt(ms){var min=Math.floor(ms/60000);if(min<1)return 'recién';if(min<60)return 'hace '+min+' min';var h=Math.floor(min/60);if(h<24)return 'hace '+h+' h';var d=Math.floor(h/24);return 'hace '+d+(d===1?' día':' días');}
+function ultimaCartola(){
+  var box=document.getElementById('ultCart'),txt=document.getElementById('ultCartTxt');if(!box||!txt)return;
+  box.classList.remove('ok','med','mal');
+  var c=_cargas&&_cargas[0];
+  if(!c){box.classList.add('mal');txt.innerHTML='<span class="uc-rel">Aún no se carga ninguna cartola.</span>';return;}
+  var ms=Date.now()-new Date(c.created_at).getTime();
+  box.classList.add(ms<=864e5?'ok':ms<=2592e5?'med':'mal');
+  var ultMov=_movs.reduce(function(mx,m){var f=m.fecha_hora||m.fecha;return f&&(!mx||f>mx)?f:mx;},null);
+  txt.innerHTML='<strong>'+hesc(fechaTz(c.created_at))+'</strong> · <span class="uc-rel">'+haceTxt(ms)+'</span>'+
+    ' <span class="uc-det">· '+hesc(c.archivo||'sin nombre')+' · '+Number(c.insertados||0)+' ingreso'+(Number(c.insertados)===1?'':'s')+' nuevo'+(Number(c.insertados)===1?'':'s')+
+    (ultMov?' · último movimiento en la cartola: '+hesc(fecha(ultMov))+'</span>':'</span>');
+  if(!document.getElementById('ultCartBtn')){var b=document.createElement('button');b.id='ultCartBtn';b.className='uc-btn';b.textContent='Ver cargas';b.onclick=function(){setVista('cargas');};box.appendChild(b);}
+}
+setInterval(function(){if(_cargas)ultimaCartola();},60000);
 function setVista(v){_vista=v;document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===v);});render();}
 function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo+extDe(m.id).map(function(x){return ' cliente externo '+x.concepto;}).join('')).toLowerCase().indexOf(q)>=0;}
 function render(){
