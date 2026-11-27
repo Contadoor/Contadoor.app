@@ -11,7 +11,11 @@
    revisado_at, facturas aceptadas / en plazo / reclamadas) se muestran si existen; hoy no existen y todo se ve "Manual".
    Nada se escribe desde esta pantalla. "No disponible" nunca se muestra como $0.
    El botón "Abrir Pre-IVA" lleva a la Pantalla 2 (index.html?cliente=<id>&periodo=AAAA-MM).
-   Modo demostración: ver cartera-demo.js (solo ?demo=1 en localhost).
+   Modo demostración: ver cartera-demo.js (solo ?demo=1 en localhost; ?vivo=1 simula el Pre-IVA vivo).
+   27-11 (Luciano) · PRE-IVA VIVO: si existe la RPC public.preiva_cartera_viva (pre-iva/preiva-vivo.js), TODAS las empresas conectadas
+   muestran el cálculo vivo desde Cartapra (RCV del SII) sin abrir nada: IVA del mes, PPM y F29 «Estimado» a la fecha (el mismo monto de
+   MiContadoor). El estado deja de ser «Pendiente = sin abrir»: es «Estimado · Cartapra», «Enviado» o «Sin conexión al SII».
+   La pantalla se refresca sola (cada 15 minutos y al volver a la pestaña). Sin la RPC (PGRST202) todo queda como antes.
    ============================================================ */
 (function(){
 'use strict';
@@ -68,6 +72,11 @@ var API=DEMO?window.PV_DEMO_API:{
   // sbFetch pone el JWT del usuario; a diferencia de sbGet, un error de lectura se muestra (no se convierte en lista vacía).
   get:function(path){return sbFetch(path).then(leer);}
 };
+// Pre-IVA vivo (27-11): lectura de la RPC (nunca lanza). En la demo, PV_DEMO_API.vivo (si existe; si no, «no instalada»).
+function leerVivo(per){
+  if(DEMO)return API.vivo?API.vivo(per):Promise.resolve({estado:'no_disponible'});
+  return window.PreIvaVivo?window.PreIvaVivo.leerCartera(per):Promise.resolve({estado:'no_disponible'});
+}
 /* Lectura completa con paginación (PostgREST corta en 1000 filas por defecto) */
 function getTodo(path){
   var out=[], P=1000;
@@ -96,6 +105,7 @@ var S={
   per:RE_PER.test(perPedido||'')?perPedido:perHoy(),
   periodos:[], planes:null, errPlanes:null, clientes:null, hist:{}, errHist:null,
   cargando:true, cargandoMes:false, error:null, tok:0, tokMes:0, rcv:{}, errRcv:null,
+  vivo:null, vivoEstado:null, vivoAt:0,   // Pre-IVA vivo: {porId, periodo, generadoEn} · 'ok' | 'no_disponible' | 'sin_permiso' | 'error'
   q:'', filtro:'todos', orden:'prioridad', mis:false,
   resp:window.GEquipo.leerUrl()   // filtro por responsable (?resp=, componente común assets/equipo.js)
 };
@@ -107,9 +117,15 @@ var EST={
   BORRADOR:['ambar','Borrador guardado',3],
   SIN_CONFIRMAR:['gris','Sin confirmar',4],
   ENVIADO:['verde','Enviado',5],
-  NO_INCLUIDO:['gris','No incluido en el plan',6]
+  NO_INCLUIDO:['gris','No incluido en el plan',6],
+  // Pre-IVA vivo (27-11): no requiere revisión del asesor; siempre «Estimado»
+  SIN_CONEXION:['rojo','Sin conexión al SII',0.5],
+  VIVO:['lila','Estimado · Cartapra',2.5]
 };
+function vivoOk(){return S.vivoEstado==='ok'&&!!S.vivo;}
 var FILTROS=[['todos','Todos'],['pendientes','Pendientes'],['revisar','Por revisar'],['borradores','Borradores'],['enviados','Enviados'],['remanente','Con remanente'],['noinc','No incluidos']];
+var FILTROS_VIVO=[['todos','Todos'],['vivos','Estimados'],['enviados','Enviados'],['sinconexion','Sin conexión al SII'],['faltarem','Falta remanente'],['pendcompras','Compras pendientes'],['remanente','Con remanente'],['noinc','No incluidos']];
+function filtrosActivos(){return vivoOk()?FILTROS_VIVO:FILTROS;}
 var NOTA_SII='Disponible cuando se active la conexión con el SII';
 var ORDENES=[['prioridad','Prioridad (pendientes primero)'],['f29','Mayor F29 estimado'],['iva','Mayor IVA · así vamos'],['ivaEst','Mayor IVA estimado a fin de mes'],['envio','Envío más reciente'],['nombre','Cliente (A–Z)'],['resp','Responsable']];
 
@@ -135,9 +151,14 @@ function iniciar(){
 function cargarMes(){
   // Token propio del mes: cambiar de mes nunca invalida la carga de clientes (revisión independiente)
   var tok=++S.tokMes;
-  var per=S.per;S.cargandoMes=true;S.errHist=null;render();
+  var per=S.per;S.cargandoMes=true;S.errHist=null;S.vivo=null;S.vivoEstado=null;render();
   cargarRcv(per,tok);
-  return getTodo('preiva_historial?periodo=eq.'+encodeURIComponent(per)+'&select=cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,tasa_ppm,enviado_por,fecha_envio&order=id.asc')
+  var pVivo=leerVivo(per).then(function(r){
+    if(tok!==S.tokMes||per!==S.per)return;
+    S.vivoEstado=r.estado;S.vivo=r.estado==='ok'&&window.PreIvaVivo?window.PreIvaVivo.indexarCartera(r.datos):null;S.vivoAt=Date.now();
+    if(S.vivoEstado==='ok'&&!S.vivo)S.vivoEstado='no_disponible';
+  });
+  var pHist=getTodo('preiva_historial?periodo=eq.'+encodeURIComponent(per)+'&select=cliente_rut,periodo,debito_iva,credito_iva,remanente,f29,ppm,tasa_ppm,enviado_por,fecha_envio&order=id.asc')
     .then(function(rows){
       if(tok!==S.tokMes||per!==S.per)return;
       var h={};(rows||[]).forEach(function(x){if(x&&x.cliente_rut)h[x.cliente_rut]=x;});
@@ -145,11 +166,25 @@ function cargarMes(){
     },function(e){
       if(tok!==S.tokMes||per!==S.per)return;
       S.hist={};S.errHist=e;   // no se inventa "Pendiente": cada fila queda "Sin confirmar"
-    }).then(function(){
+    });
+  return Promise.all([pHist,pVivo]).then(function(){
       if(tok!==S.tokMes||per!==S.per)return;
       S.cargando=false;S.cargandoMes=false;animarBarras();render();
     });
 }
+
+/* Pre-IVA vivo: refresco silencioso (sin botón, sin spinner): cada 15 minutos con la pestaña visible y al volver a ella (si pasaron 5). */
+var REFRESCO_MS=15*60000, REFRESCO_VOLVER_MS=5*60000;
+function refrescarVivo(){
+  if(S.cargando||S.cargandoMes||S.error||S.vivoEstado!=='ok')return;
+  var tok=S.tokMes, per=S.per;
+  leerVivo(per).then(function(r){
+    if(tok!==S.tokMes||per!==S.per||r.estado!=='ok'||!window.PreIvaVivo)return;   // un fallo pasajero no borra lo que se ve
+    S.vivo=window.PreIvaVivo.indexarCartera(r.datos);S.vivoAt=Date.now();render();
+  });
+}
+setInterval(function(){if(document.visibilityState==='visible')refrescarVivo();},REFRESCO_MS);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&Date.now()-S.vivoAt>REFRESCO_VOLVER_MS)refrescarVivo();});
 
 /* Última consulta al SII del mes (rcv_consultas, solo lectura, RLS por cliente visible). Si falla, no bloquea la cartera. */
 function cargarRcv(per,tok){
@@ -178,7 +213,8 @@ function filas(){
     f.estado=S.errHist?'SIN_CONFIRMAR':h?(h.fecha_envio?'ENVIADO':f.auto&&f.fact&&f.fact.plazo>0?'ACUSE':f.auto&&!h.revisado_at?'CALCULADO':'BORRADOR'):(incluye===false?'NO_INCLUIDO':'PENDIENTE');
     f.rcv=S.rcv[c.id]||null;
     // Montos guardados por la Pantalla 2 (solo si hay fila del mes)
-    f.iva=null;f.ivaEst=null;f.ppm=null;f.f29=null;f.sinLibros=false;f.sinTasa=false;
+    f.iva=null;f.ivaEst=null;f.ppm=null;f.f29=null;f.sinLibros=false;f.sinTasa=false;f.remFalta=null;
+    f.v=vivoOk()?(S.vivo.porId[c.id]||null):null;   // Pre-IVA vivo de la empresa (null: la RPC no la trae o no está instalada)
     if(h){
       var deb=num(h.debito_iva), cred=num(h.credito_iva), rem=num(h.remanente);
       f.sinLibros=!f.exenta&&!(deb>0)&&!(cred>0);   // débito y crédito en 0: no se cargaron libros (no se asume IVA $0)
@@ -191,8 +227,29 @@ function filas(){
       // Referencia estimada a fin de mes (solo el mes en curso): F29 guardado − PPM guardado (lo proyectado por el Pre-IVA)
       if(S.per===perHoy()&&!f.exenta&&f.f29!=null&&ppm!=null){var ivaE=f.f29-ppm;f.ivaEst=ivaE>0?ivaE:0;}   // F29 estimado ya incluye el PPM: aquí solo se separa para mostrar
     }
+    f.f29Guardado=f.f29;
+    // ── Pre-IVA vivo (27-11): manda el cálculo desde Cartapra; lo guardado/enviado queda como referencia ──
+    if(f.v){
+      var v=f.v;
+      if(v.conectado&&v.hayDatos){
+        f.iva=f.exenta?null:v.iva;f.ivaEst=null;f.sinLibros=false;f.sinTasa=v.sinTasa;f.ppm=v.ppm;f.f29=v.total;f.remFalta=f.exenta?null:v.remanenteFalta;
+        if(f.exenta&&v.ppm!=null)f.f29=v.ppm;   // exenta: el F29 es solo el PPM
+      }else{f.iva=null;f.ivaEst=null;f.ppm=null;f.f29=null;}
+      f.estado=h&&h.fecha_envio?'ENVIADO':(!h&&incluye===false)?'NO_INCLUIDO':v.conectado?'VIVO':h?'BORRADOR':'SIN_CONEXION';
+      f.motivos=[];
+    }
     // Motivos (orientación) y vencimiento
-    if(f.estado==='PENDIENTE'||f.estado==='BORRADOR'||f.estado==='CALCULADO'||f.estado==='ACUSE'){
+    if(f.v){
+      if(f.estado==='SIN_CONEXION')f.motivos.push('conecta la empresa en Cartapra para tener su Pre-IVA vivo');
+      else if(f.v.conectado&&!f.v.hayDatos)f.motivos.push('Cartapra aún no trae compras ni ventas de este mes');
+      if(f.remFalta)f.motivos.push('remanente: '+f.remFalta);
+      if(f.v.pendientes.n>0)f.motivos.push(f.v.pendientes.n+' compra'+(f.v.pendientes.n===1?'':'s')+' pendiente'+(f.v.pendientes.n===1?'':'s')+' en el SII');
+      if(f.v.conectado&&f.v.hayDatos&&!f.v.coberturaCompleta)f.motivos.push('el SII aún no entrega completo este mes');
+      if(f.estado!=='ENVIADO'&&f.estado!=='NO_INCLUIDO'){if(dias<0)f.motivos.push('el F29 de este mes ya venció');else if(dias<=3)f.motivos.push(dias===0?'el F29 vence hoy':'el F29 vence en '+dias+' día'+(dias===1?'':'s'));}
+      if(h&&!h.fecha_envio)f.chips.push(['ambar','Borrador guardado']);
+      if(S.errHist)f.chips.push(['gris','Envío al cliente sin confirmar (no se pudo leer lo guardado)']);
+    }
+    else if(f.estado==='PENDIENTE'||f.estado==='BORRADOR'||f.estado==='CALCULADO'||f.estado==='ACUSE'){
       if(f.estado==='BORRADOR')f.motivos.push('falta enviarlo al cliente');
       if(f.estado==='CALCULADO')f.motivos.push('revisar y enviar');
       if(f.estado==='ACUSE')f.motivos.push('esperar el acuse de las facturas recibidas en plazo');
@@ -214,6 +271,10 @@ function pasaFiltro(f,filtro){
     case 'enviados':return f.estado==='ENVIADO';
     case 'remanente':return f.iva!=null&&f.iva<0;
     case 'noinc':return f.estado==='NO_INCLUIDO';
+    case 'vivos':return f.estado==='VIVO';
+    case 'sinconexion':return f.estado==='SIN_CONEXION';
+    case 'faltarem':return !!f.remFalta;
+    case 'pendcompras':return !!(f.v&&f.v.pendientes.n>0);
   }
   return true;
 }
@@ -241,10 +302,12 @@ function visibles(todas){
   return r.sort(cmp);
 }
 function totales(fs){
-  var t={n:fs.length,env:0,bor:0,pend:0,noinc:0,sinc:0,rev:0,iva:0,rem:0,f29:0,nIva:0,nF29:0,conFila:0};
+  var t={n:fs.length,env:0,bor:0,pend:0,noinc:0,sinc:0,rev:0,iva:0,rem:0,f29:0,nIva:0,nF29:0,conFila:0,vivo:0,sinCon:0,faltaRem:0};
   fs.forEach(function(f){
-    if(f.estado==='ENVIADO')t.env++;else if(f.estado==='BORRADOR')t.bor++;else if(f.estado==='CALCULADO'||f.estado==='ACUSE')t.rev++;else if(f.estado==='PENDIENTE')t.pend++;else if(f.estado==='NO_INCLUIDO')t.noinc++;else t.sinc++;
-    if(f.h){t.conFila++;
+    if(f.estado==='ENVIADO')t.env++;else if(f.estado==='BORRADOR')t.bor++;else if(f.estado==='CALCULADO'||f.estado==='ACUSE')t.rev++;else if(f.estado==='PENDIENTE')t.pend++;else if(f.estado==='NO_INCLUIDO')t.noinc++;
+    else if(f.estado==='VIVO')t.vivo++;else if(f.estado==='SIN_CONEXION')t.sinCon++;else t.sinc++;
+    if(f.remFalta)t.faltaRem++;
+    if(f.v?f.v.hayDatos:f.h){t.conFila++;   // con el Pre-IVA vivo cuentan las empresas con datos del SII (no solo las guardadas)
       if(f.iva!=null){t.nIva++;if(f.iva>0)t.iva+=f.iva;else if(f.iva<0)t.rem+=-f.iva;}
       if(f.f29!=null){t.nF29++;t.f29+=f.f29;}
     }
@@ -287,38 +350,49 @@ function render(){
   var vencSub=(dias<0?'venció el ':'vence el ')+DIAS[venc.getDay()]+' '+fDia(venc)+' (F29 de '+perTxt(S.per).toLowerCase()+')';
   var incluidos=t.n-t.noinc, sinIva=t.conFila-t.nIva, sinF29=t.conFila-t.nF29;
   var pct=function(x){return incluidos>0?(x/incluidos*100):0;};
+  var VV=vivoOk(), deN=VV?'de '+entero(t.conFila)+' empresa'+(t.conFila===1?'':'s')+' con datos del SII (Cartapra)':'de '+entero(t.conFila)+' Pre-IVA guardado'+(t.conFila===1?'':'s');
   h+='<section class="pvc-tot" aria-label="Totales de la cartera">'
     +'<div class="pvc-k"><small>Clientes</small><b>'+entero(t.n)+'</b><span>'+(rNom?'de '+esc(rNom)+' · ':'')+entero(incluidos)+' con Pre-IVA en su plan'+(t.noinc?' · '+entero(t.noinc)+' no incluido'+(t.noinc===1?'':'s'):'')+'</span></div>'
     +'<div class="pvc-k verde"><small>Enviados</small><b>'+entero(t.env)+'</b><span>ya los tiene el cliente</span></div>'
-    +'<div class="pvc-k ambar"><small>Borradores</small><b>'+entero(t.bor)+'</b><span>guardados, falta enviarlos'+(t.rev?' · '+entero(t.rev)+' por revisar (SII)':'')+'</span></div>'
-    +'<div class="pvc-k rojo"><small>Pendientes</small><b>'+entero(t.pend)+'</b><span>sin Pre-IVA este mes'+(t.sinc?' · '+entero(t.sinc)+' sin confirmar':'')+'</span></div>'
-    +'<div class="pvc-k"><small>IVA total estimado a pagar</small><b>'+(t.nIva?clpT(t.iva):'No disponible')+'</b><span>de '+entero(t.conFila)+' Pre-IVA guardado'+(t.conFila===1?'':'s')+', solo saldos a pagar'+(sinIva?' · '+entero(sinIva)+' sin dato':'')+'</span></div>'
+    +(VV?'<div class="pvc-k lila"><small>Estimados · Cartapra</small><b>'+entero(t.vivo)+'</b><span>calculados solos con el SII, sin revisión'+(t.faltaRem?' · '+entero(t.faltaRem)+' sin remanente del mes anterior':'')+(t.bor?' · '+entero(t.bor)+' borrador'+(t.bor===1?'':'es')+' sin conexión':'')+'</span></div>'
+        +'<div class="pvc-k rojo"><small>Sin conexión al SII</small><b>'+entero(t.sinCon)+'</b><span>no están conectadas en Cartapra: sin Pre-IVA vivo</span></div>'
+       :'<div class="pvc-k ambar"><small>Borradores</small><b>'+entero(t.bor)+'</b><span>guardados, falta enviarlos'+(t.rev?' · '+entero(t.rev)+' por revisar (SII)':'')+'</span></div>'
+        +'<div class="pvc-k rojo"><small>Pendientes</small><b>'+entero(t.pend)+'</b><span>sin Pre-IVA este mes'+(t.sinc?' · '+entero(t.sinc)+' sin confirmar':'')+'</span></div>')
+    +'<div class="pvc-k"><small>IVA total estimado a pagar</small><b>'+(t.nIva?clpT(t.iva):'No disponible')+'</b><span>'+deN+', solo saldos a pagar'+(sinIva?' · '+entero(sinIva)+' sin dato':'')+'</span></div>'
     +'<div class="pvc-k verde"><small>Remanentes a favor</small><b>'+(t.nIva?clpT(t.rem):'No disponible')+'</b><span>crédito mayor que el débito'+(sinIva?' · '+entero(sinIva)+' sin dato':'')+'</span></div>'
-    +'<div class="pvc-k lila"><small>F29 total estimado</small><b>'+(t.nF29?clpT(t.f29):'No disponible')+'</b><span>de '+entero(t.conFila)+' Pre-IVA guardado'+(t.conFila===1?'':'s')+(t.pend?' · sin los '+entero(t.pend)+' pendientes':'')+(sinF29?' · '+entero(sinF29)+' sin dato':'')+'</span></div>'
+    +'<div class="pvc-k lila"><small>F29 total estimado</small><b>'+(t.nF29?clpT(t.f29):'No disponible')+'</b><span>'+deN+(t.pend?' · sin los '+entero(t.pend)+' pendientes':'')+(sinF29?' · '+entero(sinF29)+' sin dato':'')+'</span></div>'
     +'<div class="pvc-k '+(dias<0?'rojo':dias<=3?'ambar':'')+'"><small>Días al vencimiento del F29</small><b>'+vencTxt+'</b><span>'+esc(vencSub)+'</span></div>'
     +'<div class="pvc-k ancho"><small>Avance del mes</small>'
-      +'<div class="pvc-av"><div class="pvc-av-barra" role="img" aria-label="'+esc(entero(t.env)+' enviados, '+entero(t.bor)+' borradores y '+entero(t.pend)+' pendientes de '+entero(incluidos)+' clientes con Pre-IVA')+'">'
+      +(VV?'<div class="pvc-av"><div class="pvc-av-barra" role="img" aria-label="'+esc(entero(t.env)+' enviados, '+entero(t.vivo)+' estimados desde Cartapra y '+entero(t.sinCon)+' sin conexión al SII de '+entero(incluidos)+' clientes con Pre-IVA')+'">'
+          +(t.env?'<i class="verde" style="width:'+pct(t.env).toFixed(2)+'%"></i>':'')+(t.vivo?'<i class="lila" style="width:'+pct(t.vivo).toFixed(2)+'%"></i>':'')+(t.bor?'<i class="ambar" style="width:'+pct(t.bor).toFixed(2)+'%"></i>':'')+(t.sinCon?'<i class="rojo" style="width:'+pct(t.sinCon).toFixed(2)+'%"></i>':'')+'</div></div>'
+          +'<div class="pvc-av-ley"><span><i class="verde"></i><b>'+entero(t.env)+'</b> enviados</span><span><i class="lila"></i><b>'+entero(t.vivo)+'</b> estimados · Cartapra</span>'+(t.bor?'<span><i class="ambar"></i><b>'+entero(t.bor)+'</b> borradores</span>':'')+'<span><i class="rojo"></i><b>'+entero(t.sinCon)+'</b> sin conexión</span><span>'+(incluidos>0?Math.floor(pct(t.env+t.vivo)).toLocaleString('es-CL')+' % con Pre-IVA vivo o enviado':'—')+'</span></div></div>'
+       :'<div class="pvc-av"><div class="pvc-av-barra" role="img" aria-label="'+esc(entero(t.env)+' enviados, '+entero(t.bor)+' borradores y '+entero(t.pend)+' pendientes de '+entero(incluidos)+' clientes con Pre-IVA')+'">'
       +(t.env?'<i class="verde" style="width:'+pct(t.env).toFixed(2)+'%"></i>':'')+(t.rev?'<i class="lila" style="width:'+pct(t.rev).toFixed(2)+'%"></i>':'')+(t.bor?'<i class="ambar" style="width:'+pct(t.bor).toFixed(2)+'%"></i>':'')+(t.pend?'<i class="rojo" style="width:'+pct(t.pend).toFixed(2)+'%"></i>':'')+'</div></div>'
-      +'<div class="pvc-av-ley"><span><i class="verde"></i><b>'+entero(t.env)+'</b> enviados</span>'+(t.rev?'<span><i class="lila"></i><b>'+entero(t.rev)+'</b> por revisar</span>':'')+'<span><i class="ambar"></i><b>'+entero(t.bor)+'</b> borradores</span><span><i class="rojo"></i><b>'+entero(t.pend)+'</b> pendientes</span><span>'+(incluidos>0?Math.floor(pct(t.env)).toLocaleString('es-CL')+' % enviado':'—')+'</span></div></div>'
+      +'<div class="pvc-av-ley"><span><i class="verde"></i><b>'+entero(t.env)+'</b> enviados</span>'+(t.rev?'<span><i class="lila"></i><b>'+entero(t.rev)+'</b> por revisar</span>':'')+'<span><i class="ambar"></i><b>'+entero(t.bor)+'</b> borradores</span><span><i class="rojo"></i><b>'+entero(t.pend)+'</b> pendientes</span><span>'+(incluidos>0?Math.floor(pct(t.env)).toLocaleString('es-CL')+' % enviado':'—')+'</span></div></div>')
     +'</section>';
   if(S.errHist)h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>No se pudo leer el estado del Pre-IVA de '+esc(perTxt(S.per))+' desde Gestoor ('+esc(textoError(S.errHist))+'). Los estados quedan "Sin confirmar": no se asume que estén pendientes.</span> <button type="button" class="btn sec chico" data-act="recargar-mes">Reintentar</button></div>';
-  h+='<div class="aviso gris pvc-sii" id="pvNotaSii">'+I('info','ic-cel')+'<span><b>Pre-IVA automático desde el SII:</b> cuando se active la conexión (RCV de compras y ventas), Gestoor consultará solo los días 2, 12 y 18, primero hará el acuse de las facturas recibidas y después calculará el Pre-IVA con las compras aceptadas (expresas o tácitas a los 8 días; las reclamadas no cuentan). El analista revisa y envía. Hoy todo es <b>Manual</b>. El botón "Actualizar desde el SII" estará '+esc(NOTA_SII.charAt(0).toLowerCase()+NOTA_SII.slice(1))+'.</span></div>';
+  if(VV){var gen=window.PreIvaVivo.fechaChile(S.vivo.generadoEn);
+    h+='<div class="aviso lila pvc-sii" id="pvNotaSii">'+I('info','ic-cel')+'<span><b>Pre-IVA vivo:</b> se calcula solo, para todas las empresas conectadas, con las compras y ventas del SII que trae Cartapra (sincroniza a las 08:00, 15:00 y 18:00). Es un <b>estimado a la fecha</b> (el mismo monto que ve el cliente en MiContadoor) y no requiere abrirlo ni revisarlo. Calculado el '+esc(gen||'—')+' (hora de Chile); esta pantalla se actualiza sola cada 15 minutos.</span></div>';}
+  else if(S.vivoEstado==='error'||S.vivoEstado==='sin_permiso')h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>No se pudo leer el Pre-IVA vivo desde Cartapra'+(S.vivoEstado==='sin_permiso'?' (sin permiso)':'')+': se muestra lo guardado en Gestoor.</span></div>';
+  if(!VV)h+='<div class="aviso gris pvc-sii" id="pvNotaSii">'+I('info','ic-cel')+'<span><b>Pre-IVA automático desde el SII:</b> cuando se active la conexión (RCV de compras y ventas), Gestoor consultará solo los días 2, 12 y 18, primero hará el acuse de las facturas recibidas y después calculará el Pre-IVA con las compras aceptadas (expresas o tácitas a los 8 días; las reclamadas no cuentan). El analista revisa y envía. Hoy todo es <b>Manual</b>. El botón "Actualizar desde el SII" estará '+esc(NOTA_SII.charAt(0).toLowerCase()+NOTA_SII.slice(1))+'.</span></div>';
   if(S.errPlanes)h+='<div class="aviso ambar">'+I('alerta','ic-amb')+'<span>No se pudo leer la tabla de planes: no se sabe qué clientes tienen Pre-IVA incluido. Se muestran todos como si lo tuvieran.</span></div>';
   // Herramientas
   var id=miUsId();
   h+='<div class="pvc-filtros"><label class="pvc-buscar"><span class="sr">Buscar cliente, RUT o responsable</span>'+I('lupa','ic-cel')+'<input type="search" id="pvBuscar" placeholder="Buscar cliente, RUT o responsable…" value="'+esc(S.q)+'" autocomplete="off"></label>'
     +(esMaster()&&id!=null?'<div class="g-seg pvc-seg" role="group" aria-label="Clientes"><button type="button" class="fb'+(S.mis?' on':'')+'" aria-pressed="'+S.mis+'" data-mis="1">Mis clientes</button><button type="button" class="fb'+(!S.mis?' on':'')+'" aria-pressed="'+!S.mis+'" data-mis="0">Todos</button></div>':'')
     +(rOpts.length?EQ.filtroHtml(rOpts,S.resp,rTot):'')
-    +'<div class="g-seg pvc-seg" role="group" aria-label="Filtrar">'+FILTROS.map(function(x){
+    +'<div class="g-seg pvc-seg" role="group" aria-label="Filtrar">'+filtrosActivos().map(function(x){
       var n=x[0]==='todos'?null:todas.filter(function(f){return pasaMis(f)&&pasaResp(f)&&pasaFiltro(f,x[0]);}).length;
       return '<button type="button" class="fb'+(S.filtro===x[0]?' on':'')+'" aria-pressed="'+(S.filtro===x[0])+'" data-filtro="'+x[0]+'">'+esc(x[1])+(n!=null?' <b>'+n+'</b>':'')+'</button>';}).join('')+'</div>'
     +'<label class="pvc-orden"><span>Orden</span><select id="pvOrden">'+ORDENES.map(function(x){return '<option value="'+x[0]+'"'+(S.orden===x[0]?' selected':'')+'>'+esc(x[1])+'</option>';}).join('')+'</select></label>'
     +'<button type="button" class="btn sec chico" data-act="csv">'+I('descargar','ic-ver')+'Descargar cartera (Excel/CSV)</button></div>';
   if(!fs.length)h+='<div class="aviso gris">'+I('info','ic-cel')+'<span>'+(todas.length?'Ningún cliente coincide con la búsqueda o el filtro.':'No hay clientes activos en tu cartera.')+'</span></div>';
   else h+='<div class="pvc-tabla-box"><table class="pvc-tabla"><caption class="sr">Cartera de Pre-IVA de '+esc(perTxt(S.per))+': una fila por cliente</caption><thead><tr>'
-    +'<th scope="col">Cliente</th><th scope="col">Último guardado o envío</th><th scope="col">Fuente · SII</th><th scope="col" class="num">'+(S.per===perHoy()?'📍 Así vamos · IVA del mes':'IVA del mes')+'</th><th scope="col" class="num">PPM del mes</th><th scope="col" class="num">'+(S.per===perHoy()?'F29 estimado (referencia)':'F29')+'</th><th scope="col">Responsable</th><th scope="col"><span class="sr">Acciones</span></th></tr></thead><tbody>'
+    +'<th scope="col">Cliente</th><th scope="col">'+(VV?'Estado del cálculo':'Último guardado o envío')+'</th><th scope="col">Fuente · SII</th><th scope="col" class="num">'+(S.per===perHoy()?'📍 Así vamos · IVA del mes':'IVA del mes')+'</th><th scope="col" class="num">PPM del mes</th><th scope="col" class="num">'+(S.per===perHoy()?'F29 estimado (referencia)':'F29')+'</th><th scope="col">Responsable</th><th scope="col"><span class="sr">Acciones</span></th></tr></thead><tbody>'
     +fs.map(filaHtml).join('')+'</tbody></table></div>';
-  h+='<p class="nota">📍 Así vamos · IVA del mes = débito − crédito − remanente del mes anterior, con lo registrado al último guardado del Pre-IVA (sin proyectar). El estimado a fin de mes es una proyección lineal y puede cambiar. F29 estimado = el que calculó y guardó el Pre-IVA (proyectado al cierre, con lo editado en "Editar reporte"). PPM = el del Pre-IVA. '
+  if(VV)h+='<p class="nota">📍 Así vamos · IVA del mes = débito de las ventas − crédito de las compras registradas − remanente del mes anterior (cód. 504 del F29 del SII), con el RCV del SII que trae Cartapra, a la fecha (sin proyectar). PPM = (ventas netas + exentas) × tasa del último F29 (o la de la ficha). F29 estimado = IVA a pagar + PPM: el mismo cálculo que ve el cliente en MiContadoor. Las compras pendientes y reclamadas no suman crédito. Sin remanente conocido el IVA y el F29 quedan sin calcular (nunca $0). '
+    +'Semáforo: lila estimado · verde enviado · rojo sin conexión al SII · gris no incluido en el plan. El F29 vence el día 20 del mes siguiente (si cae fin de semana, el lunes; los feriados no se consideran).</p>';
+  else h+='<p class="nota">📍 Así vamos · IVA del mes = débito − crédito − remanente del mes anterior, con lo registrado al último guardado del Pre-IVA (sin proyectar). El estimado a fin de mes es una proyección lineal y puede cambiar. F29 estimado = el que calculó y guardó el Pre-IVA (proyectado al cierre, con lo editado en "Editar reporte"). PPM = el del Pre-IVA. '
     +'"No disponible" nunca se asume en $0. Semáforo: rojo pendiente · ámbar borrador sin enviar · verde enviado · gris no incluido en el plan. El F29 vence el día 20 del mes siguiente (si cae fin de semana, el lunes; los feriados no se consideran).</p>';
   app(h);
   if(enBusqueda){var b=$('pvBuscar');if(b){b.focus();try{b.setSelectionRange(pos,pos);}catch(e){}}}
@@ -338,7 +412,12 @@ function filaHtml(f){
   else if(f.estado==='ACUSE')guard='<span class="pvc-fecha">Calculado con las compras aceptadas'+(h.calculado_at?' ('+esc(fFechaHora(h.calculado_at))+')':'')+'</span><small>hay facturas en plazo de reclamo: el monto puede cambiar</small>';
   else if(f.estado==='NO_INCLUIDO')guard='<span class="nd">No corresponde según el plan</span>';
   else if(f.estado==='SIN_CONFIRMAR')guard='<span class="nd">No se pudo leer</span>';
+  else if(f.estado==='VIVO')guard=f.v.hayDatos?'<span class="pvc-fecha">Estimado al '+esc(f.v.datosAlTxt||'—')+'</span><small>Cartapra · sin revisión del asesor</small>'
+    :'<span class="pvc-fecha">Conectado al SII</span><small>Cartapra aún no trae compras ni ventas de este mes</small>';
+  else if(f.estado==='SIN_CONEXION')guard='<span class="nd">Sin conexión al SII</span><small>no está conectada en Cartapra</small>';
   else guard='<span class="nd">Sin Pre-IVA este mes</span>';
+  if(f.v&&f.estado==='ENVIADO'&&f.v.hayDatos)guard+='<small>estimado vivo al '+esc(f.v.datosAlTxt||'—')+'</small>';
+  if(f.v)return filaHtmlVivo(f,e,guard);
   var sinFila=!h?(f.estado==='SIN_CONFIRMAR'?'No disponible':'—'):null;
   var enCurso=S.per===perHoy();
   var iva=f.exenta?'<span class="nd">No aplica</span>':sinFila?'<span class="nd">'+sinFila+'</span>':montoCol(f.iva,f.sinLibros?'Sin libros cargados':'No disponible',true)
@@ -369,13 +448,58 @@ function filaHtml(f){
     +'<td class="pvc-accs"><div class="pvc-accs-in">'+bot+'</div></td></tr>';
 }
 
+/* Fila con el Pre-IVA vivo (27-11): montos desde Cartapra; sin botón de sincronización (se actualiza solo) */
+function filaHtmlVivo(f,e,guard){
+  var v=f.v, enCurso=S.per===perHoy(), sinDato=!(v.conectado&&v.hayDatos), ndTxt=v.conectado?'Sin datos del mes':'Sin conexión';
+  var ref='<small class="pvc-ref">'+(enCurso?'estimado a la fecha':'estimado con el RCV del mes')+'</small>';
+  var iva=f.exenta?'<span class="nd">No aplica</span>':sinDato?'<span class="nd">'+ndTxt+'</span>'
+    :montoCol(f.iva,f.remFalta?'Falta remanente':'No disponible',true)+(f.remFalta?'<small class="pvc-ref">'+esc(f.remFalta)+'</small>':ref);
+  var ppm=sinDato?'<span class="nd">'+ndTxt+'</span>':montoCol(f.ppm,f.sinTasa?'Sin tasa PPM':'No disponible',false)+(f.ppm!=null&&v.ppmTasa!=null?'<small class="pvc-ref">tasa '+esc(String(v.ppmTasa).replace('.',','))+' %'+(v.ppmTasaFuente==='ficha'?' (ficha)':'')+'</small>':'');
+  var f29=sinDato?'<span class="nd">'+ndTxt+'</span>':montoCol(f.f29,f.remFalta?'Falta remanente':'No disponible',false)+(f.f29!=null?'<small class="pvc-ref">Estimado</small>':'');
+  if(v.f29Declarado&&v.f29Declarado.montos&&v.f29Declarado.total!=null)f29+='<small class="pvc-ref">F29 presentado en el SII: '+clpT(v.f29Declarado.total)+'</small>';
+  else if(v.f29Declarado)f29+='<small class="pvc-ref">F29 ya presentado (folio '+esc(v.f29Declarado.folio)+')</small>';
+  if(f.h&&f.h.fecha_envio&&f.f29Guardado!=null&&f.f29!=null&&Math.round(f.f29Guardado)!==Math.round(f.f29))f29+='<small class="pvc-ref">enviado al cliente: '+clpT(f.f29Guardado)+'</small>';
+  var fuente=v.conectado?'<span class="estado cel pvc-chip">SII · Cartapra</span>'+(v.sincronizadoTxt?'<small>Sincronizado: '+esc(v.sincronizadoTxt)+'</small>':'<small>Aún sin sincronizar este mes</small>')
+    :'<span class="estado gris pvc-chip">Sin conexión</span><small>Conéctala en Cartapra</small>';
+  if(v.hayDatos){
+    fuente+='<small class="pvc-fact">Facturas recibidas: <b>'+entero(v.docsCompras||0)+'</b> registradas · <b>'+entero(v.pendientes.n)+'</b> pendientes'+(v.pendientes.n>0?' (IVA '+clpT(v.pendientes.iva)+')':'')+' · <b>'+entero(v.reclamadas.n)+'</b> reclamadas</small>'
+      +'<small class="pvc-fact">Ventas: <b>'+entero(v.docsVentas||0)+'</b> documentos</small>';
+    if(!v.coberturaCompleta)fuente+='<small class="pvc-fact">el SII aún no entrega completo este mes</small>';
+  }
+  var url='index.html?cliente='+encodeURIComponent(String(f.id))+'&periodo='+encodeURIComponent(S.per);
+  var bot='<a class="btn chico'+(f.estado==='NO_INCLUIDO'?' sec':'')+'" href="'+esc(url)+'" aria-label="Abrir el Pre-IVA de '+esc(f.nombre)+' ('+esc(perTxt(S.per))+')">'+I('flecha-der')+(f.estado==='NO_INCLUIDO'?'Abrir igual':'Abrir Pre-IVA')+'</a>';
+  return '<tr class="pvc-fila p-'+e[0]+'">'
+    +'<td data-l="Cliente"><div class="pvc-cli"><span class="pvc-sem '+e[0]+'"><i aria-hidden="true"></i>'+esc(e[1])+'</span><b>'+esc(f.nombre)+'</b>'
+      +'<small>'+esc([f.rut,f.planNombre].filter(Boolean).join(' · '))+'</small>'
+      +(f.motivos.length?'<small class="pvc-mot">'+esc(f.motivos.join(' · '))+'</small>':'')
+      +f.chips.map(function(c){return '<span class="estado '+c[0]+' pvc-chip">'+esc(c[1])+'</span>';}).join('')+'</div></td>'
+    +'<td data-l="Estado del cálculo"><div class="pvc-col">'+guard+'</div></td>'
+    +'<td data-l="Fuente · SII"><div class="pvc-col pvc-fuente">'+fuente+'</div></td>'
+    +'<td data-l="IVA del mes" class="num"><div class="pvc-col der">'+iva+'</div></td>'
+    +'<td data-l="PPM del mes" class="num"><div class="pvc-col der">'+ppm+'</div></td>'
+    +'<td data-l="F29 estimado" class="num"><div class="pvc-col der">'+f29+'</div></td>'
+    +'<td data-l="Responsable">'+window.GEquipo.celda(f.resp)+'</td>'
+    +'<td class="pvc-accs"><div class="pvc-accs-in">'+bot+'</div></td></tr>';
+}
+
 /* ── Descargar cartera: se arma en el navegador (CSV con ; y BOM para Excel en español). No se sube nada. ── */
 function csvCelda(x){if(x==null)return '';if(typeof x==='number')return String(Math.round(x));var s=String(x);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[;"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function descargarCsv(){
   var fs=visibles(filas()), hoy=new Date().toISOString().slice(0,10);
   var cab=['Estado','Motivo','Cliente','RUT','Plan','Responsable','Mes','Fuente','Fecha de envío','Enviado por','Débito IVA registrado','Crédito IVA registrado','Remanente mes anterior','IVA del mes a pagar','Remanente a favor','PPM del mes','F29 estimado'];
   var L=[cab.map(csvCelda).join(';')];
-  fs.forEach(function(f){
+  if(vivoOk()){
+    L=[['Estado','Motivo','Cliente','RUT','Plan','Responsable','Mes','Fuente','Datos del SII al','Fecha de envío','Enviado por','Débito IVA (SII)','Crédito IVA (SII)','Remanente mes anterior','IVA del mes a pagar','Remanente a favor','PPM del mes','F29 estimado','Compras pendientes','IVA compras pendientes'].map(csvCelda).join(';')];
+    fs.forEach(function(f){
+      var v=f.v, h=f.h, d=v&&v.conectado&&v.hayDatos, nd=function(x){return d?(x==null?'No disponible':x):'';};
+      L.push([EST[f.estado][1],f.motivos.concat(f.chips.map(function(c){return c[1];})).join(' · '),f.nombre,f.rut,f.planNombre||f.plan,f.resp||'Sin asignar',S.per,
+        v?(v.conectado?'SII · Cartapra (estimado)':'Sin conexión al SII'):(h?'Guardado en Gestoor':''),v&&v.datosAlTxt||'',h&&h.fecha_envio?fFechaHora(h.fecha_envio):'',h&&h.enviado_por||'',
+        f.exenta?'No aplica':nd(v&&v.debito),f.exenta?'No aplica':nd(v&&v.credito),f.exenta?'No aplica':(d?(v.remanente==null?'Falta: '+(f.remFalta||''):v.remanente):''),
+        f.exenta?'No aplica':(d?(f.iva==null?'No disponible':(f.iva>0?f.iva:0)):''),f.exenta?'No aplica':(d?(f.iva==null?'No disponible':(f.iva<0?-f.iva:0)):''),
+        nd(f.ppm),nd(f.f29),d?v.pendientes.n:'',d?v.pendientes.iva:''].map(csvCelda).join(';'));
+    });
+  }
+  else fs.forEach(function(f){
     var h=f.h, nd=function(v){return h?(v==null?'No disponible':v):'';};
     L.push([EST[f.estado][1],f.motivos.concat(f.chips.map(function(c){return c[1];})).join(' · '),f.nombre,f.rut,f.planNombre||f.plan,f.resp||'Sin asignar',S.per,h?(f.auto?'SII automático':'Manual'):'',
       h&&h.fecha_envio?fFechaHora(h.fecha_envio):'',h&&h.enviado_por||'',

@@ -332,6 +332,8 @@ function pintarHistorial(x){
   if(!D){if(cambio('hist','c')){tit.innerHTML=x.exenta?'Tu PPM <span>de los últimos 6 meses</span>':'Tu IVA <span>de los últimos 6 meses</span>';gEl.innerHTML='<p class="nota">Cargando el historial…</p>';}return;}
   var filas=(D.hist&&D.hist.filas)||[];
   var cur=x.sinDato?null:(x.exenta?(x.sinTasa?null:pesos(txt('res-ppm'))):x.ivaNum);   // mes en curso: referencia estimada (se compara contra meses completos); mes cerrado = real (no se proyecta)
+  // 27-11: si la pantalla aún no tiene montos del mes, la barra del período usa el estimado vivo de Cartapra (nunca «Sin dato» si el SII lo tiene)
+  if(cur==null&&D.hist&&D.hist.vivo&&D.hist.actual){var av=D.hist.actual;cur=x.exenta?av.ppm:av.iva;}
   var vals=filas.map(function(f){return f[campo];});
   // El promedio usa SOLO los meses comparables para este indicador; los demás se muestran igual, con su motivo (trazabilidad)
   var valsComp=filas.map(function(f){return f.comparable&&f.comparable[campo]===true?f[campo]:null;});
@@ -352,7 +354,13 @@ function pintarHistorial(x){
     +filas.map(function(f){var k=f.comparable||{}, usa=['iva','ppm','ventas','debito','credito'].filter(function(c){return k[c]===true;});
       return '<tr><td>'+esc(etiquetaMes(f.periodo))+'</td><td>'+esc(f.fuente||'—')+'</td><td>'+esc(f.registradoAt?fCorta(f.registradoAt):'—')+(f.evidencia?'<small class="t3">'+esc(f.evidencia)+'</small>':'')+(f.procesadoAt?'<small class="t3">procesado el '+esc(fCorta(f.procesadoAt))+' (solo trazabilidad)</small>':'')+'</td>'
         +'<td>'+(usa.length?'<span class="estado verde">Se usa: '+esc(usa.join(', '))+'</span>':'<span class="estado gris">Excluido</span>')+(f.motivo?'<small class="t3">'+esc(f.motivo)+'</small>':'')+'</td></tr>';}).join('')+'</tbody></table>';
-  pon('pio-hist-fuente','Fuente: '+(x.exenta?'PPM':'IVA a pagar = débito − crédito − remanente')+' de reportes_mensuales cuando el mes contable está terminado (estado contable "completado"); el Pre-IVA enviado se muestra pero no entra en promedios. Las barras de meses excluidos se ven igual; el promedio usa solo los comparables (mínimo 4). "Sin dato" = mes sin información (nunca $0). Mes en curso: '+(x.cerrado?'valor registrado.':'referencia estimada.')+(D.hist&&D.hist.error?' ⚠ No se pudo leer reportes_mensuales.':''));
+  if(D.hist&&D.hist.vivo){
+    var nR=filas.filter(function(f){return f.real;}).length, nE=filas.filter(function(f){return f.fuenteCodigo==='estimado';}).length;
+    pon('pio-hist-fuente','Fuente: datos del SII que trae Cartapra. Meses reales ('+nR+'): reporte cerrado por Contadoor o F29 declarado en el SII ('+(x.exenta?'PPM':'IVA a pagar')+' declarado); entran al promedio. '
+      +'Meses estimados ('+nE+'): calculados con el RCV del SII (débito − crédito − remanente), se muestran pero no entran al promedio. "Sin dato" = el SII no tiene compras ni ventas de ese mes en Cartapra (nunca $0). Mes en curso: '+(x.cerrado?'valor registrado.':'referencia estimada de esta pantalla.'));
+    return;
+  }
+  pon('pio-hist-fuente','Fuente: '+(x.exenta?'PPM':'IVA a pagar = débito − crédito − remanente')+' de reportes_mensuales cuando el mes contable está terminado (estado contable "completado"); el Pre-IVA enviado se muestra pero no entra en promedios. Las barras de meses excluidos se ven igual; el promedio usa solo los comparables (mínimo 4). "Sin dato" = mes sin información (nunca $0). Mes en curso: '+(x.cerrado?'valor registrado.':'referencia estimada.')+(D.hist&&D.hist.error?' ⚠ No se pudo leer reportes_mensuales.':'')+(D.hist&&D.hist.avisoVivo?' ⚠ '+D.hist.avisoVivo:''));
 }
 
 /* ── Tendencias de ventas y compras netas ── */
@@ -362,7 +370,13 @@ function pintarTendencias(x){
   var D=S.D;if(!D){if(cambio('tend','c'))gEl.innerHTML='<p class="nota">Cargando…</p>';return;}
   var per=x.P.db, prev=window.PioDatos.previos(per), res=(D.docs&&D.docs.resumen)||{}, filas=(D.hist&&D.hist.filas)||[];
   var mesesConRes=prev.filter(function(p){return res[p];}).length, fuente, V, C;
-  if(D.docs&&D.docs.disponible&&mesesConRes>=3){
+  var HV=D.hist&&D.hist.vivo?D.hist:null;   // 27-11: historial vivo (Cartapra)
+  if(HV&&HV.meses.some(function(m){return m.ventas!=null||m.compras!=null;})){
+    var porP={};HV.meses.forEach(function(m){porP[m.periodo]=m;});
+    V=prev.concat([per]).map(function(p){return porP[p]?porP[p].ventas:null;});
+    C=prev.concat([per]).map(function(p){return porP[p]?porP[p].compras:null;});
+    fuente='Fuente: RCV del SII que trae Cartapra (neto + exento; compras = solo las registradas). Mes en curso: a la fecha.';
+  }else if(D.docs&&D.docs.disponible&&mesesConRes>=3){
     V=prev.map(function(p){return res[p]?netoLibro(res[p].ventas):null;}).concat([netoLibro((res[per]||{}).ventas)]);
     C=prev.map(function(p){return res[p]?netoLibro(res[p].compras):null;}).concat([netoLibro((res[per]||{}).compras)]);
     fuente='Fuente: RCV del SII (neto + exento; las notas de crédito restan; sin comprobantes de pago electrónico). Mes en curso: a la fecha.';
