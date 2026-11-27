@@ -8,6 +8,8 @@
      · rcv_resumenes + rcv_documentos (snapshot más reciente por período y libro) → documentos y totales del SII
      · reportes_mensuales (mes contable con estado_contable = 'completado'; procesado_at solo trazabilidad) y preiva_historial (enviados) → historial de 6 meses
      · renta_casos + RPC renta_e1_proyeccion_vigente (igual que pir/proyeccion.js) → proyección de renta de MiRenta
+     · 27-11 PRE-IVA VIVO: RPC preiva_historial_vivo (pre-iva/preiva-vivo.js) → historial de 6 meses desde los datos del SII que trae
+       Cartapra: real = reporte cerrado o F29 declarado en el SII; si no, estimado con el RCV. Sin la RPC (PGRST202) → lo de antes.
    ============================================================ */
 (function(){
 'use strict';
@@ -101,6 +103,15 @@ function documentos(cli,per){
 
 /* ── Historial de 6 meses: reportes_mensuales (Contable) y, si falta, el Pre-IVA enviado. Sin dato = null (nunca 0). ── */
 function historial(cli,per){
+  // 27-11: primero el historial vivo (Cartapra). Si no está instalado, falla o no trae ningún mes con datos → historial de Contable (antes).
+  var V=window.PreIvaVivo;
+  if(!V||cli.id==null)return historialContable(cli,per);
+  return V.leerHistorial(cli.id,per).then(function(r){
+    if(r.estado==='ok'&&V.hayAlgo(r.datos))return V.historialAFilas(r.datos,per);
+    return historialContable(cli,per).then(function(h){if(r.estado==='error'||r.estado==='sin_permiso')h.avisoVivo='No se pudo leer el historial del SII (Cartapra): se muestra el de Contable.';return h;});
+  });
+}
+function historialContable(cli,per){
   var pers=previos(per);
   var rut=encodeURIComponent(cli.rut);
   return Promise.all([

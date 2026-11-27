@@ -66,7 +66,24 @@
     return lista.slice(off,off+lim);
   }
   function json(x){return JSON.parse(JSON.stringify(x));}
+  // ?vivo=1: Pre-IVA vivo (27-11) — simula la RPC preiva_cartera_viva con datos ficticios (14 sin conexión, 6 sin remanente, 2 y 8 con compras pendientes)
+  var vivo=/(?:^|[?&])vivo=1(?:&|$)/.test(location.search.slice(1));
+  function vivoDe(c,per){
+    var id=c[0], s=id*17+(+per.slice(5,7));
+    if(id===14)return {cliente_id:id,conexion:'sin_conexion'};
+    var deb=redondo(1500000+rnd(s+1)*9000000), cred=redondo(deb*(0.3+rnd(s+2)*0.6)), rem=id===6?null:redondo(rnd(s+3)<0.5?0:rnd(s+4)*700000);
+    var net=Math.round(deb/0.19), tasa=[0.25,1,1.5,0.7,2][id%5], ppm=Math.round(net*tasa/100), ivad=rem==null?null:deb-cred-rem;
+    var al=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate(),hoy.getHours()<15?8:15,4).toISOString();
+    return {cliente_id:id,conexion:'conectada',carga_inicial_lista:true,datos_al:al,sincronizado_en:al,cobertura_completa:id!==11,
+      compras_reclamadas:id===2?{documentos:1,iva:38000}:null,f29_declarado:null,
+      estimacion:{debito:deb,credito:cred,ventas_neto:net,ventas_exento:0,ventas_documentos:20+id,compras_documentos:8+id,
+        compras_pendientes:id===2||id===8?{documentos:id===2?3:1,iva:id===2?152000:47500}:null,
+        remanente:rem==null?null:{monto:rem},remanente_motivo:rem==null?'sin_f29':null,ppm_tasa:tasa,ppm_tasa_fuente:'sii',ppm:ppm,
+        iva_determinado:ivad,iva_pagar:ivad==null?null:Math.max(ivad,0),total:ivad==null?null:Math.max(ivad,0)+ppm,exenta:id===9}};
+  }
   window.PV_DEMO_API={
+    vivo:vivo?function(per){return new Promise(function(res){setTimeout(function(){
+      res({estado:'ok',datos:{ok:true,periodo:per.replace('-',''),mes_en_curso:per===perHoy,generado_en:new Date().toISOString(),empresas:visibles().map(function(c){return vivoDe(c,per);})}});},200);});}:null,
     usuario:contable?{nombre:A.n,rol:'contable',esMaster:false}:{nombre:'Usuario Demo Master',rol:'master',esMaster:true},
     usId:contable?A.id:A.id,   // en la demo, el Master también tiene la cartera del Analista Demo A ("Mis clientes")
     get:function(path){

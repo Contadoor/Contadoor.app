@@ -5,6 +5,7 @@
    Uso:  pre-iva/index.html?demo=1&cliente=1   (1 = afecta con todo · 2 = exenta de IVA · 3 = sin datos ni condición de IVA)
          &sii=al_dia | desactualizado | sin_datos   simula la conexión con el SII activa (por defecto: pendiente de activación)
          &cartapra=1   simula la RPC sii_preiva_periodo (SII-PREIVA-F2b) con compras y ventas del SII para el cliente 1
+         &vivo=1   (27-11) simula la RPC preiva_historial_vivo (Pre-IVA vivo): 6 meses del SII para el cliente 1 (F29 declarados, uno estimado, uno sin dato)
          &cob=verde | amarillo | rojo | sin   (con &cartapra=1) simula F29 del año (sii_renta_resumen) y la proyección de renta para «Cobertura de la renta»
          &rem=sin   (19-11) el mes anterior NO está declarado en el SII ni hay remanente en Contable → Pre-IVA bloqueado (nunca $0);
                     «Ingresar remanente a mano» responde como la RPC registrar_remanente_anterior_manual (solo demo, no guarda nada real)
@@ -160,6 +161,17 @@
         ventas:{documentos:18,neto:9200000,exento:350000,iva:1748000,total:11298000,por_tipo:{'33':{n:16},'61':{n:1},'34':{n:1}}},
         compras:{registro:{documentos:41,neto:5100000,exento:0,iva:969000,total:6069000},pendiente:{documentos:2,iva:85500,total:535500},reclamado:{documentos:0,iva:0,total:0},no_incluir:{documentos:0,iva:0,total:0},por_tipo:{'33':{n:39},'61':{n:2}}},
         honorarios:null,f29_periodo:null,remanente_anterior:REM_SIN?{periodo:aS,cod77:null,cod504:null,fuente:'sin_f29'}:{periodo:aS,folio:9100000001,cod77:118000,fuente:'sii_codigo_77',metodo:'ART27_UTM_V1',mes_utm_origen:pS.slice(0,4)+'-'+pS.slice(4),mes_utm_destino:mover(pS.slice(0,4)+'-'+pS.slice(4),1),utm_origen:68000,utm_destino:68500,cod504:Math.round(118000*68500/68000),falta_utm:[]},sincronizado_en:new Date(hoy.getTime()-2*36e5).toISOString(),avisos:['compras_pendientes']});
+    }
+    if(tabla==='rpc/preiva_historial_vivo'){   // 27-11 (demo): solo con &vivo=1; si no, como si la RPC no estuviera instalada
+      if(qs.get('vivo')!=='1')return resp(404,{code:'PGRST202',message:'Could not find the function public.preiva_historial_vivo'});
+      var bH={};try{bH=JSON.parse(opts.body||'{}');}catch(e){}
+      var pH=String(bH.p_periodo), mesesH=[];
+      for(var k=6;k>=0;k--){var pk=mover(pH.slice(0,4)+'-'+pH.slice(4),-k).replace('-',''), ven=7000000+k*450000, com=Math.round(ven*0.55), deb=Math.round(ven*0.19), cre=Math.round(com*0.19), iva=deb-cre, ppm=Math.round(ven*0.0125);
+        var fu=bH.p_cliente_id!==1||k===6?null:k===0||k===1?'estimado':'f29_sii';
+        mesesH.push({periodo:pk,en_curso:k===0,fuente:fu,real:fu==='f29_sii',iva_pagar:fu?iva:null,total:fu?iva+ppm:null,ventas_neto:fu?ven:null,ventas_exento:fu?0:null,compras_neto:fu?com:null,compras_exento:fu?0:null,
+          debito:fu?deb:null,credito:fu?cre:null,estimado:fu==='estimado'?{iva_pagar:iva,ppm:ppm,ppm_tasa:1.25,total:iva+ppm}:null,cobertura_completa:fu?true:null,datos_al:fu?new Date(hoy.getTime()-3*36e5).toISOString():null,
+          f29_declarado:fu==='f29_sii'?{folio:9300000000+k,montos:true,total:iva+ppm,iva_pagar:iva,ppm:ppm,tasa_ppm:1.25,debito:deb,credito:cre}:null,reporte:null});}
+      return resp(200,{ok:true,cliente_id:bH.p_cliente_id,periodo:pH,conexion:bH.p_cliente_id===1?'conectada':'sin_conexion',generado_en:new Date().toISOString(),fuente:'cartapra',meses:mesesH});
     }
     if(tabla==='rpc/registrar_remanente_anterior_manual'&&REM_SIN){   // 19-11 (demo): misma respuesta que la RPC real (ok + info de remanente_anterior)
       var bM={};try{bM=JSON.parse(opts.body||'{}');}catch(e){}
