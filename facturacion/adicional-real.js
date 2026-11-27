@@ -605,7 +605,7 @@ function htmlDetalle(x){
      +(x.total_dte!=null&&+x.total_dte!==+x.total?'<div class="fa-dato"><span>Total DTE</span><span class="fx-est roj">'+clp(+x.total_dte)+' (difiere)</span></div>':'')
      +'<div class="fa-det-acc">'+docs+'</div></div>'
    +'<div class="fa-caja"><h4>'+I('calc','ic-cel')+'Cobranza</h4><p class="fa-cob '+cob[0]+'">'+esc(cob[1])+'</p></div>'
-   +'<div class="fa-caja fa-nc"><h4>'+I('devolver','ic-amb')+'Nota de crédito</h4><span class="tipw" tabindex="0" data-tip="Próximamente: anular una factura emitida con nota de crédito."><button type="button" class="g-btn sm" disabled>'+I('basura','')+'Anular con nota de crédito</button></span><small>Próximamente</small></div>'
+   +(window.FX_NC?window.FX_NC.cajaHtml(x,{rol:CTX.rol,yo:CTX.yo,prod:CTX.prodHabilitada}):'')   // @F1e-nc · caja reservada .fa-nc (nota-credito.js)
    +'</div></div></section>';
 }
 
@@ -616,7 +616,9 @@ function correr(p,ok,enModal,despues){
   return p.then(function(r){CTX.ocupado=false;if(enModal)cerrarModal();toast(I('aprobar','ic-ver')+' '+esc(typeof ok==='function'?ok(r):ok));return recargar().then(function(){if(despues)despues(r);});})
    .catch(function(e){CTX.ocupado=false;var m=msg(e);if(enModal&&$('modal').classList.contains('on')){modal.error(m);var b=document.querySelector('#mFoot [data-m="si"]');if(b){b.disabled=false;b.textContent='Reintentar';}}else toast(I('alerta','ic-amb')+' '+esc(m));render();if(CTX.vista==='nueva')wizError(m);});
 }
-function recargar(){return cargar().then(render).then(irAFacturaEnlace).catch(function(e){toast(I('alerta','ic-amb')+' '+esc(msg(e)));});}
+function cargarNc(){return window.FX_NC?window.FX_NC.cargar(CTX.lista.filter(function(x){return x.estado==='EMITIDA';}).map(function(x){return x.id;})):Promise.resolve();}   // @F1e-nc
+function recargar(){return cargar().then(cargarNc).then(render).then(irAFacturaEnlace).then(function(){if(window.FX_NC)window.FX_NC.resaltarEnlace();}).catch(function(e){toast(I('alerta','ic-amb')+' '+esc(msg(e)));});}
+if(window.FX_NC)window.FX_NC.alCambiar(function(){return recargar();});   // @F1e-nc
 function resultadoEmision(r){
   if(!r)return 'Listo.';
   if(r.estado==='EMITIDA')return 'Emitida: folio N° '+r.folio+(r.documentos==='OBTENIDOS'?' · PDF y XML guardados.':' · PDF/XML pendientes (usa "Traer PDF y XML").');
