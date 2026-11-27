@@ -355,7 +355,7 @@ function pintar(meses){
       +kpi(completos+' / '+repAct.length,'Reportes completos',repAct.length?Math.round(completos/repAct.length*100)+'% del período':'')
       +kpi(enviados,'Enviados al cliente','')
       +kpi(activos,'Clientes activos',onb+' en onboarding')
-      +kpi('…','Recaudado del mes','Cargando pagos…','in-kpi-rec')
+      +kpi('…','Ingresó este mes','Cargando pagos…','in-kpi-rec')
       +kpi('…','% de cobranza','Cargando…','in-kpi-pct')
     +'</div><div class="in-plata" id="in-plata"></div></section>';
   // Facturación 6 meses
@@ -417,28 +417,47 @@ function cargarKpiCobranza(){
     // 27-11: la deuda histórica cargada (SALDO_INICIAL) se separa por su concepto: «Trabajo adicional · …» cuenta como trabajo especial.
     var esTE=function(d){return !!d&&(d.origen==='TRABAJO_ESPECIAL'||(d.origen==='SALDO_INICIAL'&&/^trabajo adicional/i.test(String(d.concepto||''))));};
     var REC={planes:0,te:0,otros:0},nPag=0;
+    // 27-11 (Luciano): además del tipo, ¿de qué PERÍODO (mes del servicio) es la plata que entró este mes?
+    var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    var addMes=function(ym,n){var y=+ym.slice(0,4),m=+ym.slice(5,7)-1+n;y+=Math.floor(m/12);m=((m%12)+12)%12;return y+'-'+String(m+1).padStart(2,'0');};
+    var p1=addMes(mesHoy,-1),p2=addMes(mesHoy,-2);
+    var nomMes=function(ym){return MESES[+ym.slice(5,7)-1];},Mes=function(ym){var t=nomMes(ym);return t.charAt(0).toUpperCase()+t.slice(1);};
+    var perDe=function(c){c=String(c||'');var m=c.match(/(?:^|[^0-9])(0?[1-9]|1[0-2])[._\-\s\/]+(20\d{2})(?![0-9])/);if(m)return m[2]+'-'+String(+m[1]).padStart(2,'0');
+      var t=c.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''),i;for(i=0;i<12;i++){var r=new RegExp(MESES[i]+'[\\s_\\-de]*(20\\d{2})');var x=t.match(r);if(x)return x[1]+'-'+String(i+1).padStart(2,'0');}return null;};
+    var POR={act:0,p1:0,p2:0,ant:0,te:0,sin:0};
+    var sumaPer=function(tipo,per,v){if(tipo==='te'){POR.te+=v;return;}if(tipo==='otros'||!per){POR.sin+=v;return;}
+      per=String(per).slice(0,7);POR[per>=mesHoy?'act':per===p1?'p1':per===p2?'p2':'ant']+=v;};
     (r[0]||[]).forEach(function(x){if(mesCL(x.registrado_at)!==mesHoy)return;nPag++;
       var m=Number(x.monto)||0,ap=Array.isArray(x.aplicaciones_norm)?x.aplicaciones_norm:[],usado=0;
-      ap.forEach(function(a){var v=Number(a.monto)||0,d=porId[a.documento_id];usado+=v;REC[esTE(d)?'te':d?'planes':'otros']+=v;});
-      if(m-usado>0)REC.otros+=m-usado;});
+      ap.forEach(function(a){var v=Number(a.monto)||0,d=porId[a.documento_id];usado+=v;var k=esTE(d)?'te':d?'planes':'otros';REC[k]+=v;sumaPer(k,d&&d.periodo,v);});
+      if(m-usado>0){REC.otros+=m-usado;POR.sin+=m-usado;}});
     // Imputaciones manuales: lo que es plata del cliente para impuestos u obligaciones (F29, Previred, convenios, pies…) NO es ingreso nuestro.
-    var manOk=r[2]!==null;
+    var manOk=r[2]!==null,nMan=0;
     (r[2]||[]).forEach(function(x){if(mesCL(x.created_at)!==mesHoy)return;var c=String(x.concepto||''),v=Number(x.monto)||0;
       if(!x.externo&&/f29|previred|convenio|pie|multa|tgr|iva|cotiz|impuesto/i.test(c))return;
-      if(x.externo){REC.otros+=v;return;}
-      if(/plan|servicios mes|factura atrasada|abono a per[ií]odo/i.test(c))REC.planes+=v;
-      else if(/regulariz|renta|creaci|constituc|modificaci|t[eé]rmino|f50|estatuto|notar|firma|empresa|trabajo/i.test(c))REC.te+=v;
-      else REC.otros+=v;});
+      nMan++;
+      if(x.externo){REC.otros+=v;POR.sin+=v;return;}
+      var k=/plan|servicios mes|factura atrasada|abono a per[ií]odo/i.test(c)?'planes':/regulariz|renta|creaci|constituc|modificaci|t[eé]rmino|f50|estatuto|notar|firma|empresa|trabajo/i.test(c)?'te':'otros';
+      REC[k]+=v;sumaPer(k,k==='planes'?perDe(c):null,v);});
     var rec=REC.planes+REC.te+REC.otros;
-    kr.innerHTML='<b class="cifra" style="color:#5FCF9C">'+ff(rec)+'</b><span>Recaudado en '+hesc(perTxt(mesHoy))+'<em>Nuestros servicios · '+nPag+' pago'+(nPag===1?'':'s')+' en Cobranza'+(manOk?' + Conciliación':'')+'</em></span>';
-    // Lo que nos deben (Cobranza: facturas con saldo), separado por tipo y con lo vencido.
-    var hoy=hoyChile(),DEB={planes:0,te:0},VEN={planes:0,te:0},nDeb=0;
-    docs.forEach(function(d){var sa=Number(d.saldo)||0;if(sa<=0||d.estado!=='PENDIENTE'&&d.estado!=='CASTIGADO')return;nDeb++;var k=esTE(d)?'te':'planes';
-      DEB[k]+=sa;if(d.fecha_vencimiento&&String(d.fecha_vencimiento).slice(0,10)<hoy)VEN[k]+=sa;});
+    kr.innerHTML='<b class="cifra" style="color:#5FCF9C">'+ff(rec)+'</b><span>Ingresó en '+hesc(nomMes(mesHoy))+' (caja)<em>Por fecha del pago · '+(nPag+nMan)+' pago'+((nPag+nMan)===1?'':'s')+' de nuestros servicios</em></span>';
+    // Lo que nos deben (Cobranza: facturas con saldo), separado por tipo y con lo vencido; y los planes, por período.
+    var hoy=hoyChile(),DEB={planes:0,te:0},VEN={planes:0,te:0},nDeb=0,PEND={},FAC={};
+    docs.forEach(function(d){var sa=Number(d.saldo),mo=Number(d.monto)||0;sa=isFinite(sa)?sa:mo;var k=esTE(d)?'te':'planes',per=String(d.periodo||'').slice(0,7);
+      if(k==='planes'&&d.origen==='MENSUALIDAD'&&per){if(!FAC[per])FAC[per]={f:0,c:0};FAC[per].f+=mo;FAC[per].c+=Math.max(0,mo-sa);}
+      if(sa<=0||d.estado!=='PENDIENTE'&&d.estado!=='CASTIGADO')return;nDeb++;
+      DEB[k]+=sa;if(d.fecha_vencimiento&&String(d.fecha_vencimiento).slice(0,10)<hoy)VEN[k]+=sa;
+      if(k==='planes'){var g=per>=mesHoy?'act':per===p1?'p1':per===p2?'p2':'ant';PEND[g]=(PEND[g]||0)+sa;}});
     var deb=DEB.planes+DEB.te,ven=VEN.planes+VEN.te;
     var it=function(l,v,x){return '<span><small>'+l+'</small><b>'+ff(v)+'</b>'+(x?'<i>'+x+'</i>':'')+'</span>';};
-    if(kd)kd.innerHTML='<div class="fila"><strong>💰 Recibido en '+hesc(perTxt(mesHoy))+'</strong>'+it('Planes mensuales',REC.planes)+it('Trabajos especiales',REC.te)+it('Otros',REC.otros)+'</div>'
-      +'<div class="fila"><strong>🧾 Nos deben</strong>'+it('Planes mensuales',DEB.planes,VEN.planes?'vencido '+ff(VEN.planes):'')+it('Trabajos especiales',DEB.te,VEN.te?'vencido '+ff(VEN.te):'')+it('Total',deb,nDeb+' factura'+(nDeb===1?'':'s')+(ven?' · vencido '+ff(ven):''))+'</div>';
+    var pctTxt=function(per){var f=FAC[per];if(!f||!f.f)return '';return String(Math.round(f.c*1000/f.f)/10).replace('.',',')+'% cobrado de lo facturado';};
+    var perChips=it('Servicios de '+nomMes(p1),POR.p1)+it('Servicios de '+nomMes(p2),POR.p2)+it('Meses anteriores',POR.ant)
+      +(POR.act?it(Mes(mesHoy)+' (adelantado)',POR.act):'')+it('Trabajos especiales',POR.te)+(POR.sin?it('Otros / sin mes',POR.sin):'');
+    var pendChips=it(Mes(p1),PEND.p1||0,pctTxt(p1))+it(Mes(p2),PEND.p2||0,pctTxt(p2))+it('Meses anteriores',PEND.ant||0)+(PEND.act?it(Mes(mesHoy),PEND.act):'');
+    if(kd)kd.innerHTML='<div class="fila"><strong>💰 Ingresó en '+hesc(nomMes(mesHoy))+' · por tipo</strong>'+it('Planes mensuales',REC.planes)+it('Trabajos especiales',REC.te)+it('Otros',REC.otros)+'</div>'
+      +'<div class="fila"><strong>📅 ¿De qué mes es esa plata?</strong>'+perChips+'</div>'
+      +'<div class="fila"><strong>🧾 Nos deben</strong>'+it('Planes mensuales',DEB.planes,VEN.planes?'vencido '+ff(VEN.planes):'')+it('Trabajos especiales',DEB.te,VEN.te?'vencido '+ff(VEN.te):'')+it('Total',deb,nDeb+' factura'+(nDeb===1?'':'s')+(ven?' · vencido '+ff(ven):''))+'</div>'
+      +'<div class="fila"><strong>📊 Planes pendientes por mes</strong>'+pendChips+'</div>';
     // % de cobranza: del último período de mensualidades facturado, cuánto ya se cobró.
     var mens=docs.filter(function(d){return d.origen==='MENSUALIDAD';});
     if(!mens.length){kp.innerHTML='<b class="cifra">—</b><span>% de cobranza<em>Aún no hay facturas en Cobranza</em></span>';return;}
@@ -447,7 +466,7 @@ function cargarKpiCobranza(){
     var fac=0,cob=0,pagadas=0;del.forEach(function(d){var mo=Number(d.monto)||0,sa=Number(d.saldo);sa=isFinite(sa)?sa:mo;fac+=mo;cob+=Math.max(0,mo-sa);if(sa<=0)pagadas++;});
     var pct=fac?Math.round(cob*1000/fac)/10:0;
     var col=pct>=80?'#5FCF9C':pct>=50?'#E8C25B':'#E07A6E';
-    kp.innerHTML='<b class="cifra" style="color:'+col+'">'+String(pct).replace('.',',')+'%</b><span>Cobranza facturación '+hesc(perTxt(perDash(per)))+'<em>'+ff(cob)+' de '+ff(fac)+' · '+pagadas+' de '+del.length+' facturas pagadas</em></span>';
+    kp.innerHTML='<b class="cifra" style="color:'+col+'">'+String(pct).replace('.',',')+'%</b><span>Recaudación servicios de '+hesc(nomMes(String(per).slice(0,7)))+'<em>'+ff(cob)+' de '+ff(fac)+' · '+pagadas+' de '+del.length+' facturas pagadas</em></span>';
   },function(){[kr,kp,kd].forEach(function(k){if(k&&k.parentNode)k.parentNode.removeChild(k);});});
 }
 function cargarModulos(){
