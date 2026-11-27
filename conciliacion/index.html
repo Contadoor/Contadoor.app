@@ -136,6 +136,13 @@ tr:hover td{background:#f0fdff;}
 .conc-alerta{margin:8px 0;padding:9px 12px;border-radius:9px;font-size:12.5px;line-height:1.45;background:#fff4dc;color:#7a4b00;border:1px solid #f3d38a}.conc-alerta.roja{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 .conc-alerta button{margin:6px 6px 0 0}.conc-mini{display:inline-block;width:56px;height:6px;border-radius:99px;background:#eee6ee;vertical-align:middle;margin-left:6px;overflow:hidden}.conc-mini span{display:block;height:100%;background:var(--green)}
 @media (prefers-reduced-motion: reduce){.conc-prog .bar span{transition:none}}
+/* CONC-OTRA (19-11): facturas de otra empresa pagadas con el ingreso del cliente pagador */
+#kObs{overflow-x:auto}
+.conc-emp{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:700;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;white-space:normal}
+.conc-ter{margin:4px 0 8px;padding:10px 12px;border:1px dashed var(--bdr);border-radius:10px}
+.conc-ter .fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.conc-ter .fila>div:first-child{flex:1 1 220px;min-width:0}
+.conc-ter ul{list-style:none;margin:8px 0 0;padding:0;font-size:12px}.conc-ter li{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--bdr)}
+.conc-ter li a{font-size:11px;margin-left:8px}
 .btn-purple{background:var(--p);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:10.5px;font-weight:600;cursor:pointer;}
 
 /* DETALLE EXPANDIDO */
@@ -241,7 +248,7 @@ tr:hover td{background:#f0fdff;}
       </div>
       <div id="tablaBody"></div>
     </div>
-    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente y con las facturas de nuestros servicios abiertas en Cobranza; si lo pagó otra empresa, usa ↺ para cambiar el cliente; si lo pagó alguien que no está en la cartera (p. ej. un servicio adicional), usa 🌐 Cliente externo; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
+    <div class="info-box" style="margin-top:12px">💡 Aquí solo se cargan los <strong>ingresos</strong> (cartola "Consulta de Transferencias" de Itaú). Cada ingreso se concilia con las obligaciones abiertas de su cliente y con las facturas de nuestros servicios abiertas en Cobranza; si lo pagó otra empresa, usa ↺ para cambiar el cliente; si lo pagó alguien que no está en la cartera (p. ej. un servicio adicional), usa 🌐 Cliente externo; si el ingreso paga además facturas de empresas relacionadas (otros clientes), usa «➕ Agregar facturas de otra empresa» al conciliar; lo que no corresponde a una obligación se descarta con motivo. Nada se borra.</div>
   </div>
 </main>
 </div>
@@ -271,7 +278,15 @@ tr:hover td{background:#f0fdff;}
     <button class="btn-s" onclick="sugerirExacto()">🎯 Sugerir suma exacta</button>
     <button class="btn-s" onclick="distribuirAntiguedad()">⏳ Distribuir por antigüedad</button>
     <button class="btn-s" onclick="limpiarMontos()">Limpiar</button>
+    <button class="btn-s" id="kTerBtn" onclick="toggleTercero()" style="display:none">➕ Agregar facturas de otra empresa</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto;text-transform:none;letter-spacing:0;color:var(--t1);margin-top:0"><input type="checkbox" id="kIndica" style="width:auto" onchange="_criterio=this.checked?'cliente_indica':'manual'"> El cliente indicó qué paga</label>
+  </div>
+  <div id="kTer" class="conc-ter" style="display:none">
+    <div style="font-size:12px;margin-bottom:6px">El ingreso es de <b id="kTerPag"></b>, pero también paga facturas de otras empresas. Búscala: al elegirla, sus facturas pendientes se agregan a la lista (sin montos). Cada factura queda pagada <b>en su propia empresa</b> y queda registrado quién pagó.</div>
+    <div class="fila"><div><select id="kTerCli" data-buscador data-buscador-placeholder="🔍 Empresa que también se paga (nombre o RUT)…" onchange="if(this.value)agregarEmpresaSel()"></select></div></div>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--t1);margin-top:8px"><input type="checkbox" id="kTerRec" style="width:auto"> <span>Recordar: cuando pague <b id="kTerPag2"></b>, mostrar también las facturas pendientes de estas empresas (solo sugerencia)</span></label>
+    <div id="kTerMsg" style="font-size:11.5px;color:var(--amber);margin-top:4px"></div>
+    <ul id="kTerLista"></ul>
   </div>
   <div id="kProg" class="conc-prog"></div>
   <div id="kHecho" class="conc-sec"></div>
@@ -334,6 +349,9 @@ var _manuales=[], _manualActivo=false, _claveMan=null; // CONC-UX: imputaciones 
 var _ext=[], _extOk=false, _movExt=null, _claveExt=null; // CONC-EXT-1: ingresos de clientes externos (imputación manual externo=true)
 var _det=null, _detSeq=0, _congelado=false; // R2: detalle FRESCO del ingreso abierto + bloqueo mientras se aplica
 var _obsTipo={}; // id de obligación → tipo (f29/cotizaciones/servicio_contadoor/otro) para el gráfico
+// CONC-OTRA (19-11): facturas de OTRA empresa pagadas con este ingreso (requiere SQL 202611192000_conc_pago_otra_empresa).
+// _terEstado: 'cargando' | 'ok' | 'no_instalada' (sin SQL: el botón no aparece) | 'error' (fail-closed: tampoco aparece).
+var _rels=[], _terEstado='cargando', _terEmp=[];
 var EST={por_conciliar:['Por conciliar','eb-pend'],parcial:['Parcial','eb-parcial'],conciliado:['Conciliado','eb-ok'],descartado:['Descartado','eb-gris']};
 var CAT={servicios_contadoor:'Servicios Contadoor',devolucion:'Devolución',traspaso_propio:'Traspaso propio',pago_no_cliente:'No es cliente',otro:'Otro'};
 function hesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -441,7 +459,7 @@ function render(){
         acc+='<div style="font-size:10.5px;color:var(--tm)">'+o.aplicaciones.map(function(a){var ob=_obsTodas[a.obligacion_id];return hesc(ob?ob:'Obligación #'+a.obligacion_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'op\','+o.id+','+(o.aplicaciones||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
       });
       _cobPagos.filter(function(p){return p.movimiento_id===m.id;}).forEach(function(p){ // CONC-A: pagos de facturas de Cobranza hechos desde este ingreso
-        acc+='<div style="font-size:10.5px;color:var(--tm)">'+(p.aplicaciones_norm||[]).map(function(a){var d=_docsTodos[a.documento_id];return hesc(d?d:'Factura #'+a.documento_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'cob\','+p.id+','+(p.aplicaciones_norm||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
+        acc+='<div style="font-size:10.5px;color:var(--tm)">'+empDePago(p,m)+(p.aplicaciones_norm||[]).map(function(a){var d=_docsTodos[a.documento_id];return hesc(d?d:'Factura #'+a.documento_id)+' '+ff(a.monto);}).join(' · ')+(esTesoreria()?' <a href="#" onclick="_mov=_movs.find(function(x){return x.id==='+m.id+'});desconciliar(\'cob\','+p.id+','+(p.aplicaciones_norm||[]).length+');return false" style="color:var(--red)">desconciliar</a>':'')+'</div>';
       });
     } else acc='<button class="btn-s" onclick="revertir('+m.id+')">Revertir</button>';
     h+='<tr><td style="white-space:nowrap">'+hesc(fecha(m.fecha_hora))+'</td>'
@@ -590,10 +608,10 @@ function sugerencia(m){
 function calcularSugerencia(m){
   var saldo=Number(m.saldo);
   if(m.cliente_rut){
-    var ab=abiertasDe(m.cliente_rut);
+    var ab=abiertasDe(m.cliente_rut).concat(abiertasRelacionadas(m.cliente_rut)).sort(prioridad); // CONC-OTRA: + empresas que suele pagar (sugerencia)
     if(!ab.length) return {txt:'Sin obligaciones ni facturas abiertas: ¿lo pagó otra empresa o es otra cosa?',tipo:'nada'};
     var ex=combinacionExacta(ab,saldo);
-    if(ex) return {txt:'Calza exacto con: '+ex.map(etiquetaOb).join(' + ')+(ex.some(function(p){return p.fuente!==ex[0].fuente;})?' (en 2 pasos: obligaciones y facturas por separado)':''),tipo:'exacto'};
+    if(ex) return {txt:'Calza exacto con: '+ex.map(function(p){return etiquetaOb(p)+(p.cliente_rut!==m.cliente_rut?' de '+cliNombre(p.cliente_rut):'');}).join(' + ')+(ex.some(function(p){return p.fuente!==ex[0].fuente;})?' (en 2 pasos: obligaciones y facturas por separado)':''),tipo:'exacto'};
     var tot=ab.reduce(function(s,o){return s+o.saldo;},0);
     return {txt:saldo<tot?'Abono parcial: cubre parte de '+ab.length+' partida(s) (lo más antiguo primero)':'Paga de más: deuda abierta '+ff(tot),tipo:'parcial'};
   }
@@ -613,14 +631,15 @@ function abrirConciliar(id,op){
   _mov=_movs.find(function(m){return m.id===id;});if(!_mov)return;
   _clave=nuevaClave();_claveCob=nuevaClave();_criterio='manual';document.getElementById('kIndica').checked=false;err('kErr','');document.getElementById('kSug').style.display='none';
   _cands=abiertasDe(_mov.cliente_rut).map(function(o){return {o:o,monto:0};});
-  _manuales=[];_claveMan=null;_det=null;
+  _manuales=[];_claveMan=null;_det=null;_terEmp=[];document.getElementById('kTer').style.display='none';document.getElementById('kTerRec').checked=false; // F02 (Luciano 19-11): «Recordar» parte desmarcado
   pintarCabecera();
   ['kProg','kHecho','kMan','kObs','kTotal'].forEach(function(x){document.getElementById(x).innerHTML='';});
   document.getElementById('kProg').innerHTML='<div class="info-box">Cargando el detalle del ingreso…</div>';
   document.getElementById('kBtn').disabled=true;abrir('mConc');
   cargarDetalle(_mov.id).then(function(){
     if(!_mov||_mov.id!==id)return;
-    pintarCands();pintarHecho();pintarManual();totalizar();
+    agregarSugeridas(); // CONC-OTRA: empresas que este cliente suele pagar (solo suma partidas a la lista; montos en 0)
+    pintarTercero();pintarCands();pintarHecho();pintarManual();totalizar();
     revisarPendiente().then(function(pl){if(pl&&op.completar&&_mov&&_mov.id===id)seguirCompletando(pl);});
     // Sugerencia precargada: SOLO llena los montos; nada se aplica hasta presionar "Aplicar".
     if(!bloqueoPlan(id)&&_det&&_det.integro&&_cands.length&&combinacionExacta(_cands.map(function(c){return c.o;}),Number(_mov.saldo))) sugerirExacto();
@@ -641,7 +660,7 @@ function cargarDetalle(mid){
   return Promise.all([
     paginado('concil_movimientos?select=id,monto,saldo,monto_aplicado,estado,cliente_rut&id=eq.'+mid),
     paginado('concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada&movimiento_id=eq.'+mid+'&anulada=eq.false&order=id.asc'),
-    paginado('cobranza_pagos?select=id,movimiento_id,monto,aplicaciones_norm,estado&movimiento_id=eq.'+mid+'&estado=eq.VIGENTE&order=id.asc'),
+    paginado('cobranza_pagos?select=id,cliente_id,movimiento_id,monto,aplicaciones_norm,estado&movimiento_id=eq.'+mid+'&estado=eq.VIGENTE&order=id.asc'),
     man
   ]).then(function(r){
     if(seq!==_detSeq)return; // respuesta tardía de otro ingreso: se ignora (incluida la disponibilidad del manual)
@@ -655,9 +674,83 @@ function cargarDetalle(mid){
   }).catch(function(){if(seq!==_detSeq)return;_det={ops:[],cob:[],man:[],manEstado:'error',integro:false,suma:0,fallo:true};});
 }
 function cambiarDesdeConciliar(){if(_ocupado||!_mov)return;var id=_mov.id;document.getElementById('mConc').classList.remove('on');abrirAsignar(id,true);}
+// ── CONC-OTRA (19-11, Luciano): «Agregar facturas de otra empresa» ──────────────
+// Un ingreso del cliente pagador (p. ej. una productora) paga también facturas de empresas relacionadas que son OTROS clientes.
+// Sus facturas pendientes de Cobranza se agregan a la lista con la etiqueta 🏢 de su empresa; «Sugerir suma exacta»,
+// «Distribuir por antigüedad», las diferencias y el % funcionan con todas. Al aplicar, la RPC concil_pagar_otra_empresa
+// registra cada factura EN SU PROPIO cliente (pago de Cobranza) y deja la trazabilidad (pagador real, beneficiario, quién).
+// La relación «pagador → empresas que suele pagar» es SOLO una sugerencia: agrega partidas con monto 0; nada se aplica solo.
+// Solo Master y rol pagos (los mismos que hoy registran pagos de Cobranza desde Conciliación). Sin el SQL, el botón no aparece.
+function puedeTercero(){var u=getUsuario()||{};return !!u.esMaster||u.rol==='master'||u.rol==='pagos';}
+function terceroDisponible(){return _terEstado==='ok'&&puedeTercero();}
+function cargarTerceros(){
+  return sbFetch('concil_tercero_relacion?select=id,cliente_pagador_rut,cliente_beneficiario_rut,motivo,created_at&activo=eq.true&order=id.asc&limit=1000').then(function(r){
+    if(r.ok)return r.json().then(function(rows){_rels=rows||[];_terEstado='ok';});
+    return r.text().then(function(t){_rels=[];_terEstado=(r.status===404||/PGRST205|42P01|Could not find the table/.test(t))?'no_instalada':'error';});
+  }).catch(function(){_rels=[];_terEstado='error';}).then(function(){_cacheSug={};if(_mov&&document.getElementById('mConc').classList.contains('on'))pintarTercero();if(_vista==='pend')render();});
+}
+function relacionadasDe(rut){var L=[];_rels.forEach(function(r){if(r.cliente_pagador_rut===rut&&r.cliente_beneficiario_rut!==rut&&L.indexOf(r.cliente_beneficiario_rut)<0)L.push(r.cliente_beneficiario_rut);});return L;}
+function docsDeEmpresa(rut){return _docs.map(partidaDoc).filter(function(p){return p.cliente_rut===rut;}).map(function(p){p.tercero=true;return p;});}
+function abiertasRelacionadas(rut){if(!terceroDisponible()||!rut)return [];var R=relacionadasDe(rut),L=[];R.forEach(function(x){L=L.concat(docsDeEmpresa(x));});return L;}
+function agregarEmpresa(rut,sugerida){
+  if(!terceroDisponible()||!_mov||!_mov.cliente_rut||!rut||rut===_mov.cliente_rut)return -1;
+  if(_terEmp.some(function(e){return e.rut===rut;}))return -2;
+  var L=docsDeEmpresa(rut);_terEmp.push({rut:rut,sugerida:!!sugerida,n:L.length});
+  L.forEach(function(p){if(!_cands.some(function(c){return c.o.fuente==='doc'&&c.o.id===p.id;}))_cands.push({o:p,monto:0});});
+  _cands.sort(function(a,b){return prioridad(a.o,b.o);}); // las más antiguas primero, de todas las empresas
+  return L.length;
+}
+function agregarSugeridas(){_terEmp=[];if(!terceroDisponible()||!_mov||!_mov.cliente_rut)return;relacionadasDe(_mov.cliente_rut).forEach(function(r){agregarEmpresa(r,true);});}
+function toggleTercero(){if(_congelado||!terceroDisponible())return;var p=document.getElementById('kTer');p.style.display=p.style.display==='none'?'block':'none';pintarTercero();}
+function agregarEmpresaSel(){
+  if(_congelado||_ocupado)return;var rut=sv('kTerCli'),m=document.getElementById('kTerMsg');m.textContent='';
+  if(!rut){m.textContent='Elige la empresa.';return;}
+  var n=agregarEmpresa(rut,false);
+  if(n===0)m.textContent=cliNombre(rut)+' no tiene facturas pendientes en Cobranza.';
+  else if(n<0)m.textContent='Esa empresa ya está en la lista.';
+  pintarTercero();pintarCands();
+  // el buscador queda vacío para la siguiente empresa (después de que termine de mostrar la elección)
+  setTimeout(function(){var sel=document.getElementById('kTerCli');sel.value='';var gi=sel.parentNode&&sel.parentNode.querySelector('.gb-input');if(gi)gi.value='';},0);
+}
+function quitarEmpresa(rut){
+  if(_congelado||_ocupado)return;
+  _cands=_cands.filter(function(c){return !(c.o.tercero&&c.o.cliente_rut===rut);});_terEmp=_terEmp.filter(function(e){return e.rut!==rut;});
+  pintarTercero();pintarCands();
+}
+function pintarTercero(){
+  var btn=document.getElementById('kTerBtn'),pan=document.getElementById('kTer');
+  var disp=terceroDisponible()&&!!_mov&&!!_mov.cliente_rut;
+  btn.style.display=disp?'':'none';
+  if(!disp){pan.style.display='none';return;}
+  if(_terEmp.length)pan.style.display='block';
+  document.getElementById('kTerPag').textContent=cliNombre(_mov.cliente_rut);document.getElementById('kTerPag2').textContent=cliNombre(_mov.cliente_rut);
+  var pend={};_docs.forEach(function(d){pend[d.cliente_id]=(pend[d.cliente_id]||0)+1;});
+  var ya=_terEmp.map(function(e){return e.rut;});
+  var ops=_clientes.filter(function(c){return c.rut!==_mov.cliente_rut&&ya.indexOf(c.rut)<0&&pend[c.id];}).sort(function(a,b){return String(a.razon).localeCompare(String(b.razon));});
+  var sel=document.getElementById('kTerCli'),h=(ops.length?'<option value="">Seleccionar…</option>':'<option value="">Sin otras empresas con facturas pendientes</option>')
+    +ops.map(function(c){return '<option value="'+hesc(c.rut)+'">'+hesc(c.razon)+' ('+pend[c.id]+' pendiente'+(pend[c.id]>1?'s':'')+') · '+hesc(c.rut)+'</option>';}).join('');
+  if(sel.innerHTML!==h)sel.innerHTML=h;
+  document.getElementById('kTerLista').innerHTML=_terEmp.map(function(e){
+    var rel=e.sugerida?_rels.find(function(r){return r.cliente_pagador_rut===_mov.cliente_rut&&r.cliente_beneficiario_rut===e.rut;}):null;
+    return '<li><span><span class="conc-emp">🏢 '+hesc(cliNombre(e.rut))+'</span> '+(e.n?e.n+' factura'+(e.n>1?'s':'')+' pendiente'+(e.n>1?'s':''):'<span style="color:var(--tm)">sin facturas pendientes</span>')
+      +(e.sugerida?' <span style="color:var(--tm)">· 🤝 sugerida: '+hesc(cliNombre(_mov.cliente_rut))+' suele pagarla</span>':'')+'</span>'
+      +'<span><a href="#" onclick="quitarEmpresa(\''+hesc(e.rut)+'\');return false" style="color:var(--tm)">quitar de la lista</a>'
+      +(rel?'<a href="#" onclick="olvidarRelacion('+Number(rel.id)+');return false" style="color:var(--red)">olvidar sugerencia</a>':'')+'</span></li>';}).join('');
+}
+function olvidarRelacion(id){
+  if(_congelado||_ocupado||!puedeTercero())return;
+  var r=_rels.find(function(x){return x.id===id;});if(!r)return;
+  var mot=prompt('¿Por qué ya no se sugieren las facturas de '+cliNombre(r.cliente_beneficiario_rut)+' cuando paga '+cliNombre(r.cliente_pagador_rut)+'? (mínimo 5 caracteres). No se borra nada: queda registrado.');
+  if(!mot||mot.trim().length<5){if(mot)alert('El motivo debe tener al menos 5 caracteres.');return;}
+  _ocupado=true;rpc('concil_tercero_olvidar',{p_id:id,p_motivo:mot.trim()}).then(function(){_ocupado=false;
+      _terEmp.forEach(function(e){if(e.rut===r.cliente_beneficiario_rut)e.sugerida=false;});return cargarTerceros();})
+    .catch(function(e){_ocupado=false;alert(e.claro?e.message:'No sabemos si se guardó (problema de conexión). Actualiza y revisa.');cargarTerceros();});
+}
+function nombreOtraEmpresa(p,m){var c=cliPorId(p&&p.cliente_id);return c&&m&&c.rut!==m.cliente_rut?c.razon:'';}
+function empDePago(p,m){var n=nombreOtraEmpresa(p,m);return n?'<span class="conc-emp" title="Factura de otra empresa pagada con este ingreso">🏢 '+hesc(n)+'</span> ':'';}
 function pintarCands(){
   var h=_cands.length?'<table><thead><tr><th>Período</th><th>Concepto</th><th style="text-align:right">Saldo</th><th style="text-align:right">Aplicar</th></tr></thead><tbody>'+_cands.map(function(c,i){
-    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+hesc(c.o.concepto)+'<div style="font-size:10px;color:var(--tm)">'+hesc(FUENTE[c.o.fuente])+(c.o.castigado?' · castigada':'')+(c.o.vencimiento?' · vence '+hesc(String(c.o.vencimiento).split('-').reverse().join('-')):'')+'</div></td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo)+'</td>'
+    return '<tr><td>'+hesc(c.o.periodo)+'</td><td>'+(c.o.tercero?'<span class="conc-emp" title="Factura de otra empresa: queda pagada en esa empresa">🏢 '+hesc(cliNombre(c.o.cliente_rut))+'</span><br>':'')+hesc(c.o.concepto)+'<div style="font-size:10px;color:var(--tm)">'+hesc(FUENTE[c.o.fuente])+(c.o.castigado?' · castigada':'')+(c.o.vencimiento?' · vence '+hesc(String(c.o.vencimiento).split('-').reverse().join('-')):'')+'</div></td><td style="text-align:right;font-family:monospace">'+ff(c.o.saldo)+'</td>'
       +'<td style="text-align:right"><input inputmode="numeric" style="width:120px;text-align:right" value="'+(c.monto||'')+'" oninput="setMonto('+i+',this.value)"></td></tr>';}).join('')+'</tbody></table>'
     :'<div class="info-box">Este cliente no tiene obligaciones ni facturas abiertas.'+(puedeCambiarCliente(_mov)?' Si lo pagó otra empresa, usa "Cambiar cliente" (arriba).':'')+' Si el ingreso no corresponde a nada, ciérralo y usa "No corresponde".</div>';
   document.getElementById('kObs').innerHTML=h;totalizar();
@@ -699,7 +792,8 @@ function hechoDe(m){ // lo ya conciliado de ESTE ingreso (detalle fresco), con c
   _det.ops.forEach(function(o){(o.aplicaciones||[]).forEach(function(a,k){
     L.push({cat:catOb(a.obligacion_id),txt:_obsTodas[a.obligacion_id]||'Obligación #'+a.obligacion_id,monto:Number(a.monto),des:k===0?{f:'op',id:o.id}:null});});});
   _det.cob.forEach(function(p){(p.aplicaciones_norm||[]).forEach(function(a,k){
-    L.push({cat:'servicios',txt:_docsTodos[a.documento_id]||'Factura #'+a.documento_id,monto:Number(a.monto),des:k===0?{f:'cob',id:p.id}:null});});});
+    var emp=nombreOtraEmpresa(p,m);
+    L.push({cat:'servicios',txt:(_docsTodos[a.documento_id]||'Factura #'+a.documento_id)+(emp?' · de '+emp+' (pagada por este ingreso)':''),monto:Number(a.monto),des:k===0?{f:'cob',id:p.id}:null});});});
   _det.man.forEach(function(x){L.push({cat:'manual',txt:x.concepto,monto:Number(x.monto),des:{f:'man',id:x.id}});});
   return L;
 }
@@ -768,7 +862,15 @@ var COB_ERR={MOVIMIENTO_DE_OTRO_CLIENTE:'El ingreso está asignado a otro client
   SUPERA_SALDO_MOVIMIENTO:'La suma supera el saldo del ingreso.',SUPERA_SALDO_DOCUMENTO:'El monto supera el saldo de una factura (puede haber cambiado: recarga).',
   DOCUMENTO_NO_COBRABLE:'Una factura ya no está pendiente (puede haberse pagado o anulado: recarga).',MOVIMIENTO_NO_DISPONIBLE:'El ingreso ya no está disponible para conciliar (recarga).',
   CLAVE_IDEM_USADA:'Cambiaste los montos tras un intento con resultado incierto: cierra y vuelve a abrir el ingreso.',SOLO_PAGOS:'No tienes permiso para registrar pagos de Cobranza.',
-  TRABAJOS_ESPECIALES_NO_INSTALADO:'Esa factura es cuota de un trabajo especial y aún no se puede pagar por aquí.'};
+  TRABAJOS_ESPECIALES_NO_INSTALADO:'Esa factura es cuota de un trabajo especial y aún no se puede pagar por aquí.',
+  // CONC-OTRA: concil_pagar_otra_empresa
+  MOVIMIENTO_DE_OTRO_PAGADOR:'El ingreso cambió de cliente desde que lo abriste. Recarga antes de aplicar.',MOVIMIENTO_SIN_CLIENTE:'El ingreso no tiene cliente asignado.',
+  DOCUMENTO_DEL_PAGADOR:'Una factura es del propio cliente del ingreso: se aplica en el paso normal (recarga).',DOCUMENTO_INVALIDO:'Una factura ya no existe (recarga).',
+  PAGADOR_NO_EXISTE:'No encuentro la ficha del cliente del ingreso (recarga).',SOLO_TESORERIA_PAGOS:'Solo Master o Pagos pueden aplicar facturas de otra empresa.',
+  MOVIMIENTO_NO_EXISTE:'El ingreso ya no existe (recarga).',
+  // CONC-OTRA R2
+  DOCUMENTO_REPETIDO:'Una factura está dos veces en la lista (recarga).',DOCUMENTO_YA_APLICADO_EN_INGRESO:'Una factura de otra empresa ya está pagada con este ingreso; para cambiar el monto, desconcílala primero.',
+  OPERACION_INCONSISTENTE:'La operación registrada ya no calza con sus pagos. No se aplicó nada; revisa el detalle del ingreso.',INTEGRIDAD_INGRESO:'El ingreso no cuadra en el servidor (lo aplicado no suma). No se aplicó nada; avisa a Master.'};
 function cobMsg(e){var m=String(e&&e.message||'');var k=Object.keys(COB_ERR).find(function(x){return m.indexOf(x)===0;});return k?COB_ERR[k]:m;}
 // ── R2.2 (dictamen R2.1): UN solo control para el ciclo de vida del plan ──
 // Todo lo que crea, modifica o elimina un plan ocurre DENTRO del candado (Web Locks) del entorno + ingreso:
@@ -804,20 +906,29 @@ function mismoPlan(a,b){return !!(a&&b&&a.id===b.id&&a.mov===b.mov&&a.pasos.leng
 function aplicar(){
   if(_ocupado||_congelado||!_det||!_det.integro||bloqueoPlan(_mov.id))return;
   if(!hayLocks()){err('kErr',MSG_SIN_LOCKS);return;}
-  var docs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='doc';}),obs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='ob';});
+  var todosDocs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='doc';}),obs=_cands.filter(function(c){return c.monto>0&&c.o.fuente==='ob';});
+  // CONC-OTRA: las facturas del propio cliente siguen por cobranza_pago_registrar; las de otras empresas, por concil_pagar_otra_empresa
+  var docs=todosDocs.filter(function(c){return c.o.cliente_rut===_mov.cliente_rut;}),ters=todosDocs.filter(function(c){return c.o.cliente_rut!==_mov.cliente_rut;});
   var mans=_manuales.filter(function(x){return x.monto>0;});
-  var tot=docs.concat(obs).reduce(function(s,c){return s+c.monto;},0)+mans.reduce(function(s,x){return s+x.monto;},0);
+  var tot=todosDocs.concat(obs).reduce(function(s,c){return s+c.monto;},0)+mans.reduce(function(s,x){return s+x.monto;},0);
   if(tot<=0)return;
+  if(ters.length&&!terceroDisponible()){err('kErr','No se pueden aplicar facturas de otra empresa (función no disponible o sin permiso). Quítalas de la lista.');return;}
+  if(ters.some(function(c){return !c.o.cliente_rut;})){err('kErr','No encuentro la empresa de una factura; recarga la página.');return;}
+  var empTer=[];ters.forEach(function(c){var n=cliNombre(c.o.cliente_rut);if(empTer.indexOf(n)<0)empTer.push(n);});
   if(document.getElementById('kIndica').checked)_criterio='cliente_indica';
   var parcial=tot<Number(_mov.saldo);
   if(!confirm('¿Aplicar '+ff(tot)+' del ingreso'+(parcial?' (quedará parcial: faltan '+ff(Number(_mov.saldo)-tot)+')':'')+'?\n'
-    +(docs.length?'· '+docs.length+' factura(s) de nuestros servicios\n':'')+(obs.length?'· '+obs.length+' obligación(es) (IVA, cotizaciones u otros)\n':'')+(mans.length?'· '+mans.length+' concepto(s) manual(es)\n':'')))return;
+    +(docs.length?'· '+docs.length+' factura(s) de nuestros servicios de '+cliNombre(_mov.cliente_rut)+'\n':'')
+    +(ters.length?'· '+ters.length+' factura(s) de OTRA(S) EMPRESA(S): '+empTer.join(', ')+'\n   (cada una queda pagada en su empresa; pagó '+cliNombre(_mov.cliente_rut)+')\n':'')
+    +(obs.length?'· '+obs.length+' obligación(es) (IVA, cotizaciones u otros)\n':'')+(mans.length?'· '+mans.length+' concepto(s) manual(es)\n':'')))return;
   var cli=cliPorRut(_mov.cliente_rut);
   if(docs.length&&!cli){err('kErr','No encuentro la ficha del cliente; recarga la página.');return;}
   if(!usuarioPend()){err('kErr','No pude identificar tu sesión. Vuelve a ingresar a Gestoor antes de conciliar.');return;}
   var plan={v:2,id:nuevaClave(),mov:_mov.id,cliente_rut:_mov.cliente_rut,monto_mov:Number(_mov.monto),aplicado_inicial:Number(_mov.monto_aplicado),creado:new Date().toISOString(),parcial:parcial,pasos:[]};
   if(docs.length) plan.pasos.push({tipo:'cob',n:'facturas de nuestros servicios',clave:nuevaClave(),estado:'pendiente',args:{p_cliente_id:Number(cli.id),p_fecha_pago:String(_mov.fecha||String(_mov.fecha_hora).slice(0,10)),
     p_aplicaciones:docs.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_movimiento_id:_mov.id,p_abono:0}});
+  if(ters.length) plan.pasos.push({tipo:'otra',n:'facturas de otra empresa ('+empTer.join(', ')+')',clave:nuevaClave(),estado:'pendiente',args:{p_movimiento_id:_mov.id,p_pagador_rut:_mov.cliente_rut,
+    p_aplicaciones:ters.map(function(c){return {documento_id:c.o.id,monto:c.monto};}),p_recordar:!!document.getElementById('kTerRec').checked}});
   if(obs.length) plan.pasos.push({tipo:'ob',n:'obligaciones',clave:nuevaClave(),estado:'pendiente',args:{p_movimiento_id:_mov.id,p_aplicaciones:obs.map(function(c){return {obligacion_id:c.o.id,monto:c.monto};}),p_criterio:_criterio}});
   mans.forEach(function(x){plan.pasos.push({tipo:'man',n:'concepto manual «'+String(x.concepto).trim()+'»',clave:nuevaClave(),estado:'pendiente',args:{p_movimiento_id:_mov.id,p_concepto:String(x.concepto).trim(),p_monto:x.monto}});});
   var mid=plan.mov;
@@ -832,6 +943,7 @@ function refCob(){return ('Conciliación ingreso #'+_mov.id+' · transfiere '+_m
 function llamadaPaso(p){
   var a=JSON.parse(JSON.stringify(p.args));a.p_clave_idem=p.clave;
   if(p.tipo==='cob'){a.p_referencia=refCob();return rpc('cobranza_pago_registrar',a);}
+  if(p.tipo==='otra')return rpc('concil_pagar_otra_empresa',a);
   if(p.tipo==='ob')return rpc('conciliar_movimiento',a);
   return rpc('concil_imputar_manual',a);
 }
@@ -847,9 +959,11 @@ function ejecutarPlan(plan){
     llamadaPaso(p).then(function(r){
       var x=Array.isArray(r)?r[0]:r;
       if(p.tipo==='man'&&x&&x.resultado==='existente_anulada'){p.estado='anulado';p.msg='esa imputación ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&x&&(x.resultado==='existente_anulada'||x.resultado==='existente_parcialmente_anulada')){p.estado='anulado';p.msg=x.resultado==='existente_anulada'?'esas facturas ya habían sido desconciliadas':'parte de esas facturas ya había sido desconciliada';guardarPend(plan);terminarConFalla(plan,p);return fin();}
+      if(p.tipo==='otra'&&!(x&&(x.resultado==='aplicado'||x.resultado==='existente'))){p.estado='incierto';p.msg='respuesta inesperada del servidor';guardarPend(plan);terminarConFalla(plan,p);return fin();}
       p.estado='ok';if(!guardarPend(plan)){terminarConFalla(plan,p);return fin();}i++;sig();
     }).catch(function(e){
-      p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
+      p.estado=e.claro?'error':'incierto';p.msg=e.claro?(p.tipo==='cob'||p.tipo==='otra'?cobMsg(e):e.message):'sin respuesta del servidor';guardarPend(plan);terminarConFalla(plan,p);fin();
     });
   })();});
 }
@@ -860,13 +974,15 @@ function terminarConFalla(plan,p){
 // ── Verificación de cada paso contra el servidor (por clave + contenido económico). Solo LEE; no escribe. ──
 function mismasAplic(a,b,k){var n=function(L){return (L||[]).map(function(x){return String(x[k])+':'+Number(x.monto);}).sort().join(',');};return n(a)===n(b);}
 function verificarPaso(plan,p){
-  var sel={cob:'cobranza_pagos?select=id,movimiento_id,monto,estado,aplicaciones_norm',ob:'concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada',man:'concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,anulada'}[p.tipo];
+  var sel={cob:'cobranza_pagos?select=id,movimiento_id,monto,estado,aplicaciones_norm',ob:'concil_operaciones?select=id,movimiento_id,aplicaciones,total,anulada',man:'concil_imputaciones_manuales?select=id,movimiento_id,concepto,monto,anulada',
+    otra:'concil_tercero_operaciones?select=id,movimiento_id,cliente_pagador_rut,aplicaciones,total,pago_ids,recordar,usuario_id'}[p.tipo];
   return sbFetch(sel+'&clave_idem=eq.'+encodeURIComponent(p.clave)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(rows){
     rows=rows||[];
     if(!rows.length)return 'no_registrado';
     if(rows.length>1)return 'conflicto';
     var x=rows[0],a=p.args;
     if(Number(x.movimiento_id)!==plan.mov)return 'conflicto';
+    if(p.tipo==='otra')return verificarOtra(plan,p,x);
     if(p.tipo==='cob'){var tot=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0);
       if(Number(x.monto)!==tot||!mismasAplic(x.aplicaciones_norm,a.p_aplicaciones,'documento_id'))return 'conflicto';
       return x.estado==='VIGENTE'?'vigente':'anulado';}
@@ -877,6 +993,34 @@ function verificarPaso(plan,p){
     return x.anulada?'anulado':'vigente';
   });
 }
+// CONC-OTRA R2 (F01): el paso 'otra' se da por hecho SOLO si en el servidor coincide TODO lo planeado:
+//  · la operación (clave): ingreso, pagador, facturas y montos, total, «recordar» y el MISMO usuario de esta sesión;
+//  · su detalle: una fila por factura (misma factura y monto), cada una con un pago de la operación;
+//  · sus pagos de Cobranza: enlazados a este ingreso, de la empresa de cada factura, con monto y facturas iguales al detalle.
+// Resultado: 'vigente' (todos los pagos vigentes) · 'anulado' (todos anulados) · 'parcial_anulado' (algunos) · 'conflicto'.
+function verificarOtra(plan,p,x){
+  var a=p.args,u=getUsuario()||{},t3=a.p_aplicaciones.reduce(function(s,y){return s+y.monto;},0),ids=(x.pago_ids||[]).map(Number);
+  p.msg='';var mal=function(m){p.msg=m;return 'conflicto';};
+  if(x.cliente_pagador_rut!==a.p_pagador_rut||Number(x.total)!==t3||!mismasAplic(x.aplicaciones,a.p_aplicaciones,'documento_id'))return mal('facturas, montos o pagador distintos');
+  if(!!x.recordar!==!!a.p_recordar)return mal('«recordar» distinto');
+  if(u.id==null||Number(x.usuario_id)!==Number(u.id))return mal('la registró otro usuario');
+  if(!ids.length||ids.some(function(i){return !(i>0);}))return mal('sin pagos');
+  var leer=function(q){return sbFetch(q).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});};
+  return Promise.all([leer('concil_tercero_aplicaciones?select=operacion_id,movimiento_id,pago_id,documento_id,monto,cliente_beneficiario_id&operacion_id=eq.'+Number(x.id)),
+                      leer('cobranza_pagos?select=id,cliente_id,estado,movimiento_id,monto,aplicaciones_norm&id=in.('+ids.join(',')+')')]).then(function(r){
+    var det=r[0]||[],ps=r[1]||[];
+    if(det.length!==a.p_aplicaciones.length||!mismasAplic(det,a.p_aplicaciones,'documento_id'))return mal('el detalle no coincide con las facturas');
+    if(det.some(function(d){return Number(d.movimiento_id)!==plan.mov||ids.indexOf(Number(d.pago_id))<0;}))return mal('el detalle apunta a otro ingreso o pago');
+    if(ps.length!==ids.length)return mal('falta un pago');
+    for(var i=0;i<ps.length;i++){var q=ps[i],dq=det.filter(function(d){return Number(d.pago_id)===Number(q.id);});
+      if(Number(q.movimiento_id)!==plan.mov)return mal('un pago no está enlazado a este ingreso');
+      if(!dq.length||dq.some(function(d){return Number(d.cliente_beneficiario_id)!==Number(q.cliente_id);}))return mal('un pago es de otra empresa');
+      if(Number(q.monto)!==dq.reduce(function(s,d){return s+Number(d.monto);},0)||!mismasAplic(q.aplicaciones_norm,dq,'documento_id'))return mal('un pago no calza con sus facturas');
+      if(q.estado!=='VIGENTE'&&q.estado!=='ANULADO')return mal('estado de pago desconocido');}
+    var vig=ps.filter(function(q){return q.estado==='VIGENTE';}).length;
+    return vig===ps.length?'vigente':vig===0?'anulado':'parcial_anulado';
+  });
+}
 // Devuelve una COPIA del plan con el resultado de verificar TODOS sus pasos (también los «ok» locales). No persiste.
 function verificarPlan(plan){
   var c=JSON.parse(JSON.stringify(plan));
@@ -884,8 +1028,8 @@ function verificarPlan(plan){
     .then(function(){c.pasos.forEach(function(p){if(p.ver==='vigente'){p.estado='ok';p.msg='';}else if(p.ver==='no_registrado'&&p.estado==='ok'){p.ver='conflicto';p.msg='figuraba registrado y ya no está';}});return c;});
 }
 function resumenPlan(plan){
-  var c={vigente:0,anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
-  c.cambio=c.anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
+  var c={vigente:0,anulado:0,parcial_anulado:0,no_registrado:0,incierto:0,conflicto:0};plan.pasos.forEach(function(p){c[p.ver]=(c[p.ver]||0)+1;});
+  c.cambio=c.anulado>0||c.parcial_anulado>0||c.conflicto>0;c.completo=c.vigente===plan.pasos.length;return c;
 }
 // Persistir el resultado de una verificación: SOLO dentro del candado, si el plan guardado sigue siendo el mismo
 // y la respuesta corresponde al ingreso y a la apertura vigentes (UX-R2-06 / R21-02).
@@ -916,7 +1060,7 @@ function revisadoR2(){var mid=_mov.id;if(!esTesoreria())return;
   conCandado(mid,function(){if(!pendR2De(mid))return;if(!confirm('¿Confirmas que revisaste en el detalle lo que quedó registrado en el servidor? El aviso se cierra; no se aplica ni se deshace nada.'))return;
     try{localStorage.removeItem(PEND_R2+mid);}catch(e){}
     if(pendR2De(mid)){err('kErr','No pude cerrar el aviso en este navegador.');return;}abrirDeNuevo();});}
-var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
+var VER_TXT={vigente:'✅ vigente',anulado:'⛔ anulado después',parcial_anulado:'⛔ desconciliado en parte después',no_registrado:'⏳ sin registrar',incierto:'❔ no se pudo verificar',conflicto:'⚠️ no coincide con lo planeado'};
 function pintarPendiente(plan){
   if(!_mov||_mov.id!==plan.mov)return;
   var c=resumenPlan(plan);
@@ -951,7 +1095,13 @@ function validarParaCompletar(plan){
   var faltan=plan.pasos.filter(function(p){return p.ver==='no_registrado';});
   var tot=faltan.reduce(function(s,p){return s+(p.tipo==='man'?p.args.p_monto:p.args.p_aplicaciones.reduce(function(t,y){return t+y.monto;},0));},0);
   if(tot>Number(_mov.saldo))return 'El saldo del ingreso ('+ff(_mov.saldo)+') ya no alcanza para lo que falta ('+ff(tot)+').';
-  for(var i=0;i<faltan.length;i++){var p=faltan[i];if(p.tipo==='man')continue;var fu=p.tipo==='cob'?'doc':'ob',campo=p.tipo==='cob'?'documento_id':'obligacion_id';
+  for(var i=0;i<faltan.length;i++){var p=faltan[i];if(p.tipo==='man')continue;
+    if(p.tipo==='otra'){ // CONC-OTRA: las facturas de otras empresas se revalidan contra las facturas abiertas recién cargadas
+      if(!terceroDisponible())return 'La función de facturas de otra empresa no está disponible para tu usuario.';
+      for(var q=0;q<p.args.p_aplicaciones.length;q++){var ap2=p.args.p_aplicaciones[q];var dd=_docs.find(function(d){return Number(d.id)===Number(ap2.documento_id);});
+        if(!dd)return 'Una factura de otra empresa del plan ya no está pendiente (pudo pagarse o anularse).';if(Number(dd.saldo)<ap2.monto)return 'Una factura de otra empresa tiene ahora menos saldo que el monto planeado.';}
+      continue;}
+    var fu=p.tipo==='cob'?'doc':'ob',campo=p.tipo==='cob'?'documento_id':'obligacion_id';
     for(var j=0;j<p.args.p_aplicaciones.length;j++){var ap=p.args.p_aplicaciones[j];var cand=_cands.find(function(x){return x.o.fuente===fu&&x.o.id===ap[campo];});
       if(!cand)return 'Una partida del plan ya no está pendiente (pudo pagarse o anularse).';if(cand.o.saldo<ap.monto)return 'Una partida del plan tiene ahora menos saldo que el monto planeado.';}}
   return '';
@@ -1124,8 +1274,9 @@ esperarSesion().then(function(u){
     return;
   }
   sbGetClientes(function(rows){_clientes=rows||[];render();});
-  var _cargarBase=cargar;cargar=function(l){_cargarBase(function(fresco){if(typeof l==='function')l(fresco);setTimeout(cargarConceptos,0);setTimeout(cargarFolios,0);});};
-  cargar();
+  var _cargarBase=cargar;cargar=function(l){_cargarBase(function(fresco){if(typeof l==='function')l(fresco);setTimeout(cargarConceptos,0);setTimeout(cargarFolios,0);setTimeout(cargarTerceros,0);});};
+  // CONC-OTRA: primero se sabe si la función existe (y qué empresas suele pagar cada cliente); luego se carga la pantalla.
+  cargarTerceros().then(function(){cargar();});
 }).catch(function(){document.getElementById('meta').textContent='Sesión no disponible';});
 </script>
 <script src="../notifications.js"></script>
