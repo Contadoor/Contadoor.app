@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba · Sonido de avisos</title>
+<!-- Página de PRUEBA local (no está en el menú): la campana real (notifications.js) con avisos simulados, sin Supabase.
+     Sirve para escuchar el sonido y probar el botón de silenciar. Uso: servir la raíz del repo y abrir /pruebas/sonido-avisos-demo.html -->
+<style>
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f7f2f7;color:#1a0a1b}
+  .topbar{display:flex;align-items:center;gap:10px;height:54px;padding:0 16px;background:#17091A;color:#fff}
+  .tb-title{font-size:15px;font-weight:700;margin:0}
+  main{max-width:560px;margin:24px auto;padding:0 16px;line-height:1.55;font-size:14px}
+  .tarjeta{background:#fff;border:1px solid #e8dde8;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  button.demo{background:#924893;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
+  .sub{color:#5c4a5d;font-size:12.5px}
+</style>
+<script>
+  var DEMO_FILAS=[{id:1,tipo:'info',modulo:'facturacion',prioridad:'media',titulo:'📄 Factura FA-2026-11-0001 aprobada',descripcion:'Ya puedes emitirla.',estado:'pendiente',accion_url:'/facturacion/',created_at:new Date(Date.now()-3600e3).toISOString(),leida_at:null,difusion:false}];
+  var DEMO_N=1;
+  window._sbAuthReady=true;
+  window.sbFetch=function(path){
+    if(path==='rpc/mis_alertas') return Promise.resolve(new Response(JSON.stringify(DEMO_FILAS),{status:200}));
+    if(path==='rpc/alerta_marcar') return Promise.resolve(new Response(JSON.stringify({estado:'resuelta',leida_at:new Date().toISOString()}),{status:200}));
+    return Promise.resolve(new Response('{}',{status:404}));
+  };
+  function demoNuevo(){
+    DEMO_N++;
+    DEMO_FILAS.unshift({id:DEMO_N,tipo:'accion_requerida',modulo:'facturacion',prioridad:'alta',titulo:'📄 Factura FA-2026-11-000'+DEMO_N+' espera tu aprobación',descripcion:'Aviso de prueba '+DEMO_N,estado:'pendiente',accion_url:'/facturacion/',created_at:new Date().toISOString(),leida_at:null,difusion:false});
+    window.gestoorCampanaRecargar();
+  }
+</script>
+</head>
+<body>
+<div class="layout">
+  <div class="topbar"><h1 class="tb-title">Gestoor · prueba de sonido</h1></div>
+  <main>
+    <div class="tarjeta">
+      <b>Prueba del sonido de avisos</b><br>
+      <span class="sub">Avisos simulados: no se conecta a Gestoor ni a Supabase.</span>
+      <p>1. Toca <b>Simular aviso nuevo</b>: suena el aviso de Gestoor y la campana sube su número.<br>
+         2. Abre la campana y toca <b>Sonido de avisos</b> para silenciarlo o activarlo (al activarlo suena una muestra).</p>
+      <button type="button" class="demo" onclick="demoNuevo()">Simular aviso nuevo</button>
+    </div>
+  </main>
+</div>
+<script src="../notifications.js"></script>
+</body>
+</html>
