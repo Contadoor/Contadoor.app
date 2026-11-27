@@ -346,6 +346,8 @@ function pintar(meses){
       +kpi(completos+' / '+repAct.length,'Reportes completos',repAct.length?Math.round(completos/repAct.length*100)+'% del período':'')
       +kpi(enviados,'Enviados al cliente','')
       +kpi(activos,'Clientes activos',onb+' en onboarding')
+      +kpi('…','Recaudado del mes','Cargando pagos…','in-kpi-rec')
+      +kpi('…','% de cobranza','Cargando…','in-kpi-pct')
     +'</div></section>';
   // Facturación 6 meses
   var datos=meses.map(function(m){var rs=_rep.filter(function(r){return String(r.periodo).replace('-','')===m.replace('-','');});
@@ -387,8 +389,35 @@ function cliPorId(id){return _cli.find(function(c){return Number(c.id)===Number(
 function nomCli(rut){var c=_cli.find(function(x){return x.rut===rut;});return c?c.razon:rut;}
 function hoyYmd(){return hoyChile();}
 function diasEntre(a,b){return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/864e5);}
+// 27-11 (Luciano): recaudación y % de cobranza en el inicio.
+// · Recaudado del mes = pagos VIGENTES registrados en Cobranza durante el mes calendario en curso (hora de Chile).
+// · % de cobranza = de lo facturado en el último período con facturas en Cobranza, cuánto ya se cobró (monto − saldo).
+// Si el usuario no tiene permiso para leer Cobranza (RLS), los dos indicadores se quitan sin mostrar error.
+function cargarKpiCobranza(){
+  var kr=document.getElementById('in-kpi-rec'),kp=document.getElementById('in-kpi-pct');if(!kr||!kp)return;
+  var mesHoy=hoyChile().slice(0,7);
+  var ini=new Date(Date.parse(mesHoy+'-01T00:00:00-03:00')-864e5).toISOString(); // margen de 1 día; se filtra exacto en hora de Chile
+  var mesCL=function(ts){return new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/Santiago'}).slice(0,7);};
+  Promise.all([
+    q('cobranza_pagos?select=monto,registrado_at&estado=eq.VIGENTE&registrado_at=gte.'+encodeURIComponent(ini)+'&limit=5000'),
+    q('cobranza_documentos?select=periodo,monto,saldo&estado=neq.ANULADO&origen=eq.MENSUALIDAD&order=periodo.desc&limit=5000')
+  ]).then(function(r){
+    var pagos=(r[0]||[]).filter(function(x){return mesCL(x.registrado_at)===mesHoy;});
+    var rec=pagos.reduce(function(s,x){return s+(Number(x.monto)||0);},0);
+    kr.innerHTML='<b class="cifra" style="color:#5FCF9C">'+ff(rec)+'</b><span>Recaudado en '+hesc(perTxt(mesHoy))+'<em>'+pagos.length+' pago'+(pagos.length===1?'':'s')+' registrado'+(pagos.length===1?'':'s')+' en Cobranza</em></span>';
+    var docs=r[1]||[];
+    if(!docs.length){kp.innerHTML='<b class="cifra">—</b><span>% de cobranza<em>Aún no hay facturas en Cobranza</em></span>';return;}
+    var per=docs.reduce(function(m,d){return String(d.periodo)>m?String(d.periodo):m;},'');
+    var del=docs.filter(function(d){return String(d.periodo)===per;});
+    var fac=0,cob=0,pagadas=0;del.forEach(function(d){var mo=Number(d.monto)||0,sa=Number(d.saldo);sa=isFinite(sa)?sa:mo;fac+=mo;cob+=Math.max(0,mo-sa);if(sa<=0)pagadas++;});
+    var pct=fac?Math.round(cob*1000/fac)/10:0;
+    var col=pct>=80?'#5FCF9C':pct>=50?'#E8C25B':'#E07A6E';
+    kp.innerHTML='<b class="cifra" style="color:'+col+'">'+String(pct).replace('.',',')+'%</b><span>Cobranza facturación '+hesc(perTxt(perDash(per)))+'<em>'+ff(cob)+' de '+ff(fac)+' · '+pagadas+' de '+del.length+' facturas pagadas</em></span>';
+  },function(){[kr,kp].forEach(function(k){if(k&&k.parentNode)k.parentNode.removeChild(k);});});
+}
 function cargarModulos(){
   cargarFacturadoReal();
+  cargarKpiCobranza();
   // 1) Pagos por aprobar (Aprobaciones = obligaciones_pago en la base)
   q('obligaciones_pago?select=id,cliente_rut,concepto,monto_exigible,estado,origen_fondos,fondos_autorizados_at&or=(estado.eq.pendiente_aprobacion,and(origen_fondos.eq.contadoor,estado.eq.pendiente_fondos,fondos_autorizados_at.is.null))&order=created_at.asc&limit=200')
     .then(function(rows){rows=rows||[];
