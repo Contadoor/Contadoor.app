@@ -409,15 +409,17 @@ function cargarKpiCobranza(){
   var mesCL=function(ts){return new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/Santiago'}).slice(0,7);};
   Promise.all([
     q('cobranza_pagos?select=monto,registrado_at,aplicaciones_norm&estado=eq.VIGENTE&registrado_at=gte.'+encodeURIComponent(ini)+'&limit=5000'),
-    q('cobranza_documentos?select=id,origen,periodo,monto,saldo,estado,fecha_vencimiento&estado=neq.ANULADO&limit=5000'),
+    q('cobranza_documentos?select=id,origen,concepto,periodo,monto,saldo,estado,fecha_vencimiento&estado=neq.ANULADO&limit=5000'),
     // Ingresos de Conciliación imputados a mano (sin factura en Cobranza). Si no hay permiso, se omiten.
     q('concil_imputaciones_manuales?select=concepto,monto,externo,created_at&anulada=eq.false&created_at=gte.'+encodeURIComponent(ini)+'&limit=5000').catch(function(){return null;})
   ]).then(function(r){
     var docs=r[1]||[],porId={};docs.forEach(function(d){porId[d.id]=d;});
+    // 27-11: la deuda histórica cargada (SALDO_INICIAL) se separa por su concepto: «Trabajo adicional · …» cuenta como trabajo especial.
+    var esTE=function(d){return !!d&&(d.origen==='TRABAJO_ESPECIAL'||(d.origen==='SALDO_INICIAL'&&/^trabajo adicional/i.test(String(d.concepto||''))));};
     var REC={planes:0,te:0,otros:0},nPag=0;
     (r[0]||[]).forEach(function(x){if(mesCL(x.registrado_at)!==mesHoy)return;nPag++;
       var m=Number(x.monto)||0,ap=Array.isArray(x.aplicaciones_norm)?x.aplicaciones_norm:[],usado=0;
-      ap.forEach(function(a){var v=Number(a.monto)||0,d=porId[a.documento_id];usado+=v;REC[d&&d.origen==='TRABAJO_ESPECIAL'?'te':d&&d.origen==='MENSUALIDAD'?'planes':'otros']+=v;});
+      ap.forEach(function(a){var v=Number(a.monto)||0,d=porId[a.documento_id];usado+=v;REC[esTE(d)?'te':d?'planes':'otros']+=v;});
       if(m-usado>0)REC.otros+=m-usado;});
     // Imputaciones manuales: lo que es plata del cliente para impuestos u obligaciones (F29, Previred, convenios, pies…) NO es ingreso nuestro.
     var manOk=r[2]!==null;
@@ -431,7 +433,7 @@ function cargarKpiCobranza(){
     kr.innerHTML='<b class="cifra" style="color:#5FCF9C">'+ff(rec)+'</b><span>Recaudado en '+hesc(perTxt(mesHoy))+'<em>Nuestros servicios · '+nPag+' pago'+(nPag===1?'':'s')+' en Cobranza'+(manOk?' + Conciliación':'')+'</em></span>';
     // Lo que nos deben (Cobranza: facturas con saldo), separado por tipo y con lo vencido.
     var hoy=hoyChile(),DEB={planes:0,te:0},VEN={planes:0,te:0},nDeb=0;
-    docs.forEach(function(d){var sa=Number(d.saldo)||0;if(sa<=0||d.estado!=='PENDIENTE'&&d.estado!=='CASTIGADO')return;nDeb++;var k=d.origen==='TRABAJO_ESPECIAL'?'te':'planes';
+    docs.forEach(function(d){var sa=Number(d.saldo)||0;if(sa<=0||d.estado!=='PENDIENTE'&&d.estado!=='CASTIGADO')return;nDeb++;var k=esTE(d)?'te':'planes';
       DEB[k]+=sa;if(d.fecha_vencimiento&&String(d.fecha_vencimiento).slice(0,10)<hoy)VEN[k]+=sa;});
     var deb=DEB.planes+DEB.te,ven=VEN.planes+VEN.te;
     var it=function(l,v,x){return '<span><small>'+l+'</small><b>'+ff(v)+'</b>'+(x?'<i>'+x+'</i>':'')+'</span>';};
