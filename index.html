@@ -134,9 +134,8 @@
 .pl-barra i{display:block;height:100%}
 .pl-ley{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
 @media(max-width:520px){.pl-ley{grid-template-columns:1fr}}
-.pl-ley button,.pl-fila{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 7px;border-radius:9px}
-.pl-ley button:hover,.pl-ley button.on,.pl-fila:hover,.pl-fila.on{background:rgba(255,255,255,.09)}
-.pl-ley button:focus-visible,.pl-fila:focus-visible,.pl-btn:focus-visible{outline:2px solid rgb(var(--c))}
+.pl-it,.pl-fila{box-sizing:border-box;display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 7px;border-radius:9px}
+.pl-btn:focus-visible{outline:2px solid rgb(var(--c))}
 .pl-pt{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
 .pl-ley b,.pl-fila b{margin-left:auto;font-weight:800;white-space:nowrap}
 .pl-anillo{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
@@ -149,19 +148,8 @@
 .pl-fila .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
 .pl-fila .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,rgba(var(--c),.55),rgb(var(--c)))}
 .pl-fila em{grid-column:1/-1;font-style:normal;font-size:10.5px;opacity:.65;margin-top:-2px}
-.pl-btn{all:unset;cursor:pointer;display:inline-block;margin-top:12px;font-size:11.5px;font-weight:700;padding:6px 13px;border-radius:99px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20)}
+.pl-btn{all:unset;cursor:pointer;color:inherit;text-decoration:none;display:inline-block;margin-top:12px;font-size:11.5px;font-weight:700;padding:6px 13px;border-radius:99px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20)}
 .pl-btn:hover{background:rgba(255,255,255,.16)}
-.pl-det{margin-top:14px;border-radius:18px;background:#160B1A;color:#F3E9F4;border:1px solid rgba(255,255,255,.12);padding:14px 16px;box-shadow:0 12px 30px rgba(12,7,14,.25)}
-.pl-det[hidden]{display:none}
-.pl-det h4{margin:0 0 8px;font:800 14px var(--g-titulo,Montserrat),sans-serif;display:flex;justify-content:space-between;gap:10px}
-.pl-det h4 button{all:unset;cursor:pointer;font-size:12px;opacity:.7}
-.pl-tab{max-height:340px;overflow:auto}
-.pl-tab table{width:100%;border-collapse:collapse;font-size:12px}
-.pl-tab th{position:sticky;top:0;background:#160B1A;text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;padding:6px 8px}
-.pl-tab td{padding:6px 8px;border-top:1px solid rgba(255,255,255,.07)}
-.pl-tab td.n,.pl-tab th.n{text-align:right;white-space:nowrap}
-.pl-tab tfoot td{font-weight:800;border-top:1px solid rgba(255,255,255,.25)}
-.pl-fte{display:inline-block;font-size:10px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.08)}
 .pl-pie{margin:10px 2px 0;font-size:11px;opacity:.6}
 .pl-cargando{padding:16px;opacity:.7;font-size:12.5px}
 @media(prefers-reduced-motion:no-preference){.pl-barra i,.pl-fila .bar i{transition:width .5s cubic-bezier(.23,1,.32,1)}}
@@ -506,52 +494,31 @@ function cargarKpiCobranza(){
     // ── Pintar ──
     var nPag=IT.reduce(function(a,x){if(x.pid&&a.s[x.pid])return a;if(x.pid)a.s[x.pid]=1;a.n++;return a;},{s:{},n:0}).n;
     var barra=G.filter(function(g){return SUM[g[0]]>0;}).map(function(g){return '<i style="width:'+(SUM[g[0]]/tot*100).toFixed(2)+'%;background:'+g[2]+'" title="'+hesc(g[1])+': '+ff(SUM[g[0]])+'"></i>';}).join('');
-    var ley=G.filter(function(g){return SUM[g[0]]>0;}).map(function(g){return '<button type="button" data-g="'+g[0]+'" onclick="plDetIngreso(\''+g[0]+'\')"><span class="pl-pt" style="background:'+g[2]+';color:'+g[2]+'"></span>'+hesc(g[1])+'<b>'+ff(SUM[g[0]])+'</b></button>';}).join('');
+    var ley=G.filter(function(g){return SUM[g[0]]>0;}).map(function(g){return '<div class="pl-it"><span class="pl-pt" style="background:'+g[2]+';color:'+g[2]+'"></span>'+hesc(g[1])+'<b>'+ff(SUM[g[0]])+'</b></div>';}).join('');
     var DGL=[['p1',plMes(p1)],['p2',plMes(p2)],['ant','Meses anteriores'],['act',plMes(mesHoy)],['te','Trabajos especiales']].filter(function(x){return DG[x[0]]>0;});
     var maxD=Math.max.apply(null,DGL.map(function(x){return DG[x[0]];}).concat([1]));
-    var filas=DGL.map(function(x){return '<button type="button" class="pl-fila" data-g="'+x[0]+'" onclick="plDetDeuda(\''+x[0]+'\')"><span>'+hesc(x[1])+'</span><span class="bar"><i style="width:'+(DG[x[0]]/maxD*100).toFixed(1)+'%"></i></span><b>'+ff(DG[x[0]])+'</b></button>';}).join('');
-    kd.innerHTML='<div class="pl-cab"><h3>💵 La plata de Contadoor · '+hesc(plMes(mesHoy))+'</h3><small>Solo nuestros servicios · toca cualquier cifra para ver de dónde sale</small></div>'
+    var filas=DGL.map(function(x){return '<div class="pl-fila"><span>'+hesc(x[1])+'</span><span class="bar"><i style="width:'+(DG[x[0]]/maxD*100).toFixed(1)+'%"></i></span><b>'+ff(DG[x[0]])+'</b></div>';}).join('');
+    kd.innerHTML='<div class="pl-cab"><h3>💵 La plata de Contadoor · '+hesc(plMes(mesHoy))+'</h3><small>Solo nuestros servicios · el detalle está en Conciliación y Cobranza</small></div>'
       +'<div class="pl-grid">'
       +'<article class="pl-card pl-ver"><div class="pl-et">Ingresó en '+hesc(plMes(mesHoy).toLowerCase())+'</div><div class="pl-cifra">'+ff(tot)+'</div>'
         +'<div class="pl-sub">'+nPag+' pago'+(nPag===1?'':'s')+' · por fecha del depósito'+(manOk?'':' · sin datos de Conciliación')+'</div>'
         +'<div class="pl-barra" role="img" aria-label="Ingreso por mes del servicio">'+barra+'</div><div class="pl-ley">'+ley+'</div>'
-        +'<button type="button" class="pl-btn" onclick="plDetIngreso(null)">Ver los '+nPag+' pagos</button></article>'
+        +'<a class="pl-btn" href="conciliacion/">Ver en Conciliación →</a></article>'
       +(fac?'<article class="pl-card pl-ama"><div class="pl-et">Recaudación servicios de '+hesc(plMes(per).toLowerCase())+'</div>'
         +'<div class="pl-anillo"><div class="r" style="--p:'+pct+'"><span>'+String(pct).replace('.',',')+'%</span></div>'
         +'<p><b>'+ff(cob)+'</b> cobrado<br>de <b>'+ff(fac)+'</b> facturado<br>'+pagadas+' de '+del.length+' facturas pagadas</p></div>'
         +(extraConc>0?'<div class="pl-nota">➕ Además entraron <b>'+ff(extraConc)+'</b> de '+hesc(plMes(per).toLowerCase())+' por Conciliación que aún no rebajan la factura. Al aplicarlos en Cobranza, este % sube.</div>':'')
-        +'<button type="button" class="pl-btn" onclick="plDetFacturas()">Ver facturas pendientes de '+hesc(plMes(per).toLowerCase())+'</button></article>'
+        +'<a class="pl-btn" href="cobranza/">Ver en Cobranza →</a></article>'
         :'<article class="pl-card pl-ama"><div class="pl-et">Recaudación</div><div class="pl-cifra">—</div><div class="pl-sub">Aún no hay facturas mensuales en Cobranza</div></article>')
       +'<article class="pl-card pl-roj"><div class="pl-et">Nos deben</div><div class="pl-cifra">'+ff(deb)+'</div>'
         +'<div class="pl-sub">'+D.length+' documento'+(D.length===1?'':'s')+(ven?' · vencido '+ff(ven):'')+'</div>'
         +'<div style="margin-top:10px">'+filas+'</div>'
-        +'<button type="button" class="pl-btn" onclick="plDetDeuda(null)">Ver quién nos debe</button></article>'
-      +'</div><div class="pl-det" id="pl-det" hidden></div>'
+        +'<a class="pl-btn" href="cobranza/">Ver en Cobranza →</a></article>'
+      +'</div>'
       +'<p class="pl-pie">Fuente: pagos de Cobranza y ingresos de Conciliación imputados a mano. No incluye la plata de clientes para F29, Previred, convenios ni pies. El mes del servicio sale de la factura o del concepto escrito en Conciliación.</p>';
     _PL.per=per;
   },quitar);
 }
-function plMarcar(sel,g){document.querySelectorAll('#in-plata [data-g]').forEach(function(b){b.classList.remove('on');});if(g)document.querySelectorAll('#in-plata '+sel+'[data-g="'+g+'"]').forEach(function(b){b.classList.add('on');});}
-function plTabla(titulo,cab,filas,total){var d=document.getElementById('pl-det');if(!d)return;
-  d.innerHTML='<h4><span>'+titulo+'</span><button type="button" onclick="plCerrar()">Cerrar ✕</button></h4><div class="pl-tab"><table><thead><tr>'+cab.map(function(c){return '<th'+(c.n?' class="n"':'')+'>'+c.t+'</th>';}).join('')+'</tr></thead><tbody>'
-    +(filas.length?filas.join(''):'<tr><td colspan="'+cab.length+'">Sin movimientos.</td></tr>')+'</tbody>'+(total!=null?'<tfoot><tr><td colspan="'+(cab.length-1)+'">Total</td><td class="n">'+ff(total)+'</td></tr></tfoot>':'')+'</table></div>';
-  d.hidden=false;d.scrollIntoView({block:'nearest',behavior:'smooth'});}
-function plCerrar(){var d=document.getElementById('pl-det');if(d)d.hidden=true;plMarcar('',null);}
-function plDetIngreso(g){if(!_PL)return;plMarcar('.pl-ley button',g);var nom=g?(_PL.G.filter(function(x){return x[0]===g;})[0]||[])[1]:'Todo lo que ingresó';
-  var xs=_PL.IT.filter(function(x){return !g||x.g===g;}).sort(function(a,b){return String(b.f).localeCompare(String(a.f))||b.v-a.v;});
-  plTabla('💰 '+hesc(nom)+' · '+xs.length+' pago'+(xs.length===1?'':'s'),[{t:'Fecha'},{t:'Cliente'},{t:'Concepto'},{t:'Fuente'},{t:'Monto',n:1}],
-    xs.map(function(x){return '<tr><td>'+plFecha(x.f)+'</td><td>'+hesc(x.cli)+'</td><td>'+hesc(x.con)+'</td><td><span class="pl-fte">'+x.fte+'</span></td><td class="n">'+ff(x.v)+'</td></tr>';}),
-    xs.reduce(function(a,x){return a+x.v;},0));}
-function plDetDeuda(g){if(!_PL)return;plMarcar('.pl-fila',g);var por={};
-  _PL.D.filter(function(x){return !g||x.g===g;}).forEach(function(x){var k=x.cli;if(!por[k])por[k]={cli:x.cli,n:0,v:0,ven:0};por[k].n++;por[k].v+=x.v;if(x.ven)por[k].ven+=x.v;});
-  var xs=Object.values(por).sort(function(a,b){return b.v-a.v;});
-  plTabla('🧾 Nos deben'+(g?' · '+hesc({p1:plMes(plAddMes(_PL.mes,-1)),p2:plMes(plAddMes(_PL.mes,-2)),ant:'meses anteriores',act:plMes(_PL.mes),te:'trabajos especiales'}[g]||''):'')+' · '+xs.length+' cliente'+(xs.length===1?'':'s'),
-    [{t:'Cliente'},{t:'Documentos'},{t:'Vencido',n:1},{t:'Saldo',n:1}],
-    xs.map(function(x){return '<tr><td>'+hesc(x.cli)+'</td><td>'+x.n+'</td><td class="n">'+(x.ven?ff(x.ven):'—')+'</td><td class="n">'+ff(x.v)+'</td></tr>';}),xs.reduce(function(a,x){return a+x.v;},0));}
-function plDetFacturas(){if(!_PL)return;plMarcar('',null);var per=_PL.per;
-  var xs=_PL.D.filter(function(x){return x.per===per&&x.g!=='te';}).sort(function(a,b){return b.v-a.v;});
-  plTabla('📄 Pendiente de '+hesc(plMes(per).toLowerCase())+' · '+xs.length+' documento'+(xs.length===1?'':'s'),[{t:'Cliente'},{t:'Concepto'},{t:'Vence'},{t:'Saldo',n:1}],
-    xs.map(function(x){return '<tr><td>'+hesc(x.cli)+'</td><td>'+hesc(x.con)+'</td><td>'+plFecha(x.fv)+'</td><td class="n">'+ff(x.v)+'</td></tr>';}),xs.reduce(function(a,x){return a+x.v;},0));}
 function cargarModulos(){
   cargarFacturadoReal();
   cargarKpiCobranza();
