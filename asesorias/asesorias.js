@@ -136,7 +136,7 @@ function render(){
     +'<li><b>Estratégico</b>: 1 reunión al mes con Luciano. <b>PRO</b>: 1 por trimestre. <b>Cumplimiento</b>: no incluye reuniones.</li>'
     +'<li>Sin cupo, el cliente puede comprar una asesoría de 1 hora a <b>$35.000</b>. Los cupos no se acumulan.</li>'
     +'<li>Si el cliente no asiste o cancela, la reunión se le devuelve (no cuenta en su cupo).</li>'
-    +'<li>Horarios en hora de Chile: 10:30 · 11:20 · 16:30 · 17:20 (30 min; la pagada, 60 min).</li></ul></details></div>';
+    +'<li>Horarios en hora de Chile: 10:30 · 11:30 · 16:30 · 17:30 (40 min; la pagada, 60 min).</li></ul></details></div>';
   var tabs=[['confirmar','Por confirmar',g.conf.length,'reloj'],['agenda','Agenda',g.age.length,'calendario'],['minutas','Minutas pendientes',g.min.length,'lapiz'],['historial','Historial',g.his.length,'historial']];
   h+='<nav class="gc-nav" role="tablist" aria-label="Secciones">'+tabs.map(function(t){var on=S.tab===t[0];
     return '<button type="button" class="sn'+(on?' on':'')+'" role="tab" aria-selected="'+on+'" data-act="tab" data-tab="'+t[0]+'">'+I(t[3])+esc(t[1])+'<span class="cnt">'+t[2]+'</span></button>';}).join('')+'</nav>';
@@ -442,7 +442,7 @@ function cargarHorarios(mm){
 }
 function pintarPago(mm){
   var b=mm.querySelector('#agPago');if(!b)return;
-  if(!AG.sel||AG.sel.incluida){b.innerHTML=AG.sel?'<div class="aviso verde">'+I('check','ic-ver')+'<span>Incluida en el plan del cliente · 30 min ('+esc(hm(AG.sel.inicio))+'–'+esc(hm(AG.sel.fin))+').</span></div>':'';return;}
+  if(!AG.sel||AG.sel.incluida){b.innerHTML=AG.sel?'<div class="aviso verde">'+I('check','ic-ver')+'<span>Incluida en el plan del cliente · 40 min ('+esc(hm(AG.sel.inicio))+'–'+esc(hm(AG.sel.fin))+').</span></div>':'';return;}
   b.innerHTML='<div class="aviso ambar">'+I('moneda','ic-amb')+'<span>Este horario no está incluido en su cupo: será una <b>asesoría pagada de 1 hora a $35.000</b> ('+esc(hm(AG.sel.inicio))+'–'+esc(hm(AG.sel.fin))+'), por cobrar.</span></div>'
     +'<label class="chk"><input type="checkbox" id="agAcepto">El cliente aceptó pagar $35.000 por esta asesoría.</label>';
 }
