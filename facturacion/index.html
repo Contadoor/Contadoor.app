@@ -55,6 +55,10 @@
         <button type="button" class="fb" data-vista="ADICIONAL" aria-pressed="false"><i class="ic ic-ama" data-ic="factura"></i>Facturación adicional</button>
         <button type="button" class="fb" data-vista="HISTORIAL" aria-pressed="false"><i class="ic ic-cel" data-ic="reloj"></i>Historial por cliente</button>
       </div>
+      <div class="g-seg" id="fxModoSel" role="group" aria-label="Facturas reales o de prueba" hidden>
+        <button type="button" class="fb on" data-modo="PRODUCCION" aria-pressed="true"><i class="ic ic-ver" data-ic="factura"></i>Reales · SII</button>
+        <button type="button" class="fb" data-modo="PRUEBA" aria-pressed="false"><i class="ic ic-amb" data-ic="probeta"></i>Prueba</button>
+      </div>
       <label class="sim" id="fxPeriodoBox"><span class="sim-tag">PERÍODO</span> Período contable
         <select id="selPeriodo" aria-label="Período contable"><option value="">Cargando…</option></select>
       </label>
@@ -66,6 +70,7 @@
     <div id="vistaGrupo">
       <div class="g-card fx-pasos" id="pasos"></div>
       <div class="g-card fx-acc" id="acciones"></div>
+      <section class="g-card fx-docs" id="fxDocs" hidden aria-label="Documentos y correo del grupo"></section>
 
       <div class="fx-tabs" role="tablist">
         <button type="button" class="fx-tab on" data-tab="lineas" role="tab" aria-selected="true"><i class="ic ic-mor" data-ic="lista"></i>Líneas del grupo <span class="cnt" id="cntLineas">0</span></button>
