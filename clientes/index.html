@@ -1770,10 +1770,30 @@ function prepararSiiLista(forzar) {
 }
 // Onboarding L1 (18-11): ?abrir=<id> abre la ficha del cliente recién creado (una sola vez, cuando la lista ya cargó).
 var _abrirPedido = (function(){ try { var v = new URLSearchParams(location.search).get('abrir'); return /^\d{1,18}$/.test(v || '') ? Number(v) : null; } catch (e) { return null; } })();
+// Baja a la tarjeta del SII de la ficha y, si hay cartas, las resalta (la tarjeta se arma después, cuando responde Cartapra).
+function irASii() {
+  var hasta = Date.now() + 10000;
+  (function intentar() {
+    var box = document.getElementById('det-sii');
+    var lista = box && box.querySelector('.sii-lista.cartas');
+    if (box && (lista || box.textContent.trim().length > 30)) {
+      var blanco = lista || box;
+      try { blanco.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { blanco.scrollIntoView(); }
+      blanco.style.transition = 'box-shadow .3s ease'; blanco.style.boxShadow = '0 0 0 2px #E39BE5'; blanco.style.borderRadius = '10px';
+      setTimeout(function(){ blanco.style.boxShadow = ''; }, 2600);
+      return;
+    }
+    if (Date.now() < hasta) setTimeout(intentar, 300);
+  })();
+}
 function renderClientes() {
   setTimeout(function(){ prepararSiiLista(false); }, 0);
   if (_abrirPedido && getClientes().some(function(x){ return Number(x.id) === _abrirPedido; })) {
-    var idA = _abrirPedido; _abrirPedido = null; setTimeout(function(){ abrirEditar(idA); }, 0);
+    // 28-11 (Luciano): los avisos (carta del SII, historial listo…) abren la FICHA del cliente y bajan a «Datos del SII»,
+    // no el formulario de edición. Con ?editar=1 se mantiene el comportamiento anterior (Onboarding: editar al recién creado).
+    var idA = _abrirPedido; _abrirPedido = null;
+    var editar = /(?:^|[?&])editar=1(?:&|$)/.test(location.search.slice(1));
+    setTimeout(function(){ if (editar) abrirEditar(idA); else { verDetalle(idA); irASii(); } }, 0);
   }
   var q   = (gv('searchQ') || '').toLowerCase();
   var fp  = gv('filterPlan');
