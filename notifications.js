@@ -230,7 +230,60 @@ function revisarNuevos(){
   if(!max) return;
   var visto=null; try{visto=localStorage.getItem(CLAVE_VISTO);}catch(e){}
   try{localStorage.setItem(CLAVE_VISTO,String(Math.max(max,+visto||0)));}catch(e){}
-  if(visto!==null&&max>+visto) tocarSonido(false);
+  if(visto!==null&&max>+visto){tocarSonido(false);try{flotantes(+visto);}catch(e){}}
+}
+// ── Avisos flotantes abajo a la derecha (Luciano 28-11): como el de «versión nueva», solo para los procesos importantes ──
+// Importante = prioridad alta del catálogo (acción requerida: asesoría por confirmar, factura por aprobar, cotización aceptada,
+// carta del SII, ingreso sin identificar…) o un pago recibido. Se quedan hasta que la persona los cierre o toque «Ver»
+// (que nada se pase). Máximo 3 a la vista; el resto queda resumido con acceso a la campana. La campana sigue igual.
+var FLOT_EXTRA={'conc.pago_recibido':1,'cob.pago_recibido':1,'ase.solicitada':1,'ase.cancelada':1};
+function importante(n){return n.prioridad==='alta'||FLOT_EXTRA[n.evento]===1;}
+function flotEstilos(){
+  if(document.getElementById('nf-estilos'))return;
+  var st=document.createElement('style');st.id='nf-estilos';
+  st.textContent='#nf-pila{position:fixed;right:24px;bottom:24px;z-index:2147482990;display:flex;flex-direction:column-reverse;gap:10px;max-width:380px;width:calc(100vw - 48px)}'
+    +'.nf{display:flex;gap:12px;align-items:flex-start;padding:12px 12px 12px 14px;background:#fff;color:#1A121C;border:1px solid #E7DEE9;border-left:4px solid #E07A6E;border-radius:14px;'
+    +'box-shadow:0 2px 6px rgba(26,18,28,.06),0 12px 32px rgba(146,72,147,.18);font:500 13.5px/1.35 Inter,system-ui,sans-serif;opacity:0;transform:translateY(12px);transition:opacity .25s ease,transform .25s ease}'
+    +'.nf.on{opacity:1;transform:none}.nf .nf-tx{flex:1;min-width:0}.nf .nf-tx b{display:block;font:700 13.5px/1.3 Montserrat,Inter,sans-serif}'
+    +'.nf .nf-tx span{display:block;font-size:12px;color:#5C4F60;margin-top:2px;overflow-wrap:anywhere}.nf .nf-ac{display:flex;gap:6px;margin-top:8px}'
+    +'.nf .nf-ver{min-height:34px;padding:0 14px;border:0;border-radius:10px;cursor:pointer;background:linear-gradient(160deg,#A4599C,#803889);color:#fff;font:700 12.5px Montserrat,Inter,sans-serif}'
+    +'.nf .nf-x{flex:0 0 auto;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#8A7C8E;cursor:pointer;font-size:18px;line-height:1}'
+    +'.nf .nf-x:hover{background:#F6F2F8;color:#1A121C}.nf button:focus-visible{outline:2px solid #924893;outline-offset:2px}'
+    +'.nf.mas{border-left-color:#924893;cursor:pointer}'
+    +'@media (max-width:600px){#nf-pila{left:12px;right:12px;bottom:12px;width:auto;max-width:none}}@media (prefers-reduced-motion:reduce){.nf{transition:none}}';
+  (document.head||document.documentElement).appendChild(st);
+}
+var _flot=[];   // ids a la vista
+function flotantes(desde){
+  if(!document.body)return;
+  var nuevos=_cache.filter(function(n){return n.pendiente&&!n.leida&&n.ts>desde&&importante(n)&&_flot.indexOf(n.id)<0;}).sort(function(a,b){return a.ts-b.ts;});
+  if(!nuevos.length)return;
+  flotEstilos();
+  var pila=document.getElementById('nf-pila');
+  if(!pila){pila=document.createElement('div');pila.id='nf-pila';pila.setAttribute('aria-live','polite');document.body.appendChild(pila);}
+  nuevos.forEach(function(n){_flot.push(n.id);});
+  pintarFlot();
+}
+function pintarFlot(){
+  var pila=document.getElementById('nf-pila');if(!pila)return;
+  _flot=_flot.filter(function(id){var n=_cache.find(function(x){return x.id===id;});return n&&n.pendiente&&!n.leida;});
+  var vis=_flot.slice(-3), resto=_flot.length-vis.length;
+  pila.innerHTML='';
+  vis.forEach(function(id){
+    var n=_cache.find(function(x){return x.id===id;});if(!n)return;
+    var d=document.createElement('div');d.className='nf';d.setAttribute('role','status');
+    d.innerHTML=icono(modKey(n.modulo),34)+'<div class="nf-tx"><b></b><span></span><div class="nf-ac">'+(n.url?'<button type="button" class="nf-ver">Ver</button>':'')+'</div></div>'
+      +'<button type="button" class="nf-x" aria-label="Cerrar aviso" title="Cerrar">&times;</button>';
+    d.querySelector('.nf-tx b').textContent=n.titulo||'Aviso de Gestoor';d.querySelector('.nf-tx span').textContent=n.mensaje||'';
+    var cerrar=function(){_flot=_flot.filter(function(x){return x!==id;});pintarFlot();};
+    d.querySelector('.nf-x').addEventListener('click',cerrar);
+    var v=d.querySelector('.nf-ver');if(v)v.addEventListener('click',function(){var u=n.url;cerrar();window.notMarcar(id,'leida').catch(function(){}).then(function(){location.href=u;});});
+    pila.appendChild(d);requestAnimationFrame(function(){d.classList.add('on');});
+  });
+  if(resto>0){var m=document.createElement('div');m.className='nf mas on';m.setAttribute('role','button');m.tabIndex=0;
+    m.innerHTML='<div class="nf-tx"><b></b><span>Ábrelos en la campana 🔔</span></div>';
+    m.querySelector('.nf-tx b').textContent='Y '+resto+' aviso'+(resto===1?'':'s')+' importante'+(resto===1?'':'s')+' más';
+    m.addEventListener('click',function(){var b=document.getElementById('notBtn');if(b)b.click();});pila.appendChild(m);}
 }
 function pintarSonido(){
   var b=document.getElementById('notSonidoBtn'); if(!b) return;
