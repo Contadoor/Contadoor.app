@@ -1,0 +1,82 @@
+/* ============================================================
+   asesorias/asesorias.css — Asesorías Al Día (sobre assets/gestoor-cartera.css, tema TODO OSCURO)
+   Solo piezas propias del módulo; todo bajo body.g-mod-ase.
+   ============================================================ */
+.g-mod-ase .ic-tur{color:#4FD1C5}
+.g-mod-ase .as-reglas{font-size:12.5px;color:var(--t2);line-height:1.55}
+.g-mod-ase .as-reglas summary{cursor:pointer;font:700 12.5px var(--txt);color:var(--lila2);list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:32px}
+.g-mod-ase .as-reglas summary::-webkit-details-marker{display:none}
+.g-mod-ase .as-reglas ul{margin:6px 0 0;padding-left:18px}
+/* Tarjetas de reunión */
+.g-mod-ase .as-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.g-mod-ase .as-card{display:flex;flex-direction:column;gap:8px;border:1px solid var(--borde);border-radius:18px;padding:14px 16px;background:linear-gradient(180deg,rgba(40,18,46,.95),rgba(28,14,33,.95));color:var(--t1);min-width:0}
+.g-mod-ase .as-card.pagada{box-shadow:inset 3px 0 0 var(--ambar)}
+.g-mod-ase .as-card .c1{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.g-mod-ase .as-card .nom{font:800 15px/1.3 var(--tit);overflow-wrap:anywhere;margin:0}
+.g-mod-ase .as-card .hora{font:800 13px var(--tit);color:var(--lila2);display:inline-flex;gap:6px;align-items:center}
+.g-mod-ase .as-card .motivo{font-size:13px;color:var(--t2);line-height:1.5;overflow-wrap:anywhere;white-space:pre-line;margin:0}
+.g-mod-ase .as-card .meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--t3);align-items:center}
+.g-mod-ase .as-card .acciones{margin-top:2px}
+.g-mod-ase .as-tema{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font:700 11.5px var(--txt);white-space:nowrap}
+.g-mod-ase .as-tema.estrategico{background:rgba(255,200,90,.14);color:var(--ambar)}
+.g-mod-ase .as-tema.contable{background:rgba(92,200,255,.13);color:var(--cel)}
+.g-mod-ase .as-tema.rrhh{background:rgba(79,209,197,.14);color:#4FD1C5}
+.g-mod-ase .as-pag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(255,200,90,.16);color:var(--ama);font:800 11.5px var(--txt);white-space:nowrap}
+.g-mod-ase .as-av{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font:800 10.5px var(--tit);color:#fff;flex:none;background:var(--c,#924893)}
+.g-mod-ase .as-anf{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
+/* Agenda por día */
+.g-mod-ase .as-dia{margin:6px 0 2px;font:800 13px var(--tit);color:var(--t1);display:flex;align-items:center;gap:8px}
+.g-mod-ase .as-dia.hoy{color:var(--verde)}
+.g-mod-ase .as-dia small{font:600 11.5px var(--txt);color:var(--t3)}
+.g-mod-ase .as-fila{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid var(--borde);border-radius:14px;padding:11px 14px;background:rgba(255,255,255,.03);color:var(--t1);font:inherit;cursor:pointer;margin-top:8px}
+.g-mod-ase .as-fila .h{font:800 14px var(--tit);color:var(--lila2)}.g-mod-ase .as-fila .h small{display:block;font:600 11px var(--txt);color:var(--t3)}
+.g-mod-ase .as-fila .n{min-width:0}.g-mod-ase .as-fila .n b{display:block;font:700 14px var(--tit);overflow-wrap:anywhere}
+.g-mod-ase .as-fila .n span{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center}
+.g-mod-ase .as-fila .d{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+@media (hover:hover) and (pointer:fine){.g-mod-ase .as-fila:hover{background:rgba(199,123,201,.08)}}
+/* Ficha */
+.g-mod-ase .as-motivo{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--borde);font-size:13.5px;line-height:1.55;white-space:pre-line;overflow-wrap:anywhere}
+.g-mod-ase .as-prev-acu{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.g-mod-ase .as-prev-acu li{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--borde);border-radius:12px;font-size:13px;line-height:1.45}
+.g-mod-ase .as-prev-acu li.cumplido{opacity:.65}.g-mod-ase .as-prev-acu li.cumplido .tx b{text-decoration:line-through}
+.g-mod-ase .as-prev-acu li.vencido{border-color:rgba(224,122,110,.6)}
+.g-mod-ase .as-prev-acu input{width:20px;height:20px;flex:none;margin-top:1px;accent-color:#5FCF9C}
+.g-mod-ase .as-prev-acu .tx{flex:1;min-width:0;overflow-wrap:anywhere}.g-mod-ase .as-prev-acu .tx small{display:block;color:var(--t3);font-size:11.5px;margin-top:2px}
+/* Formulario de minuta */
+.g-mod-ase .as-min{border:1px solid var(--borde2);border-radius:18px;padding:4px 16px 16px;background:rgba(146,72,147,.06)}
+.g-mod-ase .as-min .campo textarea{min-height:90px}
+.g-mod-ase .as-min .cnt{font:600 11px var(--txt);color:var(--t3);text-transform:none;letter-spacing:0}
+.g-mod-ase .as-min .cnt.ok{color:var(--verde)}
+.g-mod-ase .as-lock{display:inline-flex;align-items:center;gap:6px;font:700 11px var(--txt);color:var(--ambar);text-transform:none;letter-spacing:0}
+.g-mod-ase .as-notas textarea{border-style:dashed!important;background:rgba(255,200,90,.04)!important}
+.g-mod-ase .as-acu{display:grid;grid-template-columns:minmax(0,2.2fr) 128px minmax(0,1.2fr) 150px 40px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(74,43,80,.45)}
+.g-mod-ase .as-acu input,.g-mod-ase .as-acu select{min-height:40px;padding:6px 10px;font:500 15px var(--txt);width:100%;border-radius:10px}
+.g-mod-ase .as-acu .x{width:40px;height:40px;border-radius:50%;border:1px solid var(--borde2);background:transparent;color:var(--rojo);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.g-mod-ase .as-acu-h{display:grid;grid-template-columns:minmax(0,2.2fr) 128px minmax(0,1.2fr) 150px 40px;gap:8px;font:700 10.5px var(--txt);letter-spacing:1px;text-transform:uppercase;color:var(--t3);padding-top:4px}
+.g-mod-ase .as-acu-off{opacity:.45;pointer-events:none}
+/* Vista previa del cliente */
+.g-mod-ase .as-prev{border-radius:18px;border:1px solid rgba(92,200,255,.4);background:linear-gradient(180deg,rgba(92,200,255,.07),rgba(26,14,31,.9));padding:14px 16px}
+.g-mod-ase .as-prev>small{display:flex;align-items:center;gap:6px;font:700 11px var(--txt);letter-spacing:1.2px;text-transform:uppercase;color:var(--cel)}
+.g-mod-ase .as-prev h5{margin:12px 0 4px;font:800 12px var(--tit);color:var(--t1)}
+.g-mod-ase .as-prev p{margin:0;font-size:13.5px;line-height:1.55;white-space:pre-line;overflow-wrap:anywhere;color:var(--t1)}
+.g-mod-ase .as-prev .vacio{color:var(--t3);font-style:italic}
+/* Agendar: horarios */
+.g-mod-ase .as-slots{display:flex;flex-direction:column;gap:10px;max-height:300px;overflow:auto;padding-right:4px}
+.g-mod-ase .as-slots .dia{font:700 12px var(--txt);color:var(--t2);margin-bottom:6px}
+.g-mod-ase .as-slots .fila{display:flex;flex-wrap:wrap;gap:6px}
+.g-mod-ase .as-slot{min-height:38px;padding:0 12px;border-radius:999px;border:1px solid var(--borde2);background:transparent;color:var(--t1);font:700 13px var(--txt);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.g-mod-ase .as-slot.pag{border-color:rgba(255,200,90,.55);color:var(--ama)}
+.g-mod-ase .as-slot.on{background:var(--grad);border-color:transparent;color:#fff}
+@media (max-width:760px){
+  .g-mod-ase .as-acu-h{display:none}
+  .g-mod-ase .as-acu{grid-template-columns:1fr 1fr;padding:10px 0}
+  .g-mod-ase .as-acu .d{grid-column:1/-1}
+  .g-mod-ase .as-acu .x{justify-self:end}
+  .g-mod-ase .as-fila{grid-template-columns:70px minmax(0,1fr)}.g-mod-ase .as-fila .d{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap}
+  .g-mod-ase .as-lista{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .g-mod-ase #asAgendar{width:100%}
+  .g-mod-ase .gc-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g-mod-ase .kpi small{letter-spacing:.4px;font-size:9.5px}
+}

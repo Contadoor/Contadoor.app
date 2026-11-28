@@ -14,7 +14,7 @@
     !path.includes('/pagos/')&&!path.includes('/admin/')&&
     !path.includes('/conciliacion/')&&!path.includes('/cobranza/')&&
     !path.includes('/convenios/')&&!path.includes('/portal/')&&!path.includes('/prospectos/')&&
-    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&!path.includes('/trabajos-especiales/')&&!path.includes('/cotizaciones/')&&
+    !path.includes('/asistente/')&&!path.includes('/facturacion/')&&!path.includes('/trabajos-especiales/')&&!path.includes('/cotizaciones/')&&!path.includes('/asesorias/')&&
     !path.includes('/performance/')&&!path.includes('/planes/')&&
     !path.includes('/pre-iva/')&&!path.includes('/tributario-contable/');
   var loginUrl=esRaiz?LOGIN_PAGE:'../'+LOGIN_PAGE;
@@ -35,6 +35,7 @@
     if(path.includes('/cobranza/'))          return 'cobranza';
     if(path.includes('/trabajos-especiales/')) return 'trabajos_especiales';
     if(path.includes('/cotizaciones/'))      return 'cotizaciones';
+    if(path.includes('/asesorias/'))         return 'asesorias';
     if(path.includes('/convenios/'))         return 'convenios';
     if(path.includes('/prospectos/'))        return 'prospectos';
     if(path.includes('/asistente/'))         return 'asistente';
@@ -52,8 +53,8 @@
   var MODULOS_POR_ROL={
     master:   ['*'],
     admin:    ['*'],
-    rrhh:     ['dashboard','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
-    contable: ['dashboard','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
+    rrhh:     ['dashboard','asesorias','reportes-rrhh','panel-de-control','clientes','pre-iva','convenios','reportes-pagos'], // PAG-2: todos los analistas crean obligaciones
+    contable: ['dashboard','asesorias','reportes-contable','tributario-contable','panel-de-control','clientes','pir','pre-iva','planes','reportes','convenios','reportes-pagos'], // PAG-2
     pagos:    ['dashboard','reportes-pagos','pagos','conciliacion','panel-de-control','clientes','convenios','prospectos','facturacion','cobranza','trabajos_especiales'], // facturacion: el rol pagos es facturador (F1a; el motor re-verifica con facturacion_yo()). Cobranza C1 y Trabajos especiales T1: Pagos lee (la RLS re-verifica)
     cobranza: ['dashboard','cobranza','conciliacion','clientes','convenios'],
     comercial:['dashboard','clientes','convenios','prospectos','asistente','comercial'] // asistente: bandeja de WhatsApp (master y comercial; la base re-verifica). 'comercial': la capacidad ya viene con el rol (Admin no muestra la casilla)
