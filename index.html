@@ -134,8 +134,12 @@
 .pl-barra i{display:block;height:100%}
 .pl-ley{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
 @media(max-width:520px){.pl-ley{grid-template-columns:1fr}}
-.pl-it,.pl-fila{box-sizing:border-box;display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 7px;border-radius:9px}
-.pl-btn:focus-visible{outline:2px solid rgb(var(--c))}
+.pl-it,.pl-fila{box-sizing:border-box;color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 7px;border-radius:9px}
+.pl-fila:hover{background:rgba(255,255,255,.08)}
+.pl-tend{display:inline-block;margin-top:8px;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:99px}
+.pl-tend.up{color:#5FCF9C;background:rgba(95,207,156,.14)}.pl-tend.down{color:#EC7868;background:rgba(236,120,104,.14)}
+.pl-tend span{font-weight:600;opacity:.75}
+.pl-fila:focus-visible,.pl-btn:focus-visible{outline:2px solid rgb(var(--c))}
 .pl-pt{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
 .pl-ley b,.pl-fila b{margin-left:auto;font-weight:800;white-space:nowrap}
 .pl-anillo{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
@@ -447,13 +451,16 @@ function cargarKpiCobranza(){
   var mesHoy=hoyChile().slice(0,7),desde=plAddMes(mesHoy,-1)+'-01';
   var quitar=function(){if(kd.parentNode)kd.parentNode.removeChild(kd);};
   Promise.all([
-    q('cobranza_pagos?select=id,monto,fecha_pago,cliente_id,aplicaciones_norm&estado=eq.VIGENTE&fecha_pago=gte.'+mesHoy+'-01&limit=5000'),
+    q('cobranza_pagos?select=id,monto,fecha_pago,cliente_id,aplicaciones_norm&estado=eq.VIGENTE&fecha_pago=gte.'+desde+'&limit=5000'),
     q('cobranza_documentos?select=id,cliente_id,origen,concepto,periodo,monto,saldo,estado,fecha_vencimiento&estado=neq.ANULADO&limit=5000'),
-    q('concil_imputaciones_manuales?select=id,concepto,monto,externo,externo_nombre,movimiento_id,created_at&anulada=eq.false&created_at=gte.'+desde+'&limit=5000').catch(function(){return null;})
+    // Primer movimiento de cartola en el sistema: la tendencia solo se muestra si el mes anterior está completo (cargado desde su día 1).
+    q('concil_movimientos?select=fecha&order=fecha.asc&limit=1').catch(function(){return null;}),
+    q('concil_imputaciones_manuales?select=id,concepto,monto,externo,externo_nombre,movimiento_id,created_at&anulada=eq.false&created_at=gte.'+plAddMes(mesHoy,-2)+'-01&limit=5000').catch(function(){return null;})
   ]).then(function(r){
+    var primer=r[2]&&r[2][0]?String(r[2][0].fecha).slice(0,10):null;r=[r[0],r[1],r[3]];r.primer=primer;
     var man=r[2],ids=[];(man||[]).forEach(function(x){if(x.movimiento_id&&ids.indexOf(x.movimiento_id)<0)ids.push(x.movimiento_id);});
     var lotes=[];for(var i=0;i<ids.length;i+=150)lotes.push(q('concil_movimientos?select=id,fecha,nombre_origen,cliente_rut&id=in.('+ids.slice(i,i+150).join(',')+')'));
-    return Promise.all(lotes).then(function(ls){return [r[0],r[1],man,[].concat.apply([],ls)];},function(){return [r[0],r[1],man,null];});
+    return Promise.all(lotes).then(function(ls){var o=[r[0],r[1],man,[].concat.apply([],ls)];o.primer=primer;return o;},function(){var o=[r[0],r[1],man,null];o.primer=primer;return o;});
   }).then(function(r){
     var docs=r[1]||[],porId={};docs.forEach(function(d){porId[d.id]=d;});
     var movs={};(r[3]||[]).forEach(function(m){movs[m.id]=m;});
@@ -462,14 +469,18 @@ function cargarKpiCobranza(){
     var grupo=function(tipo,per){if(tipo==='te')return 'te';if(tipo==='otros'||!per)return 'otros';per=String(per).slice(0,7);return per>=mesHoy?'act':per===p1?'p1':per===p2?'p2':'ant';};
     var cliNom=function(id){var c=cliPorId(id);return c?(c.razon||c.rut):'Cliente '+id;};
     var IT=[];  // cada peso que ingresó, con su origen
-    (r[0]||[]).forEach(function(x){var m=Number(x.monto)||0,ap=Array.isArray(x.aplicaciones_norm)?x.aplicaciones_norm:[],usado=0;
+    // Tendencia (27-11): lo que ingresó del 1 al día de hoy del MES ANTERIOR, con las mismas reglas (comparación justa, no el mes completo).
+    var dia=+hoyChile().slice(8,10),PREV=0,mesDe=function(f){return String(f||'').slice(0,7);},enPrev=function(f){return mesDe(f)===p1&&+String(f).slice(8,10)<=dia;};
+    (r[0]||[]).forEach(function(x){if(mesDe(x.fecha_pago)!==mesHoy){if(enPrev(x.fecha_pago))PREV+=Number(x.monto)||0;return;}
+      var m=Number(x.monto)||0,ap=Array.isArray(x.aplicaciones_norm)?x.aplicaciones_norm:[],usado=0;
       ap.forEach(function(a){var v=Number(a.monto)||0,d=porId[a.documento_id];usado+=v;var t=esTE(d)?'te':d?'planes':'otros';
         IT.push({pid:'c'+x.id,f:x.fecha_pago,cli:cliNom(x.cliente_id),con:d?String(d.concepto||'Factura')+(d.periodo?' · '+plMes(d.periodo):''):'Documento no visible',v:v,tipo:t,g:grupo(t,d&&d.periodo),fte:'Cobranza'});});
       if(m-usado>0)IT.push({pid:'c'+x.id,f:x.fecha_pago,cli:cliNom(x.cliente_id),con:'Pago sin aplicar a una factura',v:m-usado,tipo:'otros',g:'otros',fte:'Cobranza'});});
     var manOk=r[2]!==null;
     (r[2]||[]).forEach(function(x){var mv=movs[x.movimiento_id],f=mv&&mv.fecha?String(mv.fecha).slice(0,10):String(x.created_at).slice(0,10);
-      if(f.slice(0,7)!==mesHoy)return;var c=String(x.concepto||''),v=Number(x.monto)||0;
+      var esMes=f.slice(0,7)===mesHoy,esPrev=enPrev(f);if(!esMes&&!esPrev)return;var c=String(x.concepto||''),v=Number(x.monto)||0;
       if(!x.externo&&/f29|previred|convenio|pie|multa|tgr|iva|cotiz|impuesto/i.test(c))return;
+      if(esPrev){PREV+=v;return;}
       var t=x.externo?'otros':/plan|servicios mes|factura atrasada|abono a per[ií]odo/i.test(c)?'planes':/regulariz|renta|creaci|constituc|modificaci|t[eé]rmino|f50|estatuto|notar|firma|empresa|trabajo/i.test(c)?'te':'otros';
       var cli=x.externo?(x.externo_nombre||'Externo'):(mv&&mv.cliente_rut?nomCli(mv.cliente_rut):(mv&&mv.nombre_origen)||'—');
       IT.push({f:f,cli:cli,con:c,v:v,tipo:t,g:grupo(t,t==='planes'?plPerDe(c):null),fte:'Conciliación'});});
@@ -497,18 +508,19 @@ function cargarKpiCobranza(){
     var ley=G.filter(function(g){return SUM[g[0]]>0;}).map(function(g){return '<div class="pl-it"><span class="pl-pt" style="background:'+g[2]+';color:'+g[2]+'"></span>'+hesc(g[1])+'<b>'+ff(SUM[g[0]])+'</b></div>';}).join('');
     var DGL=[['p1',plMes(p1)],['p2',plMes(p2)],['ant','Meses anteriores'],['act',plMes(mesHoy)],['te','Trabajos especiales']].filter(function(x){return DG[x[0]]>0;});
     var maxD=Math.max.apply(null,DGL.map(function(x){return DG[x[0]];}).concat([1]));
-    var filas=DGL.map(function(x){return '<div class="pl-fila"><span>'+hesc(x[1])+'</span><span class="bar"><i style="width:'+(DG[x[0]]/maxD*100).toFixed(1)+'%"></i></span><b>'+ff(DG[x[0]])+'</b></div>';}).join('');
+    var filas=DGL.map(function(x){var perF={p1:p1,p2:p2,act:mesHoy}[x[0]];return '<a class="pl-fila" href="cobranza/'+(perF?'?periodo='+perF:'')+'"><span>'+hesc(x[1])+'</span><span class="bar"><i style="width:'+(DG[x[0]]/maxD*100).toFixed(1)+'%"></i></span><b>'+ff(DG[x[0]])+'</b></a>';}).join('');
     kd.innerHTML='<div class="pl-cab"><h3>💵 La plata de Contadoor · '+hesc(plMes(mesHoy))+'</h3><small>Solo nuestros servicios · el detalle está en Conciliación y Cobranza</small></div>'
       +'<div class="pl-grid">'
       +'<article class="pl-card pl-ver"><div class="pl-et">Ingresó en '+hesc(plMes(mesHoy).toLowerCase())+'</div><div class="pl-cifra">'+ff(tot)+'</div>'
         +'<div class="pl-sub">'+nPag+' pago'+(nPag===1?'':'s')+' · por fecha del depósito'+(manOk?'':' · sin datos de Conciliación')+'</div>'
+        +(PREV>0&&manOk&&r.primer&&r.primer<=p1+'-01'?(function(){var d=Math.round((tot-PREV)/PREV*100),up=d>=0;return '<div class="pl-tend '+(up?'up':'down')+'" title="Del 1 al '+dia+' de '+plMes(p1).toLowerCase()+' ingresaron '+ff(PREV)+'">'+(up?'↑':'↓')+' '+Math.abs(d)+'% vs. 1–'+dia+' de '+plMes(p1).toLowerCase()+' <span>('+ff(PREV)+')</span></div>';})():'')
         +'<div class="pl-barra" role="img" aria-label="Ingreso por mes del servicio">'+barra+'</div><div class="pl-ley">'+ley+'</div>'
-        +'<a class="pl-btn" href="conciliacion/">Ver en Conciliación →</a></article>'
+        +'<a class="pl-btn" href="conciliacion/?vista=conc">Ver en Conciliación →</a></article>'
       +(fac?'<article class="pl-card pl-ama"><div class="pl-et">Recaudación servicios de '+hesc(plMes(per).toLowerCase())+'</div>'
         +'<div class="pl-anillo"><div class="r" style="--p:'+pct+'"><span>'+String(pct).replace('.',',')+'%</span></div>'
         +'<p><b>'+ff(cob)+'</b> cobrado<br>de <b>'+ff(fac)+'</b> facturado<br>'+pagadas+' de '+del.length+' facturas pagadas</p></div>'
         +(extraConc>0?'<div class="pl-nota">➕ Además entraron <b>'+ff(extraConc)+'</b> de '+hesc(plMes(per).toLowerCase())+' por Conciliación que aún no rebajan la factura. Al aplicarlos en Cobranza, este % sube.</div>':'')
-        +'<a class="pl-btn" href="cobranza/">Ver en Cobranza →</a></article>'
+        +'<a class="pl-btn" href="cobranza/?periodo='+encodeURIComponent(per)+'">Ver pendientes de '+hesc(plMes(per).toLowerCase())+' →</a></article>'
         :'<article class="pl-card pl-ama"><div class="pl-et">Recaudación</div><div class="pl-cifra">—</div><div class="pl-sub">Aún no hay facturas mensuales en Cobranza</div></article>')
       +'<article class="pl-card pl-roj"><div class="pl-et">Nos deben</div><div class="pl-cifra">'+ff(deb)+'</div>'
         +'<div class="pl-sub">'+D.length+' documento'+(D.length===1?'':'s')+(ven?' · vencido '+ff(ven):'')+'</div>'

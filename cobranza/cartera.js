@@ -144,7 +144,11 @@ var TAREA={LLAMAR_CLIENTE:'📞 Llamar al cliente',ACLARAR_DICOM:'🧾 Aclarar r
 function chip(o,txt){return '<span class="estado '+(o?o.c:'gris')+'">'+esc(txt||(o?o.t:'—'))+'</span>';}
 
 /* ── Estado de la pantalla ── */
-var S={yo:null,datos:null,filas:[],tab:'cartera',filtro:'TODOS',buscar:'',ind:null,indErr:null,mov:null,movErr:null,avisos:null,avisosErr:null,hoy:G.hoyCL(),
+// 27-11 (Luciano): el Inicio enlaza a la cartera ya filtrada: cartera.html?periodo=AAAA-MM (solo clientes con deuda de ese mes del servicio)
+// y/o ?filtro=<etapa>. Valores fuera de formato se ignoran.
+var _qsPer=(/(?:^|[?&])periodo=(20\d{2}-(?:0[1-9]|1[0-2]))(?:&|$)/.exec(location.search.slice(1))||[])[1]||'';
+var _qsFil=(/(?:^|[?&])filtro=([A-Z_]{3,30})(?:&|$)/.exec(location.search.slice(1))||[])[1]||'';
+var S={yo:null,datos:null,filas:[],tab:'cartera',filtro:(_qsFil&&/^(TODOS|AL_DIA|POR_VENCER|VENCIDO|RIESGO|SUSPENSION_PROGRAMADA|SUSPENDIDO|EN_TERMINO|REPACTACION|SIN_EVALUAR)$/.test(_qsFil))?_qsFil:'TODOS',buscar:'',periodo:_qsPer,ind:null,indErr:null,mov:null,movErr:null,avisos:null,avisosErr:null,hoy:G.hoyCL(),
   ficha:null,fichaVista:'cuenta',hist:null,histAnio:'TODOS'};   // ficha: {id,f,x} del cliente abierto · fichaVista: 'cuenta' | 'historial'
 
 function nombreCli(id){var n=S.datos&&S.datos.nombres[id];return n?n:'Cliente N.º '+id;}
@@ -259,6 +263,7 @@ function navHtml(){
 var FILTROS=[['TODOS','Todos'],['AL_DIA','Al día'],['POR_VENCER','Por vencer'],['VENCIDO','En mora'],['RIESGO','Riesgo'],['SUSPENSION_PROGRAMADA','Suspensión programada'],
   ['SUSPENDIDO','Suspendido'],['EN_TERMINO','En término'],['REPACTACION','Repactación'],['SIN_EVALUAR','Sin evaluar']];
 function pasaFiltro(f){
+  if(S.periodo&&!f.docs.some(function(d){return String(d.periodo||'').slice(0,7)===S.periodo&&d.origen!=='TRABAJO_ESPECIAL';}))return false;
   if(S.filtro==='REPACTACION'&&!f.rep)return false;
   if(S.filtro!=='TODOS'&&S.filtro!=='REPACTACION'&&f.etapa!==S.filtro)return false;
   if(S.buscar){var q=S.buscar.toLowerCase(),qr=q.replace(/[.\s]/g,''),r=rutCli(f.id).toLowerCase().replace(/\./g,''),fol=f.docs.some(function(d){return d.folio&&String(d.folio)===qr;});if(f.nombre.toLowerCase().indexOf(q)<0&&String(f.id)!==q&&!(qr&&r&&r.indexOf(qr)>=0)&&!fol)return false;}
@@ -270,6 +275,8 @@ function carteraHtml(){
   var h='<section class="card"><div class="h"><h2>Cartera <span>por cliente</span></h2><input type="search" class="gc-buscar der" id="gcBuscar" placeholder="Buscar cliente…" value="'+esc(S.buscar)+'" aria-label="Buscar cliente"></div>'
     +'<div class="gc-filtros" role="group" aria-label="Filtrar por etapa">'+FILTROS.filter(function(x){return x[0]==='TODOS'||cnt[x[0]];}).map(function(x){
       return '<button type="button" class="f'+(S.filtro===x[0]?' on':'')+'" data-act="filtro" data-f="'+x[0]+'" aria-pressed="'+(S.filtro===x[0])+'">'+esc(x[1])+' <span class="cnt">'+(cnt[x[0]]||0)+'</span></button>';}).join('')+'</div>';
+  if(S.periodo){var MS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    h+='<div class="aviso ambar" style="margin:8px 0">'+I('calendario','ic-amb')+'<span>Mostrando solo clientes con deuda de <b>servicios de '+esc(MS[+S.periodo.slice(5,7)-1]+' '+S.periodo.slice(0,4))+'</b> ('+lista.length+').</span><button type="button" class="btn chico sec" data-act="sin-periodo">Ver todos</button></div>';}
   if(!lista.length){
     h+='<div class="gc-vacio">'+(S.filas.length?'Ningún cliente en este filtro.':'🎉 No hay deuda registrada en Cobranza. Las facturas entran cuando Facturación las emite en producción (y el saldo inicial cuando el Master lo carga).')+'</div></section>';
     return h;
@@ -623,6 +630,7 @@ document.addEventListener('click',function(ev){
   var a=b.getAttribute('data-act');
   if(a==='tab'){S.tab=b.getAttribute('data-tab');render();window.scrollTo({top:0});}
   else if(a==='filtro'){S.filtro=b.getAttribute('data-f');S.tab='cartera';render();}
+  else if(a==='sin-periodo'){S.periodo='';render();}
   else if(a==='ficha')abrirFicha(b.getAttribute('data-id'));
   else if(a==='ficha-vista'){S.fichaVista=b.getAttribute('data-v')==='historial'?'historial':'cuenta';pintarFicha();}
   else if(a==='hist-anio'){S.histAnio=b.getAttribute('data-anio')||'TODOS';pintarFicha();}
