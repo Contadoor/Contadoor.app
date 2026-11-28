@@ -135,7 +135,30 @@ function pendientes(mod){return _cache.filter(function(n){return n.pendiente&&(!
 function noLeidas(mod){return pendientes(mod).filter(function(n){return !n.leida;});}
 
 // ── Insignia ────────────────────────────────────────────────
+// ── Números por módulo en el menú lateral (Luciano 28-11: «individualizar las notificaciones») ──
+// Cada aviso pendiente suma en la entrada del menú a la que apunta su enlace (p. ej. /conciliacion/… → Conciliación,
+// /prospectos/onboarding.html → Onboarding). Los totales salen de mis_alertas_resumen (todos los pendientes, no solo los
+// 200 cargados); el enlace de cada tipo de aviso se toma de un aviso cargado de ese tipo o, si no hay, del módulo.
+var MOD_SEG={facturacion:'facturacion',cobranza:'cobranza',trabajos:'trabajos-especiales',pagos:'conciliacion',impuestos:'reportes-contable',
+  contable:'clientes',clientes:'clientes',preiva:'pre-iva',rrhh:'reportes-rrhh',mirenta:'pir',comercial:'prospectos',agenda:'prospectos',asesorias:'asesorias'};
+function rutaDe(u){var m=/^(?:\.\.)?\/([a-z0-9-]+)\/([a-z0-9-]+\.html)?/i.exec(String(u||''));return m?{seg:m[1].toLowerCase(),file:(m[2]||'index.html').toLowerCase()}:null;}
+function renderMenu(){
+  var items=[].slice.call(document.querySelectorAll('.sidebar a.sb-item[href]'));if(!items.length)return;
+  var rutas=items.map(function(a){return rutaDe(a.getAttribute('href'));});
+  function buscar(seg,file){var i,k=-1;for(i=0;i<rutas.length;i++){if(!rutas[i]||rutas[i].seg!==seg)continue;if(rutas[i].file===file)return i;if(k<0)k=i;}return k;}
+  var ej={};_cache.forEach(function(n){if(n.url&&!ej[n.evento])ej[n.evento]=n.url;});
+  var fuente=_resumen?_resumen.map(function(r){return {evento:r.evento||'',modulo:r.modulo||'',n:Number(r.pendientes)||0};})
+    :(function(){var g={};pendientes().forEach(function(n){var k=n.evento+'|'+n.modulo;if(!g[k])g[k]={evento:n.evento,modulo:n.modulo,n:0};g[k].n++;});return Object.keys(g).map(function(k){return g[k];});})();
+  var cnt=items.map(function(){return 0;});
+  fuente.forEach(function(f){if(!f.n)return;var r=rutaDe(ej[f.evento]),i=r?buscar(r.seg,r.file):-1;
+    if(i<0&&MOD_SEG[f.modulo])i=buscar(MOD_SEG[f.modulo],'index.html');if(i>=0)cnt[i]+=f.n;});
+  items.forEach(function(a,i){var b=a.querySelector('.sb-badge');
+    if(!cnt[i]){if(b)b.remove();return;}
+    if(!b){b=document.createElement('span');b.className='sb-badge';a.appendChild(b);}
+    b.textContent=cnt[i]>99?'99+':String(cnt[i]);b.setAttribute('aria-label',cnt[i]+' aviso'+(cnt[i]===1?'':'s')+' pendiente'+(cnt[i]===1?'':'s'));});
+}
 function renderBadge(){
+  try{renderMenu();}catch(e){}
   var badge=document.getElementById('notBadge');
   if(!badge) return;
   var count=pendientes().length;
