@@ -52,6 +52,7 @@ var REAL={
   acuerdoMarcar:function(a){return A.rpc('ase_acuerdo_marcar',a);},
   horariosCliente:function(a){return A.rpc('ase_horarios_cliente',a);},
   solicitarPorCliente:function(a){return A.rpc('ase_solicitar_por_cliente',a);},
+  compromisos:function(cid){return A.rpc('ase_compromisos',{p_cliente:cid?Number(cid):null});},
   clientes:function(){return A.get('clientes?select=id,rut,razon_social,plan,estado&estado=eq.activo&order=razon_social');}
 };
 var D=DEMO?window.ASE_DEMO_API:REAL;
@@ -98,7 +99,7 @@ function cupoTexto(c){
 function planTxt(p){return PLAN[p]||(p?String(p):'Sin plan definido');}
 
 /* ── Estado ── */
-var S={yo:null,reuniones:null,err:null,tab:'confirmar',det:null,detId:null,detErr:null,form:null,ocupado:false};
+var S={comp:null,compErr:null,cf:'pend',cq:'',bit:null,bitCli:null,bitErr:null,yo:null,reuniones:null,err:null,tab:'confirmar',det:null,detId:null,detErr:null,form:null,ocupado:false};
 function hoy(){return G.hoyCL();}
 function puedeActuar(r){return !!(S.yo&&r&&(S.yo.master||(r.anfitrion&&r.anfitrion.id===S.yo.id)||r.anfitrion_id===S.yo.id));}
 function grupos(){
@@ -138,10 +139,10 @@ function render(){
     +'<li>Sin cupo, el cliente puede comprar una asesoría de 1 hora a <b>$35.000</b>. Los cupos no se acumulan.</li>'
     +'<li>Si el cliente no asiste o cancela, la reunión se le devuelve (no cuenta en su cupo).</li>'
     +'<li>Horarios en hora de Chile: 10:30 · 11:25 · 16:30 · 17:25 (40 min, con 15 min entre una y otra; la pagada, 60 min).</li></ul></details></div>';
-  var tabs=[['confirmar','Por confirmar',g.conf.length,'reloj'],['agenda','Agenda',g.age.length,'calendario'],['minutas','Minutas pendientes',g.min.length,'lapiz'],['historial','Historial',g.his.length,'historial']];
+  var tabs=[['confirmar','Por confirmar',g.conf.length,'reloj'],['agenda','Agenda',g.age.length,'calendario'],['minutas','Minutas pendientes',g.min.length,'lapiz'],['historial','Historial',g.his.length,'historial'],['compromisos','Compromisos',S.comp?S.comp.filter(function(x){return x.estado==='pendiente';}).length:'·','check']];
   h+='<nav class="gc-nav" role="tablist" aria-label="Secciones">'+tabs.map(function(t){var on=S.tab===t[0];
     return '<button type="button" class="sn'+(on?' on':'')+'" role="tab" aria-selected="'+on+'" data-act="tab" data-tab="'+t[0]+'">'+I(t[3])+esc(t[1])+'<span class="cnt">'+t[2]+'</span></button>';}).join('')+'</nav>';
-  h+='<div role="tabpanel">'+(S.tab==='confirmar'?vistaConfirmar(g.conf):S.tab==='agenda'?vistaAgenda(g.age):S.tab==='minutas'?vistaLista(g.min,'No hay minutas pendientes. ¡Al día!'):vistaLista(g.his,'Aún no hay reuniones en el historial.'))+'</div>';
+  h+='<div role="tabpanel">'+(S.tab==='compromisos'?vistaCompromisos():S.tab==='confirmar'?vistaConfirmar(g.conf):S.tab==='agenda'?vistaAgenda(g.age):S.tab==='minutas'?vistaLista(g.min,'No hay minutas pendientes. ¡Al día!'):vistaLista(g.his,'Aún no hay reuniones en el historial.'))+'</div>';
   app.innerHTML=h;
 }
 function kpi(acc,tit,n,sub,tab){return '<div class="kpi clic '+acc+'" role="button" tabindex="0" data-act="tab" data-tab="'+tab+'"><small>'+esc(tit)+'</small><b>'+esc(n)+'</b><p>'+esc(sub)+'</p></div>';}
@@ -174,8 +175,55 @@ function vistaAgenda(L){
   var h='',dia='',hy=hoy();
   L.forEach(function(r){var d=diaCL(r.inicio);
     if(d!==dia){dia=d;h+='<h3 class="as-dia'+(d===hy?' hoy':'')+'">'+I('calendario',d===hy?'ic-ver':'ic-mor')+esc(largo(r.inicio))+(d===hy?' <small>· hoy</small>':'')+'</h3>';}
-    h+=fila(r);});
+    var meet=r.estado==='confirmada'&&r.meet_url&&/^https:\/\/meet\.google\.com\/[a-z0-9-]{3,40}$/i.test(r.meet_url);
+    h+=meet?'<div class="as-fila-meet">'+fila(r)+'<a class="btn chico verde" href="'+esc(r.meet_url)+'" target="_blank" rel="noopener noreferrer">'+I('ver')+'Unirme</a></div>':fila(r);});
   return h;
+}
+/* ── Compromisos y bitácora del cliente (Luciano 28-11): sencillo · compromiso, fecha y estado ── */
+function cargarCompromisos(){
+  S.compErr=null;
+  return D.compromisos(null).then(function(r){exigirOk(r);S.comp=r.compromisos||[];render();}).catch(function(e){S.compErr=mErr(e);render();});
+}
+function cargarBitacora(cid){
+  S.bitCli=String(cid);S.bit=null;S.bitErr=null;render();
+  return D.compromisos(cid).then(function(r){if(S.bitCli!==String(cid))return;exigirOk(r);S.bit=r;render();}).catch(function(e){S.bitErr=mErr(e);render();});
+}
+function estadoComp(c){return c.estado==='cumplido'?'<span class="estado verde">Cumplido</span>':c.vencido?'<span class="estado rojo">Vencido</span>':'<span class="estado ambar">Pendiente</span>';}
+function filaComp(c,conCliente){
+  return '<tr><td>'+(conCliente?'<button type="button" class="link" data-act="bitacora" data-cli="'+esc(c.cliente.id)+'">'+esc(c.cliente.razon_social)+'</button>':'')
+    +'</td><td>'+esc(c.descripcion)+'<small class="t3" style="display:block">'+esc(c.responsable)+' · reunión del '+esc(corto(c.reunion.inicio))+'</small></td>'
+    +'<td style="white-space:nowrap">'+(c.vence?esc(fechaCorta(c.vence)):'—')+'</td><td>'+estadoComp(c)+'</td>'
+    +'<td><button type="button" class="btn chico '+(c.estado==='cumplido'?'sec':'verde')+'" data-act="comp-marcar" data-id="'+esc(c.id)+'" data-estado="'+(c.estado==='cumplido'?'pendiente':'cumplido')+'">'
+    +(c.estado==='cumplido'?'Reabrir':I('check')+'Cumplido')+'</button></td></tr>';
+}
+function tablaComp(L,conCliente){
+  if(!L.length)return '<div class="gc-vacio">No hay compromisos en este filtro.</div>';
+  return '<div class="as-tabla"><table class="gt"><thead><tr><th>'+(conCliente?'Cliente':'')+'</th><th>Compromiso</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>'
+    +L.map(function(c){return filaComp(c,conCliente);}).join('')+'</tbody></table></div>';
+}
+function vistaCompromisos(){
+  if(S.bitCli)return vistaBitacora();
+  if(S.compErr)return '<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>No se pudieron cargar los compromisos: '+esc(S.compErr)+'</span></div>';
+  if(!S.comp){if(!S._compCargando){S._compCargando=true;cargarCompromisos().then(function(){S._compCargando=false;});}return '<div class="aviso lila"><span class="gc-spin"></span>Cargando los compromisos…</div>';}
+  var q=S.cq.trim().toLowerCase();
+  var L=S.comp.filter(function(c){return (S.cf==='todos'||(S.cf==='pend'&&c.estado==='pendiente')||(S.cf==='venc'&&c.vencido)||(S.cf==='cump'&&c.estado==='cumplido'))
+    &&(!q||String(c.cliente.razon_social).toLowerCase().indexOf(q)>=0||String(c.descripcion).toLowerCase().indexOf(q)>=0);});
+  var n={pend:0,venc:0,cump:0,todos:S.comp.length};S.comp.forEach(function(c){if(c.estado==='pendiente')n.pend++;if(c.vencido)n.venc++;if(c.estado==='cumplido')n.cump++;});
+  var F=[['pend','Pendientes'],['venc','Vencidos'],['cump','Cumplidos'],['todos','Todos']];
+  return '<div class="card"><div class="h"><h2>Compromisos <span>de las reuniones</span></h2><input type="search" class="gc-buscar der" id="asCompQ" placeholder="Buscar cliente o compromiso…" value="'+esc(S.cq)+'" aria-label="Buscar"></div>'
+    +'<div class="gc-filtros" role="group" aria-label="Estado">'+F.map(function(f){return '<button type="button" class="f'+(S.cf===f[0]?' on':'')+'" data-act="comp-filtro" data-f="'+f[0]+'" aria-pressed="'+(S.cf===f[0])+'">'+esc(f[1])+' <span class="cnt">'+n[f[0]]+'</span></button>';}).join('')+'</div>'
+    +tablaComp(L,true)+'<p class="nota">Toca un cliente para ver su bitácora completa: todas sus reuniones y compromisos.</p></div>';
+}
+function vistaBitacora(){
+  var volver='<button type="button" class="btn chico sec" data-act="bit-cerrar">← Todos los compromisos</button>';
+  if(S.bitErr)return volver+'<div class="aviso rojo">'+I('alerta','ic-roj')+'<span>No se pudo cargar la bitácora: '+esc(S.bitErr)+'</span></div>';
+  if(!S.bit)return volver+'<div class="aviso lila"><span class="gc-spin"></span>Cargando la bitácora…</div>';
+  var b=S.bit,c=b.cliente||{};
+  var reus=(b.reuniones||[]).map(function(r){return '<li class="as-bit-r"><button type="button" class="link" data-act="ficha" data-id="'+esc(r.id)+'"><b>'+esc(corto(r.inicio))+'</b> · '+esc(hm(r.inicio))+'</button> '
+    +temaChip(r.tema)+estadoChip(r)+avatar(r.anfitrion)+'<div class="t3">'+esc(r.resumen||r.motivo||'')+'</div></li>';}).join('');
+  return volver+'<div class="card"><div class="h"><h2>Bitácora <span>'+esc(c.razon_social||'')+'</span></h2>'+(c.cupo?'<span class="nota">'+cupoTexto(c.cupo)+'</span>':'')+'</div>'
+    +'<h3 class="as-dia">'+I('check','ic-ver')+'Compromisos</h3>'+tablaComp(b.compromisos||[],false)
+    +'<h3 class="as-dia">'+I('calendario','ic-mor')+'Reuniones</h3>'+(reus?'<ul class="as-bit">'+reus+'</ul>':'<div class="gc-vacio">Aún no tiene reuniones.</div>')+'</div>';
 }
 function vistaLista(L,vacio){if(!L.length)return '<div class="gc-vacio">'+esc(vacio)+'</div>';return L.map(fila).join('');}
 
@@ -467,12 +515,19 @@ document.addEventListener('click',function(ev){
   else if(a==='acu-quitar'&&S.form){S.form.acuerdos.splice(Number(b.getAttribute('data-i')),1);repintarAcuerdos();}
   else if(a==='min-guardar')guardarMinuta(false);
   else if(a==='min-publicar')guardarMinuta(true);
+  else if(a==='comp-filtro'){S.cf=b.getAttribute('data-f');render();}
+  else if(a==='bitacora')cargarBitacora(b.getAttribute('data-cli'));
+  else if(a==='bit-cerrar'){S.bitCli=null;S.bit=null;render();}
+  else if(a==='comp-marcar'){b.disabled=true;D.acuerdoMarcar({p_acuerdo:Number(b.getAttribute('data-id')),p_estado:b.getAttribute('data-estado')}).then(exigirOk)
+    .then(function(){G.toast(b.getAttribute('data-estado')==='cumplido'?'Compromiso marcado como cumplido.':'Compromiso reabierto.');S.comp=null;if(S.bitCli)cargarBitacora(S.bitCli);else render();})
+    .catch(function(e){b.disabled=false;G.toast(mErr(e));});}
 });
 document.addEventListener('keydown',function(ev){
   if(ev.key!=='Enter'&&ev.key!==' ')return;var t=ev.target;
   if(t&&t.classList&&t.classList.contains('kpi')&&t.getAttribute('data-act')==='tab'){ev.preventDefault();S.tab=t.getAttribute('data-tab');render();}
 });
 document.addEventListener('input',function(ev){
+  if(ev.target&&ev.target.id==='asCompQ'){S.cq=ev.target.value;var pos=ev.target.selectionStart;render();var q=document.getElementById('asCompQ');if(q){q.focus();try{q.setSelectionRange(pos,pos);}catch(e){}}return;}
   var t=ev.target;if(!S.form||!t.closest||!t.closest('#gcDet'))return;
   var f=t.getAttribute('data-f'), ai=t.getAttribute('data-a');
   if(f&&f!=='sin'){S.form[f]=t.value;var lab=t.closest('.campo'),c=lab&&lab.querySelector('.cnt');

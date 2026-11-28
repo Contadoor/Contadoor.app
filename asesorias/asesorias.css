@@ -80,3 +80,10 @@
   .g-mod-ase .gc-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
   .g-mod-ase .kpi small{letter-spacing:.4px;font-size:9.5px}
 }
+
+/* Compromisos y bitácora (28-11) */
+.as-tabla{overflow-x:auto}
+.as-tabla td{vertical-align:top}
+.as-fila-meet{display:flex;gap:8px;align-items:center}.as-fila-meet .as-fila{flex:1}
+.as-bit{list-style:none;margin:0;padding:0}.as-bit-r{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.as-bit-r .t3{margin-top:4px}
