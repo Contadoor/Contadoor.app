@@ -947,3 +947,7 @@ body.g-mod-cont{--contable:var(--g-area-cont);--contable-bg:rgba(52,211,153,.10)
 .g-mod-cont #_siiF29-msg[style*="rgb(6, 95, 70)"]{color:#5FE3AE!important}
 .g-mod-cont #_siiF29-msg[style*="rgb(220, 38, 38)"]{color:#FF8A8A!important}
 @media (max-width:980px){.g-mod-cont .libros-grid{grid-template-columns:1fr}.g-mod-cont .det-grid{grid-template-columns:1fr}}
+
+/* 28-11 (Luciano): avisos pendientes por módulo en el menú lateral */
+.g-shell .sidebar .sb-item .sb-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#E07A6E;color:#fff;font:700 11px/20px Inter,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(12,7,14,.25)}
+.g-shell .sidebar .sb-item.on .sb-badge{background:#924893}
