@@ -23,7 +23,8 @@ var ERR={
   ASE_MOTIVO:'Escribe un motivo de al menos 5 caracteres.',
   ASE_RESUMEN_CORTO:'El resumen para el cliente debe tener al menos 40 caracteres.',
   ASE_SEGUIMIENTO:'Escribe el seguimiento (al menos 5 caracteres).',
-  ASE_ACUERDOS_O_SIN:'Agrega al menos un acuerdo o marca «Sin acuerdos».',
+  ASE_ACUERDOS_O_SIN:'Agrega al menos un compromiso o acuerdo: es obligatorio.',
+  ASE_ACUERDOS_OBLIGATORIOS:'Agrega al menos un compromiso o acuerdo: es obligatorio para publicar la minuta.',
   ASE_AUN_NO:'La reunión todavía no ocurre (o no está confirmada): la minuta se escribe después.',
   ASE_ACUERDOS:'Revisa los acuerdos (máximo 30).',
   ASE_SIN_CUPO:'El cliente no tiene cupo en ese período: debe aceptarse como asesoría pagada de $35.000.',
@@ -136,7 +137,7 @@ function render(){
     +'<li><b>Estratégico</b>: 1 reunión al mes con Luciano. <b>PRO</b>: 1 por trimestre. <b>Cumplimiento</b>: no incluye reuniones.</li>'
     +'<li>Sin cupo, el cliente puede comprar una asesoría de 1 hora a <b>$35.000</b>. Los cupos no se acumulan.</li>'
     +'<li>Si el cliente no asiste o cancela, la reunión se le devuelve (no cuenta en su cupo).</li>'
-    +'<li>Horarios en hora de Chile: 10:30 · 11:30 · 16:30 · 17:30 (40 min; la pagada, 60 min).</li></ul></details></div>';
+    +'<li>Horarios en hora de Chile: 10:30 · 11:25 · 16:30 · 17:25 (40 min, con 15 min entre una y otra; la pagada, 60 min).</li></ul></details></div>';
   var tabs=[['confirmar','Por confirmar',g.conf.length,'reloj'],['agenda','Agenda',g.age.length,'calendario'],['minutas','Minutas pendientes',g.min.length,'lapiz'],['historial','Historial',g.his.length,'historial']];
   h+='<nav class="gc-nav" role="tablist" aria-label="Secciones">'+tabs.map(function(t){var on=S.tab===t[0];
     return '<button type="button" class="sn'+(on?' on':'')+'" role="tab" aria-selected="'+on+'" data-act="tab" data-tab="'+t[0]+'">'+I(t[3])+esc(t[1])+'<span class="cnt">'+t[2]+'</span></button>';}).join('')+'</nav>';
@@ -194,7 +195,8 @@ function urlReunion(id){try{var u=new URL(location.href);if(id)u.searchParams.se
 function cerrarFicha(){S.detId=null;S.det=null;S.form=null;urlReunion(null);G.cerrarDet();}
 function formDesde(d){
   var m=d.minuta||{}, pub=m.estado==='publicada';   // publicada: se muestran todos (solo lectura); borrador: solo los pendientes (los que se reenvían)
-  return {resumen:m.resumen_cliente||'',seguimiento:m.seguimiento||'',proxima:m.proxima_sugerida||'',notas:m.notas_internas||'',sin:!!m.sin_acuerdos,
+  return {resumen:m.resumen_cliente||'',seguimiento:m.seguimiento||'',proxima:m.proxima_sugerida||'',notas:m.notas_internas||'',sin:false,   // Luciano 28-11: los acuerdos son OBLIGATORIOS (ya no existe «Sin acuerdos»)
+
     acuerdos:(d.acuerdos||[]).filter(function(a){return pub||a.estado==='pendiente';}).map(function(a){
       return {descripcion:a.descripcion||'',responsable:a.responsable_tipo==='contadoor'?'contadoor':'cliente',uid:a.responsable_usuario_id!=null?String(a.responsable_usuario_id):'',vence:a.vence||''};})};
 }
@@ -268,9 +270,9 @@ function seccionMinuta(d,r,puede,ya){
     +'<label class="campo"><span>Seguimiento '+contador(f.seguimiento.trim().length,5)+'</span><textarea data-f="seguimiento" maxlength="2000" placeholder="Qué haremos después y cómo le avisaremos.">'+esc(f.seguimiento)+'</textarea></label>'
     +'<label class="campo"><span>Próxima reunión sugerida (opcional)</span><input data-f="proxima" maxlength="500" placeholder="Ej.: en marzo, para revisar la renta" value="'+esc(f.proxima)+'"></label>'
     +'<label class="campo as-notas"><span>Notas internas <span class="as-lock">🔒 el cliente no las ve</span></span><textarea data-f="notas" maxlength="3000" placeholder="Solo para el equipo.">'+esc(f.notas)+'</textarea></label>'
-    +'<div class="campo"><span>Acuerdos</span></div><div id="asAcuerdos">'+acuerdosForm(eq)+'</div>'
+    +'<div class="campo"><span>Compromisos y acuerdos (obligatorio)</span></div><div id="asAcuerdos">'+acuerdosForm(eq)+'</div>'
     +'<div class="acciones" style="justify-content:space-between;align-items:center"><button type="button" class="btn chico sec" data-act="acu-mas"'+(f.sin?' disabled':'')+'>＋ Acuerdo</button>'
-    +'<label class="chk" style="margin:0"><input type="checkbox" data-f="sin"'+(f.sin?' checked':'')+'>Sin acuerdos</label></div>'
+    +'<span class="t3">Obligatorio: al menos un compromiso o acuerdo.</span></div>'
     +'<p class="merr" id="asMinErr" role="alert"></p>'
     +'<div class="acciones fin">'
     +'<button type="button" class="btn sec peligro" data-act="no_asistio" data-id="'+esc(r.id)+'">No asistió</button>'
@@ -281,7 +283,7 @@ function seccionMinuta(d,r,puede,ya){
 }
 function acuerdosForm(eq){
   var f=S.form;
-  if(!f.acuerdos.length)return '<p class="t3" style="margin:4px 0">'+(f.sin?'Marcado «Sin acuerdos».':'Sin acuerdos todavía. Usa «＋ Acuerdo».')+'</p>';
+  if(!f.acuerdos.length)return '<p class="t3" style="margin:4px 0">'+(f.sin?'Marcado «Sin acuerdos».':'Aún no hay acuerdos. Es obligatorio dejar al menos uno: usa «＋ Acuerdo».')+'</p>';
   return '<div class="'+(f.sin?'as-acu-off':'')+'"><div class="as-acu-h"><span>Qué</span><span>Responsable</span><span>Persona del equipo</span><span>Fecha</span><span></span></div>'
     +f.acuerdos.map(function(a,i){
       return '<div class="as-acu" data-i="'+i+'">'

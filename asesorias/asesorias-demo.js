@@ -55,15 +55,15 @@ function horaRel(min){var d=new Date(Date.now()+min*60000);d.setUTCMinutes(d.get
 (function(){
   nueva(101,'estrategico',addD(HOY,3),'10:30','solicitada',{motivo:'Queremos evaluar abrir una segunda sucursal y cómo afecta los impuestos.'});
   nueva(104,'contable',addD(HOY,5),'16:30','solicitada',{pagada:true,canal:'gestoor',motivo:'Dudas sobre el cambio de régimen tributario para el próximo año.'});
-  nueva(105,'rrhh',addD(HOY,4),'11:30','solicitada',{motivo:'Contratar a dos personas en enero: qué contrato conviene.'});
+  nueva(105,'rrhh',addD(HOY,4),'11:25','solicitada',{motivo:'Contratar a dos personas en enero: qué contrato conviene.'});
   var a=horaRel(120);nueva(102,'contable',a.fecha,a.hora,'confirmada',{motivo:'Revisar el balance del tercer trimestre.'});
   var b=horaRel(-180);nueva(106,'estrategico',b.fecha,b.hora,'confirmada',{motivo:'Plan de inversión 2027 y flujo de caja.'});
   var r4=nueva(107,'contable',addD(HOY,-2),'16:30','confirmada',{motivo:'Gastos rechazados en el F29 de octubre.'});
   MIN[r4.id]={reunion_id:r4.id,estado:'borrador',resumen_cliente:'Revisamos los gastos del F29 de octubre.',seguimiento:'',proxima_sugerida:'',notas_internas:'Pedir boletas de combustible.',sin_acuerdos:false,version:1};
   ACU.push({id:++aid,reunion_id:r4.id,cliente_id:107,descripcion:'Enviar boletas de combustible de octubre',responsable_tipo:'cliente',responsable_usuario_id:null,vence:addD(HOY,5),estado:'pendiente'});
-  nueva(101,'estrategico',addD(HOY,-1),'17:30','realizada',{motivo:'Ver precios de la nueva carta.'});
+  nueva(101,'estrategico',addD(HOY,-1),'17:25','realizada',{motivo:'Ver precios de la nueva carta.'});
   nueva(105,'contable',addD(HOY,8),'10:30','confirmada',{motivo:'Preparar la renta con tiempo.'});
-  var c6=nueva(106,'estrategico',addD(HOY,-20),'11:30','cerrada',{motivo:'Revisión mensual.'});
+  var c6=nueva(106,'estrategico',addD(HOY,-20),'11:25','cerrada',{motivo:'Revisión mensual.'});
   MIN[c6.id]={reunion_id:c6.id,estado:'publicada',resumen_cliente:'Conversamos sobre el flujo de caja del trimestre y la renovación de dos camiones.',seguimiento:'Te enviaremos una simulación del crédito antes del día 15.',proxima_sugerida:'En enero, para cerrar el año.',notas_internas:'El cliente evalúa leasing.',sin_acuerdos:false,publicada_at:new Date(Date.now()-19*864e5).toISOString(),version:2};
   ACU.push({id:++aid,reunion_id:c6.id,cliente_id:106,descripcion:'Enviar cotización de leasing de los camiones',responsable_tipo:'cliente',responsable_usuario_id:null,vence:addD(HOY,-3),estado:'pendiente'});
   ACU.push({id:++aid,reunion_id:c6.id,cliente_id:106,descripcion:'Simular el crédito a 36 meses',responsable_tipo:'contadoor',responsable_usuario_id:1,vence:addD(HOY,4),estado:'pendiente'});
@@ -91,8 +91,8 @@ function horarios(cid,tema){
     var vivas=R.filter(function(r){return r.anfitrion_id===a&&(r.estado==='solicitada'||r.estado==='confirmada');});
     if(vivas.filter(function(r){return diaCL(r.inicio)===f;}).length>=3)continue;
     var cu=cupo(cid,f);
-    ['10:30','11:30','16:30','17:30'].forEach(function(hh){
-      var dur=cu.disponibles>0?40:60;if(dur===60&&(hh==='11:30'||hh==='17:30'))return;
+    ['10:30','11:25','16:30','17:25'].forEach(function(hh){
+      var dur=cu.disponibles>0?40:60;if(dur===60&&(hh==='11:25'||hh==='17:25'))return;
       var ini=cl(f,hh), t0=new Date(ini).getTime(), t1=t0+(dur+20)*60000;
       if(vivas.some(function(r){var a0=new Date(r.inicio).getTime(),a1=new Date(r.fin).getTime()+20*60000;return a0<t1&&t0<a1;}))return;
       out.push({inicio:ini,fin:mas(ini,dur),incluida:dur===30});});
@@ -133,7 +133,7 @@ window.ASE_DEMO_API={
     if(['confirmada','realizada','cerrada'].indexOf(r.estado)<0||new Date(r.inicio).getTime()>Date.now())return no('ASE_AUN_NO');
     var acu=a.p_acuerdos||[];if(!Array.isArray(acu)||acu.length>30)return no('ASE_ACUERDOS');
     if(a.p_publicar){if((a.p_resumen||'').trim().length<40)return no('ASE_RESUMEN_CORTO');if((a.p_seguimiento||'').trim().length<5)return no('ASE_SEGUIMIENTO');
-      if(!acu.length&&!a.p_sin_acuerdos)return no('ASE_ACUERDOS_O_SIN');}
+      if(!acu.length)return no('ASE_ACUERDOS_OBLIGATORIOS');}
     var m=MIN[r.id]||{reunion_id:r.id,version:0,estado:'borrador'};
     m.estado=a.p_publicar||m.estado==='publicada'?'publicada':'borrador';m.resumen_cliente=(a.p_resumen||'').trim();m.seguimiento=(a.p_seguimiento||'').trim();
     m.proxima_sugerida=(a.p_proxima||'').trim();m.notas_internas=(a.p_notas||'').trim();m.sin_acuerdos=!!a.p_sin_acuerdos;m.version++;
