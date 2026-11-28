@@ -213,6 +213,7 @@ function pintarFicha(){
     +(r.es_pagada?'<div class="cl">Cobro<b>'+esc({por_cobrar:'Por cobrar',cobrado:'Cobrado',anulado:'Anulado',no_aplica:'No aplica'}[r.cobro_estado]||r.cobro_estado||'—')+'</b></div>':'')
     +(r.motivo_cancelacion?'<div class="cl">Motivo de cancelación<b style="white-space:normal;text-align:right">'+esc(r.motivo_cancelacion)+'</b></div>':'')
     +'<p class="nota">'+cupoTexto(r.cupo)+'</p>'
+    +(r.meet_url&&/^https:\/\/meet\.google\.com\/[a-z0-9-]{3,40}$/i.test(r.meet_url)?'<div class="cl">Sala<b><a href="'+esc(r.meet_url)+'" target="_blank" rel="noopener noreferrer">Abrir Google Meet</a></b></div>':'')
     +'<h4 style="margin-top:12px">Motivo del cliente</h4><div class="as-motivo">'+esc(r.motivo)+'</div></section>';
   // Acciones de estado
   var ac='';
@@ -314,7 +315,7 @@ function confirmar(id){
   G.modal({titulo:'Confirmar reunión',ok:'Confirmar',okClase:'verde',
     html:'<p><b>'+esc(r.cliente&&r.cliente.razon_social||'Cliente')+'</b> · '+temaChip(r.tema)+'</p><p>'+esc(cuando(r.inicio,r.fin))+'</p>'+(r.es_pagada?'<div class="aviso ambar">'+I('moneda','ic-amb')+'<span>Asesoría pagada: quedará <b>por cobrar '+G.clpT(r.precio||PRECIO_PAGADA)+'</b>.</span></div>':'')
       +'<p class="nota">El aviso al cliente y el evento con Meet llegan en la Parte 2.</p>',
-    alAceptar:function(){return D.cambiarEstado({p_id:Number(r.id),p_accion:'confirmar',p_version:r.version,p_motivo:null}).then(exigirOk).then(function(){return trasCambio('Reunión confirmada.');})
+    alAceptar:function(){return D.cambiarEstado({p_id:Number(r.id),p_accion:'confirmar',p_version:r.version,p_motivo:null}).then(exigirOk).then(function(){return trasCambio('Reunión confirmada. El cliente ya ve el enlace de la sala de Meet en MiContadoor.');})
       .catch(function(e){manejarConcurrente(e);throw new Error(mErr(e));});}});
 }
 function rechazar(id){
