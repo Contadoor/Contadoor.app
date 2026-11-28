@@ -353,7 +353,7 @@ tr:hover td{background:#f0fdff;}
 // revertir_descarte, anular_conciliacion. Nada se guarda en el navegador.
 // CONC-A (13-11): también lee cobranza_documentos / cobranza_pagos (facturas de nuestros servicios) y las aplica con
 // cobranza_pago_registrar(p_movimiento_id) y las anula con cobranza_pago_anular (RPC existentes de Cobranza).
-var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _docs=[], _cobPagos=[], _vista='pend', _seq=0, _ocupado=false;
+var _movs=[], _ops=[], _cargas=[], _obs=[], _clientes=[], _mem=[], _docs=[], _cobPagos=[], _vista=((/(?:^|[?&])vista=(pend|obl|conc|desc|cargas|mem)(?:&|$)/.exec(location.search.slice(1))||[])[1]||'pend'), _seq=0, _ocupado=false;
 var _filasCarga=null, _archivo=null, _sha=null;
 var _mov=null, _cands=[], _criterio='manual', _clave=null, _claveCob=null, _movDesc=null, _movAsig=null;
 var _manuales=[], _manualActivo=false, _claveMan=null; // CONC-UX: imputaciones manuales (requiere SQL CONC-MAN-1)
@@ -449,6 +449,8 @@ function ultimaCartola(){
   if(!document.getElementById('ultCartBtn')){var b=document.createElement('button');b.id='ultCartBtn';b.className='uc-btn';b.textContent='Ver cargas';b.onclick=function(){setVista('cargas');};box.appendChild(b);}
 }
 setInterval(function(){if(_cargas)ultimaCartola();},60000);
+// 27-11 (Luciano): el Inicio abre Conciliación en una vista (?vista=conc|pend|obl|desc|cargas|mem); se marca el botón correspondiente.
+if(_vista!=='pend')document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===_vista);});
 function setVista(v){_vista=v;document.querySelectorAll('.filtros .fb').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===v);});render();}
 function coincide(m,q){return !q||(m.rut_origen+' '+(m.nombre_origen||'')+' '+cliNombre(m.cliente_rut)+' '+m.codigo+extDe(m.id).map(function(x){return ' cliente externo '+x.concepto;}).join('')).toLowerCase().indexOf(q)>=0;}
 function render(){
