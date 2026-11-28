@@ -109,7 +109,19 @@ function fila(r){
 function buscar(id){return R.find(function(r){return r.id===Number(id);});}
 function puedeActuar(r){return YO===1||r.anfitrion_id===YO;}
 
+function compromisosDemo(cid){
+  var lista=ACU.filter(function(g){var r=buscar(g.reunion_id);return g.estado!=='anulado'&&MIN[g.reunion_id]&&MIN[g.reunion_id].estado==='publicada'&&r&&puedeVer(r)&&(!cid||g.cliente_id===Number(cid));})
+    .map(function(g){var r=buscar(g.reunion_id),c=cli(g.cliente_id),u=eq(g.responsable_usuario_id);
+      return {id:g.id,descripcion:g.descripcion,responsable_tipo:g.responsable_tipo,responsable:g.responsable_tipo==='cliente'?'Cliente':(u?u.nombre:'Contadoor'),vence:g.vence,estado:g.estado,
+        vencido:g.estado==='pendiente'&&!!g.vence&&g.vence<HOY,cliente:{id:c.id,razon_social:c.razon_social},reunion:{id:r.id,inicio:r.inicio,tema:r.tema}};});
+  var reus=cid?R.filter(function(r){return r.cliente_id===Number(cid)&&puedeVer(r);}).sort(function(a,b){return String(b.inicio).localeCompare(String(a.inicio));})
+    .map(function(r){var u=eq(r.anfitrion_id);return {id:r.id,inicio:r.inicio,fin:r.fin,tema:r.tema,estado:r.estado,motivo:r.motivo,anfitrion:u?{id:u.id,nombre:u.nombre,iniciales:u.iniciales,color:u.color}:null,
+      resumen:MIN[r.id]&&MIN[r.id].estado==='publicada'?MIN[r.id].resumen_cliente:null};}):[];
+  var c=cid?cli(cid):null;
+  return {ok:true,compromisos:lista,reuniones:reus,cliente:c?{id:c.id,razon_social:c.razon_social,plan:c.plan,cupo:cupo(c.id,HOY)}:null};
+}
 window.ASE_DEMO_API={
+  compromisos:function(cid){return ok(compromisosDemo(cid));},
   agenda:function(d,h){return ok({ok:true,yo:{id:YO,master:YO===1},reuniones:R.filter(function(r){var x=diaCL(r.inicio);return x>=d&&x<=h&&puedeVer(r);})
     .sort(function(a,b){return a.inicio.localeCompare(b.inicio);}).map(fila)});},
   detalle:function(id){var r=buscar(id);if(!r||!puedeVer(r))return exc('ASE_SIN_ACCESO');
