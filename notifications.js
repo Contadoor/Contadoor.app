@@ -106,16 +106,17 @@ var MOD_CONFIG={
   mirenta:    {label:'MiRenta',       ic:'grafico',    em:'📊', color:'#7C3AED'},
   comercial:  {label:'Comercial',     ic:'objetivo',   em:'🎯', color:'#BE185D'},
   agenda:     {label:'Agenda',        ic:'calendario', em:'📅', color:'#4338CA'},
+  asesorias:  {label:'Asesorías',     ic:'chat',       em:'💬', color:'#0E9F9A'},
   sistema:    {label:'Sistema',       ic:'admin',      em:'⚙️', color:'#5c4a5d'}
 };
-var ORDEN_MOD=['facturacion','cobranza','trabajos','pagos','impuestos','preiva','rrhh','seguridad','simpleapi','mirenta','comercial','agenda','sistema'];
+var ORDEN_MOD=['facturacion','cobranza','trabajos','pagos','impuestos','preiva','rrhh','seguridad','simpleapi','mirenta','comercial','agenda','asesorias','sistema'];
 var ALIAS={contable:'impuestos',reportes:'impuestos',trabajos_especiales:'trabajos',te:'trabajos',prospectos:'comercial',crm:'comercial',
            asistente:'sistema',correos:'sistema',convenios:'pagos',aprobaciones:'pagos','pre-iva':'preiva',pre_iva:'preiva'};
 function modKey(m){m=String(m||'sistema').toLowerCase();m=ALIAS[m]||m;return MOD_CONFIG[m]?m:'sistema';}
 // Página actual → módulo (la campana abre filtrada por él).
 var PAGINA_MOD={'facturacion':'facturacion','cobranza':'cobranza','trabajos-especiales':'trabajos','pagos':'pagos','reportes-pagos':'pagos',
   'convenios':'pagos','conciliacion':'pagos','reportes-contable':'impuestos','tributario-contable':'impuestos','pre-iva':'preiva',
-  'reportes-rrhh':'rrhh','pir':'mirenta','prospectos':'comercial'};
+  'reportes-rrhh':'rrhh','pir':'mirenta','prospectos':'comercial','asesorias':'asesorias'};
 function moduloDePagina(){try{var seg=(location.pathname.split('/')[1]||'').toLowerCase();return PAGINA_MOD[seg]||null;}catch(e){return null;}}
 function tinte(hex,a){var h=hex.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}
 function icono(k,tam){

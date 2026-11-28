@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es" class="auth-pending">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asesorías Al Día · Gestoor</title>
+<link rel="icon" type="image/svg+xml" href="../assets/gestoor-icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/gestoor-cartera.css">
+<link rel="stylesheet" href="../assets/gestoor.css">
+<link rel="stylesheet" href="asesorias.css">
+<style id="gestoor-auth-guard">html.auth-pending body{visibility:hidden !important;}</style>
+<script>
+/* Modo demostración (candado 1 de 3): SOLO con ?demo=1 y SOLO en localhost / 127.0.0.1 / [::1].
+   En cualquier otro host (gestoor.contadoor.cl) es imposible activarlo y la página exige sesión con auth.js.
+   Candado 2: asesorias-demo.js vuelve a revisar el host. Candado 3: asesorias.js exige ambos.
+   En la demo no se carga la campana (no hay sesión). */
+(function(){
+  var h=location.hostname, local=(h==='localhost'||h==='127.0.0.1'||h==='[::1]');
+  window.ASE_DEMO=local&&/(?:^|[?&])demo=1(?:&|$)/.test(location.search.slice(1));
+  if(window.ASE_DEMO)window.__gestoorCampana=true;
+})();
+</script>
+</head>
+<body class="g-shell g-tema-noche g-mod-gc g-mod-ase">
+<div class="layout">
+<aside class="sidebar" data-gestoor-activo="asesorias"></aside>
+<script src="../assets/gestoor-menu.js"></script>
+<main class="main">
+  <div class="topbar gc-top">
+    <div class="gc-marca">
+      <span class="gc-ico" aria-hidden="true"><span data-g-ic="chat"></span></span>
+      <div><h1 class="tb-title">Asesorías <span>Al Día</span></h1><p>Reuniones con clientes activos · confirmar · minutas y acuerdos</p></div>
+    </div>
+    <div class="g-espacio"></div>
+    <span class="gc-demo" id="gcDemo" hidden title="Datos 100 % ficticios en este navegador: no se conecta a Supabase y nada se guarda">DEMO LOCAL · DATOS FICTICIOS</span>
+    <button type="button" class="btn" id="asAgendar" data-act="agendar"><i class="ic">+</i>Agendar por el cliente</button>
+  </div>
+  <div class="content">
+    <div id="gcApp" class="gc-app"><div class="aviso lila"><span class="gc-spin"></span>Cargando las reuniones…</div></div>
+  </div>
+</main>
+</div>
+
+<!-- Ficha de la reunión (ventana lateral) -->
+<div class="gc-velo" id="gcVelo"></div>
+<aside class="gc-det gc-det-ancho" id="gcDet" role="dialog" aria-modal="true" aria-label="Ficha de la reunión" hidden>
+  <div class="gc-det-bar"><button type="button" class="gc-cerrar" id="gcDetCerrar" aria-label="Cerrar ficha"><i class="ic">&#x2715;</i></button></div>
+  <div id="gcDetCuerpo"></div>
+</aside>
+<div class="gc-toast" id="gcToast" role="status" aria-live="polite"></div>
+
+<script src="../supabase.js"></script>
+<script src="../assets/gestoor-cartera.js"></script>
+<script>if(window.ASE_DEMO)document.write('<script src="asesorias-demo.js"><\/script>');</script>
+<script src="asesorias.js"></script>
+<script>if(!window.ASE_DEMO)document.write('<script src="../notifications.js"><\/script><script src="../auth.js"><\/script>');</script>
+</body>
+</html>
